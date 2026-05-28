@@ -1,0 +1,1192 @@
+basePath: /
+definitions:
+  response.Resp:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 微信小程序打卡项目后端 API
+  title: WeCheckin API
+  version: "1.0"
+paths:
+  /admin/clear_vouch:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 清除推荐数据
+      tags:
+      - 管理后台首页
+  /admin/enroll_clear:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 清除打卡全部数据
+      tags:
+      - 打卡管理
+  /admin/enroll_del:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除打卡项目
+      tags:
+      - 打卡管理
+  /admin/enroll_detail:
+    get:
+      parameters:
+      - description: 项目ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取打卡项目详情
+      tags:
+      - 打卡管理
+  /admin/enroll_edit:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑打卡项目
+      tags:
+      - 打卡管理
+  /admin/enroll_insert:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增打卡项目
+      tags:
+      - 打卡管理
+  /admin/enroll_join_data_del:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: enrollId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除打卡导出数据
+      tags:
+      - 打卡管理
+  /admin/enroll_join_data_export:
+    get:
+      parameters:
+      - description: 项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 导出打卡数据
+      tags:
+      - 打卡管理
+  /admin/enroll_join_data_get:
+    get:
+      parameters:
+      - description: 项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取打卡数据导出链接
+      tags:
+      - 打卡管理
+  /admin/enroll_join_del:
+    post:
+      parameters:
+      - description: 记录ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除打卡记录
+      tags:
+      - 打卡管理
+  /admin/enroll_join_list:
+    get:
+      parameters:
+      - description: 项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: string
+      - description: 每页数量
+        in: query
+        name: size
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取打卡记录列表
+      tags:
+      - 打卡管理
+  /admin/enroll_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: string
+      - description: 每页数量
+        in: query
+        name: size
+        type: string
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取打卡项目列表
+      tags:
+      - 打卡管理
+  /admin/enroll_sort:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 排序值
+        in: formData
+        name: sort
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 打卡项目排序
+      tags:
+      - 打卡管理
+  /admin/enroll_status:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 状态
+        in: formData
+        name: status
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置打卡状态
+      tags:
+      - 打卡管理
+  /admin/enroll_update_forms:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 表单数据
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新打卡表单
+      tags:
+      - 打卡管理
+  /admin/enroll_vouch:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 推荐值
+        in: formData
+        name: vouch
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置打卡推荐
+      tags:
+      - 打卡管理
+  /admin/home:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 管理后台首页数据
+      tags:
+      - 管理后台首页
+  /admin/log_clear:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 清除操作日志
+      tags:
+      - 管理员管理
+  /admin/log_list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取操作日志列表
+      tags:
+      - 管理员管理
+  /admin/login:
+    post:
+      parameters:
+      - description: 用户名
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 密码
+        in: formData
+        name: password
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 管理员登录
+      tags:
+      - 管理员管理
+  /admin/mgr_del:
+    post:
+      parameters:
+      - description: 管理员ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除管理员
+      tags:
+      - 管理员管理
+  /admin/mgr_detail:
+    get:
+      parameters:
+      - description: 管理员ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取管理员详情
+      tags:
+      - 管理员管理
+  /admin/mgr_edit:
+    post:
+      parameters:
+      - description: 管理员ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 用户名
+        in: formData
+        name: name
+        type: string
+      - description: 描述
+        in: formData
+        name: desc
+        type: string
+      - description: 手机号
+        in: formData
+        name: phone
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑管理员
+      tags:
+      - 管理员管理
+  /admin/mgr_insert:
+    post:
+      parameters:
+      - description: 用户名
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 密码
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: 描述
+        in: formData
+        name: desc
+        type: string
+      - description: 手机号
+        in: formData
+        name: phone
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增管理员
+      tags:
+      - 管理员管理
+  /admin/mgr_list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取管理员列表
+      tags:
+      - 管理员管理
+  /admin/mgr_pwd:
+    post:
+      parameters:
+      - description: 管理员ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 新密码
+        in: formData
+        name: password
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 修改管理员密码
+      tags:
+      - 管理员管理
+  /admin/mgr_status:
+    post:
+      parameters:
+      - description: 管理员ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 状态
+        in: formData
+        name: status
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置管理员状态
+      tags:
+      - 管理员管理
+  /admin/news_del:
+    post:
+      parameters:
+      - description: 新闻ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除新闻
+      tags:
+      - 新闻管理
+  /admin/news_detail:
+    get:
+      parameters:
+      - description: 新闻ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取新闻详情
+      tags:
+      - 新闻管理
+  /admin/news_edit:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑新闻
+      tags:
+      - 新闻管理
+  /admin/news_insert:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增新闻
+      tags:
+      - 新闻管理
+  /admin/news_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: string
+      - description: 每页数量
+        in: query
+        name: size
+        type: string
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取新闻列表
+      tags:
+      - 新闻管理
+  /admin/news_sort:
+    post:
+      parameters:
+      - description: 新闻ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 排序值
+        in: formData
+        name: sort
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新闻排序
+      tags:
+      - 新闻管理
+  /admin/news_status:
+    post:
+      parameters:
+      - description: 新闻ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 状态
+        in: formData
+        name: status
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置新闻状态
+      tags:
+      - 新闻管理
+  /admin/news_update_content:
+    post:
+      parameters:
+      - description: 新闻ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 内容
+        in: formData
+        name: content
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新新闻内容
+      tags:
+      - 新闻管理
+  /admin/news_update_forms:
+    post:
+      parameters:
+      - description: 新闻ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 表单数据
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新新闻表单
+      tags:
+      - 新闻管理
+  /admin/news_update_pic:
+    post:
+      parameters:
+      - description: 新闻ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 图片数据
+        in: formData
+        name: pic
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新新闻图片
+      tags:
+      - 新闻管理
+  /admin/setup_qr:
+    get:
+      parameters:
+      - description: 页面路径
+        in: query
+        name: page
+        type: string
+      - description: 场景值
+        in: query
+        name: scene
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 生成小程序码
+      tags:
+      - 系统设置
+  /admin/setup_set:
+    post:
+      parameters:
+      - description: 设置键名
+        in: formData
+        name: key
+        required: true
+        type: string
+      - description: 设置值
+        in: formData
+        name: value
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置系统配置
+      tags:
+      - 系统设置
+  /admin/setup_set_content:
+    post:
+      parameters:
+      - description: 设置键名
+        in: formData
+        name: key
+        required: true
+        type: string
+      - description: 设置值
+        in: formData
+        name: value
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置内容配置
+      tags:
+      - 系统设置
+  /admin/user_data_del:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除用户数据
+      tags:
+      - 用户管理
+  /admin/user_data_export:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 导出用户数据
+      tags:
+      - 用户管理
+  /admin/user_data_get:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取用户数据导出链接
+      tags:
+      - 用户管理
+  /admin/user_del:
+    post:
+      parameters:
+      - description: 用户ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除用户
+      tags:
+      - 用户管理
+  /admin/user_detail:
+    get:
+      parameters:
+      - description: 用户OpenID
+        in: query
+        name: openid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取用户详情
+      tags:
+      - 用户管理
+  /admin/user_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: string
+      - description: 每页数量
+        in: query
+        name: size
+        type: string
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取用户列表
+      tags:
+      - 用户管理
+  /admin/user_status:
+    post:
+      parameters:
+      - description: 用户ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 状态
+        in: formData
+        name: status
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置用户状态
+      tags:
+      - 用户管理
+  /enroll/join:
+    post:
+      parameters:
+      - description: 报名ID
+        in: formData
+        name: enroll_id
+        required: true
+        type: string
+      - description: 日期
+        in: formData
+        name: day
+        required: true
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        type: string
+      - description: 表单数据
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 用户报名打卡
+      tags:
+      - 报名
+  /enroll/join_day:
+    get:
+      parameters:
+      - description: 报名ID
+        in: query
+        name: enroll_id
+        required: true
+        type: string
+      - description: 日期
+        in: query
+        name: day
+        required: true
+        type: string
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 按日获取报名打卡记录
+      tags:
+      - 报名
+  /enroll/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取报名列表
+      tags:
+      - 报名
+  /enroll/my_join_list:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的打卡记录
+      tags:
+      - 报名
+  /enroll/my_user_list:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的报名用户列表
+      tags:
+      - 报名
+  /enroll/view:
+    get:
+      parameters:
+      - description: 报名ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看报名详情
+      tags:
+      - 报名
+  /fav/del:
+    post:
+      parameters:
+      - description: 对象ID
+        in: formData
+        name: oid
+        required: true
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除收藏
+      tags:
+      - 收藏
+  /fav/is_fav:
+    get:
+      parameters:
+      - description: 对象ID
+        in: query
+        name: oid
+        required: true
+        type: string
+      - description: 类型
+        in: query
+        name: typ
+        required: true
+        type: string
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 是否已收藏
+      tags:
+      - 收藏
+  /fav/my_list:
+    get:
+      parameters:
+      - description: 类型
+        in: query
+        name: typ
+        type: string
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的收藏列表
+      tags:
+      - 收藏
+  /fav/update:
+    post:
+      parameters:
+      - description: 标题
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: 对象ID
+        in: formData
+        name: oid
+        required: true
+        type: string
+      - description: 类型
+        in: formData
+        name: typ
+        required: true
+        type: string
+      - description: 路径
+        in: formData
+        name: path
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新收藏
+      tags:
+      - 收藏
+  /home/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取首页列表
+      tags:
+      - 首页
+  /home/setup_get:
+    get:
+      parameters:
+      - description: 设置键名
+        in: query
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取系统设置
+      tags:
+      - 首页
+  /news/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取新闻列表
+      tags:
+      - 新闻
+  /news/view:
+    get:
+      parameters:
+      - description: 新闻ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看新闻详情
+      tags:
+      - 新闻
+  /passport/edit_base:
+    post:
+      parameters:
+      - description: 姓名
+        in: formData
+        name: name
+        type: string
+      - description: 手机号
+        in: formData
+        name: mobile
+        type: string
+      - description: 头像
+        in: formData
+        name: pic
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑基本信息
+      tags:
+      - 通行证
+  /passport/login:
+    post:
+      parameters:
+      - description: 用户ID
+        in: formData
+        name: user_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 用户登录
+      tags:
+      - 通行证
+  /passport/my_detail:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的详情
+      tags:
+      - 通行证
+  /passport/phone:
+    post:
+      parameters:
+      - description: 云ID
+        in: formData
+        name: cloud_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取手机号
+      tags:
+      - 通行证
+  /passport/register:
+    post:
+      parameters:
+      - description: 用户ID
+        in: formData
+        name: user_id
+        required: true
+        type: string
+      - description: 姓名
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 手机号
+        in: formData
+        name: mobile
+        required: true
+        type: string
+      - description: 头像
+        in: formData
+        name: pic
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 用户注册
+      tags:
+      - 通行证
+schemes:
+- http
+swagger: "2.0"

@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: wecheckin-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: wecheckin
+      MYSQL_USER: wecheckin
+      MYSQL_PASSWORD: wecheckin
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - wecheckin-network
+    restart: unless-stopped
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: wecheckin-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - wecheckin-network
+    restart: unless-stopped
+
+  # 后端服务
+  backend:
+    build: .
+    container_name: wecheckin-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=production
+      - GIN_MODE=release
+    volumes:
+      - ./uploads:/root/uploads
+      - ./logs:/root/logs
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - wecheckin-network
+    restart: unless-stopped
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: wecheckin-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./uploads:/usr/share/nginx/html/uploads
+    depends_on:
+      - backend
+    networks:
+      - wecheckin-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  wecheckin-network:
+    driver: bridge
