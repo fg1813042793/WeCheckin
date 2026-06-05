@@ -2,7 +2,7 @@
   <view class="container">
     <view class="logo-area">
       <image src="/static/logo.png" mode="aspectFit" class="logo"></image>
-      <text class="app-name">CC打卡</text>
+      <text class="app-name">MY打卡</text>
       <text class="app-desc">养成好习惯，记录每一天</text>
     </view>
 
@@ -21,22 +21,18 @@
       <view class="agreement">
         <checkbox :checked="agreed" @click="agreed = !agreed" color="#fb454c" />
         <text class="agree-text">我已阅读并同意</text>
-        <text class="agree-link" @click="goAgreement">《用户协议》</text>
+        <view class="agree-link" @click="goAgreement">《用户协议》</view>
         <text class="agree-text">和</text>
-        <text class="agree-link" @click="goPrivacy">《隐私政策》</text>
+        <view class="agree-link" @click="goPrivacy">《隐私政策》</view>
       </view>
     </view>
 
-    <view class="other-login">
-      <text class="other-text">其他登录方式</text>
-      <view class="login-methods">
-        <!-- #ifdef MP-WEIXIN -->
-        <view class="method-item" @click="wechatLogin">
-          <image src="/static/icons/wechat.png" mode="aspectFit" class="method-icon"></image>
-          <text class="method-text">微信登录</text>
-        </view>
-        <!-- #endif -->
-      </view>
+    <view class="other-login" @click="showOtherMethods">
+      <text class="other-text">其他登录方式 ›</text>
+    </view>
+
+    <view class="admin-login" @click="handleAdminLogin">
+      <text class="admin-login-text">管理员登录</text>
     </view>
   </view>
 </template>
@@ -82,13 +78,38 @@ export default {
         }
         uni.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {
-          uni.navigateBack()
+          uni.switchTab({ url: '/pages/index/index' })
         }, 1500)
       } catch (e) {
         console.error('登录失败', e)
       } finally {
         this.loading = false
       }
+    },
+
+    showOtherMethods() {
+      const itemList = ['账号密码登录']
+      // #ifdef MP-WEIXIN
+      itemList.push('微信登录')
+      // #endif
+      uni.showActionSheet({
+        itemList,
+        success: (res) => {
+          const idx = res.tapIndex
+          // #ifdef MP-WEIXIN
+          if (idx === 0) {
+            uni.navigateTo({ url: '/pages/login/login_pwd' })
+          } else if (idx === 1) {
+            this.wechatLogin()
+          }
+          // #endif
+          // #ifndef MP-WEIXIN
+          if (idx === 0) {
+            uni.navigateTo({ url: '/pages/login/login_pwd' })
+          }
+          // #endif
+        }
+      })
     },
 
     wechatLogin() {
@@ -103,7 +124,7 @@ export default {
             }
             uni.showToast({ title: '登录成功', icon: 'success' })
             setTimeout(() => {
-              uni.navigateBack()
+              uni.switchTab({ url: '/pages/index/index' })
             }, 1500)
           } catch (e) {
             console.error('微信登录失败', e)
@@ -119,6 +140,10 @@ export default {
 
     goPrivacy() {
       uni.navigateTo({ url: '/pages/about/privacy' })
+    },
+
+    handleAdminLogin() {
+      uni.navigateTo({ url: '/pages/admin/admin_login' })
     }
   }
 }
@@ -142,6 +167,12 @@ export default {
   height: 160rpx;
   border-radius: 32rpx;
   margin-bottom: 30rpx;
+}
+.app-name {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
 }
 .app-name {
   font-size: 44rpx;
@@ -197,6 +228,7 @@ export default {
 .agree-link {
   font-size: 24rpx;
   color: #fb454c;
+  display: inline;
 }
 .other-login {
   margin-top: 100rpx;
@@ -205,27 +237,18 @@ export default {
 .other-text {
   font-size: 26rpx;
   color: #999;
-  display: block;
-  margin-bottom: 40rpx;
+  display: inline;
+  border-bottom: 1rpx solid #999;
+  padding-bottom: 4rpx;
 }
-.login-methods {
-  display: flex;
-  justify-content: center;
-  gap: 60rpx;
+.admin-login {
+  text-align: center;
+  margin-top: 40rpx;
+  padding-bottom: 40rpx;
 }
-.method-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.method-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  margin-bottom: 12rpx;
-}
-.method-text {
-  font-size: 24rpx;
-  color: #666;
+.admin-login-text {
+  font-size: 26rpx;
+  color: #bbb;
+  border-bottom: 1rpx solid #bbb;
 }
 </style>

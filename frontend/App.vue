@@ -12,11 +12,10 @@ export default {
   },
   onLaunch: function() {
     console.log('App Launch')
-    
-    // #ifdef APP-PLUS
-    // APP平台初始化
-    this.initApp()
-    // #endif
+    const token = uni.getStorageSync('token') || uni.getStorageSync('admin_token')
+    if (!token) {
+      uni.reLaunch({ url: '/pages/login/login' })
+    }
   },
   onShow: function() {
     console.log('App Show')
@@ -47,6 +46,8 @@ export default {
 </script>
 
 <style>
+@import '/static/css/icon.css';
+
 page {
   background-color: #f1f1f1;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -76,5 +77,10 @@ page {
 
 .flex-between {
   justify-content: space-between;
+}
+
+/* 修复 H5 下拉刷新 passive event listener 警告 */
+uni-page-wrapper, uni-page-body {
+  touch-action: pan-y !important;
 }
 </style>

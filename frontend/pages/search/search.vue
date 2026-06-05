@@ -72,12 +72,19 @@ export default {
       this.search()
     },
 
+    getUserId() {
+      const userInfo = uni.getStorageSync('userInfo')
+      const token = uni.getStorageSync('token')
+      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+    },
+
     async search() {
       this.loading = true
       try {
+        const uid = this.getUserId()
         const [enrollRes, newsRes] = await Promise.all([
-          enrollApi.getList(),
-          newsApi.getList()
+          enrollApi.getList({ user_id: uid }),
+          newsApi.getList({ user_id: uid })
         ])
 
         const enrollRaw = Array.isArray(enrollRes.data) ? enrollRes.data : (enrollRes.data.list || [])

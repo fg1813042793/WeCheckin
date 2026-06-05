@@ -1,49 +1,345 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
 )
 
-func GetEnrollList() ([]model.Enroll, error) {
-	var enrollList []model.Enroll
-	err := database.DB.Where("`ENROLL_STATUS` = 1").Order("`ENROLL_ORDER` ASC, `ENROLL_ADD_TIME` DESC").Find(&enrollList).Error
+func GetEnrollList(page, pageSize int, userID, keyword string) (map[string]interface{}, error) {
+	var list []model.Enroll
+	var total int64
+	query := database.DB.Model(&model.Enroll{}).Where("`enroll_status` = 1")
+	if keyword != "" {
+		query = query.Where("`enroll_title` LIKE ? OR `enroll_desc` LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	// Filter by publish departments
+	if userID != "" {
+		deptIDs := getUserDeptIDsByMiniOpenID(userID)
+		if len(deptIDs) > 0 {
+			query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL OR "+
+				buildDeptOverlap("enroll_publish_dept_ids", deptIDs)+")")
+		} else {
+			query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL)")
+		}
+	} else {
+		query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL)")
+	}
+	query.Count(&total)
+	err := query.Order("`enroll_order` ASC, `enroll_add_time` DESC").
+		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
-	return enrollList, nil
+	list = populateEnrollFields(list)
+
+	// Get user's joined enroll IDs (from both EnrollJoin and EnrollUser)
+	joinedIDs := map[string]bool{}
+	if userID != "" {
+		var joins []model.EnrollJoin
+		database.DB.Where("`enroll_join_user_id` = ?", userID).Find(&joins)
+		for _, j := range joins {
+			joinedIDs[j.EnrollID] = true
+		}
+		var enrollUsers []model.EnrollUser
+		database.DB.Where("`enroll_user_mini_openid` = ?", userID).Find(&enrollUsers)
+		for _, eu := range enrollUsers {
+			joinedIDs[eu.EnrollID] = true
+		}
+	}
+	for i := range list {
+		idStr := strconv.Itoa(int(list[i].ID))
+		list[i].IsJoin = joinedIDs[idStr]
+	}
+
+	return map[string]interface{}{
+		"list":  list,
+		"total": total,
+	}, nil
 }
 
-func ViewEnroll(id string) (*model.Enroll, error) {
+func ViewEnroll(id, userID string) (*model.Enroll, error) {
 	var enroll model.Enroll
 	err := database.DB.Where("`id` = ?", id).First(&enroll).Error
 	if err != nil {
 		return nil, err
 	}
-	database.DB.Model(&enroll).UpdateColumn("ENROLL_VIEW_CNT", enroll.ViewCnt+1)
+	database.DB.Model(&enroll).UpdateColumn("enroll_view_cnt", enroll.ViewCnt+1)
+
+	// Check if current user has joined
+	if userID != "" {
+		var euCnt int64
+		database.DB.Model(&model.EnrollUser{}).Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", id, userID).Count(&euCnt)
+		if euCnt > 0 {
+			enroll.IsJoin = true
+		}
+		var jCnt int64
+		database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ? AND `enroll_join_day` = ?", id, userID, time.Now().Format("2006-01-02")).Count(&jCnt)
+		if jCnt > 0 {
+			enroll.MyEnrollJoinID = "1"
+		}
+	}
+
+	// Parse OBJ for img/desc/content
+	var objMap map[string]interface{}
+	if enroll.Obj != "" {
+		json.Unmarshal([]byte(enroll.Obj), &objMap)
+	}
+	if objMap != nil {
+		if covers, ok := objMap["cover"].([]interface{}); ok && len(covers) > 0 {
+			enroll.Img = GetFullURL(fmt.Sprintf("%v", covers[0]))
+		}
+		if desc, ok := objMap["desc"].(string); ok {
+			enroll.Desc = desc
+		}
+		if c, ok := objMap["content"].([]interface{}); ok {
+			for _, item := range c {
+				if m, ok := item.(map[string]interface{}); ok {
+					entry := map[string]string{}
+					if t, ok := m["type"].(string); ok {
+						entry["type"] = t
+					}
+					if v, ok := m["val"].(string); ok {
+						entry["val"] = v
+					}
+					enroll.Content = append(enroll.Content, entry)
+				}
+			}
+		}
+	}
+
+	// Format start/end
+	if enroll.Start > 0 {
+		enroll.StartStr = time.UnixMilli(enroll.Start).Format("2006-01-02")
+	} else {
+		enroll.StartStr = "-"
+	}
+	if enroll.End > 0 {
+		enroll.EndStr = time.UnixMilli(enroll.End).Format("2006-01-02")
+	} else {
+		enroll.EndStr = "-"
+	}
+
+	// Status
+	now := time.Now().UnixMilli()
+	if enroll.Status == 0 {
+		enroll.StatusDesc = "已停用"
+	} else if enroll.End > 0 && now > enroll.End {
+		enroll.StatusDesc = "已结束"
+	} else if enroll.Start > 0 && now < enroll.Start {
+		enroll.StatusDesc = "未开始"
+	} else {
+		enroll.StatusDesc = "进行中"
+	}
+
+	// DayList from join records
+	var days []string
+	database.DB.Model(&model.EnrollJoin{}).
+		Where("`enroll_join_enroll_id` = ?", id).
+		Select("DISTINCT `enroll_join_day`").
+		Order("`enroll_join_day` ASC").
+		Pluck("enroll_join_day", &days)
+	for _, d := range days {
+		t, err := time.Parse("2006-01-02", d)
+		if err != nil {
+			continue
+		}
+		enroll.DayList = append(enroll.DayList, map[string]string{
+			"day":   d,
+			"month": fmt.Sprintf("%d月", t.Month()),
+			"date":  fmt.Sprintf("%d", t.Day()),
+		})
+	}
+
+	// RankList from enroll_users
+	var enrollUsers []model.EnrollUser
+	database.DB.Where("`enroll_user_enroll_id` = ?", id).
+		Order("`enroll_user_join_cnt` DESC, `enroll_user_day_cnt` DESC").
+		Find(&enrollUsers)
+
+	userMap := map[string]model.User{}
+	var allUsers []model.User
+	database.DB.Find(&allUsers)
+	for _, u := range allUsers {
+		userMap[u.MiniOpenID] = u
+	}
+
+	for _, eu := range enrollUsers {
+		u, ok := userMap[eu.MiniOpenID]
+		name := eu.MiniOpenID
+		avatar := ""
+		if ok {
+			name = u.Name
+			avatar = GetFullURL(u.Pic)
+		}
+		enroll.RankList = append(enroll.RankList, map[string]interface{}{
+			"userName":   name,
+			"userAvatar": avatar,
+			"name":       name,
+			"avatar":     avatar,
+			"joinCount":  eu.JoinCnt,
+			"lastDay":    eu.LastDay,
+		})
+	}
+
 	return &enroll, nil
 }
 
-func GetEnrollJoinByDay(enrollID, userID, day string) ([]model.EnrollJoin, error) {
-	var list []model.EnrollJoin
-	query := database.DB.Where("`ENROLL_JOIN_ENROLL_ID` = ? AND `ENROLL_JOIN_USER_ID` = ?", enrollID, userID)
-	if day != "" {
-		query = query.Where("`ENROLL_JOIN_DAY` = ?", day)
+func GetEnrollJoinByDay(enrollID, day string) ([]map[string]interface{}, error) {
+	var joins []model.EnrollJoin
+	query := database.DB.Where("`enroll_join_enroll_id` = ? AND `enroll_join_day` = ?", enrollID, day)
+	query.Order("`enroll_join_add_time` DESC").Find(&joins)
+
+	// Get enroll form definitions for type mapping
+	var enrollModel model.Enroll
+	var typeMap map[string]string // label -> type
+	if len(joins) > 0 {
+		database.DB.Where("`id` = ?", enrollID).First(&enrollModel)
+		if enrollModel.Forms != "" {
+			var defs []map[string]interface{}
+			json.Unmarshal([]byte(enrollModel.Forms), &defs)
+			typeMap = make(map[string]string)
+			for _, def := range defs {
+				label, _ := def["label"].(string)
+				typ, _ := def["type"].(string)
+				if label != "" && typ != "" {
+					typeMap[label] = typ
+				}
+			}
+		}
 	}
-	err := query.Order("`ENROLL_JOIN_DAY` ASC, `ENROLL_JOIN_ADD_TIME` ASC").Find(&list).Error
+
+	// Get user info
+	userMap := map[string]model.User{}
+	var allUsers []model.User
+	database.DB.Find(&allUsers)
+	for _, u := range allUsers {
+		userMap[u.MiniOpenID] = u
+	}
+
+	var result []map[string]interface{}
+	for _, j := range joins {
+		u, _ := userMap[j.UserID]
+		item := map[string]interface{}{
+			"id":          j.ID,
+			"userId":      j.UserID,
+			"userName":    u.Name,
+			"userAvatar":  GetFullURL(u.Pic),
+			"forms":       j.Forms,
+			"day":         j.Day,
+			"addTime":     j.AddTime,
+		}
+		// Parse forms JSON
+		var formsArr []map[string]interface{}
+		if j.Forms != "" {
+			json.Unmarshal([]byte(j.Forms), &formsArr)
+		}
+		// Merge type from form definitions
+		if typeMap != nil {
+			for _, f := range formsArr {
+				label, _ := f["label"].(string)
+				if typ, ok := typeMap[label]; ok {
+					f["type"] = typ
+				} else {
+					// Location subtypes: "打卡位置-地址", "打卡位置-纬度", "打卡位置-经度"
+					for defLabel, defType := range typeMap {
+						if strings.HasPrefix(label, defLabel+"-") {
+							suffix := strings.TrimPrefix(label, defLabel+"-")
+							f["type"] = defType
+							f["locField"] = suffix
+							break
+						}
+					}
+				}
+			}
+		}
+		item["formsArr"] = formsArr
+
+		// Check for images in forms (fields named img/image/pic)
+		var images []string
+		for _, f := range formsArr {
+			label, _ := f["label"].(string)
+			val, _ := f["value"].(string)
+			if val != "" {
+				lower := strings.ToLower(label)
+				if strings.Contains(lower, "图") || strings.Contains(lower, "照片") || strings.Contains(lower, "img") || strings.Contains(lower, "pic") || strings.Contains(lower, "image") {
+					images = append(images, val)
+				}
+			}
+		}
+		if images == nil {
+			images = []string{}
+		}
+		item["images"] = images
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+func GetMyDayRecords(userID, day string) ([]map[string]interface{}, error) {
+	var joins []model.EnrollJoin
+	err := database.DB.Where("`enroll_join_user_id` = ? AND `enroll_join_day` = ?", userID, day).
+		Order("`enroll_join_add_time` ASC").Find(&joins).Error
 	if err != nil {
 		return nil, err
 	}
-	return list, nil
+
+	// Get enroll titles
+	enrollCache := map[string]string{}
+
+	var result []map[string]interface{}
+	for _, j := range joins {
+		title, ok := enrollCache[j.EnrollID]
+		if !ok {
+			var e model.Enroll
+			if err := database.DB.Where("`id` = ?", j.EnrollID).First(&e).Error; err == nil {
+				title = e.Title
+			}
+			enrollCache[j.EnrollID] = title
+		}
+
+		item := map[string]interface{}{
+			"enrollTitle": title,
+			"addTime":     j.AddTime,
+			"day":         j.Day,
+		}
+		// Parse forms
+		var formsArr []map[string]interface{}
+		if j.Forms != "" {
+			json.Unmarshal([]byte(j.Forms), &formsArr)
+		}
+		var images []string
+		var location string
+		for _, f := range formsArr {
+			label, _ := f["label"].(string)
+			val, _ := f["value"].(string)
+			lower := strings.ToLower(label)
+			if val != "" && (strings.Contains(lower, "图") || strings.Contains(lower, "照片") || strings.Contains(lower, "img") || strings.Contains(lower, "pic") || strings.Contains(lower, "image")) {
+				images = append(images, val)
+			}
+			if strings.Contains(lower, "位置") && !strings.Contains(lower, "纬度") && !strings.Contains(lower, "经度") {
+				location = val
+			}
+		}
+		if images == nil {
+			images = []string{}
+		}
+		item["images"] = images
+		item["location"] = location
+		result = append(result, item)
+	}
+	return result, nil
 }
 
 func GetEnrollUserRank(enrollID string) ([]model.EnrollUser, error) {
 	var list []model.EnrollUser
-	err := database.DB.Where("`ENROLL_USER_ENROLL_ID` = ?", enrollID).
-		Order("`ENROLL_USER_JOIN_CNT` DESC, `ENROLL_USER_DAY_CNT` DESC").Find(&list).Error
+	err := database.DB.Where("`enroll_user_enroll_id` = ?", enrollID).
+		Order("`enroll_user_join_cnt` DESC, `enroll_user_day_cnt` DESC").Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
@@ -52,27 +348,181 @@ func GetEnrollUserRank(enrollID string) ([]model.EnrollUser, error) {
 
 func GetMyEnrollUserList(userID string) ([]model.EnrollUser, error) {
 	var list []model.EnrollUser
-	err := database.DB.Where("`ENROLL_USER_MINI_OPENID` = ?", userID).Order("`ENROLL_USER_ADD_TIME` DESC").Find(&list).Error
+	err := database.DB.Where("`enroll_user_mini_openid` = ?", userID).Order("`enroll_user_add_time` DESC").Find(&list).Error
 	if err != nil {
 		return nil, err
+	}
+	// Populate title, daily limit, today's check-in status, and recalculate dayCnt
+	today := time.Now().Format("2006-01-02")
+	for i := range list {
+		var enroll model.Enroll
+		if err := database.DB.Where("`id` = ?", list[i].EnrollID).First(&enroll).Error; err == nil {
+			list[i].EnrollTitle = enroll.Title
+			list[i].DailyLimit = enroll.DailyLimit
+		}
+		// Recalculate dayCnt from actual unique check-in days
+		var uniqueDays int64
+		database.DB.Model(&model.EnrollJoin{}).
+			Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ?", list[i].EnrollID, userID).
+			Select("COUNT(DISTINCT `enroll_join_day`)").Scan(&uniqueDays)
+		list[i].DayCnt = int(uniqueDays)
+		var todayCnt int64
+		database.DB.Model(&model.EnrollJoin{}).
+			Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ? AND `enroll_join_day` = ?",
+				list[i].EnrollID, userID, today).Count(&todayCnt)
+		list[i].CheckedInToday = todayCnt > 0
+		list[i].TodayJoinCnt = int(todayCnt)
 	}
 	return list, nil
 }
 
-func GetMyEnrollJoinList(userID string) ([]model.EnrollJoin, error) {
+func GetMyJoinRecords(userID string, page, pageSize int) ([]model.EnrollJoin, int64, error) {
 	var list []model.EnrollJoin
-	err := database.DB.Where("`ENROLL_JOIN_USER_ID` = ?", userID).Order("`ENROLL_JOIN_ADD_TIME` DESC").Find(&list).Error
+	var total int64
+	database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_user_id` = ?", userID).Count(&total)
+	err := database.DB.Where("`enroll_join_user_id` = ?", userID).
+		Order("`enroll_join_add_time` DESC").
+		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return list, nil
+	// Populate enroll title
+	for i := range list {
+		var enroll model.Enroll
+		if err := database.DB.Where("`id` = ?", list[i].EnrollID).First(&enroll).Error; err == nil {
+			list[i].EnrollTitle = enroll.Title
+		}
+		// Parse forms
+		var formsArr []map[string]interface{}
+		if list[i].Forms != "" {
+			json.Unmarshal([]byte(list[i].Forms), &formsArr)
+		}
+		var images []string
+		var location string
+		for _, f := range formsArr {
+			label, _ := f["label"].(string)
+			val, _ := f["value"].(string)
+			lower := strings.ToLower(label)
+			if val != "" && (strings.Contains(lower, "图") || strings.Contains(lower, "照片") || strings.Contains(lower, "img") || strings.Contains(lower, "pic") || strings.Contains(lower, "image")) {
+				images = append(images, val)
+			}
+			if strings.Contains(lower, "位置") && !strings.Contains(lower, "纬度") && !strings.Contains(lower, "经度") {
+				location = val
+			}
+		}
+		if images == nil {
+			images = []string{}
+		}
+		list[i].Images = images
+		list[i].Location = location
+	}
+	return list, total, nil
+}
+
+func GetMyCalendarDays(userID, yearMonth string) (map[string][]string, error) {
+	var joins []struct {
+		EnrollID string `gorm:"column:enroll_join_enroll_id"`
+		Day      string `gorm:"column:enroll_join_day"`
+	}
+	query := database.DB.Model(&model.EnrollJoin{}).
+		Where("`enroll_join_user_id` = ?", userID)
+	if yearMonth != "" {
+		query = query.Where("`enroll_join_day` LIKE ?", yearMonth+"%")
+	}
+	query.Group("`enroll_join_enroll_id`, `enroll_join_day`").
+		Select("`enroll_join_enroll_id`, `enroll_join_day`").Find(&joins)
+
+	result := map[string][]string{}
+	for _, j := range joins {
+		result[j.EnrollID] = append(result[j.EnrollID], j.Day)
+	}
+	return result, nil
+}
+
+func GetMyEnrollJoinList(userID, enrollID string, page, pageSize int) (interface{}, int64, error) {
+	if enrollID != "" {
+		var total int64
+		query := database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_user_id` = ?", userID).Where("`enroll_join_enroll_id` = ?", enrollID)
+		query.Count(&total)
+		var list []model.EnrollJoin
+		query.Order("`enroll_join_add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+		return list, total, nil
+	}
+
+	enrollIDSet := map[uint]bool{}
+
+	var joins []model.EnrollJoin
+	database.DB.Where("`enroll_join_user_id` = ?", userID).Order("`enroll_join_add_time` DESC").Find(&joins)
+	for _, j := range joins {
+		id, err := strconv.ParseUint(j.EnrollID, 10, 64)
+		if err == nil {
+			enrollIDSet[uint(id)] = true
+		}
+	}
+
+	var enrollUsers []model.EnrollUser
+	database.DB.Where("`enroll_user_mini_openid` = ?", userID).Find(&enrollUsers)
+	for _, eu := range enrollUsers {
+		id, err := strconv.ParseUint(eu.EnrollID, 10, 64)
+		if err == nil {
+			enrollIDSet[uint(id)] = true
+		}
+	}
+
+	var enrollIDs []string
+	for id := range enrollIDSet {
+		enrollIDs = append(enrollIDs, strconv.Itoa(int(id)))
+	}
+
+	var list []model.Enroll
+	if len(enrollIDs) > 0 {
+		database.DB.Where("`id` IN ? AND `enroll_status` = 1", enrollIDs).Find(&list)
+	}
+	list = populateEnrollFields(list)
+	for i := range list {
+		idStr := strconv.Itoa(int(list[i].ID))
+		list[i].IsJoin = true
+		_ = idStr
+	}
+	return list, 0, nil
+}
+
+func checkPublishDeptAccess(publishDeptIds string, userDeptIDs []uint) bool {
+	if publishDeptIds == "" {
+		return true
+	}
+	ids := strings.Split(publishDeptIds, ",")
+	for _, pid := range ids {
+		pid = strings.TrimSpace(pid)
+		if pid == "" {
+			continue
+		}
+		for _, uid := range userDeptIDs {
+			if strconv.FormatUint(uint64(uid), 10) == pid {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func EnrollJoin(enrollID, userID, day, forms, addIP string, status int) error {
-	var cnt int64
-	database.DB.Model(&model.EnrollJoin{}).Where("`ENROLL_JOIN_ENROLL_ID` = ? AND `ENROLL_JOIN_USER_ID` = ? AND `ENROLL_JOIN_DAY` = ?", enrollID, userID, day).Count(&cnt)
-	if cnt > 0 {
-		return fmt.Errorf("已打卡")
+	var enroll model.Enroll
+	if err := database.DB.Where("`id` = ?", enrollID).First(&enroll).Error; err != nil {
+		return fmt.Errorf("项目不存在")
+	}
+	if enroll.PublishDeptIds != "" {
+		deptIDs := getUserDeptIDsByMiniOpenID(userID)
+		if !checkPublishDeptAccess(enroll.PublishDeptIds, deptIDs) {
+			return fmt.Errorf("您不在该打卡项目的发布部门范围内")
+		}
+	}
+	if !enroll.AllowRepeat {
+		var cnt int64
+		database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ? AND `enroll_join_day` = ?", enrollID, userID, day).Count(&cnt)
+		if cnt > 0 {
+			return fmt.Errorf("已打卡")
+		}
 	}
 	join := model.EnrollJoin{
 		EnrollID: enrollID,
@@ -86,30 +536,63 @@ func EnrollJoin(enrollID, userID, day, forms, addIP string, status int) error {
 	if err := database.DB.Create(&join).Error; err != nil {
 		return err
 	}
-	var enroll model.Enroll
-	database.DB.Where("`id` = ?", enrollID).First(&enroll)
-	database.DB.Model(&enroll).UpdateColumn("ENROLL_JOIN_CNT", enroll.JoinCnt+1)
+	database.DB.Model(&enroll).UpdateColumn("enroll_join_cnt", enroll.JoinCnt+1)
 
 	var eu model.EnrollUser
-	result := database.DB.Where("`ENROLL_USER_ENROLL_ID` = ? AND `ENROLL_USER_MINI_OPENID` = ?", enrollID, userID).First(&eu)
+	result := database.DB.Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", enrollID, userID).First(&eu)
 	if result.Error != nil {
 		eu = model.EnrollUser{
 			EnrollID:   enrollID,
 			MiniOpenID: userID,
 			JoinCnt:    1,
-			DayCnt:     enroll.DayCnt,
+			DayCnt:     1,
 			LastDay:    day,
 			AddTime:    database.Now(),
 		}
 		database.DB.Create(&eu)
-		database.DB.Model(&enroll).UpdateColumn("ENROLL_USER_CNT", enroll.UserCnt+1)
+		database.DB.Model(&enroll).UpdateColumn("enroll_user_cnt", enroll.UserCnt+1)
 	} else {
-		database.DB.Model(&eu).Updates(map[string]interface{}{
-			"ENROLL_USER_JOIN_CNT":  eu.JoinCnt + 1,
-			"ENROLL_USER_LAST_DAY":  day,
-			"ENROLL_USER_EDIT_TIME": database.Now(),
-		})
+		updates := map[string]interface{}{
+			"enroll_user_join_cnt":  eu.JoinCnt + 1,
+			"enroll_user_last_day":  day,
+			"enroll_user_edit_time": database.Now(),
+		}
+		// Check if this is a new day
+		if eu.LastDay != day {
+			updates["enroll_user_day_cnt"] = eu.DayCnt + 1
+		}
+		database.DB.Model(&eu).Updates(updates)
 	}
+	return nil
+}
+
+func EnrollUserSubmit(enrollID, userID, forms, addIP string) error {
+	var enroll model.Enroll
+	if err := database.DB.Where("`id` = ?", enrollID).First(&enroll).Error; err != nil {
+		return fmt.Errorf("项目不存在")
+	}
+	if enroll.PublishDeptIds != "" {
+		deptIDs := getUserDeptIDsByMiniOpenID(userID)
+		if !checkPublishDeptAccess(enroll.PublishDeptIds, deptIDs) {
+			return fmt.Errorf("您不在该打卡项目的发布部门范围内")
+		}
+	}
+	var cnt int64
+	database.DB.Model(&model.EnrollUser{}).Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", enrollID, userID).Count(&cnt)
+	if cnt > 0 {
+		return fmt.Errorf("已参与")
+	}
+	eu := model.EnrollUser{
+		EnrollID:   enrollID,
+		MiniOpenID: userID,
+		Forms:      forms,
+		AddTime:    database.Now(),
+		AddIP:      addIP,
+	}
+	if err := database.DB.Create(&eu).Error; err != nil {
+		return err
+	}
+	database.DB.Model(&enroll).UpdateColumn("enroll_user_cnt", enroll.UserCnt+1)
 	return nil
 }
 
@@ -132,4 +615,57 @@ func getTimeShow(t int64) string {
 
 func msToTime(ms int64) time.Time {
 	return time.UnixMilli(ms)
+}
+
+func getUserDeptIDsByMiniOpenID(miniOpenID string) []uint {
+	var user model.User
+	if err := database.DB.Where("`user_mini_openid` = ?", miniOpenID).First(&user).Error; err != nil {
+		return nil
+	}
+	ids := getUserDeptIDs(user.ID)
+	// Include all ancestor departments so users see items published to any parent department
+	seen := map[uint]bool{}
+	for _, id := range ids {
+		seen[id] = true
+	}
+	for _, id := range ids {
+		for _, aid := range getAncestorDeptIDs(id) {
+			if !seen[aid] {
+				ids = append(ids, aid)
+				seen[aid] = true
+			}
+		}
+	}
+	return ids
+}
+
+func getAncestorDeptIDs(deptID uint) []uint {
+	var result []uint
+	visited := map[uint]bool{}
+	for deptID > 0 {
+		if visited[deptID] {
+			break
+		}
+		visited[deptID] = true
+		var dept model.Department
+		if err := database.DB.First(&dept, deptID).Error; err != nil {
+			break
+		}
+		if dept.ParentID > 0 {
+			result = append(result, dept.ParentID)
+		}
+		deptID = dept.ParentID
+	}
+	return result
+}
+
+func buildDeptOverlap(column string, deptIDs []uint) string {
+	if len(deptIDs) == 0 {
+		return "1 = 0"
+	}
+	parts := make([]string, len(deptIDs))
+	for i, id := range deptIDs {
+		parts[i] = fmt.Sprintf("FIND_IN_SET('%d', `%s`)", id, column)
+	}
+	return strings.Join(parts, " OR ")
 }

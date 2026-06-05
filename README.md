@@ -1,4 +1,4 @@
-# CC打卡 - 多功能打卡应用
+# MY打卡 - 多功能打卡应用
 
 一个基于uni-app开发的多平台打卡应用，支持Android、iOS、HarmonyOS和微信小程序。
 
@@ -33,7 +33,7 @@ WeCheckin/
 │   └── Dockerfile         # Docker构建
 ├── docs/                  # 文档
 │   ├── HBUILDER_DEBUG.md  # HBuilder调试指南
-│   └── CC打卡小程序安装使用手册.docx  # 安装手册
+│   └── MY打卡小程序安装使用手册.docx  # 安装手册
 ├── project.config.json    # 项目配置
 ├── project.private.config.json  # 项目私有配置
 └── README.md             # 项目说明

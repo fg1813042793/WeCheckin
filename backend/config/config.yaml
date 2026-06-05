@@ -15,6 +15,10 @@ cors:
   allow_headers:
     - "Origin"
     - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+    - "Accept"
+    - "Content-Type"
     - "Accept"
     - "Authorization"
 
@@ -23,20 +27,34 @@ database:
   port: 3307
   user: "root"
   password: "Pass_123"
-  dbname: "wecheckin"
+  dbname: "go_wecheckin"
   charset: "utf8mb4"
   parse_time: true
   loc: "Local"
+
+log:
+  dir: "./logs"
+  level: "info"
+  max_age: 30
+  compress: true
 
 redis:
   host: "192.168.3.4"
   port: 6377
   password: "redis"
-  db: 1
+  db: 3
 
 jwt:
   secret: "your-jwt-secret-key"
   expire: 24h
+
+token:
+  user:
+    expire: "168h"
+    redis_prefix: "user_token:"
+  admin:
+    expire: "24h"
+    redis_prefix: "admin_token:"
 
 oss:
   type: "aliyun"  # aliyun, tencent, local

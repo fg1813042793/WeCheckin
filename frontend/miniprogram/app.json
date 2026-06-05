@@ -45,7 +45,7 @@
 		"backgroundColor": "#f1f1f1",
 		"backgroundTextStyle": "dark",
 		"navigationBarBackgroundColor": "#ffffff",
-		"navigationBarTitleText": "CC打卡小程序",
+		"navigationBarTitleText": "MY打卡小程序",
 		"navigationBarTextStyle": "black"
 	},
 	"tabBar": {

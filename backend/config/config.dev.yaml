@@ -1,5 +1,6 @@
 server:
   port: 8080
+  host: "0.0.0.0"
   mode: "debug"
   timeout: 30
 cors:
@@ -30,11 +31,19 @@ redis:
   host: "192.168.3.4"
   port: 6377
   password: "redis"
-  db: 1
+  db: 3
 
 jwt:
   secret: "your-jwt-secret-key"
   expire: 24h
+
+token:
+  user:
+    expire: "168h"
+    redis_prefix: "user_token:"
+  admin:
+    expire: "24h"
+    redis_prefix: "admin_token:"
 
 oss:
   type: "aliyun"  # aliyun, tencent, local

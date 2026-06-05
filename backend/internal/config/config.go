@@ -10,6 +10,39 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
 	CORS     CORSConfig     `mapstructure:"cors"`
+	Log      LogConfig      `mapstructure:"log"`
+	JWT      JWTConfig      `mapstructure:"jwt"`
+	Redis    RedisConfig    `mapstructure:"redis"`
+	Token    TokenConfig    `mapstructure:"token"`
+}
+
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
+type TokenConfig struct {
+	User  TokenRoleConfig `mapstructure:"user"`
+	Admin TokenRoleConfig `mapstructure:"admin"`
+}
+
+type TokenRoleConfig struct {
+	Expire      string `mapstructure:"expire"`
+	RedisPrefix string `mapstructure:"redis_prefix"`
+}
+
+type JWTConfig struct {
+	Secret string `mapstructure:"secret"`
+	Expire string `mapstructure:"expire"`
+}
+
+type LogConfig struct {
+	Dir      string `mapstructure:"dir"`
+	Level    string `mapstructure:"level"`
+	MaxAge   int    `mapstructure:"max_age"`
+	Compress bool   `mapstructure:"compress"`
 }
 
 type CORSConfig struct {
@@ -20,6 +53,7 @@ type CORSConfig struct {
 
 type ServerConfig struct {
 	Port string `mapstructure:"port"`
+	Host string `mapstructure:"host"`
 	Mode string `mapstructure:"mode"`
 }
 
@@ -41,6 +75,7 @@ func LoadConfig(env string) (*Config, error) {
 
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.mode", "debug")
+	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 3306)
 	viper.SetDefault("database.user", "root")
@@ -48,8 +83,13 @@ func LoadConfig(env string) (*Config, error) {
 	viper.SetDefault("database.dbname", "wecheckin")
 
 	viper.SetDefault("cors.allow_origins", []string{"*"})
-	viper.SetDefault("cors.allow_methods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	viper.SetDefault("cors.allow_methods", []string{"get", "post", "put", "delete", "options"})
 	viper.SetDefault("cors.allow_headers", []string{"Origin", "Content-Type", "Accept", "Authorization"})
+
+	viper.SetDefault("log.dir", "./logs")
+	viper.SetDefault("log.level", "info")
+	viper.SetDefault("log.max_age", 30)
+	viper.SetDefault("log.compress", true)
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("Warning: config file not found, using defaults: %v", err)

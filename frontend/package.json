@@ -1,7 +1,7 @@
 {
   "name": "wecheckin",
   "version": "1.0.0",
-  "description": "CC打卡 - 多功能打卡应用",
+  "description": "MY打卡 - 多功能打卡应用",
   "main": "main.js",
   "scripts": {
     "dev:h5": "uni --platform h5",

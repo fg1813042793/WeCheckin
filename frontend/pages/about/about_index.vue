@@ -2,14 +2,14 @@
   <view class="container">
     <view class="about-header">
       <image src="/static/logo.png" mode="aspectFit" class="logo"></image>
-      <text class="app-name">CC打卡</text>
+      <text class="app-name">MY打卡</text>
       <text class="version">版本 {{ version }}</text>
     </view>
 
     <view class="info-list">
       <view class="info-item">
         <text class="info-label">应用名称</text>
-        <text class="info-value">CC打卡</text>
+        <text class="info-value">MY打卡</text>
       </view>
       <view class="info-item">
         <text class="info-label">当前版本</text>
@@ -24,7 +24,7 @@
     <view class="intro">
       <text class="intro-title">应用介绍</text>
       <text class="intro-content">
-        CC打卡是一款集学习、兴趣、生活、运动于一身的打卡应用，主要面向学校学生、学生家长、老师、各种兴趣团体（跑步，运动，体育，艺术等）。
+        MY打卡是一款集学习、兴趣、生活、运动于一身的打卡应用，主要面向学校学生、学生家长、老师、各种兴趣团体（跑步，运动，体育，艺术等）。
         
 各团体为了促活会定期开展一些闯关打卡活动；找一群志同道合的人，一起去打卡。打卡是一种习惯的养成，是当下最流行、最受欢迎的工具。
       </text>
@@ -57,7 +57,7 @@
     </view>
 
     <view class="footer">
-      <text class="copyright">© 2025 CC打卡 All Rights Reserved</text>
+      <text class="copyright">© 2025 MY打卡 All Rights Reserved</text>
     </view>
   </view>
 </template>

@@ -2,22 +2,26 @@
 	"pages": [{
 		"path": "pages/index/index",
 		"style": {
-			"navigationBarTitleText": "首页"
+			"navigationBarTitleText": "首页",
+			"enablePullDownRefresh": true
 		}
 	}, {
 		"path": "pages/news/news_index",
 		"style": {
-			"navigationBarTitleText": "通知"
+			"navigationBarTitleText": "通知",
+			"enablePullDownRefresh": true
 		}
 	}, {
 		"path": "pages/enroll/enroll_index",
 		"style": {
-			"navigationBarTitleText": "打卡任务"
+			"navigationBarTitleText": "打卡任务",
+			"enablePullDownRefresh": true
 		}
 	}, {
 		"path": "pages/enroll/my_user_list",
 		"style": {
-			"navigationBarTitleText": "我的打卡"
+			"navigationBarTitleText": "我的打卡",
+			"enablePullDownRefresh": true
 		}
 	}, {
 		"path": "pages/my/my_index",
@@ -30,6 +34,16 @@
 			"navigationBarTitleText": "关于"
 		}
 	}, {
+		"path": "pages/about/agreement",
+		"style": {
+			"navigationBarTitleText": "用户协议"
+		}
+	}, {
+		"path": "pages/about/privacy",
+		"style": {
+			"navigationBarTitleText": "隐私政策"
+		}
+	}, {
 		"path": "pages/search/search",
 		"style": {
 			"navigationBarTitleText": "搜索"
@@ -38,6 +52,279 @@
 		"path": "pages/login/login",
 		"style": {
 			"navigationBarTitleText": "登录"
+		}
+	}, {
+		"path": "pages/login/login_pwd",
+		"style": {
+			"navigationBarTitleText": "密码登录"
+		}
+	}, {
+		"path": "pages/enroll/enroll_detail",
+		"style": {
+			"navigationBarTitleText": "打卡详情",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/enroll/enroll_join_form",
+		"style": {
+			"navigationBarTitleText": "打卡"
+		}
+	}, {
+		"path": "pages/enroll/enroll_my_join_list",
+		"style": {
+			"navigationBarTitleText": "打卡记录"
+		}
+	}, {
+		"path": "pages/news/news_detail",
+		"style": {
+			"navigationBarTitleText": "通知详情",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/news/news_cate1",
+		"style": {
+			"navigationBarTitleText": "通知"
+		}
+	}, {
+		"path": "pages/default/default_index",
+		"style": {
+			"navigationBarTitleText": "首页",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/my/my_edit",
+		"style": {
+			"navigationBarTitleText": "编辑资料",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/my/my_activity",
+		"style": {
+			"navigationBarTitleText": "我的活动",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/my/my_competition",
+		"style": {
+			"navigationBarTitleText": "我的赛事",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/my/my_fav",
+		"style": {
+			"navigationBarTitleText": "我的收藏"
+		}
+	}, {
+		"path": "pages/my/my_foot",
+		"style": {
+			"navigationBarTitleText": "浏览记录"
+		}
+	}, {
+		"path": "pages/my/my_reg",
+		"style": {
+			"navigationBarTitleText": "注册"
+		}
+	}, {
+		"path": "pages/event/event_index",
+		"style": {
+			"navigationBarTitleText": "赛事活动",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/event/event_detail",
+		"style": {
+			"navigationBarTitleText": "活动详情",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/event/event_join_form",
+		"style": {
+			"navigationBarTitleText": "报名"
+		}
+	}, {
+		"path": "pages/event/my_event_activity",
+		"style": {
+			"navigationBarTitleText": "我的活动"
+		}
+	}, {
+		"path": "pages/event/my_event_competition",
+		"style": {
+			"navigationBarTitleText": "我的赛事"
+		}
+	}, {
+		"path": "pages/event/my_event_manage",
+		"style": {
+			"navigationBarTitleText": "管理",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/event/my_event_score_entry",
+		"style": {
+			"navigationBarTitleText": "成绩录入"
+		}
+	}, {
+		"path": "pages/event/event_publish_dynamic",
+		"style": {
+			"navigationBarTitleText": "发布动态"
+		}
+	}, {
+		"path": "pages/admin/admin_home",
+		"style": {
+			"navigationBarTitleText": "后台管理",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/admin_login",
+		"style": {
+			"navigationBarTitleText": "管理员登录"
+		}
+	}, {
+		"path": "pages/admin/admin_content",
+		"style": {
+			"navigationBarTitleText": "内容编辑"
+		}
+	}, {
+		"path": "pages/admin/enroll/admin_enroll_list",
+		"style": {
+			"navigationBarTitleText": "打卡项目管理",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/enroll/admin_enroll_add",
+		"style": {
+			"navigationBarTitleText": "添加打卡项目"
+		}
+	}, {
+		"path": "pages/admin/enroll/admin_enroll_edit",
+		"style": {
+			"navigationBarTitleText": "编辑打卡项目",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/enroll/admin_enroll_join_list",
+		"style": {
+			"navigationBarTitleText": "打卡记录"
+		}
+	}, {
+		"path": "pages/admin/enroll/admin_enroll_user_list",
+		"style": {
+			"navigationBarTitleText": "参与用户"
+		}
+	}, {
+		"path": "pages/admin/enroll/admin_enroll_export",
+		"style": {
+			"navigationBarTitleText": "导出打卡数据"
+		}
+	}, {
+		"path": "pages/admin/news/admin_news_list",
+		"style": {
+			"navigationBarTitleText": "内容管理",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/news/admin_news_add",
+		"style": {
+			"navigationBarTitleText": "添加通知"
+		}
+	}, {
+		"path": "pages/admin/news/admin_news_edit",
+		"style": {
+			"navigationBarTitleText": "编辑通知",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/mgr/admin_mgr_list",
+		"style": {
+			"navigationBarTitleText": "管理员管理"
+		}
+	}, {
+		"path": "pages/admin/mgr/admin_mgr_detail",
+		"style": {
+			"navigationBarTitleText": "管理员详情"
+		}
+	}, {
+		"path": "pages/admin/mgr/admin_mgr_add",
+		"style": {
+			"navigationBarTitleText": "添加管理员"
+		}
+	}, {
+		"path": "pages/admin/mgr/admin_mgr_edit",
+		"style": {
+			"navigationBarTitleText": "编辑管理员"
+		}
+	}, {
+		"path": "pages/admin/mgr/admin_mgr_pwd",
+		"style": {
+			"navigationBarTitleText": "修改密码"
+		}
+	}, {
+		"path": "pages/admin/mgr/admin_log_list",
+		"style": {
+			"navigationBarTitleText": "操作日志"
+		}
+	}, {
+		"path": "pages/admin/setup/admin_setup_about",
+		"style": {
+			"navigationBarTitleText": "编辑内容"
+		}
+	}, {
+		"path": "pages/admin/setup/admin_setup_about_list",
+		"style": {
+			"navigationBarTitleText": "关于我们"
+		}
+	}, {
+		"path": "pages/admin/setup/admin_setup_qr",
+		"style": {
+			"navigationBarTitleText": "小程序二维码"
+		}
+	}, {
+		"path": "pages/admin/user/admin_user_list",
+		"style": {
+			"navigationBarTitleText": "用户管理",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/user/admin_user_detail",
+		"style": {
+			"navigationBarTitleText": "用户详情"
+		}
+	}, {
+		"path": "pages/admin/user/admin_user_export",
+		"style": {
+			"navigationBarTitleText": "导出用户资料"
+		}
+	}, {
+		"path": "pages/admin/user/admin_user_edit",
+		"style": {
+			"navigationBarTitleText": "编辑用户"
+		}
+	}, {
+		"path": "pages/admin/event/admin_event_list",
+		"style": {
+			"navigationBarTitleText": "赛事活动管理",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/event/admin_event_add",
+		"style": {
+			"navigationBarTitleText": "新增赛事活动"
+		}
+	}, {
+		"path": "pages/admin/event/admin_event_edit",
+		"style": {
+			"navigationBarTitleText": "编辑赛事活动",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/admin/event/admin_event_user_list",
+		"style": {
+			"navigationBarTitleText": "参与用户"
+		}
+	}, {
+		"path": "pages/event/video_play",
+		"style": {
+			"navigationBarTitleText": "视频播放",
+			"navigationStyle": "custom"
 		}
 	}],
 	"globalStyle": {
@@ -67,8 +354,8 @@
 			"iconPath": "static/tabbar/enroll.png",
 			"selectedIconPath": "static/tabbar/enroll_cur.png"
 		}, {
-			"pagePath": "pages/enroll/my_user_list",
-			"text": "我的打卡",
+			"pagePath": "pages/event/event_index",
+			"text": "赛事活动",
 			"iconPath": "static/tabbar/checkin.png",
 			"selectedIconPath": "static/tabbar/checkin_cur.png"
 		}, {
