@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8083
   host: "0.0.0.0"
   mode: "debug"
   timeout: 30
@@ -32,10 +32,6 @@ redis:
   port: 6377
   password: "redis"
   db: 3
-
-jwt:
-  secret: "your-jwt-secret-key"
-  expire: 24h
 
 token:
   user:

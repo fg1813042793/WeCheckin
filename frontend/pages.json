@@ -299,6 +299,43 @@
 			"navigationBarTitleText": "编辑用户"
 		}
 	}, {
+		"path": "pages/admin/formkit/formkit_designer",
+		"style": {
+			"navigationBarTitleText": "表单设计器"
+		}
+	}, {
+		"path": "pages/survey/index",
+		"style": {
+			"navigationBarTitleText": "问卷调查",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/survey/fill",
+		"style": {
+			"navigationBarTitleText": "填写问卷"
+		}
+	}, {
+		"path": "pages/survey/result",
+		"style": {
+			"navigationBarTitleText": "提交结果"
+		}
+	}, {
+		"path": "pages/survey/exam/exam_index",
+		"style": {
+			"navigationBarTitleText": "考试列表",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/survey/exam/exam_take",
+		"style": {
+			"navigationBarTitleText": "考试"
+		}
+	}, {
+		"path": "pages/survey/exam/exam_result",
+		"style": {
+			"navigationBarTitleText": "考试结果"
+		}
+	}, {
 		"path": "pages/admin/event/admin_event_list",
 		"style": {
 			"navigationBarTitleText": "赛事活动管理",

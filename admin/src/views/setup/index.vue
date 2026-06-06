@@ -103,6 +103,17 @@
             <el-form-item label="Redis Key 前缀">
               <el-input v-model="tokenConfig.userPrefix" placeholder="user_token:" />
             </el-form-item>
+            <el-form-item label="单点登录">
+              <el-switch
+                v-model="tokenConfig.userSingleLogin"
+                :active-value="1"
+                :inactive-value="0"
+                active-text="开启（同一账号仅允许一处登录）"
+                inactive-text="关闭（允许多设备同时在线）"
+                inline-prompt
+                style="--el-switch-on-color: #f56c6c; --el-switch-off-color: #67c23a"
+              />
+            </el-form-item>
             <el-divider content-position="left">管理员</el-divider>
             <el-form-item label="Token 过期时间">
               <el-input v-model="tokenConfig.adminExpire" placeholder="24h">
@@ -111,6 +122,17 @@
             </el-form-item>
             <el-form-item label="Redis Key 前缀">
               <el-input v-model="tokenConfig.adminPrefix" placeholder="admin_token:" />
+            </el-form-item>
+            <el-form-item label="单点登录">
+              <el-switch
+                v-model="tokenConfig.adminSingleLogin"
+                :active-value="1"
+                :inactive-value="0"
+                active-text="开启（同一账号仅允许一处登录）"
+                inactive-text="关闭（允许多设备同时在线）"
+                inline-prompt
+                style="--el-switch-on-color: #f56c6c; --el-switch-off-color: #67c23a"
+              />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="saveTokenConfig" :loading="savingToken">保存</el-button>
@@ -139,7 +161,7 @@ export default {
     const savingHome = ref(false)
     const staticDomain = ref('')
     const savingDomain = ref(false)
-    const tokenConfig = reactive({ userExpire: '', userPrefix: '', adminExpire: '', adminPrefix: '' })
+    const tokenConfig = reactive({ userExpire: '', userPrefix: '', userSingleLogin: 0, adminExpire: '', adminPrefix: '', adminSingleLogin: 0 })
     const savingToken = ref(false)
 
     const textTabs = [
@@ -261,16 +283,37 @@ export default {
           tokenConfig[r.value.field] = r.value.value
         }
       }
+      // 单点登录开关
+      try {
+        const resUser = await request.get('/home/setup_get', { params: { key: 'USER_SINGLE_LOGIN' } })
+        tokenConfig.userSingleLogin = resUser.data === '1' ? 1 : 0
+      } catch (e) {
+        tokenConfig.userSingleLogin = 0
+      }
+      try {
+        const resAdmin = await request.get('/home/setup_get', { params: { key: 'ADMIN_SINGLE_LOGIN' } })
+        tokenConfig.adminSingleLogin = resAdmin.data === '1' ? 1 : 0
+      } catch (e) {
+        tokenConfig.adminSingleLogin = 0
+      }
     }
 
     const saveTokenConfig = async () => {
       savingToken.value = true
       try {
-        await Promise.all(
-          Object.entries(tokenConfigKeys).map(([field, key]) =>
+        await Promise.all([
+          ...Object.entries(tokenConfigKeys).map(([field, key]) =>
             request.post('/admin/setup_set_content', { key, value: tokenConfig[field] || '' })
-          )
-        )
+          ),
+          request.post('/admin/setup_set_content', {
+            key: 'USER_SINGLE_LOGIN',
+            value: String(tokenConfig.userSingleLogin)
+          }),
+          request.post('/admin/setup_set_content', {
+            key: 'ADMIN_SINGLE_LOGIN',
+            value: String(tokenConfig.adminSingleLogin)
+          })
+        ])
         ElMessage.success('保存成功')
       } catch (e) {
         console.error(e)

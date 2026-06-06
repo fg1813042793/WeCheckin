@@ -2,36 +2,24 @@ package middleware
 
 import (
 	"context"
-	"strconv"
+	"encoding/json"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
 	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/jwtutil"
 	"wecheckin-backend/backend/pkg/tokenutil"
 )
 
 func ClientAuth() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
-		tokenStr := string(c.Request.Header.Peek("Authorization"))
-		if tokenStr == "" {
+		token := string(c.Request.Header.Peek("Authorization"))
+		if token == "" {
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
 				"msg":  "未登录",
-			})
-			c.Abort()
-			return
-		}
-
-		claims, err := jwtutil.ParseToken(tokenStr)
-		if err != nil {
-			c.JSON(consts.StatusOK, utils.H{
-				"code": 1,
-				"msg":  "登录已过期",
 			})
 			c.Abort()
 			return
@@ -46,21 +34,10 @@ func ClientAuth() app.HandlerFunc {
 			return
 		}
 
-		// Find user by MiniOpenID from JWT claims
-		var user model.User
-		if err := database.GetDB().Where("`user_mini_openid` = ?", claims.UserID).First(&user).Error; err != nil {
-			c.JSON(consts.StatusOK, utils.H{
-				"code": 1,
-				"msg":  "用户不存在",
-			})
-			c.Abort()
-			return
-		}
-
-		// Check Redis for online status (force-offline support)
 		expire, prefix := tokenutil.GetTokenConfig("user")
-		storedToken, err := rd.RDB.Get(rd.Ctx, prefix+strconv.Itoa(int(user.ID))).Result()
-		if err != nil || storedToken != tokenStr {
+
+		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
+		if err != nil {
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
 				"msg":  "登录已过期或已被强制下线",
@@ -69,12 +46,34 @@ func ClientAuth() app.HandlerFunc {
 			return
 		}
 
-		// Slide TTL
-		rd.RDB.Expire(rd.Ctx, prefix+strconv.Itoa(int(user.ID)), expire)
+		var info struct {
+			ID         uint   `json:"id"`
+			Name       string `json:"name"`
+			Mobile     string `json:"mobile"`
+			MiniOpenID string `json:"miniOpenID"`
+			Role       string `json:"role"`
+		}
+		if err := json.Unmarshal([]byte(jsonStr), &info); err != nil || info.ID == 0 {
+			c.JSON(consts.StatusOK, utils.H{
+				"code": 1,
+				"msg":  "登录信息异常",
+			})
+			c.Abort()
+			return
+		}
 
-		c.Set("user_openid", claims.UserID)
-		c.Set("user_id", user.ID)
-		c.Set("user", &user)
+		rd.RDB.Expire(rd.Ctx, prefix+"a:"+token, expire)
+
+		user := &model.User{
+			ID:         info.ID,
+			Name:       info.Name,
+			Mobile:     info.Mobile,
+			MiniOpenID: info.MiniOpenID,
+			Role:       info.Role,
+		}
+		c.Set("user_openid", info.MiniOpenID)
+		c.Set("user_id", info.ID)
+		c.Set("user", user)
 		c.Next(ctx)
 	}
 }

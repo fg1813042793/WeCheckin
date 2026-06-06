@@ -29,6 +29,7 @@ func (h *AdminSetupHandler) SetSetup(ctx context.Context, c *app.RequestContext)
 		response.Fail(c, "设置失败")
 		return
 	}
+	tokenutil.InvalidateSetupCache()
 	response.JSON(c, nil)
 }
 
@@ -47,6 +48,7 @@ func (h *AdminSetupHandler) SetContentSetup(ctx context.Context, c *app.RequestC
 		response.Fail(c, "设置失败")
 		return
 	}
+	tokenutil.InvalidateSetupCache()
 	response.JSON(c, nil)
 }
 

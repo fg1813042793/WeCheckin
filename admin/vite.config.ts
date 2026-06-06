@@ -7,23 +7,23 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/admin': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8083',
         changeOrigin: true
       },
       '/passport': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8083',
         changeOrigin: true
       },
       '/upload': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8083',
         changeOrigin: true
       },
       '/user_form_fields': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8083',
         changeOrigin: true
       },
       '/home': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8083',
         changeOrigin: true
       }
     }

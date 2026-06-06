@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"wecheckin-backend/backend/internal/database"
+	"wecheckin-backend/backend/internal/formkit/schema"
 	"wecheckin-backend/backend/internal/model"
 )
 
@@ -201,14 +202,13 @@ func GetEnrollJoinByDay(enrollID, day string) ([]map[string]interface{}, error) 
 	if len(joins) > 0 {
 		database.DB.Where("`id` = ?", enrollID).First(&enrollModel)
 		if enrollModel.Forms != "" {
-			var defs []map[string]interface{}
-			json.Unmarshal([]byte(enrollModel.Forms), &defs)
-			typeMap = make(map[string]string)
-			for _, def := range defs {
-				label, _ := def["label"].(string)
-				typ, _ := def["type"].(string)
-				if label != "" && typ != "" {
-					typeMap[label] = typ
+			// 兼容老/新 schema 格式
+			for _, fv := range schema.ExtractFieldValues("", enrollModel.Forms) {
+				if fv.Label != "" && fv.Type != "" {
+					if typeMap == nil {
+						typeMap = make(map[string]string)
+					}
+					typeMap[fv.Label] = fv.Type
 				}
 			}
 		}
@@ -234,10 +234,20 @@ func GetEnrollJoinByDay(enrollID, day string) ([]map[string]interface{}, error) 
 			"day":         j.Day,
 			"addTime":     j.AddTime,
 		}
-		// Parse forms JSON
-		var formsArr []map[string]interface{}
+		// Parse forms JSON (兼容老/新格式)
+		formsArr := []map[string]interface{}{}
 		if j.Forms != "" {
-			json.Unmarshal([]byte(j.Forms), &formsArr)
+			fvs := schema.ExtractFieldValues(j.Forms, enrollModel.Forms)
+			for _, fv := range fvs {
+				entry := map[string]interface{}{"label": fv.Label, "type": fv.Type, "value": fv.Value}
+				// 兼容老逻辑：保留 typeMap 合并
+				if typeMap != nil {
+					if t, ok := typeMap[fv.Label]; ok && entry["type"] == "" {
+						entry["type"] = t
+					}
+				}
+				formsArr = append(formsArr, entry)
+			}
 		}
 		// Merge type from form definitions
 		if typeMap != nil {
@@ -289,46 +299,25 @@ func GetMyDayRecords(userID, day string) ([]map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// Get enroll titles
-	enrollCache := map[string]string{}
+	// Get enroll titles + forms schema (兼容老/新格式)
+	enrollCache := map[string]model.Enroll{}
 
 	var result []map[string]interface{}
 	for _, j := range joins {
-		title, ok := enrollCache[j.EnrollID]
+		e, ok := enrollCache[j.EnrollID]
 		if !ok {
-			var e model.Enroll
 			if err := database.DB.Where("`id` = ?", j.EnrollID).First(&e).Error; err == nil {
-				title = e.Title
+				enrollCache[j.EnrollID] = e
 			}
-			enrollCache[j.EnrollID] = title
 		}
 
 		item := map[string]interface{}{
-			"enrollTitle": title,
+			"enrollTitle": e.Title,
 			"addTime":     j.AddTime,
 			"day":         j.Day,
 		}
-		// Parse forms
-		var formsArr []map[string]interface{}
-		if j.Forms != "" {
-			json.Unmarshal([]byte(j.Forms), &formsArr)
-		}
-		var images []string
-		var location string
-		for _, f := range formsArr {
-			label, _ := f["label"].(string)
-			val, _ := f["value"].(string)
-			lower := strings.ToLower(label)
-			if val != "" && (strings.Contains(lower, "图") || strings.Contains(lower, "照片") || strings.Contains(lower, "img") || strings.Contains(lower, "pic") || strings.Contains(lower, "image")) {
-				images = append(images, val)
-			}
-			if strings.Contains(lower, "位置") && !strings.Contains(lower, "纬度") && !strings.Contains(lower, "经度") {
-				location = val
-			}
-		}
-		if images == nil {
-			images = []string{}
-		}
+		// Parse forms (兼容老/新格式)
+		images, location := schema.ExtractImagesLocation(j.Forms, e.Forms)
 		item["images"] = images
 		item["location"] = location
 		result = append(result, item)
@@ -386,33 +375,13 @@ func GetMyJoinRecords(userID string, page, pageSize int) ([]model.EnrollJoin, in
 	if err != nil {
 		return nil, 0, err
 	}
-	// Populate enroll title
+	// Populate enroll title + form fields (兼容老/新格式)
 	for i := range list {
 		var enroll model.Enroll
 		if err := database.DB.Where("`id` = ?", list[i].EnrollID).First(&enroll).Error; err == nil {
 			list[i].EnrollTitle = enroll.Title
 		}
-		// Parse forms
-		var formsArr []map[string]interface{}
-		if list[i].Forms != "" {
-			json.Unmarshal([]byte(list[i].Forms), &formsArr)
-		}
-		var images []string
-		var location string
-		for _, f := range formsArr {
-			label, _ := f["label"].(string)
-			val, _ := f["value"].(string)
-			lower := strings.ToLower(label)
-			if val != "" && (strings.Contains(lower, "图") || strings.Contains(lower, "照片") || strings.Contains(lower, "img") || strings.Contains(lower, "pic") || strings.Contains(lower, "image")) {
-				images = append(images, val)
-			}
-			if strings.Contains(lower, "位置") && !strings.Contains(lower, "纬度") && !strings.Contains(lower, "经度") {
-				location = val
-			}
-		}
-		if images == nil {
-			images = []string{}
-		}
+		images, location := schema.ExtractImagesLocation(list[i].Forms, enroll.Forms)
 		list[i].Images = images
 		list[i].Location = location
 	}

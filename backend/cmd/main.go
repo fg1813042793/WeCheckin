@@ -30,6 +30,7 @@ import (
 	"wecheckin-backend/backend/internal/api/admin"
 	"wecheckin-backend/backend/internal/api/client"
 	"wecheckin-backend/backend/internal/config"
+	survey_api "wecheckin-backend/backend/internal/survey/api"
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/middleware"
 	rd "wecheckin-backend/backend/pkg/redis"
@@ -84,6 +85,7 @@ func main() {
 	geo := client.NewGeoHandler()
 	fa := client.NewFavHandler()
 	ev := client.NewEventHandler()
+	cSurvey := survey_api.NewClientSurveyHandler()
 	aHome := admin.NewAdminHomeHandler()
 	aMgr := admin.NewAdminMgrHandler()
 	aSetup := admin.NewAdminSetupHandler()
@@ -95,18 +97,21 @@ func main() {
 	aDept := admin.NewAdminDeptHandler()
 	aRole := admin.NewAdminRoleHandler()
 	aMenu := admin.NewAdminMenuHandler()
+	aSurvey := survey_api.NewAdminSurveyHandler()
 
 	// ==================== Public routes (no auth) ====================
 	h.GET("/test/test", func(ctx context.Context, c *app.RequestContext) {
 		response.JSON(c, map[string]string{"msg": "ok"})
 	})
+
+	// Survey 公共接口（题型试算 / 应用逻辑 / 校验）
+	h.POST("/survey/apply", cSurvey.PublicApply)
+	h.POST("/survey/validate", cSurvey.PublicValidate)
 	h.GET("/test/debug_token", func(ctx context.Context, c *app.RequestContext) {
 		token := c.Query("token")
 		expire, prefix := tokenutil.GetTokenConfig("admin")
-		log.Printf("[DebugEndpoint] token=%q raw_prefix=%q", token, prefix)
 		if prefix == "" {
 			prefix = "admin_token:"
-			log.Printf("[DebugEndpoint] applied fallback prefix=%q", prefix)
 		}
 		key := prefix + "a:" + token
 		val, err := rd.RDB.Get(rd.Ctx, key).Result()
@@ -182,6 +187,22 @@ func main() {
 	clientEventAuth.GET("/scores", ev.GetEventScores)
 	clientEventAuth.POST("/score_save", ev.SaveEventScore)
 
+	// 考试 (P7 → P8: 合并到 survey) — 公开列表/详情 + 登录后做题
+	surveyPub := h.Group("/survey")
+	surveyPub.GET("/list", cSurvey.List)
+	surveyPub.GET("/view", cSurvey.Detail)
+	surveyPub.POST("/submit", cSurvey.Submit)
+	surveyPub.GET("/exam_list", cSurvey.ListExam)
+	surveyPub.GET("/exam_view", cSurvey.ViewExam)
+	surveyAuth := h.Group("/survey", middleware.ClientAuth())
+	surveyAuth.GET("/my_responses", cSurvey.MyResponses)
+	surveyAuth.GET("/my_response", cSurvey.MyResponseDetail)
+	surveyAuth.GET("/exam_start", cSurvey.StartExam)
+	surveyAuth.POST("/exam_save_answer", cSurvey.SaveAnswer)
+	surveyAuth.POST("/exam_submit", cSurvey.SubmitExam)
+	surveyAuth.GET("/exam_record", cSurvey.GetExamRecord)
+	surveyAuth.GET("/exam_my_records", cSurvey.MyExamRecords)
+
 	// ==================== Admin login (no auth) ====================
 	h.POST("/admin/login", aMgr.AdminLogin)
 
@@ -224,8 +245,10 @@ func main() {
 	// Online users + force offline (no perm middleware needed for the list itself - perm check added per-handler)
 	adminGroup.GET("/user/online", aUser.GetOnlineUsers)
 	adminGroup.POST("/user/force_offline", aUser.ForceOfflineUser)
+	adminGroup.POST("/user/batch_force_offline", aUser.BatchForceOfflineUser)
 	adminGroup.GET("/admin/online", aMgr.GetOnlineAdmins)
 	adminGroup.POST("/admin/force_offline", aMgr.ForceOfflineAdmin)
+	adminGroup.POST("/admin/batch_force_offline", aMgr.BatchForceOfflineAdmin)
 	adminGroup.POST("/admin/logout", aMgr.AdminLogout)
 
 	adminGroup.GET("/news_list", aNews.GetAdminNewsList)
@@ -256,6 +279,7 @@ func main() {
 	adminGroup.GET("/enroll_stats", aEnroll.GetEnrollStats)
 	adminGroup.POST("/enroll_remove_user", aEnroll.RemoveEnrollUser)
 	adminGroup.POST("/enroll_remove_users", aEnroll.RemoveEnrollUsers)
+	adminGroup.POST("/enroll_user_forms_edit", aEnroll.EditEnrollUserForms)
 	adminGroup.POST("/enroll_join_del", aEnroll.DelEnrollJoin)
 	adminGroup.POST("/enroll_join_dels", aEnroll.DelEnrollJoins)
 	adminGroup.GET("/enroll_join_data_get", aEnroll.EnrollJoinDataGet)
@@ -272,6 +296,7 @@ func main() {
 	adminGroup.GET("/event_participant_list", aEvent.GetEventParticipantList)
 	adminGroup.POST("/event_participant_del", aEvent.DelEventParticipant)
 	adminGroup.POST("/event_participant_dels", aEvent.DelEventParticipants)
+	adminGroup.POST("/event_participant_edit", aEvent.EditEventParticipant)
 	adminGroup.POST("/event_dynamic_add", aEvent.PostEventDynamic)
 	adminGroup.GET("/event_dynamics", aEvent.GetEventDynamics)
 	adminGroup.POST("/event_dynamic_edit", aEvent.EditEventDynamic)
@@ -315,6 +340,52 @@ func main() {
 	// Admin's own menu tree and perms (for frontend sidebar)
 	adminGroup.GET("/user/menus", aMenu.GetAdminMenus)
 	adminGroup.GET("/user/perms", aMenu.GetAdminPerms)
+
+	// Survey 独立子系统 — 合并 formkit + exam + survey 全部端点
+	// 题型元信息 / Schema / 表达式试算
+	adminGroup.GET("/survey/types", aSurvey.ListTypes)
+	adminGroup.POST("/survey/schema/parse", aSurvey.ParseSchema)
+	adminGroup.POST("/survey/eval", aSurvey.EvalExpr)
+	// schema-aware 报表 (enroll/event/survey)
+	adminGroup.GET("/survey/report/enroll", aSurvey.ReportEnrollSchema)
+	adminGroup.GET("/survey/export/enroll", aSurvey.ExportEnrollSchemaCSV)
+	adminGroup.GET("/survey/report/event", aSurvey.ReportEventSchema)
+	adminGroup.GET("/survey/export/event", aSurvey.ExportEventSchemaCSV)
+	adminGroup.GET("/survey/report/survey", aSurvey.ReportSurveySchema)
+	adminGroup.GET("/survey/export/survey", aSurvey.ExportSurveySchemaCSV)
+	// 问卷 CRUD
+	adminGroup.GET("/survey/survey_list", aSurvey.List)
+	adminGroup.GET("/survey/survey_detail", aSurvey.Detail)
+	adminGroup.POST("/survey/survey_insert", aSurvey.Insert)
+	adminGroup.POST("/survey/survey_edit", aSurvey.Edit)
+	adminGroup.POST("/survey/survey_del", aSurvey.Del)
+	adminGroup.POST("/survey/survey_status", aSurvey.Status)
+	adminGroup.POST("/survey/survey_copy", aSurvey.Copy)
+	adminGroup.GET("/survey/response_list", aSurvey.ResponseList)
+	adminGroup.GET("/survey/response_detail", aSurvey.ResponseDetail)
+	adminGroup.POST("/survey/response_del", aSurvey.ResponseDel)
+	adminGroup.GET("/survey/response_export", aSurvey.ResponseExport)
+	adminGroup.GET("/survey/statistic", aSurvey.Statistic)
+	adminGroup.GET("/survey/channel_list", aSurvey.ChannelList)
+	adminGroup.POST("/survey/channel_insert", aSurvey.ChannelInsert)
+	adminGroup.POST("/survey/channel_del", aSurvey.ChannelDel)
+	// 题库 / 试卷 / 考试 / 记录 (合并自 exam)
+	adminGroup.GET("/survey/question_list", aSurvey.ListQuestion)
+	adminGroup.POST("/survey/question_insert", aSurvey.InsertQuestion)
+	adminGroup.POST("/survey/question_edit", aSurvey.EditQuestion)
+	adminGroup.POST("/survey/question_del", aSurvey.DelQuestion)
+	adminGroup.GET("/survey/paper_list", aSurvey.ListPaper)
+	adminGroup.GET("/survey/paper_detail", aSurvey.GetPaperDetail)
+	adminGroup.POST("/survey/paper_insert", aSurvey.InsertPaper)
+	adminGroup.POST("/survey/paper_edit", aSurvey.EditPaper)
+	adminGroup.POST("/survey/paper_del", aSurvey.DelPaper)
+	adminGroup.GET("/survey/exam_list", aSurvey.ListExam)
+	adminGroup.POST("/survey/exam_insert", aSurvey.InsertExam)
+	adminGroup.POST("/survey/exam_edit", aSurvey.EditExam)
+	adminGroup.POST("/survey/exam_del", aSurvey.DelExam)
+	adminGroup.GET("/survey/record_list", aSurvey.ListRecord)
+	adminGroup.POST("/survey/manual_grade", aSurvey.ManualGrade)
+	adminGroup.POST("/survey/preview_grade", aSurvey.PreviewGrade)
 
 	// ==================== File upload (public) ====================
 	uploadDir := "./uploads"

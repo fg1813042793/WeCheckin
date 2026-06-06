@@ -147,3 +147,69 @@ export const eventApi = {
 export function userFormFields() {
   return get('/user_form_fields')
 }
+
+export const formkitApi = {
+  listTypes() {
+    return get('/survey/types')
+  },
+  parseSchema(data) {
+    return post('/survey/schema/parse', data)
+  },
+  eval(data) {
+    return post('/survey/eval', data)
+  },
+  validate(data) {
+    return post('/survey/validate', data)
+  },
+  apply(data) {
+    return post('/survey/apply', data)
+  }
+}
+
+export const examApi = {
+  getList(params) {
+    return get('/survey/exam_list', params)
+  },
+  getDetail(params) {
+    return get('/survey/exam_view', params)
+  },
+  start(data) {
+    return get('/survey/exam_start', data)
+  },
+  saveAnswer(data) {
+    return post('/survey/exam_save_answer', data)
+  },
+  submit(data) {
+    return post('/survey/exam_submit', data)
+  },
+  getRecord(params) {
+    return get('/survey/exam_record', params)
+  },
+  myRecords() {
+    return get('/survey/exam_my_records')
+  }
+}
+
+export const surveyApi = {
+  getList(params) {
+    return get('/survey/list', params)
+  },
+  getDetail(params) {
+    return get('/survey/view', params)
+  },
+  apply(data) {
+    return post('/survey/apply', data)
+  },
+  validate(data) {
+    return post('/survey/validate', data)
+  },
+  submit(data) {
+    return post('/survey/submit', data)
+  },
+  myResponses() {
+    return get('/survey/my_responses')
+  },
+  myResponse(params) {
+    return get('/survey/my_response', params)
+  }
+}

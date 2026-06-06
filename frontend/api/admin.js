@@ -85,6 +85,9 @@ export const adminApi = {
   enrollRemoveUser(data) {
     return post('/admin/enroll_remove_user', data)
   },
+  enrollUserFormsEdit(data) {
+    return post('/admin/enroll_user_forms_edit', data)
+  },
   enrollJoinDel(data) {
     return post('/admin/enroll_join_del', data)
   },
@@ -187,6 +190,12 @@ export const adminApi = {
   eventParticipantList(params) {
     return get('/admin/event_participant_list', params)
   },
+  eventParticipantDel(data) {
+    return post('/admin/event_participant_del', data)
+  },
+  eventParticipantEdit(data) {
+    return post('/admin/event_participant_edit', data)
+  },
   deptUsers(params) {
     return get('/admin/dept_users', params)
   },
@@ -195,5 +204,11 @@ export const adminApi = {
   },
   adminPerms() {
     return get('/admin/user/perms')
+  },
+  formkitTypes() {
+    return get('/survey/types')
+  },
+  formkitParseSchema(data) {
+    return post('/survey/schema/parse', data)
   }
 }

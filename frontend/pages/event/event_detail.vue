@@ -11,6 +11,38 @@
             <text class="title">{{ info.title }}</text>
             <text class="type-tag" :class="info.type === 1 ? 'tag-activity' : 'tag-competition'">{{ info.type === 1 ? '活动' : '赛事' }}</text>
           </view>
+          <view v-if="hasAnyRole" class="roles-section">
+            <view v-if="info.organizers && info.organizers.length" class="role-row">
+              <text class="role-label">主办人</text>
+              <view class="role-list">
+                <view v-for="(p, i) in info.organizers" :key="'o'+i" class="role-chip">
+                  <image v-if="p.avatar" :src="p.avatar" mode="aspectFill" class="role-avatar" />
+                  <view v-else class="role-avatar-text">{{ (p.name || '?')[0] }}</view>
+                  <text class="role-name">{{ p.name || '匿名' }}</text>
+                </view>
+              </view>
+            </view>
+            <view v-if="info.assistants && info.assistants.length" class="role-row">
+              <text class="role-label">主办人助理</text>
+              <view class="role-list">
+                <view v-for="(p, i) in info.assistants" :key="'a'+i" class="role-chip">
+                  <image v-if="p.avatar" :src="p.avatar" mode="aspectFill" class="role-avatar" />
+                  <view v-else class="role-avatar-text">{{ (p.name || '?')[0] }}</view>
+                  <text class="role-name">{{ p.name || '匿名' }}</text>
+                </view>
+              </view>
+            </view>
+            <view v-if="info.referees && info.referees.length" class="role-row">
+              <text class="role-label">裁判</text>
+              <view class="role-list">
+                <view v-for="(p, i) in info.referees" :key="'r'+i" class="role-chip">
+                  <image v-if="p.avatar" :src="p.avatar" mode="aspectFill" class="role-avatar" />
+                  <view v-else class="role-avatar-text">{{ (p.name || '?')[0] }}</view>
+                  <text class="role-name">{{ p.name || '匿名' }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
           <view class="meta-list">
             <view class="meta-item"><text class="meta-label">报名时间：</text><text>{{ info.regStartStr || '-' }} ~ {{ info.regEndStr || '-' }}</text></view>
             <view class="meta-item"><text class="meta-label">活动时间：</text><text>{{ info.eventStartStr || '-' }} ~ {{ info.eventEndStr || '-' }}</text></view>
@@ -112,8 +144,18 @@ export default {
       scrollTop: 0
     }
   },
+  computed: {
+    hasAnyRole() {
+      return (this.info.organizers && this.info.organizers.length) ||
+             (this.info.assistants && this.info.assistants.length) ||
+             (this.info.referees && this.info.referees.length)
+    }
+  },
   onLoad(opts) {
     if (opts.id) { this.id = opts.id; this.loadDetail() }
+  },
+  onShow() {
+    if (this.id) this.loadDetail()
   },
   onPullDownRefresh() {
     this.loadDetail()
@@ -127,6 +169,9 @@ export default {
     },
     async loadDetail() {
       this.loading = true
+      this.dynamicPage = 1
+      this.scorePage = 1
+      this.hasMore = true
       try {
         const uid = this.getUserId()
         const res = await eventApi.getDetail({ id: this.id, user_id: uid })
@@ -184,8 +229,8 @@ export default {
       }
       try {
         await eventApi.participate({ event_id: this.id, user_id: uid, forms: '[]' })
-        this.info.isJoin = true
         uni.showToast({ title: '报名成功', icon: 'success' })
+        await this.loadDetail()
       } catch (e) { uni.showToast({ title: '报名失败', icon: 'none' }) }
     },
     goScore() {
@@ -244,6 +289,15 @@ export default {
 .type-tag { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 8rpx; flex-shrink: 0; }
 .tag-activity { background-color: #fff7e6; color: #fa8c16; }
 .tag-competition { background-color: #fff1f0; color: #f5222d; }
+.roles-section { background-color: #f9f9f9; border-radius: 12rpx; padding: 16rpx 20rpx; margin-bottom: 24rpx; }
+.role-row { display: flex; align-items: flex-start; margin-bottom: 12rpx; }
+.role-row:last-child { margin-bottom: 0; }
+.role-label { font-size: 26rpx; color: #999; flex-shrink: 0; padding-top: 12rpx; margin-right: 12rpx; }
+.role-list { display: flex; flex-wrap: wrap; gap: 16rpx; flex: 1; }
+.role-chip { display: flex; flex-direction: column; align-items: center; width: 96rpx; }
+.role-avatar { width: 64rpx; height: 64rpx; border-radius: 50%; background-color: #f5f5f5; }
+.role-avatar-text { width: 64rpx; height: 64rpx; border-radius: 50%; background-color: #fb454c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28rpx; }
+.role-name { font-size: 22rpx; color: #333; margin-top: 6rpx; max-width: 96rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .meta-list { background-color: #f9f9f9; border-radius: 12rpx; padding: 20rpx; margin-bottom: 24rpx; }
 .meta-item { font-size: 26rpx; color: #333; margin-bottom: 8rpx; }
 .meta-label { color: #999; }
@@ -260,9 +314,9 @@ export default {
 .moment-avatar { width: 76rpx; height: 76rpx; border-radius: 6rpx; flex-shrink: 0; }
 .moment-avatar-text { width: 76rpx; height: 76rpx; border-radius: 6rpx; background-color: #fb454c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32rpx; flex-shrink: 0; }
 .moment-body { flex: 1; margin-left: 16rpx; min-width: 0; }
-.moment-name-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 16rpx; }
+.moment-name-row { display: flex; align-items: center; flex-wrap: wrap; }
 .moment-name { font-size: 28rpx; color: #576b95; font-weight: 500; line-height: 1.4; }
-.moment-title { font-size: 28rpx; color: #333; font-weight: bold; line-height: 1.4; }
+.moment-title { font-size: 28rpx; color: #333; font-weight: bold; line-height: 1.4; margin-left: 16rpx; }
 .moment-content { font-size: 28rpx; color: #333; line-height: 1.6; display: block; margin-top: 6rpx; word-break: break-all; }
 .moment-scroll-x { margin-top: 10rpx; overflow: hidden; white-space: nowrap; }
 .moment-images, .moment-videos { display: flex; flex-wrap: nowrap; }

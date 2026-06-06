@@ -2,20 +2,21 @@ package service
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/logger"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/tokenutil"
 	"gorm.io/gorm"
@@ -106,13 +107,18 @@ func ClearVouchData() error {
 	return database.DB.Model(&model.Enroll{}).Where("1 = 1").Update("enroll_vouch", 0).Error
 }
 
+// genRandomString 使用 crypto/rand 生成 length 个十六进制字符（length 必须为偶数）。
+// 熵为 length*4 bit；长度 32 即 128 bit，远高于 UUID v4。
+// 熵源失败时 panic（系统熵不可用 = 整个服务都不可信）。
 func genRandomString(length int) string {
-	chars := "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+	if length <= 0 || length%2 != 0 {
+		panic(fmt.Sprintf("genRandomString: length must be a positive even number, got %d", length))
 	}
-	return string(b)
+	b := make([]byte, length/2)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("genRandomString: crypto/rand failed: %v", err))
+	}
+	return hex.EncodeToString(b)
 }
 
 func InsertLog(logType int, content, adminID, adminName, adminDesc, addIP string) {
@@ -176,12 +182,7 @@ func AdminLogin(name, password, addIP, device string) (map[string]interface{}, e
 
 func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) {
 	expire, prefix := tokenutil.GetTokenConfig("admin")
-	logger.Logger.Printf("[storeAdminToken] adminID=%d prefix=%q expire=%v", admin.ID, prefix, expire)
-	if prefix == "" {
-		prefix = "admin_token:"
-	}
 	now := database.Now()
-	// Still store token in DB as fallback for force-offline consistency
 	database.DB.Model(&model.Admin{}).Where("`id` = ?", admin.ID).Updates(map[string]interface{}{
 		"admin_token":      token,
 		"admin_token_time": now,
@@ -189,6 +190,20 @@ func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) 
 	if rd.RDB != nil {
 		keyAuth := prefix + "a:" + token
 		idStr := strconv.Itoa(int(admin.ID))
+		keySet := prefix + "s:" + idStr
+
+		// 单端登录模式：踢掉同 adminID 的所有旧 token
+		if tokenutil.IsAdminSingleLogin() {
+			if oldTokens, _ := rd.RDB.SMembers(rd.Ctx, keySet).Result(); len(oldTokens) > 0 {
+				for _, t := range oldTokens {
+					if t != token {
+						rd.RDB.Del(rd.Ctx, prefix+"a:"+t)
+					}
+				}
+				rd.RDB.Del(rd.Ctx, keySet)
+			}
+		}
+
 		info := map[string]interface{}{
 			"id":        admin.ID,
 			"name":      admin.Name,
@@ -201,9 +216,11 @@ func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) 
 			"device":    device,
 		}
 		jsonBytes, _ := json.Marshal(info)
+		// Set TTL on s: 2x expire to keep it alive through long sessions
+		// (a: slides on every request; s: only updates on token add/remove)
 		rd.RDB.Set(rd.Ctx, keyAuth, string(jsonBytes), expire)
-		rd.RDB.Set(rd.Ctx, prefix+"o:"+idStr, token, expire)
-		logger.Logger.Printf("[storeAdminToken] set Redis keys: %s and %s", keyAuth, prefix+"o:"+idStr)
+		rd.RDB.SAdd(rd.Ctx, keySet, token)
+		rd.RDB.Expire(rd.Ctx, keySet, expire*2)
 	}
 }
 
@@ -317,7 +334,7 @@ func DelMgr(id string) error {
 	if admin.Type == 1 {
 		return fmt.Errorf("超级管理员不可删除")
 	}
-	ForceOfflineAdmin(id)
+	ForceOfflineAdmin(id, "")
 	database.DB.Where("`admin_dept_admin_id` = ?", id).Delete(&model.AdminDept{})
 	return database.DB.Where("`id` = ?", id).Delete(&model.Admin{}).Error
 }
@@ -375,7 +392,7 @@ func EditMgr(id, name, desc, pic, phone, password, addIP string, roleID uint, de
 func StatusMgr(id string, status int) error {
 	err := database.DB.Model(&model.Admin{}).Where("`id` = ?", id).Update("admin_status", status).Error
 	if err == nil && status != 1 {
-		ForceOfflineAdmin(id)
+		ForceOfflineAdmin(id, "")
 	}
 	return err
 }
@@ -439,54 +456,218 @@ func GetOnlineUsers() ([]map[string]interface{}, error) {
 	if rd.RDB == nil {
 		return []map[string]interface{}{}, nil
 	}
-	var cursor uint64
-	var keys []string
-	var err error
-	keys, cursor, err = rd.RDB.Scan(rd.Ctx, cursor, prefix+"*", 100).Result()
+	setPrefix := prefix + "s:"
+	authPrefix := prefix + "a:"
+
+	entries, err := scanOnlineSets(setPrefix)
 	if err != nil {
 		return nil, err
 	}
-	for cursor != 0 {
-		var ks []string
-		ks, cursor, err = rd.RDB.Scan(rd.Ctx, cursor, prefix+"*", 100).Result()
-		if err != nil {
-			break
-		}
-		keys = append(keys, ks...)
+	loadBase := preloadUserBase(entries)
+	return buildOnlineRows(entries, authPrefix, loadBase), nil
+}
+
+// preloadUserBase fetches all user records in 1 batched query and returns a lookup closure.
+func preloadUserBase(entries []onlineEntry) func(uint64) (map[string]interface{}, bool) {
+	uids := make([]uint, 0, len(entries))
+	for _, e := range entries {
+		uids = append(uids, uint(e.uid))
+	}
+	var users []model.User
+	if len(uids) > 0 {
+		database.DB.Where("id IN ?", uids).Find(&users)
+	}
+	userByID := make(map[uint]*model.User, len(users))
+	for i := range users {
+		userByID[users[i].ID] = &users[i]
 	}
 
-	result := make([]map[string]interface{}, 0, len(keys))
-	for _, key := range keys {
-		idStr := strings.TrimPrefix(key, prefix)
+	return func(uid uint64) (map[string]interface{}, bool) {
+		u, ok := userByID[uint(uid)]
+		if !ok {
+			return nil, false
+		}
+		return map[string]interface{}{
+			"id":       u.ID,
+			"name":     u.Name,
+			"mobile":   u.Mobile,
+			"pic":      GetFullURL(u.Pic),
+			"loginCnt": u.LoginCnt,
+		}, true
+	}
+}
+
+// onlineEntry is a (setKey, uid, tokens) tuple built from Redis SCAN+SMEMBERS.
+type onlineEntry struct {
+	setKey string
+	uid    uint64
+	tokens []string
+}
+
+// scanOnlineSets SCANs all `s:` Set keys and returns per-user entries with
+// their current token members. No DB or per-token I/O.
+func scanOnlineSets(setPrefix string) ([]onlineEntry, error) {
+	var cursor uint64
+	var setKeys []string
+	for {
+		ks, c, err := rd.RDB.Scan(rd.Ctx, cursor, setPrefix+"*", 100).Result()
+		if err != nil {
+			return nil, err
+		}
+		setKeys = append(setKeys, ks...)
+		cursor = c
+		if cursor == 0 {
+			break
+		}
+	}
+
+	entries := make([]onlineEntry, 0, len(setKeys))
+	for _, setKey := range setKeys {
+		idStr := strings.TrimPrefix(setKey, setPrefix)
 		uid, _ := strconv.ParseUint(idStr, 10, 64)
 		if uid == 0 {
 			continue
 		}
-		// Get TTL as last active
-		ttl, _ := rd.RDB.TTL(rd.Ctx, key).Result()
-
-		var user model.User
-		if err := database.DB.First(&user, uid).Error; err != nil {
+		tokens, _ := rd.RDB.SMembers(rd.Ctx, setKey).Result()
+		if len(tokens) == 0 {
 			continue
 		}
-		result = append(result, map[string]interface{}{
-			"id":       user.ID,
-			"name":     user.Name,
-			"mobile":   user.Mobile,
-			"pic":      GetFullURL(user.Pic),
-			"loginCnt": user.LoginCnt,
-			"ttl":      int(ttl.Seconds()),
-		})
+		entries = append(entries, onlineEntry{setKey, uid, tokens})
 	}
-	return result, nil
+	return entries, nil
 }
 
-func ForceOfflineUser(idStr string) error {
+// buildOnlineRows takes the entries from scanOnlineSets, fetches per-token info
+// in a single pipelined round trip, joins with the per-user base info from
+// `loadBase`, and prunes dead token references from Sets.
+func buildOnlineRows(entries []onlineEntry, authPrefix string, loadBase func(uid uint64) (map[string]interface{}, bool)) []map[string]interface{} {
+	// Pipeline: for each token, GET a:{token} + TTL a:{token}
+	pipe := rd.RDB.Pipeline()
+	type cmd struct {
+		token string
+		get   *redis.StringCmd
+		ttl   *redis.DurationCmd
+	}
+	allCmds := make([]cmd, 0)
+	for _, e := range entries {
+		for _, t := range e.tokens {
+			allCmds = append(allCmds, cmd{
+				token: t,
+				get:   pipe.Get(rd.Ctx, authPrefix+t),
+				ttl:   pipe.TTL(rd.Ctx, authPrefix+t),
+			})
+		}
+	}
+	if len(allCmds) > 0 {
+		_, _ = pipe.Exec(rd.Ctx)
+	}
+
+	result := make([]map[string]interface{}, 0)
+	idx := 0
+	for _, e := range entries {
+		base, ok := loadBase(e.uid)
+		if !ok {
+			idx += len(e.tokens)
+			continue
+		}
+		var deadTokens []string
+		for _, t := range e.tokens {
+			jsonStr, err := allCmds[idx].get.Result()
+			ttl, _ := allCmds[idx].ttl.Result()
+			idx++
+			if err != nil {
+				deadTokens = append(deadTokens, t)
+				continue
+			}
+			var info struct {
+				LoginIP   string `json:"loginIp"`
+				LoginTime int64  `json:"loginTime"`
+				Device    string `json:"device"`
+			}
+			row := map[string]interface{}{}
+			for k, v := range base {
+				row[k] = v
+			}
+			row["token"] = t
+			row["ttl"] = int(ttl.Seconds())
+			if json.Unmarshal([]byte(jsonStr), &info) == nil {
+				row["loginIp"] = info.LoginIP
+				row["loginTime"] = info.LoginTime
+				row["device"] = info.Device
+			} else {
+				row["loginIp"] = ""
+				row["loginTime"] = int64(0)
+				row["device"] = ""
+			}
+			result = append(result, row)
+		}
+		if len(deadTokens) > 0 {
+			rd.RDB.SRem(rd.Ctx, e.setKey, anyToIface(deadTokens)...)
+		}
+	}
+	return result
+}
+
+func anyToIface(ss []string) []interface{} {
+	out := make([]interface{}, len(ss))
+	for i, s := range ss {
+		out[i] = s
+	}
+	return out
+}
+
+func ForceOfflineUser(idStr, token string) error {
 	_, prefix := tokenutil.GetTokenConfig("user")
-	if rd.RDB == nil {
+	if rd.RDB == nil || token == "" {
 		return nil
 	}
-	return rd.RDB.Del(rd.Ctx, prefix+idStr).Err()
+	rd.RDB.Del(rd.Ctx, prefix+"a:"+token)
+	rd.RDB.SRem(rd.Ctx, prefix+"s:"+idStr, token)
+	if count, _ := rd.RDB.SCard(rd.Ctx, prefix+"s:"+idStr).Result(); count == 0 {
+		rd.RDB.Del(rd.Ctx, prefix+"s:"+idStr)
+	}
+	return nil
+}
+
+// BatchForceOfflineUser 批量踢人。items = [{idStr, token}, ...]。
+// 用 Redis pipeline 一次完成所有 SREM + DEL，对每个用户最后 SCard==0 时再 DEL Set。
+func BatchForceOfflineUser(items []struct {
+	IDStr string `json:"idStr"`
+	Token string `json:"token"`
+}) (int, error) {
+	_, prefix := tokenutil.GetTokenConfig("user")
+	if rd.RDB == nil || len(items) == 0 {
+		return 0, nil
+	}
+	// Group tokens by user id (one user may have multiple devices selected)
+	byID := make(map[string][]string, len(items))
+	for _, it := range items {
+		if it.Token == "" {
+			continue
+		}
+		byID[it.IDStr] = append(byID[it.IDStr], it.Token)
+	}
+
+	pipe := rd.RDB.Pipeline()
+	for idStr, tokens := range byID {
+		authKeys := make([]string, len(tokens))
+		for i, t := range tokens {
+			authKeys[i] = prefix + "a:" + t
+		}
+		pipe.Del(rd.Ctx, authKeys...)
+		pipe.SRem(rd.Ctx, prefix+"s:"+idStr, anyToIface(tokens)...)
+	}
+	if _, err := pipe.Exec(rd.Ctx); err != nil && err != redis.Nil {
+		return 0, err
+	}
+	// 如果 Set 变空就 DEL（清理空 Set）
+	for idStr := range byID {
+		setKey := prefix + "s:" + idStr
+		if n, _ := rd.RDB.SCard(rd.Ctx, setKey).Result(); n == 0 {
+			rd.RDB.Del(rd.Ctx, setKey)
+		}
+	}
+	return len(items), nil
 }
 
 func GetOnlineAdmins() ([]map[string]interface{}, error) {
@@ -494,86 +675,140 @@ func GetOnlineAdmins() ([]map[string]interface{}, error) {
 	if rd.RDB == nil {
 		return []map[string]interface{}{}, nil
 	}
-	var cursor uint64
-	var keys []string
-	var err error
-	onlinePrefix := prefix + "o:"
-	keys, cursor, err = rd.RDB.Scan(rd.Ctx, cursor, onlinePrefix+"*", 100).Result()
+	setPrefix := prefix + "s:"
+	authPrefix := prefix + "a:"
+
+	entries, err := scanOnlineSets(setPrefix)
 	if err != nil {
 		return nil, err
 	}
-	for cursor != 0 {
-		var ks []string
-		ks, cursor, err = rd.RDB.Scan(rd.Ctx, cursor, onlinePrefix+"*", 100).Result()
-		if err != nil {
-			break
-		}
-		keys = append(keys, ks...)
-	}
-
-	result := make([]map[string]interface{}, 0, len(keys))
-	for _, key := range keys {
-		idStr := strings.TrimPrefix(key, onlinePrefix)
-		uid, _ := strconv.ParseUint(idStr, 10, 64)
-		if uid == 0 {
-			continue
-		}
-		ttl, _ := rd.RDB.TTL(rd.Ctx, key).Result()
-		token, _ := rd.RDB.Get(rd.Ctx, key).Result()
-
-		var admin model.Admin
-		if err := database.DB.First(&admin, uid).Error; err != nil {
-			continue
-		}
-		roleName := ""
-		if admin.RoleID > 0 {
-			var role model.Role
-			if err := database.DB.First(&role, admin.RoleID).Error; err == nil {
-				roleName = role.Name
-			}
-		}
-		result = append(result, map[string]interface{}{
-			"id":        admin.ID,
-			"name":      admin.Name,
-			"desc":      admin.Desc,
-			"pic":       GetFullURL(admin.Pic),
-			"type":      admin.Type,
-			"roleName":  roleName,
-			"token":     token,
-			"loginCnt":  admin.LoginCnt,
-			"ttl":       int(ttl.Seconds()),
-		})
-	}
-	return result, nil
+	loadBase := preloadAdminBase(entries)
+	return buildOnlineRows(entries, authPrefix, loadBase), nil
 }
 
-func ForceOfflineAdmin(idStr string) error {
+// preloadAdminBase fetches all admin records and their roles in 2 batched queries
+// (instead of 2N queries), and returns a lookup closure.
+func preloadAdminBase(entries []onlineEntry) func(uint64) (map[string]interface{}, bool) {
+	uids := make([]uint, 0, len(entries))
+	for _, e := range entries {
+		uids = append(uids, uint(e.uid))
+	}
+	var admins []model.Admin
+	if len(uids) > 0 {
+		database.DB.Where("id IN ?", uids).Find(&admins)
+	}
+	adminByID := make(map[uint]*model.Admin, len(admins))
+	for i := range admins {
+		adminByID[admins[i].ID] = &admins[i]
+	}
+
+	roleIDs := make([]uint, 0, len(admins))
+	for _, a := range admins {
+		if a.RoleID > 0 {
+			roleIDs = append(roleIDs, a.RoleID)
+		}
+	}
+	var roles []model.Role
+	if len(roleIDs) > 0 {
+		database.DB.Where("id IN ?", roleIDs).Find(&roles)
+	}
+	roleByID := make(map[uint]string, len(roles))
+	for _, r := range roles {
+		roleByID[r.ID] = r.Name
+	}
+
+	return func(uid uint64) (map[string]interface{}, bool) {
+		a, ok := adminByID[uint(uid)]
+		if !ok {
+			return nil, false
+		}
+		roleName := ""
+		if a.RoleID > 0 {
+			roleName = roleByID[a.RoleID]
+		}
+		return map[string]interface{}{
+			"id":       a.ID,
+			"name":     a.Name,
+			"desc":     a.Desc,
+			"pic":      GetFullURL(a.Pic),
+			"type":     a.Type,
+			"roleName": roleName,
+			"loginCnt": a.LoginCnt,
+		}, true
+	}
+}
+
+func ForceOfflineAdmin(idStr, token string) error {
 	_, prefix := tokenutil.GetTokenConfig("admin")
-	if rd.RDB == nil {
+	if rd.RDB == nil || token == "" {
 		return nil
 	}
-	// Get the token value to also delete the auth key
-	token, err := rd.RDB.Get(rd.Ctx, prefix+"o:"+idStr).Result()
-	if err != nil {
-		return nil
-	}
-	rd.RDB.Del(rd.Ctx, prefix+"o:"+idStr)
 	rd.RDB.Del(rd.Ctx, prefix+"a:"+token)
+	rd.RDB.SRem(rd.Ctx, prefix+"s:"+idStr, token)
+	if count, _ := rd.RDB.SCard(rd.Ctx, prefix+"s:"+idStr).Result(); count == 0 {
+		rd.RDB.Del(rd.Ctx, prefix+"s:"+idStr)
+	}
 	return nil
 }
 
-func AdminLogout(adminID uint) error {
+// BatchForceOfflineAdmin 批量踢管理员（pipeline 一次完成）。
+func BatchForceOfflineAdmin(items []struct {
+	IDStr string `json:"idStr"`
+	Token string `json:"token"`
+}) (int, error) {
+	_, prefix := tokenutil.GetTokenConfig("admin")
+	if rd.RDB == nil || len(items) == 0 {
+		return 0, nil
+	}
+	byID := make(map[string][]string, len(items))
+	for _, it := range items {
+		if it.Token == "" {
+			continue
+		}
+		byID[it.IDStr] = append(byID[it.IDStr], it.Token)
+	}
+
+	pipe := rd.RDB.Pipeline()
+	for idStr, tokens := range byID {
+		authKeys := make([]string, len(tokens))
+		for i, t := range tokens {
+			authKeys[i] = prefix + "a:" + t
+		}
+		pipe.Del(rd.Ctx, authKeys...)
+		pipe.SRem(rd.Ctx, prefix+"s:"+idStr, anyToIface(tokens)...)
+	}
+	if _, err := pipe.Exec(rd.Ctx); err != nil && err != redis.Nil {
+		return 0, err
+	}
+	for idStr := range byID {
+		setKey := prefix + "s:" + idStr
+		if n, _ := rd.RDB.SCard(rd.Ctx, setKey).Result(); n == 0 {
+			rd.RDB.Del(rd.Ctx, setKey)
+		}
+	}
+	return len(items), nil
+}
+
+func AdminLogout(adminID uint, currentToken string) error {
 	_, prefix := tokenutil.GetTokenConfig("admin")
 	if rd.RDB == nil {
 		return nil
 	}
 	idStr := strconv.Itoa(int(adminID))
-	token, err := rd.RDB.Get(rd.Ctx, prefix+"o:"+idStr).Result()
-	if err != nil {
+	if currentToken == "" {
+		// 兜底：无 token 时清空该 adminID 的所有 session
+		tokens, _ := rd.RDB.SMembers(rd.Ctx, prefix+"s:"+idStr).Result()
+		for _, t := range tokens {
+			rd.RDB.Del(rd.Ctx, prefix+"a:"+t)
+		}
+		rd.RDB.Del(rd.Ctx, prefix+"s:"+idStr)
 		return nil
 	}
-	rd.RDB.Del(rd.Ctx, prefix+"o:"+idStr)
-	rd.RDB.Del(rd.Ctx, prefix+"a:"+token)
+	rd.RDB.Del(rd.Ctx, prefix+"a:"+currentToken)
+	rd.RDB.SRem(rd.Ctx, prefix+"s:"+idStr, currentToken)
+	if count, _ := rd.RDB.SCard(rd.Ctx, prefix+"s:"+idStr).Result(); count == 0 {
+		rd.RDB.Del(rd.Ctx, prefix+"s:"+idStr)
+	}
 	return nil
 }
 
@@ -1210,6 +1445,12 @@ func RemoveEnrollUsers(enrollID string, userIDs []string) error {
 		}
 	}
 	return nil
+}
+
+func EditEnrollUserForms(enrollID, userID, forms string) error {
+	return database.DB.Model(&model.EnrollUser{}).
+		Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", enrollID, userID).
+		Update("enroll_user_forms", forms).Error
 }
 
 func SortNews(id, sortStr string) error {

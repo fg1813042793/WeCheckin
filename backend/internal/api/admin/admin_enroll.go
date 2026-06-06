@@ -408,6 +408,21 @@ func (h *AdminEnrollHandler) RemoveEnrollUsers(ctx context.Context, c *app.Reque
 	response.JSON(c, nil)
 }
 
+func (h *AdminEnrollHandler) EditEnrollUserForms(ctx context.Context, c *app.RequestContext) {
+	enrollID := c.PostForm("enrollId")
+	userID := c.PostForm("userId")
+	forms := c.PostForm("forms")
+	if enrollID == "" || userID == "" {
+		response.Fail(c, "参数错误")
+		return
+	}
+	if err := service.EditEnrollUserForms(enrollID, userID, forms); err != nil {
+		response.Fail(c, "更新失败")
+		return
+	}
+	response.JSON(c, nil)
+}
+
 // @Tags 打卡管理
 // @Summary 删除打卡记录
 // @Param id formData string true "记录ID"

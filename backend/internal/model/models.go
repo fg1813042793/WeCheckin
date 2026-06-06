@@ -415,6 +415,7 @@ type EventParticipant struct {
 
 	UserName  string `json:"userName" gorm:"-"`
 	UserAvatar string `json:"userAvatar" gorm:"-"`
+	Mobile    string `json:"mobile" gorm:"-"`
 	DeptName   string `json:"deptName" gorm:"-"`
 	TopDeptName string `json:"topDeptName" gorm:"-"`
 }

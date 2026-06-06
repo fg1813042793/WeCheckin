@@ -9,7 +9,6 @@ import (
 
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/jwtutil"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/tokenutil"
 )
@@ -18,11 +17,11 @@ func GetPhone(cloudID string) (string, error) {
 	return "", nil
 }
 
-func RegisterUser(userID, mobile, name, pic string, forms interface{}, status int) (map[string]interface{}, error) {
+func RegisterUser(userID, mobile, name, pic string, forms interface{}, status int, addIP, device string) (map[string]interface{}, error) {
 	var cnt int64
 	database.DB.Model(&model.User{}).Where("`user_mini_openid` = ?", userID).Count(&cnt)
 	if cnt > 0 {
-		return LoginUser(userID)
+		return LoginUser(userID, addIP, device)
 	}
 	database.DB.Model(&model.User{}).Where("`user_mobile` = ?", mobile).Count(&cnt)
 	if cnt > 0 {
@@ -50,7 +49,7 @@ func RegisterUser(userID, mobile, name, pic string, forms interface{}, status in
 	if err := database.DB.Create(&user).Error; err != nil {
 		return nil, err
 	}
-	return LoginUser(userID)
+	return LoginUser(userID, addIP, device)
 }
 
 func GetMyDetail(userID string) (*model.User, error) {
@@ -107,7 +106,7 @@ func EditBase(userID, mobile, name, pic string, forms interface{}) error {
 	return database.DB.Model(&model.User{}).Where("`user_mini_openid` = ?", userID).Updates(updates).Error
 }
 
-func LoginUser(userID string) (map[string]interface{}, error) {
+func LoginUser(userID, addIP, device string) (map[string]interface{}, error) {
 	var user model.User
 	err := database.DB.Where("`user_mini_openid` = ?", userID).First(&user).Error
 	if err != nil {
@@ -116,11 +115,8 @@ func LoginUser(userID string) (map[string]interface{}, error) {
 	database.DB.Model(&user).Update("user_login_time", database.Now())
 	database.DB.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)
 	setUserRole(&user)
-	token, err := jwtutil.GenerateToken(user.MiniOpenID, user.Role)
-	if err != nil {
-		return nil, err
-	}
-	storeUserToken(user.ID, token)
+	token := genRandomString(32)
+	storeUserToken(&user, token, addIP, device)
 	return map[string]interface{}{
 		"token": token,
 		"userInfo": map[string]interface{}{
@@ -134,7 +130,7 @@ func LoginUser(userID string) (map[string]interface{}, error) {
 	}, nil
 }
 
-func LoginByPwd(name, password string) (map[string]interface{}, error) {
+func LoginByPwd(name, password, addIP, device string) (map[string]interface{}, error) {
 	h := md5.Sum([]byte(password))
 	passwordMD5 := hex.EncodeToString(h[:])
 	var user model.User
@@ -145,11 +141,8 @@ func LoginByPwd(name, password string) (map[string]interface{}, error) {
 	database.DB.Model(&user).Update("user_login_time", database.Now())
 	database.DB.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)
 	setUserRole(&user)
-	token, err := jwtutil.GenerateToken(user.MiniOpenID, user.Role)
-	if err != nil {
-		return nil, err
-	}
-	storeUserToken(user.ID, token)
+	token := genRandomString(32)
+	storeUserToken(&user, token, addIP, device)
 	return map[string]interface{}{
 		"token": token,
 		"userInfo": map[string]interface{}{
@@ -163,12 +156,44 @@ func LoginByPwd(name, password string) (map[string]interface{}, error) {
 	}, nil
 }
 
-func storeUserToken(userID uint, token string) {
+func storeUserToken(user *model.User, token, addIP, device string) {
 	expire, prefix := tokenutil.GetTokenConfig("user")
 	if prefix == "" {
 		prefix = "user_token:"
 	}
-	if rd.RDB != nil {
-		rd.RDB.Set(rd.Ctx, prefix+strconv.Itoa(int(userID)), token, expire)
+	if rd.RDB == nil {
+		return
 	}
+	keyAuth := prefix + "a:" + token
+	idStr := strconv.Itoa(int(user.ID))
+	keySet := prefix + "s:" + idStr
+
+	// 单端登录模式：踢掉同 userID 的所有旧 token
+	if tokenutil.IsUserSingleLogin() {
+		if oldTokens, _ := rd.RDB.SMembers(rd.Ctx, keySet).Result(); len(oldTokens) > 0 {
+			for _, t := range oldTokens {
+				if t != token {
+					rd.RDB.Del(rd.Ctx, prefix+"a:"+t)
+				}
+			}
+			rd.RDB.Del(rd.Ctx, keySet)
+		}
+	}
+
+	now := database.Now()
+	info := map[string]interface{}{
+		"id":         user.ID,
+		"name":       user.Name,
+		"mobile":     user.Mobile,
+		"miniOpenID": user.MiniOpenID,
+		"role":       user.Role,
+		"pic":        user.Pic,
+		"loginIp":    addIP,
+		"loginTime":  now,
+		"device":     device,
+	}
+	jsonBytes, _ := json.Marshal(info)
+	rd.RDB.Set(rd.Ctx, keyAuth, string(jsonBytes), expire)
+	rd.RDB.SAdd(rd.Ctx, keySet, token)
+	rd.RDB.Expire(rd.Ctx, keySet, expire*2)
 }

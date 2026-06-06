@@ -299,16 +299,133 @@ export const adminApi = {
   onlineUsers() {
     return request.get('/admin/user/online')
   },
-  forceOfflineUser(data: { id: string | number }) {
-    return request.post('/admin/user/force_offline', data)
-  },
   onlineAdmins() {
     return request.get('/admin/admin/online')
   },
-  forceOfflineAdmin(data: { id: string | number }) {
+  forceOfflineAdmin(data: { id: string | number, token: string }) {
     return request.post('/admin/admin/force_offline', data)
+  },
+  forceOfflineUser(data: { id: string | number, token: string }) {
+    return request.post('/admin/user/force_offline', data)
+  },
+  batchForceOfflineAdmin(items: { idStr: string | number, token: string }[]) {
+    return request.post('/admin/admin/batch_force_offline', items)
+  },
+  batchForceOfflineUser(items: { idStr: string | number, token: string }[]) {
+    return request.post('/admin/user/batch_force_offline', items)
   },
   adminLogout() {
     return request.post('/admin/admin/logout')
+  },
+  // Formkit (题型元信息 / schema 校验 / 表达式试算) — 已合并到 survey
+  formkitTypes() {
+    return request.get('/admin/survey/types')
+  },
+  formkitParseSchema(schema: string) {
+    return request.post('/admin/survey/schema/parse', { schema })
+  },
+  formkitEval(data: { expr: string; env: Record<string, any>; asBool?: boolean }) {
+    return request.post('/admin/survey/eval', data)
+  },
+  formkitReportEnroll(enrollId: string | number) {
+    return request.get('/admin/survey/report/enroll', { params: { enrollId } })
+  },
+  formkitReportEvent(eventId: string | number) {
+    return request.get('/admin/survey/report/event', { params: { eventId } })
+  },
+  // 题库 + 考试 (P7 → 已合并到 survey)
+  examQuestionList(params?: any) {
+    return request.get('/admin/survey/question_list', { params })
+  },
+  examQuestionInsert(data: any) {
+    return request.post('/admin/survey/question_insert', data)
+  },
+  examQuestionEdit(data: any) {
+    return request.post('/admin/survey/question_edit', data)
+  },
+  examQuestionDel(data: { id: number }) {
+    return request.post('/admin/survey/question_del', data)
+  },
+  examPaperList(params?: any) {
+    return request.get('/admin/survey/paper_list', { params })
+  },
+  examPaperDetail(id: number) {
+    return request.get('/admin/survey/paper_detail', { params: { id } })
+  },
+  examPaperInsert(data: any) {
+    return request.post('/admin/survey/paper_insert', data)
+  },
+  examPaperEdit(data: any) {
+    return request.post('/admin/survey/paper_edit', data)
+  },
+  examPaperDel(data: { id: number }) {
+    return request.post('/admin/survey/paper_del', data)
+  },
+  examList(params?: any) {
+    return request.get('/admin/survey/exam_list', { params })
+  },
+  examInsert(data: any) {
+    return request.post('/admin/survey/exam_insert', data)
+  },
+  examEdit(data: any) {
+    return request.post('/admin/survey/exam_edit', data)
+  },
+  examDel(data: { id: number }) {
+    return request.post('/admin/survey/exam_del', data)
+  },
+  examRecordList(params: { examId: number; page?: number; pageSize?: number }) {
+    return request.get('/admin/survey/record_list', { params })
+  },
+  examManualGrade(data: { recordId: number; qid: number; score: number }) {
+    return request.post('/admin/survey/manual_grade', data)
+  },
+  examPreviewGrade(data: { paperId: number; answers: Record<string, any> }) {
+    return request.post('/admin/survey/preview_grade', data)
+  },
+  // Survey 独立子系统
+  surveyList(params?: any) {
+    return request.get('/admin/survey/survey_list', { params })
+  },
+  surveyDetail(id: number) {
+    return request.get('/admin/survey/survey_detail', { params: { id } })
+  },
+  surveyInsert(data: any) {
+    return request.post('/admin/survey/survey_insert', data)
+  },
+  surveyEdit(data: any) {
+    return request.post('/admin/survey/survey_edit', data)
+  },
+  surveyDel(data: { id: number }) {
+    return request.post('/admin/survey/survey_del', data)
+  },
+  surveyStatus(data: { id: number; status: number }) {
+    return request.post('/admin/survey/survey_status', data)
+  },
+  surveyCopy(data: { id: number }) {
+    return request.post('/admin/survey/survey_copy', data)
+  },
+  surveyResponseList(params: { surveyId: number; page?: number; pageSize?: number }) {
+    return request.get('/admin/survey/response_list', { params })
+  },
+  surveyResponseDetail(id: number) {
+    return request.get('/admin/survey/response_detail', { params: { id } })
+  },
+  surveyResponseDel(data: { id: number }) {
+    return request.post('/admin/survey/response_del', data)
+  },
+  surveyStatistic(surveyId: number) {
+    return request.get('/admin/survey/statistic', { params: { surveyId } })
+  },
+  surveyChannelList(surveyId: number) {
+    return request.get('/admin/survey/channel_list', { params: { surveyId } })
+  },
+  surveyChannelInsert(data: any) {
+    return request.post('/admin/survey/channel_insert', data)
+  },
+  surveyChannelDel(data: { id: number }) {
+    return request.post('/admin/survey/channel_del', data)
+  },
+  surveyResponseExport(surveyId: number) {
+    return request.get('/admin/survey/response_export', { params: { surveyId }, responseType: 'blob' })
   }
 }

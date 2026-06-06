@@ -537,6 +537,7 @@ func GetEventParticipantList(eventID string) ([]model.EventParticipant, error) {
 			database.DB.Where("`user_mini_openid` = ?", list[i].MiniOpenID).First(&user)
 			list[i].UserName = user.Name
 			list[i].UserAvatar = GetFullURL(user.Pic)
+			list[i].Mobile = user.Mobile
 			if user.ID > 0 {
 				var ud model.UserDept
 				database.DB.Where("`user_dept_user_id` = ?", user.ID).First(&ud)
@@ -552,7 +553,19 @@ func GetEventParticipantList(eventID string) ([]model.EventParticipant, error) {
 }
 
 func DelEventParticipant(id string) error {
-	return database.DB.Where("`event_part_id` = ?", id).Delete(&model.EventParticipant{}).Error
+	return database.DB.Where("`id` = ?", id).Delete(&model.EventParticipant{}).Error
+}
+
+func EditEventParticipant(id, forms string) error {
+	updates := map[string]interface{}{}
+	if forms != "" {
+		updates["event_part_forms"] = forms
+		updates["event_part_edit_time"] = time.Now().UnixMilli()
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return database.DB.Model(&model.EventParticipant{}).Where("`id` = ?", id).Updates(updates).Error
 }
 
 func DelEventParticipants(ids []string) error {

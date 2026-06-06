@@ -23,7 +23,9 @@ func NewPassportHandler() *PassportHandler { return &PassportHandler{} }
 // @Router /passport/login [post]
 func (h *PassportHandler) Login(ctx context.Context, c *app.RequestContext) {
 	userID := c.PostForm("user_id")
-	data, err := service.LoginUser(userID)
+	addIP := c.ClientIP()
+	device := string(c.UserAgent())
+	data, err := service.LoginUser(userID, addIP, device)
 	if err != nil {
 		response.Fail(c, "登录失败")
 		return
@@ -40,7 +42,9 @@ func (h *PassportHandler) Login(ctx context.Context, c *app.RequestContext) {
 func (h *PassportHandler) LoginByPwd(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	pwd := c.PostForm("pwd")
-	data, err := service.LoginByPwd(name, pwd)
+	addIP := c.ClientIP()
+	device := string(c.UserAgent())
+	data, err := service.LoginByPwd(name, pwd, addIP, device)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -77,7 +81,9 @@ func (h *PassportHandler) Register(ctx context.Context, c *app.RequestContext) {
 	mobile := c.PostForm("mobile")
 	pic := c.PostForm("pic")
 	forms := c.PostForm("forms")
-	data, err := service.RegisterUser(userID, mobile, name, pic, forms, 1)
+	addIP := c.ClientIP()
+	device := string(c.UserAgent())
+	data, err := service.RegisterUser(userID, mobile, name, pic, forms, 1, addIP, device)
 	if err != nil {
 		response.Fail(c, "注册失败")
 		return
@@ -91,7 +97,8 @@ func (h *PassportHandler) Register(ctx context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /passport/my_detail [get]
 func (h *PassportHandler) GetMyDetail(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userIDVal, _ := c.Get("user_openid")
+	userID, _ := userIDVal.(string)
 	data, err := service.GetMyDetail(userID)
 	if err != nil {
 		response.Fail(c, "获取失败")
@@ -112,8 +119,9 @@ func (h *PassportHandler) EditBase(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
 	pic := c.PostForm("pic")
-	userID := c.PostForm("user_id")
 	forms := c.PostForm("forms")
+	userIDVal, _ := c.Get("user_openid")
+	userID, _ := userIDVal.(string)
 	err := service.EditBase(userID, mobile, name, pic, forms)
 	if err != nil {
 		response.Fail(c, "编辑失败")
@@ -124,10 +132,19 @@ func (h *PassportHandler) EditBase(ctx context.Context, c *app.RequestContext) {
 
 func (h *PassportHandler) Logout(ctx context.Context, c *app.RequestContext) {
 	userIDVal, _ := c.Get("user_id")
+	currentToken := string(c.Request.Header.Peek("Authorization"))
 	if userID, ok := userIDVal.(uint); ok {
 		_, prefix := tokenutil.GetTokenConfig("user")
-		if rd.RDB != nil {
-			rd.RDB.Del(rd.Ctx, prefix+strconv.Itoa(int(userID)))
+		if prefix == "" {
+			prefix = "user_token:"
+		}
+		if rd.RDB != nil && currentToken != "" {
+			idStr := strconv.Itoa(int(userID))
+			rd.RDB.Del(rd.Ctx, prefix+"a:"+currentToken)
+			rd.RDB.SRem(rd.Ctx, prefix+"s:"+idStr, currentToken)
+			if count, _ := rd.RDB.SCard(rd.Ctx, prefix+"s:"+idStr).Result(); count == 0 {
+				rd.RDB.Del(rd.Ctx, prefix+"s:"+idStr)
+			}
 		}
 	}
 	response.JSON(c, nil)

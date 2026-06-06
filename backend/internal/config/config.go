@@ -11,7 +11,6 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	CORS     CORSConfig     `mapstructure:"cors"`
 	Log      LogConfig      `mapstructure:"log"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Token    TokenConfig    `mapstructure:"token"`
 }
@@ -31,11 +30,6 @@ type TokenConfig struct {
 type TokenRoleConfig struct {
 	Expire      string `mapstructure:"expire"`
 	RedisPrefix string `mapstructure:"redis_prefix"`
-}
-
-type JWTConfig struct {
-	Secret string `mapstructure:"secret"`
-	Expire string `mapstructure:"expire"`
 }
 
 type LogConfig struct {

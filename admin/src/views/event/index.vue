@@ -669,20 +669,40 @@ async function showParticipants(row: any) {
 }
 
 function exportParticipants() {
-  const rows = [['用户', '部门', '顶级部门', '报名时间']]
+  const rows = [['用户ID(openid)', '用户昵称', '手机号', '头像', '部门', '顶级部门', '报名时间', '报名IP', '报名表单']]
   partList.value.forEach((p: any) => {
+    let formsStr = ''
+    if (p.forms) {
+      try {
+        const parsed = typeof p.forms === 'string' ? JSON.parse(p.forms) : p.forms
+        if (Array.isArray(parsed)) {
+          formsStr = parsed.map(v => v !== null && v !== undefined ? String(v) : '').join(' | ')
+        } else if (typeof parsed === 'object' && parsed) {
+          formsStr = Object.entries(parsed).map(([k, v]) => k + ':' + (v ?? '')).join(' | ')
+        } else {
+          formsStr = String(parsed)
+        }
+      } catch {
+        formsStr = String(p.forms)
+      }
+    }
     rows.push([
-      p.userName || p.miniOpenId || '',
+      p.miniOpenId || '',
+      p.userName || '',
+      p.mobile || '',
+      p.userAvatar || '',
       p.deptName || '',
       p.topDeptName || '',
       fmtTime(p._createTime),
+      p.EVENT_PART_ADD_IP || p.addIP || '',
+      formsStr,
     ])
   })
-  const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
+  const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = (partDialog.title.replace('参与者 - ', '') || '报名名单') + '.csv'
+  a.download = (partDialog.title.replace('参与者 - ', '') || '报名名单') + '-用户信息.csv'
   a.click()
   URL.revokeObjectURL(a.href)
 }

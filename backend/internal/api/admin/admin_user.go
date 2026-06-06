@@ -288,13 +288,52 @@ func (h *AdminUserHandler) GetOnlineUsers(ctx context.Context, c *app.RequestCon
 
 func (h *AdminUserHandler) ForceOfflineUser(ctx context.Context, c *app.RequestContext) {
 	idStr := c.PostForm("id")
+	token := c.PostForm("token")
 	if idStr == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := service.ForceOfflineUser(idStr); err != nil {
+	if err := service.ForceOfflineUser(idStr, token); err != nil {
 		response.Fail(c, "操作失败")
 		return
 	}
 	response.JSON(c, nil)
+}
+
+// @Tags 在线用户
+// @Summary 批量强制下线
+// @Param items body []object{idStr,token} true "items: [{idStr,token}, ...]"
+// @Success 200 {object} response.Resp
+// @Router /admin/user/batch_force_offline [post]
+func (h *AdminUserHandler) BatchForceOfflineUser(ctx context.Context, c *app.RequestContext) {
+	var items []struct {
+		IDStr string `json:"idStr"`
+		Token string `json:"token"`
+	}
+	if err := c.BindAndValidate(&items); err != nil || len(items) == 0 {
+		// 也支持 form 数组（兼容老调用）
+		ids := c.PostForm("ids")
+		tokens := c.PostForm("tokens")
+		if ids != "" && tokens != "" {
+			for i, id := range strings.Split(ids, ",") {
+				ts := strings.Split(tokens, ",")
+				if i < len(ts) {
+					items = append(items, struct {
+						IDStr string `json:"idStr"`
+						Token string `json:"token"`
+					}{id, ts[i]})
+				}
+			}
+		}
+	}
+	if len(items) == 0 {
+		response.Fail(c, "参数错误")
+		return
+	}
+	n, err := service.BatchForceOfflineUser(items)
+	if err != nil {
+		response.Fail(c, "操作失败")
+		return
+	}
+	response.JSON(c, map[string]int{"count": n})
 }

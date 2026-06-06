@@ -60,15 +60,26 @@
           <text class="detail-label">参与时间</text>
           <text class="detail-value">{{ detailUser.firstTime ? formatTime(detailUser.firstTime) : '-' }}</text>
         </view>
-        <view class="detail-section" v-if="detailUser.forms">
+        <view class="detail-section" v-if="formSchema.length">
           <text class="detail-section-title">报名表单</text>
-          <view class="form-row" v-for="(f, fi) in formDataArr(detailUser.forms)" :key="fi">
-            <text class="form-label">{{ f.label }}：</text>
-            <text class="form-value">{{ f.value || '-' }}</text>
+          <view class="form-edit-row" v-for="(field, idx) in formSchema" :key="idx">
+            <text class="form-label">{{ field.label }}<text v-if="field.required" class="required">*</text>：</text>
+            <input v-if="field.type === 'input' || field.type === 'text' || !field.type" v-model="editFormData[idx]" :placeholder="field.placeholder || '请输入'" class="form-input" />
+            <textarea v-else-if="field.type === 'textarea'" v-model="editFormData[idx]" :placeholder="field.placeholder || '请输入'" class="form-textarea" />
+            <picker v-else-if="field.type === 'select' || field.type === 'picker'" :range="field.options || []" @change="(e) => { editFormData[idx] = (field.options || [])[e.detail.value] }">
+              <view class="form-picker">{{ editFormData[idx] || (field.placeholder || '请选择') }}</view>
+            </picker>
+            <input v-else-if="field.type === 'number'" v-model="editFormData[idx]" type="number" :placeholder="field.placeholder || '请输入'" class="form-input" />
+            <input v-else v-model="editFormData[idx]" :placeholder="field.placeholder || '请输入'" class="form-input" />
           </view>
+        </view>
+        <view class="detail-section" v-else-if="detailUser.forms">
+          <text class="detail-section-title">报名表单</text>
+          <textarea v-model="editRawForms" class="form-textarea" placeholder="JSON 数组" />
         </view>
         <view class="detail-actions">
           <view class="detail-btn btn-remove" @click="confirmRemove">删除</view>
+          <view class="detail-btn btn-save" v-if="detailUser.forms" @click="saveUserForms">保存</view>
           <view class="detail-btn btn-close" @click="closeDetail">关闭</view>
         </view>
       </view>
@@ -89,13 +100,17 @@ export default {
       pageSize: 200,
       loading: false,
       hasMore: true,
-      detailUser: null
+      detailUser: null,
+      formSchema: [],
+      editFormData: [],
+      editRawForms: ''
     }
   },
 
   onLoad(options) {
     this.enrollId = options.enrollId
     this.loadAll()
+    this.loadFormSchema()
   },
 
   methods: {
@@ -161,7 +176,51 @@ export default {
 
     showUserDetail(item) {
       this.detailUser = item
+      let values = []
+      try { values = typeof item.forms === 'string' ? JSON.parse(item.forms || '[]') : (item.forms || []) } catch (e) {}
+      this.editFormData = this.formSchema.map((_, i) => values[i] !== undefined && values[i] !== null ? String(values[i]) : '')
+      this.editRawForms = !this.formSchema.length && item.forms ? item.forms : ''
       this.$refs.detailPopup.open()
+    },
+
+    async loadFormSchema() {
+      try {
+        const res = await adminApi.enrollDetail(this.enrollId)
+        const enroll = res.data || {}
+        let schema = []
+        try { schema = typeof enroll.forms === 'string' ? JSON.parse(enroll.forms || '[]') : (enroll.forms || []) } catch (e) {}
+        this.formSchema = Array.isArray(schema) ? schema : []
+      } catch (e) {
+        this.formSchema = []
+      }
+    },
+
+    async saveUserForms() {
+      if (!this.detailUser) return
+      try {
+        let formsStr
+        if (this.formSchema.length) {
+          for (let i = 0; i < this.formSchema.length; i++) {
+            if (this.formSchema[i].required && !this.editFormData[i]) {
+              uni.showToast({ title: '请填写' + this.formSchema[i].label, icon: 'none' })
+              return
+            }
+          }
+          formsStr = JSON.stringify(this.editFormData)
+        } else {
+          try { JSON.parse(this.editRawForms || '[]'); formsStr = this.editRawForms || '[]' } catch (e) {
+            uni.showToast({ title: '表单数据格式错误', icon: 'none' })
+            return
+          }
+        }
+        await adminApi.enrollUserFormsEdit({ enrollId: this.enrollId, userId: this.detailUser.userId, forms: formsStr })
+        this.detailUser.forms = formsStr
+        const idx = this.userList.findIndex(x => x.userId === this.detailUser.userId)
+        if (idx > -1) this.userList[idx].forms = formsStr
+        uni.showToast({ title: '已保存', icon: 'success' })
+      } catch (e) {
+        uni.showToast({ title: '保存失败', icon: 'none' })
+      }
     },
 
     formDataArr(formsStr) {
@@ -379,10 +438,16 @@ export default {
   padding: 8rpx 0;
 }
 
+.form-edit-row {
+  padding: 8rpx 0;
+}
+
 .form-label {
   font-size: 26rpx;
   color: #999;
   flex-shrink: 0;
+  display: block;
+  margin-bottom: 8rpx;
 }
 
 .form-value {
@@ -391,19 +456,50 @@ export default {
   margin-left: 8rpx;
 }
 
+.form-input {
+  width: 100%;
+  height: 64rpx;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+  padding: 0 16rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  width: 100%;
+  height: 120rpx;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+  padding: 12rpx 16rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+
+.form-picker {
+  height: 64rpx;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+  padding: 0 16rpx;
+  line-height: 64rpx;
+  font-size: 26rpx;
+  color: #999;
+}
+
+.required {
+  color: #fb454c;
+}
+
 .detail-actions {
   margin-top: 40rpx;
   display: flex;
-}
-.detail-actions .detail-btn {
-  margin-right: 20rpx;
-}
-.detail-actions .detail-btn:last-child {
-  margin-right: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16rpx;
 }
 
 .detail-btn {
-  padding: 16rpx 60rpx;
+  padding: 16rpx 44rpx;
   border-radius: 40rpx;
   font-size: 28rpx;
   text-align: center;
@@ -411,6 +507,11 @@ export default {
 
 .btn-remove {
   background-color: #fb454c;
+  color: #fff;
+}
+
+.btn-save {
+  background-color: #2b7ef5;
   color: #fff;
 }
 

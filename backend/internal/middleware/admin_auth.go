@@ -3,8 +3,6 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/utils"
@@ -36,15 +34,10 @@ func AdminAuth() app.HandlerFunc {
 			return
 		}
 
-		_, prefix := tokenutil.GetTokenConfig("admin")
-		if prefix == "" {
-			prefix = "admin_token:"
-		}
+		expire, prefix := tokenutil.GetTokenConfig("admin")
 
-		log.Printf("[AdminAuth] token=%q prefix=%q fullKey=%q", token, prefix, prefix+"a:"+token)
 		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
 		if err != nil {
-			log.Printf("[AdminAuth] Redis GET error: %v", err)
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
 				"msg":  "登录已过期或已被强制下线",
@@ -70,11 +63,9 @@ func AdminAuth() app.HandlerFunc {
 			return
 		}
 
-		// Slide TTL
-		expire, _ := tokenutil.GetTokenConfig("admin")
-		idStr := fmt.Sprintf("%d", info.ID)
+		// Slide TTL: only the a: key needs sliding on every request.
+		// The s: Set is refreshed when tokens are added/removed.
 		rd.RDB.Expire(rd.Ctx, prefix+"a:"+token, expire)
-		rd.RDB.Expire(rd.Ctx, prefix+"o:"+idStr, expire)
 
 		admin := &model.Admin{
 			ID:     info.ID,

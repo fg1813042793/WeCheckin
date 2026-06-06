@@ -49,6 +49,20 @@
           </view>
         </view>
 
+        <view class="item arrow" @click="goExam">
+          <view class="content">
+            <text class="icon-write my-icon-project"></text>
+            <text class="text-black">在线考试</text>
+          </view>
+        </view>
+
+        <view class="item arrow" @click="goSurvey">
+          <view class="content">
+            <text class="icon-form my-icon-project"></text>
+            <text class="text-black">问卷中心</text>
+          </view>
+        </view>
+
         <view class="item arrow" @click="goPage('/pages/my/my_fav')">
           <view class="content">
             <text class="icon-favor my-icon-project"></text>
@@ -199,6 +213,18 @@ export default {
 
     goAbout() {
       uni.navigateTo({ url: '/pages/about/about_index?key=SETUP_CONTENT_ABOUT' })
+    },
+
+    goExam() {
+      if (!this.userInfo) {
+        uni.navigateTo({ url: '/pages/login/login' })
+        return
+      }
+      uni.navigateTo({ url: '/pages/survey/exam/exam_index' })
+    },
+
+    goSurvey() {
+      uni.navigateTo({ url: '/pages/survey/index' })
     },
 
     clearCache() {

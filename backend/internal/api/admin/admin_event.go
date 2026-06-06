@@ -184,6 +184,20 @@ func (h *AdminEventHandler) DelEventParticipant(ctx context.Context, c *app.Requ
 	response.JSON(c, nil)
 }
 
+func (h *AdminEventHandler) EditEventParticipant(ctx context.Context, c *app.RequestContext) {
+	id := c.PostForm("id")
+	forms := c.PostForm("forms")
+	if id == "" {
+		response.Fail(c, "参数错误")
+		return
+	}
+	if err := service.EditEventParticipant(id, forms); err != nil {
+		response.Fail(c, "更新失败")
+		return
+	}
+	response.JSON(c, nil)
+}
+
 func (h *AdminEventHandler) DelEventParticipants(ctx context.Context, c *app.RequestContext) {
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
