@@ -41,6 +41,9 @@ token:
     expire: "24h"
     redis_prefix: "admin_token:"
 
+storage:
+  static_domain: ""
+
 oss:
   type: "aliyun"  # aliyun, tencent, local
   aliyun:

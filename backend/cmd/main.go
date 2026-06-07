@@ -30,9 +30,11 @@ import (
 	"wecheckin-backend/backend/internal/api/admin"
 	"wecheckin-backend/backend/internal/api/client"
 	"wecheckin-backend/backend/internal/config"
-	survey_api "wecheckin-backend/backend/internal/survey/api"
 	"wecheckin-backend/backend/internal/database"
+	exam_api "wecheckin-backend/backend/internal/exam/api"
 	"wecheckin-backend/backend/internal/middleware"
+	"wecheckin-backend/backend/internal/service"
+	survey_api "wecheckin-backend/backend/internal/survey/api"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
@@ -72,7 +74,7 @@ func main() {
 
 	h.Use(middleware.AccessLog())
 
-	url := swagger.URL("http://" + cfg.Server.Host + ":" + cfg.Server.Port + "/swagger/doc.json")
+	url := swagger.URL("/swagger/doc.json")
 	h.GET("/swagger", func(ctx context.Context, c *app.RequestContext) {
 		c.Redirect(302, []byte("/swagger/index.html"))
 	})
@@ -98,6 +100,7 @@ func main() {
 	aRole := admin.NewAdminRoleHandler()
 	aMenu := admin.NewAdminMenuHandler()
 	aSurvey := survey_api.NewAdminSurveyHandler()
+	aExam := exam_api.NewAdminExamHandler()
 
 	// ==================== Public routes (no auth) ====================
 	h.GET("/test/test", func(ctx context.Context, c *app.RequestContext) {
@@ -369,23 +372,19 @@ func main() {
 	adminGroup.GET("/survey/channel_list", aSurvey.ChannelList)
 	adminGroup.POST("/survey/channel_insert", aSurvey.ChannelInsert)
 	adminGroup.POST("/survey/channel_del", aSurvey.ChannelDel)
-	// 题库 / 试卷 / 考试 / 记录 (合并自 exam)
-	adminGroup.GET("/survey/question_list", aSurvey.ListQuestion)
-	adminGroup.POST("/survey/question_insert", aSurvey.InsertQuestion)
-	adminGroup.POST("/survey/question_edit", aSurvey.EditQuestion)
-	adminGroup.POST("/survey/question_del", aSurvey.DelQuestion)
-	adminGroup.GET("/survey/paper_list", aSurvey.ListPaper)
-	adminGroup.GET("/survey/paper_detail", aSurvey.GetPaperDetail)
-	adminGroup.POST("/survey/paper_insert", aSurvey.InsertPaper)
-	adminGroup.POST("/survey/paper_edit", aSurvey.EditPaper)
-	adminGroup.POST("/survey/paper_del", aSurvey.DelPaper)
-	adminGroup.GET("/survey/exam_list", aSurvey.ListExam)
-	adminGroup.POST("/survey/exam_insert", aSurvey.InsertExam)
-	adminGroup.POST("/survey/exam_edit", aSurvey.EditExam)
-	adminGroup.POST("/survey/exam_del", aSurvey.DelExam)
-	adminGroup.GET("/survey/record_list", aSurvey.ListRecord)
-	adminGroup.POST("/survey/manual_grade", aSurvey.ManualGrade)
-	adminGroup.POST("/survey/preview_grade", aSurvey.PreviewGrade)
+	adminGroup.POST("/survey/resource_upload", aSurvey.ResourceUpload)
+	adminGroup.GET("/survey/resource_list", aSurvey.ResourceList)
+	adminGroup.POST("/survey/resource_delete", aSurvey.ResourceDelete)
+	adminGroup.GET("/survey/question_bank_list", aSurvey.QuestionBankList)
+	adminGroup.POST("/survey/question_bank_insert", aSurvey.QuestionBankInsert)
+	adminGroup.POST("/survey/question_bank_edit", aSurvey.QuestionBankEdit)
+	adminGroup.POST("/survey/question_bank_del", aSurvey.QuestionBankDel)
+
+	// ==================== Exam 独立子系统（与 survey 完全分离）====================
+	adminGroup.GET("/exam/list", aExam.List)
+	adminGroup.GET("/exam/detail", aExam.Detail)
+	adminGroup.POST("/exam/save", aExam.Save)
+	adminGroup.POST("/exam/delete", aExam.Delete)
 
 	// ==================== File upload (public) ====================
 	uploadDir := "./uploads"
@@ -445,12 +444,22 @@ func main() {
 				thumbRelFile = "/uploads/" + dateDir + "/" + thumbName
 			}
 		}
-		response.JSON(c, utils.H{"url": relFile, "thumb": thumbRelFile, "path": filepath.Join(absUpload, relPath), "filename": filename})
+		response.JSON(c, utils.H{"url": relFile, "thumb": thumbRelFile, "path": filepath.Join(absUpload, relPath), "filename": filename, "domain": service.GetStaticDomain()})
 	})
 	absUpload, _ := filepath.Abs(uploadDir)
 	h.GET("/uploads/*filepath", func(ctx context.Context, c *app.RequestContext) {
 		c.File(filepath.Join(absUpload, c.Param("filepath")))
 	})
+
+	// Admin SPA (Vue 3 build from admin/dist)
+	adminDist := "../admin/dist"
+	if _, err := os.Stat(adminDist); err == nil {
+		h.Static("/assets", filepath.Join(adminDist, "assets"))
+		h.GET("/*any", func(ctx context.Context, c *app.RequestContext) {
+			c.File(filepath.Join(adminDist, "index.html"))
+		})
+		logger.Logger.Println("Admin SPA serving from", adminDist)
+	}
 
 	h.Spin()
 }

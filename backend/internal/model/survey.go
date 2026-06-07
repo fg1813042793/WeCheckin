@@ -3,31 +3,30 @@ package model
 // Survey 问卷/表单定义（SurveyKing 风格的独立子系统）
 // 一份 Survey = 一个 schema（题目配置）+ 投放设置 + 业务配置
 type Survey struct {
-	ID          uint   `gorm:"primaryKey;column:survey_id" json:"id"`
-	Title       string `gorm:"column:survey_title;size:255" json:"title"`              // 标题
-	Desc        string `gorm:"column:survey_desc;type:text" json:"description"`        // 描述
-	Schema      string `gorm:"column:survey_schema;type:text" json:"-"`                // formkit schema (JSON)
-	Category    string `gorm:"column:survey_category;size:64" json:"category"`         // 分类
-	Tags        string `gorm:"column:survey_tags;size:255" json:"tags"`                // 标签 (逗号)
-	Cover       string `gorm:"column:survey_cover;size:512" json:"cover"`              // 封面
-	Visibility  int    `gorm:"column:survey_visibility;default:0" json:"visibility"`   // 0=公开链接 1=登录可见 2=部门限定
-	AllowMulti  int    `gorm:"column:survey_allow_multi;default:0" json:"allowMulti"`  // 同一用户多次答
-	StartTime   int64  `gorm:"column:survey_start_time" json:"startTime"`              // ms
-	EndTime     int64  `gorm:"column:survey_end_time" json:"endTime"`                  // ms
-	MaxResponse int    `gorm:"column:survey_max_response;default:0" json:"maxResponse"`   // 0=不限
-	ShowResult  int    `gorm:"column:survey_show_result;default:0" json:"showResult"`     // 0=否 1=提交后可见
-	Anonymous   int    `gorm:"column:survey_anonymous;default:0" json:"anonymous"`         // 0=记录用户 1=匿名
-	DeptIDs     string `gorm:"column:survey_dept_ids;size:512" json:"deptIds"`            // 部门限定时的可见部门
-	QR          string `gorm:"column:survey_qr;size:512" json:"qr"`                      // 二维码 URL
-	Status      int    `gorm:"column:survey_status;default:1" json:"status"`             // 1=发布 0=停用
-	Mode        string `gorm:"column:survey_mode;size:16;default:'survey'" json:"mode"`  // survey/exam
-	Order       int    `gorm:"column:survey_order;default:0" json:"order"`
-	DeptID      uint   `gorm:"column:survey_dept_id;default:0" json:"deptId"`
-	CreateBy    uint   `gorm:"column:survey_create_by;default:0" json:"createBy"`
-	AddTime     int64  `gorm:"column:survey_add_time" json:"addTime"`
-	EditTime    int64  `gorm:"column:survey_edit_time" json:"editTime"`
-	// 答题/提交/考试 设置（JSON 对象，参考 SurveyKing ProjectSetting）
-	Settings string `gorm:"column:survey_settings;type:text" json:"settings"`
+	ID          uint   `gorm:"primaryKey;column:survey_id" json:"id" form:"id"`
+	Title       string `gorm:"column:survey_title;size:255" json:"title" form:"title"`              // 标题
+	Desc        string `gorm:"column:survey_desc;type:text" json:"description" form:"description"`  // 描述
+	Schema      string `gorm:"column:survey_schema;type:text" json:"-" form:"schema"`               // formkit schema (JSON)
+	Category    string `gorm:"column:survey_category;size:64" json:"category" form:"category"`      // 分类
+	Tags        string `gorm:"column:survey_tags;size:255" json:"tags" form:"tags"`                 // 标签 (逗号)
+	Cover       string `gorm:"column:survey_cover;size:512" json:"cover" form:"cover"`              // 封面
+	Visibility  int    `gorm:"column:survey_visibility;default:0" json:"visibility" form:"visibility"`
+	AllowMulti  int    `gorm:"column:survey_allow_multi;default:0" json:"allowMulti" form:"allowMulti"`
+	StartTime   int64  `gorm:"column:survey_start_time" json:"startTime" form:"startTime"`
+	EndTime     int64  `gorm:"column:survey_end_time" json:"endTime" form:"endTime"`
+	MaxResponse int    `gorm:"column:survey_max_response;default:0" json:"maxResponse" form:"maxResponse"`
+	ShowResult  int    `gorm:"column:survey_show_result;default:0" json:"showResult" form:"showResult"`
+	Anonymous   int    `gorm:"column:survey_anonymous;default:0" json:"anonymous" form:"anonymous"`
+	DeptIDs     string `gorm:"column:survey_dept_ids;size:512" json:"deptIds" form:"deptIds"`
+	QR          string `gorm:"column:survey_qr;size:512" json:"qr" form:"qr"`
+	Status      int    `gorm:"column:survey_status;default:1" json:"status" form:"status"`
+	Mode        string `gorm:"column:survey_mode;size:16;default:'survey'" json:"mode" form:"mode"`
+	Order       int    `gorm:"column:survey_order;default:0" json:"order" form:"order"`
+	DeptID      uint   `gorm:"column:survey_dept_id;default:0" json:"deptId" form:"deptId"`
+	CreateBy    uint   `gorm:"column:survey_create_by;default:0" json:"createBy" form:"createBy"`
+	AddTime     int64  `gorm:"column:survey_add_time" json:"addTime" form:"addTime"`
+	EditTime    int64  `gorm:"column:survey_edit_time" json:"editTime" form:"editTime"`
+	Settings string `gorm:"column:survey_settings;type:text" json:"settings" form:"settings"`
 }
 
 func (Survey) TableName() string { return "survey" }
@@ -82,3 +81,33 @@ type SurveyAILog struct {
 }
 
 func (SurveyAILog) TableName() string { return "survey_ai_log" }
+
+// SurveyResource 问卷资源（背景图、页眉图等）
+type SurveyResource struct {
+	ID       uint   `gorm:"primaryKey;column:survey_res_id" json:"id"`
+	SurveyID uint   `gorm:"column:survey_res_survey_id;index" json:"surveyId"`
+	Type     string `gorm:"column:survey_res_type;size:32" json:"type"` // bg / header
+	URL      string `gorm:"column:survey_res_url;size:512" json:"url"`
+	Filename string `gorm:"column:survey_res_filename;size:255" json:"filename"`
+	Path     string `gorm:"column:survey_res_path;size:512" json:"path"`
+	Domain   string `gorm:"column:survey_res_domain;size:255" json:"domain"`
+	AddTime  int64  `gorm:"column:survey_res_add_time" json:"addTime"`
+}
+
+func (SurveyResource) TableName() string { return "survey_resource" }
+
+// SurveyQuestion 问卷题库题目
+type SurveyQuestion struct {
+	ID       uint   `gorm:"primaryKey;column:survey_q_id" json:"id"`
+	Type     string `gorm:"column:survey_q_type;size:32" json:"type"`
+	Title    string `gorm:"column:survey_q_title;size:255" json:"title"`
+	Schema   string `gorm:"column:survey_q_schema;type:text" json:"schema"`       // 完整 formkit schema JSON
+	Category string `gorm:"column:survey_q_category;size:64" json:"category"`
+	Tags     string `gorm:"column:survey_q_tags;size:255" json:"tags"`
+	Status   int    `gorm:"column:survey_q_status;default:1" json:"status"`
+	DeptID   uint   `gorm:"column:survey_q_dept_id;default:0" json:"deptId"`
+	CreateBy uint   `gorm:"column:survey_q_create_by;default:0" json:"createBy"`
+	AddTime  int64  `gorm:"column:survey_q_add_time" json:"addTime"`
+}
+
+func (SurveyQuestion) TableName() string { return "survey_question" }

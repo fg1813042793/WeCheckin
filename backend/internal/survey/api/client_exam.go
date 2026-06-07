@@ -20,7 +20,12 @@ import (
 // ==================== 公共：题型试算 / 应用逻辑 / 校验 ====================
 
 // PublicValidate POST /survey/validate
-// 校验 answers 是否符合 schema（必填/类型特定），返回每题错误列表
+// @Tags 表单工具
+// @Summary 校验答案格式（通用）
+// @Param schema formData string true "Schema JSON"
+// @Param answers formData string true "答案JSON"
+// @Success 200 {object} response.Resp
+// @Router /survey/validate [post]
 func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestContext) {
 	var req struct {
 		Schema  string                 `json:"schema"`
@@ -58,7 +63,12 @@ func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestCo
 }
 
 // PublicApply POST /survey/apply
-// 在 answers 上跑 CalcValue 和 Logic，返回 new answers + states
+// @Tags 表单工具
+// @Summary 应用表单逻辑（通用）
+// @Param schema formData string true "Schema JSON"
+// @Param answers formData string true "答案JSON"
+// @Success 200 {object} response.Resp
+// @Router /survey/apply [post]
 func (h *ClientSurveyHandler) PublicApply(_ context.Context, c *app.RequestContext) {
 	var req struct {
 		Schema  string                 `json:"schema"`
@@ -82,6 +92,13 @@ func (h *ClientSurveyHandler) PublicApply(_ context.Context, c *app.RequestConte
 // ==================== Exam 用户端点 ====================
 
 // ListExam GET /survey/exam_list
+// @Tags 考试-客户端
+// @Summary 获取考试列表
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_list [get]
 func (h *ClientSurveyHandler) ListExam(_ context.Context, c *app.RequestContext) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
@@ -103,6 +120,11 @@ func (h *ClientSurveyHandler) ListExam(_ context.Context, c *app.RequestContext)
 }
 
 // ViewExam GET /survey/exam_view?id=
+// @Tags 考试-客户端
+// @Summary 查看考试详情
+// @Param id query int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_view [get]
 func (h *ClientSurveyHandler) ViewExam(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id == 0 {
@@ -145,6 +167,12 @@ func (h *ClientSurveyHandler) ViewExam(_ context.Context, c *app.RequestContext)
 }
 
 // StartExam GET /survey/exam_start?examId=
+// @Tags 考试-客户端
+// @Summary 开始考试
+// @Param examId query int true "考试ID"
+// @Param user_id query string false "用户ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_start [get]
 func (h *ClientSurveyHandler) StartExam(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -235,6 +263,12 @@ func (h *ClientSurveyHandler) StartExam(_ context.Context, c *app.RequestContext
 }
 
 // SaveAnswer POST /survey/exam_save_answer
+// @Tags 考试-客户端
+// @Summary 保存答题
+// @Param recordId formData int true "考试记录ID"
+// @Param answers formData string true "答案JSON"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_save_answer [post]
 func (h *ClientSurveyHandler) SaveAnswer(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -265,6 +299,12 @@ func (h *ClientSurveyHandler) SaveAnswer(_ context.Context, c *app.RequestContex
 }
 
 // SubmitExam POST /survey/exam_submit
+// @Tags 考试-客户端
+// @Summary 提交考试
+// @Param recordId formData int true "考试记录ID"
+// @Param answers formData string true "答案JSON"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_submit [post]
 func (h *ClientSurveyHandler) SubmitExam(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -335,6 +375,12 @@ func (h *ClientSurveyHandler) SubmitExam(_ context.Context, c *app.RequestContex
 }
 
 // GetExamRecord GET /survey/exam_record?id=
+// @Tags 考试-客户端
+// @Summary 考试记录详情
+// @Param id query int true "考试记录ID"
+// @Param user_id query string false "用户ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_record [get]
 func (h *ClientSurveyHandler) GetExamRecord(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -392,6 +438,11 @@ func (h *ClientSurveyHandler) GetExamRecord(_ context.Context, c *app.RequestCon
 }
 
 // MyExamRecords GET /survey/exam_my_records
+// @Tags 考试-客户端
+// @Summary 我的考试记录列表
+// @Param user_id query string false "用户ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/exam_my_records [get]
 func (h *ClientSurveyHandler) MyExamRecords(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))

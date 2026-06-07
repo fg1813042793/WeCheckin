@@ -53,6 +53,9 @@
             :questions="questions"
             @update:questions="questions = $event"
             @select="selectQuestion"
+            @remove="removeById"
+            @open-logic="selectQuestion"
+            @upload-bank="onUploadBank"
             :selected-id="selectedId"
           />
         </div>
@@ -174,6 +177,7 @@ const importInput = ref('')
 const categories = [
   { name: 'base', label: '基础' },
   { name: 'select', label: '选择' },
+  { name: 'fill', label: '填空' },
   { name: 'media', label: '媒体' },
   { name: 'layout', label: '布局' },
   { name: 'advanced', label: '高级' }
@@ -201,7 +205,7 @@ const envFromAnswers = computed(() => {
 })
 
 const hasOptions = (q: Question) => {
-  return ['select', 'radio', 'checkbox', 'picker'].includes(q.type)
+  return ['select', 'radio', 'checkbox', 'picker', 'judge', 'cascade', 'matrixRadio', 'matrixCheckbox'].includes(q.type)
 }
 
 onMounted(async () => {
@@ -221,6 +225,41 @@ const nextId = () => {
 
 const addQuestion = (t: TypeMeta) => {
   const id = nextId()
+  const props = t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {}
+  if (['select', 'radio', 'checkbox', 'picker', 'cascade'].includes(t.type)) {
+    props.options = [
+      { label: '选项A', value: 'A' },
+      { label: '选项B', value: 'B' },
+      { label: '选项C', value: 'C' },
+      { label: '选项D', value: 'D' },
+    ]
+  }
+  if (['matrixRadio', 'matrixCheckbox', 'matrixFillBlank'].includes(t.type)) {
+    props.rows = ['行1', '行2', '行3']
+    props.columns = ['列A', '列B']
+  }
+  if (t.type === 'matrixAuto') {
+    props.columns = [{ label: '姓名', type: 'input' }, { label: '数值', type: 'number' }]
+  }
+  if (t.type === 'judge') {
+    props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
+  }
+  if (t.type === 'number') {
+    props.min = undefined
+    props.max = undefined
+    props.decimalPlaces = 0
+  }
+  if (t.type === 'rating' || t.type === 'nps') {
+    props.maxRating = t.type === 'nps' ? 10 : 5
+    props.icon = 'star'
+  }
+  if (t.type === 'multiInput' || t.type === 'hInput') {
+    props.fields = [{ label: '填空1', placeholder: '' }, { label: '填空2', placeholder: '' }]
+  }
+  if (t.type === 'matrixAuto') {
+    props.minRows = 0
+    props.maxRows = 0
+  }
   const q: Question = {
     id,
     type: t.type,
@@ -228,7 +267,7 @@ const addQuestion = (t: TypeMeta) => {
     description: '',
     required: false,
     placeholder: (t.defaultProps && t.defaultProps.placeholder) || '',
-    props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {},
+    props,
     validate: [],
     logic: []
   }
@@ -263,6 +302,23 @@ const removeSelected = () => {
   if (!selectedId.value) return
   questions.value = questions.value.filter((q) => q.id !== selectedId.value)
   selectedId.value = null
+}
+
+const removeById = (id: string) => {
+  questions.value = questions.value.filter((q) => q.id !== id)
+  if (selectedId.value === id) selectedId.value = null
+}
+
+const onUploadBank = async (id: string) => {
+  const q = questions.value.find(x => x.id === id)
+  if (!q) return
+  try {
+    const { _existing, ...rest } = q
+    await adminApi.formkitSaveToBank(rest)
+    ElMessage.success('已上传到题库')
+  } catch (e: any) {
+    ElMessage.error(e?.msg || '上传失败')
+  }
 }
 
 const clearAll = () => {

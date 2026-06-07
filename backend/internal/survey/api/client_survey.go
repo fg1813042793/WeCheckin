@@ -32,6 +32,14 @@ func (h *ClientSurveyHandler) lazyInit() {
 }
 
 // List GET /survey/list
+// @Tags 问卷-客户端
+// @Summary 获取问卷列表
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Param category query string false "分类"
+// @Success 200 {object} response.Resp
+// @Router /survey/list [get]
 func (h *ClientSurveyHandler) List(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	page, _ := strconv.Atoi(c.Query("page"))
@@ -48,7 +56,11 @@ func (h *ClientSurveyHandler) List(_ context.Context, c *app.RequestContext) {
 }
 
 // Detail GET /survey/view?id=
-// 返回问卷的 schema（不含正确答案和后端配置）
+// @Tags 问卷-客户端
+// @Summary 查看问卷详情
+// @Param id query int true "问卷ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/view [get]
 func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	id, _ := strconv.Atoi(c.Query("id"))
@@ -134,6 +146,15 @@ func (h *ClientSurveyHandler) Validate(_ context.Context, c *app.RequestContext)
 }
 
 // Submit POST /survey/submit
+// @Tags 问卷-客户端
+// @Summary 提交答卷
+// @Param surveyId formData int true "问卷ID"
+// @Param answers formData string true "答案JSON"
+// @Param nickname formData string false "昵称"
+// @Param startTime formData int false "开始时间"
+// @Param device formData string false "设备信息"
+// @Success 200 {object} response.Resp
+// @Router /survey/submit [post]
 func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	var req struct {
@@ -166,6 +187,11 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 }
 
 // MyResponses GET /survey/my_responses
+// @Tags 问卷-客户端
+// @Summary 我的答卷列表
+// @Param user_id query string false "用户ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/my_responses [get]
 func (h *ClientSurveyHandler) MyResponses(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	uidVal, _ := c.Get("user_id")
@@ -182,6 +208,12 @@ func (h *ClientSurveyHandler) MyResponses(_ context.Context, c *app.RequestConte
 }
 
 // MyResponseDetail GET /survey/my_response?id=
+// @Tags 问卷-客户端
+// @Summary 查看答卷详情
+// @Param id query int true "答卷ID"
+// @Param user_id query string false "用户ID"
+// @Success 200 {object} response.Resp
+// @Router /survey/my_response [get]
 func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	uidVal, _ := c.Get("user_id")

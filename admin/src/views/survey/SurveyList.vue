@@ -165,8 +165,8 @@ async function load() {
       keyword: keyword.value, category: category.value,
       status: status.value === null ? -1 : status.value
     })
-    list.value = res.list || []
-    total.value = res.total || 0
+    list.value = res.data?.list || []
+    total.value = res.data?.total || 0
   } finally { loading.value = false }
 }
 

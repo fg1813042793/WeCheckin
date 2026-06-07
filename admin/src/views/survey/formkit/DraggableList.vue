@@ -1,108 +1,129 @@
 <template>
-  <div class="draggable-list">
+  <TransitionGroup name="drag" tag="div" class="draggable-list" :style="{ '--ph-h': phHeight + 'px' }">
     <div
       v-for="(q, idx) in questions"
       :key="q.id"
       class="question-card"
-      :class="{ selected: q.id === selectedId }"
+      :class="{ selected: q.id === selectedId, dragging: dragIndex === idx, 'drop-before': overIndex === idx && dragIndex !== idx }"
       @click="$emit('select', q.id)"
+      @dragover.prevent
+      @dragenter="onDragEnter(idx)"
+      @drop="onDrop(idx, $event)"
     >
       <div
         class="card-handle"
         draggable="true"
         @dragstart="onDragStart(idx, $event)"
-        @dragover.prevent
-        @drop="onDrop(idx, $event)"
+        @dragend="onDragEnd"
       >⠿</div>
-      <div class="card-index">{{ idx + 1 }}.</div>
+      <div v-if="q.type !== 'description' && q.type !== 'divider' && q.type !== 'pagination' && q.type !== 'questionSet'" class="card-index">{{ idx + 1 }}.</div>
       <div class="card-body" @click.stop="$emit('select', q.id)">
-        <div class="card-title">
-          <el-tag size="small" :type="tagType(q.type)">{{ typeName(q.type) }}</el-tag>
-          <span class="title-text">{{ q.title || '未命名题目' }}</span>
-          <el-tag v-if="q.required" type="danger" size="small" effect="plain">必填</el-tag>
-        </div>
-        <div v-if="q.description" class="card-desc">{{ q.description }}</div>
-      </div>
-      <div class="card-actions">
-        <el-tooltip content="删除" placement="top">
-          <el-button size="small" text type="danger" @click.stop="removeAt(idx)">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </el-button>
-        </el-tooltip>
+        <QuestionPreview
+          :q="q"
+          :editing="q.id === selectedId"
+          @update:title="v => patchQuestion(q.id, 'title', v)"
+          @update:description="v => patchQuestion(q.id, 'description', v)"
+          @remove="$emit('remove', q.id)"
+          @open-logic="$emit('open-logic', q.id)"
+          @copy="onCopy(q.id)"
+          @upload-bank="$emit('upload-bank', q.id)"
+          @select-option="(idx:number) => $emit('select-option', q.id, idx)"
+        />
       </div>
     </div>
-  </div>
+    <div
+      v-if="dragIndex >= 0" key="__tail__"
+      class="list-tail-zone"
+      :class="{ active: overIndex === questions.length }"
+      @dragover.prevent
+      @dragenter="onDragEnter(questions.length)"
+      @drop="onDrop(questions.length, $event)"
+    >
+      <span>拖到此处置底</span>
+    </div>
+  </TransitionGroup>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ questions: any[]; selectedId: string | null }>()
-const emit = defineEmits<{ select: [id: string]; 'update:questions': [q: any[]] }>()
+import { ref } from 'vue'
+import QuestionPreview from './QuestionPreview.vue'
 
-const typeName = (t: string) => {
-  const map: Record<string, string> = {
-    input: '单行文本',
-    text: '文本',
-    textarea: '多行',
-    number: '数字',
-    select: '下拉',
-    radio: '单选',
-    checkbox: '多选',
-    picker: '选择器',
-    rating: '评分',
-    date: '日期',
-    time: '时间',
-    dateRange: '日期范围',
-    file: '文件',
-    signature: '签名',
-    location: '位置',
-    phone: '手机',
-    email: '邮箱',
-    idCard: '身份证',
-    password: '密码',
-    switch: '开关',
-    matrixRadio: '矩阵单选',
-    autopop: '自动填充',
-    divider: '分割线',
-    description: '说明',
-    judge: '判断',
-    nps: 'NPS评分'
-  }
-  return map[t] || t
-}
-const tagType = (t: string) => {
-  const map: Record<string, string> = {
-    input: '', text: '', textarea: '', number: '',
-    select: 'warning', radio: 'warning', checkbox: 'warning', picker: 'warning', judge: 'warning',
-    rating: 'success', date: '', time: '', dateRange: '',
-    file: '', signature: '', location: '',
-    phone: '', email: '', idCard: '', password: '', switch: '',
-    matrixRadio: '', autopop: '',
-    divider: 'info', description: 'info',
-    nps: 'success'
-  }
-  return map[t] as any || ''
-}
+const props = defineProps<{ questions: any[]; selectedId: string | null; editing?: boolean }>()
+const emit = defineEmits<{
+  select: [id: string]
+  remove: [id: string]
+  'update:questions': [q: any[]]
+  'open-logic': [id: string]
+  'upload-bank': [id: string]
+  'select-option': [qId: string, optIdx: number]
+}>()
 
 let dragIndex = -1
+const overIndex = ref(-1)
+const phHeight = ref(54)
 
 const onDragStart = (idx: number, e: DragEvent) => {
   dragIndex = idx
+  overIndex.value = -1
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
+    const card = (e.target as HTMLElement)?.closest('.question-card') as HTMLElement
+    if (card) {
+      const rect = card.getBoundingClientRect()
+      phHeight.value = Math.max(rect.height - 4, 32)
+      e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top)
+    }
   }
 }
-
+const onDragEnd = () => {
+  dragIndex = -1
+  overIndex.value = -1
+}
+const onDragEnter = (idx: number) => {
+  if (dragIndex >= 0 && idx > dragIndex && idx === dragIndex + 1) {
+    overIndex.value = -1; return
+  }
+  overIndex.value = idx
+}
 const onDrop = (idx: number, _e: DragEvent) => {
-  if (dragIndex < 0 || dragIndex === idx) return
+  if (dragIndex < 0 || dragIndex === idx) {
+    dragIndex = -1; overIndex.value = -1; return
+  }
+  // 拖到自身下方一位等于没移动
+  if (idx > dragIndex && idx === dragIndex + 1) {
+    dragIndex = -1; overIndex.value = -1; return
+  }
   const arr = [...props.questions]
   const moved = arr.splice(dragIndex, 1)[0]
-  arr.splice(idx, 0, moved)
+  const target = idx > dragIndex ? idx - 1 : idx
+  arr.splice(target, 0, moved)
   emit('update:questions', arr)
   dragIndex = -1
+  overIndex.value = -1
 }
 
 const removeAt = (idx: number) => {
   const arr = props.questions.filter((_, i) => i !== idx)
+  emit('update:questions', arr)
+}
+
+let copyCounter = 0
+const onCopy = (id: string) => {
+  const src = props.questions.find(q => q.id === id)
+  if (!src) return
+  copyCounter++
+  const clone = JSON.parse(JSON.stringify(src))
+  clone.id = id + '_copy_' + copyCounter
+  clone.title = (clone.title || '题目') + ' (副本)'
+  const arr = [...props.questions]
+  const srcIdx = arr.findIndex(q => q.id === id)
+  arr.splice(srcIdx + 1, 0, clone)
+  emit('update:questions', arr)
+  emit('select', clone.id)
+}
+
+function patchQuestion(id: string, key: string, val: any) {
+  const arr = props.questions.map(q => q.id === id ? { ...q, [key]: val } : q)
   emit('update:questions', arr)
 }
 </script>
@@ -112,7 +133,20 @@ const removeAt = (idx: number) => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: relative;
 }
+/* TransitionGroup move animation */
+.drag-move,
+.drag-enter-active,
+.drag-leave-active {
+  transition: all 0.25s ease;
+}
+.drag-enter-from,
+.drag-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+.drag-leave-active { position: absolute; }
 .question-card {
   display: flex;
   align-items: flex-start;
@@ -120,7 +154,7 @@ const removeAt = (idx: number) => {
   border-radius: 8px;
   padding: 10px 12px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.25s ease;
   position: relative;
 }
 .question-card:hover {
@@ -128,6 +162,33 @@ const removeAt = (idx: number) => {
 }
 .question-card.selected {
   background: #fff5f5;
+}
+.question-card.dragging {
+  opacity: 0.3;
+  outline: 2px dashed #ddd;
+  outline-offset: -2px;
+}
+.question-card.drop-before {
+  margin-top: calc(var(--ph-h, 54px) + 10px);
+  position: relative;
+}
+.question-card.drop-before::after {
+  content: '释 放 到 此 位 置';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--ph-h, 54px) - 8px);
+  height: var(--ph-h, 54px);
+  border: 2px dashed #fb454c;
+  border-radius: 8px;
+  background: rgba(251, 69, 76, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fb454c;
+  font-size: 12px;
+  letter-spacing: 2px;
+  box-sizing: border-box;
 }
 .question-card::before {
   content: ''; position:absolute; left:0; top:4px; bottom:4px; width:3px;
@@ -159,27 +220,6 @@ const removeAt = (idx: number) => {
   flex: 1;
   min-width: 0;
 }
-.card-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.title-text {
-  font-size: 14px;
-  color: #303133;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.card-desc {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .card-actions {
   display: flex;
   gap: 2px;
@@ -191,4 +231,12 @@ const removeAt = (idx: number) => {
 .question-card.selected .card-actions {
   opacity: 1;
 }
+.list-tail-zone {
+  margin-top: 4px; border:2px dashed transparent; border-radius:8px; padding:12px;
+  text-align:center; color:#ccc; font-size:13px; transition:all 0.2s;
+}
+.list-tail-zone.active {
+  border-color:#fb454c; background:rgba(251,69,76,0.04); color:#fb454c; padding:32px 12px;
+}
+.tail-indicator { display:none; }
 </style>

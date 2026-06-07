@@ -70,8 +70,32 @@ func InitDatabase(host string, port int, user, password, dbname string) {
 	}
 
 	log.Println("Database initialized successfully")
+	migrateExamMenus()
 	seedMenus()
 	seedSetups()
+}
+
+// migrateExamMenus 将旧版 exam 菜单从 survey 迁移到独立子系统
+func migrateExamMenus() {
+	// 1. 删除旧版挂在 /survey 下的考试子菜单
+	DB.Where("`menu_path` LIKE ?", "/survey/exam/%").Delete(&model.Menu{})
+
+	// 2. 删除旧版挂在 /survey 下的考试相关按钮权限
+	var surveyMenu model.Menu
+	if err := DB.Where("`menu_path` = ?", "/survey").First(&surveyMenu).Error; err == nil {
+		oldPatterns := []string{"question:%", "paper:%", "exam:%", "record:%", "grade:%"}
+		for _, p := range oldPatterns {
+			DB.Where("`menu_parent_id` = ? AND `menu_perms` LIKE ?", surveyMenu.ID, p).Delete(&model.Menu{})
+		}
+		// 3. 更新 survey 目录的 perms 字段，去掉旧考试相关权限
+		DB.Model(&model.Menu{}).Where("`menu_path` = ?", "/survey").
+			Update("menu_perms", "survey:list,survey:add,survey:edit,survey:del,survey:status,survey:copy,response:list,response:del,response:export")
+	}
+
+	// 4. 删除旧的 /exam 相关菜单（如果有，避免与 seed 冲突）
+	DB.Where("`menu_path` = ?", "/exam").Delete(&model.Menu{})
+	DB.Where("`menu_path` = ?", "/exam/list").Delete(&model.Menu{})
+	DB.Where("`menu_path` LIKE ?", "/exam/%").Delete(&model.Menu{})
 }
 
 func seedSetups() {
@@ -129,6 +153,13 @@ func seedMenus() {
 		{Name: "菜单权限", Path: "/menu", Perms: "menu:list,menu:add,menu:edit,menu:del", Icon: "Grid", Sort: 11, Type: 1},
 		{Name: "系统配置", Path: "/setup", Perms: "setup:list,setup:edit", Icon: "Setting", Sort: 12, Type: 1},
 		{Name: "赛事活动", Path: "/event", Perms: "event:list,event:add,event:edit,event:del,event:status,event:vouch,event:top,event:users", Icon: "TrophyBase", Sort: 13, Type: 1},
+		{Name: "问卷调查", Path: "/survey", Perms: "survey:list,survey:add,survey:edit,survey:del,survey:status,survey:copy,response:list,response:del,response:export", Icon: "List", Sort: 14, Type: 0},
+		{Name: "问卷管理", Path: "/survey", Parent: "/survey", Sort: 1, Type: 1},
+		{Name: "答卷管理", Path: "/survey/responses", Parent: "/survey", Sort: 2, Type: 1},
+		{Name: "问卷统计", Path: "/survey/statistic", Parent: "/survey", Sort: 3, Type: 1},
+		// Online exam (independent subsystem, separated from survey)
+		{Name: "在线考试", Path: "/exam", Perms: "exam:list,exam:add,exam:edit,exam:del", Icon: "EditPen", Sort: 15, Type: 0},
+		{Name: "考试管理", Path: "/exam/list", Parent: "/exam", Sort: 1, Type: 1},
 		// Button permissions for each module (children of the corresponding parent menu)
 		{Name: "用户列表", Perms: "user:list", Parent: "/user", Sort: 1, Type: 2},
 		{Name: "用户新增", Perms: "user:add", Parent: "/user", Sort: 2, Type: 2},
@@ -181,6 +212,21 @@ func seedMenus() {
 		{Name: "推荐", Perms: "event:vouch", Parent: "/event", Sort: 6, Type: 2},
 		{Name: "置顶", Perms: "event:top", Parent: "/event", Sort: 7, Type: 2},
 		{Name: "参与用户", Perms: "event:users", Parent: "/event", Sort: 8, Type: 2},
+		// Survey buttons
+		{Name: "问卷列表", Perms: "survey:list", Parent: "/survey", Sort: 1, Type: 2},
+		{Name: "问卷新增", Perms: "survey:add", Parent: "/survey", Sort: 2, Type: 2},
+		{Name: "问卷编辑", Perms: "survey:edit", Parent: "/survey", Sort: 3, Type: 2},
+		{Name: "问卷删除", Perms: "survey:del", Parent: "/survey", Sort: 4, Type: 2},
+		{Name: "问卷状态管理", Perms: "survey:status", Parent: "/survey", Sort: 5, Type: 2},
+		{Name: "复制问卷", Perms: "survey:copy", Parent: "/survey", Sort: 6, Type: 2},
+		{Name: "答卷列表", Perms: "response:list", Parent: "/survey", Sort: 7, Type: 2},
+		{Name: "答卷删除", Perms: "response:del", Parent: "/survey", Sort: 8, Type: 2},
+		{Name: "导出答卷", Perms: "response:export", Parent: "/survey", Sort: 9, Type: 2},
+		// Exam buttons
+		{Name: "考试列表", Perms: "exam:list", Parent: "/exam", Sort: 1, Type: 2},
+		{Name: "考试新增", Perms: "exam:add", Parent: "/exam", Sort: 2, Type: 2},
+		{Name: "考试编辑", Perms: "exam:edit", Parent: "/exam", Sort: 3, Type: 2},
+		{Name: "考试删除", Perms: "exam:del", Parent: "/exam", Sort: 4, Type: 2},
 	}
 	for _, d := range defs {
 		if d.Type == 2 {
@@ -211,7 +257,7 @@ func seedMenus() {
 			if cnt > 0 {
 				continue
 			}
-			DB.Create(&model.Menu{
+			m := model.Menu{
 				Name:     d.Name,
 				Path:     d.Path,
 				Perms:    d.Perms,
@@ -221,7 +267,14 @@ func seedMenus() {
 				Type:     d.Type,
 				AddTime:  Now(),
 				EditTime: Now(),
-			})
+			}
+			if d.Parent != "" {
+				var parent model.Menu
+				if err := DB.Where("`menu_path` = ?", d.Parent).First(&parent).Error; err == nil {
+					m.ParentID = parent.ID
+				}
+			}
+			DB.Create(&m)
 		}
 	}
 }
@@ -258,6 +311,8 @@ func autoMigrate() error {
 		&model.SurveyResponse{},
 		&model.SurveyChannel{},
 		&model.SurveyAILog{},
+		&model.SurveyResource{},
+		&model.SurveyQuestion{},
 	)
 	if err != nil {
 		return err

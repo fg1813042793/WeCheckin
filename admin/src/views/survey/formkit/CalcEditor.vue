@@ -14,6 +14,7 @@
       计算结果将写入题目: <code>{{ modelValue.target }}</code>
     </div>
     <el-input
+      v-if="modelValue"
       v-model="modelValue.target"
       placeholder="目标题目 ID (留空则写入此题)"
       size="small"

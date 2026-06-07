@@ -1,5 +1,211 @@
 basePath: /
 definitions:
+  model.Exam:
+    properties:
+      addTime:
+        type: integer
+      createBy:
+        type: integer
+      deptId:
+        type: integer
+      duration:
+        description: 单人答题时长（分钟），0=不限
+        type: integer
+      endTime:
+        description: 结束时间 (ms)
+        type: integer
+      id:
+        type: integer
+      maxAttempts:
+        type: integer
+      order:
+        type: integer
+      paperId:
+        type: integer
+      publishDepts:
+        type: string
+      qr:
+        type: string
+      showScore:
+        description: 1=交卷后立即显示分数
+        type: integer
+      startTime:
+        description: 开始时间 (ms)
+        type: integer
+      status:
+        type: integer
+      title:
+        type: string
+    type: object
+  model.ExamPaper:
+    properties:
+      addTime:
+        type: integer
+      category:
+        type: string
+      createBy:
+        type: integer
+      deptId:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      passScore:
+        description: 及格分
+        type: integer
+      questionIds:
+        description: JSON 数组 [1,2,3]
+        type: string
+      showAnswer:
+        description: 1=交卷后立即显示答案
+        type: integer
+      shuffle:
+        description: 1=题目乱序
+        type: integer
+      status:
+        type: integer
+      timeLimit:
+        description: 答题时长（分钟）
+        type: integer
+      title:
+        type: string
+      totalScore:
+        type: integer
+    type: object
+  model.ExamQuestion:
+    properties:
+      addTime:
+        type: integer
+      analysis:
+        description: 解析
+        type: string
+      answer:
+        description: 正确答案（JSON：string/[]string）
+        type: string
+      category:
+        description: 分类
+        type: string
+      createBy:
+        type: integer
+      deptId:
+        description: 归属部门
+        type: integer
+      difficulty:
+        description: 1=易 2=中 3=难
+        type: integer
+      id:
+        type: integer
+      options:
+        description: JSON 数组 [{label,value}]
+        type: string
+      score:
+        description: 分值
+        type: integer
+      status:
+        description: 1=启用 0=停用
+        type: integer
+      tags:
+        description: 逗号分隔标签
+        type: string
+      title:
+        description: 题干
+        type: string
+      type:
+        description: input/select/radio/checkbox/textarea
+        type: string
+    type: object
+  model.Survey:
+    properties:
+      addTime:
+        type: integer
+      allowMulti:
+        description: 同一用户多次答
+        type: integer
+      anonymous:
+        description: 0=记录用户 1=匿名
+        type: integer
+      category:
+        description: 分类
+        type: string
+      cover:
+        description: 封面
+        type: string
+      createBy:
+        type: integer
+      deptId:
+        type: integer
+      deptIds:
+        description: 部门限定时的可见部门
+        type: string
+      description:
+        description: 描述
+        type: string
+      editTime:
+        type: integer
+      endTime:
+        description: ms
+        type: integer
+      id:
+        type: integer
+      maxResponse:
+        description: 0=不限
+        type: integer
+      mode:
+        description: survey/exam
+        type: string
+      order:
+        type: integer
+      qr:
+        description: 二维码 URL
+        type: string
+      settings:
+        description: 答题/提交/考试 设置（JSON 对象，参考 SurveyKing ProjectSetting）
+        type: string
+      showResult:
+        description: 0=否 1=提交后可见
+        type: integer
+      startTime:
+        description: ms
+        type: integer
+      status:
+        description: 1=发布 0=停用
+        type: integer
+      tags:
+        description: 标签 (逗号)
+        type: string
+      title:
+        description: 标题
+        type: string
+      visibility:
+        description: 0=公开链接 1=登录可见 2=部门限定
+        type: integer
+    type: object
+  model.SurveyChannel:
+    properties:
+      addTime:
+        type: integer
+      extra:
+        description: 渠道额外参数
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      status:
+        type: integer
+      submitCnt:
+        type: integer
+      surveyId:
+        type: integer
+      type:
+        description: link/qr/embed/shorturl
+        type: string
+      url:
+        type: string
+      visitCnt:
+        type: integer
+    type: object
   response.Resp:
     properties:
       code:
@@ -15,6 +221,25 @@ info:
   title: WeCheckin API
   version: "1.0"
 paths:
+  /admin/admin/batch_force_offline:
+    post:
+      parameters:
+      - description: 'items: [{idStr,token}, ...]'
+        in: body
+        name: items
+        required: true
+        schema:
+          items:
+            type: object
+          type: array
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量强制下线
+      tags:
+      - 在线管理员
   /admin/clear_vouch:
     get:
       responses:
@@ -75,6 +300,44 @@ paths:
       - 打卡管理
   /admin/enroll_edit:
     post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 标题
+        in: formData
+        name: title
+        type: string
+      - description: 分类ID
+        in: formData
+        name: cateId
+        type: string
+      - description: 分类名称
+        in: formData
+        name: cateName
+        type: string
+      - description: 开始时间
+        in: formData
+        name: startTime
+        type: string
+      - description: 结束时间
+        in: formData
+        name: endTime
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: string
+      - description: 封面图URL
+        in: formData
+        name: cover
+        type: string
+      - description: 描述
+        in: formData
+        name: desc
+        type: string
       responses:
         "200":
           description: OK
@@ -160,11 +423,6 @@ paths:
   /admin/enroll_join_list:
     get:
       parameters:
-      - description: 项目ID
-        in: query
-        name: enrollId
-        required: true
-        type: string
       - description: 页码
         in: query
         name: page
@@ -178,9 +436,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取打卡记录列表
-      tags:
-      - 打卡管理
   /admin/enroll_list:
     get:
       parameters:
@@ -202,6 +457,27 @@ paths:
           schema:
             $ref: '#/definitions/response.Resp'
       summary: 获取打卡项目列表
+      tags:
+      - 打卡管理
+  /admin/enroll_remove_user:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: enrollId
+        required: true
+        type: string
+      - description: 用户ID
+        in: formData
+        name: userId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 从打卡项目中移除用户（删除用户及所有打卡记录）
       tags:
       - 打卡管理
   /admin/enroll_sort:
@@ -265,6 +541,28 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 更新打卡表单
       tags:
+      - 打卡管理
+  /admin/enroll_user_list:
+    get:
+      parameters:
+      - description: 项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      - description: 项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取参与用户列表(含报名表单数据)
+      tags:
+      - 打卡管理
       - 打卡管理
   /admin/enroll_vouch:
     post:
@@ -717,6 +1015,780 @@ paths:
       summary: 设置内容配置
       tags:
       - 系统设置
+  /admin/survey/channel_del:
+    post:
+      parameters:
+      - description: 渠道ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除渠道
+      tags:
+      - 问卷管理
+  /admin/survey/channel_insert:
+    post:
+      parameters:
+      - description: 渠道数据
+        in: body
+        name: channel
+        required: true
+        schema:
+          $ref: '#/definitions/model.SurveyChannel'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 创建渠道
+      tags:
+      - 问卷管理
+  /admin/survey/channel_list:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 渠道列表
+      tags:
+      - 问卷管理
+  /admin/survey/eval:
+    post:
+      parameters:
+      - description: 表达式
+        in: formData
+        name: expr
+        required: true
+        type: string
+      - description: 环境变量JSON
+        in: formData
+        name: env
+        type: string
+      - description: 是否返回布尔值
+        in: formData
+        name: asBool
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 表达式试算
+      tags:
+      - 表单工具
+  /admin/survey/exam_del:
+    post:
+      parameters:
+      - description: 考试ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除考试
+      tags:
+      - 考试管理
+  /admin/survey/exam_edit:
+    post:
+      parameters:
+      - description: 考试数据（需包含ID）
+        in: body
+        name: exam
+        required: true
+        schema:
+          $ref: '#/definitions/model.Exam'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑考试
+      tags:
+      - 考试管理
+  /admin/survey/exam_insert:
+    post:
+      parameters:
+      - description: 考试数据
+        in: body
+        name: exam
+        required: true
+        schema:
+          $ref: '#/definitions/model.Exam'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 创建考试
+      tags:
+      - 考试管理
+  /admin/survey/exam_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试列表
+      tags:
+      - 考试管理
+  /admin/survey/export/enroll:
+    get:
+      parameters:
+      - description: 打卡项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 导出打卡CSV
+      tags:
+      - 表单工具
+  /admin/survey/export/event:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: eventId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 导出活动CSV
+      tags:
+      - 表单工具
+  /admin/survey/export/survey:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 导出问卷CSV
+      tags:
+      - 表单工具
+  /admin/survey/manual_grade:
+    post:
+      parameters:
+      - description: 考试记录ID
+        in: formData
+        name: recordId
+        required: true
+        type: integer
+      - description: 题目ID
+        in: formData
+        name: qid
+        required: true
+        type: integer
+      - description: 分数
+        in: formData
+        name: score
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 人工判分
+      tags:
+      - 考试管理
+  /admin/survey/paper_del:
+    post:
+      parameters:
+      - description: 试卷ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除试卷
+      tags:
+      - 试卷管理
+  /admin/survey/paper_detail:
+    get:
+      parameters:
+      - description: 试卷ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 试卷详情
+      tags:
+      - 试卷管理
+  /admin/survey/paper_edit:
+    post:
+      parameters:
+      - description: 试卷数据（需包含ID）
+        in: body
+        name: paper
+        required: true
+        schema:
+          $ref: '#/definitions/model.ExamPaper'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑试卷
+      tags:
+      - 试卷管理
+  /admin/survey/paper_insert:
+    post:
+      parameters:
+      - description: 试卷数据
+        in: body
+        name: paper
+        required: true
+        schema:
+          $ref: '#/definitions/model.ExamPaper'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 创建试卷
+      tags:
+      - 试卷管理
+  /admin/survey/paper_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 试卷列表
+      tags:
+      - 试卷管理
+  /admin/survey/preview_grade:
+    post:
+      parameters:
+      - description: 试卷ID
+        in: formData
+        name: paperId
+        required: true
+        type: integer
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 预判分
+      tags:
+      - 考试管理
+  /admin/survey/question_del:
+    post:
+      parameters:
+      - description: 题目ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除题目
+      tags:
+      - 题库管理
+  /admin/survey/question_edit:
+    post:
+      parameters:
+      - description: 题目数据（需包含ID）
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/model.ExamQuestion'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑题目
+      tags:
+      - 题库管理
+  /admin/survey/question_insert:
+    post:
+      parameters:
+      - description: 题目数据
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/model.ExamQuestion'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 创建题目
+      tags:
+      - 题库管理
+  /admin/survey/question_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 题目列表
+      tags:
+      - 题库管理
+  /admin/survey/record_list:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: examId
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试记录列表
+      tags:
+      - 考试管理
+  /admin/survey/report/enroll:
+    get:
+      parameters:
+      - description: 打卡项目ID
+        in: query
+        name: enrollId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 打卡报表
+      tags:
+      - 表单工具
+  /admin/survey/report/event:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: eventId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 活动报表
+      tags:
+      - 表单工具
+  /admin/survey/report/survey:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 问卷报表（schema-aware）
+      tags:
+      - 表单工具
+  /admin/survey/response_del:
+    post:
+      parameters:
+      - description: 答卷ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除答卷
+      tags:
+      - 问卷管理
+  /admin/survey/response_detail:
+    get:
+      parameters:
+      - description: 答卷ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 答卷详情
+      tags:
+      - 问卷管理
+  /admin/survey/response_export:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 导出答卷CSV
+      tags:
+      - 问卷管理
+  /admin/survey/response_list:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 答卷列表
+      tags:
+      - 问卷管理
+  /admin/survey/schema/parse:
+    post:
+      parameters:
+      - description: Schema JSON
+        in: formData
+        name: schema
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 解析 Schema
+      tags:
+      - 表单工具
+  /admin/survey/statistic:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 问卷统计
+      tags:
+      - 问卷管理
+  /admin/survey/survey_copy:
+    post:
+      parameters:
+      - description: 问卷ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 复制问卷
+      tags:
+      - 问卷管理
+  /admin/survey/survey_del:
+    post:
+      parameters:
+      - description: 问卷ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除问卷
+      tags:
+      - 问卷管理
+  /admin/survey/survey_detail:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 问卷详情
+      tags:
+      - 问卷管理
+  /admin/survey/survey_edit:
+    post:
+      parameters:
+      - description: 问卷数据（需包含ID）
+        in: body
+        name: survey
+        required: true
+        schema:
+          $ref: '#/definitions/model.Survey'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑问卷
+      tags:
+      - 问卷管理
+  /admin/survey/survey_insert:
+    post:
+      parameters:
+      - description: 问卷数据
+        in: body
+        name: survey
+        required: true
+        schema:
+          $ref: '#/definitions/model.Survey'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 创建问卷
+      tags:
+      - 问卷管理
+  /admin/survey/survey_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      - description: 状态(0草稿 1发布)
+        in: query
+        name: status
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 问卷列表
+      tags:
+      - 问卷管理
+  /admin/survey/survey_status:
+    post:
+      parameters:
+      - description: 问卷ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      - description: 状态(0草稿 1发布)
+        in: formData
+        name: status
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新问卷状态
+      tags:
+      - 问卷管理
+  /admin/survey/types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取题型列表
+      tags:
+      - 表单工具
+  /admin/user/batch_force_offline:
+    post:
+      parameters:
+      - description: 'items: [{idStr,token}, ...]'
+        in: body
+        name: items
+        required: true
+        schema:
+          items:
+            type: object
+          type: array
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量强制下线
+      tags:
+      - 在线用户
+  /admin/user_add:
+    post:
+      parameters:
+      - description: 用户名
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 手机号
+        in: formData
+        name: mobile
+        type: string
+      - description: 头像URL
+        in: formData
+        name: pic
+        type: string
+      - description: 扩展表单数据JSON
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增用户
+      tags:
+      - 用户管理
   /admin/user_data_del:
     post:
       responses:
@@ -779,6 +1851,80 @@ paths:
       summary: 获取用户详情
       tags:
       - 用户管理
+  /admin/user_detail_by_id:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 根据ID获取用户详情
+      tags:
+      - 用户管理
+  /admin/user_edit:
+    post:
+      parameters:
+      - description: 用户ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 用户名
+        in: formData
+        name: name
+        type: string
+      - description: 手机号
+        in: formData
+        name: mobile
+        type: string
+      - description: 头像URL
+        in: formData
+        name: pic
+        type: string
+      - description: 扩展表单数据JSON
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑用户
+      tags:
+      - 用户管理
+  /admin/user_form_field_save:
+    post:
+      parameters:
+      - description: 字段JSON数组
+        in: formData
+        name: fields
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 保存用户表单字段配置(全量替换)
+      tags:
+      - 用户管理
+  /admin/user_form_fields:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取用户表单字段列表
+      tags:
+      - 用户管理
   /admin/user_list:
     get:
       parameters:
@@ -823,6 +1969,31 @@ paths:
       summary: 设置用户状态
       tags:
       - 用户管理
+  /enroll/enroll_submit:
+    post:
+      parameters:
+      - description: 项目ID
+        in: formData
+        name: enroll_id
+        required: true
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        required: true
+        type: string
+      - description: 报名表单数据JSON
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 用户报名(提交报名表单)
+      tags:
+      - 报名
   /enroll/join:
     post:
       parameters:
@@ -879,6 +2050,15 @@ paths:
       - 报名
   /enroll/list:
     get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
       responses:
         "200":
           description: OK
@@ -887,12 +2067,73 @@ paths:
       summary: 获取报名列表
       tags:
       - 报名
+  /enroll/my_calendar:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      - description: 年月 (2026-06)
+        in: query
+        name: month
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的日历打卡数据
+      tags:
+      - 报名
+  /enroll/my_day_records:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      - description: 日期 (2026-06-01)
+        in: query
+        name: day
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我指定日期的打卡记录
+      tags:
+      - 报名
   /enroll/my_join_list:
     get:
       parameters:
       - description: 用户ID
         in: query
         name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的打卡记录
+      tags:
+      - 报名
+  /enroll/my_records:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: string
+      - description: 每页数量
+        in: query
+        name: pageSize
         type: string
       responses:
         "200":
@@ -924,6 +2165,10 @@ paths:
         in: query
         name: id
         required: true
+        type: string
+      - description: 用户ID
+        in: query
+        name: user_id
         type: string
       responses:
         "200":
@@ -1057,8 +2302,27 @@ paths:
       summary: 获取系统设置
       tags:
       - 首页
+  /news/cate_list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取新闻分类列表
+      tags:
+      - 新闻
   /news/list:
     get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
       responses:
         "200":
           description: OK
@@ -1126,6 +2390,27 @@ paths:
       summary: 用户登录
       tags:
       - 通行证
+  /passport/login_pwd:
+    post:
+      parameters:
+      - description: 用户名/手机号
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 密码
+        in: formData
+        name: pwd
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 密码登录
+      tags:
+      - 通行证
   /passport/my_detail:
     get:
       parameters:
@@ -1187,6 +2472,295 @@ paths:
       summary: 用户注册
       tags:
       - 通行证
+  /survey/apply:
+    post:
+      parameters:
+      - description: Schema JSON
+        in: formData
+        name: schema
+        required: true
+        type: string
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 应用表单逻辑（通用）
+      tags:
+      - 表单工具
+  /survey/exam_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取考试列表
+      tags:
+      - 考试-客户端
+  /survey/exam_my_records:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 我的考试记录列表
+      tags:
+      - 考试-客户端
+  /survey/exam_record:
+    get:
+      parameters:
+      - description: 考试记录ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试记录详情
+      tags:
+      - 考试-客户端
+  /survey/exam_save_answer:
+    post:
+      parameters:
+      - description: 考试记录ID
+        in: formData
+        name: recordId
+        required: true
+        type: integer
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 保存答题
+      tags:
+      - 考试-客户端
+  /survey/exam_start:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: examId
+        required: true
+        type: integer
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 开始考试
+      tags:
+      - 考试-客户端
+  /survey/exam_submit:
+    post:
+      parameters:
+      - description: 考试记录ID
+        in: formData
+        name: recordId
+        required: true
+        type: integer
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交考试
+      tags:
+      - 考试-客户端
+  /survey/exam_view:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看考试详情
+      tags:
+      - 考试-客户端
+  /survey/list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取问卷列表
+      tags:
+      - 问卷-客户端
+  /survey/my_response:
+    get:
+      parameters:
+      - description: 答卷ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看答卷详情
+      tags:
+      - 问卷-客户端
+  /survey/my_responses:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 我的答卷列表
+      tags:
+      - 问卷-客户端
+  /survey/submit:
+    post:
+      parameters:
+      - description: 问卷ID
+        in: formData
+        name: surveyId
+        required: true
+        type: integer
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      - description: 昵称
+        in: formData
+        name: nickname
+        type: string
+      - description: 开始时间
+        in: formData
+        name: startTime
+        type: integer
+      - description: 设备信息
+        in: formData
+        name: device
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交答卷
+      tags:
+      - 问卷-客户端
+  /survey/validate:
+    post:
+      parameters:
+      - description: Schema JSON
+        in: formData
+        name: schema
+        required: true
+        type: string
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 校验答案格式（通用）
+      tags:
+      - 表单工具
+  /survey/view:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看问卷详情
+      tags:
+      - 问卷-客户端
 schemes:
 - http
 swagger: "2.0"

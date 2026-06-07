@@ -15,6 +15,36 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/admin/batch_force_offline": {
+            "post": {
+                "tags": [
+                    "在线管理员"
+                ],
+                "summary": "批量强制下线",
+                "parameters": [
+                    {
+                        "description": "items: [{idStr,token}, ...]",
+                        "name": "items",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/clear_vouch": {
             "get": {
                 "tags": [
@@ -112,6 +142,63 @@ const docTemplate = `{
                     "打卡管理"
                 ],
                 "summary": "编辑打卡项目",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "项目ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "封面图URL",
+                        "name": "cover",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -240,18 +327,7 @@ const docTemplate = `{
         },
         "/admin/enroll_join_list": {
             "get": {
-                "tags": [
-                    "打卡管理"
-                ],
-                "summary": "获取打卡记录列表",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "项目ID",
-                        "name": "enrollId",
-                        "in": "query",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "页码",
@@ -299,6 +375,38 @@ const docTemplate = `{
                         "description": "关键词",
                         "name": "keyword",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/enroll_remove_user": {
+            "post": {
+                "tags": [
+                    "打卡管理"
+                ],
+                "summary": "从打卡项目中移除用户（删除用户及所有打卡记录）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "项目ID",
+                        "name": "enrollId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "userId",
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -394,6 +502,39 @@ const docTemplate = `{
                         "description": "表单数据",
                         "name": "forms",
                         "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/enroll_user_list": {
+            "get": {
+                "tags": [
+                    "打卡管理",
+                    "打卡管理"
+                ],
+                "summary": "获取参与用户列表(含报名表单数据)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "项目ID",
+                        "name": "enrollId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "项目ID",
+                        "name": "enrollId",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1104,6 +1245,1214 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/survey/channel_del": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "删除渠道",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "渠道ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/channel_insert": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "创建渠道",
+                "parameters": [
+                    {
+                        "description": "渠道数据",
+                        "name": "channel",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SurveyChannel"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/channel_list": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "渠道列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/eval": {
+            "post": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "表达式试算",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "表达式",
+                        "name": "expr",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "环境变量JSON",
+                        "name": "env",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否返回布尔值",
+                        "name": "asBool",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/exam_del": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "删除考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/exam_edit": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "编辑考试",
+                "parameters": [
+                    {
+                        "description": "考试数据（需包含ID）",
+                        "name": "exam",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Exam"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/exam_insert": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "创建考试",
+                "parameters": [
+                    {
+                        "description": "考试数据",
+                        "name": "exam",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Exam"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/exam_list": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/export/enroll": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "导出打卡CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "打卡项目ID",
+                        "name": "enrollId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/export/event": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "导出活动CSV",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/export/survey": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "导出问卷CSV",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/manual_grade": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "人工判分",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试记录ID",
+                        "name": "recordId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "题目ID",
+                        "name": "qid",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "分数",
+                        "name": "score",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/paper_del": {
+            "post": {
+                "tags": [
+                    "试卷管理"
+                ],
+                "summary": "删除试卷",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "试卷ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/paper_detail": {
+            "get": {
+                "tags": [
+                    "试卷管理"
+                ],
+                "summary": "试卷详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "试卷ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/paper_edit": {
+            "post": {
+                "tags": [
+                    "试卷管理"
+                ],
+                "summary": "编辑试卷",
+                "parameters": [
+                    {
+                        "description": "试卷数据（需包含ID）",
+                        "name": "paper",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ExamPaper"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/paper_insert": {
+            "post": {
+                "tags": [
+                    "试卷管理"
+                ],
+                "summary": "创建试卷",
+                "parameters": [
+                    {
+                        "description": "试卷数据",
+                        "name": "paper",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ExamPaper"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/paper_list": {
+            "get": {
+                "tags": [
+                    "试卷管理"
+                ],
+                "summary": "试卷列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/preview_grade": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "预判分",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "试卷ID",
+                        "name": "paperId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/question_del": {
+            "post": {
+                "tags": [
+                    "题库管理"
+                ],
+                "summary": "删除题目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "题目ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/question_edit": {
+            "post": {
+                "tags": [
+                    "题库管理"
+                ],
+                "summary": "编辑题目",
+                "parameters": [
+                    {
+                        "description": "题目数据（需包含ID）",
+                        "name": "question",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ExamQuestion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/question_insert": {
+            "post": {
+                "tags": [
+                    "题库管理"
+                ],
+                "summary": "创建题目",
+                "parameters": [
+                    {
+                        "description": "题目数据",
+                        "name": "question",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ExamQuestion"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/question_list": {
+            "get": {
+                "tags": [
+                    "题库管理"
+                ],
+                "summary": "题目列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/record_list": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试记录列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/report/enroll": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "打卡报表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "打卡项目ID",
+                        "name": "enrollId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/report/event": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "活动报表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/report/survey": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "问卷报表（schema-aware）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/response_del": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "删除答卷",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "答卷ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/response_detail": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "答卷详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "答卷ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/response_export": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "导出答卷CSV",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/response_list": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "答卷列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/schema/parse": {
+            "post": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "解析 Schema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Schema JSON",
+                        "name": "schema",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/statistic": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "问卷统计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_copy": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "复制问卷",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_del": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "删除问卷",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_detail": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "问卷详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_edit": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "编辑问卷",
+                "parameters": [
+                    {
+                        "description": "问卷数据（需包含ID）",
+                        "name": "survey",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Survey"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_insert": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "创建问卷",
+                "parameters": [
+                    {
+                        "description": "问卷数据",
+                        "name": "survey",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Survey"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_list": {
+            "get": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "问卷列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(0草稿 1发布)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/survey_status": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "更新问卷状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(0草稿 1发布)",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/types": {
+            "get": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "获取题型列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/batch_force_offline": {
+            "post": {
+                "tags": [
+                    "在线用户"
+                ],
+                "summary": "批量强制下线",
+                "parameters": [
+                    {
+                        "description": "items: [{idStr,token}, ...]",
+                        "name": "items",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user_add": {
+            "post": {
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "新增用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "头像URL",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展表单数据JSON",
+                        "name": "forms",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/user_data_del": {
             "post": {
                 "tags": [
@@ -1202,6 +2551,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/user_detail_by_id": {
+            "get": {
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "根据ID获取用户详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user_edit": {
+            "post": {
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "编辑用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "头像URL",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展表单数据JSON",
+                        "name": "forms",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user_form_field_save": {
+            "post": {
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "保存用户表单字段配置(全量替换)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "字段JSON数组",
+                        "name": "fields",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user_form_fields": {
+            "get": {
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "获取用户表单字段列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/user_list": {
             "get": {
                 "tags": [
@@ -1258,6 +2722,44 @@ const docTemplate = `{
                         "name": "status",
                         "in": "formData",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/enroll/enroll_submit": {
+            "post": {
+                "tags": [
+                    "报名"
+                ],
+                "summary": "用户报名(提交报名表单)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "项目ID",
+                        "name": "enroll_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单数据JSON",
+                        "name": "forms",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1358,6 +2860,80 @@ const docTemplate = `{
                     "报名"
                 ],
                 "summary": "获取报名列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/enroll/my_calendar": {
+            "get": {
+                "tags": [
+                    "报名"
+                ],
+                "summary": "获取我的日历打卡数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "年月 (2026-06)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/enroll/my_day_records": {
+            "get": {
+                "tags": [
+                    "报名"
+                ],
+                "summary": "获取我指定日期的打卡记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "日期 (2026-06-01)",
+                        "name": "day",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1379,6 +2955,42 @@ const docTemplate = `{
                         "type": "string",
                         "description": "用户ID",
                         "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/enroll/my_records": {
+            "get": {
+                "tags": [
+                    "报名"
+                ],
+                "summary": "获取我的打卡记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
                         "in": "query"
                     }
                 ],
@@ -1429,6 +3041,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1632,12 +3250,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/news/cate_list": {
+            "get": {
+                "tags": [
+                    "新闻"
+                ],
+                "summary": "获取新闻分类列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/news/list": {
             "get": {
                 "tags": [
                     "新闻"
                 ],
                 "summary": "获取新闻列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1726,6 +3374,38 @@ const docTemplate = `{
                         "type": "string",
                         "description": "用户ID",
                         "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/passport/login_pwd": {
+            "post": {
+                "tags": [
+                    "通行证"
+                ],
+                "summary": "密码登录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名/手机号",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "密码",
+                        "name": "pwd",
                         "in": "formData",
                         "required": true
                     }
@@ -1833,9 +3513,748 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/survey/apply": {
+            "post": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "应用表单逻辑（通用）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Schema JSON",
+                        "name": "schema",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_list": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "获取考试列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_my_records": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "我的考试记录列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_record": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "考试记录详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试记录ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_save_answer": {
+            "post": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "保存答题",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试记录ID",
+                        "name": "recordId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_start": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "开始考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_submit": {
+            "post": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "提交考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试记录ID",
+                        "name": "recordId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/exam_view": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "查看考试详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/list": {
+            "get": {
+                "tags": [
+                    "问卷-客户端"
+                ],
+                "summary": "获取问卷列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/my_response": {
+            "get": {
+                "tags": [
+                    "问卷-客户端"
+                ],
+                "summary": "查看答卷详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "答卷ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/my_responses": {
+            "get": {
+                "tags": [
+                    "问卷-客户端"
+                ],
+                "summary": "我的答卷列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/submit": {
+            "post": {
+                "tags": [
+                    "问卷-客户端"
+                ],
+                "summary": "提交答卷",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "昵称",
+                        "name": "nickname",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "设备信息",
+                        "name": "device",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/validate": {
+            "post": {
+                "tags": [
+                    "表单工具"
+                ],
+                "summary": "校验答案格式（通用）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Schema JSON",
+                        "name": "schema",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/survey/view": {
+            "get": {
+                "tags": [
+                    "问卷-客户端"
+                ],
+                "summary": "查看问卷详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "model.Exam": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "duration": {
+                    "description": "单人答题时长（分钟），0=不限",
+                    "type": "integer"
+                },
+                "endTime": {
+                    "description": "结束时间 (ms)",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "maxAttempts": {
+                    "type": "integer"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "paperId": {
+                    "type": "integer"
+                },
+                "publishDepts": {
+                    "type": "string"
+                },
+                "qr": {
+                    "type": "string"
+                },
+                "showScore": {
+                    "description": "1=交卷后立即显示分数",
+                    "type": "integer"
+                },
+                "startTime": {
+                    "description": "开始时间 (ms)",
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ExamPaper": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "passScore": {
+                    "description": "及格分",
+                    "type": "integer"
+                },
+                "questionIds": {
+                    "description": "JSON 数组 [1,2,3]",
+                    "type": "string"
+                },
+                "showAnswer": {
+                    "description": "1=交卷后立即显示答案",
+                    "type": "integer"
+                },
+                "shuffle": {
+                    "description": "1=题目乱序",
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "timeLimit": {
+                    "description": "答题时长（分钟）",
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "totalScore": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.ExamQuestion": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "analysis": {
+                    "description": "解析",
+                    "type": "string"
+                },
+                "answer": {
+                    "description": "正确答案（JSON：string/[]string）",
+                    "type": "string"
+                },
+                "category": {
+                    "description": "分类",
+                    "type": "string"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "deptId": {
+                    "description": "归属部门",
+                    "type": "integer"
+                },
+                "difficulty": {
+                    "description": "1=易 2=中 3=难",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "options": {
+                    "description": "JSON 数组 [{label,value}]",
+                    "type": "string"
+                },
+                "score": {
+                    "description": "分值",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "1=启用 0=停用",
+                    "type": "integer"
+                },
+                "tags": {
+                    "description": "逗号分隔标签",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "题干",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "input/select/radio/checkbox/textarea",
+                    "type": "string"
+                }
+            }
+        },
+        "model.Survey": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "allowMulti": {
+                    "description": "同一用户多次答",
+                    "type": "integer"
+                },
+                "anonymous": {
+                    "description": "0=记录用户 1=匿名",
+                    "type": "integer"
+                },
+                "category": {
+                    "description": "分类",
+                    "type": "string"
+                },
+                "cover": {
+                    "description": "封面",
+                    "type": "string"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "deptIds": {
+                    "description": "部门限定时的可见部门",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "描述",
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "endTime": {
+                    "description": "ms",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "maxResponse": {
+                    "description": "0=不限",
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "survey/exam",
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "qr": {
+                    "description": "二维码 URL",
+                    "type": "string"
+                },
+                "settings": {
+                    "description": "答题/提交/考试 设置（JSON 对象，参考 SurveyKing ProjectSetting）",
+                    "type": "string"
+                },
+                "showResult": {
+                    "description": "0=否 1=提交后可见",
+                    "type": "integer"
+                },
+                "startTime": {
+                    "description": "ms",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "1=发布 0=停用",
+                    "type": "integer"
+                },
+                "tags": {
+                    "description": "标签 (逗号)",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "标题",
+                    "type": "string"
+                },
+                "visibility": {
+                    "description": "0=公开链接 1=登录可见 2=部门限定",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.SurveyChannel": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "extra": {
+                    "description": "渠道额外参数",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "submitCnt": {
+                    "type": "integer"
+                },
+                "surveyId": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "link/qr/embed/shorturl",
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "visitCnt": {
+                    "type": "integer"
+                }
+            }
+        },
         "response.Resp": {
             "type": "object",
             "properties": {

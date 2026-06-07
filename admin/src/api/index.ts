@@ -333,6 +333,9 @@ export const adminApi = {
   formkitReportEvent(eventId: string | number) {
     return request.get('/admin/survey/report/event', { params: { eventId } })
   },
+  formkitSaveToBank(data: any) {
+    return request.post('/admin/survey/question_insert', { ...data, fromFormkit: true })
+  },
   // 题库 + 考试 (P7 → 已合并到 survey)
   examQuestionList(params?: any) {
     return request.get('/admin/survey/question_list', { params })
@@ -351,36 +354,6 @@ export const adminApi = {
   },
   examPaperDetail(id: number) {
     return request.get('/admin/survey/paper_detail', { params: { id } })
-  },
-  examPaperInsert(data: any) {
-    return request.post('/admin/survey/paper_insert', data)
-  },
-  examPaperEdit(data: any) {
-    return request.post('/admin/survey/paper_edit', data)
-  },
-  examPaperDel(data: { id: number }) {
-    return request.post('/admin/survey/paper_del', data)
-  },
-  examList(params?: any) {
-    return request.get('/admin/survey/exam_list', { params })
-  },
-  examInsert(data: any) {
-    return request.post('/admin/survey/exam_insert', data)
-  },
-  examEdit(data: any) {
-    return request.post('/admin/survey/exam_edit', data)
-  },
-  examDel(data: { id: number }) {
-    return request.post('/admin/survey/exam_del', data)
-  },
-  examRecordList(params: { examId: number; page?: number; pageSize?: number }) {
-    return request.get('/admin/survey/record_list', { params })
-  },
-  examManualGrade(data: { recordId: number; qid: number; score: number }) {
-    return request.post('/admin/survey/manual_grade', data)
-  },
-  examPreviewGrade(data: { paperId: number; answers: Record<string, any> }) {
-    return request.post('/admin/survey/preview_grade', data)
   },
   // Survey 独立子系统
   surveyList(params?: any) {
@@ -427,5 +400,37 @@ export const adminApi = {
   },
   surveyResponseExport(surveyId: number) {
     return request.get('/admin/survey/response_export', { params: { surveyId }, responseType: 'blob' })
+  },
+  surveyResourceList(params: { surveyId: number; resType?: string }) {
+    return request.get('/admin/survey/resource_list', { params })
+  },
+  surveyResourceDelete(data: { id: number }) {
+    return request.post('/admin/survey/resource_delete', data)
+  },
+  // ==================== Exam 独立子系统 ====================
+  examList(params?: any) {
+    return request.get('/admin/exam/list', { params })
+  },
+  examDetail(id: number) {
+    return request.get('/admin/exam/detail', { params: { id } })
+  },
+  examSave(data: any) {
+    return request.post('/admin/exam/save', data)
+  },
+  examDelete(data: { id: number }) {
+    return request.post('/admin/exam/delete', data)
+  },
+  // ==================== Survey Question Bank ====================
+  surveyQuestionBankList(params?: any) {
+    return request.get('/admin/survey/question_bank_list', { params })
+  },
+  surveyQuestionBankInsert(data: any) {
+    return request.post('/admin/survey/question_bank_insert', data)
+  },
+  surveyQuestionBankEdit(data: any) {
+    return request.post('/admin/survey/question_bank_edit', data)
+  },
+  surveyQuestionBankDel(data: { id: number }) {
+    return request.post('/admin/survey/question_bank_del', data)
   }
 }

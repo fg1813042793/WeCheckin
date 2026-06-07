@@ -21,6 +21,16 @@
           <el-menu-item index="/role"><el-icon><UserFilled /></el-icon><span>角色管理</span></el-menu-item>
           <el-menu-item index="/menu"><el-icon><Grid /></el-icon><span>菜单权限</span></el-menu-item>
           <el-menu-item index="/setup"><el-icon><Setting /></el-icon><span>系统配置</span></el-menu-item>
+          <el-sub-menu index="/survey">
+            <template #title><el-icon><List /></el-icon><span>问卷调查</span></template>
+            <el-menu-item index="/survey">问卷管理</el-menu-item>
+            <el-menu-item index="/survey/responses">答卷管理</el-menu-item>
+            <el-menu-item index="/survey/statistic">问卷统计</el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="/exam">
+            <template #title><el-icon><EditPen /></el-icon><span>在线考试</span></template>
+            <el-menu-item index="/exam/list">考试管理</el-menu-item>
+          </el-sub-menu>
         </template>
         <template v-else>
           <template v-for="item in menuTree" :key="item.path || item.id">

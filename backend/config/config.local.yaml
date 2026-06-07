@@ -1,0 +1,64 @@
+server:
+  port: 8083
+  host: "0.0.0.0"
+  mode: "debug"
+  timeout: 30
+cors:
+  allow_origins:
+    - "*"
+  allow_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allow_headers:
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+database:
+  host: "192.168.1.109"
+  port: 3306
+  user: "root"
+  password: "Nari_jysp3.0"
+  dbname: "go_wecheckin"
+  charset: "utf8mb4"
+  parse_time: true
+  loc: "Local"
+
+redis:
+  host: "192.168.1.109"
+  port: 6379
+  password: "123456"
+  db: 3
+
+token:
+  user:
+    expire: "168h"
+    redis_prefix: "user_token:"
+  admin:
+    expire: "24h"
+    redis_prefix: "admin_token:"
+
+storage:
+  static_domain: ""
+
+oss:
+  type: "aliyun"  # aliyun, tencent, local
+  aliyun:
+    access_key_id: "your-aliyun-access-key"
+    access_key_secret: "your-aliyun-secret"
+    endpoint: "oss-cn-hangzhou.aliyuncs.com"
+    bucket: "your-bucket"
+  tencent:
+    secret_id: "your-tencent-secret-id"
+    secret_key: "your-tencent-secret-key"
+    region: "ap-beijing"
+    bucket: "your-bucket"
+  local:
+    path: "./uploads"
+
+security:
+  app_id: "your-app-id"
+  app_secret: "your-app-secret"

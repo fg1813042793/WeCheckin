@@ -46,11 +46,13 @@ type Exam struct {
 	ID           uint   `gorm:"primaryKey;column:exam_id" json:"id"`
 	Title        string `gorm:"column:exam_title;size:255" json:"title"`
 	PaperID      uint   `gorm:"column:exam_paper_id" json:"paperId"`
-	StartTime    int64  `gorm:"column:exam_start_time" json:"startTime"`    // 开始时间 (ms)
-	EndTime      int64  `gorm:"column:exam_end_time" json:"endTime"`        // 结束时间 (ms)
-	Duration     int    `gorm:"column:exam_duration;default:60" json:"duration"` // 单人答题时长（分钟），0=不限
+	Schema       string `gorm:"column:exam_schema;type:text" json:"schema"`                     // 考试题目 schema (JSON)
+	Settings     string `gorm:"column:exam_settings;type:text" json:"settings"`                  // 扩展设置 (JSON)
+	StartTime    int64  `gorm:"column:exam_start_time" json:"startTime"`                        // 开始时间 (ms)
+	EndTime      int64  `gorm:"column:exam_end_time" json:"endTime"`                            // 结束时间 (ms)
+	Duration     int    `gorm:"column:exam_duration;default:60" json:"duration"`                 // 单人答题时长（分钟），0=不限
 	MaxAttempts  int    `gorm:"column:exam_max_attempts;default:1" json:"maxAttempts"`
-	ShowScore    int    `gorm:"column:exam_show_score;default:1" json:"showScore"` // 1=交卷后立即显示分数
+	ShowScore    int    `gorm:"column:exam_show_score;default:1" json:"showScore"`               // 1=交卷后立即显示分数
 	PublishDepts string `gorm:"column:exam_publish_dept_ids;size:512" json:"publishDepts"`
 	QR           string `gorm:"column:exam_qr;size:512" json:"qr"`
 	Status       int    `gorm:"column:exam_status;default:1" json:"status"`
@@ -58,6 +60,7 @@ type Exam struct {
 	DeptID       uint   `gorm:"column:exam_dept_id;default:0" json:"deptId"`
 	CreateBy     uint   `gorm:"column:exam_create_by;default:0" json:"createBy"`
 	AddTime      int64  `gorm:"column:exam_add_time" json:"addTime"`
+	EditTime     int64  `gorm:"column:exam_edit_time" json:"editTime"`
 }
 
 func (Exam) TableName() string { return "exam" }
