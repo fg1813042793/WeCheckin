@@ -1,5 +1,5 @@
 <template>
-  <div class="question-preview" :class="{ editing }">
+  <div class="question-preview" :class="{ editing, 'is-hidden': q.defaultHidden }">
     <!-- 题目标题 -->
     <div v-if="editing" class="edit-title-line">
       <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0">{{ typeName(q.type) }}</el-tag>
@@ -42,7 +42,7 @@
     </div>
 
     <!-- 说明 -->
-    <div v-if="editing" class="edit-desc-line">
+    <div v-if="editing && q.showDescription === true" class="edit-desc-line">
       <div
         ref="descRef"
         class="desc-editable"
@@ -51,7 +51,7 @@
         @blur="onDescBlur"
       >{{ q.description }}</div>
     </div>
-    <div v-else-if="q.description" class="preview-desc">{{ q.description }}</div>
+    <div v-else-if="q.description && q.showDescription === true" class="preview-desc">{{ q.description }}</div>
 
     <!-- 媒体 -->
     <div v-if="q.mediaUrl" class="preview-media" :style="{ textAlign: q.mediaAlign || 'center' }">
@@ -61,7 +61,7 @@
     </div>
 
     <!-- 选项画布编辑 (选择题) -->
-      <div v-if="editing && isChoiceType" class="edit-options-area">
+      <div v-if="editing && isChoiceType" class="edit-options-area" :style="optionGrid(q)">
       <div v-for="(o, i) in (q.props?.options||[])" :key="o.value || i" class="edit-option-row" @click.stop="emit('select-option', i)">
         <span class="option-icon">{{ fieldIcon }}</span>
         <div
@@ -107,6 +107,18 @@
       <div style="pointer-events:none">
         <el-input v-if="q.type==='input'" size="small" :placeholder="(q.props?.options?.[0]?.placeholder)||'请输入'" disabled />
         <el-input v-else size="small" type="textarea" :placeholder="(q.props?.options?.[0]?.placeholder)||'请输入'" :rows="2" disabled />
+      </div>
+    </div>
+
+    <!-- 评分 / NPS 输入（点击弹出评分设置） -->
+    <div v-if="editing && (q.type==='rating'||q.type==='nps')" class="edit-options-area" style="padding:8px;cursor:pointer" @click.stop="emit('select-option', 0)">
+      <div style="pointer-events:none;display:flex;align-items:center;gap:8px">
+        <span v-if="q.type==='rating'" class="rate-icons-preview" v-for="i in (q.props?.maxRating || 5)" :key="i" v-html="rateIconSvg(q.props?.icon || 'star')"></span>
+        <template v-else>
+          <span style="font-size:11px;color:#909399">0</span>
+          <el-rate :model-value="0" disabled :max="10" />
+          <span style="font-size:11px;color:#909399">10</span>
+        </template>
       </div>
     </div>
 
@@ -159,10 +171,10 @@
       <div v-else-if="q.type==='signature'" class="preview-plain"><el-button text>签名</el-button></div>
       <el-input v-else-if="q.type==='textarea'" type="textarea" :placeholder="q.placeholder||'请输入'" :rows="2" disabled />
       <el-input-number v-else-if="q.type==='number'" :model-value="0" disabled style="width:100%;--el-input-width:100%" />
-      <el-radio-group v-else-if="q.type==='radio'" :model-value="''" disabled class="preview-options preview-radio-group">
+      <el-radio-group v-else-if="q.type==='radio'" :model-value="''" disabled class="preview-options preview-radio-group" :style="optionGrid(q)">
         <el-radio v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value">{{ o.label }}</el-radio>
       </el-radio-group>
-      <el-checkbox-group v-else-if="q.type==='checkbox'" :model-value="[]" disabled class="preview-options preview-checkbox-group">
+      <el-checkbox-group v-else-if="q.type==='checkbox'" :model-value="[]" disabled class="preview-options preview-checkbox-group" :style="optionGrid(q)">
         <el-checkbox v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value">{{ o.label }}</el-checkbox>
       </el-checkbox-group>
       <el-select v-else-if="q.type==='select'" :model-value="''" disabled placeholder="请选择" style="width:100%">
@@ -176,7 +188,9 @@
         <el-radio value="true">对</el-radio>
         <el-radio value="false">错</el-radio>
       </el-radio-group>
-      <el-rate v-else-if="q.type==='rating'" :model-value="0" disabled />
+      <span v-else-if="q.type==='rating'" class="preview-rate-icons" style="display:inline-flex;gap:4px">
+        <span v-for="i in (q.props?.maxRating || 5)" :key="i" v-html="rateIconSvg(q.props?.icon || 'star')"></span>
+      </span>
       <el-date-picker v-else-if="q.type==='date'" :model-value="''" disabled type="date" placeholder="选择日期" style="width:100%" />
       <el-time-picker v-else-if="q.type==='time'" :model-value="''" disabled placeholder="选择时间" style="width:100%" />
       <el-switch v-else-if="q.type==='switch'" disabled />
@@ -366,6 +380,21 @@ const tagType = (t: string) => {
   }
   return map[t] || ''
 }
+function rateIconSvg(icon: string) {
+  const gray = '#c0c4cc'
+  if (icon === 'heart') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${gray}"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+  }
+  if (icon === 'smiley') {
+    return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${gray}"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 8h-2v-2h2v2zm-6 0H9v-2h2v2zm1 6c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/></svg>`
+  }
+  return `<svg viewBox="0 0 24 24" width="18" height="18" fill="${gray}"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>`
+}
+function optionGrid(q: any) {
+  const cols = q.optionLayout
+  if (!cols || cols <= 1) return {}
+  return { display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }
+}
 </script>
 
 <style scoped>
@@ -377,6 +406,25 @@ const tagType = (t: string) => {
   border: 1px dashed #fb454c;
   border-radius: 8px;
   background: #fff;
+}
+.question-preview.is-hidden {
+  opacity: 0.4;
+  filter: grayscale(0.6);
+  position: relative;
+}
+.question-preview.is-hidden::after {
+  content: '已隐藏';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  color: #909399;
+  background: rgba(255,255,255,0.9);
+  padding: 2px 10px;
+  border-radius: 4px;
+  z-index: 1;
+  pointer-events: none;
 }
 .preview-header {
   display: flex;
@@ -446,6 +494,16 @@ const tagType = (t: string) => {
 }
 .preview-nps {
   padding: 4px 0;
+}
+.preview-rate-icons,
+.rate-icons-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.preview-rate-icons span,
+.rate-icons-preview {
+  line-height: 1;
 }
 .nps-labels {
   display: flex;

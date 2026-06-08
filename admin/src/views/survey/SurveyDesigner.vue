@@ -338,7 +338,7 @@
                 </el-tooltip>
                 <el-tooltip content="文本导入" placement="bottom">
                   <el-button text size="small" class="toolbar-btn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </el-button>
                 </el-tooltip>
               </el-button-group>
@@ -370,7 +370,11 @@
           </div>
           <div class="survey-main-panel-content">
             <div v-if="panelMode==='edit'" class="editor-wrapper">
-              <div class="editor">
+              <div class="editor" :style="{ backgroundImage: form.backgroundImages?.length ? 'url('+form.backgroundImages[0].url+')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
+                <!-- 页眉图（撑满顶部） -->
+                <div v-if="form.headerImages?.length" class="editor-header-img" @click="openSurveySettings">
+                  <img :src="form.headerImages[0].url" />
+                </div>
                 <!-- 问卷头 -->
                 <div class="header">
                   <div class="prefix">问卷</div>
@@ -398,14 +402,17 @@
               </div>
               <el-input v-model="exportedJson" type="textarea" :rows="20" readonly style="font-family:monospace;flex:1" />
             </div>
-            <div v-else-if="panelMode==='preview'" class="survey-preview-panel">
+            <div v-else-if="panelMode==='preview'" class="survey-preview-panel" :style="{ backgroundImage: form.backgroundImages?.length ? 'url(\''+(typeof form.backgroundImages[0]==='string'?form.backgroundImages[0]:form.backgroundImages[0].url)+'\')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
+              <div v-if="form.headerImages?.length" class="preview-header-img"><img :src="typeof form.headerImages[0]==='string'?form.headerImages[0]:form.headerImages[0].url" /></div>
               <div class="survey-preview-header">
                 <div class="preview-form-title">{{ form.title || '未命名问卷' }}</div>
               </div>
               <div class="survey-preview-body">
-                <div v-for="(q, i) in questions" :key="q.id" class="preview-question-card">
-                  <QuestionPreview :q="q" />
-                </div>
+                <template v-for="(q, i) in questions" :key="q.id">
+                  <div v-if="!q.defaultHidden" class="preview-question-card">
+                    <QuestionPreview :q="q" />
+                  </div>
+                </template>
                 <el-empty v-if="!questions.length" description="暂无题目" :image-size="60" />
               </div>
               <div class="survey-preview-footer">感谢您的参与！</div>
@@ -486,6 +493,25 @@
               </el-form>
             </template>
 
+            <!-- 评分/NPS 设置（独立面板，点击评分输入时弹出） -->
+            <template v-else-if="selectedOptIdx>=0 && (selected.type==='rating'||selected.type==='nps')">
+            <h3>{{ selected.type==='rating'?'评分':'NPS' }}设置</h3>
+            <el-form label-position="top" size="small">
+              <el-form-item label="最大分值">
+                <el-input-number v-model="selected.props.maxRating" :min="2" :max="10" :step="1" style="width:100%" />
+              </el-form-item>
+              <el-form-item v-if="selected.type==='rating'" label="图标类型">
+                <el-radio-group v-model="selected.props.icon">
+                  <el-radio value="star">星标</el-radio>
+                  <el-radio value="heart">爱心</el-radio>
+                  <el-radio value="smiley">笑脸</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </el-form>
+            <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+            <el-button type="danger" text style="margin-top:12px;width:100%" @click="removeSelected">删除此题</el-button>
+            </template>
+
             <!-- 题目设置模式 -->
             <template v-else>
             <h3>{{ typeName(selected.type) }}设置</h3>
@@ -501,6 +527,9 @@
                 <el-col :span="12"><el-form-item label="必填"><el-switch v-model="selected.required" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="只读"><el-switch v-model="selected.readOnly" /></el-form-item></el-col>
               </el-row>
+              <el-form-item v-if="!isPureLayout(selected.type)&&selected.type!=='questionSet'" label="说明">
+                <el-switch v-model="selected.showDescription" />
+              </el-form-item>
 
               <!-- ==== 公式链接 (仅非布局题) ==== -->
               <template v-if="!isPureLayout(selected.type)">
@@ -537,8 +566,6 @@
                   <el-input v-model="selected.props.replaceTextRule" type="textarea" :rows="2" placeholder="@公式" />
                 </el-form-item>
               </template>
-
-              <el-divider border-style="dashed" style="margin:8px 0" v-if="!isPureLayout(selected.type)||selected.type==='description'||selected.type==='questionSet'" />
 
               <!-- ==== 矩阵题行列编辑 ==== -->
               <div v-if="isMatrixQR(selected.type)&&selected.props" class="props-options-section">
@@ -602,21 +629,6 @@
                 <el-form-item label="小数位数"><el-input-number v-model="selected.props.decimalPlaces" :min="0" :max="6" style="width:100%" /></el-form-item>
               </div>
 
-              <!-- ==== 评分/NPS 设置 ==== -->
-              <div v-if="selected.type==='rating'||selected.type==='nps'" class="props-options-section">
-                <h4 style="font-size:12px;color:#888;margin:0 0 6px">{{ selected.type==='rating'?'评分':'NPS' }}设置</h4>
-                <el-form-item label="最大分值">
-                  <el-input-number v-model="selected.props.maxRating" :min="2" :max="10" :step="1" style="width:100%" />
-                </el-form-item>
-                <el-form-item v-if="selected.type==='rating'" label="图标类型">
-                  <el-radio-group v-model="selected.props.icon">
-                    <el-radio value="star">星标</el-radio>
-                    <el-radio value="heart">爱心</el-radio>
-                    <el-radio value="smiley">笑脸</el-radio>
-                  </el-radio-group>
-                </el-form-item>
-              </div>
-
               <!-- ==== 分页设置 ==== -->
               <div v-if="selected.type==='pagination'" class="props-options-section">
                 <h4 style="font-size:12px;color:#888;margin:0 0 6px">分页</h4>
@@ -636,8 +648,6 @@
                 </el-select>
               </el-form-item>
 
-              <el-divider border-style="dashed" style="margin:8px 0" v-if="hasDataType(selected)||!isPureLayout(selected.type)" />
-
               <!-- ==== 数据类型 (输入类题型) ==== -->
               <el-form-item v-if="hasDataType(selected)" label="数据类型">
                 <el-select v-model="selected.dataType" placeholder="不限制" clearable style="width:100%">
@@ -653,8 +663,6 @@
                   <el-option label="字母" value="alphabet" />
                 </el-select>
               </el-form-item>
-
-              <el-divider border-style="dashed" style="margin:8px 0" v-if="!isPureLayout(selected.type)" />
 
               <!-- ==== 高级设置 ==== -->
               <el-collapse v-if="!isPureLayout(selected.type)&&form.mode==='exam'" v-model="collapseActive" accordion>
@@ -1585,6 +1593,9 @@ function addQuestion(t: any) {
       { label: '选项D', value: 'D' },
     ]
   }
+  if (t.type !== 'description' && t.type !== 'questionSet' && t.type !== 'pagination' && t.type !== 'divider') {
+    q.showDescription = true
+  }
   if (t.type === 'matrixRadio' || t.type === 'matrixCheckbox' || t.type === 'matrixFillBlank') {
     q.props.rows = [{ title: '行1', id: genId() }, { title: '行2', id: genId() }, { title: '行3', id: genId() }]
     q.props.columns = [{ title: '列A', id: genId(), width: 150 }, { title: '列B', id: genId(), width: 150 }]
@@ -1763,12 +1774,12 @@ const token = localStorage.getItem('admin_token') || ''
 const uploadHeaders = { Authorization: token }
 function handleBgSuccess(res: any) {
   if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
-  form.backgroundImages = [{ id: res.data.id, url: res.data.domain + res.data.url }]
+  ElMessage.success('已上传到资源库，点击图片应用')
   loadResources()
 }
 function handleHeaderSuccess(res: any) {
   if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
-  form.headerImages = [{ id: res.data.id, url: res.data.domain + res.data.url }]
+  ElMessage.success('已上传到资源库，点击图片应用')
   loadResources()
 }
 function isActiveImg(field: string, item: any): boolean {
@@ -1789,13 +1800,11 @@ function applyImage(field: string, item: any) {
   save()
 }
 async function removeResource(field: string, item: any, idx: number) {
-  if (item.id) {
-    adminApi.surveyResourceDelete({ id: item.id }).catch(() => ElMessage.error('删除失败'))
-  }
   const active = (form as any)[field]
   if (active && active.length) {
     const cur = active[0]
-    const same = cur && typeof cur === 'object' && cur.id ? cur.id === item.id : cur === (item.domain || '') + item.url
+    const url = (item.domain || '') + item.url
+    const same = cur && typeof cur === 'object' && cur.id ? cur.id === item.id : cur === url
     if (same) { (form as any)[field] = []; await save() }
   }
   loadResources()
@@ -1871,6 +1880,7 @@ async function load() {
       })
     }
     Object.assign(form, base)
+    loadResources()
     const rawSchema = res.data.schema
     if (rawSchema) {
       try {
@@ -2169,23 +2179,29 @@ onMounted(async () => {
 
 .survey-main-panel-content { flex:1; overflow-y:auto; padding:20px 40px; }
 .editor-wrapper { max-width:720px; margin:0 auto; }
-.editor { background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
+.editor { border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
 .json-panel, .survey-preview-panel { display:flex; flex-direction:column; height:100%; }
 .json-panel { padding:0; }
 .json-panel :deep(.el-textarea__inner) { height:100% !important; min-height:500px; font-size:13px; }
 .preview-iframe-wrapper { flex:1; }
 .preview-iframe { width:100%; height:100%; border-radius:8px; }
-.survey-preview-panel { max-width:720px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
+.survey-preview-panel { max-width:720px; margin:0 auto; background-color:transparent; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow-y:auto; }
 .survey-preview-header { padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0; }
 .preview-form-title { font-size:22px; font-weight:600; color:#303133; }
-.survey-preview-body { padding:16px 28px; }
+.survey-preview-body { flex:1; overflow-y:auto; padding:16px 28px; }
 .survey-preview-footer { text-align:center; padding:16px 28px 24px; color:#999; font-size:13px; border-top:1px solid #f0f0f0; }
 .preview-question-card { margin-bottom:12px; }
 
 /* 问卷头 */
 .header {
   padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0;
+  position:relative; min-height:60px; transition:background 0.3s;
+  background:rgba(255,255,255,0.85); backdrop-filter:blur(4px);
 }
+.editor-header-img { width:100%; overflow:hidden; cursor:pointer; line-height:0; border-radius:12px 12px 0 0; }
+.preview-header-img { width:100%; overflow:hidden; line-height:0; flex-shrink:0; }
+.preview-header-img img { width:100%; max-height:240px; object-fit:cover; display:block; }
+.editor-header-img img { width:100%; max-height:240px; object-fit:cover; display:block; }
 .prefix { font-size:13px; color:#999; margin-bottom:4px; }
 .header-content .title { font-size:22px; font-weight:600; color:#303133; line-height:1.4; }
 .header-title-input :deep(.el-input__wrapper) { box-shadow:none!important; padding:0; background:transparent; }
