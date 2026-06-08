@@ -2,7 +2,7 @@
   <div class="question-preview" :class="{ editing, 'is-hidden': q.defaultHidden }">
     <!-- 题目标题 -->
     <div v-if="editing" class="edit-title-line">
-      <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0">{{ typeName(q.type) }}</el-tag>
+      <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0;margin-top:5px">{{ typeName(q.type) }}</el-tag>
       <div
         ref="titleRef"
         class="title-editable"
@@ -36,9 +36,9 @@
       </span>
     </div>
     <div v-else class="preview-header">
-      <el-tag size="small" :type="tagType(q.type)||undefined">{{ typeName(q.type) }}</el-tag>
-      <span class="preview-title">{{ q.title }}</span>
-      <el-tag v-if="q.required" type="danger" size="small" effect="plain">必填</el-tag>
+      <el-tag size="small" :type="tagType(q.type)||undefined" class="preview-type-tag">{{ typeName(q.type) }}</el-tag>
+      <div class="preview-title">{{ q.title }}</div>
+      <el-tag v-if="q.required" type="danger" size="small" effect="plain" class="preview-required-tag">必填</el-tag>
     </div>
 
     <!-- 说明 -->
@@ -160,7 +160,6 @@
     </div>
     <el-button v-if="editing && hasFields" text size="small" type="primary" @click="addField" class="add-option-btn">添加字段</el-button>
 
-    <!-- 预览体 -->
     <div v-if="!editing" class="preview-body">
       <el-input v-if="['input','text'].includes(q.type)" :placeholder="q.placeholder||'请输入'" disabled />
       <el-input v-else-if="q.type==='multiInput'" placeholder="多项填空" disabled />
@@ -195,7 +194,7 @@
       <el-time-picker v-else-if="q.type==='time'" :model-value="''" disabled placeholder="选择时间" style="width:100%" />
       <el-switch v-else-if="q.type==='switch'" disabled />
       <el-divider v-else-if="q.type==='divider'" style="margin:4px 0" />
-      <div v-else-if="q.type==='description'" class="preview-plain">{{ q.description || '说明文字' }}</div>
+      <div v-else-if="q.type==='description'" class="preview-plain">{{ q.description }}</div>
       <div v-else-if="q.type==='file'" style="border:1px dashed #d9d9d9;border-radius:6px;padding:12px;text-align:center;color:#999;margin:4px 0">
         <svg viewBox="0 0 1024 1024" width="22" height="22" fill="currentColor" style="display:block;margin:0 auto 4px"><path d="M854.6 288.6L639.4 73.4c-6-6-14.1-9.4-22.6-9.4H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V311.3c0-8.5-3.4-16.7-9.4-22.7z"/></svg>
         <span style="font-size:13px">上传文件</span>
@@ -231,7 +230,10 @@
         <el-rate :model-value="0" disabled :max="10" show-score score-template="{value}" />
       </div>
     </div>
+
+    <el-input v-if="editing && q.type==='description'" :model-value="q.description" type="textarea" :rows="3" placeholder="输入说明内容" @update:model-value="(v: string) => emit('update:description', v)" @click.stop />
   </div>
+
 </template>
 
 <script setup lang="ts">
@@ -399,10 +401,10 @@ function optionGrid(q: any) {
 
 <style scoped>
 .question-preview {
-  padding: 6px 0;
+  padding: 0 0 6px;
 }
 .question-preview.editing {
-  padding: 8px;
+  padding: 0 8px 8px;
   border: 1px dashed #fb454c;
   border-radius: 8px;
   background: #fff;
@@ -427,22 +429,26 @@ function optionGrid(q: any) {
   pointer-events: none;
 }
 .preview-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   margin-bottom: 4px;
+  overflow: hidden;
+}
+.preview-type-tag {
+  float: left;
+  margin-right: 6px;
+}
+.preview-required-tag {
+  float: right;
+  margin-left: 6px;
 }
 .preview-title {
   font-size: 14px;
   font-weight: 500;
   color: #303133;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 .preview-actions {
-  display: flex; flex-shrink: 0; margin-left: auto;
+  position: absolute; right: 0; top: 2px;
+  display: flex;
   background: #f5f5f5; border-radius: 5px; overflow: hidden; font-size: 0;
 }
 .preview-actions :deep(.el-button) { padding: 2px 3px; }
@@ -476,6 +482,8 @@ function optionGrid(q: any) {
   font-size: 13px;
   color: #606266;
   padding: 4px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .preview-matrix {
   display: flex;
@@ -521,9 +529,11 @@ function optionGrid(q: any) {
 /* ======= 编辑模式 ======= */
 .edit-title-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   margin-bottom: 6px;
+  position: relative;
+  padding-right: 140px;
 }
 .title-editable {
   flex: 1;

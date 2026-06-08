@@ -16,7 +16,7 @@
         @dragstart="onDragStart(idx, $event)"
         @dragend="onDragEnd"
       >⠿</div>
-      <div v-if="q.type !== 'description' && q.type !== 'divider' && q.type !== 'pagination' && q.type !== 'questionSet'" class="card-index">{{ idx + 1 }}.</div>
+      <div v-if="!layoutTypes.includes(q.type)" class="card-index">{{ visibleIdx(idx) }}.</div>
       <div class="card-body" @click.stop="$emit('select', q.id)">
         <QuestionPreview
           :q="q"
@@ -45,10 +45,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import QuestionPreview from './QuestionPreview.vue'
 
 const props = defineProps<{ questions: any[]; selectedId: string | null; editing?: boolean }>()
+const layoutTypes = ['description', 'divider', 'pagination', 'questionSet']
+function visibleIdx(idx: number) {
+  let c = 0
+  for (let i = 0; i <= idx; i++) {
+    if (!layoutTypes.includes(props.questions[i]?.type)) c++
+  }
+  return c
+}
 const emit = defineEmits<{
   select: [id: string]
   remove: [id: string]

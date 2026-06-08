@@ -519,9 +519,6 @@
 
               <!-- ==== 通用基础字段 ==== -->
               <el-form-item label="ID"><el-input v-model="selected.id" :disabled="!!selected._existing" /></el-form-item>
-              <el-form-item v-if="selected.type==='description'" label="内容">
-                <el-input v-model="selected.description" type="textarea" :rows="3" placeholder="说明文字" />
-              </el-form-item>
 
               <el-row :gutter="8" v-if="!isPureLayout(selected.type)&&selected.type!=='questionSet'">
                 <el-col :span="12"><el-form-item label="必填"><el-switch v-model="selected.required" /></el-form-item></el-col>
@@ -672,8 +669,10 @@
                   <el-form-item v-if="selected.examScore" label="答案解析"><el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" /></el-form-item>
                 </el-collapse-item>
               </el-collapse>
-              <el-button type="danger" text style="margin-top:12px;width:100%" @click="removeSelected">删除此题</el-button>
             </el-form>
+            <div class="props-footer">
+              <el-button type="danger" text style="width:100%" @click="removeSelected">删除此题</el-button>
+            </div>
             </template>
           </div>
           <div v-else-if="showSurveySettings" class="props-panel">
@@ -1104,7 +1103,7 @@ const outlineRoot = computed<OutlineNode>(() => ({
   title: form.title || '未命名问卷',
   isRoot: true,
   children: questions.value
-    .filter((q: any) => q.type !== 'divider' && q.type !== 'pagination')
+    .filter((q: any) => q.type !== 'divider' && q.type !== 'pagination' && q.type !== 'description' && q.type !== 'questionSet')
     .map((q: any, i: number) => ({ q, index: i + 1 }))
 }))
 
@@ -2230,6 +2229,7 @@ onMounted(async () => {
 .props-panel :deep(.el-form-item__label) { font-size:12px; color:#666; padding-bottom:2px; font-weight:500; line-height:1.2; }
 .props-panel :deep(.el-divider) { margin:8px 0; }
 .props-panel :deep(.el-collapse-item__header) { font-size:12px; font-weight:500; }
+.props-footer { padding:8px 12px; border-top:1px solid #e8e8e8; background:#fafafa; position:sticky; bottom:0; z-index:1; }
 .setting-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:12px; color:#666; }
 .setting-row .setting-label { font-weight:500; }
 .props-options-section { margin-bottom:8px; padding:8px; background:#f5f6f8; border-radius:6px; }
