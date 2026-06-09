@@ -2,7 +2,7 @@
   <div class="question-preview" :class="{ editing, 'is-hidden': q.defaultHidden }">
     <!-- 题目标题 -->
     <div v-if="editing" class="edit-title-line">
-      <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0;margin-top:5px">{{ typeName(q.type) }}</el-tag>
+      <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0;margin-top:5px" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
       <div
         ref="titleRef"
         class="title-editable"
@@ -11,7 +11,6 @@
         @blur="onTitleBlur"
         @keydown.enter.prevent="onTitleEnter"
       >{{ q.title }}</div>
-      <el-tag v-if="q.required" type="danger" size="small" effect="plain" style="flex-shrink:0">必填</el-tag>
       <span class="preview-actions">
         <el-tooltip content="逻辑设置" placement="top">
           <el-button text size="small" @click.stop="$emit('open-logic')">
@@ -36,9 +35,8 @@
       </span>
     </div>
     <div v-else class="preview-header">
-      <el-tag size="small" :type="tagType(q.type)||undefined" class="preview-type-tag">{{ typeName(q.type) }}</el-tag>
+      <el-tag size="small" :type="tagType(q.type)||undefined" class="preview-type-tag" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
       <div class="preview-title">{{ q.title }}</div>
-      <el-tag v-if="q.required" type="danger" size="small" effect="plain" class="preview-required-tag">必填</el-tag>
     </div>
 
     <!-- 说明 -->
@@ -409,6 +407,7 @@ function optionGrid(q: any) {
   border-radius: 8px;
   background: #fff;
 }
+.required-tag { border:1px solid #fb454c !important; }
 .question-preview.is-hidden {
   opacity: 0.4;
   filter: grayscale(0.6);
@@ -435,10 +434,6 @@ function optionGrid(q: any) {
 .preview-type-tag {
   float: left;
   margin-right: 6px;
-}
-.preview-required-tag {
-  float: right;
-  margin-left: 6px;
 }
 .preview-title {
   font-size: 14px;

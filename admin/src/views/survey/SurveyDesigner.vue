@@ -377,9 +377,9 @@
                 </div>
                 <!-- 问卷头 -->
                 <div class="header">
-                  <div class="prefix">问卷</div>
                   <div class="header-content">
                     <el-input v-model="form.title" placeholder="问卷标题" class="header-title-input" maxlength="100" @focus="openSurveySettings" />
+                    <div v-if="form.description" class="header-desc">{{ form.description }}</div>
                   </div>
                 </div>
 
@@ -406,6 +406,7 @@
               <div v-if="form.headerImages?.length" class="preview-header-img"><img :src="typeof form.headerImages[0]==='string'?form.headerImages[0]:form.headerImages[0].url" /></div>
               <div class="survey-preview-header">
                 <div class="preview-form-title">{{ form.title || '未命名问卷' }}</div>
+                <div v-if="form.description" class="preview-form-desc">{{ form.description }}</div>
               </div>
               <div class="survey-preview-body">
                 <template v-for="(q, i) in questions" :key="q.id">
@@ -677,8 +678,8 @@
           </div>
           <div v-else-if="showSurveySettings" class="props-panel">
             <h3>问卷设置</h3>
-            <div class="setting-row"><span class="setting-label">标题</span><span>{{ form.title || '未命名' }}</span></div>
-            <div class="setting-row"><span class="setting-label">描述</span><span>{{ form.description || '无' }}</span></div>
+            <div class="setting-row"><span class="setting-label">标题</span><el-input v-model="form.title" placeholder="问卷标题" style="flex:1" /></div>
+            <div class="setting-row" style="align-items:flex-start"><span class="setting-label" style="margin-top:4px">描述</span><el-input v-model="form.description" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="问卷描述" style="flex:1" /></div>
             <div class="setting-row"><span class="setting-label">模式</span><span>{{ form.mode === 'exam' ? '考试' : '问卷' }}</span></div>
             <el-divider />
             <div class="group-title" style="font-size:13px;font-weight:500;margin-bottom:8px">已应用图片</div>
@@ -929,7 +930,7 @@
   </div>
 
       <!-- 公式编辑器对话框 -->
-      <el-dialog v-model="formulaVisible" :title="formulaTitle" width="720px" :close-on-click-modal="false">
+      <el-dialog v-model="formulaVisible" :title="formulaTitle" :key="formulaKey" width="720px" :close-on-click-modal="false">
         <div style="display:flex;gap:12px;min-height:360px">
           <div style="flex:1">
             <div style="font-size:12px;color:#888;margin-bottom:4px">{{ formulaType==='calculate'?'计算结果将自动填充到当前题目':'公式表达式' }}</div>
@@ -1005,7 +1006,7 @@
           <div style="width:200px;flex-shrink:0">
             <div style="font-size:12px;color:#888;margin-bottom:4px">题目标签</div>
             <div style="border:1px solid #eee;border-radius:4px;padding:8px;max-height:320px;overflow-y:auto">
-              <div v-for="q in questions" :key="q.id" style="margin-bottom:6px">
+              <div v-for="q in formulaQuestions" :key="q.id" style="margin-bottom:6px">
                 <div style="font-size:11px;color:#999;margin-bottom:2px">{{ q.title?.slice(0,20) }}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:4px">
                   <el-tag size="small" type="danger" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}`)">Q{{ questions.indexOf(q)+1 }}</el-tag>
@@ -1167,6 +1168,8 @@ const formulaVisible = ref(false)
 const formulaTitle = ref('')
 const formulaText = ref('')
 const formulaType = ref('')
+const formulaKey = ref(0)
+const formulaQuestions = computed(() => questions.value.filter(q => !isPureLayout(q.type)))
 const formulaPlaceholder = computed(() => {
   const map: Record<string, string> = {
     calculate: '输入计算公式，如：\nSUM(Q1, Q2)\nIFS(Q1<60,"不合格","合格")\nCONCATENATE("总分：", Q1)',
@@ -1198,6 +1201,7 @@ function openFormulaDialog(type: string) {
   }
   const field = fieldMap[type] || ''
   formulaText.value = selected.value[field] || selected.value.props?.[field] || ''
+  formulaKey.value++
   formulaVisible.value = true
 }
 function confirmFormula() {
@@ -1917,7 +1921,7 @@ async function save() {
       backgroundImages: form.backgroundImages, headerImages: form.headerImages
     })
     const payload: any = {
-      title: form.title, desc: form.description, category: form.category, tags: form.tags,
+      title: form.title, description: form.description, category: form.category, tags: form.tags,
       visibility: form.visibility, allowMulti: form.allowMultiBool,
       anonymous: form.anonymousBool, showResult: form.showResultBool,
       startTime: form.startDate || 0, endTime: form.endDate || 0,
@@ -2177,16 +2181,17 @@ onMounted(async () => {
 .toolbar-btn-group .el-button { border:none; }
 
 .survey-main-panel-content { flex:1; overflow-y:auto; padding:20px 40px; }
-.editor-wrapper { max-width:720px; margin:0 auto; }
+.editor-wrapper { max-width:210mm; margin:0 auto; }
 .editor { border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
 .json-panel, .survey-preview-panel { display:flex; flex-direction:column; height:100%; }
 .json-panel { padding:0; }
 .json-panel :deep(.el-textarea__inner) { height:100% !important; min-height:500px; font-size:13px; }
 .preview-iframe-wrapper { flex:1; }
 .preview-iframe { width:100%; height:100%; border-radius:8px; }
-.survey-preview-panel { max-width:720px; margin:0 auto; background-color:transparent; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow-y:auto; }
+.survey-preview-panel { max-width:210mm; margin:0 auto; background-color:transparent; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow-y:auto; }
 .survey-preview-header { padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0; }
 .preview-form-title { font-size:22px; font-weight:600; color:#303133; }
+.preview-form-desc { font-size:14px; color:#666; margin-top:6px; white-space:pre-wrap; word-break:break-word; text-align:left; }
 .survey-preview-body { flex:1; overflow-y:auto; padding:16px 28px; }
 .survey-preview-footer { text-align:center; padding:16px 28px 24px; color:#999; font-size:13px; border-top:1px solid #f0f0f0; }
 .preview-question-card { margin-bottom:12px; }
@@ -2206,6 +2211,7 @@ onMounted(async () => {
 .header-title-input :deep(.el-input__wrapper) { box-shadow:none!important; padding:0; background:transparent; }
 .header-title-input :deep(.el-input__inner) { font-size:22px; font-weight:600; color:#303133; text-align:center; border:none; cursor:pointer; }
 .header-title-input :deep(.el-input__inner):focus { cursor:text; }
+.header-desc { font-size:14px; color:#666; margin-top:6px; white-space:pre-wrap; word-break:break-word; text-align:left; }
 
 .questions-area { padding:16px 24px; }
 .questions-area :deep(.draggable-list) { gap:8px; }
@@ -2222,7 +2228,7 @@ onMounted(async () => {
 .footer-inner { font-size:13px; color:#999; }
 
 /* ======= 右侧属性面板 ======= */
-.survey-setting-panel { width:265px; flex-shrink:0; border-left:1px solid #e8e8e8; background:#fafafa; overflow-y:auto; }
+.survey-setting-panel { width:380px; flex-shrink:0; border-left:1px solid #e8e8e8; background:#fafafa; overflow-y:auto; }
 .props-panel { padding:12px; }
 .props-panel h3 { font-size:14px; font-weight:500; color:#fb454c; margin:0 0 8px; padding-bottom:8px; border-bottom:2px solid #fb454c; }
 .props-panel :deep(.el-form-item) { margin-bottom:8px; }
