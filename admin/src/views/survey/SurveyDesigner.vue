@@ -463,6 +463,38 @@
               </el-form>
             </template>
 
+            <!-- 成员/部门设置 -->
+            <template v-else-if="selectedOptIdx>=0 && (selected.type==='user'||selected.type==='dept')">
+              <h3>{{ selected.type==='user'?'成员':'部门' }}设置</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item v-if="selected.type==='user'" label="成员名称">
+                  <el-input v-model="selected.props.options[selectedOptIdx].label" placeholder="输入成员名称" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="成员ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="输入成员ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="部门名称">
+                  <el-input v-model="selected.props.options[selectedOptIdx].deptName" placeholder="输入部门名称" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].deptId" placeholder="输入部门ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="父级部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].parentDeptId" placeholder="输入父级部门ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='dept'" label="部门名称">
+                  <el-input v-model="selected.props.options[selectedOptIdx].label" placeholder="输入部门名称" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='dept'" label="部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="输入部门ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='dept'" label="父级部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].parentId" placeholder="输入父级部门ID" />
+                </el-form-item>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
             <!-- 选项设置模式 -->
             <template v-else-if="selectedOptIdx>=0 && selected.props?.options?.[selectedOptIdx]">
               <h3>选项设置 - {{ selected.props.options[selectedOptIdx].label }}</h3>
@@ -539,7 +571,8 @@
                 </div>
                 <el-row :gutter="8">
                   <el-col :span="12"><el-form-item label="默认隐藏"><el-switch v-model="selected.defaultHidden" /></el-form-item></el-col>
-                  <el-col :span="12" v-if="hasOptions(selected)||isMatrixAll(selected.type)"><el-form-item label="选项布局"><el-input-number v-model="selected.optionLayout" :min="1" :max="6" :step="1" style="width:100%" /></el-form-item></el-col>
+                  <el-col :span="12" v-if="selected.type==='user'||selected.type==='dept'"><el-form-item label="多选"><el-switch v-model="selected.multiple" /></el-form-item></el-col>
+                  <el-col :span="12" v-if="hasOptions(selected) && !isMatrixAll(selected.type)"><el-form-item label="选项布局"><el-input-number v-model="selected.optionLayout" :min="1" :max="6" :step="1" style="width:100%" /></el-form-item></el-col>
                 </el-row>
                 <div class="setting-row">
                   <span class="setting-label">必填公式</span><el-button text size="small" @click="openFormulaDialog('requiredFormula')">点击设置</el-button>
@@ -547,11 +580,14 @@
                 <div class="setting-row">
                   <span class="setting-label">文本替换</span><el-button text size="small" @click="openFormulaDialog('textReplace')">点击设置</el-button>
                 </div>
-                <div class="setting-row" v-if="['input','textarea','number','date','time','dateRange','calculate'].includes(selected.type)">
+                <div class="setting-row" v-if="['input','textarea','number','date','time','dateRange','calculate'].includes(selected.type)||isPersonal(selected.type)">
                   <span class="setting-label">计算公式</span><el-button text size="small" @click="openFormulaDialog('calculate')">点击设置</el-button>
                 </div>
                 <el-form-item v-if="isInput(selected.type)||isPersonal(selected.type)||selected.type==='signature'||selected.type==='scanCode'" label="占位提示">
                   <el-input v-model="selected.placeholder" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='richText'" label="占位提示">
+                  <el-input v-model="selected.placeholder" placeholder="输入富文本编辑器占位提示" />
                 </el-form-item>
               </template>
 
@@ -564,21 +600,6 @@
                   <el-input v-model="selected.props.replaceTextRule" type="textarea" :rows="2" placeholder="@公式" />
                 </el-form-item>
               </template>
-
-              <!-- ==== 矩阵题行列编辑 ==== -->
-              <div v-if="isMatrixQR(selected.type)&&selected.props" class="props-options-section">
-                <h4 style="font-size:12px;color:#888;margin:0 0 6px">行/列编辑</h4>
-                <div class="setting-row"><span style="font-size:12px;color:#999">行：</span>
-                  <el-tag v-for="(r,ri) in (selected.props.rows||[])" :key="ri" closable @close="removeMatrixRow(ri)" size="small" style="margin:2px">{{ typeof r==='string'?r:(r.title||'') }}</el-tag>
-                  <el-input v-model="newRowName" size="small" placeholder="新行" style="width:80px" @keyup.enter="addMatrixRow" />
-                  <el-button text size="small" @click="addMatrixRow">+</el-button>
-                </div>
-                <div class="setting-row" style="margin-top:4px"><span style="font-size:12px;color:#999">列：</span>
-                  <el-tag v-for="(c,ci) in (selected.props.columns||[])" :key="ci" closable @close="removeMatrixCol(ci)" size="small" style="margin:2px">{{ typeof c==='string'?c:(c.title||c.label||'') }}</el-tag>
-                  <el-input v-model="newColName" size="small" placeholder="新列" style="width:80px" @keyup.enter="addMatrixCol" />
-                  <el-button text size="small" @click="addMatrixCol">+</el-button>
-                </div>
-              </div>
 
               <!-- ==== 表格自增列编辑 ==== -->
               <div v-if="selected.type==='matrixAuto'&&selected.props" class="props-options-section">
@@ -634,6 +655,30 @@
                   <el-col :span="12"><el-form-item label="当前页"><el-input-number v-model="selected.props.currentPage" :min="1" style="width:100%" /></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="总页数"><el-input-number v-model="selected.props.totalPage" :min="1" style="width:100%" /></el-form-item></el-col>
                 </el-row>
+              </div>
+
+              <!-- ==== 成员/部门列表 ==== -->
+              <div v-if="(selected.type==='user'||selected.type==='dept')&&selected.props" class="props-options-section">
+                <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
+                  <h4 style="font-size:12px;color:#888;margin:0">{{ selected.type==='user'?'成员':'部门' }}列表</h4>
+                  <el-tooltip :content="importFormatHint" placement="right">
+                    <el-button text size="small" style="font-size:11px;color:#999;padding:0 4px">格式</el-button>
+                  </el-tooltip>
+                </div>
+                <div v-for="(o, i) in (selected.props.options||[])" :key="i" class="setting-opt-row">
+                  <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    {{ o.label || (selected.type==='user'?'成员':'部门') }}
+                    <span v-if="selected.type==='user' && o.deptName" style="color:#999;margin-left:4px">({{ o.deptName }})</span>
+                    <span v-if="selected.type==='user' && o.parentDeptId" style="color:#999;margin-left:4px;font-size:11px">父级:{{ o.parentDeptId }}</span>
+                    <span v-if="selected.type==='dept' && o.parentId" style="color:#999;margin-left:4px;font-size:11px">父级:{{ o.parentId }}</span>
+                  </span>
+                  <el-button text size="small" type="primary" @click="selectOption(selected.id, i)" style="font-size:11px">编辑</el-button>
+                  <el-button text size="small" type="danger" @click="removeUserOpt(i)">×</el-button>
+                </div>
+                <div style="display:flex;gap:4px;margin-top:4px">
+                  <el-button size="small" @click="addUserOpt" plain>{{ selected.type==='user'?'+ 添加成员':'+ 添加部门' }}</el-button>
+                  <el-button size="small" @click="importUserOpt" plain>导入</el-button>
+                </div>
               </div>
 
               <!-- ==== 签名考试属性 ==== -->
@@ -1548,6 +1593,49 @@ function addAutoCol() {
 function removeAutoCol(idx: number) {
   selected.value?.props?.columns?.splice(idx, 1)
 }
+function addUserOpt() {
+  if (!selected.value?.props) return
+  if (!Array.isArray(selected.value.props.options)) selected.value.props.options = []
+  const n = selected.value.props.options.length + 1
+  if (selected.value.type === 'user') {
+    selected.value.props.options.push({ label: `成员${n}`, value: `member${n}`, deptName: '', deptId: '', parentDeptId: '' })
+  } else {
+    selected.value.props.options.push({ label: `部门${n}`, value: `dept${n}`, parentId: '' })
+  }
+}
+function removeUserOpt(idx: number) {
+  selected.value?.props?.options?.splice(idx, 1)
+}
+function importUserOpt() {
+  if (!selected.value) return
+  const q = selected.value
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = (e: any) => {
+    const file = e.target?.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string)
+        if (!Array.isArray(data)) { ElMessage.error('JSON 格式错误，应为数组'); return }
+        if (!Array.isArray(q.props?.options)) q.props.options = []
+        const isUser = q.type === 'user'
+        for (const item of data) {
+          if (!item.label && !item.value) continue
+          const opt: any = { label: item.label || item.name || '', value: item.value || item.id || '' }
+          if (isUser) { opt.deptName = item.deptName || item.department || ''; opt.deptId = item.deptId || item.departmentId || ''; opt.parentDeptId = item.parentDeptId || '' }
+          else { opt.parentId = item.parentId || '' }
+          q.props.options.push(opt)
+        }
+        ElMessage.success(`成功导入 ${data.filter((d: any) => d.label || d.value).length} 条`)
+      } catch { ElMessage.error('JSON 解析失败') }
+    }
+    reader.readAsText(file)
+  }
+  input.click()
+}
 
 const types = ref<any[]>([])
 const categoryDefs = [
@@ -1627,6 +1715,11 @@ function addQuestion(t: any) {
     q.props.options = [{ label: '', value: 'A', calculate: '', dataType: '', placeholder: '' }]
     q.props.calculateFormula = ''
   }
+  if (t.type === 'user' || t.type === 'dept') {
+    q.props.options = t.type === 'user'
+      ? [{ label: '成员A', value: 'memberA', deptName: '', deptId: '', parentDeptId: '' }, { label: '成员B', value: 'memberB', deptName: '', deptId: '', parentDeptId: '' }]
+      : [{ label: '部门A', value: 'deptA', parentId: '' }, { label: '部门B', value: 'deptB', parentId: '' }]
+  }
   if (t.type === 'number') {
     q.props.calculateFormula = ''
   }
@@ -1663,6 +1756,15 @@ function selectOption(qId: string, optIdx: number) {
   selected.value = questions.value.find(q => q.id === qId) || null
   selectedOptIdx.value = optIdx
   showSurveySettings.value = false
+  if (selected.value && (selected.value.type === 'user' || selected.value.type === 'dept')) {
+    if (!selected.value.props) selected.value.props = {}
+    if (!Array.isArray(selected.value.props.options)) selected.value.props.options = []
+    while (selected.value.props.options.length <= optIdx) {
+      selected.value.props.options.push(selected.value.type === 'user'
+        ? { label: '', value: '', deptName: '', deptId: '', parentDeptId: '' }
+        : { label: '', value: '', parentId: '' })
+    }
+  }
 }
 function onQuestionsUpdate(newQ: Question[]) {
   questions.value.splice(0, questions.value.length, ...newQ)
@@ -1688,13 +1790,18 @@ async function clearAll() {
 }
 
 function hasOptions(q: Question) { return ['select','radio','checkbox','picker','matrixRadio','matrixCheckbox','judge','cascade'].includes(q.type) }
-function hasDataType(q: Question) { return ['input','textarea','number','multiInput','hInput'].includes(q.type) }
+function hasDataType(q: Question) { return ['input','textarea','number','multiInput','hInput','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
 const LAYOUT_PURE = ['divider','description','pagination']
 const LAYOUT_ALL = ['divider','description','pagination','questionSet']
 const CHOICE_TYPES = ['select','radio','checkbox','picker','cascade','judge']
 const INPUT_TYPES = ['input','textarea','number','multiInput','hInput']
 const MATRIX_QR = ['matrixRadio','matrixCheckbox','matrixFillBlank']
 const MATRIX_ALL = ['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto']
+const importFormatHint = computed(() => {
+  if (selected.value?.type === 'user') return 'JSON 格式: [{"label":"姓名","value":"ID","deptName":"部门","deptId":"部门ID","parentDeptId":"父级部门ID"}]'
+  if (selected.value?.type === 'dept') return 'JSON 格式: [{"label":"部门名称","value":"部门ID","parentId":"父级部门ID"}]'
+  return ''
+})
 const PERSONAL_TYPES = ['phone','email','idCard','password','date','time','dateRange','switch','location']
 function isPureLayout(t: string) { return LAYOUT_PURE.includes(t) }
 function isLayoutAll(t: string) { return LAYOUT_ALL.includes(t) }

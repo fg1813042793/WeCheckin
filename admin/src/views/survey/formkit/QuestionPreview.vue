@@ -77,26 +77,51 @@
     <el-button v-if="editing && isChoiceType" text size="small" type="primary" @click="addOption" class="add-option-btn">添加选项</el-button>
 
     <!-- 矩阵题行/列画布编辑 -->
-    <div v-if="editing && isMatrixType" class="edit-options-area">
-      <div class="matrix-edit-header" style="display:flex;gap:8px;margin-bottom:4px;font-size:12px;color:#999;padding:0 4px">
-        <span>行</span>
-      </div>
-      <div v-for="(r, ri) in (q.props?.rows||[])" :key="ri" class="matrix-edit-row" @click.stop="emit('select-option', ri)" style="display:flex;align-items:center;gap:4px;margin-bottom:2px;border-radius:4px;padding:2px 4px;cursor:pointer">
-        <span class="matrix-edit-order" style="font-size:11px;color:#999;width:16px;flex-shrink:0">{{ ri+1 }}.</span>
-        <div class="option-editable" style="flex:0 0 auto;min-width:60px" contenteditable @blur="e => onMatrixRowLabelBlur(ri, e)" @keydown.enter.prevent="(e:any)=>e.target.blur()">{{ typeof r==='string'?r:r.title }}</div>
-        <template v-if="q.type!=='matrixFillBlank'">
-          <span class="matrix-col-label" v-for="col in (q.props?.columns||[])" :key="col.id||col.title||col" style="font-size:12px;color:#666;padding:2px 8px;margin:0 2px;background:#f5f5f5;border-radius:3px">{{ typeof col==='string'?col:(col.title||col.label||'') }}</span>
+    <div v-if="editing && isMatrixType" class="edit-options-area" style="border:1px solid #d0d0d0;border-radius:6px;padding:0">
+      <div style="overflow-x:auto">
+        <div :style="{display:'grid',gridTemplateColumns:matrixGridCols,gap:0,padding:0}">
+          <div style="padding:6px 4px;font-size:12px;color:#999;text-align:center;border:1px solid #d0d0d0;background:#f0f2f5;min-width:0"> </div>
+          <div style="padding:6px 8px;font-size:12px;color:#999;border:1px solid #d0d0d0;background:#f0f2f5;font-weight:500;border-left:none;min-width:0">行\\列</div>
+          <div v-for="(col, ci) in (q.props?.columns||[])" :key="ci" style="padding:4px 6px;border:1px solid #d0d0d0;background:#eef1f6;display:flex;align-items:center;gap:2px;justify-content:center;white-space:nowrap;border-left:none;min-width:0">
+            <div style="font-size:12px;color:#666;padding:2px 4px;outline:none;cursor:text;min-width:40px;text-align:center;border:1px solid #d0d0d0;border-radius:3px;background:#fff" contenteditable @blur="e => onMatrixColLabelBlur(ci, e)" @keydown.enter.prevent="(e:any)=>e.target.blur()">{{ typeof col==='string'?col:(col.title||col.label||'') }}</div>
+            <el-button text size="small" type="danger" style="font-size:12px;padding:0 2px;min-height:0" @click.stop="removeMatrixCol(ci)">×</el-button>
+          </div>
+          <div v-if="q.type!=='matrixAuto'" style="border:1px solid #d0d0d0;background:#f0f2f5;border-left:none;min-width:0"></div>
+        </div>
+        <template v-if="q.type==='matrixAuto' && (!q.props?.rows || !q.props.rows.length)">
+          <div class="matrix-edit-row" :style="{display:'grid',gridTemplateColumns:matrixGridCols,gap:0,padding:0,cursor:'default',opacity:0.6}">
+            <span style="padding:6px 4px;font-size:11px;color:#999;text-align:center;border:1px solid #e8e8e8;border-top:none;background:#fafafa;min-width:0">1.</span>
+            <div style="padding:6px 8px;border:1px solid #e8e8e8;border-top:none;border-left:none;font-size:12px;color:#999;min-width:0">示例行</div>
+            <div v-for="col in (q.props?.columns||[])" :key="col.id||col.label||col" style="padding:4px;border:1px solid #e8e8e8;border-top:none;border-left:none;min-width:0"><el-input disabled size="small" :placeholder="col.label||'值'" style="pointer-events:none" /></div>
+          </div>
         </template>
-        <template v-else>
-          <el-input disabled size="small" placeholder="填空" style="width:100px;pointer-events:none;margin-left:8px" />
-        </template>
-        <el-button text size="small" type="danger" class="opt-del-btn" @click.stop="removeMatrixRow(ri)" style="margin-left:auto">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        </el-button>
+        <div v-for="(r, ri) in (q.props?.rows||[])" :key="ri" class="matrix-edit-row" @click.stop="emit('select-option', ri)" :style="{display:'grid',gridTemplateColumns:matrixGridCols,gap:0,padding:0,cursor:'pointer'}">
+          <span style="padding:6px 4px;font-size:11px;color:#999;text-align:center;border:1px solid #e8e8e8;border-top:none;background:#fafafa;min-width:0">{{ ri+1 }}.</span>
+          <div style="padding:6px 8px;border:1px solid #e8e8e8;border-top:none;border-left:none;font-size:12px;color:#606266;outline:none;min-width:0" class="option-editable" contenteditable @blur="e => onMatrixRowLabelBlur(ri, e)" @keydown.enter.prevent="(e:any)=>e.target.blur()">{{ typeof r==='string'?r:r.title }}</div>
+          <template v-if="q.type==='matrixAuto'">
+            <div v-for="col in (q.props?.columns||[])" :key="col.id||col.label||col" style="padding:4px;border:1px solid #e8e8e8;border-top:none;border-left:none;min-width:0"><el-input disabled size="small" :placeholder="col.label||'值'" style="pointer-events:none" /></div>
+          </template>
+          <template v-else-if="q.type!=='matrixFillBlank'">
+            <div v-for="col in (q.props?.columns||[])" :key="col.id||col.title||col" class="matrix-col-label" style="padding:6px 8px;border:1px solid #e8e8e8;border-top:none;border-left:none;background:#fafafa;font-size:12px;color:#666;text-align:center;min-width:0">{{ typeof col==='string'?col:(col.title||col.label||'') }}</div>
+          </template>
+          <template v-else>
+            <div v-for="col in (q.props?.columns||[])" :key="col.id||col.title||col" style="padding:4px;border:1px solid #e8e8e8;border-top:none;border-left:none;min-width:0"><el-input disabled size="small" placeholder="填空" style="pointer-events:none" /></div>
+          </template>
+          <el-button v-if="q.type!=='matrixAuto'" text size="small" type="danger" class="opt-del-btn" @click.stop="removeMatrixRow(ri)" style="padding:4px 6px;border:1px solid #e8e8e8;border-top:none;border-left:none;min-width:0">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          </el-button>
+        </div>
       </div>
-      <div class="matrix-edit-add" style="display:flex;align-items:center;gap:4px;margin-top:4px">
-        <el-input v-model="newMatrixRowName" size="small" placeholder="新行" style="width:100px" @keyup.enter="addMatrixRow" />
+      <div class="matrix-edit-add" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid #e0e0e0">
         <el-button text size="small" type="primary" @click="addMatrixRow">+ 添加行</el-button>
+        <template v-if="q.type==='matrixAuto'">
+          <el-button text size="small" type="danger" @click="removeMatrixLastRow">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            删除行
+          </el-button>
+        </template>
+        <span style="flex:1"></span>
+        <el-button text size="small" type="primary" @click="addMatrixCol">+ 添加列</el-button>
       </div>
     </div>
 
@@ -129,6 +154,13 @@
       </div>
     </div>
 
+    <!-- 成员/部门预览 -->
+    <div v-if="editing && (q.type==='user'||q.type==='dept')" class="edit-options-area" style="padding:8px">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;cursor:pointer">
+        <el-tag v-for="(o, i) in (q.props?.options||[])" :key="i" size="small" effect="plain" style="font-size:12px;cursor:pointer" @click.stop="emit('select-option', i)">{{ o.label || (q.type==='user'?'成员':'部门') }}</el-tag>
+      </div>
+    </div>
+
     <!-- 其他填空题子字段预览 (signature/scanCode) -->
     <div v-if="editing && isInputSubFieldType && !isSingleInput && q.type!=='file'" class="edit-options-area">
       <div v-for="(o, i) in (q.props?.options||[])" :key="i" class="edit-option-row input-field-row" @click.stop="emit('select-option', i)">
@@ -158,74 +190,103 @@
     </div>
     <el-button v-if="editing && hasFields" text size="small" type="primary" @click="addField" class="add-option-btn">添加字段</el-button>
 
+    <!-- 个人信息编辑预览 -->
+    <div v-if="editing && ['phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type)" class="edit-options-area" style="padding:4px 8px;cursor:pointer" @click.stop="emit('select-option', 0)">
+      <div style="pointer-events:none">
+        <el-input v-if="['phone','email','idCard','password'].includes(q.type)" size="small" :placeholder="q.placeholder||'请输入'" disabled />
+        <el-date-picker v-else-if="q.type==='date'" disabled type="date" placeholder="选择日期" style="width:100%" />
+        <el-time-picker v-else-if="q.type==='time'" disabled placeholder="选择时间" style="width:100%" />
+        <el-switch v-else-if="q.type==='switch'" disabled />
+        <div v-else-if="q.type==='dateRange'" style="display:flex;flex-direction:column;gap:4px;width:100%"><el-date-picker disabled type="date" placeholder="开始日期" style="width:100%" /><el-date-picker disabled type="date" placeholder="结束日期" style="width:100%" /></div>
+        <div v-else-if="q.type==='location'" style="color:#999;font-size:13px;padding:4px 0"><el-button text size="small" disabled><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置</el-button></div>
+      </div>
+    </div>
+
+    <!-- 富文本编辑预览（画布中显示模拟编辑器） -->
+    <div v-if="editing && q.type==='richText'" class="edit-options-area" style="padding:0;cursor:pointer;overflow:hidden;border:1px solid #dcdfe6;border-radius:4px" @click.stop="emit('select-option', 0)">
+      <div style="pointer-events:none;min-height:80px;padding:10px 12px;color:#c0c4cc;font-size:13px">{{ q.placeholder || '输入富文本内容...' }}</div>
+    </div>
+
+    <!-- 自动填充编辑预览 -->
+    <div v-if="editing && q.type==='autopop'" class="edit-options-area" style="padding:4px 8px;cursor:pointer" @click.stop="emit('select-option', 0)">
+      <div style="pointer-events:none">
+        <el-input size="small" placeholder="自动填充" disabled />
+      </div>
+    </div>
+
     <div v-if="!editing" class="preview-body">
-      <el-input v-if="['input','text'].includes(q.type)" :placeholder="q.placeholder||'请输入'" disabled />
-      <el-input v-else-if="q.type==='multiInput'" placeholder="多项填空" disabled />
-      <el-input v-else-if="q.type==='hInput'" placeholder="横向填空" disabled />
-      <el-input v-else-if="q.type==='scanCode'" placeholder="扫码" disabled>
+      <el-input v-if="['input','text'].includes(q.type)" :placeholder="q.placeholder||'请输入'" v-model="val" />
+      <div v-else-if="q.type==='multiInput'" style="display:flex;flex-direction:column;gap:4px">
+        <el-input v-for="(f, fi) in (q.props?.fields||[])" :key="fi" :placeholder="f.placeholder||'请输入'" v-model="val[fi]" />
+      </div>
+      <div v-else-if="q.type==='hInput'" style="display:flex;flex-wrap:wrap;gap:4px">
+        <el-input v-for="(f, fi) in (q.props?.fields||[])" :key="fi" :placeholder="f.placeholder||'请输入'" v-model="val[fi]" style="flex:1;min-width:120px" />
+      </div>
+      <el-input v-else-if="q.type==='scanCode'" placeholder="扫码" v-model="val">
         <template #prefix><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></template>
       </el-input>
-      <div v-else-if="q.type==='signature'" class="preview-plain"><el-button text>签名</el-button></div>
-      <el-input v-else-if="q.type==='textarea'" type="textarea" :placeholder="q.placeholder||'请输入'" :rows="2" disabled />
-      <el-input-number v-else-if="q.type==='number'" :model-value="0" disabled style="width:100%;--el-input-width:100%" />
-      <el-radio-group v-else-if="q.type==='radio'" :model-value="''" disabled class="preview-options preview-radio-group" :style="optionGrid(q)">
+      <div v-else-if="q.type==='signature'" class="preview-plain"><el-button text @click.prevent>签名</el-button></div>
+      <el-input v-else-if="q.type==='textarea'" type="textarea" :placeholder="q.placeholder||'请输入'" :rows="2" v-model="val" />
+      <el-input-number v-else-if="q.type==='number'" v-model="val" style="width:100%;--el-input-width:100%" />
+      <el-radio-group v-else-if="q.type==='radio'" v-model="val" class="preview-options preview-radio-group" :style="optionGrid(q)">
         <el-radio v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value">{{ o.label }}</el-radio>
       </el-radio-group>
-      <el-checkbox-group v-else-if="q.type==='checkbox'" :model-value="[]" disabled class="preview-options preview-checkbox-group" :style="optionGrid(q)">
+      <el-checkbox-group v-else-if="q.type==='checkbox'" v-model="val" class="preview-options preview-checkbox-group" :style="optionGrid(q)">
         <el-checkbox v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value">{{ o.label }}</el-checkbox>
       </el-checkbox-group>
-      <el-select v-else-if="q.type==='select'" :model-value="''" disabled placeholder="请选择" style="width:100%">
+      <el-select v-else-if="q.type==='select'" v-model="val" placeholder="请选择" style="width:100%">
         <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
       </el-select>
-      <el-select v-else-if="q.type==='picker'" :model-value="''" disabled placeholder="请选择" style="width:100%">
+      <el-select v-else-if="q.type==='picker'" v-model="val" placeholder="请选择" style="width:100%">
         <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
       </el-select>
-      <el-cascader v-else-if="q.type==='cascade'" :model-value="[]" disabled placeholder="请选择" style="width:100%" :options="q.props?.options||[]" />
-      <el-radio-group v-else-if="q.type==='judge'" :model-value="''" disabled class="preview-options preview-radio-group">
+      <el-cascader v-else-if="q.type==='cascade'" v-model="val" placeholder="请选择" style="width:100%" :options="q.props?.options||[]" clearable />
+      <el-radio-group v-else-if="q.type==='judge'" v-model="val" class="preview-options preview-radio-group">
         <el-radio value="true">对</el-radio>
         <el-radio value="false">错</el-radio>
       </el-radio-group>
-      <span v-else-if="q.type==='rating'" class="preview-rate-icons" style="display:inline-flex;gap:4px">
-        <span v-for="i in (q.props?.maxRating || 5)" :key="i" v-html="rateIconSvg(q.props?.icon || 'star')"></span>
-      </span>
-      <el-date-picker v-else-if="q.type==='date'" :model-value="''" disabled type="date" placeholder="选择日期" style="width:100%" />
-      <el-time-picker v-else-if="q.type==='time'" :model-value="''" disabled placeholder="选择时间" style="width:100%" />
-      <el-switch v-else-if="q.type==='switch'" disabled />
+      <div v-else-if="q.type==='rating'" style="padding:4px 0">
+        <el-rate v-model="val" :max="q.props?.maxRating || 5" />
+      </div>
+      <el-date-picker v-else-if="q.type==='date'" v-model="val" type="date" placeholder="选择日期" style="width:100%" />
+      <el-time-picker v-else-if="q.type==='time'" v-model="val" placeholder="选择时间" style="width:100%" />
+      <el-switch v-else-if="q.type==='switch'" v-model="val" />
       <el-divider v-else-if="q.type==='divider'" style="margin:4px 0" />
       <div v-else-if="q.type==='description'" class="preview-plain">{{ q.description }}</div>
       <div v-else-if="q.type==='file'" style="border:1px dashed #d9d9d9;border-radius:6px;padding:12px;text-align:center;color:#999;margin:4px 0">
         <svg viewBox="0 0 1024 1024" width="22" height="22" fill="currentColor" style="display:block;margin:0 auto 4px"><path d="M854.6 288.6L639.4 73.4c-6-6-14.1-9.4-22.6-9.4H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V311.3c0-8.5-3.4-16.7-9.4-22.7z"/></svg>
         <span style="font-size:13px">上传文件</span>
       </div>
-      <div v-else-if="q.type==='location'" class="preview-plain"><el-button text><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置</el-button></div>
-      <div v-else-if="q.type==='signature'" class="preview-plain"><el-button text>签名</el-button></div>
-      <el-input v-else-if="q.type==='phone'" placeholder="手机号" disabled />
-      <el-input v-else-if="q.type==='email'" placeholder="邮箱地址" disabled />
-      <el-input v-else-if="q.type==='idCard'" placeholder="身份证号" disabled />
-      <el-input v-else-if="q.type==='password'" type="password" placeholder="密码" disabled />
-      <el-date-picker v-else-if="q.type==='dateRange'" :model-value="['','']" disabled type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:100%" />
+      <div v-else-if="q.type==='location'" class="preview-plain"><el-button text @click.prevent><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置</el-button></div>
+      <el-input v-else-if="q.type==='phone'" placeholder="手机号" v-model="val" />
+      <el-input v-else-if="q.type==='phone'" placeholder="手机号" v-model="val" />
+      <el-input v-else-if="q.type==='email'" placeholder="邮箱地址" v-model="val" />
+      <el-input v-else-if="q.type==='idCard'" placeholder="身份证号" v-model="val" />
+      <el-input v-else-if="q.type==='password'" type="password" placeholder="密码" v-model="val" />
+      <div v-else-if="q.type==='dateRange'" style="display:flex;flex-direction:column;gap:4px;width:100%"><el-date-picker v-model="val[0]" type="date" placeholder="开始日期" style="width:100%" /><el-date-picker v-model="val[1]" type="date" placeholder="结束日期" style="width:100%" /></div>
       <div v-else-if="q.type==='matrixRadio'" class="preview-matrix">
-        <div class="matrix-row" v-for="r in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><span class="matrix-label">{{ typeof r==='string'?r:r.title }}</span><el-radio-group disabled :model-value="''"><el-radio v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)" :value="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</el-radio></el-radio-group></div>
+        <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-radio-group :model-value="val[ri]" @update:model-value="(v: any) => val[ri] = v"><el-radio :value="typeof c==='string'?c:(c.title||c.label)" /></el-radio-group></td></tr></tbody></table>
       </div>
       <div v-else-if="q.type==='matrixCheckbox'" class="preview-matrix">
-        <div class="matrix-row" v-for="r in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><span class="matrix-label">{{ typeof r==='string'?r:r.title }}</span><el-checkbox-group disabled :model-value="[]"><el-checkbox v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)" :value="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</el-checkbox></el-checkbox-group></div>
+        <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-checkbox-group :model-value="val[ri]||[]" @update:model-value="(v: any) => val[ri] = v"><el-checkbox :value="typeof c==='string'?c:(c.title||c.label)" /></el-checkbox-group></td></tr></tbody></table>
       </div>
       <div v-else-if="q.type==='matrixFillBlank'" class="preview-matrix">
-        <div class="matrix-row" v-for="r in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><span class="matrix-label">{{ typeof r==='string'?r:r.title }}</span><el-input disabled placeholder="填空" style="width:120px" /></div>
+        <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="(c, ci) in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-input :model-value="val[ri]?.[ci]" @update:model-value="(v: any) => { if(!val[ri]) val[ri]={}; val[ri][ci]=v }" placeholder="填空" size="small" style="width:100%" /></td></tr></tbody></table>
       </div>
       <div v-else-if="q.type==='matrixAuto'" class="preview-matrix">
-        <el-button text size="small">+ 添加行</el-button>
-        <div class="matrix-row" style="margin-top:4px" v-for="col in (q.props?.columns||[]).slice(0,1)" :key="col.label||col.id||col"><span class="matrix-label">{{ col.label||col }}</span><el-input disabled placeholder="值" style="width:120px" /></div>
+        <table><thead><tr><th class="corner">#</th><th v-for="c in (q.props?.columns||[])" :key="c.label||c.id||c">{{ c.label||c }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[])" :key="ri"><td class="matrix-label">{{ ri+1 }}</td><td v-for="(c, ci) in (q.props?.columns||[])" :key="c.label||c.id||c"><el-input :model-value="val[ri]?.[ci]" @update:model-value="(v: any) => { if(!val[ri]) val[ri]={}; val[ri][ci]=v }" size="small" :placeholder="c.label||'值'" style="width:100%" /></td></tr></tbody></table>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid #e0e0e0"><el-button text size="small" disabled>+ 添加行</el-button><span style="flex:1"></span><el-button text size="small" type="danger" disabled><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg> 删除行</el-button></div>
       </div>
       <div v-else-if="q.type==='questionSet'" class="preview-plain">问题组（内部题）</div>
       <div v-else-if="q.type==='pagination'" class="preview-plain">—— 分页 ——</div>
-      <div v-else-if="q.type==='user'" class="preview-plain"><el-button text>选择成员</el-button></div>
-      <div v-else-if="q.type==='dept'" class="preview-plain"><el-button text>选择部门</el-button></div>
-      <div v-else-if="q.type==='richText'" class="preview-plain"><div class="rich-text-placeholder">富文本内容</div></div>
-      <div v-else-if="q.type==='autopop'" class="preview-plain"><el-input disabled placeholder="自动填充" /></div>
+      <el-cascader v-else-if="q.type==='user'||q.type==='dept'" v-model="val" :placeholder="q.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="userDeptTreeOptions" :props="{ multiple: !!q.multiple }" clearable />
+      <div v-else-if="q.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
+        <QuillEditor v-model:content="val" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...' }" style="min-height:150px" />
+      </div>
+      <div v-else-if="q.type==='autopop'" class="preview-plain"><el-input placeholder="自动填充" v-model="val" /></div>
       <div v-else-if="q.type==='nps'" class="preview-nps">
         <div class="nps-labels"><span>0</span><span>10</span></div>
-        <el-rate :model-value="0" disabled :max="10" show-score score-template="{value}" />
+        <el-rate v-model="val" :max="10" show-score score-template="{value}" />
       </div>
     </div>
 
@@ -236,6 +297,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 const props = defineProps<{ q: any; editing?: boolean }>()
 const emit = defineEmits<{
@@ -251,18 +314,66 @@ const emit = defineEmits<{
 const titleRef = ref<HTMLElement>()
 const descRef = ref<HTMLElement>()
 
+function getInitVal(type: string): any {
+  if (type === 'checkbox') return []
+  if (type === 'switch') return false
+  if (type === 'number') return undefined
+  if (type === 'dateRange') return ['', '']
+  if (['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'].includes(type)) return {}
+  if (['cascade','user','dept'].includes(type)) return []
+  if (['multiInput','hInput'].includes(type)) return (props.q.props?.fields||[]).map(() => '')
+  return ''
+}
+const val = ref<any>(getInitVal(props.q.type))
+
 const hasOptions = computed(() => ['select','radio','checkbox','picker','judge','cascade','matrixRadio','matrixCheckbox'].includes(props.q.type))
 const isInputSubFieldType = computed(() => ['input','textarea','signature','scanCode','file'].includes(props.q.type))
 const isSingleInput = computed(() => ['input','textarea'].includes(props.q.type))
 const hasFields = computed(() => ['multiInput','hInput'].includes(props.q.type))
 const isChoiceType = computed(() => ['select','radio','checkbox','picker','judge','cascade'].includes(props.q.type))
 const isMatrixChoiceType = computed(() => ['matrixRadio','matrixCheckbox'].includes(props.q.type))
-const isMatrixType = computed(() => ['matrixRadio','matrixCheckbox','matrixFillBlank'].includes(props.q.type))
+const isMatrixType = computed(() => ['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'].includes(props.q.type))
 
 const newMatrixRowName = ref('')
+const newMatrixColName = ref('')
+const userDeptTreeOptions = computed(() => {
+  const q = props.q
+  const options = q.props?.options || []
+  if (q.type === 'user') {
+    const deptMap: Record<string, any> = {}
+    options.forEach((o: any) => {
+      const deptId = o.deptId || ''
+      if (!deptMap[deptId]) {
+        deptMap[deptId] = { value: '__d__' + deptId, label: o.deptName || deptId || '未分组', children: [] }
+      }
+      deptMap[deptId].children.push({ value: o.value, label: o.label || '成员' })
+    })
+    return Object.values(deptMap)
+  }
+  const map: Record<string, any> = {}
+  options.forEach((o: any) => { map[o.value] = { ...o, children: [] } })
+  const roots: any[] = []
+  options.forEach((o: any) => {
+    if (o.parentId && map[o.parentId]) {
+      map[o.parentId].children.push(map[o.value])
+    } else {
+      roots.push(map[o.value])
+    }
+  })
+  return roots
+})
+const matrixGridCols = computed(() => {
+  const n = props.q.props?.columns?.length || 2
+  if (props.q.type === 'matrixAuto') return `20px 130px repeat(${n}, minmax(100px, 1fr))`
+  return `20px 130px repeat(${n}, minmax(100px, 1fr)) 32px`
+})
 function ensureRows() {
   if (!props.q.props) props.q.props = {}
   if (!Array.isArray(props.q.props.rows)) props.q.props.rows = []
+}
+function ensureCols() {
+  if (!props.q.props) props.q.props = {}
+  if (!Array.isArray(props.q.props.columns)) props.q.props.columns = []
 }
 function onMatrixRowLabelBlur(idx: number, e: FocusEvent) {
   const text = (e.target as HTMLElement).innerText.trim()
@@ -271,15 +382,34 @@ function onMatrixRowLabelBlur(idx: number, e: FocusEvent) {
   const existing = props.q.props.rows[idx] || {}
   props.q.props.rows[idx] = typeof existing === 'string' ? text : { ...existing, title: text }
 }
+function onMatrixColLabelBlur(idx: number, e: FocusEvent) {
+  const text = (e.target as HTMLElement).innerText.trim()
+  if (!text) return
+  ensureCols()
+  const existing = props.q.props.columns[idx] || {}
+  props.q.props.columns[idx] = typeof existing === 'string' ? text : { ...existing, title: text }
+}
 function addMatrixRow() {
   ensureRows()
-  const name = newMatrixRowName.value.trim() || `行${props.q.props.rows.length + 1}`
+  const name = `行${props.q.props.rows.length + 1}`
   props.q.props.rows.push({ title: name, id: Date.now() + '_' + Math.random().toString(36).slice(2,6), width: 150 })
-  newMatrixRowName.value = ''
 }
 function removeMatrixRow(idx: number) {
   ensureRows()
   props.q.props.rows.splice(idx, 1)
+}
+function removeMatrixLastRow() {
+  ensureRows()
+  if (props.q.props.rows.length > 0) props.q.props.rows.pop()
+}
+function addMatrixCol() {
+  ensureCols()
+  const name = `列${props.q.props.columns.length + 1}`
+  props.q.props.columns.push({ title: name, id: Date.now() + '_' + Math.random().toString(36).slice(2,6), width: 150 })
+}
+function removeMatrixCol(idx: number) {
+  ensureCols()
+  props.q.props.columns.splice(idx, 1)
 }
 
 const fieldIcon = computed(() => {
@@ -481,19 +611,38 @@ function optionGrid(q: any) {
   word-break: break-word;
 }
 .preview-matrix {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  overflow-x: auto;
 }
-.matrix-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.preview-matrix table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
 }
-.matrix-label {
+.preview-matrix th,
+.preview-matrix td {
+  padding: 6px 10px;
+  border: 1px solid #e0e0e0;
   font-size: 12px;
+  text-align: center;
+  min-width: 70px;
+}
+.preview-matrix th {
+  background: #f0f2f5;
+  font-weight: 500;
+  color: #666;
+}
+.preview-matrix th.corner {
+  color: #999;
+  font-weight: 400;
+}
+.preview-matrix td.matrix-label {
+  background: #fafafa;
   color: #606266;
-  min-width: 40px;
+  font-weight: 400;
+  text-align: left;
+  min-width: 60px;
 }
 .preview-nps {
   padding: 4px 0;
@@ -514,11 +663,6 @@ function optionGrid(q: any) {
   font-size: 11px;
   color: #909399;
   margin-bottom: 2px;
-}
-.rich-text-placeholder {
-  min-height:60px; border:1px dashed #ddd; border-radius:4px;
-  display:flex; align-items:center; justify-content:center;
-  color:#ccc; font-size:13px;
 }
 
 /* ======= 编辑模式 ======= */

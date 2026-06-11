@@ -1,129 +1,12 @@
 basePath: /
 definitions:
-  model.Exam:
-    properties:
-      addTime:
-        type: integer
-      createBy:
-        type: integer
-      deptId:
-        type: integer
-      duration:
-        description: 单人答题时长（分钟），0=不限
-        type: integer
-      endTime:
-        description: 结束时间 (ms)
-        type: integer
-      id:
-        type: integer
-      maxAttempts:
-        type: integer
-      order:
-        type: integer
-      paperId:
-        type: integer
-      publishDepts:
-        type: string
-      qr:
-        type: string
-      showScore:
-        description: 1=交卷后立即显示分数
-        type: integer
-      startTime:
-        description: 开始时间 (ms)
-        type: integer
-      status:
-        type: integer
-      title:
-        type: string
-    type: object
-  model.ExamPaper:
-    properties:
-      addTime:
-        type: integer
-      category:
-        type: string
-      createBy:
-        type: integer
-      deptId:
-        type: integer
-      description:
-        type: string
-      id:
-        type: integer
-      passScore:
-        description: 及格分
-        type: integer
-      questionIds:
-        description: JSON 数组 [1,2,3]
-        type: string
-      showAnswer:
-        description: 1=交卷后立即显示答案
-        type: integer
-      shuffle:
-        description: 1=题目乱序
-        type: integer
-      status:
-        type: integer
-      timeLimit:
-        description: 答题时长（分钟）
-        type: integer
-      title:
-        type: string
-      totalScore:
-        type: integer
-    type: object
-  model.ExamQuestion:
-    properties:
-      addTime:
-        type: integer
-      analysis:
-        description: 解析
-        type: string
-      answer:
-        description: 正确答案（JSON：string/[]string）
-        type: string
-      category:
-        description: 分类
-        type: string
-      createBy:
-        type: integer
-      deptId:
-        description: 归属部门
-        type: integer
-      difficulty:
-        description: 1=易 2=中 3=难
-        type: integer
-      id:
-        type: integer
-      options:
-        description: JSON 数组 [{label,value}]
-        type: string
-      score:
-        description: 分值
-        type: integer
-      status:
-        description: 1=启用 0=停用
-        type: integer
-      tags:
-        description: 逗号分隔标签
-        type: string
-      title:
-        description: 题干
-        type: string
-      type:
-        description: input/select/radio/checkbox/textarea
-        type: string
-    type: object
   model.Survey:
     properties:
       addTime:
         type: integer
       allowMulti:
-        description: 同一用户多次答
         type: integer
       anonymous:
-        description: 0=记录用户 1=匿名
         type: integer
       category:
         description: 分类
@@ -136,7 +19,6 @@ definitions:
       deptId:
         type: integer
       deptIds:
-        description: 部门限定时的可见部门
         type: string
       description:
         description: 描述
@@ -144,32 +26,24 @@ definitions:
       editTime:
         type: integer
       endTime:
-        description: ms
         type: integer
       id:
         type: integer
       maxResponse:
-        description: 0=不限
         type: integer
       mode:
-        description: survey/exam
         type: string
       order:
         type: integer
       qr:
-        description: 二维码 URL
         type: string
       settings:
-        description: 答题/提交/考试 设置（JSON 对象，参考 SurveyKing ProjectSetting）
         type: string
       showResult:
-        description: 0=否 1=提交后可见
         type: integer
       startTime:
-        description: ms
         type: integer
       status:
-        description: 1=发布 0=停用
         type: integer
       tags:
         description: 标签 (逗号)
@@ -178,7 +52,6 @@ definitions:
         description: 标题
         type: string
       visibility:
-        description: 0=公开链接 1=登录可见 2=部门限定
         type: integer
     type: object
   model.SurveyChannel:
@@ -217,9 +90,9 @@ definitions:
 host: localhost:8080
 info:
   contact: {}
-  description: 微信小程序打卡项目后端 API
+  description: 微信小程序打卡项目后端 API。包含用户认证、打卡管理、问卷系统、考试系统、报表导出等功能。
   title: WeCheckin API
-  version: "1.0"
+  version: "2.0"
 paths:
   /admin/admin/batch_force_offline:
     post:
@@ -1088,79 +961,6 @@ paths:
       summary: 表达式试算
       tags:
       - 表单工具
-  /admin/survey/exam_del:
-    post:
-      parameters:
-      - description: 考试ID
-        in: formData
-        name: id
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 删除考试
-      tags:
-      - 考试管理
-  /admin/survey/exam_edit:
-    post:
-      parameters:
-      - description: 考试数据（需包含ID）
-        in: body
-        name: exam
-        required: true
-        schema:
-          $ref: '#/definitions/model.Exam'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 编辑考试
-      tags:
-      - 考试管理
-  /admin/survey/exam_insert:
-    post:
-      parameters:
-      - description: 考试数据
-        in: body
-        name: exam
-        required: true
-        schema:
-          $ref: '#/definitions/model.Exam'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 创建考试
-      tags:
-      - 考试管理
-  /admin/survey/exam_list:
-    get:
-      parameters:
-      - description: 页码
-        in: query
-        name: page
-        type: integer
-      - description: 每页条数
-        in: query
-        name: pageSize
-        type: integer
-      - description: 关键词
-        in: query
-        name: keyword
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 考试列表
-      tags:
-      - 考试管理
   /admin/survey/export/enroll:
     get:
       parameters:
@@ -1209,243 +1009,6 @@ paths:
       summary: 导出问卷CSV
       tags:
       - 表单工具
-  /admin/survey/manual_grade:
-    post:
-      parameters:
-      - description: 考试记录ID
-        in: formData
-        name: recordId
-        required: true
-        type: integer
-      - description: 题目ID
-        in: formData
-        name: qid
-        required: true
-        type: integer
-      - description: 分数
-        in: formData
-        name: score
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 人工判分
-      tags:
-      - 考试管理
-  /admin/survey/paper_del:
-    post:
-      parameters:
-      - description: 试卷ID
-        in: formData
-        name: id
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 删除试卷
-      tags:
-      - 试卷管理
-  /admin/survey/paper_detail:
-    get:
-      parameters:
-      - description: 试卷ID
-        in: query
-        name: id
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 试卷详情
-      tags:
-      - 试卷管理
-  /admin/survey/paper_edit:
-    post:
-      parameters:
-      - description: 试卷数据（需包含ID）
-        in: body
-        name: paper
-        required: true
-        schema:
-          $ref: '#/definitions/model.ExamPaper'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 编辑试卷
-      tags:
-      - 试卷管理
-  /admin/survey/paper_insert:
-    post:
-      parameters:
-      - description: 试卷数据
-        in: body
-        name: paper
-        required: true
-        schema:
-          $ref: '#/definitions/model.ExamPaper'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 创建试卷
-      tags:
-      - 试卷管理
-  /admin/survey/paper_list:
-    get:
-      parameters:
-      - description: 页码
-        in: query
-        name: page
-        type: integer
-      - description: 每页条数
-        in: query
-        name: pageSize
-        type: integer
-      - description: 关键词
-        in: query
-        name: keyword
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 试卷列表
-      tags:
-      - 试卷管理
-  /admin/survey/preview_grade:
-    post:
-      parameters:
-      - description: 试卷ID
-        in: formData
-        name: paperId
-        required: true
-        type: integer
-      - description: 答案JSON
-        in: formData
-        name: answers
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 预判分
-      tags:
-      - 考试管理
-  /admin/survey/question_del:
-    post:
-      parameters:
-      - description: 题目ID
-        in: formData
-        name: id
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 删除题目
-      tags:
-      - 题库管理
-  /admin/survey/question_edit:
-    post:
-      parameters:
-      - description: 题目数据（需包含ID）
-        in: body
-        name: question
-        required: true
-        schema:
-          $ref: '#/definitions/model.ExamQuestion'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 编辑题目
-      tags:
-      - 题库管理
-  /admin/survey/question_insert:
-    post:
-      parameters:
-      - description: 题目数据
-        in: body
-        name: question
-        required: true
-        schema:
-          $ref: '#/definitions/model.ExamQuestion'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 创建题目
-      tags:
-      - 题库管理
-  /admin/survey/question_list:
-    get:
-      parameters:
-      - description: 页码
-        in: query
-        name: page
-        type: integer
-      - description: 每页条数
-        in: query
-        name: pageSize
-        type: integer
-      - description: 关键词
-        in: query
-        name: keyword
-        type: string
-      - description: 分类
-        in: query
-        name: category
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 题目列表
-      tags:
-      - 题库管理
-  /admin/survey/record_list:
-    get:
-      parameters:
-      - description: 考试ID
-        in: query
-        name: examId
-        required: true
-        type: integer
-      - description: 页码
-        in: query
-        name: page
-        type: integer
-      - description: 每页条数
-        in: query
-        name: pageSize
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 考试记录列表
-      tags:
-      - 考试管理
   /admin/survey/report/enroll:
     get:
       parameters:
@@ -1494,6 +1057,68 @@ paths:
       summary: 问卷报表（schema-aware）
       tags:
       - 表单工具
+  /admin/survey/resource_delete:
+    post:
+      parameters:
+      - description: 资源ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除问卷资源
+      tags:
+      - 问卷管理
+  /admin/survey/resource_list:
+    get:
+      parameters:
+      - description: 问卷ID
+        in: query
+        name: surveyId
+        required: true
+        type: integer
+      - description: '资源类型: bg/header，为空则返回全部'
+        in: query
+        name: resType
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询问卷资源列表
+      tags:
+      - 问卷管理
+  /admin/survey/resource_upload:
+    post:
+      parameters:
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 问卷ID
+        in: formData
+        name: surveyId
+        required: true
+        type: integer
+      - description: '资源类型: bg/header'
+        in: formData
+        name: resType
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 上传问卷资源（背景图/页眉图）
+      tags:
+      - 问卷管理
   /admin/survey/response_del:
     post:
       parameters:
@@ -2763,4 +2388,15 @@ paths:
       - 问卷-客户端
 schemes:
 - http
+securityDefinitions:
+  AdminToken:
+    description: '管理员 Token，格式: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+  ClientToken:
+    description: '用户 Token，格式: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

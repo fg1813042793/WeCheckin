@@ -1,11 +1,23 @@
 // WeCheckin API
 //
 //	@title			WeCheckin API
-//	@version		1.0
-//	@description	微信小程序打卡项目后端 API
+//	@version		2.0
+//	@description	微信小程序打卡项目后端 API。包含用户认证、打卡管理、问卷系统、考试系统、报表导出等功能。
 //	@host			localhost:8080
 //	@BasePath		/
 //	@schemes		http
+//
+//	@securityDefinitions.apikey	AdminToken
+//	@in							header
+//	@name						Authorization
+//	@description				管理员 Token，格式: "Bearer {token}"
+//
+//	@securityDefinitions.apikey	ClientToken
+//	@in							header
+//	@name						Authorization
+//	@description				用户 Token，格式: "Bearer {token}"
+
+//go:generate sh -c "cd .. && swag init -g cmd/main.go --output docs/swagger"
 package main
 
 import (
