@@ -22,6 +22,16 @@ export default defineConfig({
         target: 'http://localhost:8083',
         changeOrigin: true
       },
+      '/survey': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+        bypass(req) {
+          const path = req.url || ''
+          if (/^\/(survey\/(designer|formkit|responses|statistic|preview)(\/|\?|$))/.test(path)) {
+            return req.url
+          }
+        }
+      },
       '/home': {
         target: 'http://localhost:8083',
         changeOrigin: true

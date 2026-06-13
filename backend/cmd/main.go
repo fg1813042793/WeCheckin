@@ -466,9 +466,13 @@ func main() {
 	// Admin SPA (Vue 3 build from admin/dist)
 	adminDist := "../admin/dist"
 	if _, err := os.Stat(adminDist); err == nil {
-		h.Static("/assets", filepath.Join(adminDist, "assets"))
 		h.GET("/*any", func(ctx context.Context, c *app.RequestContext) {
-			c.File(filepath.Join(adminDist, "index.html"))
+			filePath := filepath.Join(adminDist, string(c.Path()))
+			if fi, err := os.Stat(filePath); err == nil && !fi.IsDir() {
+				c.File(filePath)
+			} else {
+				c.File(filepath.Join(adminDist, "index.html"))
+			}
 		})
 		logger.Logger.Println("Admin SPA serving from", adminDist)
 	}

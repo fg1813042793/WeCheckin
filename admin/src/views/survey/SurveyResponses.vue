@@ -8,24 +8,27 @@
         <el-button size="small" style="margin-left:auto" @click="exportCSV">导出 CSV</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe style="margin-top:16px">
+      <el-table :data="list" v-loading="loading" stripe style="margin-top:16px" border>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="userId" label="用户" width="120" />
         <el-table-column prop="nickname" label="昵称" width="140" />
-        <el-table-column label="状态" width="80">
+        <el-table-column label="状态" width="70">
           <template #default="{ row }">
             <el-tag :type="row.status===1 ? 'success' : 'info'" size="small">
               {{ row.status===1 ? '完成' : '草稿' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="用时" width="90">
+        <el-table-column label="用时" width="80">
           <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
         </el-table-column>
-        <el-table-column label="设备" min-width="180" show-overflow-tooltip>
+        <el-table-column v-for="q in questions" :key="q.id" :label="q.title" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ formatVal(row.answers?.[q.id]) }}</template>
+        </el-table-column>
+        <el-table-column label="设备" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">{{ row.device || '-' }}</template>
         </el-table-column>
-        <el-table-column label="提交时间" min-width="160">
+        <el-table-column label="提交时间" min-width="150">
           <template #default="{ row }">{{ formatTime(row.submitTime) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
@@ -74,6 +77,8 @@ const pageSize = ref(20)
 const total = ref(0)
 const list = ref<any[]>([])
 const loading = ref(false)
+const questions = ref<any[]>([])
+const skipTypes = ['divider', 'description', 'richText', 'pagination', 'questionSet']
 
 function formatTime(ms: number) {
   if (!ms) return '-'
@@ -90,9 +95,16 @@ async function load() {
   if (!surveyId) { ElMessage.error('缺少 surveyId'); return }
   loading.value = true
   try {
-    const res: any = await adminApi.surveyResponseList({ surveyId, page: page.value, pageSize: pageSize.value })
-    list.value = res.list || []
-    total.value = res.total || 0
+    const [res, detailRes]: any = await Promise.all([
+      adminApi.surveyResponseList({ surveyId, page: page.value, pageSize: pageSize.value }),
+      adminApi.surveyDetail(surveyId)
+    ])
+    list.value = res.data?.list || res.list || []
+    total.value = res.data?.total || res.total || 0
+    const detail = (detailRes as any).data || detailRes
+    const raw = detail?.schema
+    const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
+    questions.value = (sch.questions || []).filter((q: any) => !skipTypes.includes(q.type))
   } finally { loading.value = false }
 }
 

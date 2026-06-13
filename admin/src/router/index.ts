@@ -35,13 +35,18 @@ const router = createRouter({
         { path: 'event', name: 'Event', component: () => import('../views/event/index.vue'), meta: { title: '赛事活动' } },
         { path: 'setup', name: 'Setup', component: () => import('../views/setup/index.vue'), meta: { title: '系统配置' } }
       ]
+    },
+    {
+      path: '/sf/:id',
+      name: 'SurveyFillPC',
+      component: () => import('../views/survey/SurveyFillPC.vue')
     }
   ]
 })
 
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('admin_token')
-  if (to.path !== '/login' && !token) {
+  if (to.path !== '/login' && !to.path.startsWith('/sf/') && !token) {
     next('/login')
   } else {
     next()

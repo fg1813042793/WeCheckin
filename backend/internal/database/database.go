@@ -318,6 +318,7 @@ func autoMigrate() error {
 		return err
 	}
 	DB.Exec("ALTER TABLE `event_scores` MODIFY COLUMN `event_score_score` TEXT COMMENT '成绩'")
+	DB.Exec("ALTER TABLE `survey` MODIFY COLUMN `survey_schema` MEDIUMTEXT COMMENT 'formkit schema (JSON)'")
 	return nil
 }
 

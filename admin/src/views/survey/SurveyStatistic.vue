@@ -67,6 +67,34 @@
         </div>
         <div v-if="!stat.fieldStats || stat.fieldStats.length === 0" style="color:#aaa;text-align:center;padding:40px 0">暂无数据</div>
       </el-card>
+
+      <el-card shadow="never" style="margin-top:16px">
+        <div class="chart-title">答卷明细</div>
+        <el-table :data="respList" stripe border size="small" style="margin-top:8px" max-height="600">
+          <el-table-column prop="id" label="ID" width="60" />
+          <el-table-column prop="nickname" label="提交人" width="120" />
+          <el-table-column label="用时" width="70">
+            <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
+          </el-table-column>
+          <el-table-column label="设备" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.device || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="IP" width="130" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.ip || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="提交时间" min-width="150">
+            <template #default="{ row }">{{ formatTime(row.submitTime) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="60">
+            <template #default="{ row }">
+              <el-tag :type="row.status===1 ? 'success' : 'info'" size="small">{{ row.status===1 ? '完成' : '草稿' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column v-for="q in questions" :key="q.id" :label="plainTitle(q.title)" min-width="100" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatVal(row.answers?.[q.id]) }}</template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </el-card>
   </div>
 </template>
@@ -89,12 +117,24 @@ const router = useRouter()
 const surveyId = Number(route.query.surveyId || 0)
 const surveyTitle = String(route.query.title || `问卷 #${surveyId}`)
 const stat = ref<any>({})
+const respList = ref<any[]>([])
+const questions = ref<any[]>([])
+const skipTypes = ['divider', 'description', 'richText', 'pagination', 'questionSet']
 
 async function load() {
   if (!surveyId) return
   try {
-    const res: any = await adminApi.surveyStatistic(surveyId)
-    stat.value = res.data || res
+    const [statRes, listRes, detailRes]: any = await Promise.all([
+      adminApi.surveyStatistic(surveyId),
+      adminApi.surveyResponseList({ surveyId, pageSize: 200 }),
+      adminApi.surveyDetail(surveyId)
+    ])
+    stat.value = statRes.data || statRes
+    respList.value = listRes.data?.list || listRes.list || []
+    const detail = detailRes.data || detailRes
+    const raw = detail?.schema
+    const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
+    questions.value = (sch.questions || []).filter((q: any) => !skipTypes.includes(q.type))
   } catch { ElMessage.error('加载失败') }
 }
 
@@ -140,6 +180,27 @@ function exportData() {
 }
 
 function goBack() { router.push('/survey') }
+
+function formatTime(ms: number) {
+  if (!ms) return '-'
+  return new Date(ms).toLocaleString()
+}
+function formatDuration(sec: number) {
+  if (!sec) return '-'
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return m > 0 ? `${m}分${s}秒` : `${s}秒`
+}
+function plainTitle(title: string) {
+  const t = title ? title.replace(/<[^>]+>/g, '') : ''
+  return t.length > 20 ? t.slice(0, 20) + '…' : t
+}
+function formatVal(v: any) {
+  if (v == null || v === '') return '-'
+  if (Array.isArray(v)) return v.join(', ')
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
 
 onMounted(load)
 </script>

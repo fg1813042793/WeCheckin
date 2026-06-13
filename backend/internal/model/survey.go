@@ -33,18 +33,21 @@ func (Survey) TableName() string { return "survey" }
 
 // SurveyResponse 答卷（一用户一次提交）
 type SurveyResponse struct {
-	ID         uint   `gorm:"primaryKey;column:survey_resp_id" json:"id"`
-	SurveyID   uint   `gorm:"column:survey_resp_survey_id" json:"surveyId"`
-	UserID     string `gorm:"column:survey_resp_user_id;size:128" json:"userId"`        // 匿名时为空
-	Nickname   string `gorm:"column:survey_resp_nickname;size:128" json:"nickname"`     // 冗余（防用户改名）
-	Answers    string `gorm:"column:survey_resp_answers;type:text" json:"-"`           // {qid: value} JSON
-	Duration   int    `gorm:"column:survey_resp_duration;default:0" json:"duration"`   // 答题时长(秒)
-	Status     int    `gorm:"column:survey_resp_status;default:1" json:"status"`       // 1=已完成 0=草稿
-	IP         string `gorm:"column:survey_resp_ip;size:64" json:"ip"`
-	Device     string `gorm:"column:survey_resp_device;size:255" json:"device"`
-	StartTime  int64  `gorm:"column:survey_resp_start_time" json:"startTime"`
-	SubmitTime int64  `gorm:"column:survey_resp_submit_time" json:"submitTime"`
-	AddTime    int64  `gorm:"column:survey_resp_add_time" json:"addTime"`
+	ID           uint   `gorm:"primaryKey;column:survey_resp_id" json:"id"`
+	SurveyID     uint   `gorm:"column:survey_resp_survey_id" json:"surveyId"`
+	UserID       string `gorm:"column:survey_resp_user_id;size:128" json:"userId"`          // 匿名时为空
+	Nickname     string `gorm:"column:survey_resp_nickname;size:128" json:"nickname"`       // 冗余（防用户改名）
+	Answers      string `gorm:"column:survey_resp_answers;type:text" json:"-"`             // {qid: value} JSON
+	Duration     int    `gorm:"column:survey_resp_duration;default:0" json:"duration"`     // 答题时长(秒)
+	Status       int    `gorm:"column:survey_resp_status;default:1" json:"status"`         // 1=已完成 0=草稿
+	IP           string `gorm:"column:survey_resp_ip;size:64" json:"ip"`
+	Device       string `gorm:"column:survey_resp_device;size:255" json:"device"`
+	Browser      string `gorm:"column:survey_resp_browser;size:64" json:"browser"`
+	DeviceType   string `gorm:"column:survey_resp_device_type;size:32" json:"deviceType"`
+	PlatformType string `gorm:"column:survey_resp_platform_type;size:32" json:"platformType"`
+	StartTime    int64  `gorm:"column:survey_resp_start_time" json:"startTime"`
+	SubmitTime   int64  `gorm:"column:survey_resp_submit_time" json:"submitTime"`
+	AddTime      int64  `gorm:"column:survey_resp_add_time" json:"addTime"`
 }
 
 func (SurveyResponse) TableName() string { return "survey_response" }

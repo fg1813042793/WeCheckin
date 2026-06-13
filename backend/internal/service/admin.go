@@ -1949,7 +1949,11 @@ func SetRoleMenus(roleID uint, menuIDs []uint) {
 // GetAdminMenuTree returns the menu tree for an admin (filtered by role)
 func GetAdminMenuTree(admin *model.Admin) ([]*model.Menu, error) {
 	if admin.Type == 1 {
-		return GetMenuTree()
+		var list []*model.Menu
+		if err := database.DB.Where("`menu_status` = 1").Order("`menu_sort` ASC, `id` ASC").Find(&list).Error; err != nil {
+			return nil, err
+		}
+		return buildMenuTree(list, 0), nil
 	}
 	if admin.RoleID == 0 {
 		return []*model.Menu{}, nil
@@ -1959,7 +1963,7 @@ func GetAdminMenuTree(admin *model.Admin) ([]*model.Menu, error) {
 		return []*model.Menu{}, nil
 	}
 	var list []*model.Menu
-	database.DB.Where("`id` IN ?", menuIDs).Order("`menu_sort` ASC, `id` ASC").Find(&list)
+	database.DB.Where("`id` IN ? AND `menu_status` = 1", menuIDs).Order("`menu_sort` ASC, `id` ASC").Find(&list)
 	return buildMenuTree(list, 0), nil
 }
 

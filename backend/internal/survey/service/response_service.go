@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -85,18 +86,22 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 	if st > 0 && now > st {
 		duration = int((now - st) / 1000)
 	}
+	browser, deviceType, platformType := parseUA(device)
 	resp := &model.SurveyResponse{
-		SurveyID:   surveyID,
-		UserID:     userIDToStr(userID, sv.Anonymous == 1),
-		Nickname:   nickname,
-		Answers:    string(answersJSON),
-		Duration:   duration,
-		Status:     1,
-		IP:         ip,
-		Device:     device,
-		StartTime:  st,
-		SubmitTime: now,
-		AddTime:    now,
+		SurveyID:     surveyID,
+		UserID:       userIDToStr(userID, sv.Anonymous == 1),
+		Nickname:     nickname,
+		Answers:      string(answersJSON),
+		Duration:     duration,
+		Status:       1,
+		IP:           ip,
+		Device:       device,
+		Browser:      browser,
+		DeviceType:   deviceType,
+		PlatformType: platformType,
+		StartTime:    st,
+		SubmitTime:   now,
+		AddTime:      now,
 	}
 	if err := database.DB.Create(resp).Error; err != nil {
 		return nil, err
@@ -224,4 +229,43 @@ func isEmpty(v interface{}) bool {
 		return len(a) == 0
 	}
 	return false
+}
+
+// parseUA 解析 User-Agent 获取浏览器、设备类型、平台类型
+func parseUA(ua string) (browser, deviceType, platformType string) {
+	u := strings.ToLower(ua)
+	switch {
+	case strings.Contains(u, "micromessenger"):
+		browser = "微信"
+	case strings.Contains(u, "edg"):
+		browser = "Edge"
+	case strings.Contains(u, "chrome"):
+		browser = "Chrome"
+	case strings.Contains(u, "firefox"):
+		browser = "Firefox"
+	case strings.Contains(u, "safari"):
+		browser = "Safari"
+	default:
+		browser = "-"
+	}
+	if strings.Contains(u, "mobile") || strings.Contains(u, "android") || strings.Contains(u, "iphone") {
+		deviceType = "移动端"
+	} else {
+		deviceType = "PC端"
+	}
+	switch {
+	case strings.Contains(u, "win"):
+		platformType = "Windows"
+	case strings.Contains(u, "mac"):
+		platformType = "macOS"
+	case strings.Contains(u, "linux"):
+		platformType = "Linux"
+	case strings.Contains(u, "android"):
+		platformType = "Android"
+	case strings.Contains(u, "iphone") || strings.Contains(u, "ipad"):
+		platformType = "iOS"
+	default:
+		platformType = "-"
+	}
+	return
 }

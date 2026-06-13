@@ -1,16 +1,14 @@
 <template>
   <div class="question-preview" :class="{ editing, 'is-hidden': q.defaultHidden }">
     <!-- 题目标题 -->
-    <div v-if="editing" class="edit-title-line">
+    <div v-show="editing" class="edit-title-line">
       <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0;margin-top:5px" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
-      <div
-        ref="titleRef"
-        class="title-editable"
-        contenteditable
-        placeholder="输入标题"
-        @blur="onTitleBlur"
-        @keydown.enter.prevent="onTitleEnter"
-      >{{ q.title }}</div>
+      <div class="title-editor-wrap" @click.stop>
+        <QuillEditor v-model:content="q.title" content-type="html"
+          :options="titleEditorOptions"
+          placeholder="输入标题"
+          @ready="onTitleEditorReady" />
+      </div>
       <span class="preview-actions">
         <el-tooltip content="逻辑设置" placement="top">
           <el-button text size="small" @click.stop="$emit('open-logic')">
@@ -34,9 +32,9 @@
         </el-tooltip>
       </span>
     </div>
-    <div v-else class="preview-header">
+    <div v-show="!editing" class="preview-header">
       <el-tag size="small" :type="tagType(q.type)||undefined" class="preview-type-tag" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
-      <div class="preview-title">{{ q.title }}</div>
+      <div class="preview-title" v-html="q.title"></div>
     </div>
 
     <!-- 说明 -->
@@ -62,12 +60,13 @@
       <div v-if="editing && isChoiceType" class="edit-options-area" :style="optionGrid(q)">
       <div v-for="(o, i) in (q.props?.options||[])" :key="o.value || i" class="edit-option-row" @click.stop="emit('select-option', i)">
         <span class="option-icon">{{ fieldIcon }}</span>
-        <div
-          class="option-editable"
-          contenteditable
-          @blur="e => onOptionLabelBlur(i, e)"
-          @keydown.enter.prevent="(e: any) => e.target.blur()"
-        >{{ o.label }}</div>
+        <div class="option-editor-wrap">
+          <QuillEditor v-model:content="o.label" content-type="html"
+            :options="optionEditorOptions"
+            placeholder="输入选项"
+            @ready="(quill: any) => onOptionEditorReady(quill, i)"
+            @click.stop />
+        </div>
         <el-button text size="small" type="danger" class="opt-del-btn" @click="removeOption(i)">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         </el-button>
@@ -161,8 +160,8 @@
       </div>
     </div>
 
-    <!-- 其他填空题子字段预览 (signature/scanCode) -->
-    <div v-if="editing && isInputSubFieldType && !isSingleInput && q.type!=='file'" class="edit-options-area">
+    <!-- 其他填空题子字段预览 -->
+    <div v-if="editing && isInputSubFieldType && !isSingleInput && q.type!=='file' && q.type!=='signature' && q.type!=='scanCode'" class="edit-options-area">
       <div v-for="(o, i) in (q.props?.options||[])" :key="i" class="edit-option-row input-field-row" @click.stop="emit('select-option', i)">
         <span class="option-icon">▸</span>
         <span class="input-field-label">{{ o.label || '字段' }}</span>
@@ -174,7 +173,7 @@
         </el-button>
       </div>
     </div>
-    <el-button v-if="editing && isInputSubFieldType && !isSingleInput && q.type!=='file'" text size="small" type="primary" @click="addOption" class="add-option-btn">添加字段</el-button>
+    <el-button v-if="editing && isInputSubFieldType && !isSingleInput && q.type!=='file' && q.type!=='signature' && q.type!=='scanCode'" text size="small" type="primary" @click="addOption" class="add-option-btn">添加字段</el-button>
 
     <!-- 子字段画布编辑 (multiInput / hInput) -->
     <div v-if="editing && hasFields" class="edit-options-area">
@@ -214,6 +213,20 @@
       </div>
     </div>
 
+    <!-- 扫码编辑预览 -->
+    <div v-if="editing && q.type==='scanCode'" class="edit-options-area" style="padding:4px 8px;cursor:pointer" @click.stop="emit('select-option', 0)">
+      <div style="pointer-events:none">
+        <el-input size="small" placeholder="扫码" disabled>
+          <template #prefix><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></template>
+        </el-input>
+      </div>
+    </div>
+
+    <!-- 签名编辑预览 -->
+    <div v-if="editing && q.type==='signature'" class="edit-options-area" style="padding:0;cursor:pointer;overflow:hidden;border:1px solid #dcdfe6;border-radius:4px" @click.stop="emit('select-option', 0)">
+      <div style="pointer-events:none;min-height:100px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:13px">点击设置签名</div>
+    </div>
+
     <div v-if="!editing" class="preview-body">
       <el-input v-if="['input','text'].includes(q.type)" :placeholder="q.placeholder||'请输入'" v-model="val" />
       <div v-else-if="q.type==='multiInput'" style="display:flex;flex-direction:column;gap:4px">
@@ -222,17 +235,25 @@
       <div v-else-if="q.type==='hInput'" style="display:flex;flex-wrap:wrap;gap:4px">
         <el-input v-for="(f, fi) in (q.props?.fields||[])" :key="fi" :placeholder="f.placeholder||'请输入'" v-model="val[fi]" style="flex:1;min-width:120px" />
       </div>
-      <el-input v-else-if="q.type==='scanCode'" placeholder="扫码" v-model="val">
+      <el-input v-else-if="q.type==='scanCode'" placeholder="扫码" v-model="val" class="scan-code-input">
         <template #prefix><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></template>
+        <template #suffix>
+          <el-button text type="primary" size="small" @click="showScanner = true" style="margin-right:-8px;height:28px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7V4a2 2 0 0 1 2-2h3M1 17v3a2 2 0 0 0 2 2h3M23 7V4a2 2 0 0 0-2-2h-3M23 17v3a2 2 0 0 1-2 2h-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>
+          </el-button>
+        </template>
       </el-input>
-      <div v-else-if="q.type==='signature'" class="preview-plain"><el-button text @click.prevent>签名</el-button></div>
+      <div v-else-if="q.type==='signature'" class="signature-pad-wrap">
+        <canvas ref="sigCanvasRef" class="sig-canvas" @mousedown="onSigMouseDown" @mousemove="onSigMouseMove" @mouseup="onSigMouseUp" @mouseleave="onSigMouseUp" @touchstart.prevent="onSigTouchStart" @touchmove.prevent="onSigTouchMove" @touchend="onSigMouseUp"></canvas>
+        <div style="display:flex;gap:8px;margin-top:4px"><el-button size="small" text @click="clearSignature">清除</el-button></div>
+      </div>
       <el-input v-else-if="q.type==='textarea'" type="textarea" :placeholder="q.placeholder||'请输入'" :rows="2" v-model="val" />
       <el-input-number v-else-if="q.type==='number'" v-model="val" style="width:100%;--el-input-width:100%" />
       <el-radio-group v-else-if="q.type==='radio'" v-model="val" class="preview-options preview-radio-group" :style="optionGrid(q)">
-        <el-radio v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value">{{ o.label }}</el-radio>
+        <el-radio v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label"></span></el-radio>
       </el-radio-group>
       <el-checkbox-group v-else-if="q.type==='checkbox'" v-model="val" class="preview-options preview-checkbox-group" :style="optionGrid(q)">
-        <el-checkbox v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value">{{ o.label }}</el-checkbox>
+        <el-checkbox v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label"></span></el-checkbox>
       </el-checkbox-group>
       <el-select v-else-if="q.type==='select'" v-model="val" placeholder="请选择" style="width:100%">
         <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
@@ -279,7 +300,7 @@
       </div>
       <div v-else-if="q.type==='questionSet'" class="preview-plain">问题组（内部题）</div>
       <div v-else-if="q.type==='pagination'" class="preview-plain">—— 分页 ——</div>
-      <el-cascader v-else-if="q.type==='user'||q.type==='dept'" v-model="val" :placeholder="q.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="userDeptTreeOptions" :props="{ multiple: !!q.multiple }" clearable />
+      <el-cascader v-else-if="q.type==='user'||q.type==='dept'" v-model="val" :placeholder="q.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="userDeptTreeOptions" :props="{ multiple: !!q.multiple, emitPath: false }" clearable />
       <div v-else-if="q.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
         <QuillEditor v-model:content="val" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...' }" style="min-height:150px" />
       </div>
@@ -290,15 +311,45 @@
       </div>
     </div>
 
-    <el-input v-if="editing && q.type==='description'" :model-value="q.description" type="textarea" :rows="3" placeholder="输入说明内容" @update:model-value="(v: string) => emit('update:description', v)" @click.stop />
-  </div>
+    <!-- 扫码弹窗 -->
+    <el-dialog v-if="showScanner" v-model="showScanner" title="扫码" width="400px" :close-on-click-modal="false" destroy-on-close @opened="onScannerOpen" @close="onScannerClose">
+      <div ref="scannerRef" style="width:100%;aspect-ratio:1;overflow:hidden;background:#000;border-radius:8px"></div>
+      <template #footer>
+        <el-button @click="showScanner = false">取消</el-button>
+      </template>
+    </el-dialog>
 
+    <!-- 题干高级编辑弹窗 -->
+    <el-dialog v-if="showTitleAdvancedEditor" v-model="showTitleAdvancedEditor" title="编辑题干" width="700px" destroy-on-close draggable @close="cancelTitleAdvancedEdit" class="title-full-editor-dialog">
+      <QuillEditor v-model:content="titleEditBuffer" content-type="html"
+        :options="fullTitleEditorOptions"
+        style="min-height:50vh"
+        @ready="onFullEditorReady" />
+      <template #footer>
+        <el-button @click="showTitleAdvancedEditor = false">取消</el-button>
+        <el-button type="primary" @click="confirmTitleAdvancedEdit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 选项高级编辑弹窗 -->
+    <el-dialog v-if="showOptionAdvancedEditor" v-model="showOptionAdvancedEditor" title="编辑选项" width="700px" destroy-on-close draggable @close="cancelOptionAdvancedEdit">
+      <QuillEditor v-model:content="optionEditBuffer" content-type="html"
+        :options="fullTitleEditorOptions"
+        style="min-height:50vh"
+        @ready="onOptionFullEditorReady" />
+      <template #footer>
+        <el-button @click="showOptionAdvancedEditor = false">取消</el-button>
+        <el-button type="primary" @click="confirmOptionAdvancedEdit">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import { Html5Qrcode } from 'html5-qrcode'
 
 const props = defineProps<{ q: any; editing?: boolean }>()
 const emit = defineEmits<{
@@ -311,20 +362,400 @@ const emit = defineEmits<{
   'select-option': [idx: number]
 }>()
 
-const titleRef = ref<HTMLElement>()
 const descRef = ref<HTMLElement>()
+
+const showTitleAdvancedEditor = ref(false)
+const titleEditBuffer = ref('')
+function openTitleAdvancedEditor() {
+  titleEditBuffer.value = props.q.title || ''
+  showTitleAdvancedEditor.value = true
+}
+function confirmTitleAdvancedEdit() {
+  props.q.title = titleEditBuffer.value
+  showTitleAdvancedEditor.value = false
+  emit('update:title', titleEditBuffer.value)
+}
+function cancelTitleAdvancedEdit() {
+  titleEditBuffer.value = ''
+}
+
+const showOptionAdvancedEditor = ref(false)
+const optionAdvEditIndex = ref(-1)
+const optionEditBuffer = ref('')
+function openOptionAdvancedEditor(idx: number) {
+  const opts = props.q.props?.options || []
+  optionAdvEditIndex.value = idx
+  optionEditBuffer.value = opts[idx]?.label || ''
+  showOptionAdvancedEditor.value = true
+}
+function confirmOptionAdvancedEdit() {
+  const opts = props.q.props?.options
+  if (opts && opts[optionAdvEditIndex.value]) {
+    opts[optionAdvEditIndex.value].label = optionEditBuffer.value
+  }
+  showOptionAdvancedEditor.value = false
+  optionAdvEditIndex.value = -1
+}
+function cancelOptionAdvancedEdit() {
+  optionEditBuffer.value = ''
+  optionAdvEditIndex.value = -1
+}
+function onTitleEditorReady(quill: any) {
+  const toolbar = quill.getModule('toolbar')
+  if (!toolbar || !toolbar.container) return
+  const btn = document.createElement('button')
+  btn.className = 'ql-advanced'
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+  btn.title = '高级编辑'
+  btn.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation()
+    openTitleAdvancedEditor()
+  })
+  toolbar.container.appendChild(btn)
+}
+function onOptionEditorReady(quill: any, idx: number) {
+  const toolbar = quill.getModule('toolbar')
+  if (!toolbar || !toolbar.container) return
+  const btn = document.createElement('button')
+  btn.className = 'ql-advanced'
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+  btn.title = '高级编辑'
+  btn.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation()
+    openOptionAdvancedEditor(idx)
+  })
+  toolbar.container.appendChild(btn)
+}
+function setupImageHandler(quill: any) {
+  const toolbar = quill.getModule('toolbar')
+  if (!toolbar) return
+  toolbar.addHandler('image', () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const fd = new FormData()
+      fd.append('file', file)
+      try {
+        const resp = await fetch('/upload', { method: 'POST', body: fd })
+        const json = await resp.json()
+        if (json.code === 0 && json.data?.url) {
+          const fullUrl = (json.data.domain || '') + json.data.url
+          const range = quill.getSelection(true)
+          quill.insertEmbed(range.index, 'image', fullUrl)
+          quill.setSelection(range.index + 1)
+        }
+      } catch { /* ignore */ }
+      input.remove()
+    }
+    input.click()
+  })
+}
+function onFullEditorReady(quill: any) {
+  const toolbar = quill.getModule('toolbar')
+  if (!toolbar || !toolbar.container) return
+  setupImageHandler(quill)
+  const btn = document.createElement('button')
+  btn.className = 'ql-fullscreen'
+  let fs = false
+  const origStyles: Record<string, string> = {}
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
+  btn.title = '全屏'
+  btn.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation()
+    const dialogEl = (quill.container as HTMLElement).closest('.el-dialog') as HTMLElement
+    if (!dialogEl) return
+    if (!fs) {
+      origStyles.position = dialogEl.style.position
+      origStyles.top = dialogEl.style.top
+      origStyles.left = dialogEl.style.left
+      origStyles.width = dialogEl.style.width
+      origStyles.height = dialogEl.style.height
+      origStyles.maxWidth = dialogEl.style.maxWidth
+      origStyles.margin = dialogEl.style.margin
+      origStyles.borderRadius = dialogEl.style.borderRadius
+      origStyles.zIndex = dialogEl.style.zIndex
+      dialogEl.style.position = 'fixed'
+      dialogEl.style.top = '0'
+      dialogEl.style.left = '0'
+      dialogEl.style.width = '100vw'
+      dialogEl.style.height = '100vh'
+      dialogEl.style.maxWidth = '100vw'
+      dialogEl.style.maxHeight = '100vh'
+      dialogEl.style.margin = '0'
+      dialogEl.style.borderRadius = '0'
+      dialogEl.style.zIndex = '9999'
+      const body = dialogEl.querySelector('.el-dialog__body') as HTMLElement
+      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
+      if (body && qlContainer) {
+        const toolbarEl = dialogEl.querySelector('.ql-toolbar') as HTMLElement
+        const footerEl = dialogEl.querySelector('.el-dialog__footer') as HTMLElement
+        const headerEl = dialogEl.querySelector('.el-dialog__header') as HTMLElement
+        const toolH = toolbarEl?.offsetHeight || 0
+        const footH = footerEl?.offsetHeight || 0
+        const headH = headerEl?.offsetHeight || 0
+        const bodyPad = body.offsetHeight - body.clientHeight
+        qlContainer.style.height = (window.innerHeight - headH - footH - toolH - bodyPad) + 'px'
+      }
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>'
+      btn.title = '退出全屏'
+      fs = true
+    } else {
+      dialogEl.style.position = origStyles.position
+      dialogEl.style.top = origStyles.top
+      dialogEl.style.left = origStyles.left
+      dialogEl.style.width = origStyles.width
+      dialogEl.style.height = origStyles.height
+      dialogEl.style.maxWidth = origStyles.maxWidth
+      dialogEl.style.margin = origStyles.margin
+      dialogEl.style.borderRadius = origStyles.borderRadius
+      dialogEl.style.zIndex = origStyles.zIndex
+      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
+      if (qlContainer) qlContainer.style.height = ''
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
+      btn.title = '全屏'
+      fs = false
+    }
+  })
+  toolbar.container.appendChild(btn)
+}
+const titleEditorOptions = {
+  theme: 'snow',
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ color: [] }, { background: [] }],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['clean']
+    ]
+  }
+}
+const fullTitleEditorOptions = {
+  theme: 'snow',
+  modules: {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ color: [] }, { background: [] }],
+      [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
+      [{ indent: '-1' }, { indent: '+1' }],
+      [{ align: [] }],
+      ['blockquote', 'code-block'],
+      ['link', 'image'],
+      ['clean']
+    ]
+  }
+}
+const optionEditorOptions = {
+  theme: 'snow',
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ color: [] }, { background: [] }],
+      ['clean']
+    ]
+  }
+}
+function onOptionFullEditorReady(quill: any) {
+  const toolbar = quill.getModule('toolbar')
+  if (!toolbar || !toolbar.container) return
+  setupImageHandler(quill)
+  const btn = document.createElement('button')
+  btn.className = 'ql-fullscreen'
+  let fs = false
+  const origStyles: Record<string, string> = {}
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
+  btn.title = '全屏'
+  btn.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation()
+    const dialogEl = (quill.container as HTMLElement).closest('.el-dialog') as HTMLElement
+    if (!dialogEl) return
+    if (!fs) {
+      origStyles.position = dialogEl.style.position
+      origStyles.top = dialogEl.style.top
+      origStyles.left = dialogEl.style.left
+      origStyles.width = dialogEl.style.width
+      origStyles.height = dialogEl.style.height
+      origStyles.maxWidth = dialogEl.style.maxWidth
+      origStyles.margin = dialogEl.style.margin
+      origStyles.borderRadius = dialogEl.style.borderRadius
+      origStyles.zIndex = dialogEl.style.zIndex
+      dialogEl.style.position = 'fixed'
+      dialogEl.style.top = '0'
+      dialogEl.style.left = '0'
+      dialogEl.style.width = '100vw'
+      dialogEl.style.height = '100vh'
+      dialogEl.style.maxWidth = '100vw'
+      dialogEl.style.maxHeight = '100vh'
+      dialogEl.style.margin = '0'
+      dialogEl.style.borderRadius = '0'
+      dialogEl.style.zIndex = '9999'
+      const body = dialogEl.querySelector('.el-dialog__body') as HTMLElement
+      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
+      if (body && qlContainer) {
+        const toolbarEl = dialogEl.querySelector('.ql-toolbar') as HTMLElement
+        const footerEl = dialogEl.querySelector('.el-dialog__footer') as HTMLElement
+        const headerEl = dialogEl.querySelector('.el-dialog__header') as HTMLElement
+        const toolH = toolbarEl?.offsetHeight || 0
+        const footH = footerEl?.offsetHeight || 0
+        const headH = headerEl?.offsetHeight || 0
+        const bodyPad = body.offsetHeight - body.clientHeight
+        qlContainer.style.height = (window.innerHeight - headH - footH - toolH - bodyPad) + 'px'
+      }
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>'
+      btn.title = '退出全屏'
+      fs = true
+    } else {
+      dialogEl.style.position = origStyles.position
+      dialogEl.style.top = origStyles.top
+      dialogEl.style.left = origStyles.left
+      dialogEl.style.width = origStyles.width
+      dialogEl.style.height = origStyles.height
+      dialogEl.style.maxWidth = origStyles.maxWidth
+      dialogEl.style.margin = origStyles.margin
+      dialogEl.style.borderRadius = origStyles.borderRadius
+      dialogEl.style.zIndex = origStyles.zIndex
+      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
+      if (qlContainer) qlContainer.style.height = ''
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
+      btn.title = '全屏'
+      fs = false
+    }
+  })
+  toolbar.container.appendChild(btn)
+}
 
 function getInitVal(type: string): any {
   if (type === 'checkbox') return []
   if (type === 'switch') return false
   if (type === 'number') return undefined
+  if (type === 'rating' || type === 'nps') return 0
   if (type === 'dateRange') return ['', '']
   if (['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'].includes(type)) return {}
-  if (['cascade','user','dept'].includes(type)) return []
+  if (['cascade','user','dept'].includes(type)) {
+    if (type === 'user' || type === 'dept') {
+      return props.q.multiple ? [] : ''
+    }
+    return []
+  }
   if (['multiInput','hInput'].includes(type)) return (props.q.props?.fields||[]).map(() => '')
   return ''
 }
 const val = ref<any>(getInitVal(props.q.type))
+
+watch(() => props.q.type, (t) => { val.value = getInitVal(t) })
+
+const sigCanvasRef = ref<HTMLCanvasElement>()
+const sigDrawing = ref(false)
+function initSigCanvas() {
+  const c = sigCanvasRef.value
+  if (!c) return
+  const rect = c.getBoundingClientRect()
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  if (c.width !== Math.round(rect.width * dpr) || c.height !== Math.round(rect.height * dpr)) {
+    const oldData = c.toDataURL()
+    c.width = Math.round(rect.width * dpr)
+    c.height = Math.round(rect.height * dpr)
+    const ctx = c.getContext('2d')
+    if (ctx) {
+      ctx.scale(dpr, dpr)
+      if (oldData && oldData !== 'data:,') {
+        const img = new Image()
+        img.onload = () => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(img, 0, 0); ctx.scale(dpr, dpr) }
+        img.src = oldData
+      }
+    }
+  }
+}
+import { onMounted } from 'vue'
+onMounted(() => { setTimeout(initSigCanvas, 50) })
+function getSigCtx() {
+  const c = sigCanvasRef.value
+  if (!c) return null
+  if (!c.getContext) return null
+  return c.getContext('2d')!
+}
+function getSigPos(e: MouseEvent) {
+  const r = sigCanvasRef.value!.getBoundingClientRect()
+  return { x: e.clientX - r.left, y: e.clientY - r.top }
+}
+function onSigMouseDown(e: MouseEvent) {
+  sigDrawing.value = true
+  const ctx = getSigCtx()
+  if (!ctx) return
+  const p = getSigPos(e)
+  ctx.beginPath()
+  ctx.moveTo(p.x, p.y)
+}
+function onSigMouseMove(e: MouseEvent) {
+  if (!sigDrawing.value) return
+  const ctx = getSigCtx()
+  if (!ctx) return
+  const p = getSigPos(e)
+  ctx.lineTo(p.x, p.y)
+  ctx.strokeStyle = '#303133'
+  ctx.lineWidth = 2
+  ctx.lineCap = 'round'
+  ctx.stroke()
+}
+function onSigMouseUp() {
+  if (!sigDrawing.value) return
+  sigDrawing.value = false
+  val.value = sigCanvasRef.value?.toDataURL() || ''
+}
+function onSigTouchStart(e: TouchEvent) {
+  sigDrawing.value = true
+  const ctx = getSigCtx()
+  if (!ctx) return
+  const t = e.touches[0]
+  const r = sigCanvasRef.value!.getBoundingClientRect()
+  ctx.beginPath()
+  ctx.moveTo(t.clientX - r.left, t.clientY - r.top)
+}
+function onSigTouchMove(e: TouchEvent) {
+  if (!sigDrawing.value) return
+  const ctx = getSigCtx()
+  if (!ctx) return
+  const t = e.touches[0]
+  const r = sigCanvasRef.value!.getBoundingClientRect()
+  ctx.lineTo(t.clientX - r.left, t.clientY - r.top)
+  ctx.strokeStyle = '#303133'
+  ctx.lineWidth = 2
+  ctx.lineCap = 'round'
+  ctx.stroke()
+}
+function clearSignature() {
+  const ctx = getSigCtx()
+  if (!ctx || !sigCanvasRef.value) return
+  ctx.clearRect(0, 0, sigCanvasRef.value.width, sigCanvasRef.value.height)
+  val.value = ''
+}
+
+const showScanner = ref(false)
+const scannerRef = ref<HTMLDivElement>()
+let scanner: Html5Qrcode | null = null
+function onScannerOpen() {
+  if (!scannerRef.value) return
+  scanner = new Html5Qrcode('scanner-ref-fallback')
+  scannerRef.value.id = 'scanner-ref-fallback'
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      val.value = decodedText
+      showScanner.value = false
+    },
+    () => {}
+  ).catch(() => {})
+}
+function onScannerClose() {
+  if (scanner) {
+    scanner.stop().catch(() => {})
+    scanner = null
+  }
+}
 
 const hasOptions = computed(() => ['select','radio','checkbox','picker','judge','cascade','matrixRadio','matrixCheckbox'].includes(props.q.type))
 const isInputSubFieldType = computed(() => ['input','textarea','signature','scanCode','file'].includes(props.q.type))
@@ -421,13 +852,6 @@ const fieldIcon = computed(() => {
 
 const examCorrectAnswer = computed(() => props.q.examCorrectAnswer)
 
-function onTitleBlur(e: FocusEvent) {
-  const text = (e.target as HTMLElement).innerText.trim()
-  if (text) emit('update:title', text)
-}
-function onTitleEnter(e: KeyboardEvent) {
-  (e.target as HTMLElement).blur()
-}
 function onDescBlur(e: FocusEvent) {
   const text = (e.target as HTMLElement).innerText.trim()
   emit('update:description', text)
@@ -536,6 +960,7 @@ function optionGrid(q: any) {
   border: 1px dashed #fb454c;
   border-radius: 8px;
   background: #fff;
+  overflow: visible;
 }
 .required-tag { border:1px solid #fb454c !important; }
 .question-preview.is-hidden {
@@ -570,6 +995,11 @@ function optionGrid(q: any) {
   font-weight: 500;
   color: #303133;
   word-break: break-word;
+  line-height: 1.5;
+  padding-top: -1px;
+}
+.preview-title :deep(p) {
+  margin: 0;
 }
 .preview-actions {
   position: absolute; right: 0; top: 2px;
@@ -669,30 +1099,55 @@ function optionGrid(q: any) {
 .edit-title-line {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 6px;
   position: relative;
   padding-right: 140px;
+  overflow: visible;
 }
-.title-editable {
+.title-editor-wrap {
   flex: 1;
+  min-width: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
-  padding: 4px 6px;
-  border: 1px solid transparent;
+  position: relative;
+  overflow: visible;
+  min-height: 28px;
+}
+.title-editor-wrap :deep(.ql-container) {
+  min-height: 28px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
-  outline: none;
-  min-width: 0;
+  height: auto;
+}
+.title-editor-wrap :deep(.ql-editor) {
+  padding: 4px 6px;
   line-height: 1.5;
+  color: #303133;
+  height: auto;
 }
-.title-editable:focus {
-  border-color: #fb454c;
-  background: #fff;
+.title-editor-wrap :deep(.ql-toolbar) {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 2px 4px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
 }
-.title-editable:empty::before {
-  content: attr(placeholder);
-  color: #ccc;
+.title-editor-wrap:focus-within :deep(.ql-toolbar) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.title-editor-wrap :deep(.ql-toolbar .ql-formats) {
+  margin-right: 6px;
 }
 .edit-desc-line {
   margin-bottom: 6px;
@@ -713,6 +1168,19 @@ function optionGrid(q: any) {
 .desc-editable:empty::before {
   content: attr(placeholder);
   color: #ddd;
+}
+.signature-pad-wrap {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 4px;
+}
+.sig-canvas {
+  display: block;
+  width: 100%;
+  height: 120px;
+  cursor: crosshair;
+  touch-action: none;
 }
 .edit-options-area {
   margin: 8px 0;
@@ -753,6 +1221,50 @@ function optionGrid(q: any) {
 .option-editable:focus {
   border-color: #fb454c;
   background: #fff;
+}
+.option-editor-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: visible;
+}
+.option-editor-wrap :deep(.ql-toolbar) {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 2px 4px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.option-editor-wrap:focus-within :deep(.ql-toolbar) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.option-editor-wrap :deep(.ql-container) {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  height: auto;
+  min-height: 28px;
+}
+.option-editor-wrap :deep(.ql-editor) {
+  padding: 3px 6px;
+  line-height: 1.5;
+  height: auto;
+}
+.option-editor-wrap:focus-within :deep(.ql-container) {
+  border-color: #fb454c;
+  background: #fff;
+}
+.option-editor-wrap :deep(.ql-toolbar .ql-formats) {
+  margin-right: 6px;
 }
 .opt-del-btn {
   opacity: 0.3;

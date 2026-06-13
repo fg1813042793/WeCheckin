@@ -526,6 +526,32 @@
               </el-form>
             </template>
 
+            <!-- 多项/横向填空子字段设置 -->
+            <template v-else-if="selectedOptIdx>=0 && (selected.type==='multiInput'||selected.type==='hInput') && selected.props?.fields?.[selectedOptIdx]">
+              <h3>字段设置 - {{ selected.props.fields[selectedOptIdx].label }}</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item label="字段名">
+                  <el-input v-model="selected.props.fields[selectedOptIdx].label" placeholder="输入字段名" />
+                </el-form-item>
+                <el-form-item label="占位提示">
+                  <el-input v-model="selected.props.fields[selectedOptIdx].placeholder" placeholder="输入占位提示" />
+                </el-form-item>
+                <el-form-item label="数据类型">
+                  <el-select v-model="selected.props.fields[selectedOptIdx].dataType" placeholder="不限制" clearable style="width:100%">
+                    <el-option label="不限制" value="" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="手机号" value="mobile" />
+                    <el-option label="邮箱" value="email" />
+                    <el-option label="身份证" value="idCard" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item v-if="selected.props.fields[selectedOptIdx].dataType==='number'" label="小数位数">
+                  <el-input-number v-model="selected.props.fields[selectedOptIdx].decimalPlaces" :min="0" :max="6" style="width:100%" />
+                </el-form-item>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
             <!-- 评分/NPS 设置（独立面板，点击评分输入时弹出） -->
             <template v-else-if="selectedOptIdx>=0 && (selected.type==='rating'||selected.type==='nps')">
             <h3>{{ selected.type==='rating'?'评分':'NPS' }}设置</h3>
@@ -619,23 +645,6 @@
                   <el-col :span="12"><el-form-item label="最少行数"><el-input-number v-model="selected.props.minRows" :min="0" style="width:100%" /></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="最多行数"><el-input-number v-model="selected.props.maxRows" :min="0" style="width:100%" /></el-form-item></el-col>
                 </el-row>
-              </div>
-
-              <!-- ==== 多项/横向填空子字段 ==== -->
-              <div v-if="(selected.type==='multiInput'||selected.type==='hInput')&&selected.props" class="props-options-section">
-                <h4 style="font-size:12px;color:#888;margin:0 0 6px">子字段列表</h4>
-                <div v-for="(f, fi) in (selected.props.fields||[])" :key="fi" class="setting-opt-row">
-                  <el-input v-model="f.label" size="small" placeholder="字段名" style="flex:1" />
-                  <el-input v-model="f.placeholder" size="small" placeholder="提示语" style="width:110px" />
-                  <el-select v-model="f.dataType" size="small" style="width:80px" placeholder="类型">
-                    <el-option label="文本" value="" />
-                    <el-option label="数字" value="number" />
-                    <el-option label="手机" value="mobile" />
-                    <el-option label="邮箱" value="email" />
-                  </el-select>
-                  <el-button text size="small" type="danger" @click="selected.props.fields.splice(fi,1)">×</el-button>
-                </div>
-                <el-button size="small" @click="selected.props.fields.push({label:'填空'+(selected.props.fields.length+1),placeholder:''})" plain>+ 添加字段</el-button>
               </div>
 
               <!-- ==== 数字范围 (number 类型) ==== -->
@@ -747,100 +756,135 @@
       <!-- 设置视图 -->
       <div v-show="activeView==='setting'" class="setting-wrapper">
         <div class="setting-scroll">
+          <!-- 问卷显示设置 -->
           <div class="setting-group">
-            <div class="group-title">基础信息</div>
-            <el-form :model="form" label-width="110px">
-              <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="模式">
-                  <el-radio-group v-model="form.mode">
-                    <el-radio value="survey" border>问卷</el-radio>
-                    <el-radio value="exam" border>考试</el-radio>
-                  </el-radio-group>
-                </el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="分类"><el-input v-model="form.category" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="标签"><el-input v-model="form.tags" placeholder="逗号分隔" /></el-form-item>
+            <div class="group-title">问卷显示设置</div>
+            <el-form label-width="140px">
+              <div class="settings-grid">
+                <el-form-item label="开启自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
+                <el-form-item label="显示题目序号"><el-switch v-model="form.questionNumber" /></el-form-item>
+                <el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
+                <el-form-item label="设置问卷默认答案"><el-switch v-model="form.defaultAnswer" /></el-form-item>
+                <el-form-item label="一页一题"><el-switch v-model="form.onePageOneQuestion" /></el-form-item>
+                <el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item>
+                <el-form-item label="允许复制题目"><el-switch v-model="form.copyEnabled" /></el-form-item>
+                <el-form-item label="问题校验">
+                  <el-select v-model="form.triggerType" style="flex-shrink: 0; flex-basis: 150px">
+                    <el-option value="onInput" label="输入时" />
+                    <el-option value="onBlur" label="失焦时" />
+                    <el-option value="onSubmit" label="提交时" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="默认语言">
+                  <el-select v-model="form.defaultLang" style="flex-shrink: 0; flex-basis: 150px">
+                    <el-option value="zh-CN" label="简体中文" />
+                    <el-option value="zh-TW" label="繁體中文" />
+                    <el-option value="en" label="English" />
+                    <el-option value="ja" label="日本語" />
+                  </el-select>
+                </el-form-item>
+              </div>
             </el-form>
           </div>
+          <!-- 回收设置 -->
           <div class="setting-group">
-            <div class="group-title">答题设置</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="自动暂存"><el-switch v-model="form.autoSave" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="一页一题"><el-switch v-model="form.onePageOneQuestion" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="允许复制"><el-switch v-model="form.copyEnabled" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="填写密码"><el-input v-model="form.password" placeholder="留空不设密码" style="max-width:300px" /></el-form-item>
-              <el-form-item label="校验触发">
-                <el-radio-group v-model="form.triggerType">
-                  <el-radio value="onInput">输入时</el-radio>
-                  <el-radio value="onBlur">失焦时</el-radio>
-                  <el-radio value="onSubmit">提交时</el-radio>
-                </el-radio-group>
-              </el-form-item>
-            </el-form>
-          </div>
-          <div class="setting-group">
-            <div class="group-title">提交后设置</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="允许改答案"><el-switch v-model="form.enableUpdate" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示排行榜"><el-switch v-model="form.rankVisible" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="跳转链接"><el-input v-model="form.redirectUrl" placeholder="提交后跳转的自定义 URL" /></el-form-item>
-              <el-form-item label="结束语"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item>
+            <div class="group-title">回收设置</div>
+            <el-form label-width="140px">
+              <div class="settings-grid">
+                <el-form-item label="需要登录"><el-switch v-model="form.loginRequired" /></el-form-item>
+                <el-form-item label="只能微信填写"><el-switch v-model="form.wechatOnly" /></el-form-item>
+                <el-form-item label="凭密码填写"><el-input v-model="form.password" placeholder="留空不设密码"  style="flex-shrink: 0; flex-basis: 150px"/></el-form-item>
+                <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="flex-shrink: 0; flex-basis: 150px" /></el-form-item>
+                <el-form-item label="回收上限"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="答题白名单"><el-input v-model="form.whitelist" placeholder="用户ID, 逗号分隔" style="flex-shrink: 0; flex-basis: 150px"/></el-form-item>
+              </div>
             </el-form>
           </div>
           <div v-if="form.mode==='exam'" class="setting-group">
             <div class="group-title">考试设置</div>
             <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
-              </el-row>
+              <div class="settings-grid">
+                <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
+                <el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item>
+                <el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item>
+                <el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item>
+                <el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item>
+              </div>
             </el-form>
           </div>
+          <!-- 投放与分享 -->
           <div class="setting-group">
-            <div class="group-title">访问权限</div>
-            <el-form label-width="120px">
-              <el-form-item label="可见性">
-                <el-radio-group v-model="form.visibility">
+            <div class="group-title">投放与分享</div>
+            <el-form label-width="160px">
+              <el-form-item class="settings-full" label="可见性">
+                <el-radio-group v-model="form.visibility" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
                   <el-radio :value="0" border>公开链接</el-radio>
                   <el-radio :value="1" border>登录可见</el-radio>
                   <el-radio :value="2" border>部门限定</el-radio>
                 </el-radio-group>
               </el-form-item>
-              <el-form-item v-if="form.visibility===2" label="限定部门"><el-input v-model="form.deptIds" placeholder="部门ID, 逗号分隔" /></el-form-item>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="需登录"><el-switch v-model="form.loginRequired" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="多次作答"><el-switch v-model="form.allowMultiBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="匿名收集"><el-switch v-model="form.anonymousBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示结果"><el-switch v-model="form.showResultBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-              </el-row>
+              <el-form-item v-if="form.visibility===2" class="settings-full" label="限定部门">
+                <div style="width:100%;max-height:300px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
+                  <el-tree
+                    ref="deptTreeRef"
+                    :data="deptTreeData"
+                    :props="{ label: 'name', children: 'children' }"
+                    node-key="id"
+                    show-checkbox
+                    :default-checked-keys="deptCheckedKeys"
+                    @check="onDeptCheck"
+                  />
+                </div>
+              </el-form-item>
+              <div class="settings-grid">
+                <el-form-item label="自定义跳转页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容"  style="flex-shrink: 0; flex-basis: 300px;"/></el-form-item>
+                <el-form-item label="自定义跳转链接"><el-input v-model="form.redirectUrl" placeholder="答题完成后跳转的自定义 URL" style="flex-shrink: 0; flex-basis: 300px"/></el-form-item>
+              </div>
+              <el-form-item class="settings-full" label="问卷链接">
+                <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+                  <el-input v-if="form.id" v-model="publicUrl" readonly><template #append><el-button @click="copyLink">复制</el-button></template></el-input>
+                  <span v-else style="color:#999;">请先保存问卷</span>
+                  <div v-if="form.id" style="display:flex;align-items:center;gap:12px">
+                    <el-image v-if="qrUrl" :src="qrUrl" style="width:100px;height:100px;border-radius:4px;border:1px solid #eee" />
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <el-button size="small" @click="genQR">生成二维码</el-button>
+                      <el-button v-if="qrUrl" size="small" @click="downloadQR">下载二维码</el-button>
+                    </div>
+                  </div>
+                </div>
+              </el-form-item>
+              <div class="settings-grid">
+                <el-form-item label="允许修改答案"><el-switch v-model="form.enableUpdate" /></el-form-item>
+                <el-form-item label="公开查询设置"><el-switch v-model="form.publicQuery" /></el-form-item>
+                <el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnswerAnalysis" /></el-form-item>
+                <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
+                <el-form-item label="显示排名"><el-switch v-model="form.rankVisible" /></el-form-item>
+              </div>
             </el-form>
           </div>
+          <!-- 协作管理员 -->
           <div class="setting-group">
-            <div class="group-title">时间与配额</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:200px" /><span class="hint">0=不限</span></el-form-item>
+            <div class="group-title">协作管理员</div>
+            <el-form label-width="140px">
+              <div class="settings-grid">
+                <el-form-item label="问卷创建者"><el-input :model-value="creatorName" disabled placeholder="加载中..." /></el-form-item>
+              </div>
+              <el-form-item class="settings-full" label="协作管理员">
+                <div style="width:100%;max-height:400px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
+                  <el-tree
+                    ref="adminTreeRef"
+                    :data="adminTreeData"
+                    :props="{ label: 'label', children: 'children' }"
+                    node-key="id"
+                    show-checkbox
+                    :default-checked-keys="collaboratorCheckedKeys"
+                    @check="onAdminTreeCheck"
+                  />
+                </div>
+              </el-form-item>
             </el-form>
           </div>
         </div>
@@ -901,30 +945,64 @@
 
       <!-- 数据视图 -->
       <div v-show="activeView==='data'" class="setting-wrapper">
-        <div class="setting-scroll">
+        <div class="setting-scroll" style="display:block;padding:20px 24px">
           <div class="setting-group">
             <div class="group-title">数据统计</div>
             <div v-if="!form.id" class="save-tip">请先保存并发布问卷</div>
             <div v-else style="padding:12px">
+              <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+                <el-button size="small" type="primary" @click="addResponse">添加数据</el-button>
+                <el-button size="small" @click="editResponse">编辑数据</el-button>
+                <el-button size="small" type="danger" @click="batchDeleteResponses">删除数据</el-button>
+                <el-button size="small" @click="exportResponses">导出数据</el-button>
+                <el-button size="small" @click="importResponses">导入数据</el-button>
+                <el-button size="small" @click="showTrash = true">回收站</el-button>
+                <el-button size="small" style="margin-left:auto" @click="refreshResponses" title="刷新数据">
+                  <el-icon><Refresh /></el-icon>
+                </el-button>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+                <el-input v-model="responseKeyword" placeholder="搜索提交人..." size="small" clearable style="width:200px" @input="onSearch" />
+              </div>
               <el-row :gutter="12" style="margin-bottom:12px">
                 <el-col :span="6"><el-statistic title="总提交数" :value="stats.totalCount" /></el-col>
                 <el-col :span="6"><el-statistic title="今日提交" :value="stats.todayCount" /></el-col>
                 <el-col :span="6"><el-statistic title="平均完成时间" :value="stats.avgTime" suffix="秒" /></el-col>
                 <el-col :span="6"><el-statistic title="完成率" :value="stats.completionRate" suffix="%" /></el-col>
               </el-row>
-              <el-table :data="dummyData" border size="small" style="width:100%" max-height="400px">
-                <el-table-column type="index" label="#" width="50" />
-                <el-table-column prop="submitter" label="提交人" width="120" />
-                <el-table-column prop="submitTime" label="提交时间" width="160" />
-                <el-table-column prop="status" label="状态" width="80" />
-                <el-table-column label="操作" width="120">
-                  <template #default>
-                    <el-button text size="small">查看</el-button>
-                    <el-button text size="small" type="danger">删除</el-button>
+              <el-table ref="dataTableRef" :data="responseRows" border size="small" style="width:100%" max-height="500px" @selection-change="onSelectionChange">
+                <el-table-column type="selection" width="40" fixed />
+                <el-table-column v-for="col in dataColumns" :key="col.key" :label="col.label" :width="col.width" :min-width="col.minWidth" :show-overflow-tooltip="col.showOverflowTooltip" :fixed="col.fixed">
+                  <template #default="{ row }">
+                    <span v-if="col.prop">{{ row[col.prop] ?? '-' }}</span>
+                    <span v-else-if="col.key === 'nickname'">{{ row.nickname || '匿名' }}</span>
+                    <span v-else-if="col.key === 'startTime'">{{ formatTime(row.startTime) }}</span>
+                    <span v-else-if="col.key === 'submitTime'">{{ formatTime(row.submitTime) }}</span>
+                    <span v-else-if="col.key === 'duration'">{{ row.duration ? row.duration + 's' : '-' }}</span>
+                    <span v-else-if="col.key === 'ip'">{{ row.ip || '-' }}</span>
+                    <span v-else-if="col.key === 'browser'">{{ row.browser || '-' }}</span>
+                    <span v-else-if="col.key === 'deviceType'">{{ row.deviceType || '-' }}</span>
+                    <span v-else-if="col.key === 'platformType'">{{ row.platformType || '-' }}</span>
+                    <span v-else-if="col.key === 'answer-'+col.qId">{{ formatAnswer(row.answers?.[col.qId], col.qType) }}</span>
+                    <span v-else-if="col.key === 'actions'">
+                      <el-button text size="small" type="danger" @click="deleteResponse(row.id)">删除</el-button>
+                    </span>
                   </template>
                 </el-table-column>
               </el-table>
-              <el-empty v-if="!dummyData.length" description="暂无提交数据" :image-size="50" />
+              <div v-if="!responseRows.length" style="padding:40px 0;text-align:center;color:#aaa;font-size:14px">暂无提交数据</div>
+              <div style="margin-top:12px;display:flex;justify-content:flex-start">
+                 <el-pagination
+                   size="small"
+                  layout="total, sizes, prev, pager, next"
+                  :total="responseTotal"
+                  :page-size="responsePageSize"
+                  :current-page="responsePage"
+                  :page-sizes="[10, 20, 50, 100]"
+                  @current-change="onPageChange"
+                  @size-change="onPageSizeChange"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1096,7 +1174,11 @@ const form = reactive<any>({
   redirectUrl: '', endContent: '',
   examRankingEnabled: false, exerciseMode: false, randomOrder: false,
   minSubmitMinutes: 0, maxSubmitMinutes: 0,
-        backgroundImages: [] as any[], headerImages: [] as any[]
+  backgroundImages: [] as any[], headerImages: [] as any[],
+  defaultAnswer: false, defaultLang: 'zh-CN',
+  wechatOnly: false, deviceLimit: 0, ipLimit: 0, userLimit: 0, whitelist: '',
+  publicQuery: false, showAnswerAnalysis: false,
+  createBy: 0, collaborators: ''
 })
 
 const activeView = ref('edit')
@@ -1113,6 +1195,71 @@ const bankKeyword = ref('')
 const bankQuestions = ref<any[]>([])
 const bankLoading = ref(false)
 let bankTimer: any = null
+
+const deptTreeRef = ref<any>(null)
+const deptTreeData = ref<any[]>([])
+const deptCheckedKeys = ref<number[]>([])
+
+function onDeptCheck() {
+  form.deptIds = deptTreeRef.value?.getCheckedKeys(true)?.join(',') || ''
+}
+
+async function loadDeptTree() {
+  if (form.visibility !== 2) return
+  try {
+    const res: any = await adminApi.deptTree()
+    deptTreeData.value = res.data || []
+  } catch { deptTreeData.value = [] }
+}
+
+const creatorName = ref('')
+const adminTreeRef = ref<any>(null)
+const adminTreeData = ref<any[]>([])
+const collaboratorCheckedKeys = ref<string[]>([])
+const adminMap = ref<Record<number, string>>({})
+
+function onAdminTreeCheck() {
+  form.collaborators = adminTreeRef.value?.getCheckedKeys(true)?.filter((k: string) => k.startsWith('admin-'))?.map((k: string) => k.replace('admin-', ''))?.join(',') || ''
+}
+
+async function loadAdminTree() {
+  try {
+    const [deptRes, mgrRes] = await Promise.all([
+      adminApi.deptTree(),
+      adminApi.mgrList({ page: 1, pageSize: 9999 })
+    ])
+    const depts: any[] = deptRes.data || []
+    const mgrs: any[] = mgrRes.data?.list || []
+
+    const map: Record<number, string> = {}
+    mgrs.forEach((m: any) => { map[m.id] = m.name })
+    adminMap.value = map
+
+    const creator = mgrs.find((m: any) => m.id === form.createBy)
+    creatorName.value = creator ? creator.name : `用户ID:${form.createBy}`
+
+    adminTreeData.value = buildAdminTree(depts, mgrs)
+    collaboratorCheckedKeys.value = form.collaborators ? form.collaborators.split(',').map((id: string) => `admin-${id}`) : []
+  } catch {
+    creatorName.value = `用户ID:${form.createBy}`
+    adminTreeData.value = []
+  }
+}
+
+function buildAdminTree(depts: any[], mgrs: any[]): any[] {
+  return depts.map((d: any) => {
+    const deptAdmins = mgrs.filter((m: any) => (m.deptIds || []).includes(d.id))
+    const adminNodes = deptAdmins.map((m: any) => ({ id: `admin-${m.id}`, label: m.name, type: 'admin' }))
+    const children = d.children?.length ? buildAdminTree(d.children, mgrs) : []
+    if (adminNodes.length) children.push(...adminNodes)
+    return { id: `dept-${d.id}`, label: d.name, type: 'dept', children }
+  }).filter((d: any) => d.children?.length)
+}
+
+watch(() => form.visibility, (v) => {
+  if (v === 2) { loadDeptTree() }
+})
+watch(() => form.id, (v) => { if (v) genQR() })
 async function loadBank() {
   clearTimeout(bankTimer)
   if (!form.id) return
@@ -1403,11 +1550,16 @@ async function saveLogicRules() {
     redirectUrl: form.redirectUrl, endContent: form.endContent,
     examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
     randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
-    maxSubmitMinutes: form.maxSubmitMinutes,
-    backgroundImages: form.backgroundImages, headerImages: form.headerImages
-  })
-  const payload: any = {
-    id: form.id,
+      maxSubmitMinutes: form.maxSubmitMinutes,
+      backgroundImages: form.backgroundImages, headerImages: form.headerImages,
+      defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
+      wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
+      ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
+      publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
+      collaborators: form.collaborators
+    })
+    const payload: any = {
+      id: form.id,
     title: form.title, desc: form.description, category: form.category, tags: form.tags,
     visibility: form.visibility, allowMulti: form.allowMultiBool,
     anonymous: form.anonymousBool, showResult: form.showResultBool,
@@ -1525,7 +1677,175 @@ function parseActionStr(rule: LogicRuleItem, s: string) {
     }
   }
 }const stats = reactive({ totalCount: 0, todayCount: 0, avgTime: 0, completionRate: 0 })
-const dummyData = ref<any[]>([])
+const responseRows = ref<any[]>([])
+const responseTotal = ref(0)
+const responsePage = ref(1)
+const responsePageSize = ref(20)
+const responseKeyword = ref('')
+const responseSource = ref<any[]>([])
+const dataTableRef = ref<any>(null)
+const dragColKey = ref('')
+const dataBaseOrder = ref<string[]>(['nickname', 'startTime', 'submitTime', 'duration', 'ip', 'browser', 'deviceType', 'platformType'])
+
+const dataColumnKeys = computed(() => {
+  const keys = [...dataBaseOrder.value]
+  questions.value.forEach((q: any) => { if (!keys.includes('answer-'+q.id)) keys.push('answer-'+q.id) })
+  keys.push('actions')
+  return keys
+})
+
+const dataColumns = computed(() => {
+  const cols: any[] = []
+  for (const key of dataColumnKeys.value) {
+    if (key.startsWith('answer-')) {
+      const qId = key.replace('answer-', '')
+      const q = questions.value.find((x: any) => x.id === qId)
+      if (!q) continue
+      cols.push({ key, label: stripHtml(q.title), minWidth: 120, showOverflowTooltip: true, qId, qType: q.type })
+    } else {
+      const defs: Record<string, any> = {
+        nickname: { key: 'nickname', label: '提交人', width: 90 },
+        startTime: { key: 'startTime', label: '开始时间', width: 150 },
+        submitTime: { key: 'submitTime', label: '提交时间', width: 150 },
+        duration: { key: 'duration', label: '答题时长', width: 80 },
+        ip: { key: 'ip', label: 'IP地址', width: 120 },
+        browser: { key: 'browser', label: '浏览器', width: 100 },
+        deviceType: { key: 'deviceType', label: '设备类型', width: 90 },
+        platformType: { key: 'platformType', label: '平台类型', width: 90 },
+        actions: { key: 'actions', label: '操作', width: 80, fixed: 'right' },
+      }
+      if (defs[key]) cols.push(defs[key])
+    }
+  }
+  return cols
+})
+
+function setupColDrag() {
+  nextTick(() => {
+    const wrapper = dataTableRef.value?.$el?.querySelector('.el-table__header-wrapper')
+    if (!wrapper) return
+    const ths = wrapper.querySelectorAll('th:not(.el-table__cell--selection)')
+    ths.forEach((th: any, i: number) => {
+      th.draggable = true
+      const idx = i
+      th.addEventListener('dragstart', () => { dragColKey.value = dataColumnKeys.value[idx] })
+      th.addEventListener('dragover', (e: DragEvent) => {
+        if (dragColKey.value && dragColKey.value !== dataColumnKeys.value[idx]) {
+          e.preventDefault()
+          const key = dragColKey.value
+          const arr = [...dataBaseOrder.value]
+          const from = arr.indexOf(dragColKey.value)
+          const toIdx = dataColumnKeys.value.indexOf(dataColumnKeys.value[idx])
+          if (from >= 0) { arr.splice(from, 1); arr.splice(Math.min(toIdx, arr.length), 0, key); dataBaseOrder.value = arr }
+        }
+      })
+      th.addEventListener('dragend', () => { dragColKey.value = '' })
+    })
+  })
+}
+
+async function loadResponses(page = 1) {
+  if (!form.id) return
+  responsePage.value = page
+  try {
+    const res: any = await adminApi.surveyResponseList({ surveyId: form.id, page, pageSize: responsePageSize.value })
+    const list: any[] = res.data?.list || []
+    responseTotal.value = res.data?.total || 0
+    responseSource.value = list.map((r: any) => {
+      let answers: any = r.answers || {}
+      if (typeof answers === 'string') { try { answers = JSON.parse(answers) } catch { answers = {} } }
+      return {
+        id: r.id, nickname: r.nickname, submitTime: r.submitTime, startTime: r.startTime,
+        duration: r.duration, ip: r.ip,
+        browser: r.browser || '-', deviceType: r.deviceType || '-', platformType: r.platformType || '-',
+        answers
+      }
+    })
+    stats.totalCount = responseTotal.value
+    applyFilter()
+    setupColDrag()
+  } catch { responseRows.value = [] }
+}
+
+function onSearch() { responsePage.value = 1; loadResponses(1) }
+
+function applyFilter() {
+  const kw = responseKeyword.value.trim().toLowerCase()
+  responseRows.value = kw ? responseSource.value.filter((r: any) => (r.nickname || '').toLowerCase().includes(kw)) : responseSource.value
+}
+
+function onPageChange(page: number) { loadResponses(page) }
+function onPageSizeChange(size: number) { responsePageSize.value = size; loadResponses(1) }
+
+function formatTime(ts: number) {
+  if (!ts) return '-'
+  return new Date(ts).toLocaleString('zh-CN', { hour12: false })
+}
+
+function formatDateStr(s: string) {
+  if (!s) return '-'
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return s
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-')
+}
+
+function formatTimeStr(s: string) {
+  if (!s) return '-'
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return s
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}
+
+function formatAnswer(v: any, qType: string) {
+  if (v == null || v === '') return '-'
+  if (qType === 'date') return formatDateStr(v)
+  if (qType === 'time') return formatTimeStr(v)
+  if (qType === 'dateRange') {
+    if (Array.isArray(v)) return v.map((d: any) => formatDateStr(d)).join(' ~ ')
+    return formatDateStr(v)
+  }
+  if (Array.isArray(v)) return v.join(', ')
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
+function stripHtml(html: string) {
+  const d = document.createElement('div')
+  d.innerHTML = html
+  return d.textContent || d.innerText || ''
+}
+
+async function deleteResponse(id: number) {
+  try {
+    await adminApi.surveyResponseDel({ id })
+    responseSource.value = responseSource.value.filter((r: any) => r.id !== id)
+    responseTotal.value--
+    stats.totalCount = responseTotal.value
+    applyFilter()
+  } catch { ElMessage.error('删除失败') }
+}
+
+const showTrash = ref(false)
+const selectedResponseIds = ref<number[]>([])
+
+function onSelectionChange(rows: any[]) { selectedResponseIds.value = rows.map((r: any) => r.id) }
+
+function addResponse() { ElMessage.info('添加数据功能待实现') }
+function editResponse() { ElMessage.info('编辑数据功能待实现') }
+function batchDeleteResponses() {
+  if (!selectedResponseIds.value.length) { ElMessage.warning('请先选择数据'); return }
+  ElMessageBox.confirm(`确认删除 ${selectedResponseIds.value.length} 条数据?`, '提示', { type: 'warning' }).then(async () => {
+    for (const id of selectedResponseIds.value) {
+      try { await adminApi.surveyResponseDel({ id }) } catch {}
+    }
+    selectedResponseIds.value = []
+    loadResponses(responsePage.value)
+    ElMessage.success('已删除')
+  }).catch(() => {})
+}
+function exportResponses() { ElMessage.info('导出数据功能待实现') }
+function importResponses() { ElMessage.info('导入数据功能待实现') }
+function refreshResponses() { loadResponses(); ElMessage.success('已刷新') }
 
 function insertFormulaTag(tag: string) {
   const ta = document.querySelector('.el-dialog__body textarea') as HTMLTextAreaElement
@@ -1719,6 +2039,7 @@ function addQuestion(t: any) {
     q.props.options = t.type === 'user'
       ? [{ label: '成员A', value: 'memberA', deptName: '', deptId: '', parentDeptId: '' }, { label: '成员B', value: 'memberB', deptName: '', deptId: '', parentDeptId: '' }]
       : [{ label: '部门A', value: 'deptA', parentId: '' }, { label: '部门B', value: 'deptB', parentId: '' }]
+    q.multiple = false
   }
   if (t.type === 'number') {
     q.props.calculateFormula = ''
@@ -1790,7 +2111,7 @@ async function clearAll() {
 }
 
 function hasOptions(q: Question) { return ['select','radio','checkbox','picker','matrixRadio','matrixCheckbox','judge','cascade'].includes(q.type) }
-function hasDataType(q: Question) { return ['input','textarea','number','multiInput','hInput','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
+function hasDataType(q: Question) { return ['input','textarea','number','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
 const LAYOUT_PURE = ['divider','description','pagination']
 const LAYOUT_ALL = ['divider','description','pagination','questionSet']
 const CHOICE_TYPES = ['select','radio','checkbox','picker','cascade','judge']
@@ -1839,7 +2160,7 @@ function triggerMediaUpload() {
   input.click()
 }
 
-const publicUrl = computed(() => form.id ? `${window.location.origin}/#/pages/survey/fill?id=${form.id}` : '')
+const publicUrl = computed(() => form.id ? `${window.location.origin}/sf/${form.id}` : '')
 const qrUrl = ref('')
 const embedCode = computed(() => form.id ? `<iframe src="${publicUrl.value}" width="100%" height="600" frameborder="0"></iframe>` : '')
 
@@ -1847,6 +2168,19 @@ const exportedJson = ref('')
 
 function copyLink() { navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
 function genQR() { qrUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value)}` }
+function downloadQR() {
+  fetch(qrUrl.value)
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `问卷二维码_${form.id}.png`
+      link.click()
+      URL.revokeObjectURL(url)
+    })
+    .catch(() => ElMessage.error('下载失败'))
+}
 function copyJson() { navigator.clipboard.writeText(exportedJson.value); ElMessage.success('已复制') }
 
 function exportSurveyKingJson() {
@@ -1910,6 +2244,9 @@ function applyImage(field: string, item: any) {
   save()
 }
 async function removeResource(field: string, item: any, idx: number) {
+  if (item.id) {
+    try { await adminApi.surveyResourceDelete({ id: item.id }) } catch {}
+  }
   const active = (form as any)[field]
   if (active && active.length) {
     const cur = active[0]
@@ -1944,6 +2281,38 @@ function openSurveySettings() {
 }
 watch(middleTab, (v) => { if (v === 'appearance') loadResources() })
 watch(sideSubTab, (v) => { if (v === 'bank') loadBank() })
+watch(() => activeView.value, (v) => { if (v === 'data') loadResponses() })
+
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let dataLoaded = false
+const settingsSnapshot = computed(() => JSON.stringify({
+  questionNumber: form.questionNumber, progressBar: form.progressBar,
+  autoSave: form.autoSave, password: form.password,
+  loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
+  answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
+  triggerType: form.triggerType, enableUpdate: form.enableUpdate,
+  transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
+  redirectUrl: form.redirectUrl, endContent: form.endContent,
+  examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
+  randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
+  maxSubmitMinutes: form.maxSubmitMinutes,
+  backgroundImages: form.backgroundImages, headerImages: form.headerImages,
+  defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
+  wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
+  ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
+  publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
+  collaborators: form.collaborators,
+  visibility: form.visibility, allowMultiBool: form.allowMultiBool,
+  anonymousBool: form.anonymousBool, showResultBool: form.showResultBool,
+  startDate: form.startDate, endDate: form.endDate, maxResponse: form.maxResponse,
+  deptIds: form.deptIds, statusBool: form.statusBool, mode: form.mode,
+  title: form.title, description: form.description, category: form.category, tags: form.tags
+}))
+watch(settingsSnapshot, () => {
+  if (!form.id || !dataLoaded) return
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => { save() }, 800)
+})
 
 async function load() {
   const id = Number(route.query.id || 0)
@@ -1957,7 +2326,8 @@ async function load() {
       allowMultiBool: sv.allowMulti, anonymousBool: sv.anonymous, showResultBool: sv.showResult,
       startDate: sv.startTime || null, endDate: sv.endTime || null,
       maxResponse: sv.maxResponse, statusBool: sv.status, deptIds: sv.deptIds,
-      mode: sv.mode || 'survey'
+      mode: sv.mode || 'survey',
+      createBy: sv.createBy || 0
     }
     if (sv.settings) {
       try {
@@ -1975,7 +2345,12 @@ async function load() {
           examRankingEnabled: s.examRankingEnabled ?? false,
           exerciseMode: s.exerciseMode ?? false, randomOrder: s.randomOrder ?? false,
           minSubmitMinutes: s.minSubmitMinutes || 0, maxSubmitMinutes: s.maxSubmitMinutes || 0,
-          backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || []
+          backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || [],
+          defaultAnswer: s.defaultAnswer ?? false, defaultLang: s.defaultLang || 'zh-CN',
+          wechatOnly: s.wechatOnly ?? false, deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0,
+          userLimit: s.userLimit || 0, whitelist: s.whitelist || '',
+          publicQuery: s.publicQuery ?? false, showAnswerAnalysis: s.showAnswerAnalysis ?? false,
+          collaborators: s.collaborators || ''
         })
       } catch {}
     } else {
@@ -1986,10 +2361,16 @@ async function load() {
         transcriptVisible: true, rankVisible: false, redirectUrl: '', endContent: '',
         examRankingEnabled: false, exerciseMode: false, randomOrder: false,
         minSubmitMinutes: 0, maxSubmitMinutes: 0,
-  backgroundImages: [] as string[], headerImages: [] as string[]
+  backgroundImages: [] as string[], headerImages: [] as string[],
+        defaultAnswer: false, defaultLang: 'zh-CN',
+        wechatOnly: false, deviceLimit: 0, ipLimit: 0, userLimit: 0, whitelist: '',
+        publicQuery: false, showAnswerAnalysis: false,
+        collaborators: ''
       })
     }
     Object.assign(form, base)
+    deptCheckedKeys.value = form.deptIds ? form.deptIds.split(',').map(Number).filter(Boolean) : []
+    loadAdminTree()
     loadResources()
     const rawSchema = res.data.schema
     if (rawSchema) {
@@ -2004,6 +2385,8 @@ async function load() {
         }
       } catch {}
     }
+    await nextTick()
+    dataLoaded = true
   } catch { ElMessage.error('加载失败') }
 }
 
@@ -2025,7 +2408,12 @@ async function save() {
       examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
       randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
       maxSubmitMinutes: form.maxSubmitMinutes,
-      backgroundImages: form.backgroundImages, headerImages: form.headerImages
+      backgroundImages: form.backgroundImages, headerImages: form.headerImages,
+      defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
+      wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
+      ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
+      publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
+      collaborators: form.collaborators
     })
     const payload: any = {
       title: form.title, description: form.description, category: form.category, tags: form.tags,
@@ -2350,9 +2738,18 @@ onMounted(async () => {
 
 /* ======= 设置/投放视图 ======= */
 .setting-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; }
-.setting-scroll { max-width:860px; margin:0 auto; padding:20px 24px; }
-.setting-group { margin-bottom:20px; padding:16px 20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
+.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:20px; padding:20px 24px; align-items:start; }
+.setting-group { padding:16px 20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
 .group-title { font-size:13px; font-weight:500; color:#888; margin-bottom:12px; letter-spacing:0.5px; }
+.settings-grid { display:flex; flex-wrap:wrap; gap:0; }
+.settings-grid .el-form-item { width:33.33%; min-width:250px; padding-right:16px; box-sizing:border-box; }
+.settings-grid .el-form-item .el-input,
+.settings-grid .el-form-item .el-select,
+.settings-grid .el-form-item .el-input-number,
+.settings-grid .el-form-item .el-date-editor { width:100% !important; }
+:deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+:deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.settings-full { width:100%; }
 .hint { font-size:12px; color:#aaa; margin-left:8px; }
 .save-tip { padding:60px 0; text-align:center; color:#aaa; font-size:14px; }
 .share-card { max-width:600px; }

@@ -239,7 +239,16 @@ func (h *AdminSurveyHandler) ResponseList(_ context.Context, c *app.RequestConte
 		response.Fail(c, "查询失败: "+err.Error())
 		return
 	}
-	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize})
+	// 解析答案
+	type respVO struct {
+		model.SurveyResponse
+		AnswersMap map[string]interface{} `json:"answers"`
+	}
+	voList := make([]respVO, len(list))
+	for i, r := range list {
+		voList[i] = respVO{SurveyResponse: r, AnswersMap: h.responses.ParseAnswers(&r)}
+	}
+	response.JSON(c, map[string]interface{}{"list": voList, "total": total, "page": page, "size": pageSize})
 }
 
 // ResponseDetail GET /admin/survey/response_detail?id=
