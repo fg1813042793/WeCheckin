@@ -97,9 +97,18 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 		session = fmt.Sprintf("%x", time.Now().UnixNano()+rand.Int63())
 	}
 	redisKey := fmt.Sprintf("survey_session:%d:%s", sv.ID, session)
+	var startAt int64
 	exists, _ := rd.RDB.Exists(rd.Ctx, redisKey).Result()
 	if exists == 0 {
 		rd.RDB.Set(rd.Ctx, redisKey, now, 24*time.Hour)
+		startAt = now
+	} else {
+		v, err := rd.RDB.Get(rd.Ctx, redisKey).Int64()
+		if err == nil {
+			startAt = v
+		} else {
+			startAt = now
+		}
 	}
 	// 公开视图
 	publicView := map[string]interface{}{
@@ -117,6 +126,7 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 		"schema":       schMap,
 		"settings":     settingsMap,
 		"session":      session,
+		"startAt":      startAt,
 	}
 	response.JSON(c, publicView)
 }

@@ -379,6 +379,7 @@ func main() {
 	adminGroup.GET("/survey/response_list", aSurvey.ResponseList)
 	adminGroup.GET("/survey/response_detail", aSurvey.ResponseDetail)
 	adminGroup.POST("/survey/response_del", aSurvey.ResponseDel)
+	adminGroup.POST("/survey/response_batch_del", aSurvey.ResponseBatchDel)
 	adminGroup.GET("/survey/response_export", aSurvey.ResponseExport)
 	adminGroup.GET("/survey/statistic", aSurvey.Statistic)
 	adminGroup.GET("/survey/channel_list", aSurvey.ChannelList)

@@ -27,7 +27,7 @@ export default defineConfig({
         changeOrigin: true,
         bypass(req) {
           const path = req.url || ''
-          if (/^\/(survey\/(designer|formkit|responses|statistic|preview)(\/|\?|$))/.test(path)) {
+          if (/^\/(survey(\/?$|\?)|survey\/(designer|formkit|responses|statistic|preview)(\/|\?|$))/.test(path)) {
             return req.url
           }
         }

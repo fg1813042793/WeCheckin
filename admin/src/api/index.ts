@@ -377,7 +377,7 @@ export const adminApi = {
   surveyCopy(data: { id: number }) {
     return request.post('/admin/survey/survey_copy', data)
   },
-  surveyResponseList(params: { surveyId: number; page?: number; pageSize?: number }) {
+  surveyResponseList(params: { surveyId: number; page?: number; pageSize?: number; keyword?: string }) {
     return request.get('/admin/survey/response_list', { params })
   },
   surveyResponseDetail(id: number) {
@@ -385,6 +385,9 @@ export const adminApi = {
   },
   surveyResponseDel(data: { id: number }) {
     return request.post('/admin/survey/response_del', data)
+  },
+  surveyResponseBatchDel(data: { ids: string }) {
+    return request.post('/admin/survey/response_batch_del', data)
   },
   surveyStatistic(surveyId: number) {
     return request.get('/admin/survey/statistic', { params: { surveyId } })

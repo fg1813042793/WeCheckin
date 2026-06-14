@@ -9,7 +9,7 @@
 
       <!-- 布局题：说明文字 -->
       <view v-else-if="q.type === 'description'" class="fr-desc">
-        <text class="fr-desc-text">{{ (q.options && q.options.text) || q.description || '' }}</text>
+        <view class="fr-desc-text">{{ (q.options && q.options.text) || q.description || '' }}</view>
       </view>
 
       <!-- 输入型 -->

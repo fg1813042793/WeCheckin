@@ -18,8 +18,8 @@
         <button class="nav-btn" :class="{ active: activeView==='report' }" @click="activeView='report'" title="报表">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         </button>
-        <button class="nav-btn" :class="{ active: activeView==='project' }" @click="activeView='project'" title="项目">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <button class="nav-btn" @click="goBack" title="返回列表">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
       </div>
     </div>
@@ -740,12 +740,12 @@
             <div v-for="(item, i) in form.backgroundImages" :key="'bg-'+i" class="applied-image-row">
               <img :src="typeof item === 'string' ? item : item.url" class="applied-image-thumb" />
               <span class="applied-image-label">背景图</span>
-              <button class="applied-image-remove" @click="removeResource('backgroundImages', item, 0)">✕</button>
+              <button class="applied-image-remove" @click="removeAppliedImage('backgroundImages')">✕</button>
             </div>
             <div v-for="(item, i) in form.headerImages" :key="'hd-'+i" class="applied-image-row">
               <img :src="typeof item === 'string' ? item : item.url" class="applied-image-thumb" />
               <span class="applied-image-label">页眉图</span>
-              <button class="applied-image-remove" @click="removeResource('headerImages', item, 0)">✕</button>
+              <button class="applied-image-remove" @click="removeAppliedImage('headerImages')">✕</button>
             </div>
             <el-empty v-if="!form.backgroundImages.length && !form.headerImages.length" description="暂无已应用图片" :image-size="30" />
           </div>
@@ -759,7 +759,7 @@
           <!-- 问卷显示设置 -->
           <div class="setting-group">
             <div class="group-title">问卷显示设置</div>
-            <el-form label-width="140px">
+            <el-form label-position="top">
               <div class="settings-grid">
                 <el-form-item label="开启自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
                 <el-form-item label="显示题目序号"><el-switch v-model="form.questionNumber" /></el-form-item>
@@ -769,14 +769,14 @@
                 <el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item>
                 <el-form-item label="允许复制题目"><el-switch v-model="form.copyEnabled" /></el-form-item>
                 <el-form-item label="问题校验">
-                  <el-select v-model="form.triggerType" style="flex-shrink: 0; flex-basis: 150px">
+                  <el-select v-model="form.triggerType">
                     <el-option value="onInput" label="输入时" />
                     <el-option value="onBlur" label="失焦时" />
                     <el-option value="onSubmit" label="提交时" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="默认语言">
-                  <el-select v-model="form.defaultLang" style="flex-shrink: 0; flex-basis: 150px">
+                  <el-select v-model="form.defaultLang">
                     <el-option value="zh-CN" label="简体中文" />
                     <el-option value="zh-TW" label="繁體中文" />
                     <el-option value="en" label="English" />
@@ -789,23 +789,24 @@
           <!-- 回收设置 -->
           <div class="setting-group">
             <div class="group-title">回收设置</div>
-            <el-form label-width="140px">
+            <el-form label-position="top">
               <div class="settings-grid">
                 <el-form-item label="需要登录"><el-switch v-model="form.loginRequired" /></el-form-item>
                 <el-form-item label="只能微信填写"><el-switch v-model="form.wechatOnly" /></el-form-item>
-                <el-form-item label="凭密码填写"><el-input v-model="form.password" placeholder="留空不设密码"  style="flex-shrink: 0; flex-basis: 150px"/></el-form-item>
+                <el-form-item label="凭密码填写"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
                 <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
                 <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
                 <el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="flex-shrink: 0; flex-basis: 150px" /></el-form-item>
+                <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
                 <el-form-item label="回收上限"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="答题白名单"><el-input v-model="form.whitelist" placeholder="用户ID, 逗号分隔" style="flex-shrink: 0; flex-basis: 150px"/></el-form-item>
+                <el-form-item label="答题白名单"><el-input v-model="form.whitelist" placeholder="用户ID, 逗号分隔" /></el-form-item>
+                <el-form-item label="作答时间(分钟)"><el-input-number v-model="form.timeLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
               </div>
             </el-form>
           </div>
           <div v-if="form.mode==='exam'" class="setting-group">
             <div class="group-title">考试设置</div>
-            <el-form label-width="120px">
+            <el-form label-position="top">
               <div class="settings-grid">
                 <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
                 <el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item>
@@ -818,7 +819,7 @@
           <!-- 投放与分享 -->
           <div class="setting-group">
             <div class="group-title">投放与分享</div>
-            <el-form label-width="160px">
+            <el-form label-position="top">
               <el-form-item class="settings-full" label="可见性">
                 <el-radio-group v-model="form.visibility" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
                   <el-radio :value="0" border>公开链接</el-radio>
@@ -840,8 +841,8 @@
                 </div>
               </el-form-item>
               <div class="settings-grid">
-                <el-form-item label="自定义跳转页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容"  style="flex-shrink: 0; flex-basis: 300px;"/></el-form-item>
-                <el-form-item label="自定义跳转链接"><el-input v-model="form.redirectUrl" placeholder="答题完成后跳转的自定义 URL" style="flex-shrink: 0; flex-basis: 300px"/></el-form-item>
+                <el-form-item label="自定义跳转页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容" /></el-form-item>
+                <el-form-item label="自定义跳转链接"><el-input v-model="form.redirectUrl" placeholder="答题完成后跳转的自定义 URL" /></el-form-item>
               </div>
               <el-form-item class="settings-full" label="问卷链接">
                 <div style="display:flex;flex-direction:column;gap:8px;width:100%">
@@ -868,7 +869,7 @@
           <!-- 协作管理员 -->
           <div class="setting-group">
             <div class="group-title">协作管理员</div>
-            <el-form label-width="140px">
+            <el-form label-position="top">
               <div class="settings-grid">
                 <el-form-item label="问卷创建者"><el-input :model-value="creatorName" disabled placeholder="加载中..." /></el-form-item>
               </div>
@@ -1010,23 +1011,62 @@
 
       <!-- 报表视图 -->
       <div v-show="activeView==='report'" class="setting-wrapper">
-        <div class="setting-scroll">
+        <div style="padding:20px 24px">
           <div class="setting-group">
             <div class="group-title">报表</div>
             <div v-if="!form.id" class="save-tip">请先保存并发布问卷</div>
-            <div v-else style="padding:12px">
-              <div v-for="(q, qi) in questions" :key="q.id" style="margin-bottom:16px;border:1px solid #eee;border-radius:6px;padding:12px">
-                <div style="font-size:13px;font-weight:600;margin-bottom:8px">{{ qi+1 }}. {{ q.title }}</div>
-                <div v-if="hasOptions(q)" style="display:flex;flex-direction:column;gap:4px">
-                  <div v-for="o in (q.props?.options||[])" :key="o.value" style="display:flex;align-items:center;gap:8px">
-                    <span style="font-size:12px;width:80px;flex-shrink:0">{{ o.label }}</span>
-                    <el-progress :percentage="Math.floor(Math.random()*100)" :stroke-width="12" style="flex:1" />
-                    <span style="font-size:11px;color:#999;width:40px;text-align:right">{{ Math.floor(Math.random()*50) }}</span>
+            <div v-else-if="reportLoading" style="padding:40px;text-align:center;color:#999">加载中...</div>
+            <div v-else-if="!reportData?.fieldStats?.length" style="padding:12px">
+              <el-empty description="暂无数据" :image-size="50" />
+            </div>
+            <div v-else style="padding:12px;max-width:600px;margin:0 auto">
+              <div v-for="(fs, qi) in reportData.fieldStats" :key="fs.questionId" style="margin-bottom:16px;border:1px solid #eee;border-radius:6px;padding:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">{{ qi+1 }}. {{ firstLine(stripHtml(fs.title)) }}</span>
+                  <span v-if="fs.totalCount > 0 && fs.dist" class="chart-type-btns">
+                    <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='bar' }" @click="chartTypes[fs.questionId]='bar'" title="条形图">≡</button>
+                    <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='column' }" @click="chartTypes[fs.questionId]='column'" title="柱形图">▯</button>
+                    <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='pie' }" @click="chartTypes[fs.questionId]='pie'" title="扇形图">◯</button>
+                  </span>
+                </div>
+                <template v-if="fs.totalCount > 0 && fs.dist">
+                  <div v-if="(chartTypes[fs.questionId]||'bar')==='bar'" style="display:flex;flex-direction:column;gap:4px">
+                    <div v-for="(cnt, label) in fs.dist" :key="label" style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:12px;width:100px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ label || '(空)' }}</span>
+                      <el-progress :percentage="Math.round(cnt/fs.totalCount*100)" :stroke-width="12" style="flex:1" />
+                      <span style="font-size:11px;color:#999;width:60px;text-align:right">{{ cnt }} / {{ fs.totalCount }}</span>
+                    </div>
                   </div>
+                  <div v-else-if="(chartTypes[fs.questionId]||'bar')==='column'" style="display:flex;align-items:flex-end;justify-content:center;gap:12px;padding:16px 0;min-height:160px">
+                    <div v-for="(cnt, label) in fs.dist" :key="label" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;max-width:80px">
+                      <span style="font-size:11px;color:#999">{{ cnt }}</span>
+                      <div :style="{ height: Math.max(cnt/fs.totalCount*140, 4) + 'px', width: '100%', background: '#fb454c', borderRadius: '4px 4px 0 0', transition: 'height .3s' }"></div>
+                      <span style="font-size:11px;color:#666;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">{{ label || '(空)' }}</span>
+                    </div>
+                  </div>
+                  <div v-else-if="(chartTypes[fs.questionId]||'bar')==='pie'" style="display:flex;justify-content:center;padding:12px 0">
+                    <svg :viewBox="'0 0 160 160'" style="width:160px;height:160px;transform:rotate(-90deg)">
+                      <circle cx="80" cy="80" r="70" fill="none" stroke="#f0f0f0" stroke-width="30" />
+                      <template v-for="(cnt, label) in (Object.fromEntries(Object.entries(fs.dist||{})))" :key="label">
+                        <circle cx="80" cy="80" r="70" fill="none" :stroke="PIE_COLORS[Object.keys(fs.dist||{}).indexOf(String(label)) % PIE_COLORS.length]" stroke-width="30"
+                          :stroke-dasharray="pieDasharray(Number(cnt), fs.totalCount)"
+                          stroke-dashoffset="0" style="transition: stroke-dasharray .3s" />
+                      </template>
+                    </svg>
+                    <div style="display:flex;flex-direction:column;gap:4px;margin-left:16px;justify-content:center;font-size:12px">
+                      <div v-for="(cnt, label) in fs.dist" :key="label" style="display:flex;align-items:center;gap:6px">
+                        <span :style="{ width:10, height:10, borderRadius:'50%', background: PIE_COLORS[Object.keys(fs.dist).indexOf(String(label)) % PIE_COLORS.length], display:'inline-block' }"></span>
+                        <span style="color:#666;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ label || '(空)' }}</span>
+                        <span style="color:#999">{{ Math.round(Number(cnt)/fs.totalCount*100) }}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <div v-else-if="fs.numericStat" style="font-size:12px;color:#606266;line-height:2">
+                  总和: {{ fs.numericStat.sum }} | 平均: {{ fs.numericStat.avg.toFixed(2) }} | 最小: {{ fs.numericStat.min }} | 最大: {{ fs.numericStat.max }}
                 </div>
                 <div v-else style="color:#999;font-size:12px">暂无统计</div>
               </div>
-              <el-empty v-if="!questions.length" description="暂无题目统计" :image-size="50" />
             </div>
           </div>
         </div>
@@ -1178,13 +1218,16 @@ const form = reactive<any>({
   defaultAnswer: false, defaultLang: 'zh-CN',
   wechatOnly: false, deviceLimit: 0, ipLimit: 0, userLimit: 0, whitelist: '',
   publicQuery: false, showAnswerAnalysis: false,
-  createBy: 0, collaborators: ''
+  createBy: 0, collaborators: '', timeLimit: 0
 })
 
 const activeView = ref('edit')
 const panelMode = ref<'edit' | 'json' | 'preview'>('edit')
 const middleTab = ref('item')
 const showSurveySettings = ref(false)
+const reportData = ref<any>(null)
+const reportLoading = ref(false)
+const chartTypes = ref<Record<string,string>>({})
 const sideSubTab = ref('types')
 const activeCategory = ref('')
 const appearanceTab = ref('bg')
@@ -1259,7 +1302,7 @@ function buildAdminTree(depts: any[], mgrs: any[]): any[] {
 watch(() => form.visibility, (v) => {
   if (v === 2) { loadDeptTree() }
 })
-watch(() => form.id, (v) => { if (v) genQR() })
+watch(() => form.id, (v) => { if (v) { genQR(); loadReport() } else { reportData.value = null } })
 async function loadBank() {
   clearTimeout(bankTimer)
   if (!form.id) return
@@ -1556,7 +1599,7 @@ async function saveLogicRules() {
       wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
       ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
       publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-      collaborators: form.collaborators
+      collaborators: form.collaborators, timeLimit: form.timeLimit
     })
     const payload: any = {
       id: form.id,
@@ -1814,6 +1857,13 @@ function stripHtml(html: string) {
   d.innerHTML = html
   return d.textContent || d.innerText || ''
 }
+function firstLine(s: string) { return s.split('\n')[0] || s }
+const PIE_COLORS = ['#fb454c','#ff7a45','#ffc53d','#73d13d','#36cfc9','#597ef7','#b37feb','#f759ab']
+function pieDasharray(cnt: number, total: number) {
+  const ratio = cnt / total
+  const circumference = 2 * Math.PI * 70
+  return `${ratio * circumference} ${circumference - ratio * circumference}`
+}
 
 async function deleteResponse(id: number) {
   try {
@@ -1846,6 +1896,16 @@ function batchDeleteResponses() {
 function exportResponses() { ElMessage.info('导出数据功能待实现') }
 function importResponses() { ElMessage.info('导入数据功能待实现') }
 function refreshResponses() { loadResponses(); ElMessage.success('已刷新') }
+
+async function loadReport() {
+  if (!form.id) { reportData.value = null; return }
+  reportLoading.value = true
+  try {
+    const res: any = await adminApi.surveyStatistic(form.id)
+    reportData.value = res.data || res
+  } catch { reportData.value = null }
+  finally { reportLoading.value = false }
+}
 
 function insertFormulaTag(tag: string) {
   const ta = document.querySelector('.el-dialog__body textarea') as HTMLTextAreaElement
@@ -2256,6 +2316,10 @@ async function removeResource(field: string, item: any, idx: number) {
   }
   loadResources()
 }
+function removeAppliedImage(field: string) {
+  (form as any)[field] = []
+  save()
+}
 function checkSaved() {
   if (!form.id) { ElMessage.warning('请先保存问卷'); return false }
   return true
@@ -2301,7 +2365,7 @@ const settingsSnapshot = computed(() => JSON.stringify({
   wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
   ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
   publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-  collaborators: form.collaborators,
+  collaborators: form.collaborators, timeLimit: form.timeLimit,
   visibility: form.visibility, allowMultiBool: form.allowMultiBool,
   anonymousBool: form.anonymousBool, showResultBool: form.showResultBool,
   startDate: form.startDate, endDate: form.endDate, maxResponse: form.maxResponse,
@@ -2350,7 +2414,7 @@ async function load() {
           wechatOnly: s.wechatOnly ?? false, deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0,
           userLimit: s.userLimit || 0, whitelist: s.whitelist || '',
           publicQuery: s.publicQuery ?? false, showAnswerAnalysis: s.showAnswerAnalysis ?? false,
-          collaborators: s.collaborators || ''
+          collaborators: s.collaborators || '', timeLimit: s.timeLimit || 0
         })
       } catch {}
     } else {
@@ -2365,7 +2429,7 @@ async function load() {
         defaultAnswer: false, defaultLang: 'zh-CN',
         wechatOnly: false, deviceLimit: 0, ipLimit: 0, userLimit: 0, whitelist: '',
         publicQuery: false, showAnswerAnalysis: false,
-        collaborators: ''
+        collaborators: '', timeLimit: 0
       })
     }
     Object.assign(form, base)
@@ -2413,7 +2477,7 @@ async function save() {
       wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
       ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
       publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-      collaborators: form.collaborators
+      collaborators: form.collaborators, timeLimit: form.timeLimit
     })
     const payload: any = {
       title: form.title, description: form.description, category: form.category, tags: form.tags,
@@ -2740,13 +2804,15 @@ onMounted(async () => {
 .setting-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; }
 .setting-scroll { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:20px; padding:20px 24px; align-items:start; }
 .setting-group { padding:16px 20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
-.group-title { font-size:13px; font-weight:500; color:#888; margin-bottom:12px; letter-spacing:0.5px; }
-.settings-grid { display:flex; flex-wrap:wrap; gap:0; }
-.settings-grid .el-form-item { width:33.33%; min-width:250px; padding-right:16px; box-sizing:border-box; }
+.group-title { font-size:13px; font-weight:500; color:#888; margin-bottom:12px; letter-spacing:0.5px;}
+.settings-grid { display:flex; flex-direction:column; gap:0; }
+.settings-grid .el-form-item { width:100%; min-width:0; box-sizing:border-box; }
 .settings-grid .el-form-item .el-input,
 .settings-grid .el-form-item .el-select,
 .settings-grid .el-form-item .el-input-number,
 .settings-grid .el-form-item .el-date-editor { width:100% !important; }
+.settings-grid .el-form-item .el-form-item__content { min-width:0; overflow:hidden; }
+.setting-group { overflow:hidden; }
 :deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 :deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .settings-full { width:100%; }
@@ -2815,6 +2881,13 @@ onMounted(async () => {
   position:absolute; left:50%; top:0; bottom:0;
   border-left:2px dashed #d0d5dd; margin-left:-1px;
 }
+.chart-type-btns { display:flex; gap:2px; flex-shrink:0; }
+.chart-type-btns button {
+  width:26px; height:26px; border:1px solid #e8e8e8; border-radius:4px; background:#fff;
+  font-size:14px; line-height:1; cursor:pointer; color:#888; display:flex; align-items:center; justify-content:center;
+}
+.chart-type-btns button:hover { border-color:#fb454c; color:#fb454c; }
+.chart-type-btns button.active { background:#fb454c; border-color:#fb454c; color:#fff; }
 .tree-child:last-child .tree-line { bottom:50%; }
 .tree-branch {
   position:absolute; left:50%; top:50%; width:10px;

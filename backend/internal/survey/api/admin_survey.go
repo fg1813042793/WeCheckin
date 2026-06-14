@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -234,7 +235,8 @@ func (h *AdminSurveyHandler) ResponseList(_ context.Context, c *app.RequestConte
 	surveyID, _ := strconv.Atoi(c.Query("surveyId"))
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
-	list, total, err := h.responses.List(uint(surveyID), page, pageSize)
+	keyword := c.Query("keyword")
+	list, total, err := h.responses.List(uint(surveyID), page, pageSize, keyword)
 	if err != nil {
 		response.Fail(c, "查询失败: "+err.Error())
 		return
@@ -267,10 +269,16 @@ func (h *AdminSurveyHandler) ResponseDetail(_ context.Context, c *app.RequestCon
 	}
 	sv, _ := h.survey.Get(resp.SurveyID)
 	answers := h.responses.ParseAnswers(resp)
+	// 解析 schema 供前端展示题目
+	var schMap map[string]interface{}
+	if sv != nil {
+		_ = json.Unmarshal([]byte(sv.Schema), &schMap)
+	}
 	response.JSON(c, map[string]interface{}{
 		"response": resp,
 		"survey":   sv,
 		"answers":  answers,
+		"schema":   schMap,
 	})
 }
 
@@ -283,6 +291,35 @@ func (h *AdminSurveyHandler) ResponseDetail(_ context.Context, c *app.RequestCon
 func (h *AdminSurveyHandler) ResponseDel(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := database.DB.Where("`survey_resp_id` = ?", id).Delete(&model.SurveyResponse{}).Error; err != nil {
+		response.Fail(c, "删除失败: "+err.Error())
+		return
+	}
+	response.JSON(c, nil)
+}
+
+// ResponseBatchDel POST /admin/survey/response_batch_del
+// @Tags 问卷管理
+// @Summary 批量删除答卷
+// @Param ids formData string true "逗号分隔的答卷ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/survey/response_batch_del [post]
+func (h *AdminSurveyHandler) ResponseBatchDel(_ context.Context, c *app.RequestContext) {
+	idsStr := c.PostForm("ids")
+	if idsStr == "" {
+		response.Fail(c, "参数错误")
+		return
+	}
+	parts := strings.Split(idsStr, ",")
+	var ids []int
+	for _, p := range parts {
+		id, err := strconv.Atoi(strings.TrimSpace(p))
+		if err == nil { ids = append(ids, id) }
+	}
+	if len(ids) == 0 {
+		response.Fail(c, "参数错误")
+		return
+	}
+	if err := database.DB.Where("`survey_resp_id` IN ?", ids).Delete(&model.SurveyResponse{}).Error; err != nil {
 		response.Fail(c, "删除失败: "+err.Error())
 		return
 	}

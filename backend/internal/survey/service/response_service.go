@@ -151,7 +151,7 @@ func (r *ResponseService) GetByUser(surveyID uint, userID uint) (*model.SurveyRe
 }
 
 // List 答卷列表（admin）
-func (r *ResponseService) List(surveyID uint, page, pageSize int) ([]model.SurveyResponse, int64, error) {
+func (r *ResponseService) List(surveyID uint, page, pageSize int, keyword string) ([]model.SurveyResponse, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -159,6 +159,10 @@ func (r *ResponseService) List(surveyID uint, page, pageSize int) ([]model.Surve
 		pageSize = 20
 	}
 	q := database.DB.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ?", surveyID)
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		q = q.Where("`survey_resp_nickname` LIKE ? OR `survey_resp_user_id` LIKE ? OR `survey_resp_device` LIKE ? OR CAST(`survey_resp_id` AS CHAR) LIKE ?", like, like, like, like)
+	}
 	var total int64
 	q.Count(&total)
 	var list []model.SurveyResponse

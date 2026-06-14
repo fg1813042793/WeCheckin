@@ -1,16 +1,6 @@
 <template>
   <div class="survey-page">
-    <div class="page-banner">
-      <div class="banner-content">
-        <h2>问卷管理</h2>
-        <p>创建和管理调查问卷、投票与表单</p>
-      </div>
-      <el-button type="primary" size="large" @click="goCreate" class="create-btn">
-        <el-icon style="margin-right:6px"><Plus /></el-icon>新建问卷
-      </el-button>
-    </div>
-
-    <el-card shadow="never" class="main-card">
+    <el-card shadow="never" class="main-card" style="margin-top:16px">
       <div class="toolbar">
         <div class="toolbar-left">
           <el-input v-model="keyword" placeholder="搜索标题" clearable style="width:220px" @keyup.enter="load" />
@@ -24,6 +14,9 @@
         <div class="toolbar-right">
           <el-tooltip content="刷新"><el-button circle @click="load"><el-icon><Refresh /></el-icon></el-button></el-tooltip>
         </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <el-button type="primary" @click="goCreate"><el-icon style="margin-right:4px"><Plus /></el-icon>新建问卷</el-button>
       </div>
 
       <div class="stat-bar">
@@ -208,11 +201,8 @@ onMounted(load)
 </script>
 
 <style scoped>
-.survey-page { max-width:1400px; margin:0 auto; }
-.page-banner { display:flex; align-items:center; justify-content:space-between; padding:24px 0 16px; }
-.banner-content h2 { margin:0; font-size:22px; font-weight:600; color:#1a1a2e; }
-.banner-content p { margin:4px 0 0; color:#888; font-size:13px; }
-.create-btn { border-radius:8px; padding:10px 24px; font-size:14px; box-shadow:0 4px 12px rgba(251,69,76,0.3); }
+.survey-page { }
+
 .main-card { border-radius:12px; }
 .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
 .toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }

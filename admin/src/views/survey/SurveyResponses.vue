@@ -1,17 +1,28 @@
 <template>
   <div>
-    <el-card>
+    <el-card class="resp-card">
       <div class="header">
         <el-button @click="goBack">‹ 返回</el-button>
         <h3 style="margin:0 0 0 12px;display:inline-block">答卷: {{ surveyTitle }}</h3>
         <el-tag v-if="surveyId" type="info" size="small" style="margin-left:8px">SurveyID: {{ surveyId }}</el-tag>
-        <el-button size="small" style="margin-left:auto" @click="exportCSV">导出 CSV</el-button>
+      </div>
+      <div class="toolbar">
+        <el-input v-model="keyword" placeholder="搜索昵称/用户ID/设备" clearable style="width:260px" @clear="search" @keyup.enter="search" />
+        <div class="toolbar-actions">
+          <el-button size="small" type="danger" :disabled="!selectedIds.length" @click="batchDel">批量删除</el-button>
+          <span style="flex:1" />
+          <el-button size="small" @click="exportCSV">导出 CSV</el-button>
+        </div>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe style="margin-top:16px" border>
+      <el-table :data="list" v-loading="loading" stripe style="margin-top:16px" border @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="userId" label="用户" width="120" />
         <el-table-column prop="nickname" label="昵称" width="140" />
+        <el-table-column prop="browser" label="浏览器" width="100" />
+        <el-table-column prop="deviceType" label="设备类型" width="100" />
+        <el-table-column prop="platformType" label="平台" width="80" />
         <el-table-column label="状态" width="70">
           <template #default="{ row }">
             <el-tag :type="row.status===1 ? 'success' : 'info'" size="small">
@@ -22,8 +33,8 @@
         <el-table-column label="用时" width="80">
           <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
         </el-table-column>
-        <el-table-column v-for="q in questions" :key="q.id" :label="q.title" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ formatVal(row.answers?.[q.id]) }}</template>
+        <el-table-column label="开始时间" min-width="140">
+          <template #default="{ row }">{{ formatTime(row.startTime) }}</template>
         </el-table-column>
         <el-table-column label="设备" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">{{ row.device || '-' }}</template>
@@ -78,7 +89,13 @@ const total = ref(0)
 const list = ref<any[]>([])
 const loading = ref(false)
 const questions = ref<any[]>([])
-const skipTypes = ['divider', 'description', 'richText', 'pagination', 'questionSet']
+const skipTypes = ['divider', 'description', 'pagination', 'questionSet']
+const keyword = ref('')
+const selectedIds = ref<number[]>([])
+
+function onSelectionChange(rows: any[]) {
+  selectedIds.value = rows.map((r: any) => r.id)
+}
 
 function formatTime(ms: number) {
   if (!ms) return '-'
@@ -96,7 +113,7 @@ async function load() {
   loading.value = true
   try {
     const [res, detailRes]: any = await Promise.all([
-      adminApi.surveyResponseList({ surveyId, page: page.value, pageSize: pageSize.value }),
+      adminApi.surveyResponseList({ surveyId, page: page.value, pageSize: pageSize.value, keyword: keyword.value || undefined }),
       adminApi.surveyDetail(surveyId)
     ])
     list.value = res.data?.list || res.list || []
@@ -108,6 +125,20 @@ async function load() {
   } finally { loading.value = false }
 }
 
+function search() {
+  page.value = 1
+  load()
+}
+
+async function batchDel() {
+  if (!selectedIds.value.length) return
+  await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 条答卷？`, '提示', { type: 'warning' })
+  await adminApi.surveyResponseBatchDel({ ids: selectedIds.value.join(',') })
+  ElMessage.success('已删除')
+  selectedIds.value = []
+  load()
+}
+
 const detailDialog = reactive({ visible: false, response: null as any, answers: {} as any, schema: null as any })
 const answerRows = computed(() => {
   if (!detailDialog.response) return []
@@ -116,12 +147,17 @@ const answerRows = computed(() => {
   if (!sch) {
     return Object.entries(ans).map(([k, v]) => ({ questionId: k, title: k, value: formatVal(v) }))
   }
-  return sch.questions.map((q: any) => ({
-    questionId: q.id,
-    title: q.title,
+  return sch.questions.filter((q: any) => !skipTypes.includes(q.type)).map((q: any, i: number) => ({
+    questionId: i + 1,
+    title: stripHtml(q.title || ''),
     value: formatVal(ans[q.id])
   }))
 })
+function stripHtml(s: string) {
+  const d = document.createElement('div')
+  d.innerHTML = s
+  return d.textContent || d.innerText || ''
+}
 function formatVal(v: any) {
   if (v == null) return '(未填)'
   if (Array.isArray(v)) return v.join(', ')
@@ -130,14 +166,11 @@ function formatVal(v: any) {
 }
 
 async function viewDetail(row: any) {
-  const res: any = await adminApi.surveyResponseDetail(row.id)
-  detailDialog.response = res.response
-  detailDialog.answers = res.answers || {}
-  let sch = null
-  if (res.survey && res.survey.schema) {
-    try { sch = JSON.parse(res.survey.schema) } catch {}
-  }
-  detailDialog.schema = sch
+  const raw: any = await adminApi.surveyResponseDetail(row.id)
+  const data = raw.data || raw
+  detailDialog.response = data.response || data
+  detailDialog.answers = data.answers || {}
+  detailDialog.schema = data.schema || null
   detailDialog.visible = true
 }
 
@@ -165,4 +198,7 @@ onMounted(load)
 
 <style scoped>
 .header { display:flex; align-items:center; }
+.resp-card { overflow:visible; }
+.toolbar { position:sticky; top:0; z-index:10; background:#fff; padding:8px 0; }
+.toolbar-actions { margin-top:8px; display:flex; gap:8px; justify-content:flex-end; }
 </style>
