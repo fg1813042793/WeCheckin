@@ -1,145 +1,240 @@
 <template>
-  <div class="page">
-    <div class="page-banner">
-      <div><h2>考试管理</h2><p>发布考试、监控数据、管理成绩</p></div>
-      <el-button type="primary" size="large" @click="showAdd"><el-icon style="margin-right:6px"><Plus /></el-icon>新建考试</el-button>
-    </div>
-
-    <el-card shadow="never" class="main-card">
+  <div class="exam-page">
+    <el-card shadow="never" class="main-card" style="margin-top:16px">
       <div class="toolbar">
-        <el-input v-model="keyword" placeholder="搜索考试" clearable style="width:220px" @keyup.enter="load" />
-        <el-button type="primary" @click="load">搜索</el-button>
+        <div class="toolbar-left">
+          <el-input v-model="keyword" placeholder="搜索标题" clearable style="width:220px" @keyup.enter="load" />
+          <el-input v-model="category" placeholder="分类" clearable style="width:140px" @keyup.enter="load" />
+          <el-select v-model="statusFilter" placeholder="状态" clearable style="width:120px" @change="load">
+            <el-option label="发布" :value="1" />
+            <el-option label="停用" :value="0" />
+          </el-select>
+          <el-button type="primary" @click="load">搜索</el-button>
+        </div>
+        <div class="toolbar-right">
+          <el-tooltip content="刷新"><el-button circle @click="load"><el-icon><Refresh /></el-icon></el-button></el-tooltip>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <el-button type="primary" @click="goCreate"><el-icon style="margin-right:4px"><Plus /></el-icon>新建考试</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe>
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="title" label="标题" min-width="200" />
-        <el-table-column label="时间" min-width="200">
-          <template #default="{row}">
-            <div class="time-cell">
-              <span>{{ fmtTime(row.startTime) }}</span>
-              <span style="color:#ccc;margin:0 4px">→</span>
-              <span>{{ fmtTime(row.endTime) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="时长" width="70" align="center"><template #default="{row}">{{ row.duration || '-' }}分</template></el-table-column>
-        <el-table-column label="次数" width="60" align="center"><template #default="{row}">{{ row.maxAttempts || 1 }}</template></el-table-column>
-        <el-table-column label="状态" width="70" align="center">
-          <template #default="{row}"><el-tag :type="row.status===1?'success':'danger'" size="small" round>{{ row.status===1?'启用':'停用' }}</el-tag></template>
-        </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
-          <template #default="{row}">
-            <el-button size="small" type="primary" @click="goDesigner(row)">设计</el-button>
-            <el-button size="small" @click="showEdit(row)">编辑</el-button>
-            <el-popconfirm title="确认删除?" @confirm="del(row)"><template #reference><el-button size="small" type="danger" plain>删除</el-button></template></el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="page-bar"><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="load" background /></div>
+      <div class="stat-bar">
+        <div class="stat-item"><span class="stat-num">{{ stats.total }}</span> 总考试</div>
+        <div class="stat-item"><span class="stat-num active">{{ stats.published }}</span> 已发布</div>
+        <div class="stat-item"><span class="stat-num muted">{{ stats.stopped }}</span> 已停用</div>
+      </div>
+
+      <div v-if="!gridView" class="table-wrap">
+        <el-table :data="list" v-loading="loading" stripe>
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column label="标题" min-width="200">
+            <template #default="{ row }">
+              <div class="cell-title">{{ row.title }}</div>
+              <div class="cell-meta" v-if="row.category || row.tags">
+                <el-tag v-if="row.category" size="small" round>{{ row.category }}</el-tag>
+                <span v-for="t in (row.tags||'').split(',').filter(Boolean)" :key="t" class="tag-dot">{{ t }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="可见性" width="90">
+            <template #default="{ row }">
+              <el-tag size="small" :type="visType(row.visibility)" round>{{ visText(row.visibility) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="时长" width="70" align="center">
+            <template #default="{ row }">{{ row.duration || '-' }}分</template>
+          </el-table-column>
+          <el-table-column label="次数" width="60" align="center">
+            <template #default="{ row }">{{ row.maxAttempts || 1 }}</template>
+          </el-table-column>
+          <el-table-column label="时间窗" min-width="190">
+            <template #default="{ row }">
+              <span v-if="row.startTime || row.endTime" class="time-range">{{ fmtTime(row.startTime) }} ~ {{ fmtTime(row.endTime) }}</span>
+              <span v-else class="no-limit">不限</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80">
+            <template #default="{ row }">
+              <el-switch :model-value="row.status===1" :before-change="()=>toggleStatus(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" @click="goDesigner(row)">设计</el-button>
+              <el-dropdown trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+                <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                    <el-dropdown-item :command="row.status===1?'disable':'enable'">
+                      {{ row.status===1?'停用':'发布' }}
+                    </el-dropdown-item>
+                    <el-dropdown-item command="del" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <div v-else class="card-grid">
+        <div v-for="row in list" :key="row.id" class="project-card" @click="goDesigner(row)">
+          <div class="card-head" :class="row.status===1?'pub':'stop'">
+            <div class="card-type">{{ row.category || '考试' }}</div>
+            <el-tag size="small" :type="row.status===1?'success':'danger'" effect="dark" round>{{ row.status===1?'发布':'停用' }}</el-tag>
+          </div>
+          <div class="card-body">
+            <h4 class="card-title">{{ row.title }}</h4>
+            <p class="card-desc" v-if="row.description">{{ row.description.substring(0,60) }}{{ row.description.length>60?'...':'' }}</p>
+          </div>
+          <div class="card-foot">
+            <span><el-icon><Clock /></el-icon> {{ row.duration || '-' }}分</span>
+            <span><el-icon><Rank /></el-icon> {{ row.maxAttempts || 1 }}次</span>
+            <span v-if="row.startTime || row.endTime"><el-icon><Calendar /></el-icon> {{ fmtDate(row.startTime) }}</span>
+          </div>
+          <div class="card-actions" @click.stop>
+            <el-button size="small" @click="goDesigner(row)">设计</el-button>
+            <el-popconfirm title="确认删除?" @confirm="delRow(row)">
+              <template #reference><el-button size="small" type="danger" plain>删除</el-button></template>
+            </el-popconfirm>
+          </div>
+        </div>
+        <div v-if="list.length===0 && !loading" class="empty-state">
+          <el-icon :size="48" color="#ddd"><Document /></el-icon>
+          <p>还没有考试，点击「新建考试」开始</p>
+        </div>
+      </div>
+
+      <div class="pagination-bar">
+        <div class="view-toggle">
+          <el-button :type="gridView?'':'default'" size="small" @click="gridView=false"><el-icon><List /></el-icon></el-button>
+          <el-button :type="gridView?'default':''" size="small" @click="gridView=true"><el-icon><Grid /></el-icon></el-button>
+        </div>
+        <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="load" background />
+      </div>
     </el-card>
 
-    <el-dialog v-model="dialog.visible" :title="dialog.isCreate?'新建考试':'编辑考试'" width="700px">
-      <el-form :model="form" label-width="110px">
-        <el-form-item label="考试标题"><el-input v-model="form.title" /></el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="8"><el-form-item label="时长(分)"><el-input-number v-model="form.duration" :min="1" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="最大次数"><el-input-number v-model="form.maxAttempts" :min="1" :max="99" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="显示分数"><el-switch v-model="form.showScoreBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-        </el-row>
-        <el-form-item label="状态"><el-switch v-model="form.statusBool" :active-value="1" :inactive-value="0" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialog.visible=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="save">保存</el-button>
-      </template>
-    </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { adminApi } from '../../api'
 
 const router = useRouter()
 const keyword = ref('')
+const category = ref('')
+const statusFilter = ref<number|null>(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const list = ref<any[]>([])
 const loading = ref(false)
+const gridView = ref(true)
 
+const stats = computed(() => {
+  const total = list.value.length
+  const published = list.value.filter((x:any) => x.status===1).length
+  const stopped = list.value.filter((x:any) => x.status===0).length
+  return { total, published, stopped }
+})
+
+function visText(v: number) { return { 0:'公开', 1:'登录', 2:'部门' }[v] || '-' }
+function visType(v: number) { return ({ 0:'success', 1:'primary', 2:'warning' } as any)[v] || '' }
 function fmtTime(ms: number) { return ms ? new Date(ms).toLocaleDateString() : '-' }
-
-const dialog = reactive({ visible: false, isCreate: true })
-const saving = ref(false)
-const form = reactive<any>({ id: 0, title: '', startDate: null, endDate: null, duration: 60, maxAttempts: 1, showScoreBool: 1, statusBool: 1 })
+function fmtDate(ms: number) { return ms ? new Date(ms).toLocaleDateString() : '' }
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await adminApi.examList({ page: page.value, pageSize: pageSize.value, keyword: keyword.value })
-    list.value = res.list || []; total.value = res.total || 0
+    const res: any = await adminApi.examList({
+      page: page.value, pageSize: pageSize.value,
+      keyword: keyword.value, category: category.value,
+      status: statusFilter.value === null ? -1 : statusFilter.value
+    })
+    list.value = res.list || []
+    total.value = res.total || 0
   } finally { loading.value = false }
 }
 
-function showAdd() {
-  Object.assign(form, { id: 0, title: '', startDate: null, endDate: null, duration: 60, maxAttempts: 1, showScoreBool: 1, statusBool: 1 })
-  dialog.isCreate = true; dialog.visible = true
+async function toggleStatus(row: any) {
+  const ns = row.status === 1 ? 0 : 1
+  await adminApi.examStatus({ id: row.id, status: ns })
+  row.status = ns
+  ElMessage.success(ns ? '已发布' : '已停用')
+  return true
 }
 
-function showEdit(row: any) {
-  Object.assign(form, {
-    id: row.id, title: row.title,
-    startDate: row.startTime || null, endDate: row.endTime || null,
-    duration: row.duration, maxAttempts: row.maxAttempts,
-    showScoreBool: row.showScore, statusBool: row.status
-  })
-  dialog.isCreate = false; dialog.visible = true
-}
-
-async function save() {
-  saving.value = true
-  try {
-    const payload: any = {
-      id: form.id, title: form.title,
-      startTime: form.startDate || 0, endTime: form.endDate || 0,
-      duration: form.duration, maxAttempts: form.maxAttempts,
-      showScore: form.showScoreBool, status: form.statusBool,
-      schema: '', settings: '{}'
-    }
-    await adminApi.examSave(payload)
-    ElMessage.success(dialog.isCreate ? '已创建' : '已更新')
-    dialog.visible = false; load()
-  } catch { ElMessage.error('保存失败') }
-  finally { saving.value = false }
-}
-
-async function del(row: any) {
+async function delRow(row: any) {
   await adminApi.examDelete({ id: row.id })
-  ElMessage.success('已删除'); load()
+  ElMessage.success('已删除')
+  load()
+}
+
+async function handleMore(cmd: string, row: any) {
+  if (cmd === 'del') {
+    await ElMessageBox.confirm(`确认删除「${row.title}」?`, '提示', { type: 'warning' })
+    await adminApi.examDelete({ id: row.id })
+    ElMessage.success('已删除'); load()
+  } else if (cmd === 'enable' || cmd === 'disable') {
+    const ns = cmd === 'enable' ? 1 : 0
+    await adminApi.examStatus({ id: row.id, status: ns })
+    ElMessage.success('已更新'); load()
+  } else if (cmd === 'edit') {
+    router.push({ path: '/exam/designer', query: { id: String(row.id) } })
+  }
 }
 
 function goDesigner(row: any) {
   router.push({ path: '/exam/designer', query: { id: String(row.id) } })
 }
 
-onMounted(() => { load() })
+function goCreate() {
+  router.push('/exam/designer')
+}
+
+onMounted(load)
 </script>
 
 <style scoped>
-.page { max-width:1400px; margin:0 auto; }
-.page-banner { display:flex; justify-content:space-between; align-items:center; padding:24px 0 16px; }
-.page-banner h2 { margin:0; font-size:22px; font-weight:600; color:#1a1a2e; }
-.page-banner p { margin:4px 0 0; color:#888; font-size:13px; }
+.exam-page { }
+
 .main-card { border-radius:12px; }
-.toolbar { display:flex; gap:8px; margin-bottom:16px; }
-.time-cell { font-size:12px; color:#888; }
-.page-bar { text-align:center; margin-top:16px; }
+.toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+.toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.stat-bar { display:flex; gap:24px; margin-bottom:16px; padding:12px 16px; background:#f8f9fc; border-radius:8px; }
+.stat-item { font-size:13px; color:#888; }
+.stat-num { font-weight:600; color:#333; font-size:16px; margin-right:4px; }
+.stat-num.active { color:#67c23a; }
+.stat-num.muted { color:#999; }
+
+.table-wrap { margin-top:4px; }
+.cell-title { font-weight:500; color:#333; }
+.cell-meta { margin-top:4px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.tag-dot { font-size:11px; color:#888; background:#f0f0f0; padding:1px 8px; border-radius:3px; }
+.time-range { font-size:12px; color:#888; }
+.no-limit { color:#bbb; font-size:12px; }
+
+.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin-top:8px; }
+.project-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; overflow:hidden; cursor:pointer; transition:all 0.2s; }
+.project-card:hover { border-color:#fb454c; box-shadow:0 4px 20px rgba(251,69,76,0.08); transform:translateY(-2px); }
+.card-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; }
+.card-head.pub { background:linear-gradient(135deg,#f0f9f0,#e8f5e8); }
+.card-head.stop { background:linear-gradient(135deg,#f8f9fc,#f0f0f0); }
+.card-type { font-size:12px; color:#888; font-weight:500; }
+.card-body { padding:14px 18px; min-height:60px; }
+.card-title { margin:0; font-size:15px; font-weight:600; color:#1a1a2e; }
+.card-desc { margin:6px 0 0; font-size:12px; color:#999; line-height:1.4; }
+.card-foot { display:flex; gap:16px; padding:10px 18px; border-top:1px solid #f5f5f5; font-size:12px; color:#999; }
+.card-actions { display:none; padding:10px 18px; gap:8px; border-top:1px solid #f0f0f0; background:#fafafa; }
+.project-card:hover .card-actions { display:flex; }
+.empty-state { grid-column:1/-1; text-align:center; padding:80px 0; color:#aaa; }
+
+.pagination-bar { display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
+.view-toggle { display:flex; gap:4px; }
 </style>

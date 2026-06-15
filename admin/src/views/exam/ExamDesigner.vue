@@ -1,6 +1,5 @@
 <template>
   <div class="survey-main">
-    <!-- 最左侧导航: 概述 / 编辑 / 设置 / 数据 / 报表 / 项目 -->
     <div class="survey-main-navigator">
       <div class="nav-actions">
         <button class="nav-btn" :class="{ active: activeView==='overview' }" @click="activeView='overview'" title="概述">
@@ -15,20 +14,14 @@
         <button class="nav-btn" :class="{ active: activeView==='data' }" @click="activeView='data'" title="数据">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         </button>
-        <button class="nav-btn" :class="{ active: activeView==='report' }" @click="activeView='report'" title="报表">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </button>
-        <button class="nav-btn" :class="{ active: activeView==='project' }" @click="activeView='project'" title="项目">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <button class="nav-btn" @click="goBack" title="返回列表">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
       </div>
     </div>
 
-    <!-- 主内容 -->
     <div class="survey-main-content">
-      <!-- 编辑视图 -->
       <div v-show="activeView==='edit'" id="editor" class="survey-editor survey-light survey-app pc">
-        <!-- 中间侧边栏: 项目 / 外观 / 逻辑 -->
         <div class="survey-sidebar-panel">
           <div class="survey-sidebar-panel-tabs">
             <div class="survey-sidebar-panel-tabs-pane" :class="{ active: middleTab==='item' }" title="题目" @click="middleTab='item'">
@@ -45,188 +38,164 @@
             </div>
           </div>
           <div class="survey-sidebar-panel-tabs-content">
-            <!-- 题目 -->
-            <template v-if="middleTab==='item'">
-              <el-tabs v-model="sideSubTab" class="side-sub-tabs">
-                <el-tab-pane label="题型" name="types">
-                  <div class="question-panel">
-                    <div class="type-tabs-bar" ref="tabsBarRef">
-                      <button class="tab-scroll-btn tab-scroll-prev" @click="scrollTabs(-1)" :disabled="atTabStart">‹</button>
-                      <div class="tab-scroll-viewport" ref="tabViewportRef">
-                        <div class="tab-scroll-track" ref="tabTrackRef">
-                          <button
-                            v-for="cat in categories" :key="cat.name"
-                            class="type-tab-btn"
-                            :class="{ active: activeCategory===cat.name }"
-                            @click="activeCategory=cat.name"
-                          >{{ cat.label }}</button>
-                        </div>
-                      </div>
-                      <button class="tab-scroll-btn tab-scroll-next" @click="scrollTabs(1)" :disabled="atTabEnd">›</button>
-                    </div>
-                    <div class="question-type">
-                      <dl class="menu-group" v-for="(items, group) in groupedBySub" :key="group">
-                        <dt class="menu-group-title">{{ group }}</dt>
-                        <dd v-for="t in items" :key="t.type" class="menu-group-item" @click="addQuestion(t)">
-                          <span class="itemIcon"><question-icon :type="t.type" /></span>
-                          <span class="item-label">{{ t.displayName }}</span>
-                          <span class="item-type">{{ t.type }}</span>
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </el-tab-pane>
-                <el-tab-pane label="题库" name="bank">
-                  <div class="bank-panel">
-                    <div class="bank-search">
-                      <el-input v-model="bankKeyword" placeholder="搜索题目..." size="small" clearable @input="loadBank" />
-                    </div>
-                    <div class="bank-list">
-                      <div v-for="q in bankQuestions" :key="q.id" class="bank-item" @dblclick="addFromBank(q)">
-                        <question-icon :type="q.type" class="bank-icon" />
-                        <span class="bank-title">{{ q.title || '未命名' }}</span>
-                        <span class="bank-type">{{ q.type }}</span>
-                        <el-button size="small" text type="primary" @click.stop="addFromBank(q)">+添加</el-button>
-                      </div>
-                      <el-empty v-if="!bankQuestions.length && !bankLoading" description="题库暂无题目" :image-size="40" />
-                      <div v-if="bankLoading" class="bank-loading">加载中...</div>
-                    </div>
-                  </div>
-                </el-tab-pane>
-                <el-tab-pane label="大纲" name="outline">
-                  <div class="outline-tree">
-                    <div class="tree-root">
-                      <span class="tree-root-icon">📋</span>
-                      <span class="tree-root-title">{{ outlineRoot.title }}</span>
-                      <span class="tree-root-count">{{ outlineRoot.children.length }}题</span>
-                    </div>
-                    <div class="tree-root-line"></div>
-                    <div class="tree-children">
-                      <div v-for="child in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id)">
-                        <div class="tree-connector">
-                          <span class="tree-line"></span>
-                          <span class="tree-branch"></span>
-                        </div>
-                        <div class="tree-child-body">
-                          <span v-if="child.q.type !== 'description'" class="tree-index">{{ child.index }}.</span>
-                          <question-icon :type="child.q.type" class="tree-icon" />
-                          <span class="tree-title">{{ child.q.title || '未命名' }}</span>
-                          <span class="tree-type">{{ child.q.type }}</span>
-                        </div>
+            <el-tabs v-if="middleTab==='item'" v-model="sideSubTab" class="side-sub-tabs">
+              <el-tab-pane label="题型" name="types">
+                <div class="question-panel">
+                  <div class="type-tabs-bar" ref="tabsBarRef">
+                    <button class="tab-scroll-btn tab-scroll-prev" @click="scrollTabs(-1)" :disabled="atTabStart">‹</button>
+                    <div class="tab-scroll-viewport" ref="tabViewportRef">
+                      <div class="tab-scroll-track" ref="tabTrackRef">
+                        <button v-for="cat in categories" :key="cat.name" class="type-tab-btn" :class="{ active: activeCategory===cat.name }" @click="activeCategory=cat.name">{{ cat.label }}</button>
                       </div>
                     </div>
-                    <el-empty v-if="!questions.length" description="暂无题目" :image-size="40" />
+                    <button class="tab-scroll-btn tab-scroll-next" @click="scrollTabs(1)" :disabled="atTabEnd">›</button>
                   </div>
-                </el-tab-pane>
-              </el-tabs>
-            </template>
-            <!-- 外观 -->
+                  <div class="question-type">
+                    <dl class="menu-group" v-for="(items, group) in groupedBySub" :key="group">
+                      <dt class="menu-group-title">{{ group }}</dt>
+                      <dd v-for="t in items" :key="t.type" class="menu-group-item" @click="addQuestion(t)">
+                        <span class="itemIcon"><question-icon :type="t.type" /></span>
+                        <span class="item-label">{{ t.displayName }}</span>
+                        <span class="item-type">{{ t.type }}</span>
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="题库" name="bank">
+                <div class="bank-panel">
+                  <div class="bank-search">
+                    <el-input v-model="bankKeyword" placeholder="搜索题目..." size="small" clearable @input="loadBank" />
+                  </div>
+                  <div class="bank-list">
+                    <div v-for="q in bankQuestions" :key="q.id" class="bank-item" @dblclick="addFromBank(q)">
+                      <question-icon :type="q.type" />
+                      <span class="bank-title">{{ q.title || '未命名' }}</span>
+                      <span class="bank-type">{{ q.type }}</span>
+                      <el-button size="small" text type="primary" @click.stop="addFromBank(q)">+添加</el-button>
+                    </div>
+                    <el-empty v-if="!bankQuestions.length && !bankLoading" description="题库暂无题目" :image-size="40" />
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="大纲" name="outline">
+                <div class="outline-tree">
+                  <div class="tree-root">
+                    <span class="tree-root-title">{{ outlineRoot.title }}</span>
+                    <span class="tree-root-count">{{ outlineRoot.children.length }}题</span>
+                  </div>
+                  <div class="tree-children">
+                    <div v-for="child in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id)">
+                      <div class="tree-child-body">
+                        <span class="tree-index">{{ child.index }}.</span>
+                        <question-icon :type="child.q.type" />
+                        <span class="tree-title">{{ child.q.title || '未命名' }}</span>
+                        <span class="tree-type">{{ child.q.type }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <el-empty v-if="!questions.length" description="暂无题目" :image-size="40" />
+                </div>
+              </el-tab-pane>
+            </el-tabs>
             <div v-if="middleTab==='appearance'" class="appearance-panel">
               <el-tabs v-model="appearanceTab" class="appearance-tabs">
                 <el-tab-pane label="背景图" name="bg">
                   <div class="appearance-grid">
-                    <div v-for="(url, i) in form.backgroundImages" :key="i" class="appearance-thumb" @click="applyToPreview(url)">
-                      <img :src="url" />
+                    <div v-for="(item, i) in allBgResources" :key="i" class="appearance-thumb" :class="{ active: isActiveImg('backgroundImages', item) }" @click="applyImage('backgroundImages', item)">
+                      <img :src="(item.domain||'')+item.url" />
                       <div class="appearance-overlay"><span>点击应用</span></div>
-                      <button class="appearance-remove" @click.stop="removeImage('backgroundImages', i)">✕</button>
+                      <button class="appearance-remove" @click.stop="removeResource('backgroundImages', item, i)">✕</button>
                     </div>
-                    <el-upload :action="`/admin/survey/resource_upload`" :show-file-list="false" :on-success="handleBgSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ surveyId: form.id, resType: 'bg' }" :before-upload="checkSaved">
+                    <el-upload :action="`/admin/exam/resource_upload`" :show-file-list="false" :on-success="handleBgSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ examId: form.id, resType: 'bg' }" :before-upload="checkSaved">
                       <div class="appearance-add">+</div>
                     </el-upload>
                   </div>
-                  <el-empty v-if="!form.backgroundImages.length" description="暂无背景图" :image-size="30" />
+                  <el-empty v-if="!allBgResources.length" description="暂无背景图" :image-size="30" />
                 </el-tab-pane>
                 <el-tab-pane label="页眉图" name="header">
                   <div class="appearance-grid">
-                    <div v-for="(url, i) in form.headerImages" :key="i" class="appearance-thumb" @click="applyToPreview(url)">
-                      <img :src="url" />
+                    <div v-for="(item, i) in allHeaderResources" :key="i" class="appearance-thumb" :class="{ active: isActiveImg('headerImages', item) }" @click="applyImage('headerImages', item)">
+                      <img :src="(item.domain||'')+item.url" />
                       <div class="appearance-overlay"><span>点击应用</span></div>
-                      <button class="appearance-remove" @click.stop="removeImage('headerImages', i)">✕</button>
+                      <button class="appearance-remove" @click.stop="removeResource('headerImages', item, i)">✕</button>
                     </div>
-                    <el-upload :action="`/admin/survey/resource_upload`" :show-file-list="false" :on-success="handleHeaderSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ surveyId: form.id, resType: 'header' }" :before-upload="checkSaved">
+                    <el-upload :action="`/admin/exam/resource_upload`" :show-file-list="false" :on-success="handleHeaderSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ examId: form.id, resType: 'header' }" :before-upload="checkSaved">
                       <div class="appearance-add">+</div>
                     </el-upload>
                   </div>
-                  <el-empty v-if="!form.headerImages.length" description="暂无页眉图" :image-size="30" />
+                  <el-empty v-if="!allHeaderResources.length" description="暂无页眉图" :image-size="30" />
                 </el-tab-pane>
               </el-tabs>
-            </div>
-            <!-- 逻辑 -->
-            <div v-if="middleTab==='logic'" class="logic-panel">
-              <p style="color:#909399;padding:20px;text-align:center">逻辑功能待实现</p>
             </div>
           </div>
         </div>
 
-        <!-- 中: 画布 -->
-        <div class="survey-main-panel">
-          <div class="survey-main-panel-toolbar">
-            <div class="toolbar-left">
-              <el-button-group class="toolbar-btn-group">
-                <el-tooltip content="撤销" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" disabled>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="重做" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" disabled>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="快捷键" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01M18 16h.01"/></svg>
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="文本导入" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  </el-button>
-                </el-tooltip>
-              </el-button-group>
+        <!-- 逻辑（全宽） -->
+        <div v-if="middleTab==='logic'" class="logic-panel logic-full-panel">
+          <div class="logic-toolbar">
+            <h4 style="margin:0;font-size:14px">自定义逻辑</h4>
+            <div style="display:flex;gap:8px">
+              <el-button size="small" type="primary" @click="showAddRule = true">+ 增加规则</el-button>
+              <el-button size="small" @click="saveLogicRules">保存全部规则</el-button>
             </div>
-            <div class="toolbar-right">
-              <el-button-group class="toolbar-btn-group">
-                <el-tooltip content="编辑" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :class="{ active: sideSubTab==='types' }" @click="sideSubTab='types'">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="JSON" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" @click="exportJSON">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="预览" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" @click="preview">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  </el-button>
-                </el-tooltip>
-              </el-button-group>
-              <span class="toolbar-divider" />
+          </div>
+          <div style="font-size:12px;color:#606266;background:#fefced;border:1px solid #faf0c7;border-radius:4px;padding:8px 12px;margin-bottom:12px;line-height:1.8">
+            <strong>使用说明：</strong>每一条规则由「条件 + 动作 + 目标」组成。例如：<code>如果回答了Q1第1选项，则显示Q2</code>。
+            条件可组合多个（且/或/非），动作可选显示隐藏、必填、跳转等。点击下方「+ 增加规则」添加。
+          </div>
+          <div class="logic-body">
+            <div class="logic-editor-area">
+              <div style="font-size:12px;color:#888;margin-bottom:8px">规则列表（{{ logicRuleList.length }}条）</div>
+              <div v-if="logicRuleList.length===0" style="color:#999;font-size:13px;padding:40px 0;text-align:center">暂无规则，点击上方「+ 增加规则」添加</div>
+              <div v-for="(rule, ri) in logicRuleList" :key="rule.id" class="logic-rule-card">
+                <div class="rule-header">
+                  <span class="rule-index">#{{ ri+1 }}</span>
+                  <span class="rule-dsl">{{ renderRuleDSL(rule) }}</span>
+                  <div class="rule-actions">
+                    <el-button text size="small" @click="editRule(ri)">编辑</el-button>
+                    <el-button text size="small" type="danger" @click="removeRule(ri)">删除</el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="logic-sidebar">
+              <div style="font-size:12px;font-weight:600;color:#606266;margin-bottom:6px">案例参考</div>
+              <div style="font-size:12px;line-height:2.2">
+                <div><code>IF Q1A1 THEN SHOW Q2</code> — 选A时显示Q2</div>
+                <div><code>IF Q1A2 THEN HIDE Q3</code> — 选B时隐藏Q3</div>
+                <div><code>IF Q1A1 THEN REQUIRED Q2</code> — 选A时Q2必填</div>
+                <div><code>IF Q1A1 THEN BRANCH FROM Q1 TO END</code> — 选A结束问卷</div>
+                <div><code>IF Q1A1 THEN BRANCH FROM Q1 TO Q5</code> — 选A跳到Q5</div>
+                <div><code>IF AND(Q1A1,Q2>18) THEN BRANCH FROM Q2 TO Q6</code> — 多条件跳转</div>
+                <div><code>IF Q1A1 THEN CHECK Q2A1</code> — 选A时勾选Q2的选项A</div>
+                <div><code>ASSIGNMENT Q3 WITH SUM(Q1,Q2)</code> — Q3赋值为Q1+Q2</div>
+                <div><code>VALIDATE Q2 WITH IF(Q2>100,"超出","")</code> — 校验Q2不超100</div>
+                <div><code>REPLACE Q2 WITH "你好"</code> — 替换Q2标题</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-show="middleTab!=='logic'" class="survey-main-panel" @click.self="deselectQuestion">
+          <div class="survey-main-panel-toolbar">
+            <div class="toolbar-actions" style="margin-left:auto">
               <el-button type="primary" :loading="saving" size="small" @click="save">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                保存
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存
               </el-button>
             </div>
           </div>
           <div class="survey-main-panel-content">
             <div class="editor-wrapper">
               <div class="editor">
-                <!-- 问卷头 -->
                 <div class="header">
-                  <div class="prefix">问卷</div>
                   <div class="header-content">
-                    <el-input v-model="form.title" placeholder="问卷标题" class="header-title-input" maxlength="100" />
+                    <el-input v-model="form.title" placeholder="考试标题" class="header-title-input" maxlength="100" />
                   </div>
                 </div>
-
-                <!-- 题目列表 -->
                 <div class="questions-area">
                   <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" />
                 </div>
-
-                <!-- 底部 -->
                 <div class="footer">
                   <div class="footer-inner">感谢您的参与！</div>
                 </div>
@@ -235,71 +204,33 @@
           </div>
         </div>
 
-        <!-- 右: 属性面板 -->
-        <div class="survey-setting-panel">
+        <div v-show="middleTab!=='logic'" class="survey-setting-panel" @click.self="deselectQuestion">
           <div v-if="selected" class="props-panel">
-            <h3>题目设置</h3>
+            <h3>{{ typeName(selected.type) }}设置</h3>
             <el-form label-position="top" size="small">
               <el-form-item label="ID"><el-input v-model="selected.id" :disabled="!!selected._existing" /></el-form-item>
-              <el-form-item label="占位提示"><el-input v-model="selected.placeholder" /></el-form-item>
               <el-row :gutter="8">
                 <el-col :span="12"><el-form-item label="必填"><el-switch v-model="selected.required" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="只读"><el-switch v-model="selected.readOnly" /></el-form-item></el-col>
               </el-row>
-              <el-divider border-style="dashed" style="margin:12px 0" />
-              <el-collapse v-model="mediaCollapseActive" accordion>
-                <el-collapse-item title="媒体设置" name="media">
-                  <el-form-item label="媒体类型">
-                    <el-radio-group v-model="selected.mediaType" @change="onMediaTypeChange">
-                      <el-radio value="">无</el-radio>
-                      <el-radio value="image">图片</el-radio>
-                      <el-radio value="video">视频</el-radio>
-                      <el-radio value="audio">音频</el-radio>
-                    </el-radio-group>
-                  </el-form-item>
-                  <el-form-item v-if="selected.mediaType" label="媒体地址">
-                    <el-input v-model="selected.mediaUrl" placeholder="输入URL或上传">
-                      <template #append>
-                        <el-button @click="triggerMediaUpload">上传</el-button>
-                      </template>
-                    </el-input>
-                  </el-form-item>
-                  <el-row v-if="selected.mediaType" :gutter="8">
-                    <el-col :span="12">
-                      <el-form-item label="显示宽度">
-                        <el-input v-model="selected.mediaWidth" placeholder="auto">
-                          <template #append>px</template>
-                        </el-input>
-                      </el-form-item>
-                    </el-col>
-                    <el-col :span="12">
-                      <el-form-item label="对齐方式">
-                        <el-radio-group v-model="selected.mediaAlign">
-                          <el-radio value="left">左</el-radio>
-                          <el-radio value="center">中</el-radio>
-                          <el-radio value="right">右</el-radio>
-                        </el-radio-group>
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-                </el-collapse-item>
-              </el-collapse>
-              <el-form-item v-if="hasDataType(selected)" label="数据类型">
-                <el-select v-model="selected.dataType" placeholder="不限制" clearable style="width:100%">
-                  <el-option label="不限制" value="" />
-                  <el-option label="数字" value="number" />
-                  <el-option label="邮箱" value="email" />
-                  <el-option label="手机号" value="mobile" />
-                  <el-option label="身份证" value="idCard" />
-                  <el-option label="日期" value="date" />
-                  <el-option label="日期时间" value="dateTime" />
-                  <el-option label="时间" value="time" />
-                  <el-option label="中文" value="chinese" />
-                  <el-option label="字母" value="alphabet" />
-                </el-select>
-              </el-form-item>
+              <el-form-item label="占位提示"><el-input v-model="selected.placeholder" /></el-form-item>
+              <div v-if="hasOptions(selected)" class="props-options-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span style="font-size:12px;color:#888">选项列表</span>
+                  <el-button size="small" @click="addOption" plain>+ 添加</el-button>
+                </div>
+                <div v-for="(o, oi) in (selected.props?.options||[])" :key="oi" class="setting-opt-row">
+                  <el-input v-model="o.label" size="small" placeholder="选项名称" style="flex:1" />
+                  <el-button text size="small" type="danger" @click="removeOption(oi)">×</el-button>
+                </div>
+              </div>
               <el-divider border-style="dashed" style="margin:12px 0" />
               <el-collapse v-model="collapseActive" accordion>
+                <el-collapse-item title="考试属性" name="exam">
+                  <el-form-item label="分值"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" style="width:100%" /></el-form-item>
+                  <el-form-item v-if="selected.examScore" label="正确答案"><el-input v-model="selected.examCorrectAnswer" placeholder="填写正确答案" /></el-form-item>
+                  <el-form-item v-if="selected.examScore" label="答案解析"><el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" /></el-form-item>
+                </el-collapse-item>
                 <el-collapse-item title="校验规则" name="validate">
                   <ValidateEditor :model-value="selected.validate||[]" @update:model-value="onValidateUpdate" />
                 </el-collapse-item>
@@ -309,56 +240,145 @@
                 <el-collapse-item title="显示逻辑" name="logic">
                   <LogicEditor :model-value="selected.logic||[]" :all-questions="questions" @update:model-value="onLogicUpdate" />
                 </el-collapse-item>
-                <el-collapse-item v-if="form.mode==='exam'" title="考试属性" name="exam">
-                  <el-form-item label="分值">
-                    <el-input-number v-model="selected.examScore" :min="0" :step="0.5" style="width:100%" />
-                  </el-form-item>
-                  <el-form-item v-if="selected.examScore" label="正确答案">
-                    <el-input v-model="selected.examCorrectAnswer" placeholder="填写正确答案" />
-                  </el-form-item>
-                  <el-form-item v-if="selected.examScore" label="答案解析">
-                    <el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" />
-                  </el-form-item>
-                </el-collapse-item>
               </el-collapse>
               <el-button type="danger" text style="margin-top:12px;width:100%" @click="removeSelected">删除此题</el-button>
             </el-form>
           </div>
           <el-empty v-else description="选择题目编辑属性" :image-size="60" />
         </div>
+
+        <!-- 添加/编辑规则对话框 -->
+        <el-dialog v-model="showAddRule" :title="editingRuleIdx>=0?'编辑规则':'增加规则'" width="560px" :close-on-click-modal="false">
+          <el-form label-position="top" size="small">
+            <el-form-item label="条件类型">
+              <el-select v-model="ruleForm.conditionType" style="width:100%">
+                <el-option label="简单条件 (单个)" value="simple" />
+                <el-option label="且 (AND)" value="and" />
+                <el-option label="或 (OR)" value="or" />
+                <el-option label="非 (NOT)" value="not" />
+                <el-option label="无条件 (赋值/校验/替换)" value="none" />
+              </el-select>
+            </el-form-item>
+            <template v-if="ruleForm.conditionType!=='none'">
+              <el-form-item v-for="(cond, ci) in ruleForm.conditions" :key="ci" :label="ci===0?'条件':'条件 '+(ci+1)">
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <el-select v-model="cond.questionIdx" placeholder="选择题目" style="width:160px" @change="cond.optionIdx=undefined;cond.operator=undefined">
+                    <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,20)}`" :value="qi" />
+                  </el-select>
+                  <el-select v-model="cond.optionIdx" placeholder="选择选项" style="width:120px" v-if="hasOptionsByIndex(cond.questionIdx)" clearable @change="cond.operator='optSelected'">
+                    <el-option v-for="(o, oi) in getOptionsByIndex(cond.questionIdx)" :key="oi" :label="o.label" :value="oi" />
+                  </el-select>
+                  <el-select v-model="cond.operator" placeholder="判断条件" style="width:120px" v-if="cond.optionIdx===undefined">
+                    <el-option label="已填写" value="filled" />
+                    <el-option label="未填写" value="empty" />
+                    <el-option label="等于" value="eq" />
+                    <el-option label="大于" value="gt" />
+                    <el-option label="小于" value="lt" />
+                  </el-select>
+                  <el-input v-model="cond.compareValue" placeholder="比较值" style="width:100px" v-if="cond.operator==='eq'||cond.operator==='gt'||cond.operator==='lt'" />
+                  <el-button v-if="ruleForm.conditions.length>1 && ci===ruleForm.conditions.length-1" text size="small" type="danger" @click="ruleForm.conditions.splice(ci,1)">✕</el-button>
+                </div>
+              </el-form-item>
+              <el-button v-if="ruleForm.conditionType==='and'||ruleForm.conditionType==='or'" text size="small" @click="ruleForm.conditions.push({questionIdx:undefined,optionIdx:undefined})">+ 添加条件</el-button>
+            </template>
+            <el-form-item label="动作">
+              <el-select v-model="ruleForm.action" style="width:100%">
+                <el-option label="显示 (SHOW)" value="show" />
+                <el-option label="隐藏 (HIDE)" value="hide" />
+                <el-option label="必填 (REQUIRED)" value="required" />
+                <el-option label="跳转 (BRANCH)" value="branch" />
+                <el-option label="勾选 (CHECK)" value="check" />
+                <el-option label="赋值 (ASSIGNMENT)" value="assignment" />
+                <el-option label="校验 (VALIDATE)" value="validate" />
+                <el-option label="文本替换 (REPLACE)" value="replace" />
+                <el-option label="结束问卷 (END)" value="end" />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="['show','hide','required'].includes(ruleForm.action)" label="目标题目">
+              <el-select v-model="ruleForm.targetQuestionIdx" placeholder="选择题目" style="width:100%">
+                <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+              </el-select>
+            </el-form-item>
+            <template v-if="ruleForm.action==='check'">
+              <el-form-item label="目标题目">
+                <el-select v-model="ruleForm.targetQuestionIdx" placeholder="选择题目" style="width:100%" @change="ruleForm.targetOptionIdxs=[]">
+                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                </el-select>
+              </el-form-item>
+              <el-form-item v-if="ruleForm.targetQuestionIdx!==undefined" label="目标选项（可多选）">
+                <el-select v-model="ruleForm.targetOptionIdxs" multiple placeholder="选择选项" style="width:100%">
+                  <el-option v-for="(o, oi) in getOptionsByIndex(ruleForm.targetQuestionIdx)" :key="oi" :label="o.label" :value="oi" />
+                </el-select>
+              </el-form-item>
+            </template>
+            <template v-if="ruleForm.action==='branch'">
+              <el-form-item label="从题目">
+                <el-select v-model="ruleForm.branchFromIdx" placeholder="选择题目" style="width:100%" :key="'branchFrom'+showAddRule">
+                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="跳到">
+                <div style="display:flex;gap:8px;align-items:center">
+                  <el-select v-model="ruleForm.branchToIdx" placeholder="选择目标题目" style="flex:1;min-width:280px" :disabled="ruleForm.branchToEnd" :key="'branchTo'+showAddRule">
+                    <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                  </el-select>
+                  <el-checkbox v-model="ruleForm.branchToEnd" style="white-space:nowrap">结束问卷</el-checkbox>
+                </div>
+              </el-form-item>
+            </template>
+            <el-form-item v-if="ruleForm.action==='assignment'||ruleForm.action==='validate'||ruleForm.action==='replace'" label="目标题目">
+              <el-select v-model="ruleForm.targetQuestionIdx" placeholder="选择题目" style="width:100%">
+                <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="ruleForm.action==='assignment'" label="赋值公式">
+              <el-input v-model="ruleForm.formula" placeholder="如 SUM(Q1, Q2)" />
+            </el-form-item>
+            <el-form-item v-if="ruleForm.action==='validate'" label="校验公式（返回空字符串表示通过）">
+              <el-input v-model="ruleForm.formula" placeholder='如 IF(Q2>100,"不能超过100","")' />
+            </el-form-item>
+            <el-form-item v-if="ruleForm.action==='replace'" label="替换文本/公式">
+              <el-input v-model="ruleForm.formula" placeholder='如 CONCATENATE("你好，",Q1)' />
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="showAddRule=false">取消</el-button>
+            <el-button type="primary" @click="confirmRule">确定</el-button>
+          </template>
+        </el-dialog>
       </div>
 
-      <!-- 设置视图 -->
       <div v-show="activeView==='setting'" class="setting-wrapper">
         <div class="setting-scroll">
           <div class="setting-group">
             <div class="group-title">基础信息</div>
             <el-form :model="form" label-width="110px">
               <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="模式">
-                  <el-radio-group v-model="form.mode">
-                    <el-radio value="survey" border>问卷</el-radio>
-                    <el-radio value="exam" border>考试</el-radio>
-                  </el-radio-group>
-                </el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="分类"><el-input v-model="form.category" /></el-form-item></el-col>
-              </el-row>
+              <el-form-item label="分类"><el-input v-model="form.category" /></el-form-item>
               <el-form-item label="标签"><el-input v-model="form.tags" placeholder="逗号分隔" /></el-form-item>
             </el-form>
           </div>
           <div class="setting-group">
-            <div class="group-title">答题设置</div>
+            <div class="group-title">考试设置</div>
             <el-form label-width="120px">
+              <el-row :gutter="16">
+                <el-col :span="8"><el-form-item label="答题时长(分钟)"><el-input-number v-model="form.duration" :min="1" style="width:100%" /></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="最大答题次数"><el-input-number v-model="form.maxAttempts" :min="1" :max="99" style="width:100%" /></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="显示分数"><el-switch v-model="form.showScore" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
+              </el-row>
               <el-row :gutter="16">
                 <el-col :span="8"><el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item></el-col>
                 <el-col :span="8"><el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item></el-col>
                 <el-col :span="8"><el-form-item label="自动暂存"><el-switch v-model="form.autoSave" /></el-form-item></el-col>
               </el-row>
               <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="一页一题"><el-switch v-model="form.onePageOneQuestion" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="允许复制"><el-switch v-model="form.copyEnabled" /></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item></el-col>
+                <el-col :span="8"><el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item></el-col>
+              </el-row>
+              <el-row :gutter="16">
+                <el-col :span="12"><el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
+                <el-col :span="12"><el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
               </el-row>
               <el-form-item label="填写密码"><el-input v-model="form.password" placeholder="留空不设密码" style="max-width:300px" /></el-form-item>
               <el-form-item label="校验触发">
@@ -378,22 +398,7 @@
                 <el-col :span="8"><el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item></el-col>
                 <el-col :span="8"><el-form-item label="显示排行榜"><el-switch v-model="form.rankVisible" /></el-form-item></el-col>
               </el-row>
-              <el-form-item label="跳转链接"><el-input v-model="form.redirectUrl" placeholder="提交后跳转的自定义 URL" /></el-form-item>
               <el-form-item label="结束语"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item>
-            </el-form>
-          </div>
-          <div v-if="form.mode==='exam'" class="setting-group">
-            <div class="group-title">考试设置</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
-              </el-row>
             </el-form>
           </div>
           <div class="setting-group">
@@ -424,131 +429,67 @@
                 <el-col :span="12"><el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
               </el-row>
-              <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:200px" /><span class="hint">0=不限</span></el-form-item>
+              <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:200px" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
             </el-form>
           </div>
         </div>
       </div>
 
-      <!-- 概览视图 -->
       <div v-show="activeView==='overview'" class="overview-wrapper">
-        <div class="overview-scroll">
-          <!-- 日收集问卷图表 -->
-          <div class="overview-card">
-            <div class="overview-card-title">📊 日收集问卷</div>
-            <div class="chart-placeholder">
-              <div class="chart-bars">
-                <div v-for="i in 7" :key="i" class="chart-bar-group">
-                  <div class="chart-bar" :style="{ height: (20 + Math.random()*60) + 'px' }"></div>
-                  <div class="chart-label">{{ ['一','二','三','四','五','六','日'][i-1] }}</div>
-                </div>
-              </div>
+        <div style="padding:24px">
+          <div class="setting-group">
+            <div style="font-size:14px;font-weight:600;margin-bottom:12px">考试概览</div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap">
+              <div><span style="color:#888">考试名称：</span>{{ form.title || '未命名' }}</div>
+              <div><span style="color:#888">题目数量：</span>{{ questions.length }}题</div>
+              <div><span style="color:#888">答题时长：</span>{{ form.duration }}分钟</div>
+              <div><span style="color:#888">最大次数：</span>{{ form.maxAttempts }}次</div>
+              <div><span style="color:#888">状态：</span>{{ form.statusBool ? '启用' : '停用' }}</div>
             </div>
           </div>
-
-          <!-- 系统设置 -->
-          <div class="overview-card">
-            <div class="overview-card-title">⚙️ 系统设置</div>
-            <div class="overview-settings">
-              <div class="setting-row">
-                <span class="setting-label">访问链接</span>
-                <div class="setting-value">
-                  <el-input v-if="form.id" v-model="publicUrl" readonly size="small">
-                    <template #append><el-button @click="copyLink" size="small">复制</el-button></template>
-                  </el-input>
-                  <span v-else class="save-tip">请先保存问卷</span>
-                </div>
-              </div>
-              <div class="setting-row">
-                <span class="setting-label">二维码</span>
-                <div class="setting-value">
-                  <el-button size="small" @click="genQR">生成二维码</el-button>
-                  <div v-if="qrUrl" class="qr-box" style="margin-top:8px"><el-image :src="qrUrl" style="width:120px;height:120px;border-radius:6px" /></div>
-                </div>
-              </div>
-              <div class="setting-row">
-                <span class="setting-label">问卷状态</span>
-                <div class="setting-value">
-                  <el-switch v-model="form.statusBool" :active-value="1" :inactive-value="0" active-text="已开启" inactive-text="已停用" />
-                </div>
-              </div>
-              <div class="setting-row">
-                <span class="setting-label">自动保存</span>
-                <div class="setting-value">
-                  <el-switch v-model="form.autoSave" active-text="开启" inactive-text="关闭" />
-                </div>
-              </div>
+          <div class="setting-group" style="margin-top:16px">
+            <div class="overview-card-title">访问链接</div>
+            <div style="margin-top:8px">
+              <el-input v-if="form.id" v-model="publicUrl" readonly size="small">
+                <template #append><el-button @click="copyLink" size="small">复制</el-button></template>
+              </el-input>
+              <span v-else style="color:#999;font-size:13px">请先保存考试</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 数据视图 -->
       <div v-show="activeView==='data'" class="setting-wrapper">
         <div class="setting-scroll">
           <div class="setting-group">
             <div class="group-title">数据统计</div>
-            <p style="color:#909399;padding:20px">数据统计功能待实现</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 报表视图 -->
-      <div v-show="activeView==='report'" class="setting-wrapper">
-        <div class="setting-scroll">
-          <div class="setting-group">
-            <div class="group-title">报表</div>
-            <p style="color:#909399;padding:20px">报表功能待实现</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 项目视图（原投放） -->
-      <div v-show="activeView==='project'" class="setting-wrapper">
-        <div class="setting-scroll">
-          <div v-if="!form.id" class="save-tip">请先保存问卷</div>
-          <template v-else>
-            <div class="share-card">
-              <div class="share-title">访问链接</div>
-              <div class="share-row"><el-input v-model="publicUrl" readonly><template #append><el-button @click="copyLink">复制</el-button></template></el-input></div>
-              <div class="share-title">二维码</div>
-              <el-button size="small" @click="genQR">生成二维码</el-button>
-              <div v-if="qrUrl" class="qr-box"><el-image :src="qrUrl" style="width:180px;height:180px;border-radius:8px" /></div>
-              <div class="share-title">嵌入代码</div>
-              <el-input v-model="embedCode" type="textarea" :rows="3" readonly />
+            <div style="display:flex;gap:16px;padding:12px 0">
+              <el-button size="large" @click="goResponses"><el-icon style="margin-right:6px"><Document /></el-icon>查看答卷</el-button>
+              <el-button size="large" type="primary" @click="goStatistic"><el-icon style="margin-right:6px"><DataAnalysis /></el-icon>查看统计</el-button>
             </div>
-          </template>
+          </div>
         </div>
       </div>
     </div>
-
-    <el-dialog v-model="exportDialogVisible" title="Schema JSON" width="700px">
-      <el-input v-model="exportedJson" type="textarea" :rows="20" readonly style="font-family:monospace" />
-      <template #footer>
-        <el-button @click="copyJson">复制</el-button>
-        <el-button type="primary" @click="exportDialogVisible=false">关闭</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'
-import DraggableList from '../survey/formkit/DraggableList.vue'
-
-import ValidateEditor from '../survey/formkit/ValidateEditor.vue'
-import CalcEditor from '../survey/formkit/CalcEditor.vue'
-import LogicEditor from '../survey/formkit/LogicEditor.vue'
-import QuestionIcon from '../survey/formkit/QuestionIcon.vue'
+import DraggableList from './formkit/DraggableList.vue'
+import ValidateEditor from './formkit/ValidateEditor.vue'
+import CalcEditor from './formkit/CalcEditor.vue'
+import LogicEditor from './formkit/LogicEditor.vue'
+import QuestionIcon from './formkit/QuestionIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const form = reactive<any>({
-  id: 0, title: '', description: '', category: '', tags: '', mode: 'exam',
+  id: 0, title: '', description: '', category: '', tags: '',
   visibility: 0, allowMultiBool: 0, anonymousBool: 0, showResultBool: 0,
   startDate: null, endDate: null, maxResponse: 0, statusBool: 1, deptIds: '',
   questionNumber: true, progressBar: false, autoSave: false,
@@ -559,19 +500,217 @@ const form = reactive<any>({
   examRankingEnabled: false, exerciseMode: false, randomOrder: false,
   minSubmitMinutes: 0, maxSubmitMinutes: 0,
   duration: 60, maxAttempts: 1, showScore: 1,
-        backgroundImages: [] as string[], headerImages: [] as string[]
+  backgroundImages: [] as string[], headerImages: [] as string[]
 })
 
 const activeView = ref('edit')
 const middleTab = ref('item')
 const sideSubTab = ref('types')
 const activeCategory = ref('')
-const appearanceTab = ref('bg')
 const saving = ref(false)
 const bankKeyword = ref('')
 const bankQuestions = ref<any[]>([])
 const bankLoading = ref(false)
 let bankTimer: any = null
+
+const appearanceTab = ref('bg')
+const allBgResources = ref<any[]>([])
+const allHeaderResources = ref<any[]>([])
+
+const token = localStorage.getItem('admin_token') || ''
+const uploadHeaders = { Authorization: token }
+function handleBgSuccess(res: any) {
+  if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
+  ElMessage.success('已上传到资源库，点击图片应用')
+  loadResources()
+}
+function handleHeaderSuccess(res: any) {
+  if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
+  ElMessage.success('已上传到资源库，点击图片应用')
+  loadResources()
+}
+function isActiveImg(field: string, item: any): boolean {
+  const active = (form as any)[field]
+  if (!active || !active.length) return false
+  const cur = active[0]
+  return cur && typeof cur === 'object' && cur.id ? cur.id === item.id : cur === (item.domain || '') + item.url
+}
+function applyImage(field: string, item: any) {
+  const url = (item.domain || '') + item.url
+  const active = (form as any)[field]
+  if (active && active.length) {
+    const cur = active[0]
+    const same = cur && typeof cur === 'object' && cur.id ? cur.id === item.id : cur === url
+    if (same) return
+  }
+  (form as any)[field] = [{ id: item.id, url }]
+  save()
+}
+async function removeResource(field: string, item: any, idx: number) {
+  if (item.id) {
+    try { await adminApi.examResourceDelete({ id: item.id }) } catch {}
+  }
+  const active = (form as any)[field]
+  if (active && active.length) {
+    const cur = active[0]
+    const url = (item.domain || '') + item.url
+    const same = cur && typeof cur === 'object' && cur.id ? cur.id === item.id : cur === url
+    if (same) { (form as any)[field] = []; await save() }
+  }
+  loadResources()
+}
+function checkSaved() {
+  if (!form.id) { ElMessage.warning('请先保存考试'); return false }
+  return true
+}
+async function loadResources() {
+  if (!form.id) return
+  try {
+    const res: any = await adminApi.examResourceList({ examId: form.id })
+    const list: any[] = res.data || []
+    if (!Array.isArray(list)) return
+    allBgResources.value = list.filter((r: any) => r.type === 'bg')
+    allHeaderResources.value = list.filter((r: any) => r.type === 'header')
+  } catch {}
+}
+
+// ===== 逻辑规则 =====
+interface LogicCondition { questionIdx?: number; optionIdx?: number; operator?: string; compareValue?: string }
+interface LogicRuleItem { id: string; conditionType: string; conditions: LogicCondition[]; action: string; targetQuestionIdx?: number; targetOptionIdxs?: number[]; branchFromIdx?: number; branchToIdx?: number; branchToEnd?: boolean; formula?: string }
+const logicRuleList = ref<LogicRuleItem[]>([])
+const showAddRule = ref(false)
+const editingRuleIdx = ref(-1)
+const defaultRuleForm = (): LogicRuleItem => ({ id: '', conditionType: 'simple', conditions: [{ questionIdx: undefined, optionIdx: undefined, operator: undefined, compareValue: undefined }], action: 'show', targetQuestionIdx: undefined, targetOptionIdxs: [], branchFromIdx: undefined, branchToIdx: undefined, branchToEnd: false, formula: '' })
+const ruleForm = ref<LogicRuleItem>(defaultRuleForm())
+
+watch(logicRuleList, () => { syncLogicRules() }, { deep: true })
+
+function syncLogicRules() {
+  if (!selected.value) return
+  if (!selected.value.props) selected.value.props = {}
+  selected.value.props.logicRules = generateLogicDSL()
+}
+
+const choiceTypes = ['select','radio','checkbox','picker','cascade','judge','multiInput','hInput']
+function hasOptionsByIndex(idx?: number) { if (idx===undefined) return false; const q = questions.value[idx]; return q && choiceTypes.includes(q.type) && !!q.props?.options?.length }
+function getOptionsByIndex(idx?: number) { if (idx===undefined) return []; const q = questions.value[idx]; if (!q || !choiceTypes.includes(q.type)) return []; return q.props?.options || [] }
+
+function conditionToDSL(cond: LogicCondition, qi: number): string {
+  const qTag = `Q${cond.questionIdx!+1}`
+  if (cond.optionIdx!==undefined) return qTag + `A${cond.optionIdx+1}`
+  if (cond.operator==='filled') return `NOT(ISBLANK(${qTag}))`
+  if (cond.operator==='empty') return `ISBLANK(${qTag})`
+  if (cond.operator) return `${qTag}${cond.operator==='eq'?'==':cond.operator}${cond.compareValue||''}`
+  return qTag
+}
+
+function renderRuleDSL(rule: LogicRuleItem): string {
+  let condStr = ''
+  if (rule.conditionType==='none') {
+    condStr = ''
+  } else if (rule.conditions.length===1) {
+    condStr = conditionToDSL(rule.conditions[0], 0)
+  } else {
+    const parts = rule.conditions.map((c, i) => conditionToDSL(c, i))
+    condStr = `${rule.conditionType.toUpperCase()}(${parts.join(', ')})`
+  }
+  let actionStr = ''
+  const actionMap: Record<string, string> = { show: 'SHOW', hide: 'HIDE', required: 'REQUIRED', check: 'CHECK', branch: 'BRANCH', assignment: 'ASSIGNMENT', validate: 'VALIDATE', replace: 'REPLACE', end: 'BRANCH' }
+  const a = actionMap[rule.action] || rule.action.toUpperCase()
+  if (rule.action==='branch') {
+    const fromTag = rule.branchFromIdx!==undefined ? `Q${rule.branchFromIdx+1}` : '?'
+    const toTag = rule.branchToEnd ? 'END' : (rule.branchToIdx!==undefined ? `Q${rule.branchToIdx+1}` : '?')
+    actionStr = `BRANCH FROM ${fromTag} TO ${toTag}`
+  } else if (rule.action==='check') {
+    const tTag = rule.targetQuestionIdx!==undefined ? `Q${rule.targetQuestionIdx+1}` : '?'
+    const opts = (rule.targetOptionIdxs||[]).map(oi => `${tTag}A${oi+1}`).join(' ')
+    actionStr = `CHECK ${opts}`
+  } else if (rule.action==='assignment') {
+    const tTag = rule.targetQuestionIdx!==undefined ? `Q${rule.targetQuestionIdx+1}` : '?'
+    actionStr = `ASSIGNMENT ${tTag} WITH ${rule.formula||'?'}`
+  } else if (rule.action==='validate') {
+    const tTag = rule.targetQuestionIdx!==undefined ? `Q${rule.targetQuestionIdx+1}` : '?'
+    actionStr = `VALIDATE ${tTag} WITH ${rule.formula||'?'}`
+  } else if (rule.action==='replace') {
+    const tTag = rule.targetQuestionIdx!==undefined ? `Q${rule.targetQuestionIdx+1}` : '?'
+    actionStr = `REPLACE ${tTag} WITH ${rule.formula||'?'}`
+  } else if (rule.action==='end') {
+    const fromTag = rule.branchFromIdx!==undefined ? `Q${rule.branchFromIdx+1}` : '?'
+    actionStr = `BRANCH FROM ${fromTag} TO END`
+  } else {
+    const tTag = rule.targetQuestionIdx!==undefined ? `Q${rule.targetQuestionIdx+1}` : '?'
+    actionStr = `${a} ${tTag}`
+  }
+  return rule.conditionType==='none' ? actionStr : `IF ${condStr} THEN ${actionStr}`
+}
+
+function generateLogicDSL(): string {
+  return logicRuleList.value.map(r => renderRuleDSL(r)).join('\n')
+}
+
+function confirmRule() {
+  const rf = ruleForm.value
+  if (rf.conditionType!=='none') {
+    for (const c of rf.conditions) {
+      if (c.questionIdx===undefined) { ElMessage.warning('请选择条件题目'); return }
+    }
+  }
+  if (!rf.action) { ElMessage.warning('请选择动作'); return }
+  if (['show','hide','required'].includes(rf.action) && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
+  if (rf.action==='check' && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
+  if (rf.action==='branch' && rf.branchFromIdx===undefined) { ElMessage.warning('请选择跳转来源题目'); return }
+  if (rf.action==='branch' && !rf.branchToEnd && rf.branchToIdx===undefined) { ElMessage.warning('请选择跳转目标题目或勾选结束问卷'); return }
+  if (['assignment','validate','replace'].includes(rf.action) && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
+  rf.id = 'rule_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)
+  if (editingRuleIdx.value>=0) {
+    logicRuleList.value[editingRuleIdx.value] = { ...rf }
+  } else {
+    logicRuleList.value.push({ ...rf })
+  }
+  syncLogicRules()
+  showAddRule.value = false
+  ruleForm.value = defaultRuleForm()
+  editingRuleIdx.value = -1
+}
+
+function editRule(idx: number) {
+  editingRuleIdx.value = idx
+  ruleForm.value = JSON.parse(JSON.stringify(logicRuleList.value[idx]))
+  showAddRule.value = true
+}
+
+function removeRule(idx: number) {
+  logicRuleList.value.splice(idx, 1)
+  syncLogicRules()
+}
+
+async function saveLogicRules() {
+  if (!form.id) { ElMessage.warning('请先保存考试'); return }
+  syncLogicRules()
+  const dsl = generateLogicDSL()
+  const schema = JSON.stringify({ version: '2.0', questions: questions.value, setting: { logicRules: dsl } })
+  const settings = JSON.stringify({
+    questionNumber: form.questionNumber, progressBar: form.progressBar,
+    autoSave: form.autoSave, password: form.password,
+    loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
+    answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
+    triggerType: form.triggerType, enableUpdate: form.enableUpdate,
+    transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
+    redirectUrl: form.redirectUrl, endContent: form.endContent,
+    examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
+    randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
+    maxSubmitMinutes: form.maxSubmitMinutes,
+    backgroundImages: form.backgroundImages, headerImages: form.headerImages
+  })
+  const payload: any = {
+    id: form.id, title: form.title, schema, settings
+  }
+  try {
+    await adminApi.examSave(payload)
+    ElMessage.success('逻辑规则已保存')
+  } catch { ElMessage.error('保存失败') }
+}
+
 async function loadBank() {
   clearTimeout(bankTimer)
   if (!form.id) return
@@ -585,31 +724,16 @@ async function loadBank() {
   }, 300)
 }
 function addFromBank(q: any) {
-  let schema = {}
-  try { schema = JSON.parse(q.schema) } catch {}
-  const newQ: any = {
-    id: ++idCounter,
-    type: q.type,
-    title: q.title || '未命名',
-    schema: schema
-  }
+  const newQ: any = { id: ++idCounter, type: q.type, title: q.title || '未命名' }
+  try { newQ.props = JSON.parse(q.schema) } catch {}
   questions.value.push(newQ)
   selected.value = newQ
 }
 
-interface OutlineNode {
-  key: string
-  title: string
-  isRoot?: boolean
-  children: { q: any; index: number }[]
-}
+interface OutlineNode { key: string; title: string; children: { q: any; index: number }[] }
 const outlineRoot = computed<OutlineNode>(() => ({
-  key: 'root',
-  title: form.title || '未命名考试',
-  isRoot: true,
-  children: questions.value
-    .filter((q: any) => q.type !== 'divider')
-    .map((q: any, i: number) => ({ q, index: i + 1 }))
+  key: 'root', title: form.title || '未命名考试',
+  children: questions.value.filter((q: any) => q.type !== 'divider').map((q: any, i: number) => ({ q, index: i + 1 }))
 }))
 const tabsBarRef = ref<HTMLElement | null>(null)
 const tabViewportRef = ref<HTMLElement | null>(null)
@@ -618,204 +742,121 @@ const scrollPos = ref(0)
 const atTabStart = computed(() => scrollPos.value <= 0)
 const atTabEnd = ref(false)
 function scrollTabs(dir: number) {
-  const vp = tabViewportRef.value
-  const tr = tabTrackRef.value
+  const vp = tabViewportRef.value; const tr = tabTrackRef.value
   if (!vp || !tr) return
   const step = vp.clientWidth * 0.6
   let newPos = scrollPos.value + dir * step
   newPos = Math.max(0, Math.min(newPos, tr.scrollWidth - vp.clientWidth))
-  scrollPos.value = newPos
-  tr.style.transform = `translateX(${-newPos}px)`
+  scrollPos.value = newPos; tr.style.transform = `translateX(${-newPos}px)`
   atTabEnd.value = newPos >= tr.scrollWidth - vp.clientWidth - 1
 }
 function updateTabScroll() {
-  const vp = tabViewportRef.value
-  const tr = tabTrackRef.value
-  if (!vp || !tr) return
-  scrollPos.value = 0
-  tr.style.transform = 'translateX(0)'
+  const vp = tabViewportRef.value; const tr = tabTrackRef.value
+  if (!vp || !tr) return; scrollPos.value = 0; tr.style.transform = 'translateX(0)'
   atTabEnd.value = tr.scrollWidth <= vp.clientWidth
 }
 const collapseActive = ref('')
-const mediaCollapseActive = ref('')
 
 const types = ref<any[]>([])
 const categories = computed(() => {
-  const m = new Map<string, string>()
-  types.value.forEach(t => m.set(t.category, t.category))
-  const defined = [
-    { name: 'base', label: '基础' }, { name: 'select', label: '选择' },
-    { name: 'media', label: '媒体' }, { name: 'layout', label: '布局' }, { name: 'advanced', label: '高级' }
-  ]
-  return defined.filter(c => m.has(c.name))
+  const m = new Map<string, string>(); types.value.forEach(t => m.set(t.category, t.category))
+  return [{ name: 'base', label: '基础' }, { name: 'select', label: '选择' },
+    { name: 'media', label: '媒体' }, { name: 'layout', label: '布局' }, { name: 'advanced', label: '高级' }]
+    .filter(c => m.has(c.name))
 })
 const typesByCategory = computed(() => {
   const m: Record<string, any[]> = {}
-  for (const t of types.value) {
-    if (!m[t.category]) m[t.category] = []
-    m[t.category].push(t)
-  }
+  for (const t of types.value) { if (!m[t.category]) m[t.category] = []; m[t.category].push(t) }
   return m
 })
 const groupedBySub = computed(() => {
   const cat = activeCategory.value
-  if (!cat || !typesByCategory.value[cat]) return {}
-  const items = typesByCategory.value[cat]
-  // 按子分类分组（后端可能返回 subCategory，暂无则全放一起）
-  return { [cat]: items }
+  return cat && typesByCategory.value[cat] ? { [cat]: typesByCategory.value[cat] } : {}
 })
 
-interface Question { id: string; type: string; title: string; description?: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; dataType?: string; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; mediaType?: string; mediaUrl?: string; mediaWidth?: string; mediaAlign?: string; [key: string]: any }
+function typeName(t: string) {
+  const map: Record<string, string> = {
+    input:'单行文本',textarea:'多行文本',number:'数字',select:'下拉',radio:'单选',checkbox:'多选',
+    picker:'选择器',cascade:'级联',judge:'判断',multiInput:'多项填空',hInput:'横向填空',
+    scanCode:'扫码',signature:'签名',file:'上传',rating:'评分',nps:'NPS',
+    phone:'手机',email:'邮箱',idCard:'身份证',password:'密码',switch:'开关',
+    location:'地理位置',date:'日期',time:'时间',dateRange:'日期范围',
+    matrixRadio:'矩阵单选',matrixCheckbox:'矩阵多选',matrixFillBlank:'矩阵填空',matrixAuto:'表格自增',
+    divider:'分割线',description:'说明',questionSet:'问题组',pagination:'分页',user:'成员',dept:'部门',richText:'富文本'
+  }
+  return map[t] || t
+}
+
+interface Question { id: string; type: string; title: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; [key: string]: any }
 const questions = ref<Question[]>([])
 const selected = ref<Question | null>(null)
 let idCounter = 0
-
 function genId() { idCounter++; return 'q' + idCounter }
-
 function addQuestion(t: any) {
-  const q: Question = { id: genId(), type: t.type, title: t.displayName, required: false, readOnly: false, dataType: '', placeholder: '', mediaType: '', mediaUrl: '', mediaWidth: '', mediaAlign: 'center', props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {} }
-  if (t.type === 'judge') {
-    if (!q.props) q.props = {}
-    q.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
-  }
-  if (t.type === 'select' || t.type === 'radio' || t.type === 'checkbox' || t.type === 'picker' || t.type === 'matrixRadio') {
-    if (!q.props) q.props = {}
-    if (!q.props.options) q.props.options = [{ value: '选项1', label: '选项1' }, { value: '选项2', label: '选项2' }]
-  }
-  questions.value.push(q)
-  selected.value = q
+  const q: Question = { id: genId(), type: t.type, title: t.displayName, required: false, readOnly: false, placeholder: '', props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {} }
+  if (['judge'].includes(t.type)) { if (!q.props) q.props = {}; q.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }] }
+  if (['select','radio','checkbox','picker','matrixRadio'].includes(t.type)) { if (!q.props) q.props = {}; if (!q.props.options) q.props.options = [{ value: '选项1', label: '选项1' }, { value: '选项2', label: '选项2' }] }
+  questions.value.push(q); selected.value = q
 }
-
 function selectQuestion(id: string) { selected.value = questions.value.find(q => q.id === id) || null }
+function deselectQuestion() { selected.value = null }
 function onQuestionsUpdate(newQ: Question[]) {
   questions.value.splice(0, questions.value.length, ...newQ)
-  if (selected.value) {
-    selected.value = questions.value.find(q => q.id === selected.value!.id) || null
-  }
+  if (selected.value) selected.value = questions.value.find(q => q.id === selected.value!.id) || null
 }
 async function removeSelected() {
   if (!selected.value) return
-  try {
-    await ElMessageBox.confirm('确定删除此题？', '确认', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
-  } catch { return }
-  const sel = selected.value
-  questions.value = questions.value.filter(q => q.id !== sel.id)
+  try { await ElMessageBox.confirm('确定删除此题？', '确认', { type: 'warning' }) } catch { return }
+  const sel = selected.value; questions.value = questions.value.filter(q => q.id !== sel.id)
   selected.value = questions.value.length ? questions.value[questions.value.length - 1] : null
 }
-async function clearAll() {
-  if (!questions.value.length) return
-  try {
-    await ElMessageBox.confirm(`确定清空全部 ${questions.value.length} 题？`, '确认', { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' })
-  } catch { return }
-  questions.value = []; selected.value = null; idCounter = 0
-}
-
 function hasOptions(q: Question) { return ['select','radio','checkbox','picker','matrixRadio','matrixCheckbox','judge'].includes(q.type) }
-function hasDataType(q: Question) { return ['input','textarea','number'].includes(q.type) }
-
-function onValidateUpdate(v: any) { if (selected.value) selected.value.validate = v }
-function removeQuestionById(id: string) {
-  questions.value = questions.value.filter(q => q.id !== id)
-  if (selected.value?.id === id) selected.value = null
+function addOption() {
+  if (!selected.value) return
+  if (!selected.value.props) selected.value.props = {}
+  if (!selected.value.props.options) selected.value.props.options = []
+  selected.value.props.options.push({ value: '选项' + (selected.value.props.options.length + 1), label: '选项' + (selected.value.props.options.length + 1) })
 }
+function removeOption(idx: number) { if (selected.value?.props?.options) selected.value.props.options.splice(idx, 1) }
+function onValidateUpdate(v: any) { if (selected.value) selected.value.validate = v }
+function removeQuestionById(id: string) { questions.value = questions.value.filter(q => q.id !== id); if (selected.value?.id === id) selected.value = null }
 function onCalcUpdate(v: any) { if (selected.value) selected.value.calcValue = v }
 function onLogicUpdate(v: any) { if (selected.value) selected.value.logic = v }
 
-function onMediaTypeChange(v: string) {
-  if (!selected.value) return
-  selected.value.mediaType = v
-  if (!v) { selected.value.mediaUrl = ''; selected.value.mediaWidth = '' }
-}
-function triggerMediaUpload() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/*,video/*,audio/*'
-  input.onchange = () => {
-    const file = input.files?.[0]
-    if (!file || !selected.value) return
-    const url = URL.createObjectURL(file)
-    selected.value.mediaUrl = url
-    if (!selected.value.mediaType) {
-      if (file.type.startsWith('video/')) selected.value.mediaType = 'video'
-      else if (file.type.startsWith('audio/')) selected.value.mediaType = 'audio'
-      else selected.value.mediaType = 'image'
-    }
-  }
-  input.click()
-}
-
 const envFromAnswers = computed(() => {
-  const env: Record<string, any> = {}
-  for (const q of questions.value) env[q.id] = undefined
-  return env
+  const env: Record<string, any> = {}; for (const q of questions.value) env[q.id] = undefined; return env
 })
 
-const publicUrl = computed(() => form.id ? `${window.location.origin}/#/pages/survey/fill?id=${form.id}` : '')
-const qrUrl = ref('')
-const embedCode = computed(() => form.id ? `<iframe src="${publicUrl.value}" width="100%" height="600" frameborder="0"></iframe>` : '')
-
-const exportDialogVisible = ref(false)
-const exportedJson = ref('')
-
+const publicUrl = computed(() => form.id ? `${window.location.origin}/#/ef/${form.id}` : '')
 function copyLink() { navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
-function genQR() { qrUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value)}` }
-function copyJson() { navigator.clipboard.writeText(exportedJson.value); ElMessage.success('已复制') }
 
-function exportJSON() {
-  exportedJson.value = JSON.stringify({ version: '2.0', questions: questions.value, setting: {} }, null, 2)
-  exportDialogVisible.value = true
+function goBack() { router.push('/exam/list') }
+function goResponses() {
+  if (form.id) router.push({ path: '/exam/responses', query: { examId: String(form.id), title: form.title } })
 }
-function preview() {
-  window.open('/survey/preview?id=' + form.id, '_blank')
+function goStatistic() {
+  if (form.id) router.push({ path: '/exam/statistic', query: { examId: String(form.id), title: form.title } })
 }
-function openQuestionBank() {
-  ElMessage.info('题库功能待实现')
-}
-
-const token = localStorage.getItem('admin_token') || ''
-const uploadHeaders = { Authorization: token }
-function handleBgSuccess(res: any) {
-  if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
-  form.backgroundImages.push(res.data.domain + res.data.url)
-}
-function handleHeaderSuccess(res: any) {
-  if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
-  form.headerImages.push(res.data.domain + res.data.url)
-}
-function removeImage(field: string, idx: number) { (form as any)[field].splice(idx, 1) }
-function applyToPreview(url: string) { ElMessage.success('已应用到问卷') }
-function checkSaved() {
-  if (!form.id) { ElMessage.warning('请先保存问卷'); return false }
-  return true
-}
-
-async function loadResources() {
-  if (!form.id) return
-  try {
-    const res: any = await adminApi.surveyResourceList({ surveyId: form.id })
-    const list: any[] = res.data || []
-    if (!Array.isArray(list)) return
-    form.backgroundImages = list.filter((r: any) => r.type === 'bg').map((r: any) => (r.domain || '') + r.url)
-    form.headerImages = list.filter((r: any) => r.type === 'header').map((r: any) => (r.domain || '') + r.url)
-  } catch {}
-}
-watch(middleTab, (v) => { if (v === 'appearance') loadResources() })
-watch(sideSubTab, (v) => { if (v === 'bank') loadBank() })
 
 async function load() {
   const id = Number(route.query.id || 0)
   if (!id) return
   try {
     const res: any = await adminApi.examDetail(id)
+    const sv = res.data?.survey
+    if (!sv) { ElMessage.error('加载失败'); return }
     Object.assign(form, {
-      id: res.id, title: res.title, description: res.desc || '',
-      startDate: res.startTime || null, endDate: res.endTime || null,
-      duration: res.duration, maxAttempts: res.maxAttempts,
-      showScore: res.showScore, statusBool: res.status
+      id: sv.id, title: sv.title, description: sv.description || '',
+      category: sv.category || '', tags: sv.tags || '',
+      visibility: sv.visibility ?? 0, allowMultiBool: sv.allowMulti ?? 0,
+      anonymousBool: sv.anonymous ?? 0, showResultBool: sv.showResult ?? 0,
+      startDate: sv.startTime || null, endDate: sv.endTime || null,
+      maxResponse: sv.maxResponse ?? 0, statusBool: sv.status ?? 1, deptIds: sv.deptIds || '',
+      duration: sv.duration ?? 60, maxAttempts: sv.maxAttempts ?? 1, showScore: sv.showScore ?? 1
     })
-    if (res.settings) {
+    if (sv.settings) {
       try {
-        const s = JSON.parse(res.settings)
+        const s = JSON.parse(sv.settings)
         Object.assign(form, {
           questionNumber: s.questionNumber ?? true, progressBar: s.progressBar ?? false,
           autoSave: s.autoSave ?? false, password: s.password || '',
@@ -824,8 +865,7 @@ async function load() {
           answerSheetVisible: s.answerSheetVisible ?? true,
           copyEnabled: s.copyEnabled ?? true, triggerType: s.triggerType || 'onBlur',
           enableUpdate: s.enableUpdate ?? false, transcriptVisible: s.transcriptVisible ?? true,
-          rankVisible: s.rankVisible ?? false, redirectUrl: s.redirectUrl || '',
-          endContent: s.endContent || '',
+          rankVisible: s.rankVisible ?? false, redirectUrl: s.redirectUrl || '', endContent: s.endContent || '',
           examRankingEnabled: s.examRankingEnabled ?? false,
           exerciseMode: s.exerciseMode ?? false, randomOrder: s.randomOrder ?? false,
           minSubmitMinutes: s.minSubmitMinutes || 0, maxSubmitMinutes: s.maxSubmitMinutes || 0,
@@ -833,14 +873,11 @@ async function load() {
         })
       } catch {}
     }
-    if (res.schema) {
+    const rawSchema = res.data?.schema || ''
+    if (rawSchema) {
       try {
-        const sch = JSON.parse(res.schema)
-        if (sch.questions) {
-          questions.value = sch.questions
-          idCounter = questions.value.length
-          selected.value = questions.value.length > 0 ? questions.value[0] : null
-        }
+        const sch = JSON.parse(rawSchema)
+        if (sch.questions) { questions.value = sch.questions; idCounter = questions.value.length; selected.value = questions.value[0] || null }
       } catch {}
     }
   } catch { ElMessage.error('加载失败') }
@@ -865,296 +902,159 @@ async function save() {
       backgroundImages: form.backgroundImages, headerImages: form.headerImages
     })
     const payload: any = {
-      title: form.title, desc: form.description,
+      title: form.title, description: form.description, category: form.category, tags: form.tags,
+      visibility: form.visibility, allowMulti: form.allowMultiBool,
+      anonymous: form.anonymousBool, showResult: form.showResultBool,
       startTime: form.startDate || 0, endTime: form.endDate || 0,
-      duration: form.duration, maxAttempts: form.maxAttempts,
-      showScore: form.showScore, status: form.statusBool,
-      schema, settings
+      maxResponse: form.maxResponse, status: form.statusBool, mode: 'exam',
+      deptIds: form.deptIds, schema, settings,
+      duration: form.duration, maxAttempts: form.maxAttempts, showScore: form.showScore
     }
     if (form.id) payload.id = form.id
-    const res: any = await adminApi.examSave(payload)
-    if (!form.id && res.id) form.id = res.id
-    ElMessage.success('保存成功')
+    const r: any = await adminApi.examSave(payload)
+    if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
+    ElMessage.success(form.id ? '已更新' : '已创建')
   } catch { ElMessage.error('保存失败') }
   finally { saving.value = false }
 }
 
-function goBack() { router.push('/survey') }
+watch(middleTab, (v) => { if (v === 'appearance') loadResources() })
+watch(sideSubTab, (v) => { if (v === 'bank') loadBank() })
 
 onMounted(async () => {
   try {
     const res: any = await adminApi.formkitTypes()
     types.value = res.data || []
-    const cats = categories.value
-    if (cats.length) activeCategory.value = cats[0].name
+    const cats = categories.value; if (cats.length) activeCategory.value = cats[0].name
   } catch {}
-  await nextTick()
-  updateTabScroll()
-  load()
+  await nextTick(); updateTabScroll(); load()
 })
 </script>
 
 <style scoped>
-/* ======= 主布局 ======= */
 .survey-main { display:flex; height:calc(100vh - 56px); background:#fff; }
-
-/* ======= 左侧导航 ======= */
-.survey-main-navigator {
-  display:flex; flex:0 0 54px; flex-direction:column; justify-content:space-between;
-  border-right:1px solid #e8e8e8; background:#fafafa; padding:8px 0; align-items:center;
-}
+.survey-main-navigator { display:flex; flex:0 0 54px; flex-direction:column; justify-content:space-between; border-right:1px solid #e8e8e8; background:#fafafa; padding:8px 0; align-items:center; }
 .nav-actions { display:flex; flex-direction:column; align-items:center; gap:4px; }
-.nav-bottom { display:flex; flex-direction:column; align-items:center; }
-.nav-btn {
-  width:36px; height:36px; min-width:36px; padding:0; margin:0;
-  border:none; border-radius:8px; color:#999; font-size:13px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  background:transparent; outline:none; line-height:1;
-}
+.nav-btn { width:36px; height:36px; min-width:36px; padding:0; margin:0; border:none; border-radius:8px; color:#999; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; background:transparent; outline:none; }
 .nav-btn:hover { background:#f0f0f0; color:#666; }
 .nav-btn.active { background:#fff; color:#fb454c; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
-.nav-btn svg { display:block; flex-shrink:0; }
-
-/* ======= 主内容 ======= */
-.survey-main-content { position:relative; flex:1 1 auto; overflow:hidden; }
-
-/* ======= 编辑器 ======= */
-.survey-editor { display:flex; height:100%; font-family:"PingFang SC",-apple-system,"Helvetica Neue",Helvetica,BlinkMacSystemFont,"Microsoft YaHei",tahoma,Arial,"Open Sans","Hiragino Sans GB","Heiti SC","WenQuanYi Micro Hei",sans-serif; }
-
-/* ======= 左侧题型面板 ======= */
-.survey-sidebar-panel { position:relative; z-index:2; display:flex; flex-grow:0; flex-shrink:0; user-select:none; }
-.survey-sidebar-panel-tabs {
-  display:flex; flex-direction:column; font-size:12px;
-  background:#f5f5f5; border-right:1px solid #e8e8e8;
-}
-.survey-sidebar-panel-tabs-pane {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  width:40px; height:40px; color:#999; cursor:pointer; border-radius:0;
-  margin:2px; transition:all 0.15s;
-}
-.survey-sidebar-panel-tabs-pane:hover { color:#666; }
-.survey-sidebar-panel-tabs-pane.active { color:#fb454c; background:#fff; border-radius:6px; }
-.survey-sidebar-panel-tabs-content {
-  display:flex; flex-direction:column; width:240px; height:100%;
-  border-right:1px solid #e8e8e8; overflow-y:auto;
-}
-
-/* 题型 / 大纲 tab 切换 */
-.side-sub-tabs { display:flex; flex-direction:column; height:100%; }
-.side-sub-tabs :deep(.el-tabs__header) { margin:0; padding:0 8px; background:#fafafa; border-bottom:1px solid #e8e8e8; }
-.side-sub-tabs :deep(.el-tabs__nav-wrap) { margin-bottom:0; }
-.side-sub-tabs :deep(.el-tabs__active-bar) { background:#fb454c; height:2px; }
-.side-sub-tabs :deep(.el-tabs__item) {
-  padding:0 12px; font-size:13px; height:32px; line-height:32px; color:#666; transition:color 0.15s;
-}
-.side-sub-tabs :deep(.el-tabs__item:hover) { color:#333; }
-.side-sub-tabs :deep(.el-tabs__item.is-active) { color:#fb454c; font-weight:500; }
-.side-sub-tabs :deep(.el-tabs__content) { flex:1; overflow-y:auto; }
-
-/* 题型分类标签（自定义按钮滚动） */
+.survey-main-content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.survey-editor { display:flex; height:100%; }
+.survey-sidebar-panel { width:280px; flex-shrink:0; border-right:1px solid #e8e8e8; background:#fafafa; display:flex; flex-direction:row; overflow:hidden; }
+.survey-sidebar-panel-tabs { flex:0 0 48px; display:flex; flex-direction:column; border-right:1px solid #e8e8e8; background:#f5f5f5; padding:4px 0; }
+.survey-sidebar-panel-tabs-pane { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:10px 2px; cursor:pointer; color:#999; font-size:10px; }
+.survey-sidebar-panel-tabs-pane:hover { color:#fb454c; }
+.survey-sidebar-panel-tabs-pane.active { color:#fb454c; background:#fff; }
+.survey-sidebar-panel-tabs-pane .tab-label { color:inherit; line-height:1.2; }
+.survey-sidebar-panel-tabs-content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.side-sub-tabs { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+.side-sub-tabs :deep(.el-tabs__header) { margin:0; padding:0 8px; background:#fafafa; flex-shrink:0; }
+.side-sub-tabs :deep(.el-tabs__active-bar) { background:#fb454c; }
+.side-sub-tabs :deep(.el-tabs__content) { flex:1; overflow:hidden; }
+.side-sub-tabs :deep(.el-tab-pane) { height:100%; overflow-y:auto; }
 .question-panel { padding:8px; }
-.type-tabs-bar { display:flex; align-items:stretch; gap:0; margin-bottom:8px; }
-.tab-scroll-viewport { flex:1; overflow:hidden; }
-.tab-scroll-track { display:flex; gap:4px; transition:transform .2s ease; }
-.tab-scroll-btn {
-  flex:0 0 20px; border:1px solid #e8e8e8; border-radius:4px; background:#fff;
-  color:#999; cursor:pointer; font-size:14px; line-height:1;
-  display:flex; align-items:center; justify-content:center; padding:0;
-  transition:all .15s;
-}
-.tab-scroll-btn:hover:not(:disabled) { color:#fb454c; border-color:#fb454c; }
+.type-tabs-bar { display:flex; align-items:center; gap:4px; margin-bottom:8px; }
+.tab-scroll-btn { width:20px; height:24px; border:1px solid #e8e8e8; border-radius:4px; background:#fff; cursor:pointer; font-size:12px; color:#666; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .tab-scroll-btn:disabled { opacity:0.3; cursor:default; }
-.type-tab-btn {
-  flex:0 0 auto; min-width:0; padding:3px 6px; font-size:12px; line-height:20px; height:26px;
-  border:1px solid #e8e8e8; border-radius:4px; color:#666; cursor:pointer; text-align:center;
-  background:#fff; transition:all 0.15s; white-space:nowrap;
-}
+.tab-scroll-viewport { flex:1; overflow:hidden; }
+.tab-scroll-track { display:flex; gap:4px; transition:transform 0.2s; }
+.type-tab-btn { padding:2px 10px; border:1px solid #e8e8e8; border-radius:4px; background:#fff; cursor:pointer; font-size:12px; color:#666; white-space:nowrap; }
+.type-tab-btn.active { color:#fff; background:#fb454c; border-color:#fb454c; }
 .type-tab-btn:hover { border-color:#fb454c; color:#fb454c; }
-.type-tab-btn.active { color:#fff; background:#fb454c; border-color:#fb454c; font-weight:500; }
-
-.question-type { padding:4px 0; }
-.menu-group { margin:0 0 12px; }
-.menu-group-title {
-  font-size:12px; font-weight:500; color:#888; margin-bottom:6px; padding:0 4px;
-}
-.menu-group-item {
-  display:flex; align-items:center; gap:6px; padding:6px 8px;
-  border-radius:6px; cursor:pointer; transition:all 0.12s; line-height:20px;
-}
+.menu-group { margin:0; }
+.menu-group-title { font-size:11px; color:#bbb; padding:4px 0; }
+.menu-group-item { display:flex; align-items:center; gap:6px; padding:6px 8px; cursor:pointer; border-radius:4px; font-size:12px; }
 .menu-group-item:hover { background:#fff5f5; color:#fb454c; }
 .itemIcon { flex-shrink:0; font-size:16px; width:20px; text-align:center; color:#999; }
 .menu-group-item:hover .itemIcon { color:#fb454c; }
 .item-label { font-size:13px; flex:1; }
 .item-type { font-size:10px; color:#bbb; }
-
-/* 外观面板 */
-.appearance-panel { padding:12px; }
-.appearance-panel :deep(.el-tabs__header) { margin:0 0 8px; }
-.appearance-panel :deep(.el-tabs__item) { font-size:12px; padding:0 12px; }
-.appearance-grid { display:flex; flex-wrap:wrap; gap:8px; }
-.appearance-add, .appearance-thumb {
-  width:72px; height:72px; border-radius:6px; overflow:hidden; flex-shrink:0;
-}
-.appearance-add {
-  display:flex; align-items:center; justify-content:center;
-  border:2px dashed #e8e8e8; background:#fff; cursor:pointer;
-  font-size:24px; color:#ccc; transition:all .15s;
-}
-.appearance-add:hover { border-color:#fb454c; color:#fb454c; }
-.appearance-thumb {
-  position:relative; cursor:pointer;
-  border:2px solid transparent; transition:border-color .15s;
-}
-.appearance-thumb:hover { border-color:#fb454c; }
-.appearance-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
-.appearance-overlay {
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(0,0,0,0.4); opacity:0; transition:opacity .15s;
-  font-size:11px; color:#fff;
-}
-.appearance-thumb:hover .appearance-overlay { opacity:1; }
-.appearance-remove {
-  position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
-  border:none; background:rgba(0,0,0,0.5); color:#fff; font-size:10px; line-height:1;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-}
-
-/* ======= 中间画布 ======= */
-.survey-main-panel {
-  display:flex; flex:1 1; flex-direction:column; overflow:hidden;
-  background-color:#f7f8fa; padding:0;
-}
-.survey-main-panel-toolbar {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e8; gap:12px;
-}
+.bank-panel { padding:8px; display:flex; flex-direction:column; height:100%; }
+.bank-search { margin-bottom:8px; }
+.bank-list { flex:1; overflow-y:auto; }
+.bank-item { display:flex; align-items:center; gap:6px; padding:6px 8px; cursor:pointer; border-radius:4px; font-size:12px; }
+.bank-item:hover { background:#fff5f5; color:#fb454c; }
+.bank-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
+.bank-item:hover .bank-icon { color:#fb454c; }
+.bank-index { font-size:12px; color:#bbb; min-width:20px; }
+.bank-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bank-type { font-size:10px; color:#bbb; }
+.outline-tree { padding:8px; }
+.tree-root { display:flex; align-items:center; gap:6px; padding:8px; font-size:13px; font-weight:600; }
+.tree-children { padding-left:12px; }
+.tree-child { display:flex; align-items:center; padding:6px 8px; cursor:pointer; border-radius:4px; font-size:12px; }
+.tree-child:hover { background:#fff5f5; }
+.tree-child.active { background:#fff0f0; color:#fb454c; }
+.tree-child-body { display:flex; align-items:center; gap:4px; flex:1; overflow:hidden; }
+.tree-index { color:#999; flex-shrink:0; }
+.tree-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; }
+.survey-main-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; background-color:#f7f8fa; }
+.survey-main-panel-toolbar { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e8; gap:12px; }
 .toolbar-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.toolbar-btn-group { display:inline-flex; align-items:center; background:#f5f6f8; border-radius:6px; padding:2px; gap:0; }
-.toolbar-btn-group .el-button { border:none; }
-
 .survey-main-panel-content { flex:1; overflow-y:auto; padding:20px 40px; }
-.editor-wrapper { max-width:720px; margin:0 auto; }
+.editor-wrapper { max-width:210mm; margin:0 auto; padding:20px 0; }
 .editor { background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
-
-/* 问卷头 */
-.header {
-  padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0;
-}
-.prefix { font-size:13px; color:#999; margin-bottom:4px; }
-.header-content .title { font-size:22px; font-weight:600; color:#303133; line-height:1.4; }
+.header { padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0; position:relative; min-height:60px; background:rgba(255,255,255,0.85); backdrop-filter:blur(4px); }
 .header-title-input :deep(.el-input__wrapper) { box-shadow:none!important; padding:0; background:transparent; }
-.header-title-input :deep(.el-input__inner) { font-size:22px; font-weight:600; color:#303133; text-align:center; border:none; }
-
+.header-title-input :deep(.el-input__inner) { font-size:22px; font-weight:600; color:#303133; text-align:center; border:none; cursor:pointer; }
+.header-title-input :deep(.el-input__inner):focus { cursor:text; }
 .questions-area { padding:16px 24px; }
 .questions-area :deep(.draggable-list) { gap:8px; }
-
-.footer {
-  padding:24px 28px; text-align:center; border-top:1px solid #f0f0f0;
-}
-.footer-inner { font-size:13px; color:#999; }
-
-/* ======= 右侧属性面板 ======= */
-.survey-setting-panel { width:265px; flex-shrink:0; border-left:1px solid #e8e8e8; background:#fafafa; overflow-y:auto; }
+.footer { padding:24px 28px; text-align:center; color:#999; font-size:13px; border-top:1px solid #f0f0f0; }
+.survey-setting-panel { width:380px; flex-shrink:0; border-left:1px solid #e8e8e8; background:#fafafa; overflow-y:auto; }
 .props-panel { padding:12px; }
 .props-panel h3 { font-size:14px; font-weight:500; color:#fb454c; margin:0 0 8px; padding-bottom:8px; border-bottom:2px solid #fb454c; }
 .props-panel :deep(.el-form-item) { margin-bottom:8px; }
 .props-panel :deep(.el-form-item__label) { font-size:12px; color:#666; padding-bottom:2px; font-weight:500; line-height:1.2; }
 .props-panel :deep(.el-divider) { margin:8px 0; }
 .props-panel :deep(.el-collapse-item__header) { font-size:12px; font-weight:500; }
-
-/* ======= 设置/投放视图 ======= */
+.props-options-section { margin-bottom:8px; padding:8px; background:#f5f6f8; border-radius:6px; }
+.setting-opt-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
 .setting-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; }
-.setting-scroll { max-width:860px; margin:0 auto; padding:20px 24px; }
-.setting-group { margin-bottom:20px; padding:16px 20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
+.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:20px; padding:20px 24px; align-items:start; }
+.setting-group { padding:16px 20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
 .group-title { font-size:13px; font-weight:500; color:#888; margin-bottom:12px; letter-spacing:0.5px; }
-.hint { font-size:12px; color:#aaa; margin-left:8px; }
-.save-tip { padding:60px 0; text-align:center; color:#aaa; font-size:14px; }
-.share-card { max-width:600px; }
-.share-title { font-size:13px; font-weight:500; color:#555; margin:16px 0 8px; }
-.share-row { margin-bottom:8px; }
-.qr-box { margin-top:12px; display:inline-block; padding:12px; background:#fff; border:1px solid #f0f0f0; border-radius:12px; }
-
-/* ======= 概览视图 ======= */
 .overview-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; padding:20px 24px; }
-.overview-scroll { max-width:860px; margin:0 auto; }
-.overview-card { margin-bottom:20px; padding:20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
 .overview-card-title { font-size:14px; font-weight:600; color:#303133; margin-bottom:16px; }
-.chart-placeholder { padding:10px 0; }
-.chart-bars { display:flex; align-items:flex-end; justify-content:space-around; height:150px; gap:8px; }
-.chart-bar-group { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
-.chart-bar { width:100%; max-width:40px; border-radius:4px 4px 0 0; background:linear-gradient(to top,#fb454c,#ff7875); transition:height 0.3s; min-height:8px; }
-.chart-label { font-size:11px; color:#999; }
-.overview-settings { display:flex; flex-direction:column; gap:14px; }
-.setting-row { display:flex; align-items:center; gap:12px; }
-.setting-label { font-size:13px; color:#555; min-width:80px; flex-shrink:0; }
-.setting-value { flex:1; }
 
-/* 题库面板 */
-.bank-panel { padding:8px; display:flex; flex-direction:column; height:100%; }
-.bank-search { margin-bottom:8px; }
-.bank-list { flex:1; overflow-y:auto; }
-.bank-item {
-  display:flex; align-items:center; gap:6px; padding:6px 8px;
-  border-radius:6px; cursor:pointer; transition:all 0.12s; line-height:20px;
-}
-.bank-item:hover { background:#fff5f5; color:#fb454c; }
-.bank-item.active { background:#fff0f0; color:#fb454c; }
-.bank-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
-.bank-item:hover .bank-icon { color:#fb454c; }
-.bank-index { font-size:12px; color:#bbb; min-width:20px; }
-.bank-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bank-type { font-size:10px; color:#bbb; }
+/* 外观面板 */
+.appearance-panel { padding:12px; }
+.appearance-panel :deep(.el-tabs__header) { margin:0 0 8px; }
+.appearance-panel :deep(.el-tabs__item) { font-size:12px; padding:0 12px; }
+.appearance-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.appearance-add, .appearance-thumb { width:72px; height:72px; border-radius:6px; overflow:hidden; flex-shrink:0; }
+.appearance-add { display:flex; align-items:center; justify-content:center; border:2px dashed #e8e8e8; background:#fff; cursor:pointer; font-size:24px; color:#ccc; transition:all .15s; }
+.appearance-add:hover { border-color:#fb454c; color:#fb454c; }
+.appearance-thumb { position:relative; cursor:pointer; border:2px solid transparent; transition:border-color .15s; }
+.appearance-thumb:hover { border-color:#fb454c; }
+.appearance-thumb.active { border-color:#fb454c; background:#fff5f5; }
+.appearance-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
+.appearance-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); opacity:0; transition:opacity .15s; font-size:11px; color:#fff; }
+.appearance-thumb:hover .appearance-overlay { opacity:1; }
+.appearance-remove { position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%; border:none; background:rgba(0,0,0,0.5); color:#fff; font-size:10px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 
-/* 大纲树 */
-.outline-tree { padding:4px 0; }
-.tree-root {
-  display:flex; align-items:center; gap:8px; padding:8px 10px;
-  border-radius:8px; font-weight:600; font-size:14px; color:#333;
-  background:#f5f7fa;
-}
-.tree-root-icon { font-size:16px; }
-.tree-root-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tree-root-count { font-size:11px; color:#999; font-weight:400; }
-.tree-root-line {
-  height:12px; margin-left:29px; border-left:2px dashed #d0d5dd;
-}
-.tree-children { padding-left:20px; }
-.tree-child {
-  display:flex; align-items:stretch; cursor:pointer; border-radius:6px;
-  transition:all 0.12s; min-height:32px; position:relative;
-}
-.tree-child:hover { background:#fff5f5; }
-.tree-child.active { background:#fff0f0; }
-.tree-connector {
-  position:relative; width:20px; flex-shrink:0;
-}
-.tree-line {
-  position:absolute; left:50%; top:0; bottom:0;
-  border-left:2px dashed #d0d5dd; margin-left:-1px;
-}
-.tree-child:last-child .tree-line { bottom:50%; }
-.tree-branch {
-  position:absolute; left:50%; top:50%; width:10px;
-  border-top:2px dashed #d0d5dd;
-}
-.tree-child-body {
-  display:flex; align-items:center; gap:6px; padding:6px 8px; flex:1; min-width:0;
-  border-radius:0 6px 6px 0;
-}
-.tree-child.active .tree-child-body { font-weight:500; }
-.tree-index { font-size:12px; color:#bbb; min-width:22px; text-align:right; flex-shrink:0; }
-.tree-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
-.tree-child:hover .tree-icon,
-.tree-child.active .tree-icon { color:#fb454c; }
-.tree-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; flex-shrink:0; }
-.tree-child:hover .tree-type,
-.tree-child.active .tree-type { background:#fee; color:#fb454c; }
-.tree-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
-.tree-child:hover .tree-icon,
-.tree-child.active .tree-icon { color:#fb454c; }
-.tree-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; flex-shrink:0; }
-.tree-child:hover .tree-type,
-.tree-child.active .tree-type { background:#fee; color:#fb454c; }
+/* 逻辑面板 */
+.logic-full-panel { display:flex; flex:1; flex-direction:column; overflow:hidden; background:#f7f8fa; padding:20px 32px; }
+.logic-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-shrink:0; }
+.logic-body { display:flex; gap:16px; flex:1; overflow:hidden; }
+.logic-editor-area { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
+.logic-sidebar { width:260px; flex-shrink:0; overflow-y:auto; background:#fff; border-radius:6px; padding:12px; border:1px solid #e8e8e8; line-height:1.8; }
+.logic-rule-card { background:#fff; border:1px solid #e8e8e8; border-radius:6px; margin-bottom:6px; transition:box-shadow .15s; }
+.logic-rule-card:hover { box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.rule-header { display:flex; align-items:center; gap:8px; padding:8px 12px; }
+.rule-index { font-size:11px; color:#999; font-weight:600; width:24px; flex-shrink:0; }
+.rule-dsl { font-size:12px; font-family:Consolas,Monaco,"Courier New",monospace; flex:1; color:#303133; }
+.rule-actions { flex-shrink:0; }
+
+.settings-grid { display:flex; flex-direction:column; gap:0; }
+.settings-grid .el-form-item { width:100%; min-width:0; box-sizing:border-box; }
+.settings-grid .el-form-item .el-input,
+.settings-grid .el-form-item .el-select,
+.settings-grid .el-form-item .el-input-number,
+.settings-grid .el-form-item .el-date-editor { width:100% !important; }
+.settings-grid .el-form-item .el-form-item__content { min-width:0; overflow:hidden; }
+.setting-group { overflow:hidden; }
+:deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+:deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>

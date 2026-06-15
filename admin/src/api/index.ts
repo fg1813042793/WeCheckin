@@ -423,6 +423,24 @@ export const adminApi = {
   examDelete(data: { id: number }) {
     return request.post('/admin/exam/delete', data)
   },
+  examStatus(data: { id: number; status: number }) {
+    return request.post('/admin/exam/status', data)
+  },
+  examRecordList(params?: any) {
+    return request.get('/admin/exam/record/list', { params })
+  },
+  examRecordDetail(id: number) {
+    return request.get('/admin/exam/record/detail', { params: { id } })
+  },
+  examRecordDel(data: { id: number }) {
+    return request.post('/admin/exam/record/del', data)
+  },
+  examRecordBatchDel(data: { ids: string }) {
+    return request.post('/admin/exam/record/batch_del', data)
+  },
+  examStatistics(examId: number) {
+    return request.get('/admin/exam/statistics', { params: { examId } })
+  },
   // ==================== Survey Question Bank ====================
   surveyQuestionBankList(params?: any) {
     return request.get('/admin/survey/question_bank_list', { params })
@@ -438,5 +456,11 @@ export const adminApi = {
   },
   surveyQuestionBankCategories() {
     return request.get('/admin/survey/question_bank_categories')
+  },
+  examResourceList(params: { examId: number; resType?: string }) {
+    return request.get('/admin/exam/resource_list', { params })
+  },
+  examResourceDelete(data: { id: number }) {
+    return request.post('/admin/exam/resource_delete', data)
   }
 }

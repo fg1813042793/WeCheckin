@@ -25,6 +25,10 @@ const router = createRouter({
         { path: 'survey/formkit/report', name: 'FormkitReport', component: () => import('../views/survey/formkit/FormReport.vue'), meta: { title: '答题报表' } },
         { path: 'exam/list', name: 'ExamList', component: () => import('../views/exam/ExamList.vue'), meta: { title: '考试管理' } },
         { path: 'exam/designer', name: 'ExamDesigner', component: () => import('../views/exam/ExamDesigner.vue'), meta: { title: '考试设计器' } },
+        { path: 'exam/responses', name: 'ExamResponses', component: () => import('../views/exam/ExamResponses.vue'), meta: { title: '考试记录' } },
+        { path: 'exam/statistic', name: 'ExamStatistic', component: () => import('../views/exam/ExamStatistic.vue'), meta: { title: '考试统计' } },
+        { path: 'exam/formkit', name: 'ExamFormkit', component: () => import('../views/exam/formkit/FormDesigner.vue'), meta: { title: '考试表单设计器' } },
+        { path: 'exam/formkit/report', name: 'ExamFormkitReport', component: () => import('../views/exam/formkit/FormReport.vue'), meta: { title: '考试答题报表' } },
         { path: 'news', name: 'News', component: () => import('../views/news/index.vue'), meta: { title: '内容管理' } },
         { path: 'mgr', name: 'Mgr', component: () => import('../views/mgr/index.vue'), meta: { title: '管理员管理' } },
         { path: 'log', name: 'Log', component: () => import('../views/log/index.vue'), meta: { title: '操作日志' } },
@@ -40,13 +44,18 @@ const router = createRouter({
       path: '/sf/:id',
       name: 'SurveyFillPC',
       component: () => import('../views/survey/SurveyFillPC.vue')
+    },
+    {
+      path: '/ef/:id',
+      name: 'ExamFillPC',
+      component: () => import('../views/exam/ExamFillPC.vue')
     }
   ]
 })
 
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('admin_token')
-  if (to.path !== '/login' && !to.path.startsWith('/sf/') && !token) {
+  if (to.path !== '/login' && !to.path.startsWith('/sf/') && !to.path.startsWith('/ef/') && !token) {
     next('/login')
   } else {
     next()

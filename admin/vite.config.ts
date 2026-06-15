@@ -32,6 +32,16 @@ export default defineConfig({
           }
         }
       },
+      '/exam': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+        bypass(req) {
+          const path = req.url || ''
+          if (/^\/(exam(\/?$|\?)|exam\/(list|designer|responses|statistic|formkit)(\/|\?|$))/.test(path)) {
+            return req.url
+          }
+        }
+      },
       '/home': {
         target: 'http://localhost:8083',
         changeOrigin: true

@@ -1,0 +1,863 @@
+<template>
+  <div class="fill-page" :style="{ backgroundImage: settings.backgroundImages?.length ? 'url('+(typeof settings.backgroundImages[0]==='string'?settings.backgroundImages[0]:settings.backgroundImages[0].url)+')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
+    <div v-if="settings.progressBar" class="fill-progress-bar">
+      <div class="fill-progress-inner">
+        <el-progress :percentage="progressPct" :stroke-width="6" />
+        <span class="fill-progress-text">{{ answeredCount }}/{{ totalQuestions }} 题</span>
+      </div>
+    </div>
+    <div v-if="loading" class="loading">加载中...</div>
+    <div v-else-if="showLogin" class="login-wrapper">
+      <div class="fill-container" style="padding:40px 36px;text-align:center">
+        <h2 style="margin-bottom:24px">请登录后填写问卷</h2>
+        <el-form @submit.prevent="doLogin">
+          <el-input v-model="loginForm.name" placeholder="用户名/手机号" style="margin-bottom:16px" />
+          <el-input v-model="loginForm.password" type="password" placeholder="密码" style="margin-bottom:16px" show-password @keyup.enter="doLogin" />
+          <el-button type="primary" style="width:100%" :loading="loginLoading" @click="doLogin">登录</el-button>
+        </el-form>
+      </div>
+    </div>
+    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-else-if="exam" class="fill-container">
+      <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
+      <div class="header">
+        <h1>{{ exam.title }}</h1>
+        <p v-if="exam.description" class="desc">{{ exam.description }}</p>
+        <div class="meta">
+          <el-tag v-if="exam.anonymous === 1" size="small">匿名收集</el-tag>
+          <el-tag v-if="exam.showResult === 1" size="small">提交后查看结果</el-tag>
+          <el-tag size="small">{{ totalQuestions }} 道题</el-tag>
+          <el-tag v-if="remaining > 0" :type="remaining < 60000 ? 'danger' : 'warning'" size="small">⏱ {{ formatRemaining(remaining) }}</el-tag>
+        </div>
+      </div>
+      <template v-if="settings.onePageOneQuestion && currentQuestion">
+        <div class="q-list q-list-single">
+          <div class="q-item-scroll">
+            <div class="q-item" :data-qid="currentQuestion.id">
+            <div class="q-title">
+              <template v-if="LAYOUT_TYPES.includes(currentQuestion.type)">
+                <span v-if="currentQuestion.type==='description'" class="q-type-label">描述</span>
+                <span v-else-if="currentQuestion.type==='divider'" class="q-type-label">分隔</span>
+                <span v-else class="q-type-label">分页</span>
+              </template>
+              <template v-else>
+                <span v-if="settings.questionNumber !== false" class="q-num">{{ currentNavIndex + 1 }}.</span>
+                <span class="q-text" v-html="currentQuestion.title" />
+                <span v-if="currentQuestion.required" class="q-req">*</span>
+              </template>
+            </div>
+              <div class="preview-body">
+                <el-input v-if="['input','text'].includes(currentQuestion.type)" v-model="answers[currentQuestion.id]" :placeholder="currentQuestion.placeholder || '请输入'" />
+                <div v-else-if="currentQuestion.type==='multiInput'" class="field-vertical">
+                  <el-input v-for="(f, fi) in (currentQuestion.props?.fields||[])" :key="fi" v-model="answers[currentQuestion.id][fi]" :placeholder="f.placeholder||'请输入'" />
+                </div>
+                <div v-else-if="currentQuestion.type==='hInput'" class="field-horizontal">
+                  <el-input v-for="(f, fi) in (currentQuestion.props?.fields||[])" :key="fi" v-model="answers[currentQuestion.id][fi]" :placeholder="f.placeholder||'请输入'" />
+                </div>
+                <el-input v-else-if="currentQuestion.type==='textarea'" v-model="answers[currentQuestion.id]" type="textarea" :rows="3" :placeholder="currentQuestion.placeholder || '请输入'" />
+                <el-input-number v-else-if="currentQuestion.type==='number'" v-model="answers[currentQuestion.id]" style="width:100%;--el-input-width:100%" />
+                <el-radio-group v-else-if="currentQuestion.type==='radio'" v-model="answers[currentQuestion.id]" class="preview-options preview-radio-group" :style="optionGrid(currentQuestion)">
+                  <el-radio v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-radio>
+                </el-radio-group>
+                <el-checkbox-group v-else-if="currentQuestion.type==='checkbox'" v-model="answers[currentQuestion.id]" class="preview-options preview-checkbox-group" :style="optionGrid(currentQuestion)">
+                  <el-checkbox v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-checkbox>
+                </el-checkbox-group>
+                <el-select v-else-if="currentQuestion.type==='select'" v-model="answers[currentQuestion.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
+                  <el-option v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
+                </el-select>
+                <el-select v-else-if="currentQuestion.type==='picker'" v-model="answers[currentQuestion.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
+                  <el-option v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
+                </el-select>
+                <el-cascader v-else-if="currentQuestion.type==='cascade'" v-model="answers[currentQuestion.id]" placeholder="请选择" style="width:100%" :options="currentQuestion.props?.options||[]" clearable />
+                <el-radio-group v-else-if="currentQuestion.type==='judge'" v-model="answers[currentQuestion.id]" class="preview-options preview-radio-group">
+                  <el-radio value="true">对</el-radio>
+                  <el-radio value="false">错</el-radio>
+                </el-radio-group>
+                <div v-else-if="currentQuestion.type==='rating'" style="padding:4px 0">
+                  <el-rate v-model="answers[currentQuestion.id]" :max="currentQuestion.props?.maxRating || 5" />
+                </div>
+                <div v-else-if="currentQuestion.type==='nps'" class="preview-nps">
+                  <div class="nps-labels"><span>0</span><span>10</span></div>
+                  <el-rate v-model="answers[currentQuestion.id]" :max="10" show-score score-template="{value}" />
+                </div>
+                <el-date-picker v-else-if="currentQuestion.type==='date'" v-model="answers[currentQuestion.id]" type="date" placeholder="选择日期" style="width:100%" />
+                <el-time-picker v-else-if="currentQuestion.type==='time'" v-model="answers[currentQuestion.id]" placeholder="选择时间" style="width:100%" />
+                <el-switch v-else-if="currentQuestion.type==='switch'" v-model="answers[currentQuestion.id]" />
+                <el-divider v-else-if="currentQuestion.type==='divider'" style="margin:4px 0" />
+                <div v-else-if="currentQuestion.type==='description'" class="preview-plain" v-html="currentQuestion.description" />
+                <div v-else-if="currentQuestion.type==='file'" class="file-upload-wrap">
+                  <input :ref="el => { if(el) fileInputs[currentQuestion.id]=el as HTMLInputElement }" type="file" :multiple="currentQuestion.props?.multiple !== false" style="display:none" @change="(e: any) => onFileInput(currentQuestion.id, e)" />
+                  <el-button text @click="triggerFileInput(currentQuestion.id)"><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M854.6 288.6L639.4 73.4c-6-6-14.1-9.4-22.6-9.4H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V311.3c0-8.5-3.4-16.7-9.4-22.7z"/></svg>选择文件</el-button>
+                  <div v-if="(fileLists[currentQuestion.id]||[]).length" class="file-list">
+                    <div v-for="(f, fi) in fileLists[currentQuestion.id]" :key="fi" class="file-item"><span class="file-name">{{ f.name }}</span><el-button text size="small" type="danger" @click="removeFile(currentQuestion.id, fi)" style="padding:0 4px">×</el-button></div>
+                  </div>
+                </div>
+                <div v-else-if="currentQuestion.type==='location'" class="preview-location">
+                  <div v-if="answers[currentQuestion.id]" class="location-result">{{ answers[currentQuestion.id] }}</div>
+                  <el-button v-else text @click="pickLocation(currentQuestion.id)">
+                    <svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置
+                  </el-button>
+                </div>
+                <el-input v-else-if="currentQuestion.type==='phone'" placeholder="手机号" v-model="answers[currentQuestion.id]" />
+                <el-input v-else-if="currentQuestion.type==='email'" placeholder="邮箱地址" v-model="answers[currentQuestion.id]" />
+                <el-input v-else-if="currentQuestion.type==='idCard'" placeholder="身份证号" v-model="answers[currentQuestion.id]" />
+                <el-input v-else-if="currentQuestion.type==='password'" type="password" placeholder="密码" v-model="answers[currentQuestion.id]" />
+                <el-cascader v-else-if="currentQuestion.type==='user'||currentQuestion.type==='dept'" v-model="answers[currentQuestion.id]" :placeholder="currentQuestion.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="buildUserDeptTree(currentQuestion)" :props="{ multiple: !!currentQuestion.multiple, emitPath: false }" clearable />
+                <div v-else-if="currentQuestion.type==='dateRange'" class="field-vertical">
+                  <el-date-picker v-model="answers[currentQuestion.id][0]" type="date" placeholder="开始日期" style="width:100%" />
+                  <el-date-picker v-model="answers[currentQuestion.id][1]" type="date" placeholder="结束日期" style="width:100%" />
+                </div>
+                <div v-else-if="currentQuestion.type==='matrixRadio'" class="preview-matrix">
+                  <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (currentQuestion.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (currentQuestion.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="c in (currentQuestion.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-radio-group :model-value="answers[currentQuestion.id][ri]" @update:model-value="(v: any) => answers[currentQuestion.id][ri] = v"><el-radio :value="typeof c==='string'?c:(c.title||c.label)" /></el-radio-group></td></tr></tbody></table>
+                </div>
+                <div v-else-if="currentQuestion.type==='matrixCheckbox'" class="preview-matrix">
+                  <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (currentQuestion.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (currentQuestion.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="c in (currentQuestion.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-checkbox-group :model-value="answers[currentQuestion.id][ri]||[]" @update:model-value="(v: any) => answers[currentQuestion.id][ri] = v"><el-checkbox :value="typeof c==='string'?c:(c.title||c.label)" /></el-checkbox-group></td></tr></tbody></table>
+                </div>
+                <div v-else-if="currentQuestion.type==='matrixFillBlank'" class="preview-matrix">
+                  <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (currentQuestion.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (currentQuestion.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="(c, ci) in (currentQuestion.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-input :model-value="answers[currentQuestion.id][ri]?.[ci]" @update:model-value="(v: any) => { if(!answers[currentQuestion.id][ri]) answers[currentQuestion.id][ri]={}; answers[currentQuestion.id][ri][ci]=v }" placeholder="填空" size="small" style="width:100%" /></td></tr></tbody></table>
+                </div>
+                <div v-else-if="currentQuestion.type==='matrixAuto'" class="preview-matrix">
+                  <table><thead><tr><th class="corner">#</th><th v-for="c in (currentQuestion.props?.columns||[])" :key="c.label||c.id||c">{{ c.label||c }}</th><th style="width:40px"></th></tr></thead><tbody><tr v-for="(r, ri) in (answers[currentQuestion.id]||[])" :key="ri"><td class="matrix-label">{{ ri+1 }}</td><td v-for="(c, ci) in (currentQuestion.props?.columns||[])" :key="c.label||c.id||c"><el-input v-model="answers[currentQuestion.id][ri][ci]" size="small" :placeholder="c.label||'值'" style="width:100%" /></td><td><el-button text size="small" type="danger" @click="removeMatrixAutoRow(currentQuestion.id, ri)" style="padding:2px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg></el-button></td></tr></tbody></table>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px"><el-button size="small" text @click="addMatrixAutoRow(currentQuestion.id)">+ 添加行</el-button></div>
+                </div>
+                <div v-else-if="currentQuestion.type==='questionSet'" class="preview-plain">问题组（内部题）</div>
+                <div v-else-if="currentQuestion.type==='pagination'" class="preview-plain">—— 分页 ——</div>
+                <div v-else-if="currentQuestion.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
+                  <QuillEditor v-model:content="answers[currentQuestion.id]" content-type="html" :options="{ theme: 'snow', placeholder: currentQuestion.placeholder || '输入富文本内容...' }" style="min-height:150px" />
+                </div>
+                <el-input v-else-if="currentQuestion.type==='scanCode'" v-model="answers[currentQuestion.id]" placeholder="扫码" class="scan-code-input">
+                  <template #prefix><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></template>
+                  <template #suffix>
+                    <el-button text type="primary" size="small" @click="openScanner(currentQuestion.id)" style="margin-right:-8px;height:28px">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7V4a2 2 0 0 1 2-2h3M1 17v3a2 2 0 0 0 2 2h3M23 7V4a2 2 0 0 0-2-2h-3M23 17v3a2 2 0 0 1-2 2h-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>
+                    </el-button>
+                  </template>
+                </el-input>
+                <div v-else-if="currentQuestion.type==='signature'" class="signature-pad-wrap">
+                  <canvas :ref="el => sigCanvasMap[currentQuestion.id] = el as HTMLCanvasElement" class="sig-canvas" @mousedown="sigStart($event, currentQuestion.id)" @mousemove="sigMove($event, currentQuestion.id)" @mouseup="sigEnd" @mouseleave="sigEnd" @touchstart.prevent="e => sigTouchStart(e, currentQuestion.id)" @touchmove.prevent="e => sigTouchMove(e, currentQuestion.id)" @touchend="sigEnd"></canvas>
+                  <div style="display:flex;gap:8px;margin-top:4px"><el-button size="small" text @click="clearSignature(currentQuestion.id)">清除</el-button></div>
+                </div>
+                <el-input v-else v-model="answers[currentQuestion.id]" placeholder="请输入" />
+              </div>
+            </div>
+          </div>
+          <div class="nav-buttons">
+            <el-button :disabled="currentIndex === 0 || currentNavIndex <= 0" @click="goPrev()">上一题</el-button>
+            <span class="nav-index">{{ currentNavIndex + 1 }} / {{ navQuestions.length }} </span>
+            <el-button v-if="!isLast" type="primary" @click="goNext()">下一题</el-button>
+            <el-button v-else type="primary" size="large" :loading="submitting" @click="onSubmit()">提交</el-button>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="q-list">
+          <div v-for="(q, i) in questions" :key="q.id" class="q-item" :data-qid="q.id">
+            <div class="q-title">
+              <template v-if="LAYOUT_TYPES.includes(q.type)">
+                <span v-if="q.type==='description'" class="q-type-label">描述</span>
+                <span v-else-if="q.type==='divider'" class="q-type-label">分隔</span>
+                <span v-else class="q-type-label">分页</span>
+              </template>
+              <template v-else>
+                <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length + 1 }}.</span>
+                <span class="q-text" v-html="q.title" />
+                <span v-if="q.required" class="q-req">*</span>
+              </template>
+            </div>
+            <div class="preview-body">
+              <el-input v-if="['input','text'].includes(q.type)" v-model="answers[q.id]" :placeholder="q.placeholder || '请输入'" />
+              <div v-else-if="q.type==='multiInput'" class="field-vertical">
+                <el-input v-for="(f, fi) in (q.props?.fields||[])" :key="fi" v-model="answers[q.id][fi]" :placeholder="f.placeholder||'请输入'" />
+              </div>
+              <div v-else-if="q.type==='hInput'" class="field-horizontal">
+                <el-input v-for="(f, fi) in (q.props?.fields||[])" :key="fi" v-model="answers[q.id][fi]" :placeholder="f.placeholder||'请输入'" />
+              </div>
+              <el-input v-else-if="q.type==='textarea'" v-model="answers[q.id]" type="textarea" :rows="3" :placeholder="q.placeholder || '请输入'" />
+              <el-input-number v-else-if="q.type==='number'" v-model="answers[q.id]" style="width:100%;--el-input-width:100%" />
+              <el-radio-group v-else-if="q.type==='radio'" v-model="answers[q.id]" class="preview-options preview-radio-group" :style="optionGrid(q)">
+                <el-radio v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-radio>
+              </el-radio-group>
+              <el-checkbox-group v-else-if="q.type==='checkbox'" v-model="answers[q.id]" class="preview-options preview-checkbox-group" :style="optionGrid(q)">
+                <el-checkbox v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-checkbox>
+              </el-checkbox-group>
+              <el-select v-else-if="q.type==='select'" v-model="answers[q.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
+                <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
+              </el-select>
+              <el-select v-else-if="q.type==='picker'" v-model="answers[q.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
+                <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
+              </el-select>
+              <el-cascader v-else-if="q.type==='cascade'" v-model="answers[q.id]" placeholder="请选择" style="width:100%" :options="q.props?.options||[]" clearable />
+              <el-radio-group v-else-if="q.type==='judge'" v-model="answers[q.id]" class="preview-options preview-radio-group">
+                <el-radio value="true">对</el-radio>
+                <el-radio value="false">错</el-radio>
+              </el-radio-group>
+              <div v-else-if="q.type==='rating'" style="padding:4px 0">
+                <el-rate v-model="answers[q.id]" :max="q.props?.maxRating || 5" />
+              </div>
+              <div v-else-if="q.type==='nps'" class="preview-nps">
+                <div class="nps-labels"><span>0</span><span>10</span></div>
+                <el-rate v-model="answers[q.id]" :max="10" show-score score-template="{value}" />
+              </div>
+              <el-date-picker v-else-if="q.type==='date'" v-model="answers[q.id]" type="date" placeholder="选择日期" style="width:100%" />
+              <el-time-picker v-else-if="q.type==='time'" v-model="answers[q.id]" placeholder="选择时间" style="width:100%" />
+              <el-switch v-else-if="q.type==='switch'" v-model="answers[q.id]" />
+              <el-divider v-else-if="q.type==='divider'" style="margin:4px 0" />
+              <div v-else-if="q.type==='description'" class="preview-plain" v-html="q.description" />
+              <div v-else-if="q.type==='file'" class="file-upload-wrap">
+                <input :ref="el => { if(el) fileInputs[q.id]=el as HTMLInputElement }" type="file" :multiple="q.props?.multiple !== false" style="display:none" @change="(e: any) => onFileInput(q.id, e)" />
+                <el-button text @click="triggerFileInput(q.id)"><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M854.6 288.6L639.4 73.4c-6-6-14.1-9.4-22.6-9.4H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V311.3c0-8.5-3.4-16.7-9.4-22.7z"/></svg>选择文件</el-button>
+                <div v-if="(fileLists[q.id]||[]).length" class="file-list">
+                  <div v-for="(f, fi) in fileLists[q.id]" :key="fi" class="file-item"><span class="file-name">{{ f.name }}</span><el-button text size="small" type="danger" @click="removeFile(q.id, fi)" style="padding:0 4px">×</el-button></div>
+                </div>
+              </div>
+              <div v-else-if="q.type==='location'" class="preview-location">
+                <div v-if="answers[q.id]" class="location-result">{{ answers[q.id] }}</div>
+                <el-button v-else text @click="pickLocation(q.id)">
+                  <svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置
+                </el-button>
+              </div>
+              <el-input v-else-if="q.type==='phone'" placeholder="手机号" v-model="answers[q.id]" />
+              <el-input v-else-if="q.type==='email'" placeholder="邮箱地址" v-model="answers[q.id]" />
+              <el-input v-else-if="q.type==='idCard'" placeholder="身份证号" v-model="answers[q.id]" />
+              <el-input v-else-if="q.type==='password'" type="password" placeholder="密码" v-model="answers[q.id]" />
+              <el-cascader v-else-if="q.type==='user'||q.type==='dept'" v-model="answers[q.id]" :placeholder="q.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="buildUserDeptTree(q)" :props="{ multiple: !!q.multiple, emitPath: false }" clearable />
+              <div v-else-if="q.type==='dateRange'" class="field-vertical">
+                <el-date-picker v-model="answers[q.id][0]" type="date" placeholder="开始日期" style="width:100%" />
+                <el-date-picker v-model="answers[q.id][1]" type="date" placeholder="结束日期" style="width:100%" />
+              </div>
+              <div v-else-if="q.type==='matrixRadio'" class="preview-matrix">
+                <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-radio-group :model-value="answers[q.id][ri]" @update:model-value="(v: any) => answers[q.id][ri] = v"><el-radio :value="typeof c==='string'?c:(c.title||c.label)" /></el-radio-group></td></tr></tbody></table>
+              </div>
+              <div v-else-if="q.type==='matrixCheckbox'" class="preview-matrix">
+                <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-checkbox-group :model-value="answers[q.id][ri]||[]" @update:model-value="(v: any) => answers[q.id][ri] = v"><el-checkbox :value="typeof c==='string'?c:(c.title||c.label)" /></el-checkbox-group></td></tr></tbody></table>
+              </div>
+              <div v-else-if="q.type==='matrixFillBlank'" class="preview-matrix">
+                <table><thead><tr><th class="corner">行\\列</th><th v-for="c in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)">{{ typeof c==='string'?c:(c.title||c.label) }}</th></tr></thead><tbody><tr v-for="(r, ri) in (q.props?.rows||[{title:'行1'},{title:'行2'}])" :key="typeof r==='string'?r:r.title"><td class="matrix-label">{{ typeof r==='string'?r:r.title }}</td><td v-for="(c, ci) in (q.props?.columns||[{title:'列A'},{title:'列B'}])" :key="typeof c==='string'?c:(c.title||c.label)"><el-input :model-value="answers[q.id][ri]?.[ci]" @update:model-value="(v: any) => { if(!answers[q.id][ri]) answers[q.id][ri]={}; answers[q.id][ri][ci]=v }" placeholder="填空" size="small" style="width:100%" /></td></tr></tbody></table>
+              </div>
+              <div v-else-if="q.type==='matrixAuto'" class="preview-matrix">
+                <table><thead><tr><th class="corner">#</th><th v-for="c in (q.props?.columns||[])" :key="c.label||c.id||c">{{ c.label||c }}</th><th style="width:40px"></th></tr></thead><tbody><tr v-for="(r, ri) in (answers[q.id]||[])" :key="ri"><td class="matrix-label">{{ ri+1 }}</td><td v-for="(c, ci) in (q.props?.columns||[])" :key="c.label||c.id||c"><el-input v-model="answers[q.id][ri][ci]" size="small" :placeholder="c.label||'值'" style="width:100%" /></td><td><el-button text size="small" type="danger" @click="removeMatrixAutoRow(q.id, ri)" style="padding:2px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg></el-button></td></tr></tbody></table>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px"><el-button size="small" text @click="addMatrixAutoRow(q.id)">+ 添加行</el-button></div>
+              </div>
+              <div v-else-if="q.type==='questionSet'" class="preview-plain">问题组（内部题）</div>
+              <div v-else-if="q.type==='pagination'" class="preview-plain">—— 分页 ——</div>
+              <div v-else-if="q.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
+                <QuillEditor v-model:content="answers[q.id]" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...' }" style="min-height:150px" />
+              </div>
+              <el-input v-else-if="q.type==='scanCode'" v-model="answers[q.id]" placeholder="扫码" class="scan-code-input">
+                <template #prefix><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></template>
+                <template #suffix>
+                  <el-button text type="primary" size="small" @click="openScanner(q.id)" style="margin-right:-8px;height:28px">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7V4a2 2 0 0 1 2-2h3M1 17v3a2 2 0 0 0 2 2h3M23 7V4a2 2 0 0 0-2-2h-3M23 17v3a2 2 0 0 1-2 2h-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>
+                  </el-button>
+                </template>
+              </el-input>
+              <div v-else-if="q.type==='signature'" class="signature-pad-wrap">
+                <canvas :ref="el => sigCanvasMap[q.id] = el as HTMLCanvasElement" class="sig-canvas" @mousedown="sigStart($event, q.id)" @mousemove="sigMove($event, q.id)" @mouseup="sigEnd" @mouseleave="sigEnd" @touchstart.prevent="e => sigTouchStart(e, q.id)" @touchmove.prevent="e => sigTouchMove(e, q.id)" @touchend="sigEnd"></canvas>
+                <div style="display:flex;gap:8px;margin-top:4px"><el-button size="small" text @click="clearSignature(q.id)">清除</el-button></div>
+              </div>
+              <el-input v-else v-model="answers[q.id]" placeholder="请输入" />
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <el-button type="primary" size="large" :loading="submitting" @click="onSubmit()">提交</el-button>
+        </div>
+      </template>
+    </div>
+  </div>
+  <div v-if="settings.answerSheetVisible && !loading && exam" class="answer-sheet" :style="sheetStyle" ref="sheetRef">
+    <div class="answer-sheet-title" @mousedown.prevent="onSheetDragStart">≡ 答题卡</div>
+    <div class="answer-sheet-grid">
+      <div v-for="(q, i) in realQuestions" :key="q.id"
+        class="answer-sheet-item"
+        :class="{ 'answer-sheet-done': isAnswered(q, answers[q.id]), 'answer-sheet-cur': settings.onePageOneQuestion && currentIndex === questions.indexOf(q) }"
+        @click="jumpToQuestion(q)">
+        {{ i + 1 }}
+      </div>
+    </div>
+    <div class="answer-sheet-stat">{{ answeredCount }}/{{ totalQuestions }}</div>
+  </div>
+  <el-dialog v-if="showScanner" v-model="showScanner" title="扫码" width="400px" :close-on-click-modal="false" destroy-on-close @opened="onScannerOpen" @close="onScannerClose">
+    <div ref="scannerRef" style="width:100%;aspect-ratio:1;overflow:hidden;background:#000;border-radius:8px"></div>
+    <template #footer>
+      <el-button @click="showScanner = false">取消</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, onMounted, nextTick, onBeforeUnmount } from 'vue'
+import { Html5Qrcode } from 'html5-qrcode'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import { useRoute } from 'vue-router'
+import { computed, watch, onUnmounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+const route = useRoute()
+const exam = ref<any>(null)
+const settings = ref<any>({})
+const questions = ref<any[]>([])
+const answers = ref<any>({})
+const loading = ref(true)
+const error = ref('')
+const submitting = ref(false)
+const session = ref('')
+const showScanner = ref(false)
+const scanQid = ref('')
+const scannerRef = ref<HTMLDivElement>()
+let scanner: Html5Qrcode | null = null
+const fileLists: Record<string, File[]> = reactive({})
+const fileInputs: Record<string, HTMLInputElement> = {}
+const startAt = ref(0)
+const remaining = ref(0) // milliseconds
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+const sigCanvasMap: Record<string, HTMLCanvasElement> = {}
+const sigDrawing = ref(false)
+const sigCurId = ref('')
+
+const showLogin = ref(false)
+const loginLoading = ref(false)
+const loginForm = reactive({ name: '', password: '' })
+
+const AUTO_SAVE_KEY = 'exam_draft_'
+
+function getDraftKey() { return AUTO_SAVE_KEY + route.params.id }
+
+function saveDraft() {
+  if (!settings.value.autoSave) return
+  const key = getDraftKey()
+  const data = { answers: answers.value, updatedAt: Date.now() }
+  try { localStorage.setItem(key, JSON.stringify(data)) } catch {}
+}
+
+function loadDraft() {
+  if (!settings.value.autoSave) return null
+  try {
+    const raw = localStorage.getItem(getDraftKey())
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch { return null }
+}
+
+function clearDraft() {
+  localStorage.removeItem(getDraftKey())
+}
+
+function jumpToQuestion(q: any) {
+  const idx = questions.value.indexOf(q)
+  if (idx < 0) return
+  if (settings.value.onePageOneQuestion) {
+    currentIndex.value = idx
+  } else {
+    const el = document.querySelector(`[data-qid="${q.id}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
+
+const sheetRef = ref<HTMLElement>()
+const sheetX = ref(0)
+const sheetY = ref(0)
+const sheetDragging = ref(false)
+const sheetDragStartX = ref(0)
+const sheetDragStartY = ref(0)
+const sheetOrigX = ref(0)
+const sheetOrigY = ref(0)
+const sheetStyle = computed(() => {
+  const s: Record<string, string> = {}
+  if (sheetX.value || sheetY.value) {
+    s.transform = `translate(calc(-50% + ${sheetX.value}px), calc(-50% + ${sheetY.value}px))`
+  }
+  if (sheetDragging.value) s.cursor = 'grabbing'
+  return s
+})
+function onSheetDragStart(e: MouseEvent) {
+  sheetDragging.value = true
+  sheetDragStartX.value = e.clientX
+  sheetDragStartY.value = e.clientY
+  sheetOrigX.value = sheetX.value
+  sheetOrigY.value = sheetY.value
+  document.addEventListener('mousemove', onSheetDragMove)
+  document.addEventListener('mouseup', onSheetDragEnd)
+}
+function onSheetDragMove(e: MouseEvent) {
+  if (!sheetDragging.value) return
+  sheetX.value = sheetOrigX.value + e.clientX - sheetDragStartX.value
+  sheetY.value = sheetOrigY.value + e.clientY - sheetDragStartY.value
+}
+function onSheetDragEnd() {
+  sheetDragging.value = false
+  document.removeEventListener('mousemove', onSheetDragMove)
+  document.removeEventListener('mouseup', onSheetDragEnd)
+}
+
+let draftTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleDraft() {
+  if (draftTimer) clearTimeout(draftTimer)
+  draftTimer = setTimeout(saveDraft, 2000)
+}
+
+function isAnswered(q: any, val: any): boolean {
+  const type = q.type
+  if (val === undefined || val === null) return false
+  if (['checkbox', 'file'].includes(type)) return Array.isArray(val) && val.length > 0
+  if (['rating', 'nps'].includes(type)) return val > 0
+  if (['multiInput', 'hInput'].includes(type)) return Array.isArray(val) && val.some(v => !!v)
+  if (type === 'matrixRadio') return Object.keys(val).length > 0
+  if (type === 'matrixCheckbox') return Object.values(val).some((v) => Array.isArray(v) && v.length > 0)
+  if (type === 'matrixFillBlank') return Object.values(val).some(v => !!v)
+  if (type === 'matrixAuto') return Array.isArray(val) && val.some(row => row.some((v: any) => !!v))
+  if (type === 'dateRange') return Array.isArray(val) && val.some(v => !!v)
+  if (type === 'switch') return val === true
+  if (type === 'cascade') return Array.isArray(val) && val.length > 0
+  if (['user', 'dept'].includes(type)) return q.multiple ? (Array.isArray(val) && val.length > 0) : !!val
+  if (type === 'picker') return !!val
+  return !!val
+}
+
+const LAYOUT_TYPES = ['description', 'divider', 'pagination']
+const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
+const totalQuestions = computed(() => realQuestions.value.length)
+const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
+const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
+
+const currentIndex = ref(0)
+const navQuestions = computed(() => realQuestions.value)
+const currentNavIndex = computed(() => {
+  const q = questions.value[currentIndex.value]
+  return q ? navQuestions.value.indexOf(q) : -1
+})
+const isLast = computed(() => currentIndex.value >= questions.value.length - 1)
+const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
+function goNext() { if (currentIndex.value < questions.value.length - 1) currentIndex.value++ }
+function goPrev() { if (currentIndex.value > 0) currentIndex.value-- }
+
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+
+async function doLogin() {
+  loginLoading.value = true
+  try {
+    const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
+    if (res.code === 0) {
+      localStorage.setItem('user_token', res.data.token)
+      showLogin.value = false
+      loading.value = true
+      load()
+    } else {
+      ElMessage.error(res.msg || '登录失败')
+    }
+  } catch { ElMessage.error('登录失败') }
+  finally { loginLoading.value = false }
+}
+
+async function apiGet(path: string) {
+  const token = localStorage.getItem('user_token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = token
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  return res.json()
+}
+
+async function apiPost(path: string, data: any) {
+  const token = localStorage.getItem('user_token')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = token
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: JSON.stringify(data), headers })
+  return res.json()
+}
+
+function getInitVal(q: any): any {
+  const type = q.type
+  if (type === 'checkbox') return []
+  if (type === 'switch') return false
+  if (type === 'number') return undefined
+  if (type === 'rating') return 0
+  if (type === 'nps') return 0
+  if (type === 'dateRange') return ['', '']
+  if (['matrixRadio','matrixCheckbox','matrixFillBlank'].includes(type)) return {}
+  if (type === 'matrixAuto') return (q.props?.rows||[]).map(() => (q.props?.columns||[]).map(() => ''))
+  if (['multiInput','hInput'].includes(type)) return (q.props?.fields||[]).map(() => '')
+  if (['user','dept'].includes(type)) return q.multiple ? [] : ''
+  if (['cascade'].includes(type)) return []
+  if (type === 'picker') return ''
+  if (type === 'file') return []
+  return ''
+}
+
+function optionGrid(q: any) {
+  const cols = q.optionLayout
+  if (!cols || cols <= 1) return {}
+  return { display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }
+}
+
+function buildUserDeptTree(q: any) {
+  const opts = q.props?.options || []
+  if (q.type === 'user') {
+    const deptMap: Record<string, any> = {}
+    opts.forEach((o: any) => {
+      const deptId = o.deptId || ''
+      if (!deptMap[deptId]) {
+        deptMap[deptId] = { value: '__d__' + deptId, label: o.deptName || deptId || '未分组', children: [] }
+      }
+      deptMap[deptId].children.push({ value: o.value, label: o.label || '成员' })
+    })
+    return Object.values(deptMap)
+  }
+  const map: Record<string, any> = {}
+  opts.forEach((o: any) => { map[o.value] = { ...o, children: [] } })
+  const roots: any[] = []
+  opts.forEach((o: any) => {
+    if (o.parentId && map[o.parentId]) {
+      map[o.parentId].children.push(map[o.value])
+    } else {
+      roots.push(map[o.value])
+    }
+  })
+  return roots
+}
+
+function addMatrixAutoRow(qid: string) {
+  const q = questions.value.find(x => x.id === qid)
+  if (!q) return
+  const cols = q.props?.columns?.length || 0
+  if (!answers.value[qid]) answers.value[qid] = []
+  answers.value[qid].push(Array(cols).fill(''))
+}
+function removeMatrixAutoRow(qid: string, ri: number) {
+  if (!answers.value[qid]) return
+  answers.value[qid].splice(ri, 1)
+}
+function triggerFileInput(qid: string) {
+  fileInputs[qid]?.click()
+}
+function onFileInput(qid: string, e: Event) {
+  const input = e.target as HTMLInputElement
+  if (!input.files?.length) return
+  if (!fileLists[qid]) fileLists[qid] = []
+  for (const f of input.files) fileLists[qid].push(f)
+  input.value = ''
+  answers.value[qid] = fileLists[qid].map(f => f.name)
+}
+function removeFile(qid: string, idx: number) {
+  if (fileLists[qid]) fileLists[qid].splice(idx, 1)
+  answers.value[qid] = fileLists[qid]?.length ? fileLists[qid].map(f => f.name) : ''
+}
+function pickLocation(qid: string) {
+  if (!navigator.geolocation) { ElMessage.warning('浏览器不支持定位'); return }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { answers.value[qid] = `${pos.coords.latitude},${pos.coords.longitude}` },
+    () => { ElMessage.warning('定位失败，请检查权限设置') },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
+
+function initSigCanvas(id: string) {
+  const c = sigCanvasMap[id]
+  if (!c) return
+  if (c.offsetWidth && c.offsetWidth !== c.width) c.setAttribute('width', String(c.offsetWidth))
+  if (c.offsetHeight && c.offsetHeight !== c.height) c.setAttribute('height', String(c.offsetHeight))
+  const ctx = c.getContext('2d')
+  if (ctx) { ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.lineCap = 'round' }
+}
+function sigPos(e: MouseEvent | Touch, c: HTMLCanvasElement) {
+  const rect = c.getBoundingClientRect()
+  return {
+    x: (e.clientX - rect.left) * (c.width / rect.width),
+    y: (e.clientY - rect.top) * (c.height / rect.height)
+  }
+}
+function sigStart(e: MouseEvent | Touch, id: string) {
+  const c = sigCanvasMap[id]
+  if (!c) return
+  const p = sigPos(e, c)
+  sigCurId.value = id
+  sigDrawing.value = true
+  const ctx = c.getContext('2d')
+  if (ctx) { ctx.beginPath(); ctx.moveTo(p.x, p.y) }
+}
+function sigMove(e: MouseEvent | Touch, id: string) {
+  if (!sigDrawing.value || sigCurId.value !== id) return
+  const c = sigCanvasMap[id]
+  if (!c) return
+  const p = sigPos(e, c)
+  const ctx = c.getContext('2d')
+  if (ctx) { ctx.lineTo(p.x, p.y); ctx.stroke() }
+}
+function sigEnd() {
+  sigDrawing.value = false
+  const id = sigCurId.value
+  sigCurId.value = ''
+  if (!id) return
+  const c = sigCanvasMap[id]
+  if (!c) return
+  answers.value[id] = c.toDataURL()
+}
+function sigTouchStart(e: TouchEvent, id: string) {
+  if (e.touches[0]) sigStart(e.touches[0], id)
+}
+function sigTouchMove(e: TouchEvent, id: string) {
+  if (e.touches[0]) sigMove(e.touches[0], id)
+}
+function clearSignature(id: string) {
+  const c = sigCanvasMap[id]
+  if (!c) return
+  const ctx = c.getContext('2d')
+  if (ctx) ctx.clearRect(0, 0, c.width, c.height)
+  answers.value[id] = ''
+}
+
+function openScanner(qid: string) {
+  scanQid.value = qid
+  showScanner.value = true
+}
+function onScannerOpen() {
+  if (!scannerRef.value) return
+  scanner = new Html5Qrcode('scanner-ref-fallback')
+  scannerRef.value.id = 'scanner-ref-fallback'
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      if (scanQid.value) answers.value[scanQid.value] = decodedText
+      showScanner.value = false
+    },
+    () => {}
+  ).catch(() => {})
+}
+function onScannerClose() {
+  if (scanner) {
+    scanner.stop().catch(() => {})
+    scanner = null
+  }
+}
+
+async function load() {
+  const id = route.params.id
+  if (!id) { error.value = '参数错误'; loading.value = false; return }
+  // 从 localStorage 恢复 session，刷新时不丢失
+  session.value = localStorage.getItem('exam_session_' + id) || ''
+  try {
+    const res = await apiGet(`/exam/view?id=${id}&session=${session.value}`)
+    if (res.code !== 0) { error.value = res.msg || '加载失败'; loading.value = false; return }
+    exam.value = res.data
+    if (res.data?.settings && typeof res.data.settings === 'string') {
+      try { settings.value = JSON.parse(res.data.settings) } catch { settings.value = {} }
+    } else {
+      settings.value = res.data?.settings || {}
+    }
+    // 更新 session（首次获取或后端重用时）
+    if (res.data?.session) {
+      session.value = res.data.session
+      localStorage.setItem('exam_session_' + id, session.value)
+    }
+    // 保存后端记录的作答开始时间
+    if (res.data?.startAt) {
+      startAt.value = res.data.startAt
+    }
+    if (settings.value.loginRequired) {
+      const token = localStorage.getItem('user_token')
+      if (!token) {
+        showLogin.value = true
+        loading.value = false
+        return
+      }
+    }
+    const raw = res.data?.schema
+    const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
+    questions.value = sch.questions || []
+    const init: any = {}
+    questions.value.forEach((q: any) => {
+      init[q.id] = getInitVal(q)
+    })
+    answers.value = init
+    // 自动暂存恢复
+    const draft = loadDraft()
+    if (draft && draft.answers) {
+      for (const key of Object.keys(draft.answers)) {
+        if (key in answers.value) {
+          answers.value[key] = draft.answers[key]
+        }
+      }
+    }
+    await nextTick()
+    questions.value.filter((q: any) => q.type === 'signature').forEach((q: any) => initSigCanvas(q.id))
+  } catch { error.value = '加载失败' }
+  finally { loading.value = false }
+  startCountdown()
+}
+
+function formatRemaining(ms: number) {
+  if (ms <= 0) return '已超时'
+  const t = Math.ceil(ms / 1000)
+  const m = Math.floor(t / 60)
+  const s = t % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function startCountdown() {
+  stopCountdown()
+  const limit = settings.value.timeLimit
+  if (!limit || limit <= 0 || !startAt.value) return
+  const tick = () => {
+    const elapsed = Date.now() - startAt.value
+    const left = limit * 60 * 1000 - elapsed
+    remaining.value = Math.max(0, left)
+    if (left <= 0) {
+      stopCountdown()
+      ElMessage.warning('作答时间已到，自动提交')
+      onSubmit(true)
+    }
+  }
+  tick()
+  countdownTimer = setInterval(tick, 1000)
+}
+
+function stopCountdown() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
+}
+
+async function onSubmit(skipConfirm = false) {
+  const id = Number(route.params.id)
+  try {
+    const vr = await apiPost('/exam/validate', { examId: id, answers: answers.value })
+    if (vr.data && !vr.data.ok) {
+      const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
+      ElMessage.warning(msgs || '请检查填写内容')
+      return
+    }
+  } catch {}
+
+  if (skipConfirm) {
+    submitting.value = true
+    try {
+      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value })
+      if (res.code !== 0) {
+        ElMessage.error(res.msg || '提交失败')
+      } else {
+        ElMessage.success('已提交')
+        stopCountdown()
+        clearDraft()
+        localStorage.removeItem('exam_session_' + id)
+        exam.value = null
+        questions.value = []
+      }
+    } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
+    finally { submitting.value = false }
+    return
+  }
+
+  ElMessageBox.confirm('确认提交？提交后不可修改', '提示', { type: 'info' }).then(async () => {
+    submitting.value = true
+    try {
+      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value })
+      if (res.code !== 0) {
+        ElMessage.error(res.msg || '提交失败')
+      } else {
+        ElMessage.success('已提交')
+        stopCountdown()
+        clearDraft()
+        localStorage.removeItem('exam_session_' + id)
+        exam.value = null
+        questions.value = []
+      }
+    } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
+    finally { submitting.value = false }
+  }).catch(() => {})
+}
+
+onMounted(load)
+
+watch(answers, () => { scheduleDraft() }, { deep: true })
+watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
+watch(() => settings.value.timeLimit, () => { startCountdown() })
+
+onUnmounted(() => {
+  if (draftTimer) clearTimeout(draftTimer)
+  stopCountdown()
+})
+</script>
+
+<style scoped>
+.fill-page { min-height:100vh; background:#f5f6f8; padding:40px 0; }
+.fill-page:has(.fill-progress-bar) { padding-top:64px; }
+.fill-header-img { width:100%; overflow:hidden; line-height:0; border-radius:12px 12px 0 0; }
+.fill-header-img img { width:100%; max-height:240px; object-fit:cover; display:block; }
+.fill-container { max-width:800px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
+.loading, .error { text-align:center; padding:100px 0; color:#999; font-size:16px; }
+.login-wrapper { max-width:800px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
+.header { padding:32px 36px 20px; }
+.header h1 { font-size:24px; font-weight:600; color:#1a1a1a; margin:0 0 8px; }
+.header .desc { font-size:14px; color:#666; line-height:1.6; margin:0 0 12px; }
+.header .meta { display:flex; gap:8px; }
+.q-list { display:flex; flex-direction:column; gap:12px; }
+.q-item { padding:24px 28px; }
+
+.q-title { font-size:15px; color:#333; margin-bottom:16px; font-weight:500; word-break:break-word; }
+.q-num { color:#409eff; font-weight:600; }
+.q-text { word-break:break-word; }
+.q-text :deep(p), .q-text :deep(div), .q-text :deep(h1), .q-text :deep(h2), .q-text :deep(h3), .q-text :deep(h4), .q-text :deep(h5), .q-text :deep(h6), .q-text :deep(blockquote), .q-text :deep(ul), .q-text :deep(ol), .q-text :deep(li) { display:inline; }
+.q-req { color:#f56c6c; margin-left:2px; }
+
+.preview-body { width:100%; min-height:28px; }
+.preview-body .el-input,
+.preview-body .el-select,
+.preview-body .el-date-editor,
+.preview-body .el-cascader,
+.preview-body .el-input-number { width:100%; }
+.field-vertical { display:flex; flex-direction:column; gap:4px; width:100%; }
+.field-horizontal { display:flex; flex-wrap:wrap; gap:4px; width:100%; }
+.field-horizontal .el-input { flex:1; min-width:120px; }
+
+.preview-options { display:flex; flex-direction:column; gap:4px; width:100%; }
+.preview-radio-group,
+.preview-checkbox-group { gap:4px; align-items:flex-start; text-align:left; }
+.preview-plain { font-size:13px; color:#606266; white-space:pre-wrap; word-break:break-word; }
+
+.preview-nps { padding:4px 0; }
+.preview-nps .nps-labels { display:flex; justify-content:space-between; font-size:12px; color:#909399; margin-bottom:2px; }
+
+.preview-matrix { border:1px solid #d0d0d0; border-radius:6px; overflow-x:auto; }
+.preview-matrix table { width:100%; border-collapse:collapse; font-size:13px; }
+.preview-matrix th,
+.preview-matrix td { border:1px solid #e0e0e0; padding:6px 10px; text-align:center; }
+.preview-matrix th { background:#f0f2f5; font-weight:500; color:#303133; }
+.preview-matrix .corner { background:#f0f2f5; color:#909399; font-size:12px; }
+.preview-matrix .matrix-label { background:#fafafa; font-weight:500; text-align:center; min-width:60px; white-space:nowrap; }
+
+.file-upload-placeholder { border:1px dashed #d9d9d9; border-radius:6px; padding:12px; text-align:center; color:#999; margin:4px 0; }
+.file-upload-placeholder svg { display:block; margin:0 auto 4px; }
+.file-upload-placeholder span { font-size:13px; }
+.file-upload-wrap { border:1px dashed #d9d9d9; border-radius:6px; padding:12px; }
+.file-list { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+.file-item { display:flex; align-items:center; gap:6px; font-size:13px; padding:2px 0; }
+.file-name { color:#303133; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.location-result { font-size:13px; color:#409eff; }
+
+.signature-pad-wrap { width:100%; }
+.sig-canvas { border:1px dashed #d9d9d9; border-radius:6px; width:100%; height:120px; cursor:crosshair; }
+.scan-code-input :deep(.el-input__wrapper) { width:100%; }
+.preview-body :deep(.el-select-dropdown__item) { height:auto; min-height:28px; padding:4px 10px; white-space:normal; line-height:1.3; }
+
+.footer { text-align:center; padding:24px 0; }
+.q-list-single { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+.q-item-scroll { flex:1; overflow-y:auto; padding:24px 28px; }
+.nav-buttons { display:flex; align-items:center; justify-content:center; gap:16px; padding:12px 28px; background:#fff; border-top:1px solid #f0f0f0; flex-shrink:0; }
+.nav-index { font-size:13px; color:#909399; }
+
+.fill-container:has(.q-list-single) { display:flex; flex-direction:column; height:calc(100vh - 80px); max-height:calc(100vh - 80px); }
+.fill-page:has(.fill-progress-bar) .fill-container:has(.q-list-single) { height:calc(100vh - 104px); max-height:calc(100vh - 104px); }
+
+.answer-sheet { position:fixed; right:24px; top:50%; z-index:900; width:100px; background:#fff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.1); padding:12px; max-height:70vh; display:flex; flex-direction:column; user-select:none; }
+.answer-sheet-title { font-size:13px; font-weight:600; color:#333; text-align:center; margin-bottom:8px; cursor:grab; }
+.answer-sheet-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; overflow-y:auto; flex:1; }
+.answer-sheet-item { display:flex; align-items:center; justify-content:center; height:28px; border-radius:4px; cursor:pointer; font-size:12px; color:#606266; background:#f5f6f8; transition:all .15s; }
+.answer-sheet-item:hover { background:#e0e2e6; }
+.answer-sheet-done { background:#ecf5ff; color:#409eff; }
+.answer-sheet-cur { border:2px solid #409eff; font-weight:600; }
+.answer-sheet-stat { text-align:center; font-size:12px; color:#909399; padding-top:6px; border-top:1px solid #f0f0f0; margin-top:6px; }
+.fill-progress-bar { position:fixed; top:0; left:0; right:0; z-index:1000; background:#fff; border-bottom:1px solid #eee; padding:8px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.fill-progress-inner { max-width:800px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+.fill-progress-inner .el-progress { flex:1; }
+.fill-progress-text { font-size:13px; color:#909399; white-space:nowrap; }
+</style>

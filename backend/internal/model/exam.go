@@ -45,14 +45,24 @@ func (ExamPaper) TableName() string { return "exam_paper" }
 type Exam struct {
 	ID           uint   `gorm:"primaryKey;column:exam_id" json:"id"`
 	Title        string `gorm:"column:exam_title;size:255" json:"title"`
+	Description  string `gorm:"column:exam_desc;type:text" json:"description"`
+	Category     string `gorm:"column:exam_category;size:64" json:"category"`
+	Tags         string `gorm:"column:exam_tags;size:255" json:"tags"`
+	Visibility   int    `gorm:"column:exam_visibility;default:0" json:"visibility"`
+	AllowMulti   int    `gorm:"column:exam_allow_multi;default:0" json:"allowMulti"`
+	Anonymous    int    `gorm:"column:exam_anonymous;default:0" json:"anonymous"`
+	ShowResult   int    `gorm:"column:exam_show_result;default:0" json:"showResult"`
 	PaperID      uint   `gorm:"column:exam_paper_id" json:"paperId"`
-	Schema       string `gorm:"column:exam_schema;type:text" json:"schema"`                     // 考试题目 schema (JSON)
-	Settings     string `gorm:"column:exam_settings;type:text" json:"settings"`                  // 扩展设置 (JSON)
-	StartTime    int64  `gorm:"column:exam_start_time" json:"startTime"`                        // 开始时间 (ms)
-	EndTime      int64  `gorm:"column:exam_end_time" json:"endTime"`                            // 结束时间 (ms)
-	Duration     int    `gorm:"column:exam_duration;default:60" json:"duration"`                 // 单人答题时长（分钟），0=不限
+	Schema       string `gorm:"column:exam_schema;type:text" json:"schema"`
+	Settings     string `gorm:"column:exam_settings;type:text" json:"settings"`
+	StartTime    int64  `gorm:"column:exam_start_time" json:"startTime"`
+	EndTime      int64  `gorm:"column:exam_end_time" json:"endTime"`
+	Duration     int    `gorm:"column:exam_duration;default:60" json:"duration"`
 	MaxAttempts  int    `gorm:"column:exam_max_attempts;default:1" json:"maxAttempts"`
-	ShowScore    int    `gorm:"column:exam_show_score;default:1" json:"showScore"`               // 1=交卷后立即显示分数
+	ShowScore    int    `gorm:"column:exam_show_score;default:1" json:"showScore"`
+	MaxResponse  int    `gorm:"column:exam_max_response;default:0" json:"maxResponse"`
+	DeptIds      string `gorm:"column:exam_dept_ids;size:512" json:"deptIds"`
+	Mode         string `gorm:"column:exam_mode;size:16;default:'exam'" json:"mode"`
 	PublishDepts string `gorm:"column:exam_publish_dept_ids;size:512" json:"publishDepts"`
 	QR           string `gorm:"column:exam_qr;size:512" json:"qr"`
 	Status       int    `gorm:"column:exam_status;default:1" json:"status"`

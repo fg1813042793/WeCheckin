@@ -14,7 +14,7 @@ import (
 
 var DB *gorm.DB
 
-func InitDatabase(host string, port int, user, password, dbname string) {
+func InitDatabase(host string, port int, user, password, dbname string, enableExam bool) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		user, password, host, port, dbname)
 
@@ -71,7 +71,7 @@ func InitDatabase(host string, port int, user, password, dbname string) {
 
 	log.Println("Database initialized successfully")
 	migrateExamMenus()
-	seedMenus()
+	seedMenus(enableExam)
 	seedSetups()
 }
 
@@ -128,7 +128,7 @@ func seedSetups() {
 	}
 }
 
-func seedMenus() {
+func seedMenus(enableExam bool) {
 	type menuDef struct {
 		Name   string
 		Path   string
@@ -157,9 +157,6 @@ func seedMenus() {
 		{Name: "问卷管理", Path: "/survey", Parent: "/survey", Sort: 1, Type: 1},
 		{Name: "答卷管理", Path: "/survey/responses", Parent: "/survey", Sort: 2, Type: 1},
 		{Name: "问卷统计", Path: "/survey/statistic", Parent: "/survey", Sort: 3, Type: 1},
-		// Online exam (independent subsystem, separated from survey)
-		{Name: "在线考试", Path: "/exam", Perms: "exam:list,exam:add,exam:edit,exam:del", Icon: "EditPen", Sort: 15, Type: 0},
-		{Name: "考试管理", Path: "/exam/list", Parent: "/exam", Sort: 1, Type: 1},
 		// Button permissions for each module (children of the corresponding parent menu)
 		{Name: "用户列表", Perms: "user:list", Parent: "/user", Sort: 1, Type: 2},
 		{Name: "用户新增", Perms: "user:add", Parent: "/user", Sort: 2, Type: 2},
@@ -222,11 +219,17 @@ func seedMenus() {
 		{Name: "答卷列表", Perms: "response:list", Parent: "/survey", Sort: 7, Type: 2},
 		{Name: "答卷删除", Perms: "response:del", Parent: "/survey", Sort: 8, Type: 2},
 		{Name: "导出答卷", Perms: "response:export", Parent: "/survey", Sort: 9, Type: 2},
-		// Exam buttons
-		{Name: "考试列表", Perms: "exam:list", Parent: "/exam", Sort: 1, Type: 2},
-		{Name: "考试新增", Perms: "exam:add", Parent: "/exam", Sort: 2, Type: 2},
-		{Name: "考试编辑", Perms: "exam:edit", Parent: "/exam", Sort: 3, Type: 2},
-		{Name: "考试删除", Perms: "exam:del", Parent: "/exam", Sort: 4, Type: 2},
+	}
+	if enableExam {
+		examDefs := []menuDef{
+			{Name: "在线考试", Path: "/exam", Perms: "exam:list,exam:add,exam:edit,exam:del", Icon: "EditPen", Sort: 15, Type: 0},
+			{Name: "考试管理", Path: "/exam/list", Parent: "/exam", Sort: 1, Type: 1},
+			{Name: "考试列表", Perms: "exam:list", Parent: "/exam", Sort: 1, Type: 2},
+			{Name: "考试新增", Perms: "exam:add", Parent: "/exam", Sort: 2, Type: 2},
+			{Name: "考试编辑", Perms: "exam:edit", Parent: "/exam", Sort: 3, Type: 2},
+			{Name: "考试删除", Perms: "exam:del", Parent: "/exam", Sort: 4, Type: 2},
+		}
+		defs = append(defs, examDefs...)
 	}
 	for _, d := range defs {
 		if d.Type == 2 {

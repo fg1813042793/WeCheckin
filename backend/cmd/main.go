@@ -55,6 +55,7 @@ import (
 
 func main() {
 	env := flag.String("env", "", "运行环境 (dev/prod)")
+	exam := flag.Bool("exam", false, "启用在线考试菜单")
 	flag.Parse()
 
 	cfg, err := config.LoadConfig(*env)
@@ -62,7 +63,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
+	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName, *exam)
 
 	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
 		logger.Logger.Printf("Warning: logger init: %v", err)
@@ -113,6 +114,7 @@ func main() {
 	aMenu := admin.NewAdminMenuHandler()
 	aSurvey := survey_api.NewAdminSurveyHandler()
 	aExam := exam_api.NewAdminExamHandler()
+	cExam := exam_api.NewClientExamHandler()
 
 	// ==================== Public routes (no auth) ====================
 	h.GET("/test/test", func(ctx context.Context, c *app.RequestContext) {
@@ -217,6 +219,12 @@ func main() {
 	surveyAuth.POST("/exam_submit", cSurvey.SubmitExam)
 	surveyAuth.GET("/exam_record", cSurvey.GetExamRecord)
 	surveyAuth.GET("/exam_my_records", cSurvey.MyExamRecords)
+
+	// Exam 公共接口 — 独立于 survey
+	examPub := h.Group("/exam")
+	examPub.GET("/view", cExam.View)
+	examPub.POST("/submit", cExam.Submit)
+	examPub.POST("/validate", cExam.Validate)
 
 	// ==================== Admin login (no auth) ====================
 	h.POST("/admin/login", aMgr.AdminLogin)
@@ -398,7 +406,13 @@ func main() {
 	adminGroup.GET("/exam/list", aExam.List)
 	adminGroup.GET("/exam/detail", aExam.Detail)
 	adminGroup.POST("/exam/save", aExam.Save)
+	adminGroup.POST("/exam/status", aExam.Status)
 	adminGroup.POST("/exam/delete", aExam.Delete)
+	adminGroup.GET("/exam/record/list", aExam.RecordList)
+	adminGroup.GET("/exam/record/detail", aExam.RecordDetail)
+	adminGroup.POST("/exam/record/del", aExam.RecordDel)
+	adminGroup.POST("/exam/record/batch_del", aExam.RecordBatchDel)
+	adminGroup.GET("/exam/statistics", aExam.Statistics)
 
 	// ==================== File upload (public) ====================
 	uploadDir := "./uploads"

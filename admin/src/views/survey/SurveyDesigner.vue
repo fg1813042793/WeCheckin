@@ -2889,7 +2889,7 @@ async function load() {
     deptCheckedKeys.value = form.deptIds ? form.deptIds.split(',').map(Number).filter(Boolean) : []
     loadAdminTree()
     loadResources()
-    const rawSchema = res.data.schema
+    const rawSchema = res.data?.schema || ''
     if (rawSchema) {
       try {
         const sch = JSON.parse(rawSchema)
