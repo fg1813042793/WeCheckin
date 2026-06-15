@@ -131,6 +131,15 @@ func (h *AdminSurveyHandler) Insert(_ context.Context, c *app.RequestContext) {
 		response.Fail(c, "参数错误: "+err.Error())
 		return
 	}
+	if admin, ok := c.Get("admin"); ok {
+		if a, ok := admin.(*model.Admin); ok {
+			sv.CreateBy = a.ID
+			var adminDept model.AdminDept
+			if err := database.DB.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
+				sv.DeptID = adminDept.DeptID
+			}
+		}
+	}
 	if err := h.survey.Create(&sv); err != nil {
 		response.Fail(c, "创建失败: "+err.Error())
 		return
@@ -213,6 +222,15 @@ func (h *AdminSurveyHandler) Copy(_ context.Context, c *app.RequestContext) {
 	newSv.Status = 0
 	newSv.AddTime = now
 	newSv.EditTime = now
+	if admin, ok := c.Get("admin"); ok {
+		if a, ok := admin.(*model.Admin); ok {
+			newSv.CreateBy = a.ID
+			var adminDept model.AdminDept
+			if err := database.DB.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
+				newSv.DeptID = adminDept.DeptID
+			}
+		}
+	}
 	if err := database.DB.Create(&newSv).Error; err != nil {
 		response.Fail(c, "复制失败: "+err.Error())
 		return
@@ -654,6 +672,17 @@ func (h *AdminSurveyHandler) QuestionBankInsert(_ context.Context, c *app.Reques
 		response.Fail(c, "标题不能为空")
 		return
 	}
+	createBy := uint(0)
+	deptID := uint(0)
+	if admin, ok := c.Get("admin"); ok {
+		if a, ok := admin.(*model.Admin); ok {
+			createBy = a.ID
+			var adminDept model.AdminDept
+			if err := database.DB.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
+				deptID = adminDept.DeptID
+			}
+		}
+	}
 	q := model.SurveyQuestion{
 		Title:    r.Title,
 		Type:     r.Type,
@@ -661,6 +690,8 @@ func (h *AdminSurveyHandler) QuestionBankInsert(_ context.Context, c *app.Reques
 		Category: r.Category,
 		Tags:     r.Tags,
 		Status:   1,
+		DeptID:   deptID,
+		CreateBy: createBy,
 		AddTime:  database.Now(),
 	}
 	if err := database.DB.Create(&q).Error; err != nil {
@@ -706,4 +737,16 @@ func (h *AdminSurveyHandler) QuestionBankDel(_ context.Context, c *app.RequestCo
 		return
 	}
 	response.JSON(c, nil)
+}
+
+// QuestionBankCategories GET /admin/survey/question_bank_categories
+// 返回题库中所有已有的分类列表，用于前端下拉选择
+func (h *AdminSurveyHandler) QuestionBankCategories(_ context.Context, c *app.RequestContext) {
+	var categories []string
+	database.DB.Model(&model.SurveyQuestion{}).
+		Where("`survey_q_category` != '' AND `survey_q_category` IS NOT NULL").
+		Select("DISTINCT `survey_q_category`").
+		Order("`survey_q_category` ASC").
+		Pluck("`survey_q_category`", &categories)
+	response.JSON(c, categories)
 }

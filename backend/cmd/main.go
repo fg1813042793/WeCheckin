@@ -392,6 +392,7 @@ func main() {
 	adminGroup.POST("/survey/question_bank_insert", aSurvey.QuestionBankInsert)
 	adminGroup.POST("/survey/question_bank_edit", aSurvey.QuestionBankEdit)
 	adminGroup.POST("/survey/question_bank_del", aSurvey.QuestionBankDel)
+	adminGroup.GET("/survey/question_bank_categories", aSurvey.QuestionBankCategories)
 
 	// ==================== Exam 独立子系统（与 survey 完全分离）====================
 	adminGroup.GET("/exam/list", aExam.List)

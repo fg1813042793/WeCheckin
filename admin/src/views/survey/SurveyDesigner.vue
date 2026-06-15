@@ -82,13 +82,31 @@
                       <el-input v-model="bankKeyword" placeholder="搜索题目..." size="small" clearable @input="loadBank" />
                     </div>
                     <div class="bank-list">
-                      <div v-for="q in bankQuestions" :key="q.id" class="bank-item" @dblclick="addFromBank(q)">
-                        <question-icon :type="q.type" class="bank-icon" />
-                        <span class="bank-title">{{ q.title || '未命名' }}</span>
-                        <span class="bank-type">{{ q.type }}</span>
-                        <el-button size="small" text type="primary" @click.stop="addFromBank(q)">+添加</el-button>
-                      </div>
-                      <el-empty v-if="!bankQuestions.length && !bankLoading" description="题库暂无题目" :image-size="40" />
+                      <template v-if="bankTree.length">
+                        <div v-for="cat in bankTree" :key="cat.label" class="bank-cat">
+                          <div class="bank-cat-title" @click="toggleBankExpand(`cat:${cat.label}`)">
+                            <span class="bank-arrow">{{ cat._expanded ? '▼' : '▶' }}</span>
+                            {{ cat.label || '未分类' }}
+                            <span class="bank-count">{{ cat.children.length }} 题</span>
+                          </div>
+                          <div v-show="cat._expanded" class="bank-cat-body">
+                            <div v-for="grp in cat.children" :key="grp.label" class="bank-type-group">
+                              <div class="bank-type-title" @click="toggleBankExpand(`type:${cat.label}|${grp.label}`)">
+                                <span class="bank-arrow">{{ grp._expanded ? '▼' : '▶' }}</span>
+                                {{ typeName(grp.label) }}
+                                <span class="bank-count">{{ grp.children.length }} 题</span>
+                              </div>
+                              <div v-show="grp._expanded" class="bank-type-body">
+                                <div v-for="q in grp.children" :key="q.id" class="bank-item" @click="addFromBank(q)">
+                                  <question-icon :type="q.type" class="bank-icon" />
+                                  <span class="bank-title">{{ q.title || '未命名' }}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                      <el-empty v-if="!bankTree.length && !bankLoading" description="题库暂无题目" :image-size="40" />
                       <div v-if="bankLoading" class="bank-loading">加载中...</div>
                     </div>
                   </div>
@@ -337,8 +355,13 @@
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="文本导入" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn">
+                  <el-button text size="small" class="toolbar-btn" @click="openTextImport">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="导出问卷" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" @click="exportSurvey">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   </el-button>
                 </el-tooltip>
               </el-button-group>
@@ -385,7 +408,7 @@
 
                 <!-- 题目列表 -->
                 <div class="questions-area" @click.self="deselectQuestion">
-                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" />
+                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" @upload-bank="onUploadBank" />
                 </div>
 
                 <!-- 底部 -->
@@ -1020,20 +1043,22 @@
               <el-empty description="暂无数据" :image-size="50" />
             </div>
             <div v-else style="padding:12px;max-width:600px;margin:0 auto">
-              <div v-for="(fs, qi) in reportData.fieldStats" :key="fs.questionId" style="margin-bottom:16px;border:1px solid #eee;border-radius:6px;padding:12px">
+              <div v-for="(fs, qi) in (reportData.fieldStats||[])" :key="fs?.questionId||qi" style="margin-bottom:16px;border:1px solid #eee;border-radius:6px;padding:12px">
+                <template v-if="fs && fs.totalCount > 0 && fs.dist">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                   <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">{{ qi+1 }}. {{ firstLine(stripHtml(fs.title)) }}</span>
-                  <span v-if="fs.totalCount > 0 && fs.dist" class="chart-type-btns">
+                  <span class="chart-type-btns">
                     <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='bar' }" @click="chartTypes[fs.questionId]='bar'" title="条形图">≡</button>
                     <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='column' }" @click="chartTypes[fs.questionId]='column'" title="柱形图">▯</button>
                     <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='pie' }" @click="chartTypes[fs.questionId]='pie'" title="扇形图">◯</button>
                   </span>
                 </div>
-                <template v-if="fs.totalCount > 0 && fs.dist">
                   <div v-if="(chartTypes[fs.questionId]||'bar')==='bar'" style="display:flex;flex-direction:column;gap:4px">
-                    <div v-for="(cnt, label) in fs.dist" :key="label" style="display:flex;align-items:center;gap:8px">
+                    <div v-for="(cnt, label) in (fs.dist||{})" :key="label" style="display:flex;align-items:center;gap:8px">
                       <span style="font-size:12px;width:100px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ label || '(空)' }}</span>
-                      <el-progress :percentage="Math.round(cnt/fs.totalCount*100)" :stroke-width="12" style="flex:1" />
+                      <div v-if="fs.totalCount > 0" style="flex:1;height:12px;background:#e8e8e8;border-radius:6px;overflow:hidden">
+                        <div :style="{ width: Math.max(Math.round((cnt??0)/fs.totalCount*100),0) + '%', height: '100%', background: '#409eff', borderRadius: '6px', transition: 'width .3s' }"></div>
+                      </div>
                       <span style="font-size:11px;color:#999;width:60px;text-align:right">{{ cnt }} / {{ fs.totalCount }}</span>
                     </div>
                   </div>
@@ -1060,6 +1085,17 @@
                         <span style="color:#999">{{ Math.round(Number(cnt)/fs.totalCount*100) }}%</span>
                       </div>
                     </div>
+                  </div>
+                </template>
+                <template v-else-if="fs && fs.tableData?.length">
+                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">{{ qi+1 }}. {{ firstLine(stripHtml(fs.title)) }}</div>
+                  <div style="max-height:200px;overflow:auto">
+                    <el-table :data="fs.tableData" border size="small" style="width:100%">
+                      <el-table-column type="index" label="#" width="40" fixed />
+                      <el-table-column v-for="(col, ci) in (fs.tableCols||['回答'])" :key="ci" :label="col" min-width="100">
+                        <template #default="{ row }">{{ stripHtml(row[ci] ?? '') }}</template>
+                      </el-table-column>
+                    </el-table>
                   </div>
                 </template>
                 <div v-else-if="fs.numericStat" style="font-size:12px;color:#606266;line-height:2">
@@ -1187,6 +1223,57 @@
           <el-button type="primary" @click="confirmFormula">确定</el-button>
         </template>
       </el-dialog>
+
+      <!-- 上传题库弹窗 -->
+      <el-dialog v-model="bankDialog.visible" title="上传到题库" width="420px" :close-on-click-modal="false">
+        <el-form label-position="top" size="small">
+          <el-form-item label="题库分类">
+            <el-select v-model="bankDialog.category" placeholder="选择或输入分类" filterable allow-create clearable style="width:100%">
+              <el-option v-for="cat in bankCategories" :key="cat" :label="cat" :value="cat" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="标签">
+            <el-input v-model="bankDialog.tags" placeholder="用逗号分隔" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="bankDialog.visible=false">取消</el-button>
+          <el-button type="primary" :loading="bankDialog.saving" @click="confirmUploadBank">上传</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 文本导入弹窗 -->
+      <el-dialog v-model="textImport.visible" title="文本导入" width="600px" :close-on-click-modal="false" @closed="textImport.text=''">
+        <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center">
+          <el-radio-group v-model="textImport.mode" size="small">
+            <el-radio-button value="paste">粘贴文本</el-radio-button>
+            <el-radio-button value="file">上传文件</el-radio-button>
+          </el-radio-group>
+          <el-tag type="info" style="font-size:11px">每行一个题目，选项用 A. B. C. 开头</el-tag>
+        </div>
+        <div v-if="textImport.mode==='paste'">
+          <el-input v-model="textImport.text" type="textarea" :rows="12" placeholder="粘贴题目文本&#10;&#10;格式示例：&#10;1. 您最喜欢的颜色？&#10;A. 红色&#10;B. 蓝色&#10;C. 绿色&#10;&#10;2. 您的姓名&#10;&#10;3. [多选题] 您的爱好&#10;A. 阅读&#10;B. 运动&#10;C. 音乐" />
+        </div>
+        <div v-else>
+          <el-upload drag :auto-upload="false" :show-file-list="false" :on-change="onTextFileChange" accept=".txt,.docx,.md">
+            <el-icon style="font-size:40px;margin-bottom:8px"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></el-icon>
+            <div style="font-size:13px;color:#666">拖拽或点击选择 .txt / .docx 文件</div>
+          </el-upload>
+          <div v-if="textImport.text" style="margin-top:8px;font-size:12px;color:#999">已解析 {{ textImport.text.split('\n').filter(l=>l.trim()).length }} 行</div>
+        </div>
+        <div v-if="textImport.preview.length" style="margin-top:12px;border:1px solid #e8e8e8;border-radius:6px;padding:8px;max-height:200px;overflow-y:auto">
+          <div style="font-size:12px;color:#666;margin-bottom:4px">预览（{{ textImport.preview.length }} 题）：</div>
+          <div v-if="textImport.surveyTitle" style="font-size:13px;font-weight:bold;padding:2px 0 6px;border-bottom:1px dashed #eee;margin-bottom:4px">{{ textImport.surveyTitle }}</div>
+          <div v-for="(q, i) in textImport.preview" :key="i" style="font-size:12px;padding:2px 0;display:flex;gap:6px">
+            <el-tag size="small" style="flex-shrink:0">{{ typeName(q.type) }}</el-tag>
+            <span style="color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ stripHtmlTag(q.title) }}</span>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="textImport.visible=false">取消</el-button>
+          <el-button type="primary" :disabled="!textImport.parsed.length" :loading="textImport.importing" @click="confirmTextImport">导入 {{ textImport.parsed.length }} 题</el-button>
+        </template>
+      </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -1239,6 +1326,334 @@ const bankQuestions = ref<any[]>([])
 const bankLoading = ref(false)
 let bankTimer: any = null
 
+const bankCategories = ref<string[]>([])
+
+const bankTree = computed(() => {
+  const map: Record<string, Record<string, any[]>> = {}
+  bankQuestions.value.forEach((q: any) => {
+    const cat = q.category || ''
+    const type = q.type || ''
+    if (!map[cat]) map[cat] = {}
+    if (!map[cat][type]) map[cat][type] = []
+    map[cat][type].push(q)
+  })
+  return Object.entries(map).map(([cat, types]) => ({
+    label: cat || '未分类',
+    _expanded: bankExpanded.value[`cat:${cat}`] ?? false,
+    children: Object.entries(types).map(([type, items]) => ({
+      label: type,
+      _expanded: bankExpanded.value[`type:${cat}|${type}`] ?? false,
+      children: items
+    }))
+  }))
+})
+
+const bankExpanded = ref<Record<string, boolean>>({})
+function toggleBankExpand(key: string) {
+  bankExpanded.value[key] = !bankExpanded.value[key]
+}
+
+const bankDialog = reactive({
+  visible: false,
+  qid: '',
+  category: '',
+  tags: '',
+  saving: false
+})
+
+const textImport = reactive({
+  visible: false,
+  mode: 'paste' as 'paste' | 'file',
+  text: '',
+  parsed: [] as any[],
+  preview: [] as any[],
+  importing: false,
+  surveyTitle: ''
+})
+
+watch(() => textImport.text, (val) => {
+  if (textImport.mode === 'paste' && val) {
+    const result = parseTextToQuestions(val)
+    textImport.surveyTitle = result.title
+    textImport.parsed = result.questions
+    textImport.preview = textImport.parsed.slice(0, 20)
+  } else if (!val) {
+    textImport.parsed = []
+    textImport.preview = []
+    textImport.surveyTitle = ''
+  }
+})
+
+watch(() => textImport.mode, () => {
+  textImport.parsed = []
+  textImport.preview = []
+})
+
+function stripHtmlTag(html: string) {
+  return html.replace(/<[^>]*>/g, '')
+}
+
+function parseTextToQuestions(text: string) {
+  const lines = text.split('\n')
+  const questions: any[] = []
+  let current: any = null
+  let surveyTitle = ''
+  let lineIdx = 0
+  // 跳过首行（问卷标题）和 === 下划线
+  const trimmed = lines.map(l => l.trim()).filter(l => l.length > 0)
+  if (trimmed.length >= 2 && /^[=\-~]{3,}$/.test(trimmed[1])) {
+    surveyTitle = trimmed[0]
+    // 过滤掉原始行中的标题两行
+    const nonEmptyIdx = lines.reduce<number[]>((acc, l, i) => { if (l.trim()) acc.push(i); return acc }, [])
+    if (nonEmptyIdx.length >= 2 && nonEmptyIdx[0] + 1 === nonEmptyIdx[1] && /^[=\-~]{3,}$/.test(lines[nonEmptyIdx[1]].trim())) {
+      lineIdx = 2 // skip title
+    }
+  }
+
+  const typeMap: Record<string, string> = {
+    '单选': 'radio', '单选择': 'radio', '单选题': 'radio',
+    '多选': 'checkbox', '多选题': 'checkbox', '多选择': 'checkbox',
+    '下拉': 'select', '下拉选择': 'select', '下拉框': 'select',
+    '选择器': 'picker', 'picker': 'picker',
+    '级联选择': 'cascade', '级联': 'cascade', 'cascade': 'cascade',
+    '判断': 'judge', '判断题': 'judge',
+    '上传文件': 'file', '文件上传': 'file', '图片上传': 'file', '文件': 'file',
+    '单行文本': 'input', '文本': 'input',
+    '多行': 'textarea', '多行文本': 'textarea', 'textarea': 'textarea',
+    '数字': 'number',
+    '多项填空': 'multiInput', 'multiInput': 'multiInput',
+    '横向填空': 'hInput', 'hInput': 'hInput',
+    '签名': 'signature', 'signature': 'signature',
+    '扫码': 'scanCode', 'scanCode': 'scanCode',
+    '评分': 'rating', 'rating': 'rating',
+    'NPS评分': 'nps', 'nps': 'nps', 'NPS': 'nps',
+    '手机': 'phone', '手机号': 'phone', 'phone': 'phone',
+    '邮箱': 'email', 'email': 'email',
+    '身份证': 'idCard', '身份证号': 'idCard', 'idCard': 'idCard',
+    '密码': 'password', 'password': 'password',
+    '开关': 'switch', 'switch': 'switch',
+    '地理位置': 'location', '位置': 'location', '打卡': 'location', 'location': 'location',
+    '日期': 'date', 'date': 'date',
+    '时间': 'time', 'time': 'time',
+    '日期范围': 'dateRange', 'dateRange': 'dateRange',
+    '矩阵单选': 'matrixRadio', 'matrixRadio': 'matrixRadio',
+    '矩阵多选': 'matrixCheckbox', 'matrixCheckbox': 'matrixCheckbox',
+    '矩阵填空': 'matrixFillBlank', 'matrixFillBlank': 'matrixFillBlank',
+    '表格自增': 'matrixAuto', '矩阵自增': 'matrixAuto', 'matrixAuto': 'matrixAuto',
+    '成员': 'user', '人员': 'user', 'user': 'user',
+    '部门': 'dept', 'dept': 'dept',
+    '富文本': 'richText', 'richText': 'richText',
+    '自动填充': 'autopop', 'autopop': 'autopop',
+    '自动获取': 'autopop',
+  }
+
+  for (const raw of lines) {
+    if (lineIdx > 0) { lineIdx--; continue }
+    const line = raw.trim()
+    if (!line) {
+      if (current && current.title) { questions.push(current); current = null }
+      continue
+    }
+    // 检测选项行
+    const optMatch = line.match(/^([A-Za-z])[.、）)]\s*(.*)/)
+    if (optMatch) {
+      if (!current) current = { type: 'radio', title: '', options: [], rows: [], columns: [], fields: [] }
+      if (!current.options) current.options = []
+      const label = stripHtmlTag(optMatch[2])
+      if (label) {
+        current.options.push({ label, value: optMatch[1] })
+        if (current.type === 'input') current.type = 'radio'
+      }
+      continue
+    }
+    // 检测矩阵行/列/字段
+    const rowMatch = line.match(/^行[:：]\s*(.+)/)
+    const colMatch = line.match(/^列[:：]\s*(.+)/)
+    const fieldMatch = line.match(/^字段[:：]\s*(.+)/)
+    if (rowMatch || colMatch || fieldMatch) {
+      if (!current) current = { type: 'input', title: '', options: [], rows: [], columns: [], fields: [] }
+      if (!current.rows) current.rows = []
+      if (!current.columns) current.columns = []
+      if (!current.fields) current.fields = []
+      if (rowMatch) {
+        current.rows = rowMatch[1].split('/').map((s: string) => ({ title: s.trim() }))
+      }
+      if (colMatch) {
+        current.columns = colMatch[1].split('/').map((s: string) => ({ title: s.trim() }))
+      }
+      if (fieldMatch) {
+        current.fields = fieldMatch[1].split('/').map((s: string) => ({ label: s.trim(), placeholder: '' }))
+      }
+      continue
+    }
+    // 新题目
+    if (current && current.title) { questions.push(current) }
+    // 检测类型标记 [类型名]
+    const typeMatch = line.match(/^\d*[.、）)]?\s*\[(.+?)\]\s*(.*)/)
+    if (typeMatch) {
+      const typeName2 = typeMatch[1].trim()
+      const rawTitle = typeMatch[2]
+      const mappedType = typeMap[typeName2] || 'input'
+      let qTitle = stripHtmlTag(rawTitle)
+      if (!qTitle) {
+        qTitle = stripHtmlTag(line.replace(/^\d*[.、）)]?\s*/, '').replace(/\[.*?\]/, '').trim())
+      }
+      current = { type: mappedType, title: qTitle, options: [], rows: [], columns: [], fields: [] }
+      if (mappedType === 'judge') {
+        current.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
+      }
+    } else {
+      // 去掉序号前缀
+      const title = stripHtmlTag(line.replace(/^\d+[.、）)]?\s*/, ''))
+      current = { type: 'input', title, options: [], rows: [], columns: [], fields: [] }
+    }
+  }
+  if (current && current.title) questions.push(current)
+  // 没有选项的改为 input；有选项的修正类型
+  questions.forEach(q => {
+    const needsOptions = ['radio', 'checkbox', 'select', 'picker', 'cascade', 'user', 'dept']
+    if (q.options && q.options.length > 0) {
+      if (q.type === 'input') q.type = 'radio'
+    } else if (needsOptions.includes(q.type)) {
+      q.type = 'input'
+      q.options = []
+    }
+  })
+  return { title: surveyTitle, questions }
+}
+
+async function onTextFileChange(file: any) {
+  const f = file.raw || file
+  if (!f) return
+  if (f.name.endsWith('.docx')) {
+    try {
+      const lib = 'mamm' + 'oth'
+      const mammothMod = await import(/* @vite-ignore */ lib)
+      const m = (mammothMod.default || mammothMod) as any
+      const buf = await f.arrayBuffer()
+      const result = await m.extractRawText({ arrayBuffer: buf })
+      textImport.text = result.value
+    } catch {
+      ElMessage.error('Word 文件解析失败，请先安装 mammoth: npm install mammoth')
+      return
+    }
+  } else {
+    textImport.text = await f.text()
+  }
+  const result = parseTextToQuestions(textImport.text)
+  textImport.surveyTitle = result.title
+  textImport.parsed = result.questions
+  textImport.preview = textImport.parsed.slice(0, 20)
+}
+
+function confirmTextImport() {
+  if (!textImport.parsed.length) return
+  textImport.importing = true
+  try {
+    if (textImport.surveyTitle) {
+      form.title = textImport.surveyTitle
+    }
+    textImport.parsed.forEach((q: any) => {
+      const newQ: any = {
+        id: genId(),
+        type: q.type,
+        title: q.title,
+        required: false,
+        readOnly: false,
+        dataType: '',
+        placeholder: '',
+        mediaType: '',
+        mediaUrl: '',
+        mediaWidth: '',
+        mediaAlign: 'center',
+        showDescription: true,
+        props: {}
+      }
+      if (['radio', 'checkbox', 'select', 'picker', 'cascade'].includes(q.type) && q.options?.length) {
+        newQ.props.options = q.options
+      }
+      if (q.type === 'judge') {
+        newQ.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
+      }
+      if (['matrixRadio', 'matrixCheckbox', 'matrixFillBlank'].includes(q.type)) {
+        if (q.rows?.length) newQ.props.rows = q.rows
+        if (q.columns?.length) newQ.props.columns = q.columns
+      }
+      if (q.type === 'matrixAuto') {
+        if (q.columns?.length) newQ.props.columns = q.columns
+      }
+      if (q.type === 'multiInput' || q.type === 'hInput') {
+        if (q.fields?.length) newQ.props.fields = q.fields
+      }
+      questions.value.push(newQ)
+      selected.value = newQ
+    })
+    ElMessage.success(`成功导入 ${textImport.parsed.length} 题`)
+    textImport.visible = false
+  } finally {
+    textImport.importing = false
+  }
+}
+
+function openTextImport() {
+  textImport.visible = true
+  textImport.text = ''
+  textImport.parsed = []
+  textImport.preview = []
+  textImport.mode = 'paste'
+  textImport.surveyTitle = ''
+}
+
+function surveyToText() {
+  const lines: string[] = []
+  const title = form.title || '未命名问卷'
+  lines.push(title)
+  lines.push('='.repeat(title.length))
+  if (form.description) lines.push('', form.description)
+  lines.push('')
+  let idx = 0
+  questions.value.forEach((q: any) => {
+    if (['description', 'divider', 'pagination', 'questionSet'].includes(q.type)) {
+      if (q.type === 'description') lines.push('--- ' + stripHtmlTag(q.title) + ' ---')
+      return
+    }
+    idx++
+    const qTitle = stripHtmlTag(q.title || '未命名')
+    const typeName2 = typeName(q.type)
+    const required = q.required ? '（必填）' : ''
+    lines.push(`${idx}. [${typeName2}] ${qTitle}${required}`)
+    if (q.props?.options?.length) {
+      q.props.options.forEach((o: any, oi: number) => {
+        const prefix = String.fromCharCode(65 + oi) // A, B, C...
+        lines.push(`   ${prefix}. ${o.label}`)
+      })
+    }
+    if (q.props?.fields?.length) {
+      lines.push(`   字段: ${q.props.fields.map((f: any) => f.label).join(' / ')}`)
+    }
+    if (q.props?.rows?.length) {
+      lines.push(`   行: ${q.props.rows.map((r: any) => r.title).join(' / ')}`)
+    }
+    if (q.props?.columns?.length) {
+      lines.push(`   列: ${q.props.columns.map((c: any) => c.title || c.label).join(' / ')}`)
+    }
+    lines.push('')
+  })
+  return lines.join('\n')
+}
+
+function exportSurvey() {
+  const text = surveyToText()
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${form.title || '问卷'}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出')
+}
+
 const deptTreeRef = ref<any>(null)
 const deptTreeData = ref<any[]>([])
 const deptCheckedKeys = ref<number[]>([])
@@ -1279,12 +1694,11 @@ async function loadAdminTree() {
     adminMap.value = map
 
     const creator = mgrs.find((m: any) => m.id === form.createBy)
-    creatorName.value = creator ? creator.name : `用户ID:${form.createBy}`
-
+    creatorName.value = creator ? creator.name : (form.createBy ? '未知用户' : '未指定')
     adminTreeData.value = buildAdminTree(depts, mgrs)
     collaboratorCheckedKeys.value = form.collaborators ? form.collaborators.split(',').map((id: string) => `admin-${id}`) : []
   } catch {
-    creatorName.value = `用户ID:${form.createBy}`
+    creatorName.value = '加载失败'
     adminTreeData.value = []
   }
 }
@@ -1305,12 +1719,11 @@ watch(() => form.visibility, (v) => {
 watch(() => form.id, (v) => { if (v) { genQR(); loadReport() } else { reportData.value = null } })
 async function loadBank() {
   clearTimeout(bankTimer)
-  if (!form.id) return
   bankTimer = setTimeout(async () => {
     bankLoading.value = true
     try {
       const res: any = await adminApi.surveyQuestionBankList({ keyword: bankKeyword.value, page: 1, pageSize: 100 })
-      bankQuestions.value = res.list || []
+      bankQuestions.value = res.data?.list || []
     } catch { bankQuestions.value = [] }
     finally { bankLoading.value = false }
   }, 300)
@@ -1326,6 +1739,46 @@ function addFromBank(q: any) {
   }
   questions.value.push(newQ)
   selected.value = newQ
+}
+
+async function onUploadBank(id: string) {
+  const q = questions.value.find(x => x.id === id)
+  if (!q) return
+  bankDialog.qid = id
+  bankDialog.category = ''
+  bankDialog.tags = ''
+  bankDialog.visible = true
+  // 获取题库已有分类
+  try {
+    const res: any = await adminApi.surveyQuestionBankCategories()
+    bankCategories.value = res.data || []
+  } catch {}
+}
+
+async function confirmUploadBank() {
+  const q = questions.value.find(x => x.id === bankDialog.qid)
+  if (!q) return
+  bankDialog.saving = true
+  try {
+    const { id, ...rest } = q
+    const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '')
+    const titlePlain = stripHtml(String(rest.title || '')).slice(0, 50)
+    const payload: any = {
+      title: titlePlain,
+      type: rest.type,
+      schema: JSON.stringify(rest),
+      category: bankDialog.category || '',
+      tags: bankDialog.tags || ''
+    }
+    await adminApi.formkitSaveToBank(payload)
+    ElMessage.success('已上传到题库')
+    bankDialog.visible = false
+    loadBank()
+  } catch (e: any) {
+    ElMessage.error(e?.msg || '上传失败')
+  } finally {
+    bankDialog.saving = false
+  }
 }
 
 interface OutlineNode {
@@ -2497,6 +2950,7 @@ async function save() {
       ElMessage.success('已创建')
       router.replace({ query: { id: String(form.id) } })
     }
+    await loadAdminTree()
   } catch { ElMessage.error('保存失败') }
   finally { saving.value = false }
 }
@@ -2853,6 +3307,16 @@ onMounted(async () => {
 .bank-index { font-size:12px; color:#bbb; min-width:20px; }
 .bank-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bank-type { font-size:10px; color:#bbb; }
+.bank-cat { margin-bottom:4px; }
+.bank-cat-title { display:flex; align-items:center; gap:6px; padding:6px 8px; font-size:13px; font-weight:600; color:#333; cursor:pointer; border-radius:6px; }
+.bank-cat-title:hover { background:#f5f5f5; }
+.bank-arrow { font-size:10px; color:#999; width:14px; flex-shrink:0; }
+.bank-count { font-size:11px; color:#bbb; font-weight:400; margin-left:auto; }
+.bank-cat-body { padding-left:16px; }
+.bank-type-group { margin-bottom:2px; }
+.bank-type-title { display:flex; align-items:center; gap:6px; padding:4px 8px; font-size:12px; color:#666; cursor:pointer; border-radius:4px; }
+.bank-type-title:hover { background:#f5f5f5; }
+.bank-type-body { padding-left:16px; }
 
 /* 大纲树 */
 .outline-tree { padding:4px 0; }

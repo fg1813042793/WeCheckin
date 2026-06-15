@@ -52,7 +52,7 @@
       <el-card shadow="never" style="margin-top:16px">
         <div class="chart-title">每题分析</div>
         <div v-for="fs in stat.fieldStats" :key="fs.questionId" style="margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0">
-          <div class="field-title">{{ fs.title }} <el-tag size="small" type="info">{{ fs.type }}</el-tag></div>
+          <div class="field-title">{{ truncate(stripHtml(fs.title), 50) }} <el-tag size="small" type="info">{{ fs.type }}</el-tag></div>
           <el-row :gutter="16" style="margin-top:8px">
             <el-col :span="6">
               <div class="field-meta">填写: {{ fs.nonEmpty }} / {{ fs.totalCount }} ({{ fs.empty }} 空)</div>
@@ -61,40 +61,24 @@
           <div v-if="fs.numericStat">
             <div class="field-meta">总和 {{ fs.numericStat.sum }} | 平均 {{ fs.numericStat.avg.toFixed(2) }} | 最小 {{ fs.numericStat.min }} | 最大 {{ fs.numericStat.max }}</div>
           </div>
-          <div v-if="fs.dist && Object.keys(fs.dist).length > 0" style="margin-top:8px">
-            <v-chart :option="distOption(fs.dist)" style="height:200px" autoresize />
+          <div v-if="fs.dist && Object.keys(fs.dist).length > 0 && !['matrixFillBlank','matrixAuto','file','input','textarea','text','phone','email','idCard','password','multiInput','hInput','location','date','time','dateRange','richText','autopop','signature'].includes(fs.type)" style="margin-top:8px">
+            <v-chart :option="distOption(fs)" style="height:200px" autoresize />
+          </div>
+          <div v-else-if="fs.type === 'location' && fs.tableData?.length" style="margin-top:8px">
+            <div ref="mapRef" class="stat-map" :id="'location-map-' + fs.questionId" style="height:300px;border-radius:6px"></div>
+          </div>
+          <div v-else-if="fs.tableData?.length" style="margin-top:8px;max-height:300px;overflow:auto">
+            <el-table :data="buildMatrixTableRows(fs)" border size="small" style="width:100%">
+              <el-table-column type="index" label="#" width="40" fixed />
+              <el-table-column v-for="(col, ci) in fs.tableCols" :key="ci" :label="col" min-width="100">
+                <template #default="{ row }">{{ stripHtml(row[ci] ?? '') }}</template>
+              </el-table-column>
+            </el-table>
           </div>
         </div>
         <div v-if="!stat.fieldStats || stat.fieldStats.length === 0" style="color:#aaa;text-align:center;padding:40px 0">暂无数据</div>
       </el-card>
 
-      <el-card shadow="never" style="margin-top:16px">
-        <div class="chart-title">答卷明细</div>
-        <el-table :data="respList" stripe border size="small" style="margin-top:8px" max-height="600">
-          <el-table-column prop="id" label="ID" width="60" />
-          <el-table-column prop="nickname" label="提交人" width="120" />
-          <el-table-column label="用时" width="70">
-            <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
-          </el-table-column>
-          <el-table-column label="设备" min-width="120" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.device || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="IP" width="130" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.ip || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="提交时间" min-width="150">
-            <template #default="{ row }">{{ formatTime(row.submitTime) }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="60">
-            <template #default="{ row }">
-              <el-tag :type="row.status===1 ? 'success' : 'info'" size="small">{{ row.status===1 ? '完成' : '草稿' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column v-for="q in questions" :key="q.id" :label="plainTitle(q.title)" min-width="100" show-overflow-tooltip>
-            <template #default="{ row }">{{ formatVal(row.answers?.[q.id]) }}</template>
-          </el-table-column>
-        </el-table>
-      </el-card>
     </el-card>
   </div>
 </template>
@@ -117,20 +101,17 @@ const router = useRouter()
 const surveyId = Number(route.query.surveyId || 0)
 const surveyTitle = String(route.query.title || `问卷 #${surveyId}`)
 const stat = ref<any>({})
-const respList = ref<any[]>([])
 const questions = ref<any[]>([])
-const skipTypes = ['divider', 'description', 'richText', 'pagination', 'questionSet']
+const skipTypes = ['divider', 'description', 'pagination', 'questionSet']
 
 async function load() {
   if (!surveyId) return
   try {
-    const [statRes, listRes, detailRes]: any = await Promise.all([
+    const [statRes, detailRes]: any = await Promise.all([
       adminApi.surveyStatistic(surveyId),
-      adminApi.surveyResponseList({ surveyId, pageSize: 200 }),
       adminApi.surveyDetail(surveyId)
     ])
     stat.value = statRes.data || statRes
-    respList.value = listRes.data?.list || listRes.list || []
     const detail = detailRes.data || detailRes
     const raw = detail?.schema
     const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
@@ -164,15 +145,31 @@ const deviceOption = computed(() => {
   }
 })
 
-function distOption(dist: Record<string, number>) {
-  const entries = Object.entries(dist).sort((a, b) => b[1] - a[1])
+function distOption(fs: any) {
+  const dist = fs.dist || {}
+  const entries = Object.entries(dist).sort((a: any, b: any) => b[1] - a[1])
+  const q = questions.value.find((x: any) => x.id === fs.questionId)
+  const labelMap: Record<string, string> = {}
+  if (q && q.props?.options && ['radio','select','picker','checkbox','matrixRadio','matrixCheckbox','user','dept'].includes(q.type)) {
+    for (const opt of q.props.options) {
+      const val = opt.value ?? opt.label ?? opt
+      const lbl = opt.label ?? opt.value ?? opt
+      labelMap[String(val)] = String(lbl)
+      if (!(val in dist)) {
+        entries.push([String(val), 0])
+      }
+    }
+  }
+  const maxVal = Math.max(...entries.map((e: any) => e[1]), 1)
+  const axisMax = maxVal + Math.ceil(maxVal * 0.6) + 1
   return {
     tooltip: { trigger: 'axis' },
     grid: { left: 120, right: 30, bottom: 30, top: 10 },
-    xAxis: { type: 'value' },
-    yAxis: { type: 'category', data: entries.map(e => e[0]) },
-    series: [{ type: 'bar', data: entries.map(e => e[1]), itemStyle: { color: '#409eff' } }]
+    xAxis: { type: 'value', minInterval: 1, max: axisMax, splitLine: { show: false }, axisTick: { show: false }, axisLabel: { showMinLabel: true, formatter: (v: number) => v > maxVal ? '' : String(v) } },
+    yAxis: { type: 'category', data: entries.map((e: any) => stripHtml(labelMap[e[0]] ?? e[0])) },
+    series: [{ type: 'bar', data: entries.map((e: any) => e[1]), itemStyle: { color: '#409eff' } }]
   }
+  
 }
 
 function exportData() {
@@ -185,26 +182,68 @@ function formatTime(ms: number) {
   if (!ms) return '-'
   return new Date(ms).toLocaleString()
 }
-function formatDuration(sec: number) {
-  if (!sec) return '-'
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return m > 0 ? `${m}分${s}秒` : `${s}秒`
+function buildMatrixTableRows(fs: any) {
+  return fs.tableData || []
 }
-function plainTitle(title: string) {
-  const t = title ? title.replace(/<[^>]+>/g, '') : ''
-  return t.length > 20 ? t.slice(0, 20) + '…' : t
+function stripHtml(html: string) {
+  return html ? html.replace(/<[^>]+>/g, '') : ''
 }
-function formatVal(v: any) {
-  if (v == null || v === '') return '-'
-  if (Array.isArray(v)) return v.join(', ')
-  if (typeof v === 'object') return JSON.stringify(v)
-  return String(v)
+function truncate(s: string, len: number) {
+  return s.length > len ? s.slice(0, len) + '…' : s
 }
 
-onMounted(load)
+function initLocationMaps() {
+  import('leaflet').then(L => {
+    delete (L as any).Icon.Default.prototype._getIconUrl
+    ;(L as any).Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png'
+    })
+    const fss = stat.value.fieldStats || []
+    for (const fs of fss) {
+      if (fs.type !== 'location' || !fs.tableData?.length) continue
+      const containerId = 'location-map-' + fs.questionId
+      const el = document.getElementById(containerId)
+      if (!el) continue
+      const coords: [number, number][] = []
+      for (const row of fs.tableData) {
+        const s = row[0]
+        if (!s) continue
+        const parts = s.split(',')
+        if (parts.length < 2) continue
+        const lat = parseFloat(parts[0])
+        const lng = parseFloat(parts[1])
+        if (!isNaN(lat) && !isNaN(lng)) coords.push([lat, lng])
+      }
+      if (coords.length === 0) continue
+      const map = L.map(containerId).setView(coords[0], 13)
+      L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+        attribution: '&copy; 高德地图',
+        maxZoom: 18
+      }).addTo(map)
+      for (const c of coords) {
+        L.marker(c).addTo(map)
+      }
+    }
+  })
+}
+const locationMapKey = ref(0)
+function onLocationMapMounted(_el: any, fs: any) {
+  setTimeout(() => {
+    initLocationMaps()
+  }, 100)
+}
+
+onMounted(() => {
+  load()
+  setTimeout(() => initLocationMaps(), 300)
+})
 </script>
 
+<style>
+@import 'leaflet/dist/leaflet.css';
+</style>
 <style scoped>
 .header { display:flex; align-items:center; }
 .stat-card { text-align:center; padding:8px 0; }
@@ -216,4 +255,5 @@ onMounted(load)
 .chart-title { font-size:15px; font-weight:500; margin-bottom:8px; color:#333; }
 .field-title { font-size:14px; font-weight:500; margin-bottom:4px; }
 .field-meta { font-size:12px; color:#888; }
+:deep(.stat-map) { width:100%; z-index:0; }
 </style>

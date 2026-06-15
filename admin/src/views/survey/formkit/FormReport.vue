@@ -49,7 +49,9 @@
             <div v-if="s.dist" class="stat-dist">
               <div v-for="(c, k) in s.dist" :key="k" class="dist-bar">
                 <span class="dist-label">{{ k }}</span>
-                <el-progress :percentage="distPct(c, s.nonEmpty)" :show-text="false" />
+                <div style="flex:1;height:10px;background:#e8e8e8;border-radius:5px;overflow:hidden">
+                  <div :style="{ width: Math.max(distPct(c, s.nonEmpty)||0, 0) + '%', height: '100%', background: '#409eff', borderRadius: '5px' }"></div>
+                </div>
                 <span class="dist-count">{{ c }}</span>
               </div>
             </div>

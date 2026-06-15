@@ -7,6 +7,16 @@
       </div>
     </div>
     <div v-if="loading" class="loading">加载中...</div>
+    <div v-else-if="showLogin" class="login-wrapper">
+      <div class="fill-container" style="padding:40px 36px;text-align:center">
+        <h2 style="margin-bottom:24px">请登录后填写问卷</h2>
+        <el-form @submit.prevent="doLogin">
+          <el-input v-model="loginForm.name" placeholder="用户名/手机号" style="margin-bottom:16px" />
+          <el-input v-model="loginForm.password" type="password" placeholder="密码" style="margin-bottom:16px" show-password @keyup.enter="doLogin" />
+          <el-button type="primary" style="width:100%" :loading="loginLoading" @click="doLogin">登录</el-button>
+        </el-form>
+      </div>
+    </div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="survey" class="fill-container">
       <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
@@ -53,10 +63,10 @@
                   <el-checkbox v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-checkbox>
                 </el-checkbox-group>
                 <el-select v-else-if="currentQuestion.type==='select'" v-model="answers[currentQuestion.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
-                  <el-option v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-option>
+                  <el-option v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
                 </el-select>
                 <el-select v-else-if="currentQuestion.type==='picker'" v-model="answers[currentQuestion.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
-                  <el-option v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-option>
+                  <el-option v-for="o in (currentQuestion.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
                 </el-select>
                 <el-cascader v-else-if="currentQuestion.type==='cascade'" v-model="answers[currentQuestion.id]" placeholder="请选择" style="width:100%" :options="currentQuestion.props?.options||[]" clearable />
                 <el-radio-group v-else-if="currentQuestion.type==='judge'" v-model="answers[currentQuestion.id]" class="preview-options preview-radio-group">
@@ -171,10 +181,10 @@
                 <el-checkbox v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-checkbox>
               </el-checkbox-group>
               <el-select v-else-if="q.type==='select'" v-model="answers[q.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
-                <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-option>
+                <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
               </el-select>
               <el-select v-else-if="q.type==='picker'" v-model="answers[q.id]" placeholder="请选择" style="width:100%" clearable :teleported="false">
-                <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value"><span v-html="o.label" /></el-option>
+                <el-option v-for="o in (q.props?.options||[])" :key="o.value" :value="o.value" :label="o.label" />
               </el-select>
               <el-cascader v-else-if="q.type==='cascade'" v-model="answers[q.id]" placeholder="请选择" style="width:100%" :options="q.props?.options||[]" clearable />
               <el-radio-group v-else-if="q.type==='judge'" v-model="answers[q.id]" class="preview-options preview-radio-group">
@@ -306,6 +316,10 @@ const sigCanvasMap: Record<string, HTMLCanvasElement> = {}
 const sigDrawing = ref(false)
 const sigCurId = ref('')
 
+const showLogin = ref(false)
+const loginLoading = ref(false)
+const loginForm = reactive({ name: '', password: '' })
+
 const AUTO_SAVE_KEY = 'survey_draft_'
 
 function getDraftKey() { return AUTO_SAVE_KEY + route.params.id }
@@ -396,7 +410,9 @@ function isAnswered(q: any, val: any): boolean {
   if (type === 'matrixAuto') return Array.isArray(val) && val.some(row => row.some((v: any) => !!v))
   if (type === 'dateRange') return Array.isArray(val) && val.some(v => !!v)
   if (type === 'switch') return val === true
-  if (['user', 'dept'].includes(type) && q.multiple) return Array.isArray(val) && val.length > 0
+  if (type === 'cascade') return Array.isArray(val) && val.length > 0
+  if (['user', 'dept'].includes(type)) return q.multiple ? (Array.isArray(val) && val.length > 0) : !!val
+  if (type === 'picker') return !!val
   return !!val
 }
 
@@ -419,13 +435,35 @@ function goPrev() { if (currentIndex.value > 0) currentIndex.value-- }
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
+async function doLogin() {
+  loginLoading.value = true
+  try {
+    const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
+    if (res.code === 0) {
+      localStorage.setItem('user_token', res.data.token)
+      showLogin.value = false
+      loading.value = true
+      load()
+    } else {
+      ElMessage.error(res.msg || '登录失败')
+    }
+  } catch { ElMessage.error('登录失败') }
+  finally { loginLoading.value = false }
+}
+
 async function apiGet(path: string) {
-  const res = await fetch(`${API_BASE}${path}`)
+  const token = localStorage.getItem('user_token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = token
+  const res = await fetch(`${API_BASE}${path}`, { headers })
   return res.json()
 }
 
 async function apiPost(path: string, data: any) {
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } })
+  const token = localStorage.getItem('user_token')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = token
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: JSON.stringify(data), headers })
   return res.json()
 }
 
@@ -441,7 +479,8 @@ function getInitVal(q: any): any {
   if (type === 'matrixAuto') return (q.props?.rows||[]).map(() => (q.props?.columns||[]).map(() => ''))
   if (['multiInput','hInput'].includes(type)) return (q.props?.fields||[]).map(() => '')
   if (['user','dept'].includes(type)) return q.multiple ? [] : ''
-  if (['cascade','picker'].includes(type)) return []
+  if (['cascade'].includes(type)) return []
+  if (type === 'picker') return ''
   if (type === 'file') return []
   return ''
 }
@@ -545,7 +584,15 @@ function sigMove(e: MouseEvent | Touch, id: string) {
   const ctx = c.getContext('2d')
   if (ctx) { ctx.lineTo(p.x, p.y); ctx.stroke() }
 }
-function sigEnd() { sigDrawing.value = false; sigCurId.value = '' }
+function sigEnd() {
+  sigDrawing.value = false
+  const id = sigCurId.value
+  sigCurId.value = ''
+  if (!id) return
+  const c = sigCanvasMap[id]
+  if (!c) return
+  answers.value[id] = c.toDataURL()
+}
 function sigTouchStart(e: TouchEvent, id: string) {
   if (e.touches[0]) sigStart(e.touches[0], id)
 }
@@ -557,6 +604,7 @@ function clearSignature(id: string) {
   if (!c) return
   const ctx = c.getContext('2d')
   if (ctx) ctx.clearRect(0, 0, c.width, c.height)
+  answers.value[id] = ''
 }
 
 function openScanner(qid: string) {
@@ -606,6 +654,14 @@ async function load() {
     // 保存后端记录的作答开始时间
     if (res.data?.startAt) {
       startAt.value = res.data.startAt
+    }
+    if (settings.value.loginRequired) {
+      const token = localStorage.getItem('user_token')
+      if (!token) {
+        showLogin.value = true
+        loading.value = false
+        return
+      }
     }
     const raw = res.data?.schema
     const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
@@ -729,6 +785,7 @@ onUnmounted(() => {
 .fill-header-img img { width:100%; max-height:240px; object-fit:cover; display:block; }
 .fill-container { max-width:800px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
 .loading, .error { text-align:center; padding:100px 0; color:#999; font-size:16px; }
+.login-wrapper { max-width:800px; margin:0 auto; background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
 .header { padding:32px 36px 20px; }
 .header h1 { font-size:24px; font-weight:600; color:#1a1a1a; margin:0 0 8px; }
 .header .desc { font-size:14px; color:#666; line-height:1.6; margin:0 0 12px; }

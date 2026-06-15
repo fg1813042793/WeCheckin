@@ -15,6 +15,7 @@ import (
 	"wecheckin-backend/backend/internal/model"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
+	"wecheckin-backend/backend/pkg/tokenutil"
 )
 
 type ClientSurveyHandler struct {
@@ -196,6 +197,32 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 	if err := c.BindAndValidate(&req); err != nil {
 		response.Fail(c, "参数错误: "+err.Error())
 		return
+	}
+	sv2, err2 := h.survey.Get(req.SurveyID)
+	if err2 != nil {
+		response.Fail(c, "问卷不存在")
+		return
+	}
+	var settingsMap2 map[string]interface{}
+	_ = json.Unmarshal([]byte(sv2.Settings), &settingsMap2)
+	loginRequired2 := false
+	if v, ok := settingsMap2["loginRequired"].(bool); ok {
+		loginRequired2 = v
+	} else if v, ok := settingsMap2["loginRequired"].(float64); ok {
+		loginRequired2 = v != 0
+	}
+	if loginRequired2 {
+		token := string(c.Request.Header.Peek("Authorization"))
+		if token == "" {
+			response.Fail(c, "请登录")
+			return
+		}
+		_, prefix := tokenutil.GetTokenConfig("user")
+		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
+		if err != nil || jsonStr == "" {
+			response.Fail(c, "请登录")
+			return
+		}
 	}
 	// 如果没传 startTime，尝试从 Redis session 恢复
 	if req.StartTime <= 0 && req.Session != "" {

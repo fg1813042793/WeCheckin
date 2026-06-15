@@ -42,6 +42,18 @@ func (h *PassportHandler) Login(ctx context.Context, c *app.RequestContext) {
 func (h *PassportHandler) LoginByPwd(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	pwd := c.PostForm("pwd")
+	if name == "" || pwd == "" {
+		var req struct {
+			Name string `json:"name"`
+			Pwd  string `json:"pwd"`
+		}
+		if err := c.BindAndValidate(&req); err != nil {
+			response.Fail(c, "参数错误")
+			return
+		}
+		name = req.Name
+		pwd = req.Pwd
+	}
 	addIP := c.ClientIP()
 	device := string(c.UserAgent())
 	data, err := service.LoginByPwd(name, pwd, addIP, device)

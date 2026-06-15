@@ -149,6 +149,8 @@ type FieldStat struct {
 	Empty       int                      `json:"empty"`
 	Dist        map[string]int           `json:"dist,omitempty"`        // 字符串/数值 答案 → 次数
 	NumericStat *NumericStat             `json:"numericStat,omitempty"` // 仅数字
+	TableData   [][]string               `json:"tableData,omitempty"`   // 矩阵填空/表格自增的明细
+	TableCols   []string                 `json:"tableCols,omitempty"`   // 列标题
 }
 
 // NumericStat 数字统计
@@ -163,6 +165,8 @@ type NumericStat struct {
 // FieldStats 计算 schema 各字段的统计
 func FieldStats(schemaJSON string, items []AnswerItem) []FieldStat {
 	questions := schema.NormalizeSchemaForReport(schemaJSON)
+	// 解析原始 schema 用于获取矩阵题 props
+	rawQuestions := parseRawQuestions(schemaJSON)
 	out := make([]FieldStat, 0, len(questions))
 	// 收集每字段的答案
 	buckets := make([][]interface{}, len(questions))
@@ -195,6 +199,57 @@ func FieldStats(schemaJSON string, items []AnswerItem) []FieldStat {
 				if f, ok := toFloat64(v); ok {
 					nums = append(nums, f)
 				}
+			} else if q.Type == "checkbox" {
+				// 多选：每项单独计数，不做组合统计
+				if arr, ok := v.([]interface{}); ok {
+					for _, item := range arr {
+						if s, ok := item.(string); ok {
+							key := checkboxOptionLabel(s, q.Options)
+							dist[key]++
+						}
+					}
+				}
+			} else if q.Type == "user" || q.Type == "dept" {
+				// 成员/部门：用 label 展示
+				if arr, ok := v.([]interface{}); ok {
+					for _, item := range arr {
+						if s, ok := item.(string); ok {
+							key := checkboxOptionLabel(s, q.Options)
+							dist[key]++
+						}
+					}
+				} else if s, ok := v.(string); ok {
+					key := checkboxOptionLabel(s, q.Options)
+					dist[key]++
+				}
+			} else if q.Type == "matrixRadio" || q.Type == "matrixCheckbox" {
+				m, ok := v.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				colValToLabel := buildMatrixColMap(rawQuestions[q.ID])
+				for _, rowVal := range m {
+					if q.Type == "matrixRadio" {
+						if s, ok := rowVal.(string); ok {
+							label := colValToLabel[s]
+							if label == "" {
+								label = s
+							}
+							dist[label]++
+						}
+					} else if q.Type == "matrixCheckbox" {
+						if arr, ok := rowVal.([]interface{}); ok {
+							for _, item := range arr {
+								s, _ := item.(string)
+								label := colValToLabel[s]
+								if label == "" {
+									label = s
+								}
+								dist[label]++
+							}
+						}
+					}
+				}
 			} else {
 				key := formatValue(v, q)
 				dist[key]++
@@ -202,6 +257,152 @@ func FieldStats(schemaJSON string, items []AnswerItem) []FieldStat {
 		}
 		if len(dist) > 0 {
 			fs.Dist = dist
+		}
+		// 文本类：收集所有回答文本
+		if isTextType(q.Type) && fs.NonEmpty > 0 {
+			fs.Dist = nil // 文本类不作分布统计
+			if q.Type == "location" {
+				// 位置：收集坐标列表用于地图展示
+				var coords []string
+				for _, v := range buckets[i] {
+					if v == nil {
+						continue
+					}
+					if s, ok := v.(string); ok && s != "" {
+						coords = append(coords, s)
+					}
+				}
+				if len(coords) > 0 {
+					fs.TableCols = []string{"坐标"}
+					rows := make([][]string, len(coords))
+					for i, c := range coords {
+						rows[i] = []string{c}
+					}
+					fs.TableData = rows
+				}
+			} else if q.Type == "multiInput" || q.Type == "hInput" {
+				// 多项/横向填空：每列为字段名，每行为一个应答者
+				colLabels := extractTextColLabels(rawQuestions[q.ID])
+				fs.TableCols = colLabels
+				var rows [][]string
+				for _, v := range buckets[i] {
+					if v == nil {
+						continue
+					}
+					if arr, ok := v.([]interface{}); ok {
+						row := make([]string, len(colLabels))
+						for ci := 0; ci < len(colLabels) && ci < len(arr); ci++ {
+							if s, ok := arr[ci].(string); ok {
+								row[ci] = s
+							}
+						}
+						rows = append(rows, row)
+					} else if s, ok := v.(string); ok && s != "" {
+						row := make([]string, len(colLabels))
+						row[0] = s
+						rows = append(rows, row)
+					}
+				}
+				if len(rows) > 0 {
+					fs.TableData = rows
+				}
+			} else {
+				var texts []string
+				for _, v := range buckets[i] {
+					if v == nil {
+						continue
+					}
+					if s, ok := v.(string); ok && s != "" {
+						texts = append(texts, s)
+					} else if arr, ok := v.([]interface{}); ok && q.Type == "dateRange" {
+						// dateRange 存为 ["start","end"]
+						if len(arr) == 2 {
+							a, _ := arr[0].(string)
+							b, _ := arr[1].(string)
+							texts = append(texts, a+" ~ "+b)
+						}
+					}
+				}
+				if len(texts) > 0 {
+					fs.TableCols = []string{"回答"}
+					rows := make([][]string, len(texts))
+					for i, t := range texts {
+						rows[i] = []string{t}
+					}
+					fs.TableData = rows
+				}
+			}
+		}
+		// 文件上传：收集所有文件名
+		if q.Type == "file" && fs.NonEmpty > 0 {
+			var fileList []string
+			for _, v := range buckets[i] {
+				if v == nil {
+					continue
+				}
+				if arr, ok := v.([]interface{}); ok {
+					for _, item := range arr {
+						if s, ok := item.(string); ok && s != "" {
+							fileList = append(fileList, s)
+						}
+					}
+				} else if s, ok := v.(string); ok && s != "" {
+					fileList = append(fileList, s)
+				}
+			}
+			if len(fileList) > 0 {
+				fs.TableCols = []string{"文件名"}
+				rows := make([][]string, len(fileList))
+				for i, f := range fileList {
+					rows[i] = []string{f}
+				}
+				fs.TableData = rows
+			}
+		}
+		// 矩阵填空：收集所有应答者填充的单元格
+		if (q.Type == "matrixFillBlank" || q.Type == "matrixAuto") && fs.NonEmpty > 0 {
+			colLabels, colCount := extractMatrixColKeys(rawQuestions[q.ID], q.Type)
+			fs.TableCols = colLabels
+			var rows [][]string
+			for _, v := range buckets[i] {
+				if v == nil {
+					continue
+				}
+				if q.Type == "matrixFillBlank" {
+					row := make([]string, colCount)
+					if m, ok := v.(map[string]interface{}); ok {
+						for ci := 0; ci < colCount; ci++ {
+							key := fmt.Sprintf("%d", ci)
+							if cell, ok := m[key].(map[string]interface{}); ok {
+								for _, fv := range cell {
+									if s, ok := fv.(string); ok {
+										row[ci] = s
+										break
+									}
+								}
+							}
+						}
+					}
+					rows = append(rows, row)
+				} else if q.Type == "matrixAuto" {
+					if arr, ok := v.([]interface{}); ok {
+						for _, rowItem := range arr {
+							row := make([]string, colCount)
+							if rowArr, rok := rowItem.([]interface{}); rok {
+								for ci := 0; ci < colCount && ci < len(rowArr); ci++ {
+									if s, ok := rowArr[ci].(string); ok {
+										row[ci] = s
+									}
+								}
+							}
+							rows = append(rows, row)
+						}
+					}
+				}
+			}
+			if len(rows) > 0 {
+				fs.TableData = rows
+			}
 		}
 		if q.Type == "number" && len(nums) > 0 {
 			stat := &NumericStat{Min: nums[0], Max: nums[0]}
@@ -260,3 +461,139 @@ func StringPtr(s string) *string { return &s }
 // fmtInt 辅助：整数转字符串
 func fmtInt(n int) string { return fmt.Sprintf("%d", n) }
 var _ = fmtInt
+
+// parseRawQuestions 解析 schema JSON 为 questionId → 原始 question map
+func parseRawQuestions(schemaJSON string) map[string]map[string]interface{} {
+	out := map[string]map[string]interface{}{}
+	var raw interface{}
+	if err := json.Unmarshal([]byte(schemaJSON), &raw); err != nil {
+		return out
+	}
+	if schema.IsOldFormat(schemaJSON) {
+		if arr, ok := raw.([]interface{}); ok {
+			for idx, item := range arr {
+				if m, ok := item.(map[string]interface{}); ok {
+					id := fmt.Sprintf("q%d", idx+1)
+					out[id] = m
+				}
+			}
+		}
+	} else {
+		if root, ok := raw.(map[string]interface{}); ok {
+			if qs, ok := root["questions"].([]interface{}); ok {
+				for _, item := range qs {
+					if m, ok := item.(map[string]interface{}); ok {
+						id, _ := m["id"].(string)
+						if id != "" {
+							out[id] = m
+						}
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// extractMatrixColKeys 提取矩阵题的列标题和列数
+func extractMatrixColKeys(qm map[string]interface{}, qType string) (labels []string, count int) {
+	if qm == nil {
+		return nil, 0
+	}
+	props, _ := qm["props"].(map[string]interface{})
+	if props == nil {
+		return nil, 0
+	}
+	cols, _ := props["columns"].([]interface{})
+	count = len(cols)
+	labels = make([]string, count)
+	for i, c := range cols {
+		if cm, ok := c.(map[string]interface{}); ok {
+			if l, ok := cm["label"].(string); ok && l != "" {
+				labels[i] = l
+			} else if v, ok := cm["value"].(string); ok {
+				labels[i] = v
+			}
+		}
+	}
+	return
+}
+
+// buildMatrixColMap 从原始 question map 提取列 value → label 映射
+func buildMatrixColMap(qm map[string]interface{}) map[string]string {
+	colMap := map[string]string{}
+	if qm == nil {
+		return colMap
+	}
+	props, _ := qm["props"].(map[string]interface{})
+	if props == nil {
+		return colMap
+	}
+	cols, _ := props["columns"].([]interface{})
+	for _, c := range cols {
+		if cm, ok := c.(map[string]interface{}); ok {
+			v, _ := cm["value"].(string)
+			l, _ := cm["label"].(string)
+			if v != "" {
+				if l != "" {
+					colMap[v] = l
+				} else {
+					colMap[v] = v
+				}
+			}
+		}
+	}
+	return colMap
+}
+
+// checkboxOptionLabel 从 options 数组查找选项 value 对应的 label，找不到则返回 value 自身
+// isTextType 判断是否为开放文本题型（不做分布统计）
+func isTextType(t string) bool {
+	switch t {
+	case "input", "textarea", "text", "phone", "email", "idCard", "password", "multiInput", "hInput", "location", "date", "time", "dateRange", "richText", "autopop", "signature":
+		return true
+	}
+	return false
+}
+
+// extractTextColLabels 提取 multiInput/hInput 的字段名列表
+func extractTextColLabels(qm map[string]interface{}) []string {
+	if qm == nil {
+		return []string{"字段1"}
+	}
+	props, _ := qm["props"].(map[string]interface{})
+	if props == nil {
+		return []string{"字段1"}
+	}
+	fields, _ := props["fields"].([]interface{})
+	if len(fields) == 0 {
+		return []string{"字段1"}
+	}
+	labels := make([]string, len(fields))
+	for i, f := range fields {
+		if fm, ok := f.(map[string]interface{}); ok {
+			if l, ok := fm["label"].(string); ok && l != "" {
+				labels[i] = l
+			} else if v, ok := fm["value"].(string); ok {
+				labels[i] = v
+			} else {
+				labels[i] = fmt.Sprintf("字段%d", i+1)
+			}
+		} else {
+			labels[i] = fmt.Sprintf("字段%d", i+1)
+		}
+	}
+	return labels
+}
+
+func checkboxOptionLabel(value string, opts []map[string]interface{}) string {
+	for _, o := range opts {
+		if v, ok := o["value"].(string); ok && v == value {
+			if l, ok := o["label"].(string); ok && l != "" {
+				return l
+			}
+			return value
+		}
+	}
+	return value
+}

@@ -334,20 +334,20 @@ export const adminApi = {
     return request.get('/admin/survey/report/event', { params: { eventId } })
   },
   formkitSaveToBank(data: any) {
-    return request.post('/admin/survey/question_insert', { ...data, fromFormkit: true })
+    return request.post('/admin/survey/question_bank_insert', JSON.stringify({ ...data, fromFormkit: true }), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
   },
   // 题库 + 考试 (P7 → 已合并到 survey)
   examQuestionList(params?: any) {
-    return request.get('/admin/survey/question_list', { params })
+    return request.get('/admin/survey/question_bank_list', { params })
   },
   examQuestionInsert(data: any) {
-    return request.post('/admin/survey/question_insert', data)
+    return request.post('/admin/survey/question_bank_insert', data)
   },
   examQuestionEdit(data: any) {
-    return request.post('/admin/survey/question_edit', data)
+    return request.post('/admin/survey/question_bank_edit', data)
   },
   examQuestionDel(data: { id: number }) {
-    return request.post('/admin/survey/question_del', data)
+    return request.post('/admin/survey/question_bank_del', data)
   },
   examPaperList(params?: any) {
     return request.get('/admin/survey/paper_list', { params })
@@ -435,5 +435,8 @@ export const adminApi = {
   },
   surveyQuestionBankDel(data: { id: number }) {
     return request.post('/admin/survey/question_bank_del', data)
+  },
+  surveyQuestionBankCategories() {
+    return request.get('/admin/survey/question_bank_categories')
   }
 }
