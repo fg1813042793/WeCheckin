@@ -98,7 +98,7 @@
                     <svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置
                   </el-button>
                 </div>
-                <el-input v-else-if="currentQuestion.type==='phone'" placeholder="手机号" v-model="answers[currentQuestion.id]" />
+                <el-input v-else-if="currentQuestion.type==='phone'||currentQuestion.type==='name'||currentQuestion.type==='studentId'||currentQuestion.type==='employeeId'||currentQuestion.type==='class'" placeholder="请输入" v-model="answers[currentQuestion.id]" />
                 <el-input v-else-if="currentQuestion.type==='email'" placeholder="邮箱地址" v-model="answers[currentQuestion.id]" />
                 <el-input v-else-if="currentQuestion.type==='idCard'" placeholder="身份证号" v-model="answers[currentQuestion.id]" />
                 <el-input v-else-if="currentQuestion.type==='password'" type="password" placeholder="密码" v-model="answers[currentQuestion.id]" />
@@ -216,7 +216,7 @@
                   <svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M512 64C367.2 64 248 183.2 248 328c0 163.2 233.6 524.8 252 551.2 3.2 4.8 8 7.2 12 7.2s8.8-2.4 12-7.2C542.4 852.8 776 491.2 776 328 776 183.2 656.8 64 512 64z m0 400c-39.2 0-72-32.8-72-72s32.8-72 72-72 72 32.8 72 72-32.8 72-72 72z"/></svg>选择位置
                 </el-button>
               </div>
-              <el-input v-else-if="q.type==='phone'" placeholder="手机号" v-model="answers[q.id]" />
+              <el-input v-else-if="q.type==='phone'||q.type==='name'||q.type==='studentId'||q.type==='employeeId'||q.type==='class'" placeholder="请输入" v-model="answers[q.id]" />
               <el-input v-else-if="q.type==='email'" placeholder="邮箱地址" v-model="answers[q.id]" />
               <el-input v-else-if="q.type==='idCard'" placeholder="身份证号" v-model="answers[q.id]" />
               <el-input v-else-if="q.type==='password'" type="password" placeholder="密码" v-model="answers[q.id]" />

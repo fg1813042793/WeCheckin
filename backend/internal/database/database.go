@@ -70,7 +70,7 @@ func InitDatabase(host string, port int, user, password, dbname string, enableEx
 	}
 
 	log.Println("Database initialized successfully")
-	migrateExamMenus()
+	// migrateExamMenus()
 	seedMenus(enableExam)
 	seedSetups()
 }
@@ -141,19 +141,19 @@ func seedMenus(enableExam bool) {
 	defs := []menuDef{
 		// Main pages
 		{Name: "控制台", Path: "/dashboard", Perms: "", Icon: "Odometer", Sort: 1, Type: 1},
-		{Name: "用户管理", Path: "/user", Perms: "user:list,user:add,user:edit,user:del,user:status", Icon: "User", Sort: 2, Type: 1},
-		{Name: "在线用户", Path: "/online", Perms: "online:list,online:force_offline", Icon: "Monitor", Sort: 3, Type: 1},
-		{Name: "打卡管理", Path: "/enroll", Perms: "enroll:list,enroll:add,enroll:edit,enroll:del,enroll:status,enroll:vouch,enroll:export,enroll:users", Icon: "List", Sort: 4, Type: 1},
-		{Name: "内容管理", Path: "/news", Perms: "news:list,news:add,news:edit,news:del,news:status,news:vouch", Icon: "Document", Sort: 5, Type: 1},
-		{Name: "管理员管理", Path: "/mgr", Perms: "mgr:list,mgr:add,mgr:edit,mgr:del", Icon: "Setting", Sort: 6, Type: 1},
-		{Name: "操作日志", Path: "/log", Perms: "log:list,log:del", Icon: "Clock", Sort: 7, Type: 1},
-		{Name: "字典管理", Path: "/dict", Perms: "dict:list,dict:add,dict:edit,dict:del", Icon: "Notebook", Sort: 8, Type: 1},
-		{Name: "部门管理", Path: "/department", Perms: "dept:list,dept:add,dept:edit,dept:del", Icon: "FolderOpened", Sort: 9, Type: 1},
-		{Name: "角色管理", Path: "/role", Perms: "role:list,role:add,role:edit,role:del", Icon: "UserFilled", Sort: 10, Type: 1},
-		{Name: "菜单权限", Path: "/menu", Perms: "menu:list,menu:add,menu:edit,menu:del", Icon: "Grid", Sort: 11, Type: 1},
+		{Name: "用户管理", Path: "/user", Perms: "user:list", Icon: "User", Sort: 2, Type: 1},
+		{Name: "在线用户", Path: "/online", Perms: "online:list", Icon: "Monitor", Sort: 3, Type: 1},
+		{Name: "打卡管理", Path: "/enroll", Perms: "enroll:list", Icon: "List", Sort: 4, Type: 1},
+		{Name: "内容管理", Path: "/news", Perms: "news:list", Icon: "Document", Sort: 5, Type: 1},
+		{Name: "管理员管理", Path: "/mgr", Perms: "mgr:list", Icon: "Setting", Sort: 6, Type: 1},
+		{Name: "操作日志", Path: "/log", Perms: "log:list", Icon: "Clock", Sort: 7, Type: 1},
+		{Name: "字典管理", Path: "/dict", Perms: "dict:list", Icon: "Notebook", Sort: 8, Type: 1},
+		{Name: "部门管理", Path: "/department", Perms: "dept:list", Icon: "FolderOpened", Sort: 9, Type: 1},
+		{Name: "角色管理", Path: "/role", Perms: "role:list", Icon: "UserFilled", Sort: 10, Type: 1},
+		{Name: "菜单权限", Path: "/menu", Perms: "menu:list", Icon: "Grid", Sort: 11, Type: 1},
 		{Name: "系统配置", Path: "/setup", Perms: "setup:list,setup:edit", Icon: "Setting", Sort: 12, Type: 1},
-		{Name: "赛事活动", Path: "/event", Perms: "event:list,event:add,event:edit,event:del,event:status,event:vouch,event:top,event:users", Icon: "TrophyBase", Sort: 13, Type: 1},
-		{Name: "问卷调查", Path: "/survey", Perms: "survey:list,survey:add,survey:edit,survey:del,survey:status,survey:copy,response:list,response:del,response:export", Icon: "List", Sort: 14, Type: 0},
+		{Name: "赛事活动", Path: "/event", Perms: "event:list", Icon: "TrophyBase", Sort: 13, Type: 1},
+		{Name: "问卷调查", Path: "/survey", Perms: "survey:list", Icon: "List", Sort: 14, Type: 0},
 		{Name: "问卷管理", Path: "/survey", Parent: "/survey", Sort: 1, Type: 1},
 		{Name: "答卷管理", Path: "/survey/responses", Parent: "/survey", Sort: 2, Type: 1},
 		{Name: "问卷统计", Path: "/survey/statistic", Parent: "/survey", Sort: 3, Type: 1},

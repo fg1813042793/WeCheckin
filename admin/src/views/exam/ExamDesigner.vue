@@ -194,7 +194,7 @@
                   </div>
                 </div>
                 <div class="questions-area">
-                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" />
+                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" />
                 </div>
                 <div class="footer">
                   <div class="footer-inner">感谢您的参与！</div>
@@ -206,43 +206,295 @@
 
         <div v-show="middleTab!=='logic'" class="survey-setting-panel" @click.self="deselectQuestion">
           <div v-if="selected" class="props-panel">
-            <h3>{{ typeName(selected.type) }}设置</h3>
-            <el-form label-position="top" size="small">
-              <el-form-item label="ID"><el-input v-model="selected.id" :disabled="!!selected._existing" /></el-form-item>
-              <el-row :gutter="8">
-                <el-col :span="12"><el-form-item label="必填"><el-switch v-model="selected.required" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="只读"><el-switch v-model="selected.readOnly" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="占位提示"><el-input v-model="selected.placeholder" /></el-form-item>
-              <div v-if="hasOptions(selected)" class="props-options-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                  <span style="font-size:12px;color:#888">选项列表</span>
-                  <el-button size="small" @click="addOption" plain>+ 添加</el-button>
-                </div>
-                <div v-for="(o, oi) in (selected.props?.options||[])" :key="oi" class="setting-opt-row">
-                  <el-input v-model="o.label" size="small" placeholder="选项名称" style="flex:1" />
-                  <el-button text size="small" type="danger" @click="removeOption(oi)">×</el-button>
-                </div>
-              </div>
-              <el-divider border-style="dashed" style="margin:12px 0" />
-              <el-collapse v-model="collapseActive" accordion>
-                <el-collapse-item title="考试属性" name="exam">
-                  <el-form-item label="分值"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" style="width:100%" /></el-form-item>
-                  <el-form-item v-if="selected.examScore" label="正确答案"><el-input v-model="selected.examCorrectAnswer" placeholder="填写正确答案" /></el-form-item>
-                  <el-form-item v-if="selected.examScore" label="答案解析"><el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" /></el-form-item>
-                </el-collapse-item>
-                <el-collapse-item title="校验规则" name="validate">
-                  <ValidateEditor :model-value="selected.validate||[]" @update:model-value="onValidateUpdate" />
-                </el-collapse-item>
-                <el-collapse-item title="计算表达式" name="calc">
-                  <CalcEditor :model-value="selected.calcValue" :env="envFromAnswers" @update:model-value="onCalcUpdate" />
-                </el-collapse-item>
-                <el-collapse-item title="显示逻辑" name="logic">
-                  <LogicEditor :model-value="selected.logic||[]" :all-questions="questions" @update:model-value="onLogicUpdate" />
-                </el-collapse-item>
-              </el-collapse>
+            <!-- 文件上传设置 -->
+            <template v-if="selectedOptIdx>=0 && selected.type==='file'">
+              <h3>文件上传设置</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item label="允许类型">
+                  <el-checkbox-group v-model="selected.fileTypes">
+                    <el-checkbox value="image">图片</el-checkbox>
+                    <el-checkbox value="video">视频</el-checkbox>
+                    <el-checkbox value="audio">音频</el-checkbox>
+                    <el-checkbox value="doc">文档</el-checkbox>
+                    <el-checkbox value="other">其他</el-checkbox>
+                  </el-checkbox-group>
+                </el-form-item>
+                <el-form-item label="自定义扩展名">
+                  <el-input v-model="selected.fileExtensions" placeholder="jpg,png,pdf 逗号分隔" />
+                </el-form-item>
+                <el-row :gutter="8">
+                  <el-col :span="12"><el-form-item label="单文件限制"><el-input-number v-model="selected.maxFileSize" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">MB</span></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="文件数量"><el-input-number v-model="selected.maxFileCount" :min="1" :max="99" style="width:100%" /></el-form-item></el-col>
+                </el-row>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
+            <!-- 矩阵行设置 -->
+            <template v-else-if="selectedOptIdx>=0 && isMatrixAll(selected.type) && selected.props?.rows?.[selectedOptIdx]">
+              <h3>矩阵行设置</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item label="行名">
+                  <el-input v-model="selected.props.rows[selectedOptIdx].title" />
+                </el-form-item>
+                <el-form-item label="行ID">
+                  <el-input v-model="selected.props.rows[selectedOptIdx].id" :disabled="true" />
+                </el-form-item>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
+            <!-- 成员/部门设置 -->
+            <template v-else-if="selectedOptIdx>=0 && (selected.type==='user'||selected.type==='dept')">
+              <h3>{{ selected.type==='user'?'成员':'部门' }}设置</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item v-if="selected.type==='user'" label="成员名称">
+                  <el-input v-model="selected.props.options[selectedOptIdx].label" placeholder="输入成员名称" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="成员ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="输入成员ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="部门名称">
+                  <el-input v-model="selected.props.options[selectedOptIdx].deptName" placeholder="输入部门名称" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].deptId" placeholder="输入部门ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='user'" label="父级部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].parentDeptId" placeholder="输入父级部门ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='dept'" label="部门名称">
+                  <el-input v-model="selected.props.options[selectedOptIdx].label" placeholder="输入部门名称" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='dept'" label="部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="输入部门ID" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='dept'" label="父级部门ID">
+                  <el-input v-model="selected.props.options[selectedOptIdx].parentId" placeholder="输入父级部门ID" />
+                </el-form-item>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
+            <!-- 选项设置模式 -->
+            <template v-else-if="selectedOptIdx>=0 && selected.props?.options?.[selectedOptIdx]">
+              <h3>选项设置 - {{ selected.props.options[selectedOptIdx].label }}</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item label="选项值"><el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="默认同选项名称" /></el-form-item>
+                <template v-if="hasOptions(selected)">
+                  <el-form-item label="选项配额"><el-input-number v-model="selected.props.options[selectedOptIdx].quota" :min="0" style="width:100%" placeholder="0=不限制" /></el-form-item>
+                </template>
+                <template v-if="isInput(selected.type)">
+                  <el-form-item label="必填"><el-switch v-model="selected.props.options[selectedOptIdx].required" /></el-form-item>
+                  <el-form-item label="只读"><el-switch v-model="selected.props.options[selectedOptIdx].readOnly" /></el-form-item>
+                  <el-form-item label="计算公式"><el-input v-model="selected.props.options[selectedOptIdx].calculate" placeholder="#{qId} 引用其他题目" /></el-form-item>
+                  <el-form-item label="内容限制"><el-select v-model="selected.props.options[selectedOptIdx].dataType" placeholder="不限制" clearable style="width:100%"><el-option label="不限制" value="" /><el-option label="数字" value="number" /><el-option label="手机号" value="mobile" /><el-option label="邮箱" value="email" /><el-option label="身份证" value="idCard" /></el-select></el-form-item>
+                  <el-form-item v-if="selected.props.options[selectedOptIdx].dataType==='number'" label="小数位数"><el-input-number v-model="selected.props.options[selectedOptIdx].decimalPlaces" :min="0" :max="6" style="width:100%" /></el-form-item>
+                  <el-form-item label="最少填写"><el-input-number v-model="selected.props.options[selectedOptIdx].minLength" :min="0" style="width:100%" /></el-form-item>
+                  <el-form-item label="最多填写"><el-input-number v-model="selected.props.options[selectedOptIdx].maxLength" :min="0" style="width:100%" /></el-form-item>
+                  <el-form-item label="后缀文字"><el-input v-model="selected.props.options[selectedOptIdx].suffix" placeholder="如 cm / kg" /></el-form-item>
+                  <el-form-item label="答案唯一"><el-switch v-model="selected.props.options[selectedOptIdx].unique" /></el-form-item>
+                  <el-form-item label="提示语"><el-input v-model="selected.props.options[selectedOptIdx].placeholder" /></el-form-item>
+                </template>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
+            <!-- 多项/横向填空子字段设置 -->
+            <template v-else-if="selectedOptIdx>=0 && (selected.type==='multiInput'||selected.type==='hInput') && selected.props?.fields?.[selectedOptIdx]">
+              <h3>字段设置 - {{ selected.props.fields[selectedOptIdx].label }}</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item label="字段名">
+                  <el-input v-model="selected.props.fields[selectedOptIdx].label" placeholder="输入字段名" />
+                </el-form-item>
+                <el-form-item label="占位提示">
+                  <el-input v-model="selected.props.fields[selectedOptIdx].placeholder" placeholder="输入占位提示" />
+                </el-form-item>
+                <el-form-item label="数据类型">
+                  <el-select v-model="selected.props.fields[selectedOptIdx].dataType" placeholder="不限制" clearable style="width:100%">
+                    <el-option label="不限制" value="" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="手机号" value="mobile" />
+                    <el-option label="邮箱" value="email" />
+                    <el-option label="身份证" value="idCard" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item v-if="selected.props.fields[selectedOptIdx].dataType==='number'" label="小数位数">
+                  <el-input-number v-model="selected.props.fields[selectedOptIdx].decimalPlaces" :min="0" :max="6" style="width:100%" />
+                </el-form-item>
+                <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+              </el-form>
+            </template>
+
+            <!-- 评分/NPS 设置 -->
+            <template v-else-if="selectedOptIdx>=0 && (selected.type==='rating'||selected.type==='nps')">
+              <h3>{{ selected.type==='rating'?'评分':'NPS' }}设置</h3>
+              <el-form label-position="top" size="small">
+                <el-form-item label="最大分值">
+                  <el-input-number v-model="selected.props.maxRating" :min="2" :max="10" :step="1" style="width:100%" />
+                </el-form-item>
+                <el-form-item v-if="selected.type==='rating'" label="图标类型">
+                  <el-radio-group v-model="selected.props.icon">
+                    <el-radio value="star">星标</el-radio>
+                    <el-radio value="heart">爱心</el-radio>
+                    <el-radio value="smiley">笑脸</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+              </el-form>
+              <el-button text size="small" style="margin-top:8px" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
               <el-button type="danger" text style="margin-top:12px;width:100%" @click="removeSelected">删除此题</el-button>
-            </el-form>
+            </template>
+
+            <!-- 题目设置模式 -->
+            <template v-else>
+              <h3>{{ typeName(selected.type) }}设置</h3>
+              <el-form label-position="top" size="small">
+                <!-- 通用基础字段 -->
+                <el-form-item label="ID"><el-input v-model="selected.id" :disabled="!!selected._existing" /></el-form-item>
+                <el-row :gutter="8" v-if="!isPureLayout(selected.type)&&selected.type!=='questionSet'">
+                  <el-col :span="12"><el-form-item label="必填"><el-switch v-model="selected.required" /></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="只读"><el-switch v-model="selected.readOnly" /></el-form-item></el-col>
+                </el-row>
+                <el-form-item v-if="!isPureLayout(selected.type)&&selected.type!=='questionSet'" label="说明">
+                  <el-switch v-model="selected.showDescription" />
+                </el-form-item>
+
+                <!-- 非常规布局题属性 -->
+                <template v-if="!isPureLayout(selected.type)">
+                  <el-row :gutter="8">
+                    <el-col :span="12"><el-form-item label="默认隐藏"><el-switch v-model="selected.defaultHidden" /></el-form-item></el-col>
+                    <el-col :span="12" v-if="selected.type==='user'||selected.type==='dept'"><el-form-item label="多选"><el-switch v-model="selected.multiple" /></el-form-item></el-col>
+                    <el-col :span="12" v-if="hasOptions(selected) && !isMatrixAll(selected.type)"><el-form-item label="选项布局"><el-input-number v-model="selected.optionLayout" :min="1" :max="6" :step="1" style="width:100%" /></el-form-item></el-col>
+                  </el-row>
+                  <el-form-item v-if="isInput(selected.type)||isPersonal(selected.type)||selected.type==='signature'||selected.type==='scanCode'" label="占位提示">
+                    <el-input v-model="selected.placeholder" />
+                  </el-form-item>
+                  <el-form-item v-if="selected.type==='richText'" label="占位提示">
+                    <el-input v-model="selected.placeholder" placeholder="输入富文本编辑器占位提示" />
+                  </el-form-item>
+                </template>
+
+                <!-- 表格自增列编辑 -->
+                <div v-if="selected.type==='matrixAuto'&&selected.props" class="props-options-section">
+                  <h4 style="font-size:12px;color:#888;margin:0 0 6px">列定义</h4>
+                  <div v-for="(col, ci) in (selected.props.columns||[])" :key="ci" class="setting-opt-row">
+                    <el-input v-model="col.label" size="small" placeholder="列名" style="flex:1" />
+                    <el-select v-model="col.type" size="small" style="width:90px">
+                      <el-option label="文本" value="input" />
+                      <el-option label="数字" value="number" />
+                      <el-option label="多行" value="textarea" />
+                      <el-option label="日期" value="date" />
+                    </el-select>
+                    <el-button text size="small" type="danger" @click="removeAutoCol(ci)">×</el-button>
+                  </div>
+                  <el-button size="small" @click="addAutoCol" plain>+ 添加列</el-button>
+                  <el-row :gutter="8" style="margin-top:8px">
+                    <el-col :span="12"><el-form-item label="最少行数"><el-input-number v-model="selected.props.minRows" :min="0" style="width:100%" /></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="最多行数"><el-input-number v-model="selected.props.maxRows" :min="0" style="width:100%" /></el-form-item></el-col>
+                  </el-row>
+                </div>
+
+                <!-- 数字范围 -->
+                <div v-if="selected.type==='number'&&selected.props" class="props-options-section">
+                  <h4 style="font-size:12px;color:#888;margin:0 0 6px">数值范围</h4>
+                  <el-row :gutter="8">
+                    <el-col :span="12"><el-form-item label="最小值"><el-input-number v-model="selected.props.min" :step="1" style="width:100%" /></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="最大值"><el-input-number v-model="selected.props.max" :step="1" style="width:100%" /></el-form-item></el-col>
+                  </el-row>
+                  <el-form-item label="小数位数"><el-input-number v-model="selected.props.decimalPlaces" :min="0" :max="6" style="width:100%" /></el-form-item>
+                </div>
+
+                <!-- 分页设置 -->
+                <div v-if="selected.type==='pagination'" class="props-options-section">
+                  <h4 style="font-size:12px;color:#888;margin:0 0 6px">分页</h4>
+                  <el-row :gutter="8">
+                    <el-col :span="12"><el-form-item label="当前页"><el-input-number v-model="selected.props.currentPage" :min="1" style="width:100%" /></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="总页数"><el-input-number v-model="selected.props.totalPage" :min="1" style="width:100%" /></el-form-item></el-col>
+                  </el-row>
+                </div>
+
+                <!-- 成员/部门列表 -->
+                <div v-if="(selected.type==='user'||selected.type==='dept')&&selected.props" class="props-options-section">
+                  <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
+                    <h4 style="font-size:12px;color:#888;margin:0">{{ selected.type==='user'?'成员':'部门' }}列表</h4>
+                  </div>
+                  <div v-for="(o, i) in (selected.props.options||[])" :key="i" class="setting-opt-row">
+                    <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                      {{ o.label || (selected.type==='user'?'成员':'部门') }}
+                      <span v-if="selected.type==='user' && o.deptName" style="color:#999;margin-left:4px">({{ o.deptName }})</span>
+                      <span v-if="selected.type==='user' && o.parentDeptId" style="color:#999;margin-left:4px;font-size:11px">父级:{{ o.parentDeptId }}</span>
+                      <span v-if="selected.type==='dept' && o.parentId" style="color:#999;margin-left:4px;font-size:11px">父级:{{ o.parentId }}</span>
+                    </span>
+                    <el-button text size="small" type="primary" @click="selectOption(selected.id, i)" style="font-size:11px">编辑</el-button>
+                    <el-button text size="small" type="danger" @click="removeUserOpt(i)">×</el-button>
+                  </div>
+                  <div style="display:flex;gap:4px;margin-top:4px">
+                    <el-button size="small" @click="addUserOpt" plain>{{ selected.type==='user'?'+ 添加成员':'+ 添加部门' }}</el-button>
+                    <el-button size="small" @click="importUserOpt" plain>导入</el-button>
+                  </div>
+                </div>
+
+                <!-- 签名考试属性 -->
+                <el-form-item v-if="selected.type==='signature'" label="考试答案模式">
+                  <el-select v-model="selected.examAnswerMode" clearable placeholder="不限制" style="width:100%">
+                    <el-option label="不限制" value="" />
+                    <el-option label="无" value="none" />
+                    <el-option label="文字" value="text" />
+                    <el-option label="图片" value="image" />
+                  </el-select>
+                </el-form-item>
+
+                <!-- 数据类型 -->
+                <el-form-item v-if="hasDataType(selected)" label="数据类型">
+                  <el-select v-model="selected.dataType" placeholder="不限制" clearable style="width:100%">
+                    <el-option label="不限制" value="" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="邮箱" value="email" />
+                    <el-option label="手机号" value="mobile" />
+                    <el-option label="身份证" value="idCard" />
+                    <el-option label="日期" value="date" />
+                    <el-option label="日期时间" value="dateTime" />
+                    <el-option label="时间" value="time" />
+                    <el-option label="中文" value="chinese" />
+                    <el-option label="字母" value="alphabet" />
+                  </el-select>
+                </el-form-item>
+
+                <!-- 选项列表 -->
+                <div v-if="hasOptions(selected)&&selected.props" class="props-options-section">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span style="font-size:12px;color:#888">选项列表</span>
+                    <el-button size="small" @click="addOption" plain>+ 添加</el-button>
+                  </div>
+                  <div v-for="(o, oi) in (selected.props.options||[])" :key="oi" class="setting-opt-row">
+                    <el-input v-model="o.label" size="small" placeholder="选项名称" style="flex:1" />
+                    <el-button text size="small" type="primary" @click="selectOption(selected.id, oi)" style="font-size:11px">编辑</el-button>
+                    <el-button text size="small" type="danger" @click="removeOption(oi)">×</el-button>
+                  </div>
+                </div>
+
+                <el-divider border-style="dashed" style="margin:12px 0" />
+                <el-collapse v-model="collapseActive" accordion>
+                  <el-collapse-item title="考试属性" name="exam">
+                    <el-form-item label="分值"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" style="width:100%" /></el-form-item>
+                    <el-form-item v-if="selected.examScore" label="正确答案"><el-input v-model="selected.examCorrectAnswer" placeholder="填写正确答案" /></el-form-item>
+                    <el-form-item v-if="selected.examScore" label="答案解析"><el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" /></el-form-item>
+                  </el-collapse-item>
+                  <el-collapse-item title="校验规则" name="validate">
+                    <ValidateEditor :model-value="selected.validate||[]" @update:model-value="onValidateUpdate" />
+                  </el-collapse-item>
+                  <el-collapse-item title="计算表达式" name="calc">
+                    <CalcEditor :model-value="selected.calcValue" :env="envFromAnswers" @update:model-value="onCalcUpdate" />
+                  </el-collapse-item>
+                  <el-collapse-item title="显示逻辑" name="logic">
+                    <LogicEditor :model-value="selected.logic||[]" :all-questions="questions" @update:model-value="onLogicUpdate" />
+                  </el-collapse-item>
+                </el-collapse>
+              </el-form>
+              <div class="props-footer">
+                <el-button type="danger" text style="width:100%" @click="removeSelected">删除此题</el-button>
+              </div>
+            </template>
           </div>
           <el-empty v-else description="选择题目编辑属性" :image-size="60" />
         </div>
@@ -351,85 +603,72 @@
       <div v-show="activeView==='setting'" class="setting-wrapper">
         <div class="setting-scroll">
           <div class="setting-group">
-            <div class="group-title">基础信息</div>
-            <el-form :model="form" label-width="110px">
-              <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-              <el-form-item label="分类"><el-input v-model="form.category" /></el-form-item>
-              <el-form-item label="标签"><el-input v-model="form.tags" placeholder="逗号分隔" /></el-form-item>
+            <div class="group-title">显示设置</div>
+            <el-form label-position="top">
+              <div class="settings-grid">
+                <el-form-item label="显示分数"><el-switch v-model="form.showScore" :active-value="1" :inactive-value="0" /></el-form-item>
+                <el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item>
+                <el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
+                <el-form-item label="自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
+                <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
+                <el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item>
+                <el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item>
+                <el-form-item label="校验触发">
+                  <el-select v-model="form.triggerType">
+                    <el-option value="onInput" label="输入时" />
+                    <el-option value="onBlur" label="失焦时" />
+                    <el-option value="onSubmit" label="提交时" />
+                  </el-select>
+                </el-form-item>
+              </div>
             </el-form>
           </div>
           <div class="setting-group">
             <div class="group-title">考试设置</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="答题时长(分钟)"><el-input-number v-model="form.duration" :min="1" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="最大答题次数"><el-input-number v-model="form.maxAttempts" :min="1" :max="99" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示分数"><el-switch v-model="form.showScore" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="自动暂存"><el-switch v-model="form.autoSave" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="填写密码"><el-input v-model="form.password" placeholder="留空不设密码" style="max-width:300px" /></el-form-item>
-              <el-form-item label="校验触发">
-                <el-radio-group v-model="form.triggerType">
-                  <el-radio value="onInput">输入时</el-radio>
-                  <el-radio value="onBlur">失焦时</el-radio>
-                  <el-radio value="onSubmit">提交时</el-radio>
-                </el-radio-group>
-              </el-form-item>
+            <el-form label-position="top">
+              <div class="settings-grid">
+                <el-form-item label="答题时长(分钟)"><el-input-number v-model="form.duration" :min="1" style="width:100%" /></el-form-item>
+                <el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item>
+                <el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item>
+                <el-form-item label="填写密码"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
+                <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
+                <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
+              </div>
             </el-form>
           </div>
           <div class="setting-group">
             <div class="group-title">提交后设置</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="允许改答案"><el-switch v-model="form.enableUpdate" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="显示排行榜"><el-switch v-model="form.rankVisible" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="结束语"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item>
+            <el-form label-position="top">
+              <div class="settings-grid">
+                <el-form-item label="允许改答案"><el-switch v-model="form.enableUpdate" /></el-form-item>
+                <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
+                <el-form-item label="显示排行榜"><el-switch v-model="form.rankVisible" /></el-form-item>
+                <el-form-item label="最大答题次数"><el-input-number v-model="form.maxAttempts" :min="1" :max="99" style="width:100%" /></el-form-item>
+                <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="结束语"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item>
+              </div>
             </el-form>
           </div>
           <div class="setting-group">
             <div class="group-title">访问权限</div>
-            <el-form label-width="120px">
-              <el-form-item label="可见性">
-                <el-radio-group v-model="form.visibility">
-                  <el-radio :value="0" border>公开链接</el-radio>
-                  <el-radio :value="1" border>登录可见</el-radio>
-                  <el-radio :value="2" border>部门限定</el-radio>
-                </el-radio-group>
-              </el-form-item>
-              <el-form-item v-if="form.visibility===2" label="限定部门"><el-input v-model="form.deptIds" placeholder="部门ID, 逗号分隔" /></el-form-item>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="需登录"><el-switch v-model="form.loginRequired" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="多次作答"><el-switch v-model="form.allowMultiBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-                <el-col :span="8"><el-form-item label="匿名收集"><el-switch v-model="form.anonymousBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-              </el-row>
-              <el-row :gutter="16">
-                <el-col :span="8"><el-form-item label="显示结果"><el-switch v-model="form.showResultBool" :active-value="1" :inactive-value="0" /></el-form-item></el-col>
-              </el-row>
-            </el-form>
-          </div>
-          <div class="setting-group">
-            <div class="group-title">时间与配额</div>
-            <el-form label-width="120px">
-              <el-row :gutter="16">
-                <el-col :span="12"><el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item></el-col>
-              </el-row>
-              <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:200px" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+            <el-form label-position="top">
+              <div class="settings-grid">
+                <el-form-item class="settings-full" label="可见性">
+                  <el-radio-group v-model="form.visibility" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+                    <el-radio :value="0" border>公开链接</el-radio>
+                    <el-radio :value="1" border>登录可见</el-radio>
+                    <el-radio :value="2" border>部门限定</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item v-if="form.visibility===2" label="限定部门"><el-input v-model="form.deptIds" placeholder="部门ID, 逗号分隔" /></el-form-item>
+                <el-form-item label="需登录"><el-switch v-model="form.loginRequired" /></el-form-item>
+                <el-form-item label="多次作答"><el-switch v-model="form.allowMultiBool" :active-value="1" :inactive-value="0" /></el-form-item>
+                <el-form-item label="匿名收集"><el-switch v-model="form.anonymousBool" :active-value="1" :inactive-value="0" /></el-form-item>
+                <el-form-item label="显示结果"><el-switch v-model="form.showResultBool" :active-value="1" :inactive-value="0" /></el-form-item>
+              </div>
             </el-form>
           </div>
         </div>
@@ -445,6 +684,18 @@
               <div><span style="color:#888">答题时长：</span>{{ form.duration }}分钟</div>
               <div><span style="color:#888">最大次数：</span>{{ form.maxAttempts }}次</div>
               <div><span style="color:#888">状态：</span>{{ form.statusBool ? '启用' : '停用' }}</div>
+            </div>
+          </div>
+          <div class="setting-group" style="margin-top:16px">
+            <div class="overview-card-title">基础信息</div>
+            <div style="margin-top:8px">
+              <el-form :model="form" label-position="top">
+                <div class="settings-grid">
+                  <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+                  <el-form-item label="分类"><el-input v-model="form.category" /></el-form-item>
+                  <el-form-item label="标签"><el-input v-model="form.tags" placeholder="逗号分隔" /></el-form-item>
+                </div>
+              </el-form>
             </div>
           </div>
           <div class="setting-group" style="margin-top:16px">
@@ -500,6 +751,7 @@ const form = reactive<any>({
   examRankingEnabled: false, exerciseMode: false, randomOrder: false,
   minSubmitMinutes: 0, maxSubmitMinutes: 0,
   duration: 60, maxAttempts: 1, showScore: 1,
+  deviceLimit: 0, ipLimit: 0, userLimit: 0,
   backgroundImages: [] as string[], headerImages: [] as string[]
 })
 
@@ -700,6 +952,7 @@ async function saveLogicRules() {
     examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
     randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
     maxSubmitMinutes: form.maxSubmitMinutes,
+    deviceLimit: form.deviceLimit, ipLimit: form.ipLimit, userLimit: form.userLimit,
     backgroundImages: form.backgroundImages, headerImages: form.headerImages
   })
   const payload: any = {
@@ -758,20 +1011,71 @@ function updateTabScroll() {
 const collapseActive = ref('')
 
 const types = ref<any[]>([])
-const categories = computed(() => {
-  const m = new Map<string, string>(); types.value.forEach(t => m.set(t.category, t.category))
-  return [{ name: 'base', label: '基础' }, { name: 'select', label: '选择' },
-    { name: 'media', label: '媒体' }, { name: 'layout', label: '布局' }, { name: 'advanced', label: '高级' }]
-    .filter(c => m.has(c.name))
-})
+const FALLBACK_TYPES = [
+  { type:'radio', displayName:'单选题', category:'select' },
+  { type:'checkbox', displayName:'多选题', category:'select' },
+  { type:'select', displayName:'下拉题', category:'select' },
+  { type:'picker', displayName:'选择器', category:'select' },
+  { type:'cascade', displayName:'级联选择', category:'select' },
+  { type:'judge', displayName:'判断题', category:'select' },
+  { type:'file', displayName:'上传文件', category:'select' },
+  { type:'input', displayName:'单行文本', category:'fill' },
+  { type:'textarea', displayName:'多行文本', category:'fill' },
+  { type:'number', displayName:'数字', category:'fill' },
+  { type:'multiInput', displayName:'多项填空', category:'fill' },
+  { type:'hInput', displayName:'横向填空', category:'fill' },
+  { type:'signature', displayName:'电子签名', category:'fill' },
+  { type:'scanCode', displayName:'扫码', category:'fill' },
+  { type:'rating', displayName:'评分', category:'rating' },
+  { type:'nps', displayName:'NPS', category:'rating' },
+  { type:'matrixRadio', displayName:'矩阵单选', category:'matrix' },
+  { type:'matrixCheckbox', displayName:'矩阵多选', category:'matrix' },
+  { type:'matrixFillBlank', displayName:'矩阵填空', category:'matrix' },
+  { type:'matrixAuto', displayName:'表格自增', category:'matrix' },
+  { type:'divider', displayName:'分割线', category:'layout' },
+  { type:'description', displayName:'文字描述', category:'layout' },
+  { type:'questionSet', displayName:'问题组', category:'layout' },
+  { type:'pagination', displayName:'分页', category:'layout' },
+  { type:'user', displayName:'成员', category:'advanced' },
+  { type:'dept', displayName:'部门', category:'advanced' },
+  { type:'richText', displayName:'富文本', category:'advanced' },
+  { type:'autopop', displayName:'自动填充', category:'advanced' },
+  { type:'name', displayName:'姓名', category:'personal' },
+  { type:'studentId', displayName:'学号', category:'personal' },
+  { type:'employeeId', displayName:'工号', category:'personal' },
+  { type:'class', displayName:'班级', category:'personal' },
+  { type:'phone', displayName:'手机', category:'personal' },
+  { type:'email', displayName:'邮箱', category:'personal' },
+  { type:'idCard', displayName:'身份证', category:'personal' },
+  { type:'password', displayName:'密码', category:'personal' },
+  { type:'date', displayName:'日期', category:'personal' },
+  { type:'time', displayName:'时间', category:'personal' },
+  { type:'dateRange', displayName:'日期范围', category:'personal' },
+  { type:'switch', displayName:'开关', category:'personal' },
+  { type:'location', displayName:'地理位置', category:'personal' },
+]
+const categoryDefs = [
+  { name: 'select', label: '选择题', types: ['radio','checkbox','select','cascade','picker','judge','file'] },
+  { name: 'fill', label: '填空题', types: ['input','textarea','number','multiInput','hInput','signature','scanCode'] },
+  { name: 'rating', label: '打分题', types: ['rating','nps'] },
+  { name: 'matrix', label: '矩阵题', types: ['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'] },
+  { name: 'layout', label: '辅助布局', types: ['divider','description','questionSet','pagination'] },
+  { name: 'advanced', label: '高级题型', types: ['user','dept','richText','autopop'] },
+  { name: 'personal', label: '个人信息', types: ['name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'] },
+]
+const categories = computed(() => categoryDefs.filter(c => types.value.some(t => c.types.includes(t.type))))
 const typesByCategory = computed(() => {
   const m: Record<string, any[]> = {}
-  for (const t of types.value) { if (!m[t.category]) m[t.category] = []; m[t.category].push(t) }
+  for (const cat of categoryDefs) {
+    const items = types.value.filter(t => cat.types.includes(t.type))
+    if (items.length) m[cat.name] = items
+  }
   return m
 })
 const groupedBySub = computed(() => {
   const cat = activeCategory.value
-  return cat && typesByCategory.value[cat] ? { [cat]: typesByCategory.value[cat] } : {}
+  if (!cat || !typesByCategory.value[cat]?.length) return {}
+  return { [cat]: typesByCategory.value[cat] }
 })
 
 function typeName(t: string) {
@@ -780,6 +1084,7 @@ function typeName(t: string) {
     picker:'选择器',cascade:'级联',judge:'判断',multiInput:'多项填空',hInput:'横向填空',
     scanCode:'扫码',signature:'签名',file:'上传',rating:'评分',nps:'NPS',
     phone:'手机',email:'邮箱',idCard:'身份证',password:'密码',switch:'开关',
+    name:'姓名',studentId:'学号',employeeId:'工号',class:'班级',
     location:'地理位置',date:'日期',time:'时间',dateRange:'日期范围',
     matrixRadio:'矩阵单选',matrixCheckbox:'矩阵多选',matrixFillBlank:'矩阵填空',matrixAuto:'表格自增',
     divider:'分割线',description:'说明',questionSet:'问题组',pagination:'分页',user:'成员',dept:'部门',richText:'富文本'
@@ -787,19 +1092,57 @@ function typeName(t: string) {
   return map[t] || t
 }
 
-interface Question { id: string; type: string; title: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; [key: string]: any }
+interface Question { id: string; type: string; title: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; showDescription?: boolean; defaultHidden?: boolean; optionLayout?: number; multiple?: boolean; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; fileTypes?: string[]; fileExtensions?: string; maxFileSize?: number; maxFileCount?: number; examAnswerMode?: string; dataType?: string; _existing?: boolean; [key: string]: any }
 const questions = ref<Question[]>([])
 const selected = ref<Question | null>(null)
 let idCounter = 0
 function genId() { idCounter++; return 'q' + idCounter }
 function addQuestion(t: any) {
   const q: Question = { id: genId(), type: t.type, title: t.displayName, required: false, readOnly: false, placeholder: '', props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {} }
-  if (['judge'].includes(t.type)) { if (!q.props) q.props = {}; q.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }] }
-  if (['select','radio','checkbox','picker','matrixRadio'].includes(t.type)) { if (!q.props) q.props = {}; if (!q.props.options) q.props.options = [{ value: '选项1', label: '选项1' }, { value: '选项2', label: '选项2' }] }
+  if (!q.props) q.props = {}
+  if (t.type === 'judge') {
+    q.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
+  }
+  if (['select','radio','checkbox','picker','cascade'].includes(t.type)) {
+    q.props.options = [
+      { label: '选项A', value: 'A' },
+      { label: '选项B', value: 'B' },
+      { label: '选项C', value: 'C' },
+      { label: '选项D', value: 'D' },
+    ]
+  }
+  if (t.type !== 'description' && t.type !== 'questionSet' && t.type !== 'pagination' && t.type !== 'divider') {
+    q.showDescription = true
+  }
+  if (t.type === 'matrixRadio' || t.type === 'matrixCheckbox' || t.type === 'matrixFillBlank') {
+    q.props.rows = [{ title: '行1', id: 'r1' }, { title: '行2', id: 'r2' }]
+    q.props.columns = [{ title: '列A', id: 'c1' }, { title: '列B', id: 'c2' }]
+  }
+  if (t.type === 'matrixAuto') {
+    q.props.columns = [{ label: '姓名', type: 'input' }, { label: '数值', type: 'number' }]
+  }
+  if (t.type === 'multiInput' || t.type === 'hInput') {
+    q.props.fields = [{ label: '填空1', placeholder: '' }, { label: '填空2', placeholder: '' }]
+  }
+  if (t.type === 'rating') {
+    q.props.maxRating = 5
+    q.props.icon = 'star'
+  }
+  if (t.type === 'nps') {
+    q.props.maxRating = 10
+  }
+  if (t.type === 'file') {
+    q.fileTypes = ['image']
+    q.maxFileSize = 10
+    q.maxFileCount = 1
+  }
+  if (t.type === 'signature' || t.type === 'scanCode') {
+    q.dataType = ''
+  }
   questions.value.push(q); selected.value = q
 }
-function selectQuestion(id: string) { selected.value = questions.value.find(q => q.id === id) || null }
-function deselectQuestion() { selected.value = null }
+function selectQuestion(id: string) { selected.value = questions.value.find(q => q.id === id) || null; selectedOptIdx.value = -1 }
+function deselectQuestion() { selected.value = null; selectedOptIdx.value = -1 }
 function onQuestionsUpdate(newQ: Question[]) {
   questions.value.splice(0, questions.value.length, ...newQ)
   if (selected.value) selected.value = questions.value.find(q => q.id === selected.value!.id) || null
@@ -810,7 +1153,49 @@ async function removeSelected() {
   const sel = selected.value; questions.value = questions.value.filter(q => q.id !== sel.id)
   selected.value = questions.value.length ? questions.value[questions.value.length - 1] : null
 }
-function hasOptions(q: Question) { return ['select','radio','checkbox','picker','matrixRadio','matrixCheckbox','judge'].includes(q.type) }
+function hasOptions(q: Question) { return ['select','radio','checkbox','picker','cascade','judge','matrixRadio','matrixCheckbox'].includes(q.type) }
+function isPureLayout(t: string) { return ['divider','description','pagination'].includes(t) }
+function isInput(t: string) { return ['input','textarea','number','multiInput','hInput'].includes(t) }
+function isMatrixQR(t: string) { return ['matrixRadio','matrixCheckbox','matrixFillBlank'].includes(t) }
+function isMatrixAll(t: string) { return ['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'].includes(t) }
+function isChoice(t: string) { return ['select','radio','checkbox','picker','cascade','judge'].includes(t) }
+function hasDataType(q: Question) { return ['input','textarea','number','name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
+function isPersonal(t: string) { return ['name','studentId','employeeId','class','phone','email','idCard','password'].includes(t) }
+const selectedOptIdx = ref(-1)
+function selectOption(qId: string, optIdx: number) { selected.value = questions.value.find(q => q.id === qId) || null; selectedOptIdx.value = optIdx }
+function addAutoCol() {
+  if (!selected.value?.props) return
+  if (!selected.value.props.columns) selected.value.props.columns = []
+  selected.value.props.columns.push({ label: '列' + (selected.value.props.columns.length + 1), type: 'input' })
+}
+function removeAutoCol(ci: number) { if (selected.value?.props?.columns) selected.value.props.columns.splice(ci, 1) }
+function addUserOpt() {
+  if (!selected.value?.props) return
+  if (!selected.value.props.options) selected.value.props.options = []
+  selected.value.props.options.push({ label: selected.value.type === 'user' ? '成员' + (selected.value.props.options.length + 1) : '部门' + (selected.value.props.options.length + 1), value: '' })
+}
+function removeUserOpt(idx: number) { if (selected.value?.props?.options) selected.value.props.options.splice(idx, 1) }
+function importUserOpt() {
+  const t = selected.value?.type
+  if (!t) return
+  const text = prompt(`请粘贴${t==='user'?'成员':'部门'}数据，格式：\n名称,ID[,部门名称,部门ID] (每行一个)`)
+  if (!text) return
+  const lines = text.trim().split('\n')
+  for (const line of lines) {
+    const parts = line.split(',').map(s => s.trim())
+    if (!parts[0]) continue
+    const item: any = { label: parts[0], value: parts[1] || parts[0] }
+    if (t === 'user') {
+      if (parts[2]) item.deptName = parts[2]
+      if (parts[3]) item.deptId = parts[3]
+    } else {
+      if (parts[2]) item.parentId = parts[2]
+    }
+    if (!selected.value?.props?.options) { if (selected.value) selected.value.props = { ...(selected.value.props || {}), options: [] } }
+    selected.value?.props?.options?.push(item)
+  }
+  ElMessage.success(`已导入 ${lines.filter(l=>l.trim()).length} 条`)
+}
 function addOption() {
   if (!selected.value) return
   if (!selected.value.props) selected.value.props = {}
@@ -869,6 +1254,7 @@ async function load() {
           examRankingEnabled: s.examRankingEnabled ?? false,
           exerciseMode: s.exerciseMode ?? false, randomOrder: s.randomOrder ?? false,
           minSubmitMinutes: s.minSubmitMinutes || 0, maxSubmitMinutes: s.maxSubmitMinutes || 0,
+          deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0, userLimit: s.userLimit || 0,
           backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || []
         })
       } catch {}
@@ -898,8 +1284,9 @@ async function save() {
       redirectUrl: form.redirectUrl, endContent: form.endContent,
       examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
       randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
-      maxSubmitMinutes: form.maxSubmitMinutes,
-      backgroundImages: form.backgroundImages, headerImages: form.headerImages
+    maxSubmitMinutes: form.maxSubmitMinutes,
+    deviceLimit: form.deviceLimit, ipLimit: form.ipLimit, userLimit: form.userLimit,
+    backgroundImages: form.backgroundImages, headerImages: form.headerImages
     })
     const payload: any = {
       title: form.title, description: form.description, category: form.category, tags: form.tags,
@@ -924,9 +1311,16 @@ watch(sideSubTab, (v) => { if (v === 'bank') loadBank() })
 onMounted(async () => {
   try {
     const res: any = await adminApi.formkitTypes()
-    types.value = res.data || []
-    const cats = categories.value; if (cats.length) activeCategory.value = cats[0].name
-  } catch {}
+    const apiTypes: any[] = res.data || []
+    const apiMap = new Map(apiTypes.map((t:any) => [t.type, t]))
+    types.value = FALLBACK_TYPES.map(ft => {
+      const api = apiMap.get(ft.type)
+      return api ? { ...ft, ...api, category: ft.category } : ft
+    })
+  } catch {
+    types.value = FALLBACK_TYPES
+  }
+  const cats = categories.value; if (cats.length) activeCategory.value = cats[0].name
   await nextTick(); updateTabScroll(); load()
 })
 </script>

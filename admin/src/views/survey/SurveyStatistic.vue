@@ -61,7 +61,7 @@
           <div v-if="fs.numericStat">
             <div class="field-meta">总和 {{ fs.numericStat.sum }} | 平均 {{ fs.numericStat.avg.toFixed(2) }} | 最小 {{ fs.numericStat.min }} | 最大 {{ fs.numericStat.max }}</div>
           </div>
-          <div v-if="fs.dist && Object.keys(fs.dist).length > 0 && !['matrixFillBlank','matrixAuto','file','input','textarea','text','phone','email','idCard','password','multiInput','hInput','location','date','time','dateRange','richText','autopop','signature'].includes(fs.type)" style="margin-top:8px">
+          <div v-if="fs.dist && Object.keys(fs.dist).length > 0 && !['matrixFillBlank','matrixAuto','file','input','textarea','text','phone','email','idCard','password','multiInput','hInput','location','date','time','dateRange','richText','autopop','signature','name','studentId','employeeId','class'].includes(fs.type)" style="margin-top:8px">
             <v-chart :option="distOption(fs)" style="height:200px" autoresize />
           </div>
           <div v-else-if="fs.type === 'location' && fs.tableData?.length" style="margin-top:8px">

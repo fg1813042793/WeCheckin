@@ -10,6 +10,10 @@ import (
 
 	surveySvc "wecheckin-backend/backend/internal/survey/service"
 
+	calcPkg "wecheckin-backend/backend/internal/formkit/calc"
+	questionPkg "wecheckin-backend/backend/internal/formkit/question"
+	schemaPkg "wecheckin-backend/backend/internal/formkit/schema"
+
 	"github.com/cloudwego/hertz/pkg/app"
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
@@ -305,4 +309,70 @@ func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.Request
 		out["survey"] = sv
 	}
 	response.JSON(c, out)
+}
+
+// ==================== 通用表单工具（公开，无认证） ====================
+
+// PublicValidate POST /survey/validate
+// @Tags 表单工具
+// @Summary 校验答案格式（通用）
+// @Router /survey/validate [post]
+func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestContext) {
+	var req struct {
+		Schema  string                 `json:"schema"`
+		Answers map[string]interface{} `json:"answers"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		response.Fail(c, "请求参数错误: "+err.Error())
+		return
+	}
+	s, err := schemaPkg.Parse(req.Schema)
+	if err != nil {
+		response.Fail(c, "schema 解析失败: "+err.Error())
+		return
+	}
+	type fieldErr struct {
+		QuestionID string `json:"questionId"`
+		Message    string `json:"message"`
+	}
+	var errs []fieldErr
+	for _, q := range s.Questions {
+		v, ok := req.Answers[q.ID]
+		if !ok && q.Required {
+			errs = append(errs, fieldErr{QuestionID: q.ID, Message: "此项为必填"})
+			continue
+		}
+		inst := questionPkg.Get(q.Type)
+		if inst == nil {
+			continue
+		}
+		if err := inst.Validate(v, q); err != nil {
+			errs = append(errs, fieldErr{QuestionID: q.ID, Message: err.Error()})
+		}
+	}
+	response.JSON(c, map[string]interface{}{"ok": len(errs) == 0, "errors": errs})
+}
+
+// PublicApply POST /survey/apply
+// @Tags 表单工具
+// @Summary 应用表单逻辑（通用）
+// @Router /survey/apply [post]
+func (h *ClientSurveyHandler) PublicApply(_ context.Context, c *app.RequestContext) {
+	var req struct {
+		Schema  string                 `json:"schema"`
+		Answers map[string]interface{} `json:"answers"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		response.Fail(c, "请求参数错误: "+err.Error())
+		return
+	}
+	s, err := schemaPkg.Parse(req.Schema)
+	if err != nil {
+		response.Fail(c, "schema 解析失败: "+err.Error())
+		return
+	}
+	eng := calcPkg.New()
+	newAns, _ := eng.ApplyCalcValues(s, req.Answers)
+	states, _ := eng.ApplyLogic(s, newAns)
+	response.JSON(c, map[string]interface{}{"answers": newAns, "states": states})
 }

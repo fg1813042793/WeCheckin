@@ -8,98 +8,18 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	calcPkg "wecheckin-backend/backend/internal/formkit/calc"
 	examPkg "wecheckin-backend/backend/internal/formkit/exam"
-	questionPkg "wecheckin-backend/backend/internal/formkit/question"
-	schemaPkg "wecheckin-backend/backend/internal/formkit/schema"
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/response"
 )
 
-// ==================== 公共：题型试算 / 应用逻辑 / 校验 ====================
+type ClientExamHandler struct{}
 
-// PublicValidate POST /survey/validate
-// @Tags 表单工具
-// @Summary 校验答案格式（通用）
-// @Param schema formData string true "Schema JSON"
-// @Param answers formData string true "答案JSON"
-// @Success 200 {object} response.Resp
-// @Router /survey/validate [post]
-func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestContext) {
-	var req struct {
-		Schema  string                 `json:"schema"`
-		Answers map[string]interface{} `json:"answers"`
-	}
-	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "请求参数错误: "+err.Error())
-		return
-	}
-	s, err := schemaPkg.Parse(req.Schema)
-	if err != nil {
-		response.Fail(c, "schema 解析失败: "+err.Error())
-		return
-	}
-	type fieldErr struct {
-		QuestionID string `json:"questionId"`
-		Message    string `json:"message"`
-	}
-	var errs []fieldErr
-	for _, q := range s.Questions {
-		v, ok := req.Answers[q.ID]
-		if !ok && q.Required {
-			errs = append(errs, fieldErr{QuestionID: q.ID, Message: "此项为必填"})
-			continue
-		}
-		inst := questionPkg.Get(q.Type)
-		if inst == nil {
-			continue
-		}
-		if err := inst.Validate(v, q); err != nil {
-			errs = append(errs, fieldErr{QuestionID: q.ID, Message: err.Error()})
-		}
-	}
-	response.JSON(c, map[string]interface{}{"ok": len(errs) == 0, "errors": errs})
-}
+func NewClientExamHandler() *ClientExamHandler { return &ClientExamHandler{} }
 
-// PublicApply POST /survey/apply
-// @Tags 表单工具
-// @Summary 应用表单逻辑（通用）
-// @Param schema formData string true "Schema JSON"
-// @Param answers formData string true "答案JSON"
-// @Success 200 {object} response.Resp
-// @Router /survey/apply [post]
-func (h *ClientSurveyHandler) PublicApply(_ context.Context, c *app.RequestContext) {
-	var req struct {
-		Schema  string                 `json:"schema"`
-		Answers map[string]interface{} `json:"answers"`
-	}
-	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "请求参数错误: "+err.Error())
-		return
-	}
-	s, err := schemaPkg.Parse(req.Schema)
-	if err != nil {
-		response.Fail(c, "schema 解析失败: "+err.Error())
-		return
-	}
-	eng := calcPkg.New()
-	newAns, _ := eng.ApplyCalcValues(s, req.Answers)
-	states, _ := eng.ApplyLogic(s, newAns)
-	response.JSON(c, map[string]interface{}{"answers": newAns, "states": states})
-}
-
-// ==================== Exam 用户端点 ====================
-
-// ListExam GET /survey/exam_list
-// @Tags 考试-客户端
-// @Summary 获取考试列表
-// @Param page query int false "页码"
-// @Param pageSize query int false "每页条数"
-// @Param keyword query string false "关键词"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_list [get]
-func (h *ClientSurveyHandler) ListExam(_ context.Context, c *app.RequestContext) {
+// List GET /exam/list
+func (h *ClientExamHandler) List(_ context.Context, c *app.RequestContext) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	if page < 1 {
@@ -119,21 +39,16 @@ func (h *ClientSurveyHandler) ListExam(_ context.Context, c *app.RequestContext)
 	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize})
 }
 
-// ViewExam GET /survey/exam_view?id=
-// @Tags 考试-客户端
-// @Summary 查看考试详情
-// @Param id query int true "考试ID"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_view [get]
-func (h *ClientSurveyHandler) ViewExam(_ context.Context, c *app.RequestContext) {
+// View GET /exam/view?id=
+func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id == 0 {
 		response.Fail(c, "id 必填")
 		return
 	}
 	var e model.Exam
-	if err := database.DB.Where("`exam_id` = ?", id).First(&e).Error; err != nil {
-		response.Fail(c, "考试不存在")
+	if err := database.DB.Where("`exam_id` = ? AND `exam_status` = 1", id).First(&e).Error; err != nil {
+		response.Fail(c, "考试不存在或未发布")
 		return
 	}
 	var p model.ExamPaper
@@ -159,21 +74,18 @@ func (h *ClientSurveyHandler) ViewExam(_ context.Context, c *app.RequestContext)
 			"category":   q.Category,
 		})
 	}
+	startAt := time.Now().UnixMilli()
 	response.JSON(c, map[string]interface{}{
 		"exam":      e,
 		"paper":     p,
 		"questions": safe,
+		"startAt":   startAt,
+		"session":   strconv.FormatInt(startAt, 36),
 	})
 }
 
-// StartExam GET /survey/exam_start?examId=
-// @Tags 考试-客户端
-// @Summary 开始考试
-// @Param examId query int true "考试ID"
-// @Param user_id query string false "用户ID"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_start [get]
-func (h *ClientSurveyHandler) StartExam(_ context.Context, c *app.RequestContext) {
+// Start GET /exam/start?examId=
+func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
 	if uid == 0 {
@@ -262,14 +174,8 @@ func (h *ClientSurveyHandler) StartExam(_ context.Context, c *app.RequestContext
 	})
 }
 
-// SaveAnswer POST /survey/exam_save_answer
-// @Tags 考试-客户端
-// @Summary 保存答题
-// @Param recordId formData int true "考试记录ID"
-// @Param answers formData string true "答案JSON"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_save_answer [post]
-func (h *ClientSurveyHandler) SaveAnswer(_ context.Context, c *app.RequestContext) {
+// SaveAnswer POST /exam/save_answer
+func (h *ClientExamHandler) SaveAnswer(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
 	if uid == 0 {
@@ -298,14 +204,8 @@ func (h *ClientSurveyHandler) SaveAnswer(_ context.Context, c *app.RequestContex
 	response.JSON(c, nil)
 }
 
-// SubmitExam POST /survey/exam_submit
-// @Tags 考试-客户端
-// @Summary 提交考试
-// @Param recordId formData int true "考试记录ID"
-// @Param answers formData string true "答案JSON"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_submit [post]
-func (h *ClientSurveyHandler) SubmitExam(_ context.Context, c *app.RequestContext) {
+// Submit POST /exam/submit
+func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
 	if uid == 0 {
@@ -374,14 +274,8 @@ func (h *ClientSurveyHandler) SubmitExam(_ context.Context, c *app.RequestContex
 	})
 }
 
-// GetExamRecord GET /survey/exam_record?id=
-// @Tags 考试-客户端
-// @Summary 考试记录详情
-// @Param id query int true "考试记录ID"
-// @Param user_id query string false "用户ID"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_record [get]
-func (h *ClientSurveyHandler) GetExamRecord(_ context.Context, c *app.RequestContext) {
+// Record GET /exam/record?id=
+func (h *ClientExamHandler) Record(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
 	if uid == 0 {
@@ -437,13 +331,8 @@ func (h *ClientSurveyHandler) GetExamRecord(_ context.Context, c *app.RequestCon
 	})
 }
 
-// MyExamRecords GET /survey/exam_my_records
-// @Tags 考试-客户端
-// @Summary 我的考试记录列表
-// @Param user_id query string false "用户ID"
-// @Success 200 {object} response.Resp
-// @Router /survey/exam_my_records [get]
-func (h *ClientSurveyHandler) MyExamRecords(_ context.Context, c *app.RequestContext) {
+// MyRecords GET /exam/my_records
+func (h *ClientExamHandler) MyRecords(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
 	if uid == 0 {

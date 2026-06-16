@@ -550,7 +550,7 @@ func buildMatrixColMap(qm map[string]interface{}) map[string]string {
 // isTextType 判断是否为开放文本题型（不做分布统计）
 func isTextType(t string) bool {
 	switch t {
-	case "input", "textarea", "text", "phone", "email", "idCard", "password", "multiInput", "hInput", "location", "date", "time", "dateRange", "richText", "autopop", "signature":
+	case "input", "textarea", "text", "phone", "email", "idCard", "password", "multiInput", "hInput", "location", "date", "time", "dateRange", "richText", "autopop", "signature", "name", "studentId", "employeeId", "class":
 		return true
 	}
 	return false

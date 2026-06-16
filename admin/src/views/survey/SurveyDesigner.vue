@@ -1431,6 +1431,10 @@ function parseTextToQuestions(text: string) {
     '邮箱': 'email', 'email': 'email',
     '身份证': 'idCard', '身份证号': 'idCard', 'idCard': 'idCard',
     '密码': 'password', 'password': 'password',
+    '姓名': 'name', 'name': 'name',
+    '学号': 'studentId', 'studentId': 'studentId',
+    '工号': 'employeeId', 'employeeId': 'employeeId',
+    '班级': 'class', 'class': 'class',
     '开关': 'switch', 'switch': 'switch',
     '地理位置': 'location', '位置': 'location', '打卡': 'location', 'location': 'location',
     '日期': 'date', 'date': 'date',
@@ -1840,6 +1844,7 @@ function typeName(t: string) {
     signature: '签名', file: '上传文件',
     rating: '评分', nps: 'NPS评分',
     phone: '手机', email: '邮箱', idCard: '身份证', password: '密码',
+    name: '姓名', studentId: '学号', employeeId: '工号', class: '班级',
     switch: '开关', location: '地理位置',
     date: '日期', time: '时间', dateRange: '日期范围',
     matrixRadio: '矩阵单选', matrixCheckbox: '矩阵多选',
@@ -2478,7 +2483,7 @@ const categoryDefs = [
   { name: 'matrix', label: '矩阵题', types: ['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'] },
   { name: 'layout', label: '辅助布局', types: ['divider','description','questionSet','pagination'] },
   { name: 'advanced', label: '高级题型', types: ['user','dept','richText','autopop'] },
-  { name: 'personal', label: '个人信息', types: ['phone','email','idCard','password','date','time','dateRange','switch','location'] },
+  { name: 'personal', label: '个人信息', types: ['name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'] },
 ]
 const categories = computed(() => categoryDefs.filter(c => types.value.some(t => c.types.includes(t.type))))
 const typesByCategory = computed(() => {
@@ -2624,7 +2629,7 @@ async function clearAll() {
 }
 
 function hasOptions(q: Question) { return ['select','radio','checkbox','picker','matrixRadio','matrixCheckbox','judge','cascade'].includes(q.type) }
-function hasDataType(q: Question) { return ['input','textarea','number','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
+function hasDataType(q: Question) { return ['input','textarea','number','name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
 const LAYOUT_PURE = ['divider','description','pagination']
 const LAYOUT_ALL = ['divider','description','pagination','questionSet']
 const CHOICE_TYPES = ['select','radio','checkbox','picker','cascade','judge']
@@ -2636,7 +2641,7 @@ const importFormatHint = computed(() => {
   if (selected.value?.type === 'dept') return 'JSON 格式: [{"label":"部门名称","value":"部门ID","parentId":"父级部门ID"}]'
   return ''
 })
-const PERSONAL_TYPES = ['phone','email','idCard','password','date','time','dateRange','switch','location']
+const PERSONAL_TYPES = ['name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location']
 function isPureLayout(t: string) { return LAYOUT_PURE.includes(t) }
 function isLayoutAll(t: string) { return LAYOUT_ALL.includes(t) }
 function isChoice(t: string) { return CHOICE_TYPES.includes(t) }
@@ -2993,6 +2998,10 @@ const FALLBACK_TYPES = [
   { type:'richText', displayName:'富文本', category:'advanced' },
   { type:'autopop', displayName:'自动填充', category:'advanced' },
   // 个人信息
+  { type:'name', displayName:'姓名', category:'personal' },
+  { type:'studentId', displayName:'学号', category:'personal' },
+  { type:'employeeId', displayName:'工号', category:'personal' },
+  { type:'class', displayName:'班级', category:'personal' },
   { type:'phone', displayName:'手机', category:'personal' },
   { type:'email', displayName:'邮箱', category:'personal' },
   { type:'idCard', displayName:'身份证', category:'personal' },

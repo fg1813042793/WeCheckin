@@ -9,6 +9,138 @@ import (
 	"wecheckin-backend/backend/internal/formkit/schema"
 )
 
+// NameQuestion 姓名（type=name）
+type NameQuestion struct{ question.BaseQuestion }
+
+func init() {
+	question.Register(&NameQuestion{BaseQuestion: question.BaseQuestion{T: "name", Dis: "姓名", Cat: "base"}})
+}
+
+func (q *NameQuestion) Validate(value interface{}, sch schema.Question) error {
+	if value == nil {
+		if sch.Required {
+			return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请输入姓名"}
+		}
+		return nil
+	}
+	_, ok := value.(string)
+	if !ok {
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "姓名必须为字符串"}
+	}
+	return nil
+}
+
+func (q *NameQuestion) FormatValue(value interface{}, _ schema.Question) string {
+	if value == nil {
+		return ""
+	}
+	s, _ := value.(string)
+	return s
+}
+
+func (q *NameQuestion) DefaultProps() map[string]interface{} {
+	return map[string]interface{}{"placeholder": "请输入姓名"}
+}
+
+// StudentIDQuestion 学号（type=studentId）
+type StudentIDQuestion struct{ question.BaseQuestion }
+
+func init() {
+	question.Register(&StudentIDQuestion{BaseQuestion: question.BaseQuestion{T: "studentId", Dis: "学号", Cat: "base"}})
+}
+
+func (q *StudentIDQuestion) Validate(value interface{}, sch schema.Question) error {
+	if value == nil {
+		if sch.Required {
+			return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请输入学号"}
+		}
+		return nil
+	}
+	_, ok := value.(string)
+	if !ok {
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "学号必须为字符串"}
+	}
+	return nil
+}
+
+func (q *StudentIDQuestion) FormatValue(value interface{}, _ schema.Question) string {
+	if value == nil {
+		return ""
+	}
+	s, _ := value.(string)
+	return s
+}
+
+func (q *StudentIDQuestion) DefaultProps() map[string]interface{} {
+	return map[string]interface{}{"placeholder": "请输入学号"}
+}
+
+// EmployeeIDQuestion 工号（type=employeeId）
+type EmployeeIDQuestion struct{ question.BaseQuestion }
+
+func init() {
+	question.Register(&EmployeeIDQuestion{BaseQuestion: question.BaseQuestion{T: "employeeId", Dis: "工号", Cat: "base"}})
+}
+
+func (q *EmployeeIDQuestion) Validate(value interface{}, sch schema.Question) error {
+	if value == nil {
+		if sch.Required {
+			return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请输入工号"}
+		}
+		return nil
+	}
+	_, ok := value.(string)
+	if !ok {
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "工号必须为字符串"}
+	}
+	return nil
+}
+
+func (q *EmployeeIDQuestion) FormatValue(value interface{}, _ schema.Question) string {
+	if value == nil {
+		return ""
+	}
+	s, _ := value.(string)
+	return s
+}
+
+func (q *EmployeeIDQuestion) DefaultProps() map[string]interface{} {
+	return map[string]interface{}{"placeholder": "请输入工号"}
+}
+
+// ClassQuestion 班级（type=class）
+type ClassQuestion struct{ question.BaseQuestion }
+
+func init() {
+	question.Register(&ClassQuestion{BaseQuestion: question.BaseQuestion{T: "class", Dis: "班级", Cat: "base"}})
+}
+
+func (q *ClassQuestion) Validate(value interface{}, sch schema.Question) error {
+	if value == nil {
+		if sch.Required {
+			return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请输入班级"}
+		}
+		return nil
+	}
+	_, ok := value.(string)
+	if !ok {
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "班级必须为字符串"}
+	}
+	return nil
+}
+
+func (q *ClassQuestion) FormatValue(value interface{}, _ schema.Question) string {
+	if value == nil {
+		return ""
+	}
+	s, _ := value.(string)
+	return s
+}
+
+func (q *ClassQuestion) DefaultProps() map[string]interface{} {
+	return map[string]interface{}{"placeholder": "请输入班级"}
+}
+
 // PhoneQuestion 手机号（type=phone）
 type PhoneQuestion struct{ question.BaseQuestion }
 

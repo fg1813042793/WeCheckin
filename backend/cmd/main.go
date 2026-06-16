@@ -204,27 +204,25 @@ func main() {
 	clientEventAuth.GET("/scores", ev.GetEventScores)
 	clientEventAuth.POST("/score_save", ev.SaveEventScore)
 
-	// 考试 (P7 → P8: 合并到 survey) — 公开列表/详情 + 登录后做题
+	// 问卷 — 公开列表/详情 + 登录后提交
 	surveyPub := h.Group("/survey")
 	surveyPub.GET("/list", cSurvey.List)
 	surveyPub.GET("/view", cSurvey.Detail)
 	surveyPub.POST("/submit", cSurvey.Submit)
-	surveyPub.GET("/exam_list", cSurvey.ListExam)
-	surveyPub.GET("/exam_view", cSurvey.ViewExam)
 	surveyAuth := h.Group("/survey", middleware.ClientAuth())
 	surveyAuth.GET("/my_responses", cSurvey.MyResponses)
 	surveyAuth.GET("/my_response", cSurvey.MyResponseDetail)
-	surveyAuth.GET("/exam_start", cSurvey.StartExam)
-	surveyAuth.POST("/exam_save_answer", cSurvey.SaveAnswer)
-	surveyAuth.POST("/exam_submit", cSurvey.SubmitExam)
-	surveyAuth.GET("/exam_record", cSurvey.GetExamRecord)
-	surveyAuth.GET("/exam_my_records", cSurvey.MyExamRecords)
 
-	// Exam 公共接口 — 独立于 survey
+	// 考试 — 公开列表/详情 + 登录后做题
 	examPub := h.Group("/exam")
+	examPub.GET("/list", cExam.List)
 	examPub.GET("/view", cExam.View)
-	examPub.POST("/submit", cExam.Submit)
-	examPub.POST("/validate", cExam.Validate)
+	examAuth := h.Group("/exam", middleware.ClientAuth())
+	examAuth.GET("/start", cExam.Start)
+	examAuth.POST("/save_answer", cExam.SaveAnswer)
+	examAuth.POST("/submit", cExam.Submit)
+	examAuth.GET("/record", cExam.Record)
+	examAuth.GET("/my_records", cExam.MyRecords)
 
 	// ==================== Admin login (no auth) ====================
 	h.POST("/admin/login", aMgr.AdminLogin)
