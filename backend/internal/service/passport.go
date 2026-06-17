@@ -106,6 +106,12 @@ func EditBase(userID, mobile, name, pic string, forms interface{}) error {
 	return database.DB.Model(&model.User{}).Where("`user_mini_openid` = ?", userID).Updates(updates).Error
 }
 
+func getUserDeptId(userID uint) uint {
+	var ud model.UserDept
+	database.DB.Where("`user_dept_user_id` = ?", userID).First(&ud)
+	return ud.DeptID
+}
+
 func LoginUser(userID, addIP, device string) (map[string]interface{}, error) {
 	var user model.User
 	err := database.DB.Where("`user_mini_openid` = ?", userID).First(&user).Error
@@ -117,6 +123,7 @@ func LoginUser(userID, addIP, device string) (map[string]interface{}, error) {
 	setUserRole(&user)
 	token := genRandomString(32)
 	storeUserToken(&user, token, addIP, device)
+	deptId := getUserDeptId(user.ID)
 	return map[string]interface{}{
 		"token": token,
 		"userInfo": map[string]interface{}{
@@ -126,6 +133,8 @@ func LoginUser(userID, addIP, device string) (map[string]interface{}, error) {
 			"desc":       "点击完善个人信息",
 			"miniOpenID": user.MiniOpenID,
 			"role":       user.Role,
+			"deptId":     deptId,
+			"deptName":   "",
 		},
 	}, nil
 }
@@ -143,6 +152,13 @@ func LoginByPwd(name, password, addIP, device string) (map[string]interface{}, e
 	setUserRole(&user)
 	token := genRandomString(32)
 	storeUserToken(&user, token, addIP, device)
+	deptId := getUserDeptId(user.ID)
+	var deptName string
+	if deptId > 0 {
+		var d model.Department
+		database.DB.First(&d, deptId)
+		deptName = d.Name
+	}
 	return map[string]interface{}{
 		"token": token,
 		"userInfo": map[string]interface{}{
@@ -152,6 +168,8 @@ func LoginByPwd(name, password, addIP, device string) (map[string]interface{}, e
 			"desc":       "点击完善个人信息",
 			"miniOpenID": user.MiniOpenID,
 			"role":       user.Role,
+			"deptId":     deptId,
+			"deptName":   deptName,
 		},
 	}, nil
 }

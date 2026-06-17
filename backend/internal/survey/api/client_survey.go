@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	surveySvc "wecheckin-backend/backend/internal/survey/service"
@@ -80,6 +81,48 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 		response.Fail(c, "问卷已停用")
 		return
 	}
+	// 登录可见 / 部门限定：检查用户登录
+	if sv.Visibility == 1 || sv.Visibility == 2 {
+		auth := c.GetHeader("Authorization")
+		token := ""
+		if len(auth) > 0 {
+			token = string(auth)
+		}
+		if token == "" {
+			response.Fail(c, "请先登录")
+			return
+		}
+		rdKey := "user_token:a:" + token
+		jsonStr, err := rd.RDB.Get(rd.Ctx, rdKey).Result()
+		if err != nil || jsonStr == "" {
+			response.Fail(c, "请先登录")
+			return
+		}
+		// 部门限定：校验用户部门
+		if sv.Visibility == 2 && sv.DeptIDs != "" {
+			var userInfo map[string]interface{}
+			json.Unmarshal([]byte(jsonStr), &userInfo)
+			uid := uint(0)
+			if id, ok := userInfo["id"].(float64); ok {
+				uid = uint(id)
+			}
+			var ud model.UserDept
+			database.DB.Where("`user_dept_user_id` = ?", uid).First(&ud)
+			deptIds := strings.Split(sv.DeptIDs, ",")
+			allowed := false
+			for _, did := range deptIds {
+				d, _ := strconv.Atoi(strings.TrimSpace(did))
+				if uint(d) == ud.DeptID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				response.Fail(c, "您不在该问卷的可见部门中")
+				return
+			}
+		}
+	}
 	// 检查时间窗
 	now := time.Now().UnixMilli()
 	if sv.StartTime > 0 && now < sv.StartTime {
@@ -122,6 +165,7 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 		"description":  sv.Desc,
 		"category":     sv.Category,
 		"cover":        sv.Cover,
+		"visibility":   sv.Visibility,
 		"anonymous":    sv.Anonymous,
 		"allowMulti":   sv.AllowMulti,
 		"startTime":    sv.StartTime,
@@ -132,6 +176,7 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 		"settings":     settingsMap,
 		"session":      session,
 		"startAt":      startAt,
+		"deptIds":      sv.DeptIDs,
 	}
 	response.JSON(c, publicView)
 }

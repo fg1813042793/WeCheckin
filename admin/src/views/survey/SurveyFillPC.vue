@@ -319,6 +319,7 @@ const sigCurId = ref('')
 const showLogin = ref(false)
 const loginLoading = ref(false)
 const loginForm = reactive({ name: '', password: '' })
+let userDeptId = 0
 
 const AUTO_SAVE_KEY = 'survey_draft_'
 
@@ -441,6 +442,7 @@ async function doLogin() {
     const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
     if (res.code === 0) {
       localStorage.setItem('user_token', res.data.token)
+      userDeptId = res.data.userInfo?.deptId || 0
       showLogin.value = false
       loading.value = true
       load()
@@ -639,7 +641,14 @@ async function load() {
   session.value = localStorage.getItem('survey_session_' + id) || ''
   try {
     const res = await apiGet(`/survey/view?id=${id}&session=${session.value}`)
-    if (res.code !== 0) { error.value = res.msg || '加载失败'; loading.value = false; return }
+    if (res.code !== 0) {
+      if (res.msg === '请先登录') {
+        showLogin.value = true
+        loading.value = false
+        return
+      }
+      error.value = res.msg || '加载失败'; loading.value = false; return
+    }
     survey.value = res.data
     if (res.data?.settings && typeof res.data.settings === 'string') {
       try { settings.value = JSON.parse(res.data.settings) } catch { settings.value = {} }
@@ -655,12 +664,20 @@ async function load() {
     if (res.data?.startAt) {
       startAt.value = res.data.startAt
     }
-    if (settings.value.loginRequired) {
+    if (settings.value.loginRequired || Number(survey.value?.visibility) === 1 || Number(survey.value?.visibility) === 2) {
       const token = localStorage.getItem('user_token')
       if (!token) {
         showLogin.value = true
         loading.value = false
         return
+      }
+      if (survey.value?.visibility === 2) {
+        const deptIds = (survey.value.deptIds || '').split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n))
+        if (deptIds.length && !deptIds.includes(userDeptId)) {
+          error.value = '您不在该问卷的可见部门中'
+          loading.value = false
+          return
+        }
       }
     }
     const raw = res.data?.schema

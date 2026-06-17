@@ -9,7 +9,7 @@
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="showLogin" class="login-wrapper">
       <div class="fill-container" style="padding:40px 36px;text-align:center">
-        <h2 style="margin-bottom:24px">请登录后填写问卷</h2>
+        <h2 style="margin-bottom:24px">请登录后填写试卷</h2>
         <el-form @submit.prevent="doLogin">
           <el-input v-model="loginForm.name" placeholder="用户名/手机号" style="margin-bottom:16px" />
           <el-input v-model="loginForm.password" type="password" placeholder="密码" style="margin-bottom:16px" show-password @keyup.enter="doLogin" />
@@ -27,6 +27,7 @@
           <el-tag v-if="exam.anonymous === 1" size="small">匿名收集</el-tag>
           <el-tag v-if="exam.showResult === 1" size="small">提交后查看结果</el-tag>
           <el-tag size="small">{{ totalQuestions }} 道题</el-tag>
+          <el-tag v-if="exam.showScore && totalScore" size="small">满分 {{ totalScore }} 分</el-tag>
           <el-tag v-if="remaining > 0" :type="remaining < 60000 ? 'danger' : 'warning'" size="small">⏱ {{ formatRemaining(remaining) }}</el-tag>
         </div>
       </div>
@@ -44,6 +45,7 @@
                 <span v-if="settings.questionNumber !== false" class="q-num">{{ currentNavIndex + 1 }}.</span>
                 <span class="q-text" v-html="currentQuestion.title" />
                 <span v-if="currentQuestion.required" class="q-req">*</span>
+                <span v-if="exam.showScore && currentQuestion.examScore" class="q-score">{{ currentQuestion.examScore }}分</span>
               </template>
             </div>
               <div class="preview-body">
@@ -139,6 +141,16 @@
                 </div>
                 <el-input v-else v-model="answers[currentQuestion.id]" placeholder="请输入" />
               </div>
+              <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(currentQuestion.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
+                <div style="font-size:12px;color:#999;margin-bottom:4px">--- 答案解析 ---</div>
+                <div v-if="currentQuestion.examCorrectAnswer" style="margin-bottom:4px">
+                  <span style="color:#67c23a">✓ 正确答案：</span><span v-html="currentQuestion.examCorrectAnswer" />
+                </div>
+                <div v-if="currentQuestion.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap;margin-top:4px">
+                  {{ currentQuestion.examAnalysis }}
+                </div>
+                <div style="font-size:11px;color:#bbb;margin-top:4px">examCorrectAnswer: {{ currentQuestion.examCorrectAnswer ?? '(空)' }}, examAnalysis: {{ currentQuestion.examAnalysis ?? '(空)' }}</div>
+              </div>
             </div>
           </div>
           <div class="nav-buttons">
@@ -162,6 +174,7 @@
                 <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length + 1 }}.</span>
                 <span class="q-text" v-html="q.title" />
                 <span v-if="q.required" class="q-req">*</span>
+                <span v-if="exam.showScore && q.examScore" class="q-score">{{ q.examScore }}分</span>
               </template>
             </div>
             <div class="preview-body">
@@ -257,12 +270,51 @@
               </div>
               <el-input v-else v-model="answers[q.id]" placeholder="请输入" />
             </div>
+            <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(q.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
+              <div style="font-size:12px;color:#999;margin-bottom:4px">--- 答案解析 ---</div>
+              <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
+                <span style="color:#67c23a">✓ 正确答案：</span><span v-html="q.examCorrectAnswer" />
+              </div>
+              <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap;margin-top:4px">
+                {{ q.examAnalysis }}
+              </div>
+              <div style="font-size:11px;color:#bbb;margin-top:4px">examCorrectAnswer: {{ q.examCorrectAnswer ?? '(空)' }}, examAnalysis: {{ q.examAnalysis ?? '(空)' }}</div>
+            </div>
           </div>
         </div>
         <div class="footer">
           <el-button type="primary" size="large" :loading="submitting" @click="onSubmit()">提交</el-button>
         </div>
       </template>
+    </div>
+    <div v-else-if="result" class="fill-container result-container">
+      <div class="header">
+        <h1>{{ exam?.title }}</h1>
+        <div class="meta">
+          <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
+          <el-tag size="small">正确 {{ result.correctCnt }} 题</el-tag>
+        </div>
+      </div>
+      <div v-if="settings.answerVisible" class="q-list">
+        <div v-for="(q, i) in questions.filter((x:any)=>!LAYOUT_TYPES.includes(x.type))" :key="q.id" class="q-item">
+          <div class="q-title">
+            <span v-if="settings.questionNumber !== false" class="q-num">{{ i + 1 }}.</span>
+            <span class="q-text" v-html="q.title" />
+            <span v-if="q.required" class="q-req">*</span>
+          </div>
+          <div style="margin:8px 0;font-size:13px">
+            <div v-if="answers[q.id]" style="margin-bottom:4px">
+              <span style="color:#909399">你的答案：</span><span v-html="answers[q.id]" />
+            </div>
+            <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
+              <span style="color:#67c23a">✓ 正确答案：</span><span v-html="q.examCorrectAnswer" />
+            </div>
+            <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
+              {{ q.examAnalysis }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <div v-if="settings.answerSheetVisible && !loading && exam" class="answer-sheet" :style="sheetStyle" ref="sheetRef">
@@ -305,6 +357,7 @@ const submitting = ref(false)
 const session = ref('')
 const showScanner = ref(false)
 const scanQid = ref('')
+const result = ref<any>(null)
 const scannerRef = ref<HTMLDivElement>()
 let scanner: Html5Qrcode | null = null
 const fileLists: Record<string, File[]> = reactive({})
@@ -319,6 +372,7 @@ const sigCurId = ref('')
 const showLogin = ref(false)
 const loginLoading = ref(false)
 const loginForm = reactive({ name: '', password: '' })
+let userDeptId = 0
 
 const AUTO_SAVE_KEY = 'exam_draft_'
 
@@ -419,6 +473,7 @@ function isAnswered(q: any, val: any): boolean {
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
 const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
 const totalQuestions = computed(() => realQuestions.value.length)
+const totalScore = computed(() => questions.value.reduce((sum: number, q: any) => sum + (Number(q.examScore) || 0), 0))
 const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
 const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
 
@@ -441,6 +496,7 @@ async function doLogin() {
     const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
     if (res.code === 0) {
       localStorage.setItem('user_token', res.data.token)
+      userDeptId = res.data.userInfo?.deptId || 0
       showLogin.value = false
       loading.value = true
       load()
@@ -639,13 +695,21 @@ async function load() {
   session.value = localStorage.getItem('exam_session_' + id) || ''
   try {
     const res = await apiGet(`/exam/view?id=${id}&session=${session.value}`)
-    if (res.code !== 0) { error.value = res.msg || '加载失败'; loading.value = false; return }
+    if (res.code !== 0) {
+      if (res.msg === '请先登录') {
+        showLogin.value = true
+        loading.value = false
+        return
+      }
+      error.value = res.msg || '加载失败'; loading.value = false; return
+    }
     exam.value = res.data
     if (res.data?.settings && typeof res.data.settings === 'string') {
       try { settings.value = JSON.parse(res.data.settings) } catch { settings.value = {} }
     } else {
       settings.value = res.data?.settings || {}
     }
+    if (settings.value.answerVisible === undefined) settings.value.answerVisible = true
     // 更新 session（首次获取或后端重用时）
     if (res.data?.session) {
       session.value = res.data.session
@@ -655,12 +719,20 @@ async function load() {
     if (res.data?.startAt) {
       startAt.value = res.data.startAt
     }
-    if (settings.value.loginRequired) {
+    if (settings.value.loginRequired || Number(exam.value?.visibility) === 1 || Number(exam.value?.visibility) === 2) {
       const token = localStorage.getItem('user_token')
       if (!token) {
         showLogin.value = true
         loading.value = false
         return
+      }
+      if (exam.value?.visibility === 2) {
+        const deptIds = (exam.value.deptIds || '').split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n))
+        if (deptIds.length && !deptIds.includes(userDeptId)) {
+          error.value = '您不在该考试的可见部门中'
+          loading.value = false
+          return
+        }
       }
     }
     const raw = res.data?.schema
@@ -735,12 +807,20 @@ async function onSubmit(skipConfirm = false) {
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
-        ElMessage.success('已提交')
-        stopCountdown()
-        clearDraft()
-        localStorage.removeItem('exam_session_' + id)
-        exam.value = null
-        questions.value = []
+        result.value = res.data
+        if (settings.value.answerVisible) {
+          ElMessage.success('已提交')
+          stopCountdown()
+          clearDraft()
+          localStorage.removeItem('exam_session_' + id)
+        } else {
+          ElMessage.success('已提交')
+          stopCountdown()
+          clearDraft()
+          localStorage.removeItem('exam_session_' + id)
+          exam.value = null
+          questions.value = []
+        }
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
     finally { submitting.value = false }
@@ -754,12 +834,15 @@ async function onSubmit(skipConfirm = false) {
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
+        result.value = res.data
         ElMessage.success('已提交')
         stopCountdown()
         clearDraft()
         localStorage.removeItem('exam_session_' + id)
-        exam.value = null
-        questions.value = []
+        if (!settings.value.answerVisible) {
+          exam.value = null
+          questions.value = []
+        }
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
     finally { submitting.value = false }
@@ -798,6 +881,7 @@ onUnmounted(() => {
 .q-text { word-break:break-word; }
 .q-text :deep(p), .q-text :deep(div), .q-text :deep(h1), .q-text :deep(h2), .q-text :deep(h3), .q-text :deep(h4), .q-text :deep(h5), .q-text :deep(h6), .q-text :deep(blockquote), .q-text :deep(ul), .q-text :deep(ol), .q-text :deep(li) { display:inline; }
 .q-req { color:#f56c6c; margin-left:2px; }
+.q-score { color:#fb454c; margin-left:8px; font-size:12px; font-weight:500; position:relative; top:-1px; }
 
 .preview-body { width:100%; min-height:28px; }
 .preview-body .el-input,
@@ -849,6 +933,7 @@ onUnmounted(() => {
 .fill-page:has(.fill-progress-bar) .fill-container:has(.q-list-single) { height:calc(100vh - 104px); max-height:calc(100vh - 104px); }
 
 .answer-sheet { position:fixed; right:24px; top:50%; z-index:900; width:100px; background:#fff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.1); padding:12px; max-height:70vh; display:flex; flex-direction:column; user-select:none; }
+.result-container { margin-top:20px; padding:40px 36px; }
 .answer-sheet-title { font-size:13px; font-weight:600; color:#333; text-align:center; margin-bottom:8px; cursor:grab; }
 .answer-sheet-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; overflow-y:auto; flex:1; }
 .answer-sheet-item { display:flex; align-items:center; justify-content:center; height:28px; border-radius:4px; cursor:pointer; font-size:12px; color:#606266; background:#f5f6f8; transition:all .15s; }

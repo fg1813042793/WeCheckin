@@ -3,6 +3,7 @@
     <!-- 题目标题 -->
     <div v-show="editing" class="edit-title-line">
       <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0;margin-top:5px" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
+      <el-tag v-if="q.examScore" size="small" type="warning" style="flex-shrink:0;margin-top:5px">{{ q.examScore }}分</el-tag>
       <div class="title-editor-wrap" @click.stop>
         <QuillEditor v-model:content="q.title" content-type="html"
           :options="titleEditorOptions"
@@ -34,6 +35,7 @@
     </div>
     <div v-show="!editing" class="preview-header">
       <el-tag size="small" :type="tagType(q.type)||undefined" class="preview-type-tag" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
+      <el-tag v-if="q.examScore" size="small" type="warning" class="preview-score-tag">{{ q.examScore }}分</el-tag>
       <div class="preview-title" v-html="q.title"></div>
     </div>
 
@@ -64,13 +66,12 @@
           <QuillEditor v-model:content="o.label" content-type="html"
             :options="optionEditorOptions"
             placeholder="输入选项"
-            @ready="(quill: any) => onOptionEditorReady(quill, i)"
-            @click.stop />
+            @ready="(quill: any) => onOptionEditorReady(quill, i)" />
         </div>
-        <el-button text size="small" type="danger" class="opt-del-btn" @click="removeOption(i)">
+        <el-tag v-if="o.value===examCorrectAnswer||o.examCorrect" size="small" type="success" effect="dark" style="margin-right:4px;flex-shrink:0">✓</el-tag>
+        <el-button text size="small" type="danger" class="opt-del-btn" @click.stop="removeOption(i)">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         </el-button>
-        <el-tag v-if="o.value===examCorrectAnswer" size="small" type="success" effect="dark" style="margin-left:4px;">✓</el-tag>
       </div>
     </div>
     <el-button v-if="editing && isChoiceType" text size="small" type="primary" @click="addOption" class="add-option-btn">添加选项</el-button>
@@ -983,11 +984,18 @@ function optionGrid(q: any) {
 }
 .preview-header {
   margin-bottom: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
   overflow: hidden;
 }
 .preview-type-tag {
-  float: left;
-  margin-right: 6px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.preview-score-tag {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 .preview-title {
   font-size: 14px;
@@ -995,7 +1003,7 @@ function optionGrid(q: any) {
   color: #303133;
   word-break: break-word;
   line-height: 1.5;
-  padding-top: -1px;
+  padding-top: 1px;
 }
 .preview-title :deep(p) {
   margin: 0;

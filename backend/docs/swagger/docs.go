@@ -579,6 +579,412 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/exam/delete": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "删除考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/detail": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/list": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/record_batch_del": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "批量删除考试记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "逗号分隔的记录ID",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/record_del": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "删除考试记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "记录ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/record_detail": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试记录详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "记录ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/record_list": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试记录列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/save": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "创建/更新考试",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可见性",
+                        "name": "visibility",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "允许多次",
+                        "name": "allowMulti",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "匿名",
+                        "name": "anonymous",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "显示结果",
+                        "name": "showResult",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最大答卷数",
+                        "name": "maxResponse",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "答题时长",
+                        "name": "duration",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最大次数",
+                        "name": "maxAttempts",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "显示分数",
+                        "name": "showScore",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "题目JSON",
+                        "name": "schema",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID",
+                        "name": "deptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模式",
+                        "name": "mode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "设置JSON",
+                        "name": "settings",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/statistics": {
+            "get": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "考试统计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/status": {
+            "post": {
+                "tags": [
+                    "考试管理"
+                ],
+                "summary": "更新考试状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/home": {
             "get": {
                 "tags": [
@@ -1590,6 +1996,31 @@ const docTemplate = `{
                         "type": "string",
                         "description": "资源类型: bg/header",
                         "name": "resType",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/survey/response_batch_del": {
+            "post": {
+                "tags": [
+                    "问卷管理"
+                ],
+                "summary": "批量删除答卷",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "逗号分隔的答卷ID",
+                        "name": "ids",
                         "in": "formData",
                         "required": true
                     }
@@ -2670,6 +3101,197 @@ const docTemplate = `{
                 }
             }
         },
+        "/exam/list": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "获取考试列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/exam/my_records": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "我的考试记录",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/exam/record": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "查看考试记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "记录ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/exam/save_answer": {
+            "post": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "保存答案",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "记录ID",
+                        "name": "recordId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/exam/start": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "开始考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/exam/submit": {
+            "post": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "提交考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "记录ID",
+                        "name": "recordId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/exam/view": {
+            "get": {
+                "tags": [
+                    "考试-客户端"
+                ],
+                "summary": "查看考试详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/fav/del": {
             "post": {
                 "tags": [
@@ -3131,241 +3753,7 @@ const docTemplate = `{
                     "表单工具"
                 ],
                 "summary": "应用表单逻辑（通用）",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Schema JSON",
-                        "name": "schema",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "答案JSON",
-                        "name": "answers",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_list": {
-            "get": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "获取考试列表",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "页码",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "每页条数",
-                        "name": "pageSize",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "关键词",
-                        "name": "keyword",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_my_records": {
-            "get": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "我的考试记录列表",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_record": {
-            "get": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "考试记录详情",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "考试记录ID",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_save_answer": {
-            "post": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "保存答题",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "考试记录ID",
-                        "name": "recordId",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "答案JSON",
-                        "name": "answers",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_start": {
-            "get": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "开始考试",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "考试ID",
-                        "name": "examId",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_submit": {
-            "post": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "提交考试",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "考试记录ID",
-                        "name": "recordId",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "答案JSON",
-                        "name": "answers",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
-            }
-        },
-        "/survey/exam_view": {
-            "get": {
-                "tags": [
-                    "考试-客户端"
-                ],
-                "summary": "查看考试详情",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "考试ID",
-                        "name": "id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/survey/list": {
@@ -3493,6 +3881,12 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
+                        "type": "string",
+                        "description": "答题会话",
+                        "name": "session",
+                        "in": "formData"
+                    },
+                    {
                         "type": "integer",
                         "description": "开始时间",
                         "name": "startTime",
@@ -3521,30 +3915,7 @@ const docTemplate = `{
                     "表单工具"
                 ],
                 "summary": "校验答案格式（通用）",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Schema JSON",
-                        "name": "schema",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "答案JSON",
-                        "name": "answers",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/survey/view": {

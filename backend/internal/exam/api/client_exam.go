@@ -3,7 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -11,6 +14,7 @@ import (
 	examPkg "wecheckin-backend/backend/internal/formkit/exam"
 	"wecheckin-backend/backend/internal/database"
 	"wecheckin-backend/backend/internal/model"
+	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -19,6 +23,13 @@ type ClientExamHandler struct{}
 func NewClientExamHandler() *ClientExamHandler { return &ClientExamHandler{} }
 
 // List GET /exam/list
+// @Tags 考试-客户端
+// @Summary 获取考试列表
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Success 200 {object} response.Resp
+// @Router /exam/list [get]
 func (h *ClientExamHandler) List(_ context.Context, c *app.RequestContext) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
@@ -40,6 +51,11 @@ func (h *ClientExamHandler) List(_ context.Context, c *app.RequestContext) {
 }
 
 // View GET /exam/view?id=
+// @Tags 考试-客户端
+// @Summary 查看考试详情
+// @Param id query int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /exam/view [get]
 func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id == 0 {
@@ -51,40 +67,145 @@ func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 		response.Fail(c, "考试不存在或未发布")
 		return
 	}
-	var p model.ExamPaper
-	if err := database.DB.Where("`exam_p_id` = ?", e.PaperID).First(&p).Error; err != nil {
-		response.Fail(c, "试卷不存在")
+	// 登录可见 / 部门限定：检查用户登录
+	if e.Visibility == 1 || e.Visibility == 2 {
+		token := ""
+		auth := c.GetHeader("Authorization")
+		if len(auth) > 0 {
+			token = string(auth)
+		}
+		if token == "" {
+			response.Fail(c, "请先登录")
+			return
+		}
+		rdKey := "user_token:a:" + token
+		jsonStr, err := rd.RDB.Get(rd.Ctx, rdKey).Result()
+		if err != nil || jsonStr == "" {
+			response.Fail(c, "请先登录")
+			return
+		}
+		// 部门限定：校验用户部门
+		if e.Visibility == 2 && e.DeptIds != "" {
+			var userInfo map[string]interface{}
+			json.Unmarshal([]byte(jsonStr), &userInfo)
+			uid := uint(0)
+			if id, ok := userInfo["id"].(float64); ok {
+				uid = uint(id)
+			}
+			var ud model.UserDept
+			database.DB.Where("`user_dept_user_id` = ?", uid).First(&ud)
+			deptIds := strings.Split(e.DeptIds, ",")
+			allowed := false
+			for _, did := range deptIds {
+				d, _ := strconv.Atoi(strings.TrimSpace(did))
+				if uint(d) == ud.DeptID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				response.Fail(c, "您不在该考试的可见部门中")
+				return
+			}
+		}
+	}
+	// 兼容两种存储模式：
+	//   PaperID > 0 : 独立试卷（ExamPaper + ExamQuestion）
+	//   PaperID == 0: Schema JSON 内联（ExamDesigner 新建）
+	if e.PaperID > 0 {
+		var p model.ExamPaper
+		if err := database.DB.Where("`exam_p_id` = ?", e.PaperID).First(&p).Error; err != nil {
+			response.Fail(c, "试卷不存在")
+			return
+		}
+		var qids []uint
+		_ = json.Unmarshal([]byte(p.QuestionIDs), &qids)
+		var qs []model.ExamQuestion
+		if len(qids) > 0 {
+			database.DB.Where("`exam_q_id` IN ?", qids).Find(&qs)
+		}
+		safe := make([]map[string]interface{}, 0, len(qs))
+		for _, q := range qs {
+			safe = append(safe, map[string]interface{}{
+				"id":                 q.ID,
+				"type":               q.Type,
+				"title":              q.Title,
+				"options":            q.Options,
+				"score":              q.Score,
+				"difficulty":         q.Difficulty,
+				"category":           q.Category,
+				"examCorrectAnswer":  q.Answer,
+				"examAnalysis":       q.Analysis,
+			})
+		}
+		startAt := time.Now().UnixMilli()
+		response.JSON(c, map[string]interface{}{
+			"exam":      e,
+			"paper":     p,
+			"questions": safe,
+			"startAt":   startAt,
+			"session":   strconv.FormatInt(startAt, 36),
+		})
 		return
 	}
-	var qids []uint
-	_ = json.Unmarshal([]byte(p.QuestionIDs), &qids)
-	var qs []model.ExamQuestion
-	if len(qids) > 0 {
-		database.DB.Where("`exam_q_id` IN ?", qids).Find(&qs)
+	// PaperID == 0: 直接解析 schema（Survey 风格）
+	var schMap map[string]interface{}
+	_ = json.Unmarshal([]byte(e.Schema), &schMap)
+	var settingsMap map[string]interface{}
+	_ = json.Unmarshal([]byte(e.Settings), &settingsMap)
+	if settingsMap == nil {
+		settingsMap = make(map[string]interface{})
 	}
-	safe := make([]map[string]interface{}, 0, len(qs))
-	for _, q := range qs {
-		safe = append(safe, map[string]interface{}{
-			"id":         q.ID,
-			"type":       q.Type,
-			"title":      q.Title,
-			"options":    q.Options,
-			"score":      q.Score,
-			"difficulty": q.Difficulty,
-			"category":   q.Category,
-		})
+	if _, ok := settingsMap["answerVisible"]; !ok {
+		settingsMap["answerVisible"] = true
 	}
-	startAt := time.Now().UnixMilli()
-	response.JSON(c, map[string]interface{}{
-		"exam":      e,
-		"paper":     p,
-		"questions": safe,
-		"startAt":   startAt,
-		"session":   strconv.FormatInt(startAt, 36),
-	})
+	now := time.Now().UnixMilli()
+	session := c.Query("session")
+	if session == "" {
+		session = fmt.Sprintf("%x", time.Now().UnixNano()+rand.Int63())
+	}
+	redisKey := fmt.Sprintf("exam_session:%d:%s", e.ID, session)
+	var startAt int64
+	exists, _ := rd.RDB.Exists(rd.Ctx, redisKey).Result()
+	if exists == 0 {
+		rd.RDB.Set(rd.Ctx, redisKey, now, 24*time.Hour)
+		startAt = now
+	} else {
+		v, err := rd.RDB.Get(rd.Ctx, redisKey).Int64()
+		if err == nil {
+			startAt = v
+		} else {
+			startAt = now
+		}
+	}
+	resp := map[string]interface{}{
+		"id":            e.ID,
+		"title":         e.Title,
+		"description":   e.Description,
+		"visibility":    e.Visibility,
+		"anonymous":     e.Anonymous,
+		"showResult":    e.ShowResult,
+		"showScore":     e.ShowScore,
+		"duration":      e.Duration,
+		"maxAttempts":   e.MaxAttempts,
+		"startTime":     e.StartTime,
+		"endTime":       e.EndTime,
+		"schema":        schMap,
+		"settings":      settingsMap,
+		"startAt":       startAt,
+		"session":       session,
+		"deptIds":       e.DeptIds,
+		"mode":          e.Mode,
+	}
+	response.JSON(c, resp)
 }
 
 // Start GET /exam/start?examId=
+// @Tags 考试-客户端
+// @Summary 开始考试
+// @Param examId query int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /exam/start [get]
 func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -175,6 +296,12 @@ func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 }
 
 // SaveAnswer POST /exam/save_answer
+// @Tags 考试-客户端
+// @Summary 保存答案
+// @Param recordId formData int true "记录ID"
+// @Param answers formData string true "答案JSON"
+// @Success 200 {object} response.Resp
+// @Router /exam/save_answer [post]
 func (h *ClientExamHandler) SaveAnswer(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -205,6 +332,12 @@ func (h *ClientExamHandler) SaveAnswer(_ context.Context, c *app.RequestContext)
 }
 
 // Submit POST /exam/submit
+// @Tags 考试-客户端
+// @Summary 提交考试
+// @Param recordId formData int true "记录ID"
+// @Param answers formData string true "答案JSON"
+// @Success 200 {object} response.Resp
+// @Router /exam/submit [post]
 func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -275,6 +408,11 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 }
 
 // Record GET /exam/record?id=
+// @Tags 考试-客户端
+// @Summary 查看考试记录
+// @Param id query int true "记录ID"
+// @Success 200 {object} response.Resp
+// @Router /exam/record [get]
 func (h *ClientExamHandler) Record(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))
@@ -332,6 +470,10 @@ func (h *ClientExamHandler) Record(_ context.Context, c *app.RequestContext) {
 }
 
 // MyRecords GET /exam/my_records
+// @Tags 考试-客户端
+// @Summary 我的考试记录
+// @Success 200 {object} response.Resp
+// @Router /exam/my_records [get]
 func (h *ClientExamHandler) MyRecords(_ context.Context, c *app.RequestContext) {
 	uidVal, _ := c.Get("user_id")
 	uid := uint(uidVal.(int64))

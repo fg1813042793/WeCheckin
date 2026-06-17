@@ -20,6 +20,11 @@ func NewAdminExamHandler() *AdminExamHandler {
 	return &AdminExamHandler{svc: examSvc.NewExamService()}
 }
 
+// @Tags 考试管理
+// @Summary 考试详情
+// @Param id query int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/detail [get]
 func (h *AdminExamHandler) Detail(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id <= 0 {
@@ -60,6 +65,29 @@ func (h *AdminExamHandler) Detail(_ context.Context, c *app.RequestContext) {
 	response.JSON(c, map[string]interface{}{"survey": survey, "responseCount": respCnt, "schema": rawSchema})
 }
 
+// @Tags 考试管理
+// @Summary 创建/更新考试
+// @Param title formData string true "标题"
+// @Param description formData string false "描述"
+// @Param category formData string false "分类"
+// @Param tags formData string false "标签"
+// @Param visibility formData int false "可见性"
+// @Param allowMulti formData int false "允许多次"
+// @Param anonymous formData int false "匿名"
+// @Param showResult formData int false "显示结果"
+// @Param startTime formData int false "开始时间"
+// @Param endTime formData int false "结束时间"
+// @Param maxResponse formData int false "最大答卷数"
+// @Param duration formData int false "答题时长"
+// @Param maxAttempts formData int false "最大次数"
+// @Param showScore formData int false "显示分数"
+// @Param status formData int false "状态"
+// @Param schema formData string false "题目JSON"
+// @Param deptIds formData string false "部门ID"
+// @Param mode formData string false "模式"
+// @Param settings formData string false "设置JSON"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/save [post]
 func (h *AdminExamHandler) Save(_ context.Context, c *app.RequestContext) {
 	type ExamSaveReq struct {
 		ID          uint   `json:"id" form:"id"`
@@ -93,6 +121,17 @@ func (h *AdminExamHandler) Save(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.ID == 0 {
+		var deptID uint
+		var createBy uint
+		if admin, ok := c.Get("admin"); ok {
+			if a, ok := admin.(*model.Admin); ok {
+				createBy = a.ID
+				var adminDept model.AdminDept
+				if err := database.DB.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
+					deptID = adminDept.DeptID
+				}
+			}
+		}
 		exam := model.Exam{
 			Title:       req.Title,
 			Description: req.Description,
@@ -113,6 +152,8 @@ func (h *AdminExamHandler) Save(_ context.Context, c *app.RequestContext) {
 			MaxAttempts: req.MaxAttempts,
 			ShowScore:   req.ShowScore,
 			Status:      req.Status,
+			DeptID:      deptID,
+			CreateBy:    createBy,
 		}
 		result, err := h.svc.Create(exam)
 		if err != nil {
@@ -150,6 +191,15 @@ func (h *AdminExamHandler) Save(_ context.Context, c *app.RequestContext) {
 	}
 }
 
+// @Tags 考试管理
+// @Summary 考试列表
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Param category query string false "分类"
+// @Param status query int false "状态"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/list [get]
 func (h *AdminExamHandler) List(_ context.Context, c *app.RequestContext) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
@@ -167,6 +217,12 @@ func (h *AdminExamHandler) List(_ context.Context, c *app.RequestContext) {
 	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize})
 }
 
+// @Tags 考试管理
+// @Summary 更新考试状态
+// @Param id formData int true "考试ID"
+// @Param status formData int true "状态"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/status [post]
 func (h *AdminExamHandler) Status(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	status, _ := strconv.Atoi(c.PostForm("status"))
@@ -181,6 +237,11 @@ func (h *AdminExamHandler) Status(_ context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
+// @Tags 考试管理
+// @Summary 删除考试
+// @Param id formData int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/delete [post]
 func (h *AdminExamHandler) Delete(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := h.svc.Delete(uint(id)); err != nil {
@@ -190,6 +251,14 @@ func (h *AdminExamHandler) Delete(_ context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
+// @Tags 考试管理
+// @Summary 考试记录列表
+// @Param examId query int true "考试ID"
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/record_list [get]
 func (h *AdminExamHandler) RecordList(_ context.Context, c *app.RequestContext) {
 	examId, _ := strconv.Atoi(c.Query("examId"))
 	page, _ := strconv.Atoi(c.Query("page"))
@@ -208,6 +277,11 @@ func (h *AdminExamHandler) RecordList(_ context.Context, c *app.RequestContext) 
 	response.JSON(c, map[string]interface{}{"list": list, "total": total})
 }
 
+// @Tags 考试管理
+// @Summary 考试记录详情
+// @Param id query int true "记录ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/record_detail [get]
 func (h *AdminExamHandler) RecordDetail(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id <= 0 {
@@ -222,12 +296,22 @@ func (h *AdminExamHandler) RecordDetail(_ context.Context, c *app.RequestContext
 	response.JSON(c, data)
 }
 
+// @Tags 考试管理
+// @Summary 删除考试记录
+// @Param id formData int true "记录ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/record_del [post]
 func (h *AdminExamHandler) RecordDel(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	h.svc.RecordDelete(uint(id))
 	response.JSON(c, nil)
 }
 
+// @Tags 考试管理
+// @Summary 批量删除考试记录
+// @Param ids formData string true "逗号分隔的记录ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/record_batch_del [post]
 func (h *AdminExamHandler) RecordBatchDel(_ context.Context, c *app.RequestContext) {
 	ids := c.PostForm("ids")
 	if ids == "" {
@@ -238,6 +322,11 @@ func (h *AdminExamHandler) RecordBatchDel(_ context.Context, c *app.RequestConte
 	response.JSON(c, nil)
 }
 
+// @Tags 考试管理
+// @Summary 考试统计
+// @Param examId query int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /admin/exam/statistics [get]
 func (h *AdminExamHandler) Statistics(_ context.Context, c *app.RequestContext) {
 	examId, _ := strconv.Atoi(c.Query("examId"))
 	if examId <= 0 {

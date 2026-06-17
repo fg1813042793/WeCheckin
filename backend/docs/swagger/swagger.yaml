@@ -458,6 +458,270 @@ paths:
       summary: 设置打卡推荐
       tags:
       - 打卡管理
+  /admin/exam/delete:
+    post:
+      parameters:
+      - description: 考试ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除考试
+      tags:
+      - 考试管理
+  /admin/exam/detail:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试详情
+      tags:
+      - 考试管理
+  /admin/exam/list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试列表
+      tags:
+      - 考试管理
+  /admin/exam/record_batch_del:
+    post:
+      parameters:
+      - description: 逗号分隔的记录ID
+        in: formData
+        name: ids
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量删除考试记录
+      tags:
+      - 考试管理
+  /admin/exam/record_del:
+    post:
+      parameters:
+      - description: 记录ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除考试记录
+      tags:
+      - 考试管理
+  /admin/exam/record_detail:
+    get:
+      parameters:
+      - description: 记录ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试记录详情
+      tags:
+      - 考试管理
+  /admin/exam/record_list:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: examId
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试记录列表
+      tags:
+      - 考试管理
+  /admin/exam/save:
+    post:
+      parameters:
+      - description: 标题
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: 描述
+        in: formData
+        name: description
+        type: string
+      - description: 分类
+        in: formData
+        name: category
+        type: string
+      - description: 标签
+        in: formData
+        name: tags
+        type: string
+      - description: 可见性
+        in: formData
+        name: visibility
+        type: integer
+      - description: 允许多次
+        in: formData
+        name: allowMulti
+        type: integer
+      - description: 匿名
+        in: formData
+        name: anonymous
+        type: integer
+      - description: 显示结果
+        in: formData
+        name: showResult
+        type: integer
+      - description: 开始时间
+        in: formData
+        name: startTime
+        type: integer
+      - description: 结束时间
+        in: formData
+        name: endTime
+        type: integer
+      - description: 最大答卷数
+        in: formData
+        name: maxResponse
+        type: integer
+      - description: 答题时长
+        in: formData
+        name: duration
+        type: integer
+      - description: 最大次数
+        in: formData
+        name: maxAttempts
+        type: integer
+      - description: 显示分数
+        in: formData
+        name: showScore
+        type: integer
+      - description: 状态
+        in: formData
+        name: status
+        type: integer
+      - description: 题目JSON
+        in: formData
+        name: schema
+        type: string
+      - description: 部门ID
+        in: formData
+        name: deptIds
+        type: string
+      - description: 模式
+        in: formData
+        name: mode
+        type: string
+      - description: 设置JSON
+        in: formData
+        name: settings
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 创建/更新考试
+      tags:
+      - 考试管理
+  /admin/exam/statistics:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: examId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 考试统计
+      tags:
+      - 考试管理
+  /admin/exam/status:
+    post:
+      parameters:
+      - description: 考试ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      - description: 状态
+        in: formData
+        name: status
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 更新考试状态
+      tags:
+      - 考试管理
   /admin/home:
     get:
       responses:
@@ -1117,6 +1381,22 @@ paths:
           schema:
             $ref: '#/definitions/response.Resp'
       summary: 上传问卷资源（背景图/页眉图）
+      tags:
+      - 问卷管理
+  /admin/survey/response_batch_del:
+    post:
+      parameters:
+      - description: 逗号分隔的答卷ID
+        in: formData
+        name: ids
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量删除答卷
       tags:
       - 问卷管理
   /admin/survey/response_del:
@@ -1803,6 +2083,129 @@ paths:
       summary: 查看报名详情
       tags:
       - 报名
+  /exam/list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取考试列表
+      tags:
+      - 考试-客户端
+  /exam/my_records:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 我的考试记录
+      tags:
+      - 考试-客户端
+  /exam/record:
+    get:
+      parameters:
+      - description: 记录ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看考试记录
+      tags:
+      - 考试-客户端
+  /exam/save_answer:
+    post:
+      parameters:
+      - description: 记录ID
+        in: formData
+        name: recordId
+        required: true
+        type: integer
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 保存答案
+      tags:
+      - 考试-客户端
+  /exam/start:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: examId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 开始考试
+      tags:
+      - 考试-客户端
+  /exam/submit:
+    post:
+      parameters:
+      - description: 记录ID
+        in: formData
+        name: recordId
+        required: true
+        type: integer
+      - description: 答案JSON
+        in: formData
+        name: answers
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交考试
+      tags:
+      - 考试-客户端
+  /exam/view:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看考试详情
+      tags:
+      - 考试-客户端
   /fav/del:
     post:
       parameters:
@@ -2099,161 +2502,10 @@ paths:
       - 通行证
   /survey/apply:
     post:
-      parameters:
-      - description: Schema JSON
-        in: formData
-        name: schema
-        required: true
-        type: string
-      - description: 答案JSON
-        in: formData
-        name: answers
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
+      responses: {}
       summary: 应用表单逻辑（通用）
       tags:
       - 表单工具
-  /survey/exam_list:
-    get:
-      parameters:
-      - description: 页码
-        in: query
-        name: page
-        type: integer
-      - description: 每页条数
-        in: query
-        name: pageSize
-        type: integer
-      - description: 关键词
-        in: query
-        name: keyword
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 获取考试列表
-      tags:
-      - 考试-客户端
-  /survey/exam_my_records:
-    get:
-      parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 我的考试记录列表
-      tags:
-      - 考试-客户端
-  /survey/exam_record:
-    get:
-      parameters:
-      - description: 考试记录ID
-        in: query
-        name: id
-        required: true
-        type: integer
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 考试记录详情
-      tags:
-      - 考试-客户端
-  /survey/exam_save_answer:
-    post:
-      parameters:
-      - description: 考试记录ID
-        in: formData
-        name: recordId
-        required: true
-        type: integer
-      - description: 答案JSON
-        in: formData
-        name: answers
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 保存答题
-      tags:
-      - 考试-客户端
-  /survey/exam_start:
-    get:
-      parameters:
-      - description: 考试ID
-        in: query
-        name: examId
-        required: true
-        type: integer
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 开始考试
-      tags:
-      - 考试-客户端
-  /survey/exam_submit:
-    post:
-      parameters:
-      - description: 考试记录ID
-        in: formData
-        name: recordId
-        required: true
-        type: integer
-      - description: 答案JSON
-        in: formData
-        name: answers
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 提交考试
-      tags:
-      - 考试-客户端
-  /survey/exam_view:
-    get:
-      parameters:
-      - description: 考试ID
-        in: query
-        name: id
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 查看考试详情
-      tags:
-      - 考试-客户端
   /survey/list:
     get:
       parameters:
@@ -2333,6 +2585,10 @@ paths:
         in: formData
         name: nickname
         type: string
+      - description: 答题会话
+        in: formData
+        name: session
+        type: string
       - description: 开始时间
         in: formData
         name: startTime
@@ -2351,22 +2607,7 @@ paths:
       - 问卷-客户端
   /survey/validate:
     post:
-      parameters:
-      - description: Schema JSON
-        in: formData
-        name: schema
-        required: true
-        type: string
-      - description: 答案JSON
-        in: formData
-        name: answers
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
+      responses: {}
       summary: 校验答案格式（通用）
       tags:
       - 表单工具

@@ -814,7 +814,26 @@
             <div class="group-title">回收设置</div>
             <el-form label-position="top">
               <div class="settings-grid">
-                <el-form-item label="需要登录"><el-switch v-model="form.loginRequired" /></el-form-item>
+                <el-form-item class="settings-full" label="可见性">
+                  <el-radio-group v-model="form.visibility" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+                    <el-radio :value="0" border>公开链接</el-radio>
+                    <el-radio :value="1" border>登录可见</el-radio>
+                    <el-radio :value="2" border>部门限定</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item v-if="form.visibility===2" class="settings-full" label="限定部门">
+                  <div style="width:100%;max-height:300px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
+                    <el-tree
+                      ref="deptTreeRef"
+                      :data="deptTreeData"
+                      :props="{ label: 'name', children: 'children' }"
+                      node-key="id"
+                      show-checkbox
+                      :default-checked-keys="deptCheckedKeys"
+                      @check="onDeptCheck"
+                    />
+                  </div>
+                </el-form-item>
                 <el-form-item label="只能微信填写"><el-switch v-model="form.wechatOnly" /></el-form-item>
                 <el-form-item label="凭密码填写"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
                 <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
@@ -843,26 +862,6 @@
           <div class="setting-group">
             <div class="group-title">投放与分享</div>
             <el-form label-position="top">
-              <el-form-item class="settings-full" label="可见性">
-                <el-radio-group v-model="form.visibility" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
-                  <el-radio :value="0" border>公开链接</el-radio>
-                  <el-radio :value="1" border>登录可见</el-radio>
-                  <el-radio :value="2" border>部门限定</el-radio>
-                </el-radio-group>
-              </el-form-item>
-              <el-form-item v-if="form.visibility===2" class="settings-full" label="限定部门">
-                <div style="width:100%;max-height:300px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
-                  <el-tree
-                    ref="deptTreeRef"
-                    :data="deptTreeData"
-                    :props="{ label: 'name', children: 'children' }"
-                    node-key="id"
-                    show-checkbox
-                    :default-checked-keys="deptCheckedKeys"
-                    @check="onDeptCheck"
-                  />
-                </div>
-              </el-form-item>
               <div class="settings-grid">
                 <el-form-item label="自定义跳转页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容" /></el-form-item>
                 <el-form-item label="自定义跳转链接"><el-input v-model="form.redirectUrl" placeholder="答题完成后跳转的自定义 URL" /></el-form-item>

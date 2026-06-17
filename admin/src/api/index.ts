@@ -418,7 +418,7 @@ export const adminApi = {
     return request.get('/admin/exam/detail', { params: { id } })
   },
   examSave(data: any) {
-    return request.post('/admin/exam/save', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+    return request.post('/admin/exam/save', data, { headers: { 'Content-Type': 'application/json' }, transformRequest: [(d: any) => { if (typeof d === 'string') return d; return JSON.stringify(d) }] })
   },
   examDelete(data: { id: number }) {
     return request.post('/admin/exam/delete', data)

@@ -179,13 +179,45 @@
 
         <div v-show="middleTab!=='logic'" class="survey-main-panel" @click.self="deselectQuestion">
           <div class="survey-main-panel-toolbar">
-            <div class="toolbar-actions" style="margin-left:auto">
+            <div class="toolbar-left">
+              <el-button-group class="toolbar-btn-group">
+                <el-tooltip content="文本导入" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" @click="openTextImport">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="导出试卷" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" @click="exportExam">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </el-button>
+                </el-tooltip>
+              </el-button-group>
+            </div>
+            <div class="toolbar-right">
+              <el-button-group class="toolbar-btn-group">
+                <el-tooltip content="编辑" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='edit' }" @click="panelMode='edit'">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="JSON" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='json' }" @click="panelMode='json'; exportedJson = JSON.stringify({ version: '2.0', questions }, null, 2)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="预览" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='preview' }" @click="panelMode='preview'">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </el-button>
+                </el-tooltip>
+              </el-button-group>
+              <span class="toolbar-divider" />
               <el-button type="primary" :loading="saving" size="small" @click="save">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存
               </el-button>
             </div>
           </div>
-          <div class="survey-main-panel-content">
+          <div v-if="panelMode==='edit'" class="survey-main-panel-content">
             <div class="editor-wrapper">
               <div class="editor">
                 <div class="header">
@@ -202,10 +234,27 @@
               </div>
             </div>
           </div>
+          <div v-else-if="panelMode==='json'" class="json-panel" style="display:flex;flex-direction:column;height:100%">
+            <div style="padding:12px;display:flex;gap:8px;flex-shrink:0">
+              <el-button size="small" @click="downloadJson">下载 JSON</el-button>
+              <el-button size="small" @click="loadJson">导入 JSON</el-button>
+            </div>
+            <div style="flex:1;overflow:auto;padding:0 12px 12px">
+              <el-input v-model="exportedJson" type="textarea" :rows="20" style="font-family:monospace;font-size:12px" />
+            </div>
+          </div>
+          <div v-else-if="panelMode==='preview'" class="survey-preview-panel">
+            <div style="padding:12px">
+              <div class="header" style="margin-bottom:12px">
+                <div class="header-content" style="font-size:18px;font-weight:600;text-align:center;padding:12px">{{ form.title }}</div>
+              </div>
+              <draggable-list :questions="questions" @select="selectQuestion" :selected-id="selected?.id??null" />
+            </div>
+          </div>
         </div>
 
         <div v-show="middleTab!=='logic'" class="survey-setting-panel" @click.self="deselectQuestion">
-          <div v-if="selected" class="props-panel">
+          <div v-if="selected" class="props-panel" :key="selected?.id || 'none'">
             <!-- 文件上传设置 -->
             <template v-if="selectedOptIdx>=0 && selected.type==='file'">
               <h3>文件上传设置</h3>
@@ -345,6 +394,11 @@
               <el-button type="danger" text style="margin-top:12px;width:100%" @click="removeSelected">删除此题</el-button>
             </template>
 
+            <!-- fallback: selectedOptIdx 未匹配任何已知模式 -->
+            <template v-else-if="selectedOptIdx>=0">
+              <el-button text size="small" @click="selectedOptIdx=-1">← 返回题目设置</el-button>
+            </template>
+
             <!-- 题目设置模式 -->
             <template v-else>
               <h3>{{ typeName(selected.type) }}设置</h3>
@@ -460,36 +514,124 @@
                   </el-select>
                 </el-form-item>
 
-                <!-- 选项列表 -->
-                <div v-if="hasOptions(selected)&&selected.props" class="props-options-section">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                    <span style="font-size:12px;color:#888">选项列表</span>
-                    <el-button size="small" @click="addOption" plain>+ 添加</el-button>
-                  </div>
-                  <div v-for="(o, oi) in (selected.props.options||[])" :key="oi" class="setting-opt-row">
-                    <el-input v-model="o.label" size="small" placeholder="选项名称" style="flex:1" />
-                    <el-button text size="small" type="primary" @click="selectOption(selected.id, oi)" style="font-size:11px">编辑</el-button>
-                    <el-button text size="small" type="danger" @click="removeOption(oi)">×</el-button>
-                  </div>
-                </div>
-
                 <el-divider border-style="dashed" style="margin:12px 0" />
-                <el-collapse v-model="collapseActive" accordion>
-                  <el-collapse-item title="考试属性" name="exam">
-                    <el-form-item label="分值"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" style="width:100%" /></el-form-item>
-                    <el-form-item v-if="selected.examScore" label="正确答案"><el-input v-model="selected.examCorrectAnswer" placeholder="填写正确答案" /></el-form-item>
-                    <el-form-item v-if="selected.examScore" label="答案解析"><el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" /></el-form-item>
-                  </el-collapse-item>
-                  <el-collapse-item title="校验规则" name="validate">
-                    <ValidateEditor :model-value="selected.validate||[]" @update:model-value="onValidateUpdate" />
-                  </el-collapse-item>
-                  <el-collapse-item title="计算表达式" name="calc">
-                    <CalcEditor :model-value="selected.calcValue" :env="envFromAnswers" @update:model-value="onCalcUpdate" />
-                  </el-collapse-item>
-                  <el-collapse-item title="显示逻辑" name="logic">
-                    <LogicEditor :model-value="selected.logic||[]" :all-questions="questions" @update:model-value="onLogicUpdate" />
-                  </el-collapse-item>
-                </el-collapse>
+                <div class="exam-scoring-section">
+                  <el-form-item label="计分方式" style="margin-bottom:4px">
+                    <el-select v-model="selected.examScoreMode" placeholder="不计分" clearable style="width:100%" teleported="false" popper-style="width:auto;min-width:280px">
+                      <el-option value="single" label="此题有唯一答案和分值" />
+                      <el-option value="perOption" label="每个选项都有对应的分值" :disabled="!hasOptions(selected)&&!isMatrixAll(selected.type)&&!['multiInput','hInput'].includes(selected.type)" />
+                      <el-option value="allCorrect" label="全部答对才得分" :disabled="!hasOptions(selected)&&!isMatrixAll(selected.type)&&!['multiInput','hInput'].includes(selected.type)" />
+                      <el-option value="partialCorrect" label="答对几项得几分，答错不得分" :disabled="!hasOptions(selected)&&!isMatrixAll(selected.type)&&!['multiInput','hInput'].includes(selected.type)" />
+                    </el-select>
+                  </el-form-item>
+                  <template v-if="selected.examScoreMode">
+                    <div class="props-options-section" style="margin-bottom:8px;padding:8px">
+                      <template v-if="selected.examScoreMode==='single'">
+                        <div style="font-size:12px;color:#999;margin-bottom:6px">选择/填写正确答案</div>
+                        <template v-if="isMatrixAll(selected.type)">
+                          <span style="font-size:12px;color:#999">为每道矩阵行统一设置分值</span>
+                        </template>
+                        <template v-else-if="hasOptions(selected)">
+                          <el-select ref="correctSelectRef" v-model="selected.examCorrectAnswer" placeholder="选择正确答案" clearable style="width:100%" popper-style="width:auto;min-width:260px" popper-class="correct-answer-popper" @visible-change="updateCorrectLabel">
+                            <el-option v-for="(o, i) in (selected.props?.options||[])" :key="i" :value="o.value" :label="o.label?.replace(/<[^>]*>/g,'') || o.value"><span v-html="o.label||o.value" /></el-option>
+                          </el-select>
+                        </template>
+                        <template v-else-if="isInput(selected.type)">
+                          <div style="font-size:12px;color:#999;margin-bottom:4px">为每个输入框设置正确答案</div>
+                          <div v-for="(f, i) in (selected.props?.fields||[])" :key="i" class="setting-opt-row" style="gap:4px">
+                            <span style="font-size:12px;color:#666;white-space:nowrap;min-width:60px">{{ f.label || '输入框'+(i+1) }}</span>
+                            <el-input v-model="f.examCorrectAnswer" :placeholder="f.examCorrectAnswer?'':(f.label||'输入框'+(i+1))" size="small" style="flex:1" @change="syncFieldsCorrectAnswer" />
+                          </div>
+                        </template>
+                        <template v-else>
+                          <el-input v-model="selected.examCorrectAnswer" placeholder="填写正确答案" size="small" />
+                        </template>
+                      </template>
+                      <template v-else-if="selected.examScoreMode==='perOption'">
+                        <template v-if="hasOptions(selected)">
+                          <div style="font-size:12px;color:#999;margin-bottom:4px">为每个选项设置分值</div>
+                          <div v-for="(o, i) in (selected.props?.options||[])" :key="i" class="setting-opt-row" style="gap:4px">
+                            <span style="font-size:12px;color:#666;white-space:nowrap;min-width:40px" v-html="o.label||'选项'+(i+1)"></span>
+                            <el-input-number v-model="o.examScore" :min="0" :step="0.5" size="small" style="flex:1" placeholder="0" controls-position="right" />
+                          </div>
+                        </template>
+                        <template v-else-if="isMatrixAll(selected.type)">
+                          <el-form-item label="每行分值" style="margin:0"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" size="small" style="width:100%" /></el-form-item>
+                        </template>
+                        <template v-else-if="isInput(selected.type)">
+                          <div style="font-size:12px;color:#999;margin-bottom:4px">为每个输入框设置分值和正确答案</div>
+                          <div v-for="(f, i) in (selected.props?.fields||[])" :key="i" class="setting-opt-row" style="gap:4px">
+                            <span style="font-size:12px;color:#666;white-space:nowrap;min-width:60px">{{ f.label || '输入框'+(i+1) }}</span>
+                            <el-input v-model="f.examCorrectAnswer" placeholder="正确答案" size="small" style="flex:1;min-width:60px" />
+                            <el-input-number v-model="f.examScore" :min="0" :step="0.5" size="small" style="width:90px" placeholder="分值" controls-position="right" />
+                          </div>
+                        </template>
+                      </template>
+                      <template v-else-if="selected.examScoreMode==='allCorrect'">
+                        <div style="font-size:12px;color:#999;margin-bottom:4px">勾选所有正确选项</div>
+                        <template v-if="hasOptions(selected)">
+                          <div v-for="(o, i) in (selected.props?.options||[])" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:4px 6px;border-radius:4px;background:#fff;border:1px solid #e8e8e8">
+                            <el-checkbox v-model="o.examCorrect" size="small" />
+                            <span style="font-size:13px;flex:1" v-html="o.label||`选项${i+1}`"></span>
+                            <el-tag v-if="o.examCorrect" size="small" type="success" effect="dark" style="flex-shrink:0">正确</el-tag>
+                          </div>
+                        </template>
+                        <template v-else-if="isMatrixAll(selected.type)">
+                          <el-form-item label="每行分值" style="margin:0"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" size="small" style="width:100%" /></el-form-item>
+                        </template>
+                        <template v-else-if="isInput(selected.type)">
+                          <div style="font-size:12px;color:#999;margin-bottom:4px">勾选所有必须正确的输入框，并设置每项正确答案</div>
+                          <div v-for="(f, i) in (selected.props?.fields||[])" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:4px 6px;border-radius:4px;background:#fff;border:1px solid #e8e8e8">
+                            <el-checkbox v-model="f.examCorrect" size="small" />
+                            <span style="font-size:13px;flex:1;white-space:nowrap;min-width:50px">{{ f.label || '输入框'+(i+1) }}</span>
+                            <el-input v-model="f.examCorrectAnswer" placeholder="正确答案" size="small" style="flex:1;min-width:60px" />
+                            <el-tag v-if="f.examCorrect" size="small" type="success" effect="dark" style="flex-shrink:0">必对</el-tag>
+                          </div>
+                        </template>
+                        </template>
+                        <template v-else-if="selected.examScoreMode==='partialCorrect'">
+                        <div style="font-size:12px;color:#999;margin-bottom:4px">勾选答对的选项并设置每题分值</div>
+                        <template v-if="hasOptions(selected)">
+                          <div v-for="(o, i) in (selected.props?.options||[])" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:4px 6px;border-radius:4px;background:#fff;border:1px solid #e8e8e8">
+                            <el-checkbox v-model="o.examCorrect" size="small" />
+                            <span style="font-size:13px;flex:1" v-html="o.label||`选项${i+1}`"></span>
+                            <el-input-number v-if="o.examCorrect" v-model="o.examScore" :min="0" :step="0.5" size="small" style="width:90px" controls-position="right" />
+                            <el-tag v-if="o.examCorrect" size="small" type="success" effect="dark" style="flex-shrink:0">正确</el-tag>
+                          </div>
+                        </template>
+                        <template v-else-if="isMatrixAll(selected.type)">
+                          <el-form-item label="每行分值" style="margin:0"><el-input-number v-model="selected.examScore" :min="0" :step="0.5" size="small" style="width:100%" /></el-form-item>
+                        </template>
+                        <template v-else-if="isInput(selected.type)">
+                          <div style="font-size:12px;color:#999;margin-bottom:4px">勾选答对的输入框并设置每题分值</div>
+                          <div v-for="(f, i) in (selected.props?.fields||[])" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:4px 6px;border-radius:4px;background:#fff;border:1px solid #e8e8e8">
+                            <el-checkbox v-model="f.examCorrect" size="small" />
+                            <el-input v-model="f.examCorrectAnswer" placeholder="正确答案" size="small" style="flex:1;min-width:60px" />
+                            <el-input-number v-if="f.examCorrect" v-model="f.examScore" :min="0" :step="0.5" size="small" style="width:90px" controls-position="right" />
+                            <el-tag v-if="f.examCorrect" size="small" type="success" effect="dark" style="flex-shrink:0">正确</el-tag>
+                          </div>
+                        </template>
+                      </template>
+                    </div>
+                    <el-row :gutter="8">
+                      <el-col :span="12"><el-form-item label="此题分值" style="margin-bottom:4px">
+                        <el-input-number v-if="selected.examScoreMode==='partialCorrect'" :model-value="partialTotalScore" :min="0" :step="0.5" size="small" style="width:100%" disabled />
+                        <el-input-number v-else-if="selected.examScoreMode==='perOption'" :model-value="perOptionTotalScore" :min="0" :step="0.5" size="small" style="width:100%" disabled />
+                        <el-input-number v-else v-model="selected.examScore" :min="0" :step="0.5" size="small" style="width:100%" controls-position="right" />
+                      </el-form-item></el-col>
+                    </el-row>
+                    <el-form-item label="答案解析" style="margin-bottom:0">
+                      <el-input v-model="selected.examAnalysis" type="textarea" :rows="2" placeholder="选填" size="small" />
+                    </el-form-item>
+                  </template>
+                </div>
+                <div class="exam-formula-rows">
+                  <div class="setting-row"><span class="setting-label">结束公式</span><el-button text size="small" @click="openFormulaDialog('endFormula')">点击设置</el-button></div>
+                  <div class="setting-row"><span class="setting-label">跳转公式</span><el-button text size="small" @click="openFormulaDialog('jumpFormula')">点击设置</el-button></div>
+                  <div class="setting-row"><span class="setting-label">文本替换</span><el-button text size="small" @click="openFormulaDialog('textReplace')">点击设置</el-button></div>
+                  <div class="setting-row" v-if="isInput(selected.type)||isPersonal(selected.type)"><span class="setting-label">计算公式</span><el-button text size="small" @click="openFormulaDialog('calculate')">点击设置</el-button></div>
+                  <div class="setting-row"><span class="setting-label">校验规则</span><el-button text size="small" @click="openFormulaDialog('validate')">点击设置</el-button></div>
+                </div>
               </el-form>
               <div class="props-footer">
                 <el-button type="danger" text style="width:100%" @click="removeSelected">删除此题</el-button>
@@ -606,13 +748,19 @@
             <div class="group-title">显示设置</div>
             <el-form label-position="top">
               <div class="settings-grid">
-                <el-form-item label="显示分数"><el-switch v-model="form.showScore" :active-value="1" :inactive-value="0" /></el-form-item>
                 <el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item>
                 <el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
                 <el-form-item label="自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
-                <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
-                <el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item>
-                <el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item>
+                <el-form-item label="显示分数"><el-switch v-model="form.showScore" :active-value="1" :inactive-value="0" /></el-form-item>
+                <el-form-item label="一页一题"><el-switch v-model="form.onePageOneQuestion" /></el-form-item>
+                <el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item>
+                <el-form-item label="显示答案"><el-switch v-model="form.answerVisible" /></el-form-item>
+                <el-form-item label="默认语言">
+                  <el-select v-model="form.language" style="width:100%">
+                    <el-option value="zh" label="中文" />
+                    <el-option value="en" label="英文" />
+                  </el-select>
+                </el-form-item>
                 <el-form-item label="校验触发">
                   <el-select v-model="form.triggerType">
                     <el-option value="onInput" label="输入时" />
@@ -627,33 +775,17 @@
             <div class="group-title">考试设置</div>
             <el-form label-position="top">
               <div class="settings-grid">
-                <el-form-item label="答题时长(分钟)"><el-input-number v-model="form.duration" :min="1" style="width:100%" /></el-form-item>
                 <el-form-item label="最短交卷(分钟)"><el-input-number v-model="form.minSubmitMinutes" :min="0" style="width:100%" /></el-form-item>
                 <el-form-item label="最长交卷(分钟)"><el-input-number v-model="form.maxSubmitMinutes" :min="0" style="width:100%" /></el-form-item>
-                <el-form-item label="填写密码"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
-                <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item>
+                <el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item>
                 <el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
                 <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
               </div>
             </el-form>
           </div>
           <div class="setting-group">
-            <div class="group-title">提交后设置</div>
-            <el-form label-position="top">
-              <div class="settings-grid">
-                <el-form-item label="允许改答案"><el-switch v-model="form.enableUpdate" /></el-form-item>
-                <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
-                <el-form-item label="显示排行榜"><el-switch v-model="form.rankVisible" /></el-form-item>
-                <el-form-item label="最大答题次数"><el-input-number v-model="form.maxAttempts" :min="1" :max="99" style="width:100%" /></el-form-item>
-                <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="结束语"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item>
-              </div>
-            </el-form>
-          </div>
-          <div class="setting-group">
-            <div class="group-title">访问权限</div>
+            <div class="group-title">回收设置</div>
             <el-form label-position="top">
               <div class="settings-grid">
                 <el-form-item class="settings-full" label="可见性">
@@ -663,12 +795,70 @@
                     <el-radio :value="2" border>部门限定</el-radio>
                   </el-radio-group>
                 </el-form-item>
-                <el-form-item v-if="form.visibility===2" label="限定部门"><el-input v-model="form.deptIds" placeholder="部门ID, 逗号分隔" /></el-form-item>
-                <el-form-item label="需登录"><el-switch v-model="form.loginRequired" /></el-form-item>
-                <el-form-item label="多次作答"><el-switch v-model="form.allowMultiBool" :active-value="1" :inactive-value="0" /></el-form-item>
-                <el-form-item label="匿名收集"><el-switch v-model="form.anonymousBool" :active-value="1" :inactive-value="0" /></el-form-item>
-                <el-form-item label="显示结果"><el-switch v-model="form.showResultBool" :active-value="1" :inactive-value="0" /></el-form-item>
+                <el-form-item v-if="form.visibility===2" label="限定部门">
+                  <div style="width:100%;max-height:200px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
+                    <el-tree
+                      ref="deptTreeRef"
+                      :data="deptTreeOptions"
+                      :props="{ label: 'name', children: 'children' }"
+                      node-key="id"
+                      show-checkbox
+                      default-expand-all
+                      @check-change="onDeptCheckChange"
+                    />
+                  </div>
+                </el-form-item>
+                <el-form-item label="最大答卷数"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="填写密码"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
+                <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
               </div>
+            </el-form>
+          </div>
+          <div class="setting-group">
+            <div class="group-title">投放与分享</div>
+            <el-form label-position="top">
+              <div class="settings-grid">
+                <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
+                <el-form-item label="允许改答案"><el-switch v-model="form.enableUpdate" /></el-form-item>
+                <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
+                <el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnalysis" /></el-form-item>
+                <el-form-item class="settings-full" label="问卷链接">
+                  <div style="display:flex;gap:8px;width:100%">
+                    <el-input v-if="form.id" :model-value="publicUrl" readonly size="small" style="flex:1">
+                      <template #append><el-button @click="copyLink" size="small">复制</el-button></template>
+                    </el-input>
+                    <span v-else style="color:#999;font-size:13px;line-height:32px">请先保存考试</span>
+                  </div>
+                </el-form-item>
+                <el-form-item label="二维码">
+                  <img v-if="form.id" :src="`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(publicUrl)}`" alt="二维码" style="width:120px;height:120px;border:1px solid #e8e8e8;border-radius:4px" />
+                  <span v-else style="color:#999;font-size:13px">请先保存考试</span>
+                </el-form-item>
+                <el-form-item label="答题完成后跳转自定义页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item>
+                <el-form-item label="答题完成后跳转自定义链接"><el-input v-model="form.redirectUrl" placeholder="https://" /></el-form-item>
+              </div>
+            </el-form>
+          </div>
+          <div class="setting-group">
+            <div class="group-title">协作管理员</div>
+            <el-form label-position="top">
+              <el-form-item label="考试创建者">
+                <el-input :model-value="creatorName" disabled placeholder="加载中..." />
+              </el-form-item>
+              <el-form-item class="settings-full" label="协作管理员">
+                <div style="width:100%;max-height:400px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
+                  <el-tree
+                    ref="adminTreeRef"
+                    :data="adminTreeData"
+                    :props="{ label: 'label', children: 'children' }"
+                    node-key="id"
+                    show-checkbox
+                    :default-checked-keys="collaboratorCheckedKeys"
+                    @check="onAdminTreeCheck"
+                  />
+                </div>
+              </el-form-item>
             </el-form>
           </div>
         </div>
@@ -681,7 +871,6 @@
             <div style="display:flex;gap:24px;flex-wrap:wrap">
               <div><span style="color:#888">考试名称：</span>{{ form.title || '未命名' }}</div>
               <div><span style="color:#888">题目数量：</span>{{ questions.length }}题</div>
-              <div><span style="color:#888">答题时长：</span>{{ form.duration }}分钟</div>
               <div><span style="color:#888">最大次数：</span>{{ form.maxAttempts }}次</div>
               <div><span style="color:#888">状态：</span>{{ form.statusBool ? '启用' : '停用' }}</div>
             </div>
@@ -723,6 +912,110 @@
       </div>
     </div>
   </div>
+
+  <!-- 通用公式对话框 -->
+  <el-dialog v-model="formulaVisible" :title="formulaTitle" :key="formulaKey" width="720px" :close-on-click-modal="false">
+    <div style="display:flex;gap:12px;min-height:360px">
+      <div style="flex:1">
+        <div style="font-size:12px;color:#888;margin-bottom:4px">{{ formulaType==='calculate'?'计算结果将自动填充到当前题目':'公式表达式' }}</div>
+        <el-input v-model="formulaText" type="textarea" :rows="12" :placeholder="formulaPlaceholder" />
+        <div style="font-size:12px;color:#606266;background:#f5f7fa;border-radius:4px;padding:8px 10px;margin-top:8px">
+          <div style="font-weight:600;margin-bottom:4px">使用说明</div>
+          <ul style="margin:0;padding-left:16px;line-height:1.8">
+            <li>运算符、括号、逗号请使用<strong>英文输入法</strong></li>
+            <li>判断相等用 <code>==</code>，赋值用 <code>=</code></li>
+            <li>手动输入的文本用引号包裹，例如 <code>"优秀"</code></li>
+            <li>公式结果类型需与目标题型匹配（数字题不能接收文本结果）</li>
+            <li>点击右侧<strong style="color:#fb454c">红色高亮标签</strong>可插入题目标签到光标位置</li>
+          </ul>
+        </div>
+        <div style="font-size:11px;color:#999;margin-top:8px">
+          <div style="font-weight:600;color:#606266;margin-bottom:4px">函数参考 &amp; 案例</div>
+          <div><code>IF(条件, TRUE, FALSE)</code> — 条件判断</div>
+          <div><code>AND(条件1, 条件2)</code> — 与运算</div>
+          <div><code>OR(条件1, 条件2)</code> — 或运算</div>
+          <div><code>NOT(条件)</code> — 非运算</div>
+          <div><code>COUNT(Q1)</code> — 统计多选已选数量</div>
+          <div><code>SCORE(Q1)</code> — 读取选项分值</div>
+          <div><code>TEXT(Q1)</code> — 读取选项文本</div>
+          <div><code>CURRENT_DATE("YYYY/MM/DD")</code> — 当前日期</div>
+          <div><code>INCLUDE("学校", Q1)</code> — 判断文本是否包含关键词</div>
+          <div v-if="formulaType==='calculate'" style="margin-top:6px;padding-top:6px;border-top:1px solid #eee">
+            <div style="font-weight:600;color:#606266;margin-bottom:4px">计算公式案例</div>
+            <div><code>SUM(Q1, Q2)</code> — 两题求和（计算总分）</div>
+            <div><code>ROUND(Q1 / POWER(Q2 / 100, 2), 2)</code> — BMI 指数</div>
+            <div><code>IFS(Q1&lt;60,"不合格",Q1&lt;80,"合格",TRUE(),"优秀")</code> — 多条件等级</div>
+            <div><code>CONCATENATE("你的总分是", Q1, "分")</code> — 拼接结果文案</div>
+            <div><code>Q1 + Q2 + Q3</code> — 连加运算</div>
+            <div><code>(Q1 + Q2) / 2</code> — 求平均值</div>
+          </div>
+          <div v-if="formulaType==='endFormula'||formulaType==='jumpFormula'" style="margin-top:6px;padding-top:6px;border-top:1px solid #eee">
+            <div style="font-weight:600;color:#606266;margin-bottom:4px">跳转/结束案例</div>
+            <div><code>IF Q1A1 THEN BRANCH FROM Q1 TO Q5</code> — 选择选项A跳到Q5</div>
+            <div><code>IF Q1A2 THEN BRANCH FROM Q1 TO END</code> — 选择选项B结束问卷</div>
+            <div><code>IF AND(Q1A1, Q2&gt;18) THEN BRANCH FROM Q1 TO Q6</code> — 多条件跳转</div>
+          </div>
+          <div v-if="formulaType==='textReplace'" style="margin-top:6px;padding-top:6px;border-top:1px solid #eee">
+            <div style="font-weight:600;color:#606266;margin-bottom:4px">文本替换案例</div>
+            <div><code>REPLACE Q2 WITH CONCATENATE("你好，", Q1)</code> — 替换Q2标题</div>
+            <div><code>REPLACE Q3 WITH CONCATENATE("你的得分：", SUM(Q1, Q2))</code> — 替换为计算结果</div>
+          </div>
+        </div>
+      </div>
+      <div style="width:200px;flex-shrink:0">
+        <div style="font-size:12px;color:#888;margin-bottom:4px">题目标签</div>
+        <div style="border:1px solid #eee;border-radius:4px;padding:8px;max-height:320px;overflow-y:auto">
+          <div v-for="q in formulaQuestions" :key="q.id" style="margin-bottom:6px">
+            <div style="font-size:11px;color:#999;margin-bottom:2px">{{ q.title?.slice(0,20) }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              <el-tag size="small" type="danger" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}`)">Q{{ questions.indexOf(q)+1 }}</el-tag>
+              <template v-if="q.props?.options?.length">
+                <el-tag v-for="(o, oi) in q.props.options.slice(0,4)" :key="oi" size="small" type="warning" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}A${oi+1}`)">Q{{ questions.indexOf(q)+1 }}A{{ oi+1 }}</el-tag>
+              </template>
+            </div>
+          </div>
+          <el-empty v-if="!questions.length" description="暂无题目" :image-size="30" />
+        </div>
+      </div>
+    </div>
+    <template #footer>
+      <el-button @click="formulaVisible=false">取消</el-button>
+      <el-button type="primary" @click="confirmFormula">确定</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 文本导入弹窗 -->
+  <el-dialog v-model="textImport.visible" title="文本导入" width="600px" :close-on-click-modal="false" @closed="textImport.text=''">
+    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center">
+      <el-radio-group v-model="textImport.mode" size="small">
+        <el-radio-button value="paste">粘贴文本</el-radio-button>
+        <el-radio-button value="file">上传文件</el-radio-button>
+      </el-radio-group>
+      <el-tag type="info" style="font-size:11px">每行一个题目，选项用 A. B. C. 开头</el-tag>
+    </div>
+    <div v-if="textImport.mode==='paste'">
+      <el-input v-model="textImport.text" type="textarea" :rows="12" placeholder="粘贴题目文本&#10;&#10;格式示例：&#10;1. 您最喜欢的颜色？&#10;A. 红色&#10;B. 蓝色&#10;C. 绿色&#10;&#10;2. 您的姓名&#10;&#10;3. [多选题] 您的爱好&#10;A. 阅读&#10;B. 运动&#10;C. 音乐" />
+    </div>
+    <div v-else>
+      <el-upload drag :auto-upload="false" :show-file-list="false" :on-change="onTextFileChange" accept=".txt,.docx,.md">
+        <el-icon style="font-size:40px;margin-bottom:8px"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></el-icon>
+        <div style="font-size:13px;color:#666">拖拽或点击选择 .txt / .docx / .md 文件</div>
+      </el-upload>
+      <div v-if="textImport.text" style="margin-top:8px;font-size:12px;color:#999">已解析 {{ textImport.text.split('\n').filter((l: string)=>l.trim()).length }} 行</div>
+    </div>
+    <div v-if="textImport.preview.length" style="margin-top:12px;border:1px solid #e8e8e8;border-radius:6px;padding:8px;max-height:200px;overflow-y:auto">
+      <div style="font-size:12px;color:#666;margin-bottom:4px">预览（{{ textImport.preview.length }} 题）：</div>
+      <div v-if="textImport.surveyTitle" style="font-size:13px;font-weight:bold;padding:2px 0 6px;border-bottom:1px dashed #eee;margin-bottom:4px">{{ textImport.surveyTitle }}</div>
+      <div v-for="(q: any, i: number) in textImport.preview" :key="i" style="font-size:12px;padding:2px 0;display:flex;gap:6px">
+        <el-tag size="small" style="flex-shrink:0">{{ typeName(q.type) }}</el-tag>
+        <span style="color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ stripHtmlTag(q.title) }}</span>
+      </div>
+    </div>
+    <template #footer>
+      <el-button @click="textImport.visible=false">取消</el-button>
+      <el-button type="primary" :disabled="!textImport.parsed.length" :loading="textImport.importing" @click="confirmTextImport">导入 {{ textImport.parsed.length }} 题</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -731,9 +1024,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'
 import DraggableList from './formkit/DraggableList.vue'
-import ValidateEditor from './formkit/ValidateEditor.vue'
-import CalcEditor from './formkit/CalcEditor.vue'
-import LogicEditor from './formkit/LogicEditor.vue'
 import QuestionIcon from './formkit/QuestionIcon.vue'
 
 const route = useRoute()
@@ -744,14 +1034,15 @@ const form = reactive<any>({
   visibility: 0, allowMultiBool: 0, anonymousBool: 0, showResultBool: 0,
   startDate: null, endDate: null, maxResponse: 0, statusBool: 1, deptIds: '',
   questionNumber: true, progressBar: false, autoSave: false,
-  onePageOneQuestion: false, answerSheetVisible: true, copyEnabled: true,
+  onePageOneQuestion: false, answerSheetVisible: true, answerVisible: true, copyEnabled: true, language: 'zh',
   password: '', triggerType: 'onBlur', loginRequired: false,
-  enableUpdate: false, transcriptVisible: true, rankVisible: false,
+  enableUpdate: false, transcriptVisible: true, rankVisible: false, showAnalysis: true,
   redirectUrl: '', endContent: '',
   examRankingEnabled: false, exerciseMode: false, randomOrder: false,
   minSubmitMinutes: 0, maxSubmitMinutes: 0,
   duration: 60, maxAttempts: 1, showScore: 1,
   deviceLimit: 0, ipLimit: 0, userLimit: 0,
+  createBy: 0, collaborators: '',
   backgroundImages: [] as string[], headerImages: [] as string[]
 })
 
@@ -760,6 +1051,281 @@ const middleTab = ref('item')
 const sideSubTab = ref('types')
 const activeCategory = ref('')
 const saving = ref(false)
+const panelMode = ref<'edit' | 'json' | 'preview'>('edit')
+const exportedJson = ref('')
+
+const textImport = reactive({
+  visible: false,
+  mode: 'paste' as 'paste' | 'file',
+  text: '',
+  parsed: [] as any[],
+  preview: [] as any[],
+  importing: false,
+  surveyTitle: ''
+})
+
+function stripHtmlTag(html: string) {
+  return html.replace(/<[^>]*>/g, '')
+}
+
+function parseTextToQuestions(text: string) {
+  const lines = text.split('\n')
+  const questions: any[] = []
+  let current: any = null
+  let surveyTitle = ''
+  let lineIdx = 0
+  const trimmed = lines.map(l => l.trim()).filter(l => l.length > 0)
+  if (trimmed.length >= 2 && /^[=\-~]{3,}$/.test(trimmed[1])) {
+    surveyTitle = trimmed[0]
+    const nonEmptyIdx = lines.reduce<number[]>((acc, l, i) => { if (l.trim()) acc.push(i); return acc }, [])
+    if (nonEmptyIdx.length >= 2 && nonEmptyIdx[0] + 1 === nonEmptyIdx[1] && /^[=\-~]{3,}$/.test(lines[nonEmptyIdx[1]].trim())) {
+      lineIdx = 2
+    }
+  }
+  const typeMap: Record<string, string> = {
+    '单选': 'radio', '单选置': 'radio', '单选题': 'radio',
+    '多选': 'checkbox', '多选题': 'checkbox', '多选择': 'checkbox',
+    '下拉': 'select', '下拉选择': 'select', '下拉框': 'select',
+    '选择器': 'picker', 'picker': 'picker',
+    '级联选择': 'cascade', '级联': 'cascade', 'cascade': 'cascade',
+    '判断': 'judge', '判断题': 'judge',
+    '上传文件': 'file', '文件上传': 'file', '图片上传': 'file', '文件': 'file',
+    '单行文本': 'input', '文本': 'input',
+    '多行': 'textarea', '多行文本': 'textarea', 'textarea': 'textarea',
+    '数字': 'number',
+    '多项填空': 'multiInput', 'multiInput': 'multiInput',
+    '横向填空': 'hInput', 'hInput': 'hInput',
+    '签名': 'signature', 'signature': 'signature',
+    '扫码': 'scanCode', 'scanCode': 'scanCode',
+    '评分': 'rating', 'rating': 'rating',
+    'NPS评分': 'nps', 'nps': 'nps', 'NPS': 'nps',
+    '手机': 'phone', '手机号': 'phone', 'phone': 'phone',
+    '邮箱': 'email', 'email': 'email',
+    '身份证': 'idCard', '身份证号': 'idCard', 'idCard': 'idCard',
+    '密码': 'password', 'password': 'password',
+    '姓名': 'name', 'name': 'name',
+    '学号': 'studentId', 'studentId': 'studentId',
+    '工号': 'employeeId', 'employeeId': 'employeeId',
+    '班级': 'class', 'class': 'class',
+    '开关': 'switch', 'switch': 'switch',
+    '地理位置': 'location', '位置': 'location', '打卡': 'location', 'location': 'location',
+    '日期': 'date', 'date': 'date',
+    '时间': 'time', 'time': 'time',
+    '日期范围': 'dateRange', 'dateRange': 'dateRange',
+    '矩阵单选': 'matrixRadio', 'matrixRadio': 'matrixRadio',
+    '矩阵多选': 'matrixCheckbox', 'matrixCheckbox': 'matrixCheckbox',
+    '矩阵填空': 'matrixFillBlank', 'matrixFillBlank': 'matrixFillBlank',
+    '表格自增': 'matrixAuto', '矩阵自增': 'matrixAuto', 'matrixAuto': 'matrixAuto',
+    '成员': 'user', '人员': 'user', 'user': 'user',
+    '部门': 'dept', 'dept': 'dept',
+    '富文本': 'richText', 'richText': 'richText',
+    '自动填充': 'autopop', 'autopop': 'autopop',
+  }
+  for (const raw of lines) {
+    if (lineIdx > 0) { lineIdx--; continue }
+    const line = raw.trim()
+    if (!line) {
+      if (current && current.title) { questions.push(current); current = null }
+      continue
+    }
+    const optMatch = line.match(/^([A-Za-z])[.、）)]\s*(.*)/)
+    if (optMatch) {
+      if (!current) current = { type: 'radio', title: '', options: [], rows: [], columns: [], fields: [] }
+      if (!current.options) current.options = []
+      const label = stripHtmlTag(optMatch[2])
+      if (label) {
+        current.options.push({ label, value: optMatch[1] })
+        if (current.type === 'input') current.type = 'radio'
+      }
+      continue
+    }
+    const rowMatch = line.match(/^行[:：]\s*(.+)/)
+    const colMatch = line.match(/^列[:：]\s*(.+)/)
+    const fieldMatch = line.match(/^字段[:：]\s*(.+)/)
+    if (rowMatch || colMatch || fieldMatch) {
+      if (!current) current = { type: 'input', title: '', options: [], rows: [], columns: [], fields: [] }
+      if (!current.rows) current.rows = []
+      if (!current.columns) current.columns = []
+      if (!current.fields) current.fields = []
+      if (rowMatch) current.rows = rowMatch[1].split('/').map((s: string) => ({ title: s.trim() }))
+      if (colMatch) current.columns = colMatch[1].split('/').map((s: string) => ({ title: s.trim() }))
+      if (fieldMatch) current.fields = fieldMatch[1].split('/').map((s: string) => ({ label: s.trim(), placeholder: '' }))
+      continue
+    }
+    if (current && current.title) { questions.push(current) }
+    const typeMatch = line.match(/^\d*[.、）)]?\s*\[(.+?)\]\s*(.*)/)
+    if (typeMatch) {
+      const typeName2 = typeMatch[1].trim()
+      const rawTitle = typeMatch[2]
+      const mappedType = typeMap[typeName2] || 'input'
+      let qTitle = stripHtmlTag(rawTitle)
+      if (!qTitle) qTitle = stripHtmlTag(line.replace(/^\d*[.、）)]?\s*/, '').replace(/\[.*?\]/, '').trim())
+      current = { type: mappedType, title: qTitle, options: [], rows: [], columns: [], fields: [] }
+      if (mappedType === 'judge') current.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
+    } else {
+      const title = stripHtmlTag(line.replace(/^\d+[.、）)]?\s*/, ''))
+      current = { type: 'input', title, options: [], rows: [], columns: [], fields: [] }
+    }
+  }
+  if (current && current.title) questions.push(current)
+  questions.forEach((q: any) => {
+    const needsOptions = ['radio', 'checkbox', 'select', 'picker', 'cascade', 'user', 'dept']
+    if (q.options && q.options.length > 0) {
+      if (q.type === 'input') q.type = 'radio'
+    } else if (needsOptions.includes(q.type)) {
+      q.type = 'input'
+      q.options = []
+    }
+  })
+  return { title: surveyTitle, questions }
+}
+
+watch(() => textImport.text, (val) => {
+  if (textImport.mode === 'paste' && val) {
+    const result = parseTextToQuestions(val)
+    textImport.surveyTitle = result.title
+    textImport.parsed = result.questions
+    textImport.preview = textImport.parsed.slice(0, 20)
+  } else if (!val) {
+    textImport.parsed = []
+    textImport.preview = []
+    textImport.surveyTitle = ''
+  }
+})
+watch(() => textImport.mode, () => {
+  textImport.parsed = []
+  textImport.preview = []
+})
+
+async function onTextFileChange(file: any) {
+  const f = file.raw || file
+  if (!f) return
+  if (f.name.endsWith('.docx')) {
+    try {
+      const lib = 'mamm' + 'oth'
+      const mammothMod = await import(/* @vite-ignore */ lib)
+      const m = (mammothMod.default || mammothMod) as any
+      const buf = await f.arrayBuffer()
+      const result = await m.extractRawText({ arrayBuffer: buf })
+      textImport.text = result.value
+    } catch {
+      ElMessage.error('Word 文件解析失败，请先安装 mammoth: npm install mammoth')
+      return
+    }
+  } else {
+    textImport.text = await f.text()
+  }
+  const result = parseTextToQuestions(textImport.text)
+  textImport.surveyTitle = result.title
+  textImport.parsed = result.questions
+  textImport.preview = textImport.parsed.slice(0, 20)
+}
+
+function confirmTextImport() {
+  if (!textImport.parsed.length) return
+  textImport.importing = true
+  try {
+    if (textImport.surveyTitle) form.title = textImport.surveyTitle
+    textImport.parsed.forEach((q: any) => {
+      const newQ: any = {
+        id: genId(),
+        type: q.type,
+        title: q.title,
+        required: false,
+        readOnly: false,
+        dataType: '',
+        placeholder: '',
+        mediaType: '',
+        mediaUrl: '',
+        mediaWidth: '',
+        mediaAlign: 'center',
+        showDescription: true,
+        props: {}
+      }
+      if (['radio', 'checkbox', 'select', 'picker', 'cascade'].includes(q.type) && q.options?.length) {
+        newQ.props.options = q.options
+      }
+      if (q.type === 'judge') {
+        newQ.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
+      }
+      if (['matrixRadio', 'matrixCheckbox', 'matrixFillBlank'].includes(q.type)) {
+        if (q.rows?.length) newQ.props.rows = q.rows
+        if (q.columns?.length) newQ.props.columns = q.columns
+      }
+      if (q.type === 'matrixAuto') {
+        if (q.columns?.length) newQ.props.columns = q.columns
+      }
+      if (q.type === 'multiInput' || q.type === 'hInput') {
+        if (q.fields?.length) newQ.props.fields = q.fields
+      }
+      questions.value.push(newQ)
+      selected.value = newQ
+    })
+    ElMessage.success(`成功导入 ${textImport.parsed.length} 题`)
+    textImport.visible = false
+  } finally {
+    textImport.importing = false
+  }
+}
+
+function openTextImport() {
+  textImport.visible = true
+  textImport.text = ''
+  textImport.parsed = []
+  textImport.preview = []
+  textImport.mode = 'paste'
+  textImport.surveyTitle = ''
+}
+
+function exportExam() {
+  const text = surveyToText()
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${form.title || '试卷'}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出')
+}
+
+function surveyToText(): string {
+  const lines: string[] = []
+  const title = form.title || '未命名试卷'
+  lines.push(title)
+  lines.push('='.repeat(title.length))
+  lines.push('')
+  let idx = 0
+  questions.value.forEach((q: any) => {
+    if (['description', 'divider', 'pagination', 'questionSet'].includes(q.type)) {
+      if (q.type === 'description') lines.push('--- ' + stripHtmlTag(q.title) + ' ---')
+      return
+    }
+    idx++
+    const qTitle = stripHtmlTag(q.title || '未命名')
+    const typeLabel = typeName(q.type)
+    const required = q.required ? '（必填）' : ''
+    lines.push(`${idx}. [${typeLabel}] ${qTitle}${required}`)
+    if (q.props?.options?.length) {
+      q.props.options.forEach((o: any, oi: number) => {
+        const prefix = String.fromCharCode(65 + oi)
+        lines.push(`   ${prefix}. ${o.label}`)
+      })
+    }
+    if (q.props?.fields?.length) {
+      lines.push(`   字段: ${q.props.fields.map((f: any) => f.label).join(' / ')}`)
+    }
+    if (q.props?.rows?.length) {
+      lines.push(`   行: ${q.props.rows.map((r: any) => r.title).join(' / ')}`)
+    }
+    if (q.props?.columns?.length) {
+      lines.push(`   列: ${q.props.columns.map((c: any) => c.title || c.label).join(' / ')}`)
+    }
+    lines.push('')
+  })
+  return lines.join('\n')
+}
+
 const bankKeyword = ref('')
 const bankQuestions = ref<any[]>([])
 const bankLoading = ref(false)
@@ -771,6 +1337,92 @@ const allHeaderResources = ref<any[]>([])
 
 const token = localStorage.getItem('admin_token') || ''
 const uploadHeaders = { Authorization: token }
+
+const creatorName = ref('')
+const adminTreeRef = ref<any>(null)
+const adminTreeData = ref<any[]>([])
+const deptTreeOptions = ref<any[]>([])
+const deptTreeRef = ref<any>(null)
+const collaboratorCheckedKeys = ref<string[]>([])
+const adminMap = ref<Record<number, string>>({})
+const correctSelectRef = ref<any>(null)
+const selectedCorrectLabel = computed(() => {
+  if (!selected.value?.examCorrectAnswer) return ''
+  const opt = (selected.value.props?.options || []).find((o: any) => o.value === selected.value.examCorrectAnswer)
+  return opt ? (opt.label || opt.value) : selected.value.examCorrectAnswer
+})
+function updateCorrectLabel() {
+  nextTick(() => {
+    if (!correctSelectRef.value?.$el) return
+    const wrap = correctSelectRef.value.$el.querySelector('.el-select__wrapper')
+    if (!wrap) return
+    const el = wrap.querySelector('.el-select__placeholder') || wrap.querySelector('.el-select__selected-item')
+    if (el) el.innerHTML = selectedCorrectLabel.value
+  })
+}
+
+function onAdminTreeCheck() {
+  form.collaborators = adminTreeRef.value
+    ?.getCheckedKeys(true)
+    ?.filter((k: string) => k.startsWith('admin-'))
+    ?.map((k: string) => k.replace('admin-', ''))
+    ?.join(',') || ''
+}
+
+async function loadAdminTree() {
+  try {
+    const [deptRes, mgrRes] = await Promise.all([
+      adminApi.deptTree(),
+      adminApi.mgrList({ page: 1, pageSize: 9999 })
+    ])
+    const depts: any[] = deptRes.data || []
+    const mgrs: any[] = mgrRes.data?.list || []
+    const map: Record<number, string> = {}
+    mgrs.forEach((m: any) => { map[m.id] = m.name })
+    adminMap.value = map
+    const creator = mgrs.find((m: any) => m.id === form.createBy)
+    creatorName.value = creator ? creator.name : (form.createBy ? '未知用户' : '未指定')
+    adminTreeData.value = buildAdminTree(depts, mgrs)
+    collaboratorCheckedKeys.value = form.collaborators
+      ? form.collaborators.split(',').map((id: string) => `admin-${id}`)
+      : []
+  } catch {
+    creatorName.value = '加载失败'
+    adminTreeData.value = []
+  }
+}
+
+async function loadDeptTree() {
+  try {
+    const res: any = await adminApi.deptTree()
+    deptTreeOptions.value = res.data || []
+    await nextTick()
+    if (form.visibility === 2 && form.deptIds) {
+      const keys = form.deptIds.split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n))
+      deptTreeRef.value?.setCheckedKeys(keys)
+    }
+  } catch { deptTreeOptions.value = [] }
+}
+
+function onDeptCheckChange() {
+  if (!deptTreeRef.value) return
+  form.deptIds = deptTreeRef.value.getCheckedKeys(false).join(',')
+}
+
+function buildAdminTree(depts: any[], mgrs: any[]): any[] {
+  return depts.map((d: any) => {
+    const deptAdmins = mgrs.filter((m: any) => (m.deptIds || []).includes(d.id))
+    const adminNodes = deptAdmins.map((m: any) => ({
+      id: `admin-${m.id}`, label: m.name, type: 'admin'
+    }))
+    const children = d.children?.length ? buildAdminTree(d.children, mgrs) : []
+    if (adminNodes.length) children.push(...adminNodes)
+    return {
+      id: `dept-${d.id}`, label: d.name, type: 'dept', children
+    }
+  }).filter((d: any) => d.children?.length)
+}
+
 function handleBgSuccess(res: any) {
   if (!res.data?.url) { ElMessage.error('上传失败：响应数据异常'); return }
   ElMessage.success('已上传到资源库，点击图片应用')
@@ -945,9 +1597,9 @@ async function saveLogicRules() {
     questionNumber: form.questionNumber, progressBar: form.progressBar,
     autoSave: form.autoSave, password: form.password,
     loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
-    answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-    triggerType: form.triggerType, enableUpdate: form.enableUpdate,
-    transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
+      answerSheetVisible: form.answerSheetVisible, answerVisible: form.answerVisible, copyEnabled: form.copyEnabled, language: form.language,
+      triggerType: form.triggerType, enableUpdate: form.enableUpdate,
+      transcriptVisible: form.transcriptVisible, showAnalysis: form.showAnalysis, rankVisible: form.rankVisible,
     redirectUrl: form.redirectUrl, endContent: form.endContent,
     examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
     randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
@@ -1008,8 +1660,6 @@ function updateTabScroll() {
   if (!vp || !tr) return; scrollPos.value = 0; tr.style.transform = 'translateX(0)'
   atTabEnd.value = tr.scrollWidth <= vp.clientWidth
 }
-const collapseActive = ref('')
-
 const types = ref<any[]>([])
 const FALLBACK_TYPES = [
   { type:'radio', displayName:'单选题', category:'select' },
@@ -1092,7 +1742,7 @@ function typeName(t: string) {
   return map[t] || t
 }
 
-interface Question { id: string; type: string; title: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; showDescription?: boolean; defaultHidden?: boolean; optionLayout?: number; multiple?: boolean; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; fileTypes?: string[]; fileExtensions?: string; maxFileSize?: number; maxFileCount?: number; examAnswerMode?: string; dataType?: string; _existing?: boolean; [key: string]: any }
+interface Question { id: string; type: string; title: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; showDescription?: boolean; defaultHidden?: boolean; optionLayout?: number; multiple?: boolean; examScoreMode?: string; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; fileTypes?: string[]; fileExtensions?: string; maxFileSize?: number; maxFileCount?: number; examAnswerMode?: string; dataType?: string; _existing?: boolean; [key: string]: any }
 const questions = ref<Question[]>([])
 const selected = ref<Question | null>(null)
 let idCounter = 0
@@ -1100,6 +1750,9 @@ function genId() { idCounter++; return 'q' + idCounter }
 function addQuestion(t: any) {
   const q: Question = { id: genId(), type: t.type, title: t.displayName, required: false, readOnly: false, placeholder: '', props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {} }
   if (!q.props) q.props = {}
+  if (t.type !== 'description' && t.type !== 'questionSet' && t.type !== 'pagination' && t.type !== 'divider') {
+    q.examScoreMode = 'single'
+  }
   if (t.type === 'judge') {
     q.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
   }
@@ -1141,7 +1794,11 @@ function addQuestion(t: any) {
   }
   questions.value.push(q); selected.value = q
 }
-function selectQuestion(id: string) { selected.value = questions.value.find(q => q.id === id) || null; selectedOptIdx.value = -1 }
+function selectQuestion(id: string) {
+  selected.value = questions.value.find(q => q.id === id) || null
+  selectedOptIdx.value = -1
+  populateFieldsFromCorrectAnswer()
+}
 function deselectQuestion() { selected.value = null; selectedOptIdx.value = -1 }
 function onQuestionsUpdate(newQ: Question[]) {
   questions.value.splice(0, questions.value.length, ...newQ)
@@ -1162,6 +1819,63 @@ function isChoice(t: string) { return ['select','radio','checkbox','picker','cas
 function hasDataType(q: Question) { return ['input','textarea','number','name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
 function isPersonal(t: string) { return ['name','studentId','employeeId','class','phone','email','idCard','password'].includes(t) }
 const selectedOptIdx = ref(-1)
+const formulaVisible = ref(false)
+const formulaTitle = ref('')
+const formulaText = ref('')
+const formulaType = ref('')
+const formulaKey = ref(0)
+const formulaQuestions = computed(() => questions.value.filter((q: any) => !isPureLayout(q.type)))
+const formulaPlaceholder = computed(() => {
+  const map: Record<string, string> = {
+    endFormula: 'IF Q1A1 THEN END\nIF AND(Q1A1, Q2>10) THEN END',
+    jumpFormula: 'IF Q1A1 THEN BRANCH FROM Q1 TO Q5\nIF Q2>100 THEN BRANCH FROM Q2 TO Q8',
+    textReplace: 'REPLACE Q2 WITH CONCATENATE("你好", Q1)',
+    calculate: 'SUM(Q1, Q2)\nQ1 + Q2\nIF(Q1>60, "及格", "不及格")'
+  }
+  return map[formulaType.value] || '输入公式表达式'
+})
+function openFormulaDialog(type: string) {
+  if (!selected.value) return
+  const titles: Record<string, string> = {
+    endFormula: '结束公式', jumpFormula: '跳转公式',
+    textReplace: '文本替换', calculate: '计算公式', validate: '校验规则'
+  }
+  const fieldMap: Record<string, string> = {
+    endFormula: 'endFormula', jumpFormula: 'jumpFormula',
+    textReplace: 'replaceTextRule', calculate: 'calculateFormula', validate: 'validateRule'
+  }
+  const field = fieldMap[type] || ''
+  formulaType.value = type
+  formulaTitle.value = titles[type] || '公式编辑'
+  formulaText.value = selected.value[field] || selected.value.props?.[field] || ''
+  formulaKey.value++
+  formulaVisible.value = true
+}
+function confirmFormula() {
+  if (!selected.value) return
+  const fieldMap: Record<string, string> = {
+    endFormula: 'endFormula', jumpFormula: 'jumpFormula',
+    textReplace: 'replaceTextRule', calculate: 'calculateFormula', validate: 'validateRule'
+  }
+  const field = fieldMap[formulaType.value] || ''
+  if (formulaType.value === 'calculate' || formulaType.value === 'textReplace') {
+    if (!selected.value.props) selected.value.props = {}
+    selected.value.props[field] = formulaText.value
+  } else {
+    selected.value[field] = formulaText.value
+  }
+  formulaVisible.value = false
+}
+function insertFormulaTag(tag: string) {
+  const ta = document.querySelector('.el-dialog .el-textarea textarea') as HTMLTextAreaElement
+  if (ta) {
+    const start = ta.selectionStart, end = ta.selectionEnd
+    formulaText.value = formulaText.value.slice(0, start) + tag + formulaText.value.slice(end)
+    nextTick(() => { ta.selectionStart = ta.selectionEnd = start + tag.length; ta.focus() })
+  } else {
+    formulaText.value += tag
+  }
+}
 function selectOption(qId: string, optIdx: number) { selected.value = questions.value.find(q => q.id === qId) || null; selectedOptIdx.value = optIdx }
 function addAutoCol() {
   if (!selected.value?.props) return
@@ -1200,19 +1914,29 @@ function addOption() {
   if (!selected.value) return
   if (!selected.value.props) selected.value.props = {}
   if (!selected.value.props.options) selected.value.props.options = []
-  selected.value.props.options.push({ value: '选项' + (selected.value.props.options.length + 1), label: '选项' + (selected.value.props.options.length + 1) })
+  const n = selected.value.props.options.length + 1
+  const letter = n <= 26 ? String.fromCharCode(64 + n) : `opt${n}`
+  selected.value.props.options.push({ label: `选项${letter}`, value: letter })
 }
 function removeOption(idx: number) { if (selected.value?.props?.options) selected.value.props.options.splice(idx, 1) }
-function onValidateUpdate(v: any) { if (selected.value) selected.value.validate = v }
 function removeQuestionById(id: string) { questions.value = questions.value.filter(q => q.id !== id); if (selected.value?.id === id) selected.value = null }
-function onCalcUpdate(v: any) { if (selected.value) selected.value.calcValue = v }
-function onLogicUpdate(v: any) { if (selected.value) selected.value.logic = v }
+
+const partialTotalScore = computed(() => {
+  if (!selected.value) return 0
+  const items = ['multiInput','hInput'].includes(selected.value.type) ? (selected.value.props?.fields||[]) : (selected.value.props?.options||[])
+  return items.reduce((sum: number, o: any) => sum + (o.examCorrect ? (Number(o.examScore) || 0) : 0), 0)
+})
+const perOptionTotalScore = computed(() => {
+  if (!selected.value) return 0
+  const items = ['multiInput','hInput'].includes(selected.value.type) ? (selected.value.props?.fields||[]) : (selected.value.props?.options||[])
+  return items.reduce((sum: number, o: any) => sum + (Number(o.examScore) || 0), 0)
+})
 
 const envFromAnswers = computed(() => {
   const env: Record<string, any> = {}; for (const q of questions.value) env[q.id] = undefined; return env
 })
 
-const publicUrl = computed(() => form.id ? `${window.location.origin}/#/ef/${form.id}` : '')
+const publicUrl = computed(() => form.id ? `${window.location.origin}/ef/${form.id}` : '')
 function copyLink() { navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
 
 function goBack() { router.push('/exam/list') }
@@ -1237,7 +1961,8 @@ async function load() {
       anonymousBool: sv.anonymous ?? 0, showResultBool: sv.showResult ?? 0,
       startDate: sv.startTime || null, endDate: sv.endTime || null,
       maxResponse: sv.maxResponse ?? 0, statusBool: sv.status ?? 1, deptIds: sv.deptIds || '',
-      duration: sv.duration ?? 60, maxAttempts: sv.maxAttempts ?? 1, showScore: sv.showScore ?? 1
+      duration: sv.duration ?? 60, maxAttempts: sv.maxAttempts ?? 1, showScore: sv.showScore ?? 1,
+      createBy: sv.createBy || 0
     })
     if (sv.settings) {
       try {
@@ -1247,15 +1972,16 @@ async function load() {
           autoSave: s.autoSave ?? false, password: s.password || '',
           loginRequired: s.loginRequired ?? false,
           onePageOneQuestion: s.onePageOneQuestion ?? false,
-          answerSheetVisible: s.answerSheetVisible ?? true,
-          copyEnabled: s.copyEnabled ?? true, triggerType: s.triggerType || 'onBlur',
-          enableUpdate: s.enableUpdate ?? false, transcriptVisible: s.transcriptVisible ?? true,
+          answerSheetVisible: s.answerSheetVisible ?? true, answerVisible: s.answerVisible ?? true,
+          copyEnabled: s.copyEnabled ?? true, language: s.language || 'zh', triggerType: s.triggerType || 'onBlur',
+          enableUpdate: s.enableUpdate ?? false, transcriptVisible: s.transcriptVisible ?? true, showAnalysis: s.showAnalysis ?? true,
           rankVisible: s.rankVisible ?? false, redirectUrl: s.redirectUrl || '', endContent: s.endContent || '',
           examRankingEnabled: s.examRankingEnabled ?? false,
           exerciseMode: s.exerciseMode ?? false, randomOrder: s.randomOrder ?? false,
           minSubmitMinutes: s.minSubmitMinutes || 0, maxSubmitMinutes: s.maxSubmitMinutes || 0,
           deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0, userLimit: s.userLimit || 0,
-          backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || []
+          backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || [],
+          collaborators: s.collaborators || ''
         })
       } catch {}
     }
@@ -1266,7 +1992,36 @@ async function load() {
         if (sch.questions) { questions.value = sch.questions; idCounter = questions.value.length; selected.value = questions.value[0] || null }
       } catch {}
     }
+    await loadAdminTree()
+    loadDeptTree()
   } catch { ElMessage.error('加载失败') }
+}
+
+function downloadJson() {
+  const blob = new Blob([exportedJson.value], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${form.title || 'exam'}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+function loadJson() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e: any) => {
+    const file = e.target.files[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      if (data.questions) questions.value = data.questions
+      exportedJson.value = text
+      ElMessage.success('已导入')
+    } catch { ElMessage.error('JSON 解析失败') }
+  }
+  input.click()
 }
 
 async function save() {
@@ -1275,38 +2030,128 @@ async function save() {
   try {
     const schema = JSON.stringify({ version: '2.0', questions: questions.value, setting: {} })
     const settings = JSON.stringify({
+      collaborators: form.collaborators,
       questionNumber: form.questionNumber, progressBar: form.progressBar,
       autoSave: form.autoSave, password: form.password,
       loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
-      answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-      triggerType: form.triggerType, enableUpdate: form.enableUpdate,
-      transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
-      redirectUrl: form.redirectUrl, endContent: form.endContent,
-      examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
-      randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
+    answerSheetVisible: form.answerSheetVisible, answerVisible: form.answerVisible, copyEnabled: form.copyEnabled, language: form.language,
+    triggerType: form.triggerType, enableUpdate: form.enableUpdate,
+      transcriptVisible: form.transcriptVisible, showAnalysis: form.showAnalysis, rankVisible: form.rankVisible,
+    redirectUrl: form.redirectUrl, endContent: form.endContent,
+    examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
+    randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
     maxSubmitMinutes: form.maxSubmitMinutes,
     deviceLimit: form.deviceLimit, ipLimit: form.ipLimit, userLimit: form.userLimit,
     backgroundImages: form.backgroundImages, headerImages: form.headerImages
-    })
-    const payload: any = {
-      title: form.title, description: form.description, category: form.category, tags: form.tags,
-      visibility: form.visibility, allowMulti: form.allowMultiBool,
-      anonymous: form.anonymousBool, showResult: form.showResultBool,
-      startTime: form.startDate || 0, endTime: form.endDate || 0,
-      maxResponse: form.maxResponse, status: form.statusBool, mode: 'exam',
-      deptIds: form.deptIds, schema, settings,
-      duration: form.duration, maxAttempts: form.maxAttempts, showScore: form.showScore
-    }
-    if (form.id) payload.id = form.id
-    const r: any = await adminApi.examSave(payload)
-    if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
-    ElMessage.success(form.id ? '已更新' : '已创建')
-  } catch { ElMessage.error('保存失败') }
-  finally { saving.value = false }
+  })
+  const payload: any = {
+    title: form.title, description: form.description, category: form.category, tags: form.tags,
+    visibility: form.visibility, allowMulti: form.allowMultiBool,
+    anonymous: form.anonymousBool, showResult: form.showResultBool,
+    startTime: form.startDate || 0, endTime: form.endDate || 0,
+    maxResponse: form.maxResponse, status: form.statusBool, mode: 'exam',
+    deptIds: form.deptIds, schema, settings,
+    duration: form.duration, maxAttempts: form.maxAttempts, showScore: form.showScore
+  }
+  if (form.id) payload.id = form.id
+  const r: any = await adminApi.examSave(payload)
+  if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
+  ElMessage.success('已保存')
+} catch { ElMessage.error('保存失败') }
+finally { saving.value = false }
 }
 
 watch(middleTab, (v) => { if (v === 'appearance') loadResources() })
 watch(sideSubTab, (v) => { if (v === 'bank') loadBank() })
+watch(() => form.visibility, (v) => {
+  if (v === 2 && deptTreeOptions.value.length) {
+    nextTick(() => {
+      if (form.deptIds) {
+        const keys = form.deptIds.split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n))
+        deptTreeRef.value?.setCheckedKeys(keys)
+      }
+    })
+  }
+})
+
+watch([partialTotalScore, perOptionTotalScore], () => {
+  if (!selected.value) return
+  if (selected.value.examScoreMode === 'partialCorrect') selected.value.examScore = partialTotalScore.value
+  else if (selected.value.examScoreMode === 'perOption') selected.value.examScore = perOptionTotalScore.value
+})
+
+watch(() => selected.value?.examScoreMode, (cur, prev) => {
+  if (!selected.value || !prev) return
+  if (prev === 'single') {
+    selected.value.examCorrectAnswer = undefined
+  }
+  if (prev === 'perOption' || prev === 'partialCorrect') {
+    selected.value.props?.options?.forEach((o: any) => { o.examScore = undefined })
+    selected.value.props?.fields?.forEach((f: any) => { f.examScore = undefined })
+  }
+  if (prev === 'allCorrect' || prev === 'partialCorrect') {
+    selected.value.props?.options?.forEach((o: any) => { o.examCorrect = undefined })
+    selected.value.props?.fields?.forEach((f: any) => { f.examCorrect = undefined })
+  }
+  if (cur === 'single' && ['multiInput','hInput'].includes(selected.value.type)) {
+    populateFieldsFromCorrectAnswer()
+  }
+})
+
+function populateFieldsFromCorrectAnswer() {
+  if (!selected.value || !['multiInput','hInput'].includes(selected.value.type)) return
+  const fields = selected.value.props?.fields || []
+  const parts = (selected.value.examCorrectAnswer || '').split(',')
+  fields.forEach((f: any, i: number) => {
+    if (parts[i] !== undefined) f.examCorrectAnswer = parts[i]
+  })
+}
+
+function deriveCorrectAnswerFromMode() {
+  if (!selected.value) return
+  if (!selected.value.examScoreMode || selected.value.examScoreMode === 'single') {
+    if (['multiInput','hInput'].includes(selected.value.type)) {
+      const fields = selected.value.props?.fields || []
+      const vals = fields.map((f: any) => f.examCorrectAnswer || '').filter(Boolean)
+      selected.value.examCorrectAnswer = vals.length ? vals.join(',') : undefined
+    } else {
+      if (selected.value.examCorrectAnswer?.includes(',')) selected.value.examCorrectAnswer = undefined
+    }
+    return
+  }
+  const isInputType = ['multiInput','hInput'].includes(selected.value.type)
+  const items = isInputType ? (selected.value.props?.fields || []) : (selected.value.props?.options || [])
+  let correctVals: string[] = []
+  if (selected.value.examScoreMode === 'allCorrect' || selected.value.examScoreMode === 'partialCorrect') {
+    correctVals = items.filter((item: any) => item.examCorrect).map((item: any) => item.value || item.examCorrectAnswer || '')
+  } else if (selected.value.examScoreMode === 'perOption') {
+    correctVals = items.filter((item: any) => Number(item.examScore) > 0).map((item: any) => item.value || '')
+  }
+  selected.value.examCorrectAnswer = correctVals.length ? correctVals.join(',') : undefined
+}
+
+function syncFieldsCorrectAnswer() {
+  if (!selected.value) return
+  const fields = selected.value.props?.fields || []
+  const vals = fields.map((f: any) => f.examCorrectAnswer || '').filter(Boolean)
+  selected.value.examCorrectAnswer = vals.length ? vals.join(',') : undefined
+}
+watch(() => selected.value?.examScoreMode, deriveCorrectAnswerFromMode)
+watch(() => selected.value?.props?.options?.map((o: any) => o.examCorrect), deriveCorrectAnswerFromMode, { deep: true })
+watch(() => selected.value?.props?.options?.map((o: any) => o.examScore), deriveCorrectAnswerFromMode, { deep: true })
+watch(() => selected.value?.props?.fields?.map((f: any) => f.examCorrect), deriveCorrectAnswerFromMode, { deep: true })
+watch(() => selected.value?.props?.fields?.map((f: any) => f.examScore), deriveCorrectAnswerFromMode, { deep: true })
+watch(() => selected.value?.props?.fields?.map((f: any) => f.examCorrectAnswer), deriveCorrectAnswerFromMode, { deep: true })
+
+watch(() => selected.value?.examCorrectAnswer, updateCorrectLabel, { immediate: true })
+watch(() => selected.value?.props?.options, updateCorrectLabel, { deep: true })
+
+let saveTimer: any
+watch(() => ({ ...form }), () => {
+  if (!form.id) return
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => save(), 500)
+}, { deep: true })
 
 onMounted(async () => {
   try {
@@ -1385,7 +2230,12 @@ onMounted(async () => {
 .tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; }
 .survey-main-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; background-color:#f7f8fa; }
 .survey-main-panel-toolbar { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e8; gap:12px; }
-.toolbar-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.toolbar-left { display:flex; align-items:center; gap:8px; }
+.toolbar-right { display:flex; align-items:center; gap:8px; }
+.toolbar-btn-group { display:inline-flex; align-items:center; background:#f5f6f8; border-radius:6px; padding:2px; gap:0; }
+.toolbar-btn-group .el-button { border:none; }
+.toolbar-btn.active { background:#fff; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+.toolbar-divider { width:1px; height:20px; background:#e0e0e0; margin:0 4px; }
 .survey-main-panel-content { flex:1; overflow-y:auto; padding:20px 40px; }
 .editor-wrapper { max-width:210mm; margin:0 auto; padding:20px 0; }
 .editor { background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
@@ -1397,12 +2247,19 @@ onMounted(async () => {
 .questions-area :deep(.draggable-list) { gap:8px; }
 .footer { padding:24px 28px; text-align:center; color:#999; font-size:13px; border-top:1px solid #f0f0f0; }
 .survey-setting-panel { width:380px; flex-shrink:0; border-left:1px solid #e8e8e8; background:#fafafa; overflow-y:auto; }
+.json-panel :deep(.el-textarea__inner) { height:100% !important; min-height:500px; font-size:13px; }
+.survey-preview-panel { max-width:210mm; margin:0 auto; padding:20px 40px; overflow-y:auto; }
 .props-panel { padding:12px; }
 .props-panel h3 { font-size:14px; font-weight:500; color:#fb454c; margin:0 0 8px; padding-bottom:8px; border-bottom:2px solid #fb454c; }
 .props-panel :deep(.el-form-item) { margin-bottom:8px; }
 .props-panel :deep(.el-form-item__label) { font-size:12px; color:#666; padding-bottom:2px; font-weight:500; line-height:1.2; }
 .props-panel :deep(.el-divider) { margin:8px 0; }
 .props-panel :deep(.el-collapse-item__header) { font-size:12px; font-weight:500; }
+.exam-scoring-section { padding:0 2px; }
+.exam-scoring-section .section-title { font-size:13px; font-weight:500; color:#303133; margin-bottom:8px; }
+.exam-formula-rows { padding:0 2px; border-top:1px dashed #e0e0e0; margin-top:8px; padding-top:8px; }
+.exam-formula-rows .setting-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; font-size:12px; color:#666; }
+.exam-formula-rows .setting-row .setting-label { font-weight:500; }
 .props-options-section { margin-bottom:8px; padding:8px; background:#f5f6f8; border-radius:6px; }
 .setting-opt-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
 .setting-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; }
@@ -1451,4 +2308,7 @@ onMounted(async () => {
 .setting-group { overflow:hidden; }
 :deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 :deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+<style>
+.correct-answer-popper .el-select-dropdown__item { height:auto; min-height:34px; line-height:1.4; padding-top:6px; padding-bottom:6px; white-space:normal; }
 </style>
