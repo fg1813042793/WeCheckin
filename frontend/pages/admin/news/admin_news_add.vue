@@ -53,6 +53,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { adminApi, dictApi } from '../../../api/admin'
+import CONFIG from '../../../config/index'
 
 const form = reactive({
   title: '',
@@ -115,7 +116,7 @@ function chooseCover() {
     success: (res) => {
       const tempPath = res.tempFilePaths[0]
       uni.uploadFile({
-        url: 'http://localhost:8080/upload',
+        url: CONFIG.BASE_URL + '/upload',
         filePath: tempPath,
         name: 'file',
         header: {
@@ -124,7 +125,8 @@ function chooseCover() {
         success: (uploadRes) => {
           const data = JSON.parse(uploadRes.data)
           if (data && data.data && data.data.url) {
-            form.img = data.data.url
+			const domain = data.data.domain || ''
+            form.img = domain + data.data.url
           } else {
             uni.showToast({ title: '上传失败', icon: 'none' })
           }

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"wecheckin-backend/backend/internal/formkit/question"
 	"wecheckin-backend/backend/internal/formkit/schema"
@@ -308,6 +309,22 @@ func (q *TimeQuestion) Validate(value interface{}, sch schema.Question) error {
 	if !ok {
 		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "时间必须为字符串"}
 	}
+	// 兼容 ISO 8601 完整时间戳：如 "2026-06-18T16:00:00.000Z"
+	if s != "" && (strings.Contains(s, "T") || strings.Contains(s, "Z") || strings.Contains(s, "+")) {
+		for _, layout := range []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			"2006-01-02T15:04:05.000Z",
+			"2006-01-02T15:04:05.000Z07:00",
+			"2006-01-02T15:04:05",
+			"2006-01-02 15:04:05",
+		} {
+			if _, err := time.Parse(layout, s); err == nil {
+				return nil
+			}
+		}
+	}
+	// 原始校验 HH:MM 或 HH:MM:SS
 	parts := strings.Split(s, ":")
 	if len(parts) < 2 || len(parts) > 3 {
 		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "时间格式不合法"}

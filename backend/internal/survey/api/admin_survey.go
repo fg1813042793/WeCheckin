@@ -19,6 +19,7 @@ import (
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/internal/service"
 	surveySvc "wecheckin-backend/backend/internal/survey/service"
+	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -141,9 +142,11 @@ func (h *AdminSurveyHandler) Insert(_ context.Context, c *app.RequestContext) {
 		}
 	}
 	if err := h.survey.Create(&sv); err != nil {
+		logger.Logger.Printf("[AdminSurveyInsert] 创建失败 title=%s err=%s", sv.Title, err.Error())
 		response.Fail(c, "创建失败: "+err.Error())
 		return
 	}
+	logger.Logger.Printf("[AdminSurveyInsert] 创建成功 id=%d title=%s", sv.ID, sv.Title)
 	response.JSON(c, sv)
 }
 
@@ -160,10 +163,14 @@ func (h *AdminSurveyHandler) Edit(_ context.Context, c *app.RequestContext) {
 		response.Fail(c, "参数错误: "+err.Error())
 		return
 	}
+	old := model.Survey{}
+	database.DB.Where("`survey_id` = ?", sv.ID).First(&old)
 	if err := h.survey.Update(&sv); err != nil {
+		logger.Logger.Printf("[AdminSurveyEdit] 更新失败 id=%d err=%s", sv.ID, err.Error())
 		response.Fail(c, "更新失败: "+err.Error())
 		return
 	}
+	logger.Logger.Printf("[AdminSurveyEdit] 更新成功 id=%d title=%s oldMaxResp=%d newMaxResp=%d", sv.ID, sv.Title, old.MaxResponse, sv.MaxResponse)
 	response.JSON(c, nil)
 }
 

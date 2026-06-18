@@ -119,7 +119,7 @@
 </template>
 
 <script>
-import { adminApi } from '../../api/admin.js'
+import { adminApi } from '../../../api/admin'
 
 export default {
   data() {

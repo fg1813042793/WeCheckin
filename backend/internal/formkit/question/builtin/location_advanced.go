@@ -1,6 +1,9 @@
 package builtin
 
 import (
+	"strconv"
+	"strings"
+
 	"wecheckin-backend/backend/internal/formkit/question"
 	"wecheckin-backend/backend/internal/formkit/schema"
 )
@@ -20,9 +23,21 @@ func (q *LocationQuestion) Validate(value interface{}, sch schema.Question) erro
 		}
 		return nil
 	}
+	// 兼容 "lat,lng" 字符串格式
+	if s, ok := value.(string); ok {
+		parts := strings.Split(s, ",")
+		if len(parts) == 2 {
+			_, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+			_, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+			if err1 == nil && err2 == nil {
+				return nil
+			}
+		}
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置格式不合法，应为 lat,lng"}
+	}
 	m, ok := value.(map[string]interface{})
 	if !ok {
-		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置题答案必须为对象"}
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置题答案必须为对象或 lat,lng"}
 	}
 	addr, _ := m["address"].(string)
 	if addr == "" {

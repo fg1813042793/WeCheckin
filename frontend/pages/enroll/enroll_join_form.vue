@@ -172,7 +172,8 @@ export default {
                   try {
                     const data = JSON.parse(uploadRes.data)
                     if (data.code === 0 && data.data.url) {
-                      field.value.push(data.data.url)
+                      const fullUrl = (data.data.domain || '') + data.data.url
+                      field.value.push(fullUrl)
                       field.error = false
                     } else {
                       uni.showToast({ title: data.msg || '上传失败', icon: 'none' })

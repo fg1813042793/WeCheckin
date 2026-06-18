@@ -145,9 +145,14 @@ export default {
         try {
           const uid = (local && (local.miniOpenID || local.id)) || token
           const res = await passportApi.getMyDetail({ user_id: uid })
-          if (res.data && res.data.id) {
-            this.userInfo = res.data
-            uni.setStorageSync('userInfo', res.data)
+          const user = res.data && res.data.user
+          if (user && user.id) {
+            const domain = res.data.domain || ''
+            if (user.avatar && !user.avatar.startsWith('http')) {
+              user.avatar = domain + user.avatar
+            }
+            this.userInfo = user
+            uni.setStorageSync('userInfo', user)
             return
           }
         } catch (e) {

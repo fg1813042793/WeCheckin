@@ -820,7 +820,6 @@
             <el-form label-position="top">
               <div class="settings-grid">
                 <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
-                <el-form-item label="允许改答案"><el-switch v-model="form.enableUpdate" /></el-form-item>
                 <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
                 <el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnalysis" /></el-form-item>
                 <el-form-item class="settings-full" label="问卷链接">
@@ -1036,7 +1035,7 @@ const form = reactive<any>({
   questionNumber: true, progressBar: false, autoSave: false,
   onePageOneQuestion: false, answerSheetVisible: true, answerVisible: true, copyEnabled: true, language: 'zh',
   password: '', triggerType: 'onBlur', loginRequired: false,
-  enableUpdate: false, transcriptVisible: true, rankVisible: false, showAnalysis: true,
+  transcriptVisible: true, rankVisible: false, showAnalysis: true,
   redirectUrl: '', endContent: '',
   examRankingEnabled: false, exerciseMode: false, randomOrder: false,
   minSubmitMinutes: 0, maxSubmitMinutes: 0,
@@ -1598,7 +1597,7 @@ async function saveLogicRules() {
     autoSave: form.autoSave, password: form.password,
     loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
       answerSheetVisible: form.answerSheetVisible, answerVisible: form.answerVisible, copyEnabled: form.copyEnabled, language: form.language,
-      triggerType: form.triggerType, enableUpdate: form.enableUpdate,
+      triggerType: form.triggerType,
       transcriptVisible: form.transcriptVisible, showAnalysis: form.showAnalysis, rankVisible: form.rankVisible,
     redirectUrl: form.redirectUrl, endContent: form.endContent,
     examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
@@ -1974,7 +1973,7 @@ async function load() {
           onePageOneQuestion: s.onePageOneQuestion ?? false,
           answerSheetVisible: s.answerSheetVisible ?? true, answerVisible: s.answerVisible ?? true,
           copyEnabled: s.copyEnabled ?? true, language: s.language || 'zh', triggerType: s.triggerType || 'onBlur',
-          enableUpdate: s.enableUpdate ?? false, transcriptVisible: s.transcriptVisible ?? true, showAnalysis: s.showAnalysis ?? true,
+          transcriptVisible: s.transcriptVisible ?? true, showAnalysis: s.showAnalysis ?? true,
           rankVisible: s.rankVisible ?? false, redirectUrl: s.redirectUrl || '', endContent: s.endContent || '',
           examRankingEnabled: s.examRankingEnabled ?? false,
           exerciseMode: s.exerciseMode ?? false, randomOrder: s.randomOrder ?? false,
@@ -2035,7 +2034,7 @@ async function save() {
       autoSave: form.autoSave, password: form.password,
       loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
     answerSheetVisible: form.answerSheetVisible, answerVisible: form.answerVisible, copyEnabled: form.copyEnabled, language: form.language,
-    triggerType: form.triggerType, enableUpdate: form.enableUpdate,
+      triggerType: form.triggerType,
       transcriptVisible: form.transcriptVisible, showAnalysis: form.showAnalysis, rankVisible: form.rankVisible,
     redirectUrl: form.redirectUrl, endContent: form.endContent,
     examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
@@ -2100,8 +2099,10 @@ watch(() => selected.value?.examScoreMode, (cur, prev) => {
 
 function populateFieldsFromCorrectAnswer() {
   if (!selected.value || !['multiInput','hInput'].includes(selected.value.type)) return
+  const correctAnswer = selected.value.examCorrectAnswer
+  if (!correctAnswer) return
   const fields = selected.value.props?.fields || []
-  const parts = (selected.value.examCorrectAnswer || '').split(',')
+  const parts = correctAnswer.split(',')
   fields.forEach((f: any, i: number) => {
     if (parts[i] !== undefined) f.examCorrectAnswer = parts[i]
   })
@@ -2125,7 +2126,7 @@ function deriveCorrectAnswerFromMode() {
   if (selected.value.examScoreMode === 'allCorrect' || selected.value.examScoreMode === 'partialCorrect') {
     correctVals = items.filter((item: any) => item.examCorrect).map((item: any) => item.value || item.examCorrectAnswer || '')
   } else if (selected.value.examScoreMode === 'perOption') {
-    correctVals = items.filter((item: any) => Number(item.examScore) > 0).map((item: any) => item.value || '')
+    correctVals = items.filter((item: any) => Number(item.examScore) > 0).map((item: any) => isInputType ? (item.examCorrectAnswer || '') : (item.value || ''))
   }
   selected.value.examCorrectAnswer = correctVals.length ? correctVals.join(',') : undefined
 }

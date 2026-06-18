@@ -18,6 +18,14 @@
       </div>
     </div>
     <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-else-if="submitted && endContent" class="fill-container">
+      <div class="header"><h1>{{ survey?.title }}</h1></div>
+      <div class="q-list" style="padding:24px 28px"><div class="preview-plain" v-html="endContent" /></div>
+    </div>
+    <div v-else-if="submitted" class="fill-container">
+      <div class="header"><h1>{{ survey?.title }}</h1></div>
+      <div class="q-list" style="padding:24px 28px;text-align:center;color:#909399">已提交，感谢填写</div>
+    </div>
     <div v-else-if="survey" class="fill-container">
       <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
       <div class="header">
@@ -315,6 +323,8 @@ let countdownTimer: ReturnType<typeof setInterval> | null = null
 const sigCanvasMap: Record<string, HTMLCanvasElement> = {}
 const sigDrawing = ref(false)
 const sigCurId = ref('')
+const submitted = ref(false)
+const endContent = ref('')
 
 const showLogin = ref(false)
 const loginLoading = ref(false)
@@ -734,10 +744,27 @@ function stopCountdown() {
   if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
 }
 
+function handleSubmitSuccess(_data: any) {
+  const url = settings.value?.redirectUrl
+  const content = settings.value?.endContent
+  if (url) {
+    window.location.href = url
+    return
+  }
+  if (content) {
+    endContent.value = content
+    submitted.value = true
+    return
+  }
+  ElMessage.success('已提交')
+  survey.value = null
+  questions.value = []
+}
+
 async function onSubmit(skipConfirm = false) {
   const id = Number(route.params.id)
   try {
-    const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value })
+    const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent })
     if (vr.data && !vr.data.ok) {
       const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
       ElMessage.warning(msgs || '请检查填写内容')
@@ -752,12 +779,10 @@ async function onSubmit(skipConfirm = false) {
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
-        ElMessage.success('已提交')
         stopCountdown()
         clearDraft()
         localStorage.removeItem('survey_session_' + id)
-        survey.value = null
-        questions.value = []
+        handleSubmitSuccess(res.data)
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
     finally { submitting.value = false }
@@ -771,12 +796,10 @@ async function onSubmit(skipConfirm = false) {
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
-        ElMessage.success('已提交')
         stopCountdown()
         clearDraft()
         localStorage.removeItem('survey_session_' + id)
-        survey.value = null
-        questions.value = []
+        handleSubmitSuccess(res.data)
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
     finally { submitting.value = false }

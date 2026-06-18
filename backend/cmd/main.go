@@ -217,10 +217,12 @@ func main() {
 	examPub := h.Group("/exam")
 	examPub.GET("/list", cExam.List)
 	examPub.GET("/view", cExam.View)
+	examPub.POST("/submit", cExam.Submit)
+	examPub.POST("/validate", cExam.Validate)
+	examPub.GET("/result", cExam.ResultBySession)
 	examAuth := h.Group("/exam", middleware.ClientAuth())
 	examAuth.GET("/start", cExam.Start)
 	examAuth.POST("/save_answer", cExam.SaveAnswer)
-	examAuth.POST("/submit", cExam.Submit)
 	examAuth.GET("/record", cExam.Record)
 	examAuth.GET("/my_records", cExam.MyRecords)
 

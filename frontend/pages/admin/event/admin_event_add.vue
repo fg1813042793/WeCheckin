@@ -244,6 +244,7 @@
 
 <script>
 import { adminApi, dictApi } from '../../../api/admin'
+import CONFIG from '../../../config/index'
 export default {
   data() {
     return {
@@ -488,11 +489,14 @@ export default {
         const tempPath = res.tempFilePaths[0]
         uni.showLoading({ title: '上传中...' })
         uni.uploadFile({
-          url: 'http://localhost:8080/upload', filePath: tempPath, name: 'file',
+          url: CONFIG.BASE_URL + '/upload', filePath: tempPath, name: 'file',
           success: (r) => {
             try {
               const data = JSON.parse(r.data)
-              if (data.code === 0) { this.form.cover = data.data.url || data.data }
+              if (data.code === 0) { 
+				  const domain = data.data.domain || ''
+				  this.form.cover = domain + data.data.url || data.data 
+			   }
             } catch (e) { this.form.cover = r.data }
           },
           complete: () => { uni.hideLoading() }

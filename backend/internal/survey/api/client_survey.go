@@ -21,6 +21,7 @@ import (
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
 	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin-backend/backend/pkg/logger"
 )
 
 type ClientSurveyHandler struct {
@@ -74,10 +75,12 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.Query("id"))
 	sv, err := h.survey.Get(uint(id))
 	if err != nil {
+		logger.Logger.Printf("[SurveyDetail] 问卷不存在 id=%d", id)
 		response.Fail(c, "问卷不存在")
 		return
 	}
 	if sv.Status != 1 {
+		logger.Logger.Printf("[SurveyDetail] 问卷已停用 id=%d title=%s", id, sv.Title)
 		response.Fail(c, "问卷已停用")
 		return
 	}
@@ -89,12 +92,14 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 			token = string(auth)
 		}
 		if token == "" {
+			logger.Logger.Printf("[SurveyDetail] 未登录 id=%d", id)
 			response.Fail(c, "请先登录")
 			return
 		}
 		rdKey := "user_token:a:" + token
 		jsonStr, err := rd.RDB.Get(rd.Ctx, rdKey).Result()
 		if err != nil || jsonStr == "" {
+			logger.Logger.Printf("[SurveyDetail] token无效 id=%d", id)
 			response.Fail(c, "请先登录")
 			return
 		}
@@ -118,6 +123,7 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 				}
 			}
 			if !allowed {
+				logger.Logger.Printf("[SurveyDetail] 部门无权限 id=%d uid=%d deptId=%d", id, uid, ud.DeptID)
 				response.Fail(c, "您不在该问卷的可见部门中")
 				return
 			}
@@ -126,11 +132,13 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 	// 检查时间窗
 	now := time.Now().UnixMilli()
 	if sv.StartTime > 0 && now < sv.StartTime {
+		logger.Logger.Printf("[SurveyDetail] 问卷未开始 id=%d startTime=%d", id, sv.StartTime)
 		response.Fail(c, "问卷未开始")
 		return
 	}
 	if sv.EndTime > 0 && now > sv.EndTime {
-		response.Fail(c, "问卷已截止")
+		logger.Logger.Printf("[SurveyDetail] 问卷已结束 id=%d endTime=%d", id, sv.EndTime)
+		response.Fail(c, "问卷已结束")
 		return
 	}
 	// 解析 schema 返回
@@ -178,6 +186,7 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 		"startAt":      startAt,
 		"deptIds":      sv.DeptIDs,
 	}
+	logger.Logger.Printf("[SurveyDetail] 成功 id=%d title=%s", id, sv.Title)
 	response.JSON(c, publicView)
 }
 
@@ -249,6 +258,7 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 	}
 	sv2, err2 := h.survey.Get(req.SurveyID)
 	if err2 != nil {
+		logger.Logger.Printf("[SurveySubmit] 问卷不存在 surveyId=%d", req.SurveyID)
 		response.Fail(c, "问卷不存在")
 		return
 	}
@@ -263,12 +273,14 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 	if loginRequired2 {
 		token := string(c.Request.Header.Peek("Authorization"))
 		if token == "" {
+			logger.Logger.Printf("[SurveySubmit] 需要登录 surveyId=%d", req.SurveyID)
 			response.Fail(c, "请登录")
 			return
 		}
 		_, prefix := tokenutil.GetTokenConfig("user")
 		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
 		if err != nil || jsonStr == "" {
+			logger.Logger.Printf("[SurveySubmit] 登录校验失败 surveyId=%d", req.SurveyID)
 			response.Fail(c, "请登录")
 			return
 		}
@@ -294,9 +306,11 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 	ip := c.ClientIP()
 	resp, err := h.responses.Submit(req.SurveyID, uid, req.Nickname, req.StartTime, req.Answers, ip, req.Device)
 	if err != nil {
+		logger.Logger.Printf("[SurveySubmit] 失败 surveyId=%d uid=%d err=%s ip=%s device=%s", req.SurveyID, uid, err.Error(), ip, req.Device)
 		response.Fail(c, err.Error())
 		return
 	}
+	logger.Logger.Printf("[SurveySubmit] 成功 surveyId=%d uid=%d respId=%d ip=%s device=%s", req.SurveyID, uid, resp.ID, ip, req.Device)
 	response.JSON(c, map[string]interface{}{"id": resp.ID, "submitTime": resp.SubmitTime})
 }
 
@@ -364,14 +378,80 @@ func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.Request
 // @Router /survey/validate [post]
 func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestContext) {
 	var req struct {
-		Schema  string                 `json:"schema"`
-		Answers map[string]interface{} `json:"answers"`
+		SurveyID uint                   `json:"surveyId"`
+		Schema   string                 `json:"schema"`
+		Answers  map[string]interface{} `json:"answers"`
+		Device   string                 `json:"device"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
 		response.Fail(c, "请求参数错误: "+err.Error())
 		return
 	}
-	s, err := schemaPkg.Parse(req.Schema)
+	schema := req.Schema
+	if req.SurveyID > 0 {
+		var sv model.Survey
+		if err := database.DB.Where("`survey_id` = ? AND `survey_status` = 1", req.SurveyID).First(&sv).Error; err != nil {
+			logger.Logger.Printf("[SurveyValidate] 问卷不存在或未发布 surveyId=%d", req.SurveyID)
+			response.Fail(c, "问卷不存在或未发布")
+			return
+		}
+		// 回收上限
+		if sv.MaxResponse > 0 {
+			var count int64
+			database.DB.Model(&model.SurveyResponse{}).
+				Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", req.SurveyID).
+				Count(&count)
+			if count >= int64(sv.MaxResponse) {
+				logger.Logger.Printf("[SurveyValidate] 回收上限已满 surveyId=%d max=%d current=%d", req.SurveyID, sv.MaxResponse, count)
+				response.JSON(c, map[string]interface{}{
+					"ok": false, "errors": []map[string]string{{"questionId": "", "message": "回收上限已满"}},
+				})
+				return
+			}
+		}
+		// 从 settings 解析 deviceLimit / ipLimit
+		var deviceLimit, ipLimit int
+		if sv.Settings != "" {
+			var settingsMap map[string]interface{}
+			if err := json.Unmarshal([]byte(sv.Settings), &settingsMap); err == nil {
+				if v, ok := settingsMap["deviceLimit"].(float64); ok {
+					deviceLimit = int(v)
+				}
+				if v, ok := settingsMap["ipLimit"].(float64); ok {
+					ipLimit = int(v)
+				}
+			}
+		}
+		clientIP := c.ClientIP()
+		if deviceLimit > 0 && req.Device != "" {
+			var devCount int64
+			database.DB.Model(&model.SurveyResponse{}).
+				Where("`survey_resp_survey_id` = ? AND `survey_resp_device` = ? AND `survey_resp_status` = 1", req.SurveyID, req.Device).
+				Count(&devCount)
+			if devCount >= int64(deviceLimit) {
+				logger.Logger.Printf("[SurveyValidate] 设备次数上限 surveyId=%d limit=%d current=%d device=%s", req.SurveyID, deviceLimit, devCount, req.Device)
+				response.JSON(c, map[string]interface{}{
+					"ok": false, "errors": []map[string]string{{"questionId": "", "message": "该设备答题次数已达上限"}},
+				})
+				return
+			}
+		}
+		if ipLimit > 0 && clientIP != "" {
+			var ipCount int64
+			database.DB.Model(&model.SurveyResponse{}).
+				Where("`survey_resp_survey_id` = ? AND `survey_resp_ip` = ? AND `survey_resp_status` = 1", req.SurveyID, clientIP).
+				Count(&ipCount)
+			if ipCount >= int64(ipLimit) {
+				logger.Logger.Printf("[SurveyValidate] IP次数上限 surveyId=%d limit=%d current=%d ip=%s", req.SurveyID, ipLimit, ipCount, clientIP)
+				response.JSON(c, map[string]interface{}{
+					"ok": false, "errors": []map[string]string{{"questionId": "", "message": "该IP答题次数已达上限"}},
+				})
+				return
+			}
+		}
+		schema = sv.Schema
+	}
+	s, err := schemaPkg.Parse(schema)
 	if err != nil {
 		response.Fail(c, "schema 解析失败: "+err.Error())
 		return

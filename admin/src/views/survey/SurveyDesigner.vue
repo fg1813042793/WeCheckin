@@ -787,10 +787,10 @@
                 <el-form-item label="开启自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
                 <el-form-item label="显示题目序号"><el-switch v-model="form.questionNumber" /></el-form-item>
                 <el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
-                <el-form-item label="设置问卷默认答案"><el-switch v-model="form.defaultAnswer" /></el-form-item>
+                <!--<el-form-item label="设置问卷默认答案"><el-switch v-model="form.defaultAnswer" /></el-form-item>-->
                 <el-form-item label="一页一题"><el-switch v-model="form.onePageOneQuestion" /></el-form-item>
                 <el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item>
-                <el-form-item label="允许复制题目"><el-switch v-model="form.copyEnabled" /></el-form-item>
+                <!--<el-form-item label="允许复制题目"><el-switch v-model="form.copyEnabled" /></el-form-item>-->
                 <el-form-item label="问题校验">
                   <el-select v-model="form.triggerType">
                     <el-option value="onInput" label="输入时" />
@@ -834,14 +834,12 @@
                     />
                   </div>
                 </el-form-item>
-                <el-form-item label="只能微信填写"><el-switch v-model="form.wechatOnly" /></el-form-item>
                 <el-form-item label="凭密码填写"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
                 <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
                 <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <!--<el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>-->
                 <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
                 <el-form-item label="回收上限"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="答题白名单"><el-input v-model="form.whitelist" placeholder="用户ID, 逗号分隔" /></el-form-item>
                 <el-form-item label="作答时间(分钟)"><el-input-number v-model="form.timeLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
               </div>
             </el-form>
@@ -880,11 +878,7 @@
                 </div>
               </el-form-item>
               <div class="settings-grid">
-                <el-form-item label="允许修改答案"><el-switch v-model="form.enableUpdate" /></el-form-item>
                 <el-form-item label="公开查询设置"><el-switch v-model="form.publicQuery" /></el-form-item>
-                <el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnswerAnalysis" /></el-form-item>
-                <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
-                <el-form-item label="显示排名"><el-switch v-model="form.rankVisible" /></el-form-item>
               </div>
             </el-form>
           </div>
@@ -1296,13 +1290,12 @@ const form = reactive<any>({
   questionNumber: true, progressBar: false, autoSave: false,
   onePageOneQuestion: false, answerSheetVisible: true, copyEnabled: true,
   password: '', triggerType: 'onBlur', loginRequired: false,
-  enableUpdate: false, transcriptVisible: true, rankVisible: false,
   redirectUrl: '', endContent: '',
   examRankingEnabled: false, exerciseMode: false, randomOrder: false,
   minSubmitMinutes: 0, maxSubmitMinutes: 0,
   backgroundImages: [] as any[], headerImages: [] as any[],
   defaultAnswer: false, defaultLang: 'zh-CN',
-  wechatOnly: false, deviceLimit: 0, ipLimit: 0, userLimit: 0, whitelist: '',
+  deviceLimit: 0, ipLimit: 0, userLimit: 0,
   publicQuery: false, showAnswerAnalysis: false,
   createBy: 0, collaborators: '', timeLimit: 0
 })
@@ -2045,18 +2038,17 @@ async function saveLogicRules() {
     autoSave: form.autoSave, password: form.password,
     loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
     answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-    triggerType: form.triggerType, enableUpdate: form.enableUpdate,
-    transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
+    triggerType: form.triggerType,
+    
     redirectUrl: form.redirectUrl, endContent: form.endContent,
     examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
     randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
       maxSubmitMinutes: form.maxSubmitMinutes,
       backgroundImages: form.backgroundImages, headerImages: form.headerImages,
       defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
-      wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
-      ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
-      publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-      collaborators: form.collaborators, timeLimit: form.timeLimit
+      deviceLimit: form.deviceLimit,
+      ipLimit: form.ipLimit, userLimit: form.userLimit,
+      publicQuery: form.publicQuery, collaborators: form.collaborators, timeLimit: form.timeLimit
     })
     const payload: any = {
       id: form.id,
@@ -2068,46 +2060,11 @@ async function saveLogicRules() {
     schema, deptIds: form.deptIds, mode: form.mode, settings
   }
   try {
-    await adminApi.surveyEdit(payload)
-    ElMessage.success('逻辑规则已保存')
+    const r: any = await adminApi.surveySave(payload)
+    if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
+    ElMessage.success('已保存')
   } catch { ElMessage.error('保存失败') }
-}
-function parseDSLToRules(dsl: string): LogicRuleItem[] {
-  const lines = dsl.split('\n').map(l => l.trim()).filter(Boolean)
-  const rules: LogicRuleItem[] = []
-  for (const line of lines) {
-    const rule: LogicRuleItem = { id: 'rule_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), conditionType: 'simple', conditions: [{ questionIdx: undefined }], action: 'show' }
-    // Try to parse IF ... THEN ... pattern
-    const ifMatch = line.match(/^IF\s+(.+?)\s+THEN\s+(.+)$/i)
-    if (ifMatch) {
-      const condStr = ifMatch[1].trim()
-      const actionStr = ifMatch[2].trim()
-      // Parse conditions
-      const andMatch = condStr.match(/^AND\((.+)\)$/i)
-      const orMatch = condStr.match(/^OR\((.+)\)$/i)
-      const notMatch = condStr.match(/^NOT\((.+)\)$/i)
-      if (andMatch || orMatch) {
-        rule.conditionType = andMatch ? 'and' : 'or'
-        const inner = (andMatch||orMatch)![1]
-        rule.conditions = inner.split(',').map(s => parseConditionTag(s.trim()))
-      } else if (notMatch) {
-        rule.conditionType = 'not'
-        rule.conditions = [parseConditionTag(notMatch[1].trim())]
-      } else {
-        rule.conditionType = 'simple'
-        rule.conditions = [parseConditionTag(condStr)]
-      }
-      // Parse action
-      parseActionStr(rule, actionStr)
-    } else {
-      // No IF - direct action (ASSIGNMENT, VALIDATE, REPLACE)
-      rule.conditionType = 'none'
-      rule.conditions = []
-      parseActionStr(rule, line)
-    }
-    rules.push(rule)
-  }
-  return rules
+  finally { saving.value = false }
 }
 
 function parseConditionTag(s: string): LogicCondition {
@@ -2811,17 +2768,17 @@ const settingsSnapshot = computed(() => JSON.stringify({
   autoSave: form.autoSave, password: form.password,
   loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
   answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-  triggerType: form.triggerType, enableUpdate: form.enableUpdate,
-  transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
+  triggerType: form.triggerType,
+  
   redirectUrl: form.redirectUrl, endContent: form.endContent,
   examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
   randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
   maxSubmitMinutes: form.maxSubmitMinutes,
   backgroundImages: form.backgroundImages, headerImages: form.headerImages,
   defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
-  wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
-  ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
-  publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
+      deviceLimit: form.deviceLimit,
+      ipLimit: form.ipLimit, userLimit: form.userLimit,
+      publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
   collaborators: form.collaborators, timeLimit: form.timeLimit,
   visibility: form.visibility, allowMultiBool: form.allowMultiBool,
   anonymousBool: form.anonymousBool, showResultBool: form.showResultBool,
@@ -2860,7 +2817,7 @@ async function load() {
           onePageOneQuestion: s.onePageOneQuestion ?? false,
           answerSheetVisible: s.answerSheetVisible ?? true,
           copyEnabled: s.copyEnabled ?? true, triggerType: s.triggerType || 'onBlur',
-          enableUpdate: s.enableUpdate ?? false, transcriptVisible: s.transcriptVisible ?? true,
+          transcriptVisible: s.transcriptVisible ?? true,
           rankVisible: s.rankVisible ?? false, redirectUrl: s.redirectUrl || '',
           endContent: s.endContent || '',
           examRankingEnabled: s.examRankingEnabled ?? false,
@@ -2868,8 +2825,8 @@ async function load() {
           minSubmitMinutes: s.minSubmitMinutes || 0, maxSubmitMinutes: s.maxSubmitMinutes || 0,
           backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || [],
           defaultAnswer: s.defaultAnswer ?? false, defaultLang: s.defaultLang || 'zh-CN',
-          wechatOnly: s.wechatOnly ?? false, deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0,
-          userLimit: s.userLimit || 0, whitelist: s.whitelist || '',
+          deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0,
+          userLimit: s.userLimit || 0,
           publicQuery: s.publicQuery ?? false, showAnswerAnalysis: s.showAnswerAnalysis ?? false,
           collaborators: s.collaborators || '', timeLimit: s.timeLimit || 0
         })
@@ -2878,14 +2835,14 @@ async function load() {
       Object.assign(base, {
         questionNumber: true, progressBar: false, autoSave: false, password: '',
         loginRequired: false, onePageOneQuestion: false, answerSheetVisible: true,
-        copyEnabled: true, triggerType: 'onBlur', enableUpdate: false,
+        copyEnabled: true, triggerType: 'onBlur',
         transcriptVisible: true, rankVisible: false, redirectUrl: '', endContent: '',
         examRankingEnabled: false, exerciseMode: false, randomOrder: false,
         minSubmitMinutes: 0, maxSubmitMinutes: 0,
   backgroundImages: [] as string[], headerImages: [] as string[],
         defaultAnswer: false, defaultLang: 'zh-CN',
-        wechatOnly: false, deviceLimit: 0, ipLimit: 0, userLimit: 0, whitelist: '',
-        publicQuery: false, showAnswerAnalysis: false,
+        deviceLimit: 0, ipLimit: 0, userLimit: 0,
+  publicQuery: false,
         collaborators: '', timeLimit: 0
       })
     }
@@ -2923,16 +2880,16 @@ async function save() {
       autoSave: form.autoSave, password: form.password,
       loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
       answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-      triggerType: form.triggerType, enableUpdate: form.enableUpdate,
-      transcriptVisible: form.transcriptVisible, rankVisible: form.rankVisible,
+      triggerType: form.triggerType,
+      
       redirectUrl: form.redirectUrl, endContent: form.endContent,
       examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
       randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
       maxSubmitMinutes: form.maxSubmitMinutes,
       backgroundImages: form.backgroundImages, headerImages: form.headerImages,
       defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
-      wechatOnly: form.wechatOnly, deviceLimit: form.deviceLimit,
-      ipLimit: form.ipLimit, userLimit: form.userLimit, whitelist: form.whitelist,
+      deviceLimit: form.deviceLimit,
+      ipLimit: form.ipLimit, userLimit: form.userLimit,
       publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
       collaborators: form.collaborators, timeLimit: form.timeLimit
     })

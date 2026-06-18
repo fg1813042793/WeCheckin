@@ -148,6 +148,7 @@
 
 <script>
 import { adminApi } from '../../../api/admin'
+import CONFIG from '../../../config/index'
 
 export default {
   data() {
@@ -203,13 +204,14 @@ export default {
           const tempFile = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
           uni.uploadFile({
-            url: 'http://192.168.50.6:8080/upload',
+            url: CONFIG.BASE_URL + '/upload',
             filePath: tempFile,
             name: 'file',
             success: (uploadRes) => {
               const data = JSON.parse(uploadRes.data)
               if (data.code === 0) {
-                this.form.cover = data.data.url
+				const domain = data.data.domain || ''
+                this.form.cover = domain + data.data.url
               } else {
                 uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
               }

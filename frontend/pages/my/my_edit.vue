@@ -49,6 +49,7 @@
 
 <script>
 import { passportApi, userFormFields } from '../../api/index'
+import CONFIG from '../../config/index'
 
 export default {
   data() {
@@ -145,7 +146,7 @@ export default {
           if (tempFilePaths.length > 0) {
             uni.showLoading({ title: '上传中...' })
             uni.uploadFile({
-              url: 'http://192.168.50.6:8080/upload',
+              url: CONFIG.BASE_URL + '/upload',
               filePath: tempFilePaths[0],
               name: 'file',
               success: (uploadRes) => {
@@ -153,7 +154,8 @@ export default {
                 try {
                   const data = JSON.parse(uploadRes.data)
                   if (data.code === 0 && data.data) {
-                    this.formPic = data.data.url || data.data
+					const domain = data.data.domain || ''
+                    this.formPic = domain + data.data.url || data.data
                     uni.showToast({ title: '上传成功', icon: 'success' })
                   } else {
                     uni.showToast({ title: data.msg || '上传失败', icon: 'none' })

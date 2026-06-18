@@ -17,8 +17,51 @@
         </el-form>
       </div>
     </div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="exam" class="fill-container">
+    <div v-else-if="error" class="error" style="padding:32px;text-align:center">
+      <div style="font-size:18px;margin-bottom:12px">{{ error }}</div>
+      <div v-if="examTimeRange" style="font-size:14px;color:#909399;margin-bottom:8px">{{ examTimeRange }}</div>
+      <div v-if="countdownToStart > 0" style="font-size:13px;color:#e6a23c">距离开考还有 <strong>{{ formatCountdown(countdownToStart) }}</strong></div>
+    </div>
+    <div v-if="submitted && !showResultView && (settings.showAnalysis || settings.transcriptVisible !== false)" class="fill-container" style="padding:40px 36px;text-align:center">
+      <el-result icon="success" title="提交成功">
+        <template #extra>
+          <el-button v-if="settings.showAnalysis && settings.transcriptVisible !== false" type="primary" size="large" @click="showResultView = true">查看结果</el-button>
+          <el-button v-else-if="settings.showAnalysis" type="primary" size="large" @click="showResultView = true">查看解析</el-button>
+          <el-button v-else type="primary" size="large" @click="showResultView = true">查看成绩</el-button>
+        </template>
+      </el-result>
+    </div>
+    <div v-if="showResultView && result && (settings.transcriptVisible !== false || settings.showAnalysis)" class="fill-container result-container">
+      <div v-if="settings.transcriptVisible !== false" class="header">
+        <h1>{{ exam?.title }}</h1>
+        <div class="meta">
+          <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
+          <el-tag size="small">正确 {{ result.correctCnt }} 题</el-tag>
+        </div>
+      </div>
+      <div v-if="settings.showAnalysis" class="q-list">
+        <div v-for="(q, i) in realQuestions" :key="q.id" class="q-item">
+          <div class="q-title">
+            <span v-if="settings.questionNumber !== false" class="q-num">{{ i + 1 }}.</span>
+            <span class="q-text" v-html="q.title" />
+            <span v-if="q.required" class="q-req">*</span>
+          </div>
+          <div style="margin:8px 0;font-size:13px">
+            <div v-if="answers[q.id]" style="margin-bottom:4px">
+              <span style="color:#909399">你的答案：</span><span v-html="answers[q.id]" />
+            </div>
+            <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
+              <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(q, q.examCorrectAnswer)" />
+            </div>
+            <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
+              <span style="font-weight:500">解析：</span>{{ q.examAnalysis }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-if="showEndContent && endContent" class="fill-container" style="padding:40px 36px" v-html="endContent"></div>
+    <div v-if="!submitted && exam" class="fill-container">
       <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
       <div class="header">
         <h1>{{ exam.title }}</h1>
@@ -141,19 +184,17 @@
                 </div>
                 <el-input v-else v-model="answers[currentQuestion.id]" placeholder="请输入" />
               </div>
-              <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(currentQuestion.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
-                <div style="font-size:12px;color:#999;margin-bottom:4px">--- 答案解析 ---</div>
-                <div v-if="currentQuestion.examCorrectAnswer" style="margin-bottom:4px">
-                  <span style="color:#67c23a">✓ 正确答案：</span><span v-html="currentQuestion.examCorrectAnswer" />
-                </div>
-                <div v-if="currentQuestion.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap;margin-top:4px">
-                  {{ currentQuestion.examAnalysis }}
-                </div>
-                <div style="font-size:11px;color:#bbb;margin-top:4px">examCorrectAnswer: {{ currentQuestion.examCorrectAnswer ?? '(空)' }}, examAnalysis: {{ currentQuestion.examAnalysis ?? '(空)' }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="nav-buttons">
+               <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(currentQuestion.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
+                  <div v-if="currentQuestion.examCorrectAnswer" style="margin-bottom:4px">
+                    <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(currentQuestion, currentQuestion.examCorrectAnswer)" />
+                  </div>
+                 <div v-if="currentQuestion.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap;margin-top:4px">
+                   <span style="font-weight:500">解析：</span>{{ currentQuestion.examAnalysis }}
+                 </div>
+               </div>
+             </div>
+           </div>
+           <div class="nav-buttons">
             <el-button :disabled="currentIndex === 0 || currentNavIndex <= 0" @click="goPrev()">上一题</el-button>
             <span class="nav-index">{{ currentNavIndex + 1 }} / {{ navQuestions.length }} </span>
             <el-button v-if="!isLast" type="primary" @click="goNext()">下一题</el-button>
@@ -163,7 +204,7 @@
       </template>
       <template v-else>
         <div class="q-list">
-          <div v-for="(q, i) in questions" :key="q.id" class="q-item" :data-qid="q.id">
+          <div v-for="(q, i) in visibleQuestions" :key="q.id" class="q-item" :data-qid="q.id">
             <div class="q-title">
               <template v-if="LAYOUT_TYPES.includes(q.type)">
                 <span v-if="q.type==='description'" class="q-type-label">描述</span>
@@ -171,7 +212,7 @@
                 <span v-else class="q-type-label">分页</span>
               </template>
               <template v-else>
-                <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length + 1 }}.</span>
+                <span v-if="settings.questionNumber !== false" class="q-num">{{ visibleQuestions.slice(0, i).filter((x: any) => !LAYOUT_TYPES.includes(x.type)).length + 1 }}.</span>
                 <span class="q-text" v-html="q.title" />
                 <span v-if="q.required" class="q-req">*</span>
                 <span v-if="exam.showScore && q.examScore" class="q-score">{{ q.examScore }}分</span>
@@ -270,51 +311,20 @@
               </div>
               <el-input v-else v-model="answers[q.id]" placeholder="请输入" />
             </div>
-            <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(q.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
-              <div style="font-size:12px;color:#999;margin-bottom:4px">--- 答案解析 ---</div>
-              <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
-                <span style="color:#67c23a">✓ 正确答案：</span><span v-html="q.examCorrectAnswer" />
-              </div>
-              <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap;margin-top:4px">
-                {{ q.examAnalysis }}
-              </div>
-              <div style="font-size:11px;color:#bbb;margin-top:4px">examCorrectAnswer: {{ q.examCorrectAnswer ?? '(空)' }}, examAnalysis: {{ q.examAnalysis ?? '(空)' }}</div>
-            </div>
-          </div>
-        </div>
-        <div class="footer">
+             <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(q.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
+               <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
+                 <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(q, q.examCorrectAnswer)" />
+               </div>
+               <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap;margin-top:4px">
+                 <span style="font-weight:500">解析：</span>{{ q.examAnalysis }}
+               </div>
+             </div>
+           </div>
+         </div>
+         <div class="footer">
           <el-button type="primary" size="large" :loading="submitting" @click="onSubmit()">提交</el-button>
         </div>
       </template>
-    </div>
-    <div v-else-if="result" class="fill-container result-container">
-      <div class="header">
-        <h1>{{ exam?.title }}</h1>
-        <div class="meta">
-          <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
-          <el-tag size="small">正确 {{ result.correctCnt }} 题</el-tag>
-        </div>
-      </div>
-      <div v-if="settings.answerVisible" class="q-list">
-        <div v-for="(q, i) in questions.filter((x:any)=>!LAYOUT_TYPES.includes(x.type))" :key="q.id" class="q-item">
-          <div class="q-title">
-            <span v-if="settings.questionNumber !== false" class="q-num">{{ i + 1 }}.</span>
-            <span class="q-text" v-html="q.title" />
-            <span v-if="q.required" class="q-req">*</span>
-          </div>
-          <div style="margin:8px 0;font-size:13px">
-            <div v-if="answers[q.id]" style="margin-bottom:4px">
-              <span style="color:#909399">你的答案：</span><span v-html="answers[q.id]" />
-            </div>
-            <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
-              <span style="color:#67c23a">✓ 正确答案：</span><span v-html="q.examCorrectAnswer" />
-            </div>
-            <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
-              {{ q.examAnalysis }}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
   <div v-if="settings.answerSheetVisible && !loading && exam" class="answer-sheet" :style="sheetStyle" ref="sheetRef">
@@ -322,7 +332,7 @@
     <div class="answer-sheet-grid">
       <div v-for="(q, i) in realQuestions" :key="q.id"
         class="answer-sheet-item"
-        :class="{ 'answer-sheet-done': isAnswered(q, answers[q.id]), 'answer-sheet-cur': settings.onePageOneQuestion && currentIndex === questions.indexOf(q) }"
+        :class="{ 'answer-sheet-done': isAnswered(q, answers[q.id]), 'answer-sheet-cur': settings.onePageOneQuestion && currentIndex === visibleQuestions.indexOf(q) }"
         @click="jumpToQuestion(q)">
         {{ i + 1 }}
       </div>
@@ -358,13 +368,32 @@ const session = ref('')
 const showScanner = ref(false)
 const scanQid = ref('')
 const result = ref<any>(null)
+const submitted = ref(false)
+const showResultView = ref(false)
+const endContent = ref('')
+const showEndContent = ref(false)
 const scannerRef = ref<HTMLDivElement>()
 let scanner: Html5Qrcode | null = null
 const fileLists: Record<string, File[]> = reactive({})
 const fileInputs: Record<string, HTMLInputElement> = {}
 const startAt = ref(0)
 const remaining = ref(0) // milliseconds
+const countdownToStart = ref(0)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+let startTimer: ReturnType<typeof setInterval> | null = null
+const examTimeRange = computed(() => {
+  if (!exam.value) return ''
+  const st = Number(exam.value.startTime)
+  const et = Number(exam.value.endTime)
+  if (!st && !et) return ''
+  const fmt = (t: number) => {
+    const d = new Date(t)
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  }
+  if (st && et) return `考试时间：${fmt(st)} ~ ${fmt(et)}`
+  if (st) return `开始时间：${fmt(st)}`
+  return `结束时间：${fmt(et)}`
+})
 const sigCanvasMap: Record<string, HTMLCanvasElement> = {}
 const sigDrawing = ref(false)
 const sigCurId = ref('')
@@ -399,7 +428,7 @@ function clearDraft() {
 }
 
 function jumpToQuestion(q: any) {
-  const idx = questions.value.indexOf(q)
+  const idx = visibleQuestions.value.indexOf(q)
   if (idx < 0) return
   if (settings.value.onePageOneQuestion) {
     currentIndex.value = idx
@@ -471,7 +500,13 @@ function isAnswered(q: any, val: any): boolean {
 }
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
-const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
+function displayAnswer(q: any, val: string | undefined) {
+  if (!val) return val
+  if (q.type === 'judge') return val === 'true' ? '对' : '错'
+  return val
+}
+const visibleQuestions = computed(() => questions.value.filter((q: any) => !q.defaultHidden))
+const realQuestions = computed(() => visibleQuestions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
 const totalQuestions = computed(() => realQuestions.value.length)
 const totalScore = computed(() => questions.value.reduce((sum: number, q: any) => sum + (Number(q.examScore) || 0), 0))
 const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
@@ -480,13 +515,23 @@ const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCou
 const currentIndex = ref(0)
 const navQuestions = computed(() => realQuestions.value)
 const currentNavIndex = computed(() => {
-  const q = questions.value[currentIndex.value]
+  const q = visibleQuestions.value[currentIndex.value]
   return q ? navQuestions.value.indexOf(q) : -1
 })
-const isLast = computed(() => currentIndex.value >= questions.value.length - 1)
-const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
-function goNext() { if (currentIndex.value < questions.value.length - 1) currentIndex.value++ }
-function goPrev() { if (currentIndex.value > 0) currentIndex.value-- }
+const isLast = computed(() => currentIndex.value >= visibleQuestions.value.length - 1)
+const currentQuestion = computed(() => visibleQuestions.value[currentIndex.value] || null)
+function goNext() {
+  if (currentIndex.value < visibleQuestions.value.length - 1) {
+    currentIndex.value++
+    while (currentIndex.value < visibleQuestions.value.length - 1 && visibleQuestions.value[currentIndex.value]?.defaultHidden) currentIndex.value++
+  }
+}
+function goPrev() {
+  if (currentIndex.value > 0) {
+    currentIndex.value--
+    while (currentIndex.value > 0 && visibleQuestions.value[currentIndex.value]?.defaultHidden) currentIndex.value--
+  }
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
@@ -691,6 +736,34 @@ function onScannerClose() {
 async function load() {
   const id = route.params.id
   if (!id) { error.value = '参数错误'; loading.value = false; return }
+  // 如果是 result 模式（通过 session 查看结果），不走正常加载流程
+  const resultSession = route.query.session as string
+  if (resultSession) {
+    session.value = resultSession
+    try {
+      const res = await apiGet(`/exam/result?session=${resultSession}`)
+      if (res.code === 0 && res.data) {
+        const d = res.data
+        exam.value = d.exam
+        result.value = { score: d.record?.score, fullScore: d.record?.totalScore, correctCnt: d.results?.filter((r: any) => r.correct).length, results: d.results }
+        answers.value = d.answers || {}
+        if (typeof d.settings === 'string') settings.value = JSON.parse(d.settings)
+        else settings.value = d.settings || {}
+        if (d.questions) {
+          questions.value = d.questions.map((q: any) => {
+            const orig = q
+            orig.props = {}
+            return orig
+          })
+        }
+        showResultView.value = true
+      } else {
+        error.value = res.msg || '结果不存在'
+      }
+    } catch { error.value = '加载失败' }
+    loading.value = false
+    return
+  }
   // 从 localStorage 恢复 session，刷新时不丢失
   session.value = localStorage.getItem('exam_session_' + id) || ''
   try {
@@ -701,9 +774,31 @@ async function load() {
         loading.value = false
         return
       }
+      if (res.msg === '考试未开始' && res.data) {
+        error.value = '考试未开始'
+        exam.value = res.data
+        loading.value = false
+        const startMs = Number(res.data.startTime)
+        const tick = () => {
+          countdownToStart.value = Math.max(0, startMs - Date.now())
+          if (countdownToStart.value <= 0) {
+            if (startTimer) clearInterval(startTimer)
+            location.reload()
+          }
+        }
+        tick()
+        if (startTimer) clearInterval(startTimer)
+        startTimer = setInterval(tick, 1000)
+        return
+      }
       error.value = res.msg || '加载失败'; loading.value = false; return
     }
     exam.value = res.data
+    if (Number(exam.value.endTime) > 0 && Date.now() > Number(exam.value.endTime)) {
+      error.value = '考试已结束'
+      loading.value = false
+      return
+    }
     if (res.data?.settings && typeof res.data.settings === 'string') {
       try { settings.value = JSON.parse(res.data.settings) } catch { settings.value = {} }
     } else {
@@ -738,6 +833,19 @@ async function load() {
     const raw = res.data?.schema
     const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
     questions.value = sch.questions || []
+    if (settings.value.randomOrder) {
+      const nonLayout = questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type))
+      for (let i = nonLayout.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [nonLayout[i], nonLayout[j]] = [nonLayout[j], nonLayout[i]]
+      }
+      let ni = 0
+      for (let i = 0; i < questions.value.length; i++) {
+        if (!LAYOUT_TYPES.includes(questions.value[i].type)) {
+          questions.value[i] = nonLayout[ni++]
+        }
+      }
+    }
     const init: any = {}
     questions.value.forEach((q: any) => {
       init[q.id] = getInitVal(q)
@@ -766,14 +874,33 @@ function formatRemaining(ms: number) {
   const s = t % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
-
+function formatCountdown(ms: number) {
+  if (ms <= 0) return ''
+  const t = Math.floor(ms / 1000)
+  const h = Math.floor(t / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const s = t % 60
+  if (h > 0) return `${h}小时${m}分${s}秒`
+  if (m > 0) return `${m}分${s}秒`
+  return `${s}秒`
+}
 function startCountdown() {
   stopCountdown()
+  if (!startAt.value) return
   const limit = settings.value.timeLimit
-  if (!limit || limit <= 0 || !startAt.value) return
+  const maxSubmit = Number(settings.value.maxSubmitMinutes)
+  const endTime = Number(exam.value?.endTime)
   const tick = () => {
-    const elapsed = Date.now() - startAt.value
-    const left = limit * 60 * 1000 - elapsed
+    const now = Date.now()
+    let deadline = Infinity
+    if (limit > 0) deadline = Math.min(deadline, startAt.value + limit * 60 * 1000)
+    if (maxSubmit > 0) deadline = Math.min(deadline, startAt.value + maxSubmit * 60 * 1000)
+    if (endTime > 0) deadline = Math.min(deadline, endTime)
+    if (deadline === Infinity) {
+      remaining.value = 0
+      return
+    }
+    const left = deadline - now
     remaining.value = Math.max(0, left)
     if (left <= 0) {
       stopCountdown()
@@ -784,21 +911,28 @@ function startCountdown() {
   tick()
   countdownTimer = setInterval(tick, 1000)
 }
-
 function stopCountdown() {
   if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
 }
-
 async function onSubmit(skipConfirm = false) {
   const id = Number(route.params.id)
   try {
-    const vr = await apiPost('/exam/validate', { examId: id, answers: answers.value })
+    const vr = await apiPost('/exam/validate', { examId: id, answers: answers.value, device: navigator.userAgent })
     if (vr.data && !vr.data.ok) {
       const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
       ElMessage.warning(msgs || '请检查填写内容')
       return
     }
   } catch {}
+
+  const minSubmit = Number(settings.value.minSubmitMinutes)
+  if (minSubmit > 0 && startAt.value > 0) {
+    const elapsed = (Date.now() - startAt.value) / 60000
+    if (elapsed < minSubmit) {
+      ElMessage.warning(`距最短交卷时间还有 ${Math.ceil(minSubmit - elapsed)} 分钟`)
+      return
+    }
+  }
 
   if (skipConfirm) {
     submitting.value = true
@@ -808,18 +942,21 @@ async function onSubmit(skipConfirm = false) {
         ElMessage.error(res.msg || '提交失败')
       } else {
         result.value = res.data
-        if (settings.value.answerVisible) {
-          ElMessage.success('已提交')
-          stopCountdown()
-          clearDraft()
-          localStorage.removeItem('exam_session_' + id)
-        } else {
-          ElMessage.success('已提交')
-          stopCountdown()
-          clearDraft()
-          localStorage.removeItem('exam_session_' + id)
-          exam.value = null
-          questions.value = []
+        submitted.value = true
+        ElMessage.success('已提交')
+        stopCountdown()
+        clearDraft()
+        localStorage.removeItem('exam_session_' + id)
+        if (settings.value.transcriptVisible !== false && !settings.value.showAnalysis) {
+          showResultView.value = true
+        }
+        if (!settings.value.transcriptVisible && !settings.value.showAnalysis) {
+          if (settings.value.redirectUrl) {
+            window.location.href = settings.value.redirectUrl
+          } else if (settings.value.endContent) {
+            endContent.value = settings.value.endContent
+            showEndContent.value = true
+          }
         }
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
@@ -835,13 +972,21 @@ async function onSubmit(skipConfirm = false) {
         ElMessage.error(res.msg || '提交失败')
       } else {
         result.value = res.data
+        submitted.value = true
         ElMessage.success('已提交')
         stopCountdown()
         clearDraft()
         localStorage.removeItem('exam_session_' + id)
-        if (!settings.value.answerVisible) {
-          exam.value = null
-          questions.value = []
+        if (settings.value.transcriptVisible !== false && !settings.value.showAnalysis) {
+          showResultView.value = true
+        }
+        if (!settings.value.transcriptVisible && !settings.value.showAnalysis) {
+          if (settings.value.redirectUrl) {
+            window.location.href = settings.value.redirectUrl
+          } else if (settings.value.endContent) {
+            endContent.value = settings.value.endContent
+            showEndContent.value = true
+          }
         }
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
@@ -857,6 +1002,7 @@ watch(() => settings.value.timeLimit, () => { startCountdown() })
 
 onUnmounted(() => {
   if (draftTimer) clearTimeout(draftTimer)
+  if (startTimer) clearInterval(startTimer)
   stopCountdown()
 })
 </script>

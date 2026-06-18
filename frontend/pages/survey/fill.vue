@@ -145,7 +145,8 @@ export default {
       try {
         const vr = await surveyApi.validate({
           surveyId: this.surveyId,
-          answers: this.answers
+          answers: this.answers,
+          device: uni.getSystemInfoSync().model || ''
         })
         if (vr.data && !vr.data.valid) {
           const msgs = (vr.data.errors || []).map(e => e.message).join('; ')
@@ -168,7 +169,15 @@ export default {
             })
             uni.showToast({ title: '已提交', icon: 'success' })
             setTimeout(() => {
-              if (this.survey && this.survey.showResult === 1) {
+              let settings = {}
+              try { settings = typeof this.survey?.settings === 'string' ? JSON.parse(this.survey.settings) : (this.survey?.settings || {}) } catch {}
+              const url = settings.redirectUrl
+              const content = settings.endContent
+              if (url) {
+                window.location.href = url
+              } else if (content) {
+                uni.redirectTo({ url: `/pages/survey/result?surveyId=${this.surveyId}&endContent=${encodeURIComponent(content)}` })
+              } else if (this.survey && this.survey.showResult === 1) {
                 uni.redirectTo({ url: `/pages/survey/result?surveyId=${this.surveyId}` })
               } else {
                 uni.navigateBack()

@@ -52,7 +52,7 @@ func RegisterUser(userID, mobile, name, pic string, forms interface{}, status in
 	return LoginUser(userID, addIP, device)
 }
 
-func GetMyDetail(userID string) (*model.User, error) {
+func GetMyDetail(userID string) (map[string]interface{}, error) {
 	var user model.User
 	err := database.DB.Where("`user_mini_openid` = ?", userID).First(&user).Error
 	if err != nil {
@@ -69,7 +69,11 @@ func GetMyDetail(userID string) (*model.User, error) {
 			user.TopDeptName = getTopDeptName(ud.DeptID)
 		}
 	}
-	return &user, nil
+	domain := GetStaticDomain()
+	return map[string]interface{}{
+		"user":   user,
+		"domain": domain,
+	}, nil
 }
 
 func setUserRole(u *model.User) {

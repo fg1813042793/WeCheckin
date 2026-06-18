@@ -49,7 +49,7 @@
 </template>
 
 <script>
-import { examApi } from '../../api/index'
+import { examApi } from '../../../api/index'
 
 export default {
   data() {
