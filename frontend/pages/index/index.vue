@@ -199,7 +199,24 @@ export default {
     },
 
     goEnrollCate(id) {
-      uni.switchTab({ url: '/pages/enroll/enroll_index' })
+	  switch (id){
+		    case 1:
+				uni.navigateTo({ url: '/pages/survey/index' })
+				break
+		    case 2:
+				uni.switchTab({ url: '/pages/enroll/enroll_index' })
+				break
+		    case 3:
+				uni.switchTab({ url: '/pages/event/event_index' })
+				break
+			case 4:
+				uni.switchTab({ url: '/pages/event/event_index' })
+				break
+			case 5:
+				uni.switchTab({ url: '/pages/enroll/enroll_index' })
+				break
+	  }
+      
     },
 
     goEnrollAll() {

@@ -1,5 +1,6 @@
 export default {
-  BASE_URL: 'http://192.168.50.6:8083',
+  // BASE_URL: 'http://192.168.50.6:8083',
+  BASE_URL: 'http://192.168.1.66:8083',
   VER: 'build 2026.05.28',
   COMPANY: 'MY打卡',
 

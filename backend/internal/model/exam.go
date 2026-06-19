@@ -96,3 +96,17 @@ type ExamRecord struct {
 }
 
 func (ExamRecord) TableName() string { return "exam_record" }
+
+// ExamResource 考试资源（背景图、页眉图等）
+type ExamResource struct {
+	ID     uint   `gorm:"primaryKey;column:exam_res_id" json:"id"`
+	ExamID uint   `gorm:"column:exam_res_exam_id;index" json:"examId"`
+	Type   string `gorm:"column:exam_res_type;size:32" json:"type"` // bg / header
+	URL    string `gorm:"column:exam_res_url;size:512" json:"url"`
+	Filename string `gorm:"column:exam_res_filename;size:255" json:"filename"`
+	Path   string `gorm:"column:exam_res_path;size:512" json:"path"`
+	Domain string `gorm:"column:exam_res_domain;size:255" json:"domain"`
+	AddTime int64 `gorm:"column:exam_res_add_time" json:"addTime"`
+}
+
+func (ExamResource) TableName() string { return "exam_resource" }

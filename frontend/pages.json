@@ -306,7 +306,7 @@
 	}, {
 		"path": "pages/survey/index",
 		"style": {
-			"navigationBarTitleText": "问卷调查",
+			"navigationBarTitleText": "问卷中心",
 			"enablePullDownRefresh": true
 		}
 	}, {

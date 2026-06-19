@@ -310,6 +310,7 @@ func autoMigrate() error {
 		&model.ExamPaper{},
 		&model.Exam{},
 		&model.ExamRecord{},
+		&model.ExamResource{},
 		&model.Survey{},
 		&model.SurveyResponse{},
 		&model.SurveyChannel{},

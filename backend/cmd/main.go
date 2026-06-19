@@ -413,6 +413,9 @@ func main() {
 	adminGroup.POST("/exam/record/del", aExam.RecordDel)
 	adminGroup.POST("/exam/record/batch_del", aExam.RecordBatchDel)
 	adminGroup.GET("/exam/statistics", aExam.Statistics)
+	adminGroup.POST("/exam/resource_upload", aExam.ResourceUpload)
+	adminGroup.GET("/exam/resource_list", aExam.ResourceList)
+	adminGroup.POST("/exam/resource_delete", aExam.ResourceDelete)
 
 	// ==================== File upload (public) ====================
 	uploadDir := "./uploads"
@@ -483,7 +486,13 @@ func main() {
 	adminDist := "../admin/dist"
 	if _, err := os.Stat(adminDist); err == nil {
 		h.GET("/*any", func(ctx context.Context, c *app.RequestContext) {
-			filePath := filepath.Join(adminDist, string(c.Path()))
+			path := string(c.Path())
+			// Skip API paths — let specific routes handle them
+			if strings.HasPrefix(path, "/admin/") || strings.HasPrefix(path, "/exam/") || strings.HasPrefix(path, "/survey/") || strings.HasPrefix(path, "/passport/") || strings.HasPrefix(path, "/upload/") || strings.HasPrefix(path, "/home/") {
+				c.String(404, "Not Found")
+				return
+			}
+			filePath := filepath.Join(adminDist, path)
 			if fi, err := os.Stat(filePath); err == nil && !fi.IsDir() {
 				c.File(filePath)
 			} else {

@@ -22,7 +22,7 @@
 
     <div class="survey-main-content">
       <div v-show="activeView==='edit'" id="editor" class="survey-editor survey-light survey-app pc">
-        <div class="survey-sidebar-panel">
+        <div v-show="middleTab !== 'logic'" class="survey-sidebar-panel">
           <div class="survey-sidebar-panel-tabs">
             <div class="survey-sidebar-panel-tabs-pane" :class="{ active: middleTab==='item' }" title="题目" @click="middleTab='item'">
               <svg viewBox="0 0 1024 1024" width="20" height="20" fill="currentColor"><path d="M810.666667 128H213.333333c-46.933333 0-85.333333 38.4-85.333333 85.333333v597.333334c0 46.933333 38.4 85.333333 85.333333 85.333333h597.333334c46.933333 0 85.333333-38.4 85.333333-85.333333V213.333333c0-46.933333-38.4-85.333333-85.333333-85.333333z m-42.666667 554.666667H256v-85.333334h512v85.333334z m0-170.666667H256v-85.333333h512v85.333333z m0-170.666667H256V256h512v85.333333z"/></svg>
@@ -37,7 +37,7 @@
               <span class="tab-label">逻辑</span>
             </div>
           </div>
-          <div class="survey-sidebar-panel-tabs-content">
+          <div v-show="middleTab !== 'logic'" class="survey-sidebar-panel-tabs-content">
             <el-tabs v-if="middleTab==='item'" v-model="sideSubTab" class="side-sub-tabs">
               <el-tab-pane label="题型" name="types">
                 <div class="question-panel">
@@ -134,6 +134,7 @@
         <!-- 逻辑（全宽） -->
         <div v-if="middleTab==='logic'" class="logic-panel logic-full-panel">
           <div class="logic-toolbar">
+            <el-button size="small" text @click="middleTab='item'" title="关闭逻辑面板">← 返回</el-button>
             <h4 style="margin:0;font-size:14px">自定义逻辑</h4>
             <div style="display:flex;gap:8px">
               <el-button size="small" type="primary" @click="showAddRule = true">+ 增加规则</el-button>
@@ -1467,14 +1468,16 @@ function checkSaved() {
   return true
 }
 async function loadResources() {
-  if (!form.id) return
+  if (!form.id) { console.warn('[loadResources] form.id is falsy', form.id); return }
   try {
     const res: any = await adminApi.examResourceList({ examId: form.id })
+    console.log('[loadResources] API response:', res)
     const list: any[] = res.data || []
-    if (!Array.isArray(list)) return
+    console.log('[loadResources] list:', list)
+    if (!Array.isArray(list)) { console.warn('[loadResources] list is not array', list); return }
     allBgResources.value = list.filter((r: any) => r.type === 'bg')
     allHeaderResources.value = list.filter((r: any) => r.type === 'header')
-  } catch {}
+  } catch (e) { console.error('[loadResources] error:', e) }
 }
 
 // ===== 逻辑规则 =====
@@ -1991,6 +1994,7 @@ async function load() {
         if (sch.questions) { questions.value = sch.questions; idCounter = questions.value.length; selected.value = questions.value[0] || null }
       } catch {}
     }
+    loadResources()
     await loadAdminTree()
     loadDeptTree()
   } catch { ElMessage.error('加载失败') }

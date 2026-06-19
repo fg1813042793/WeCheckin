@@ -1,10 +1,9 @@
 <template>
   <view class="page">
-    <view class="topbar">
+    <!--<view class="topbar">
       <view class="back" @click="goBack">‹</view>
       <view class="title">问卷中心</view>
-    </view>
-
+    </view>-->
     <view class="search-bar">
       <input v-model="keyword" placeholder="搜索问卷" @confirm="load" />
     </view>
@@ -100,7 +99,7 @@ export default {
 .topbar { display: flex; align-items: center; height: 90rpx; padding: 0 30rpx; background: #fff; border-bottom: 1rpx solid #f0f0f0; }
 .back { font-size: 50rpx; color: #333; width: 60rpx; }
 .title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 500; margin-right: 60rpx; }
-.search-bar { padding: 20rpx 30rpx; background: #fff; }
+.search-bar { padding: 20rpx 30rpx; background: #fff;}
 .search-bar input { background: #f5f5f5; height: 70rpx; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; }
 .survey-list { padding: 20rpx 30rpx; }
 .survey-item { background: #fff; border-radius: 16rpx; padding: 30rpx; margin-bottom: 20rpx; }
