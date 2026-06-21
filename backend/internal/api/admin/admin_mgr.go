@@ -15,7 +15,7 @@ type AdminMgrHandler struct{}
 
 func NewAdminMgrHandler() *AdminMgrHandler { return &AdminMgrHandler{} }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 管理员登录
 // @Param name formData string true "用户名"
 // @Param password formData string true "密码"
@@ -37,7 +37,7 @@ func (h *AdminMgrHandler) AdminLogin(ctx context.Context, c *app.RequestContext)
 	response.JSON(c, data)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 获取管理员列表
 // @Success 200 {object} response.Resp
 // @Router /admin/mgr_list [get]
@@ -61,7 +61,7 @@ func (h *AdminMgrHandler) GetMgrList(ctx context.Context, c *app.RequestContext)
 	response.JSON(c, data)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 新增管理员
 // @Param name formData string true "用户名"
 // @Param password formData string true "密码"
@@ -86,7 +86,7 @@ func (h *AdminMgrHandler) InsertMgr(ctx context.Context, c *app.RequestContext) 
 	response.JSON(c, nil)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 删除管理员
 // @Param id formData string true "管理员ID"
 // @Success 200 {object} response.Resp
@@ -115,7 +115,7 @@ func (h *AdminMgrHandler) DelMgrs(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 获取管理员详情
 // @Param id query string true "管理员ID"
 // @Success 200 {object} response.Resp
@@ -130,7 +130,7 @@ func (h *AdminMgrHandler) GetMgrDetail(ctx context.Context, c *app.RequestContex
 	response.JSON(c, data)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 编辑管理员
 // @Param id formData string true "管理员ID"
 // @Param name formData string false "用户名"
@@ -156,7 +156,7 @@ func (h *AdminMgrHandler) EditMgr(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 设置管理员状态
 // @Param id formData string true "管理员ID"
 // @Param status formData string true "状态"
@@ -173,7 +173,7 @@ func (h *AdminMgrHandler) StatusMgr(ctx context.Context, c *app.RequestContext) 
 	response.JSON(c, nil)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 修改管理员密码
 // @Param id formData string true "管理员ID"
 // @Param password formData string true "新密码"
@@ -197,7 +197,7 @@ func (h *AdminMgrHandler) PwdMgr(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 获取操作日志列表
 // @Success 200 {object} response.Resp
 // @Router /admin/log_list [get]
@@ -221,7 +221,7 @@ func (h *AdminMgrHandler) GetLogList(ctx context.Context, c *app.RequestContext)
 	response.JSON(c, map[string]interface{}{"list": list, "total": total})
 }
 
-// @Tags 管理员管理
+// @Tags 管理员管理, 管理端 API
 // @Summary 清除操作日志
 // @Success 200 {object} response.Resp
 // @Router /admin/log_clear [get]
@@ -268,7 +268,7 @@ func (h *AdminMgrHandler) ForceOfflineAdmin(ctx context.Context, c *app.RequestC
 	response.JSON(c, nil)
 }
 
-// @Tags 在线管理员
+// @Tags 在线管理员, 管理端 API
 // @Summary 批量强制下线
 // @Param items body []object{idStr,token} true "items: [{idStr,token}, ...]"
 // @Success 200 {object} response.Resp

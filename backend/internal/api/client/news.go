@@ -12,7 +12,7 @@ type NewsHandler struct{}
 
 func NewNewsHandler() *NewsHandler { return &NewsHandler{} }
 
-// @Tags 新闻
+// @Tags 新闻, 客户端 API
 // @Summary 获取新闻列表
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
@@ -36,7 +36,7 @@ func (h *NewsHandler) GetNewsList(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
-// @Tags 新闻
+// @Tags 新闻, 客户端 API
 // @Summary 查看新闻详情
 // @Param id query string true "新闻ID"
 // @Success 200 {object} response.Resp
@@ -51,7 +51,7 @@ func (h *NewsHandler) ViewNews(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
-// @Tags 新闻
+// @Tags 新闻, 客户端 API
 // @Summary 获取新闻分类列表
 // @Success 200 {object} response.Resp
 // @Router /news/cate_list [get]

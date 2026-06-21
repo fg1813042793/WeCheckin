@@ -68,27 +68,52 @@
                     <el-input v-model="bankKeyword" placeholder="搜索题目..." size="small" clearable @input="loadBank" />
                   </div>
                   <div class="bank-list">
-                    <div v-for="q in bankQuestions" :key="q.id" class="bank-item" @dblclick="addFromBank(q)">
-                      <question-icon :type="q.type" />
-                      <span class="bank-title">{{ q.title || '未命名' }}</span>
-                      <span class="bank-type">{{ q.type }}</span>
-                      <el-button size="small" text type="primary" @click.stop="addFromBank(q)">+添加</el-button>
-                    </div>
-                    <el-empty v-if="!bankQuestions.length && !bankLoading" description="题库暂无题目" :image-size="40" />
+                    <template v-if="bankTree.length">
+                      <div v-for="cat in bankTree" :key="cat.label" class="bank-cat">
+                        <div class="bank-cat-title" @click="toggleBankExpand(`cat:${cat.label}`)">
+                          <span class="bank-arrow">{{ cat._expanded ? '▼' : '▶' }}</span>
+                          {{ cat.label || '未分类' }}
+                          <span class="bank-count">{{ cat.children.length }} 题</span>
+                        </div>
+                        <div v-show="cat._expanded" class="bank-cat-body">
+                          <div v-for="grp in cat.children" :key="grp.label" class="bank-type-group">
+                            <div class="bank-type-title" @click="toggleBankExpand(`type:${cat.label}|${grp.label}`)">
+                              <span class="bank-arrow">{{ grp._expanded ? '▼' : '▶' }}</span>
+                              {{ typeName(grp.label) }}
+                              <span class="bank-count">{{ grp.children.length }} 题</span>
+                            </div>
+                            <div v-show="grp._expanded" class="bank-type-body">
+                              <div v-for="q in grp.children" :key="q.id" class="bank-item" @click="addFromBank(q)">
+                                <question-icon :type="q.type" class="bank-icon" />
+                                <span class="bank-title">{{ q.title || '未命名' }}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                    <el-empty v-if="!bankTree.length && !bankLoading" description="题库暂无题目" :image-size="40" />
+                    <div v-if="bankLoading" class="bank-loading">加载中...</div>
                   </div>
                 </div>
               </el-tab-pane>
               <el-tab-pane label="大纲" name="outline">
                 <div class="outline-tree">
                   <div class="tree-root">
+                    <span class="tree-root-icon">📋</span>
                     <span class="tree-root-title">{{ outlineRoot.title }}</span>
                     <span class="tree-root-count">{{ outlineRoot.children.length }}题</span>
                   </div>
+                  <div class="tree-root-line"></div>
                   <div class="tree-children">
-                    <div v-for="child in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id)">
+                    <div v-for="(child, ci) in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id)">
+                      <div class="tree-connector">
+                        <span class="tree-line"></span>
+                        <span class="tree-branch"></span>
+                      </div>
                       <div class="tree-child-body">
-                        <span class="tree-index">{{ child.index }}.</span>
-                        <question-icon :type="child.q.type" />
+                        <span v-if="child.q.type !== 'description'" class="tree-index">{{ child.index }}.</span>
+                        <question-icon :type="child.q.type" class="tree-icon" />
                         <span class="tree-title">{{ child.q.title || '未命名' }}</span>
                         <span class="tree-type">{{ child.q.type }}</span>
                       </div>
@@ -181,6 +206,8 @@
         <div v-show="middleTab!=='logic'" class="survey-main-panel" @click.self="deselectQuestion">
           <div class="survey-main-panel-toolbar">
             <div class="toolbar-left">
+              <span class="toolbar-score">试卷总分：<strong>{{ paperTotalScore }}</strong> 分</span>
+              <span class="toolbar-divider" />
               <el-button-group class="toolbar-btn-group">
                 <el-tooltip content="文本导入" placement="bottom">
                   <el-button text size="small" class="toolbar-btn" @click="openTextImport">
@@ -227,7 +254,7 @@
                   </div>
                 </div>
                 <div class="questions-area">
-                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" />
+                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" @upload-bank="onUploadBank" />
                 </div>
                 <div class="footer">
                   <div class="footer-inner">感谢您的参与！</div>
@@ -249,7 +276,7 @@
               <div class="header" style="margin-bottom:12px">
                 <div class="header-content" style="font-size:18px;font-weight:600;text-align:center;padding:12px">{{ form.title }}</div>
               </div>
-              <draggable-list :questions="questions" @select="selectQuestion" :selected-id="selected?.id??null" />
+              <draggable-list :questions="questions" @select="selectQuestion" :selected-id="selected?.id??null" @upload-bank="onUploadBank" />
             </div>
           </div>
         </div>
@@ -1016,6 +1043,24 @@
       <el-button type="primary" :disabled="!textImport.parsed.length" :loading="textImport.importing" @click="confirmTextImport">导入 {{ textImport.parsed.length }} 题</el-button>
     </template>
   </el-dialog>
+
+  <!-- 上传题库弹窗 -->
+  <el-dialog v-model="bankDialog.visible" title="上传到题库" width="420px" :close-on-click-modal="false">
+    <el-form label-position="top" size="small">
+      <el-form-item label="题库分类">
+        <el-select v-model="bankDialog.category" placeholder="选择或输入分类" filterable allow-create clearable style="width:100%">
+          <el-option v-for="cat in bankCategories" :key="cat" :label="cat" :value="cat" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="标签">
+        <el-input v-model="bankDialog.tags" placeholder="用逗号分隔" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="bankDialog.visible=false">取消</el-button>
+      <el-button type="primary" :loading="bankDialog.saving" @click="confirmUploadBank">上传</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -1330,6 +1375,72 @@ const bankKeyword = ref('')
 const bankQuestions = ref<any[]>([])
 const bankLoading = ref(false)
 let bankTimer: any = null
+const bankDialog = reactive({ visible: false, qid: '', category: '', tags: '', saving: false })
+const bankCategories = ref<string[]>([])
+
+async function onUploadBank(id: string) {
+  const q = questions.value.find(x => x.id === id)
+  if (!q) return
+  bankDialog.qid = id
+  bankDialog.category = ''
+  bankDialog.tags = ''
+  bankDialog.visible = true
+  try {
+    const res: any = await adminApi.examQuestionBankCategories()
+    bankCategories.value = res.data || []
+  } catch {}
+}
+
+async function confirmUploadBank() {
+  const q = questions.value.find((x: any) => x.id === bankDialog.qid)
+  if (!q) return
+  bankDialog.saving = true
+  try {
+    const { id, ...rest } = q
+    const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '')
+    const titlePlain = stripHtml(String(rest.title || '')).slice(0, 50)
+    const payload: any = {
+      title: titlePlain,
+      type: rest.type,
+      schema: JSON.stringify(rest),
+      category: bankDialog.category || '',
+      tags: bankDialog.tags || ''
+    }
+    await adminApi.examQuestionBankInsert(payload)
+    ElMessage.success('已上传到题库')
+    bankDialog.visible = false
+    loadBank()
+  } catch (e: any) {
+    ElMessage.error(e?.msg || '上传失败')
+  } finally {
+    bankDialog.saving = false
+  }
+}
+
+const bankExpanded = ref<Record<string, boolean>>({})
+function toggleBankExpand(key: string) {
+  bankExpanded.value[key] = !bankExpanded.value[key]
+}
+
+const bankTree = computed(() => {
+  const map: Record<string, Record<string, any[]>> = {}
+  bankQuestions.value.forEach((q: any) => {
+    const cat = q.category || ''
+    const type = q.type || ''
+    if (!map[cat]) map[cat] = {}
+    if (!map[cat][type]) map[cat][type] = []
+    map[cat][type].push(q)
+  })
+  return Object.entries(map).map(([cat, types]) => ({
+    label: cat || '未分类',
+    _expanded: bankExpanded.value[`cat:${cat}`] ?? false,
+    children: Object.entries(types).map(([type, items]) => ({
+      label: type,
+      _expanded: bankExpanded.value[`type:${cat}|${type}`] ?? false,
+      children: items
+    }))
+  }))
+})
 
 const appearanceTab = ref('bg')
 const allBgResources = ref<any[]>([])
@@ -1624,8 +1735,8 @@ async function loadBank() {
   bankTimer = setTimeout(async () => {
     bankLoading.value = true
     try {
-      const res: any = await adminApi.surveyQuestionBankList({ keyword: bankKeyword.value, page: 1, pageSize: 100 })
-      bankQuestions.value = res.list || []
+      const res: any = await adminApi.examQuestionBankList({ keyword: bankKeyword.value, page: 1, pageSize: 100 })
+      bankQuestions.value = res.data?.list || []
     } catch { bankQuestions.value = [] }
     finally { bankLoading.value = false }
   }, 300)
@@ -1934,6 +2045,22 @@ const perOptionTotalScore = computed(() => {
   return items.reduce((sum: number, o: any) => sum + (Number(o.examScore) || 0), 0)
 })
 
+function questionScore(q: any): number {
+  if (!q.examScoreMode) return 0
+  if (q.examScoreMode === 'single') return Number(q.examScore) || 0
+  if (q.examScoreMode === 'perOption') {
+    const items = ['multiInput','hInput'].includes(q.type) ? (q.props?.fields||[]) : (q.props?.options||[])
+    return items.reduce((s: number, o: any) => s + (Number(o.examScore) || 0), 0)
+  }
+  if (q.examScoreMode === 'allCorrect') return Number(q.examScore) || 0
+  if (q.examScoreMode === 'partialCorrect') {
+    const items = ['multiInput','hInput'].includes(q.type) ? (q.props?.fields||[]) : (q.props?.options||[])
+    return items.reduce((s: number, o: any) => s + (o.examCorrect ? (Number(o.examScore) || 0) : 0), 0)
+  }
+  return 0
+}
+const paperTotalScore = computed(() => questions.value.reduce((sum, q) => sum + questionScore(q), 0))
+
 const envFromAnswers = computed(() => {
   const env: Record<string, any> = {}; for (const q of questions.value) env[q.id] = undefined; return env
 })
@@ -2223,16 +2350,50 @@ onMounted(async () => {
 .bank-index { font-size:12px; color:#bbb; min-width:20px; }
 .bank-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bank-type { font-size:10px; color:#bbb; }
-.outline-tree { padding:8px; }
-.tree-root { display:flex; align-items:center; gap:6px; padding:8px; font-size:13px; font-weight:600; }
-.tree-children { padding-left:12px; }
-.tree-child { display:flex; align-items:center; padding:6px 8px; cursor:pointer; border-radius:4px; font-size:12px; }
+.outline-tree { padding:4px 0; }
+.tree-root {
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  border-radius:8px; font-weight:600; font-size:14px; color:#333;
+  background:#f5f7fa;
+}
+.tree-root-icon { font-size:16px; }
+.tree-root-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tree-root-count { font-size:11px; color:#999; font-weight:400; }
+.tree-root-line {
+  height:12px; margin-left:29px; border-left:2px dashed #d0d5dd;
+}
+.tree-children { padding-left:20px; }
+.tree-child {
+  display:flex; align-items:stretch; cursor:pointer; border-radius:6px;
+  transition:all 0.12s; min-height:32px; position:relative;
+}
 .tree-child:hover { background:#fff5f5; }
-.tree-child.active { background:#fff0f0; color:#fb454c; }
-.tree-child-body { display:flex; align-items:center; gap:4px; flex:1; overflow:hidden; }
-.tree-index { color:#999; flex-shrink:0; }
-.tree-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; }
+.tree-child.active { background:#fff0f0; }
+.tree-connector {
+  position:relative; width:20px; flex-shrink:0;
+}
+.tree-line {
+  position:absolute; left:50%; top:0; bottom:0;
+  border-left:2px dashed #d0d5dd; margin-left:-1px;
+}
+.tree-child:last-child .tree-line { bottom:50%; }
+.tree-branch {
+  position:absolute; left:50%; top:50%; width:10px;
+  border-top:2px dashed #d0d5dd;
+}
+.tree-child-body {
+  display:flex; align-items:center; gap:6px; padding:6px 8px; flex:1; min-width:0;
+  border-radius:0 6px 6px 0;
+}
+.tree-child.active .tree-child-body { font-weight:500; }
+.tree-index { font-size:12px; color:#bbb; min-width:22px; text-align:right; flex-shrink:0; }
+.tree-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
+.tree-child:hover .tree-icon,
+.tree-child.active .tree-icon { color:#fb454c; }
+.tree-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; flex-shrink:0; }
+.tree-child:hover .tree-type,
+.tree-child.active .tree-type { background:#fee; color:#fb454c; }
 .survey-main-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; background-color:#f7f8fa; }
 .survey-main-panel-toolbar { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e8; gap:12px; }
 .toolbar-left { display:flex; align-items:center; gap:8px; }
@@ -2241,6 +2402,7 @@ onMounted(async () => {
 .toolbar-btn-group .el-button { border:none; }
 .toolbar-btn.active { background:#fff; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
 .toolbar-divider { width:1px; height:20px; background:#e0e0e0; margin:0 4px; }
+.toolbar-score { font-size:13px; color:#606266; white-space:nowrap; margin-right:4px; }
 .survey-main-panel-content { flex:1; overflow-y:auto; padding:20px 40px; }
 .editor-wrapper { max-width:210mm; margin:0 auto; padding:20px 0; }
 .editor { background:#fff; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
@@ -2313,6 +2475,28 @@ onMounted(async () => {
 .setting-group { overflow:hidden; }
 :deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 :deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* 题库面板 */
+.bank-panel { padding:8px; display:flex; flex-direction:column; height:100%; }
+.bank-search { margin-bottom:8px; }
+.bank-item { display:flex; align-items:center; gap:6px; padding:6px 8px; cursor:pointer; border-radius:6px; transition:.12s; }
+.bank-item:hover { background:#fff5f5; color:#fb454c; }
+.bank-item.active { background:#fff0f0; color:#fb454c; }
+.bank-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
+.bank-item:hover .bank-icon { color:#fb454c; }
+.bank-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bank-type { font-size:10px; color:#bbb; }
+.bank-cat { margin-bottom:4px; }
+.bank-cat-title { display:flex; align-items:center; gap:6px; padding:6px 8px; font-size:13px; font-weight:600; color:#333; cursor:pointer; border-radius:6px; }
+.bank-cat-title:hover { background:#f5f5f5; }
+.bank-arrow { font-size:10px; color:#999; width:14px; flex-shrink:0; }
+.bank-count { font-size:11px; color:#bbb; font-weight:400; margin-left:auto; }
+.bank-cat-body { padding-left:16px; }
+.bank-type-group { margin-bottom:2px; }
+.bank-type-title { display:flex; align-items:center; gap:6px; padding:4px 8px; font-size:12px; color:#666; cursor:pointer; border-radius:4px; }
+.bank-type-title:hover { background:#f5f5f5; }
+.bank-type-body { padding-left:16px; }
+.bank-loading { text-align:center; padding:16px; color:#999; font-size:12px; }
 </style>
 <style>
 .correct-answer-popper .el-select-dropdown__item { height:auto; min-height:34px; line-height:1.4; padding-top:6px; padding-bottom:6px; white-space:normal; }

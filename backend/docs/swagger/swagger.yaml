@@ -113,6 +113,7 @@ paths:
       summary: 批量强制下线
       tags:
       - 在线管理员
+      - 管理端 API
   /admin/clear_vouch:
     get:
       responses:
@@ -123,6 +124,7 @@ paths:
       summary: 清除推荐数据
       tags:
       - 管理后台首页
+      - 管理端 API
   /admin/enroll_clear:
     post:
       parameters:
@@ -139,6 +141,7 @@ paths:
       summary: 清除打卡全部数据
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_del:
     post:
       parameters:
@@ -155,6 +158,7 @@ paths:
       summary: 删除打卡项目
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_detail:
     get:
       parameters:
@@ -171,6 +175,7 @@ paths:
       summary: 获取打卡项目详情
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_edit:
     post:
       parameters:
@@ -219,6 +224,7 @@ paths:
       summary: 编辑打卡项目
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_insert:
     post:
       responses:
@@ -229,6 +235,7 @@ paths:
       summary: 新增打卡项目
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_join_data_del:
     post:
       parameters:
@@ -245,6 +252,7 @@ paths:
       summary: 删除打卡导出数据
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_join_data_export:
     get:
       parameters:
@@ -261,6 +269,7 @@ paths:
       summary: 导出打卡数据
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_join_data_get:
     get:
       parameters:
@@ -277,6 +286,7 @@ paths:
       summary: 获取打卡数据导出链接
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_join_del:
     post:
       parameters:
@@ -293,6 +303,7 @@ paths:
       summary: 删除打卡记录
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_join_list:
     get:
       parameters:
@@ -332,6 +343,7 @@ paths:
       summary: 获取打卡项目列表
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_remove_user:
     post:
       parameters:
@@ -353,6 +365,7 @@ paths:
       summary: 从打卡项目中移除用户（删除用户及所有打卡记录）
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_sort:
     post:
       parameters:
@@ -374,6 +387,7 @@ paths:
       summary: 打卡项目排序
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_status:
     post:
       parameters:
@@ -395,6 +409,7 @@ paths:
       summary: 设置打卡状态
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_update_forms:
     post:
       parameters:
@@ -415,6 +430,7 @@ paths:
       summary: 更新打卡表单
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/enroll_user_list:
     get:
       parameters:
@@ -436,7 +452,9 @@ paths:
       summary: 获取参与用户列表(含报名表单数据)
       tags:
       - 打卡管理
+      - 管理端 API
       - 打卡管理
+      - 管理端 API
   /admin/enroll_vouch:
     post:
       parameters:
@@ -458,6 +476,7 @@ paths:
       summary: 设置打卡推荐
       tags:
       - 打卡管理
+      - 管理端 API
   /admin/exam/delete:
     post:
       parameters:
@@ -474,6 +493,7 @@ paths:
       summary: 删除考试
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/detail:
     get:
       parameters:
@@ -490,6 +510,7 @@ paths:
       summary: 考试详情
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/list:
     get:
       parameters:
@@ -521,6 +542,142 @@ paths:
       summary: 考试列表
       tags:
       - 考试管理
+      - 管理端 API
+  /admin/exam/question_bank_categories:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取考试题库所有分类
+      tags:
+      - 考试管理
+      - 管理端 API
+  /admin/exam/question_bank_del:
+    post:
+      parameters:
+      - description: 题目ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除题库题目
+      tags:
+      - 考试管理
+      - 管理端 API
+  /admin/exam/question_bank_edit:
+    post:
+      parameters:
+      - description: 题目ID
+        in: body
+        name: id
+        required: true
+        schema:
+          type: integer
+      - description: 题干
+        in: body
+        name: title
+        schema:
+          type: string
+      - description: 题型
+        in: body
+        name: type
+        schema:
+          type: string
+      - description: formkit JSON
+        in: body
+        name: schema
+        schema:
+          type: string
+      - description: 分类
+        in: body
+        name: category
+        schema:
+          type: string
+      - description: 标签
+        in: body
+        name: tags
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑题库题目
+      tags:
+      - 考试管理
+      - 管理端 API
+  /admin/exam/question_bank_insert:
+    post:
+      parameters:
+      - description: 题干
+        in: body
+        name: title
+        required: true
+        schema:
+          type: string
+      - description: 题型
+        in: body
+        name: type
+        required: true
+        schema:
+          type: string
+      - description: 完整 formkit JSON
+        in: body
+        name: schema
+        required: true
+        schema:
+          type: string
+      - description: 分类
+        in: body
+        name: category
+        schema:
+          type: string
+      - description: 标签
+        in: body
+        name: tags
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 添加题目到考试题库
+      tags:
+      - 考试管理
+      - 管理端 API
+  /admin/exam/question_bank_list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取考试题库列表
+      tags:
+      - 考试管理
+      - 管理端 API
   /admin/exam/record_batch_del:
     post:
       parameters:
@@ -537,6 +694,7 @@ paths:
       summary: 批量删除考试记录
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/record_del:
     post:
       parameters:
@@ -553,6 +711,7 @@ paths:
       summary: 删除考试记录
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/record_detail:
     get:
       parameters:
@@ -569,6 +728,7 @@ paths:
       summary: 考试记录详情
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/record_list:
     get:
       parameters:
@@ -597,6 +757,72 @@ paths:
       summary: 考试记录列表
       tags:
       - 考试管理
+      - 管理端 API
+  /admin/exam/resource_delete:
+    post:
+      parameters:
+      - description: 资源ID
+        in: formData
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除考试资源
+      tags:
+      - 考试管理
+      - 管理端 API
+  /admin/exam/resource_list:
+    get:
+      parameters:
+      - description: 考试ID
+        in: query
+        name: examId
+        required: true
+        type: integer
+      - description: '资源类型: bg/header'
+        in: query
+        name: resType
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询考试资源列表
+      tags:
+      - 考试管理
+      - 管理端 API
+  /admin/exam/resource_upload:
+    post:
+      parameters:
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 考试ID
+        in: formData
+        name: examId
+        required: true
+        type: integer
+      - description: '资源类型: bg/header'
+        in: formData
+        name: resType
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 上传考试资源
+      tags:
+      - 考试管理
+      - 管理端 API
   /admin/exam/save:
     post:
       parameters:
@@ -685,6 +911,7 @@ paths:
       summary: 创建/更新考试
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/statistics:
     get:
       parameters:
@@ -701,6 +928,7 @@ paths:
       summary: 考试统计
       tags:
       - 考试管理
+      - 管理端 API
   /admin/exam/status:
     post:
       parameters:
@@ -722,6 +950,7 @@ paths:
       summary: 更新考试状态
       tags:
       - 考试管理
+      - 管理端 API
   /admin/home:
     get:
       responses:
@@ -732,6 +961,7 @@ paths:
       summary: 管理后台首页数据
       tags:
       - 管理后台首页
+      - 管理端 API
   /admin/log_clear:
     get:
       responses:
@@ -742,6 +972,7 @@ paths:
       summary: 清除操作日志
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/log_list:
     get:
       responses:
@@ -752,6 +983,7 @@ paths:
       summary: 获取操作日志列表
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/login:
     post:
       parameters:
@@ -773,6 +1005,7 @@ paths:
       summary: 管理员登录
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_del:
     post:
       parameters:
@@ -789,6 +1022,7 @@ paths:
       summary: 删除管理员
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_detail:
     get:
       parameters:
@@ -805,6 +1039,7 @@ paths:
       summary: 获取管理员详情
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_edit:
     post:
       parameters:
@@ -833,6 +1068,7 @@ paths:
       summary: 编辑管理员
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_insert:
     post:
       parameters:
@@ -862,6 +1098,7 @@ paths:
       summary: 新增管理员
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_list:
     get:
       responses:
@@ -872,6 +1109,7 @@ paths:
       summary: 获取管理员列表
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_pwd:
     post:
       parameters:
@@ -893,6 +1131,7 @@ paths:
       summary: 修改管理员密码
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/mgr_status:
     post:
       parameters:
@@ -914,6 +1153,7 @@ paths:
       summary: 设置管理员状态
       tags:
       - 管理员管理
+      - 管理端 API
   /admin/news_del:
     post:
       parameters:
@@ -930,6 +1170,7 @@ paths:
       summary: 删除新闻
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_detail:
     get:
       parameters:
@@ -946,6 +1187,7 @@ paths:
       summary: 获取新闻详情
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_edit:
     post:
       responses:
@@ -956,6 +1198,7 @@ paths:
       summary: 编辑新闻
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_insert:
     post:
       responses:
@@ -966,6 +1209,7 @@ paths:
       summary: 新增新闻
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_list:
     get:
       parameters:
@@ -989,6 +1233,7 @@ paths:
       summary: 获取新闻列表
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_sort:
     post:
       parameters:
@@ -1010,6 +1255,7 @@ paths:
       summary: 新闻排序
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_status:
     post:
       parameters:
@@ -1031,6 +1277,7 @@ paths:
       summary: 设置新闻状态
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_update_content:
     post:
       parameters:
@@ -1051,6 +1298,7 @@ paths:
       summary: 更新新闻内容
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_update_forms:
     post:
       parameters:
@@ -1071,6 +1319,7 @@ paths:
       summary: 更新新闻表单
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/news_update_pic:
     post:
       parameters:
@@ -1091,6 +1340,7 @@ paths:
       summary: 更新新闻图片
       tags:
       - 新闻管理
+      - 管理端 API
   /admin/setup_qr:
     get:
       parameters:
@@ -1110,6 +1360,7 @@ paths:
       summary: 生成小程序码
       tags:
       - 系统设置
+      - 管理端 API
   /admin/setup_set:
     post:
       parameters:
@@ -1131,6 +1382,7 @@ paths:
       summary: 设置系统配置
       tags:
       - 系统设置
+      - 管理端 API
   /admin/setup_set_content:
     post:
       parameters:
@@ -1152,6 +1404,7 @@ paths:
       summary: 设置内容配置
       tags:
       - 系统设置
+      - 管理端 API
   /admin/survey/channel_del:
     post:
       parameters:
@@ -1168,6 +1421,7 @@ paths:
       summary: 删除渠道
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/channel_insert:
     post:
       parameters:
@@ -1185,6 +1439,7 @@ paths:
       summary: 创建渠道
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/channel_list:
     get:
       parameters:
@@ -1201,6 +1456,7 @@ paths:
       summary: 渠道列表
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/eval:
     post:
       parameters:
@@ -1225,6 +1481,7 @@ paths:
       summary: 表达式试算
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/export/enroll:
     get:
       parameters:
@@ -1241,6 +1498,7 @@ paths:
       summary: 导出打卡CSV
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/export/event:
     get:
       parameters:
@@ -1257,6 +1515,7 @@ paths:
       summary: 导出活动CSV
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/export/survey:
     get:
       parameters:
@@ -1273,6 +1532,7 @@ paths:
       summary: 导出问卷CSV
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/report/enroll:
     get:
       parameters:
@@ -1289,6 +1549,7 @@ paths:
       summary: 打卡报表
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/report/event:
     get:
       parameters:
@@ -1305,6 +1566,7 @@ paths:
       summary: 活动报表
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/report/survey:
     get:
       parameters:
@@ -1321,6 +1583,7 @@ paths:
       summary: 问卷报表（schema-aware）
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/resource_delete:
     post:
       parameters:
@@ -1337,6 +1600,7 @@ paths:
       summary: 删除问卷资源
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/resource_list:
     get:
       parameters:
@@ -1357,6 +1621,7 @@ paths:
       summary: 查询问卷资源列表
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/resource_upload:
     post:
       parameters:
@@ -1383,6 +1648,7 @@ paths:
       summary: 上传问卷资源（背景图/页眉图）
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/response_batch_del:
     post:
       parameters:
@@ -1399,6 +1665,7 @@ paths:
       summary: 批量删除答卷
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/response_del:
     post:
       parameters:
@@ -1415,6 +1682,7 @@ paths:
       summary: 删除答卷
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/response_detail:
     get:
       parameters:
@@ -1431,6 +1699,7 @@ paths:
       summary: 答卷详情
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/response_export:
     get:
       parameters:
@@ -1447,6 +1716,7 @@ paths:
       summary: 导出答卷CSV
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/response_list:
     get:
       parameters:
@@ -1471,6 +1741,7 @@ paths:
       summary: 答卷列表
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/schema/parse:
     post:
       parameters:
@@ -1487,6 +1758,7 @@ paths:
       summary: 解析 Schema
       tags:
       - 表单工具
+      - 管理端 API
   /admin/survey/statistic:
     get:
       parameters:
@@ -1503,6 +1775,7 @@ paths:
       summary: 问卷统计
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_copy:
     post:
       parameters:
@@ -1519,6 +1792,7 @@ paths:
       summary: 复制问卷
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_del:
     post:
       parameters:
@@ -1535,6 +1809,7 @@ paths:
       summary: 删除问卷
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_detail:
     get:
       parameters:
@@ -1551,6 +1826,7 @@ paths:
       summary: 问卷详情
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_edit:
     post:
       parameters:
@@ -1568,6 +1844,7 @@ paths:
       summary: 编辑问卷
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_insert:
     post:
       parameters:
@@ -1585,6 +1862,7 @@ paths:
       summary: 创建问卷
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_list:
     get:
       parameters:
@@ -1616,6 +1894,7 @@ paths:
       summary: 问卷列表
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/survey_status:
     post:
       parameters:
@@ -1637,6 +1916,7 @@ paths:
       summary: 更新问卷状态
       tags:
       - 问卷管理
+      - 管理端 API
   /admin/survey/types:
     get:
       responses:
@@ -1647,6 +1927,7 @@ paths:
       summary: 获取题型列表
       tags:
       - 表单工具
+      - 管理端 API
   /admin/user/batch_force_offline:
     post:
       parameters:
@@ -1666,6 +1947,7 @@ paths:
       summary: 批量强制下线
       tags:
       - 在线用户
+      - 管理端 API
   /admin/user_add:
     post:
       parameters:
@@ -1694,6 +1976,7 @@ paths:
       summary: 新增用户
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_data_del:
     post:
       responses:
@@ -1704,6 +1987,7 @@ paths:
       summary: 删除用户数据
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_data_export:
     get:
       responses:
@@ -1714,6 +1998,7 @@ paths:
       summary: 导出用户数据
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_data_get:
     get:
       responses:
@@ -1724,6 +2009,7 @@ paths:
       summary: 获取用户数据导出链接
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_del:
     post:
       parameters:
@@ -1740,6 +2026,7 @@ paths:
       summary: 删除用户
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_detail:
     get:
       parameters:
@@ -1756,6 +2043,7 @@ paths:
       summary: 获取用户详情
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_detail_by_id:
     get:
       parameters:
@@ -1772,6 +2060,7 @@ paths:
       summary: 根据ID获取用户详情
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_edit:
     post:
       parameters:
@@ -1804,6 +2093,7 @@ paths:
       summary: 编辑用户
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_form_field_save:
     post:
       parameters:
@@ -1820,6 +2110,7 @@ paths:
       summary: 保存用户表单字段配置(全量替换)
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_form_fields:
     get:
       responses:
@@ -1830,6 +2121,7 @@ paths:
       summary: 获取用户表单字段列表
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_list:
     get:
       parameters:
@@ -1853,6 +2145,7 @@ paths:
       summary: 获取用户列表
       tags:
       - 用户管理
+      - 管理端 API
   /admin/user_status:
     post:
       parameters:
@@ -1874,6 +2167,7 @@ paths:
       summary: 设置用户状态
       tags:
       - 用户管理
+      - 管理端 API
   /enroll/enroll_submit:
     post:
       parameters:
@@ -2106,6 +2400,7 @@ paths:
       summary: 获取考试列表
       tags:
       - 考试-客户端
+      - 客户端 API
   /exam/my_records:
     get:
       responses:
@@ -2116,6 +2411,7 @@ paths:
       summary: 我的考试记录
       tags:
       - 考试-客户端
+      - 客户端 API
   /exam/record:
     get:
       parameters:
@@ -2132,6 +2428,14 @@ paths:
       summary: 查看考试记录
       tags:
       - 考试-客户端
+      - 客户端 API
+  /exam/result:
+    get:
+      responses: {}
+      summary: 通过 session 查看考试结果
+      tags:
+      - 考试-客户端
+      - 客户端 API
   /exam/save_answer:
     post:
       parameters:
@@ -2153,6 +2457,7 @@ paths:
       summary: 保存答案
       tags:
       - 考试-客户端
+      - 客户端 API
   /exam/start:
     get:
       parameters:
@@ -2169,27 +2474,21 @@ paths:
       summary: 开始考试
       tags:
       - 考试-客户端
+      - 客户端 API
   /exam/submit:
     post:
-      parameters:
-      - description: 记录ID
-        in: formData
-        name: recordId
-        required: true
-        type: integer
-      - description: 答案JSON
-        in: formData
-        name: answers
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Resp'
+      responses: {}
       summary: 提交考试
       tags:
       - 考试-客户端
+      - 客户端 API
+  /exam/validate:
+    post:
+      responses: {}
+      summary: 校验答案（必填项等）
+      tags:
+      - 考试-客户端
+      - 客户端 API
   /exam/view:
     get:
       parameters:
@@ -2206,6 +2505,7 @@ paths:
       summary: 查看考试详情
       tags:
       - 考试-客户端
+      - 客户端 API
   /fav/del:
     post:
       parameters:
@@ -2226,6 +2526,7 @@ paths:
       summary: 删除收藏
       tags:
       - 收藏
+      - 客户端 API
   /fav/is_fav:
     get:
       parameters:
@@ -2251,6 +2552,7 @@ paths:
       summary: 是否已收藏
       tags:
       - 收藏
+      - 客户端 API
   /fav/my_list:
     get:
       parameters:
@@ -2270,6 +2572,7 @@ paths:
       summary: 获取我的收藏列表
       tags:
       - 收藏
+      - 客户端 API
   /fav/update:
     post:
       parameters:
@@ -2304,6 +2607,7 @@ paths:
       summary: 更新收藏
       tags:
       - 收藏
+      - 客户端 API
   /home/list:
     get:
       responses:
@@ -2314,6 +2618,7 @@ paths:
       summary: 获取首页列表
       tags:
       - 首页
+      - 客户端 API
   /home/setup_get:
     get:
       parameters:
@@ -2330,6 +2635,7 @@ paths:
       summary: 获取系统设置
       tags:
       - 首页
+      - 客户端 API
   /news/cate_list:
     get:
       responses:
@@ -2340,6 +2646,7 @@ paths:
       summary: 获取新闻分类列表
       tags:
       - 新闻
+      - 客户端 API
   /news/list:
     get:
       parameters:
@@ -2359,6 +2666,7 @@ paths:
       summary: 获取新闻列表
       tags:
       - 新闻
+      - 客户端 API
   /news/view:
     get:
       parameters:
@@ -2375,6 +2683,7 @@ paths:
       summary: 查看新闻详情
       tags:
       - 新闻
+      - 客户端 API
   /passport/edit_base:
     post:
       parameters:
@@ -2402,6 +2711,7 @@ paths:
       summary: 编辑基本信息
       tags:
       - 通行证
+      - 客户端 API
   /passport/login:
     post:
       parameters:
@@ -2418,6 +2728,7 @@ paths:
       summary: 用户登录
       tags:
       - 通行证
+      - 客户端 API
   /passport/login_pwd:
     post:
       parameters:
@@ -2439,6 +2750,7 @@ paths:
       summary: 密码登录
       tags:
       - 通行证
+      - 客户端 API
   /passport/my_detail:
     get:
       parameters:
@@ -2454,6 +2766,7 @@ paths:
       summary: 获取我的详情
       tags:
       - 通行证
+      - 客户端 API
   /passport/phone:
     post:
       parameters:
@@ -2470,6 +2783,7 @@ paths:
       summary: 获取手机号
       tags:
       - 通行证
+      - 客户端 API
   /passport/register:
     post:
       parameters:
@@ -2500,6 +2814,7 @@ paths:
       summary: 用户注册
       tags:
       - 通行证
+      - 客户端 API
   /survey/apply:
     post:
       responses: {}
@@ -2533,6 +2848,7 @@ paths:
       summary: 获取问卷列表
       tags:
       - 问卷-客户端
+      - 客户端 API
   /survey/my_response:
     get:
       parameters:
@@ -2553,6 +2869,7 @@ paths:
       summary: 查看答卷详情
       tags:
       - 问卷-客户端
+      - 客户端 API
   /survey/my_responses:
     get:
       parameters:
@@ -2568,6 +2885,7 @@ paths:
       summary: 我的答卷列表
       tags:
       - 问卷-客户端
+      - 客户端 API
   /survey/submit:
     post:
       parameters:
@@ -2605,6 +2923,7 @@ paths:
       summary: 提交答卷
       tags:
       - 问卷-客户端
+      - 客户端 API
   /survey/validate:
     post:
       responses: {}
@@ -2627,6 +2946,7 @@ paths:
       summary: 查看问卷详情
       tags:
       - 问卷-客户端
+      - 客户端 API
 schemes:
 - http
 securityDefinitions:
@@ -2641,3 +2961,8 @@ securityDefinitions:
     name: Authorization
     type: apiKey
 swagger: "2.0"
+tags:
+- description: 后台管理相关接口，需管理员 Token 认证
+  name: 管理端 API
+- description: 微信小程序/前端用户端接口，需用户 Token 认证
+  name: 客户端 API

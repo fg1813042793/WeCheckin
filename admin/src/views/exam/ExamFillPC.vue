@@ -91,7 +91,9 @@
                 <span v-if="exam.showScore && currentQuestion.examScore" class="q-score">{{ currentQuestion.examScore }}分</span>
               </template>
             </div>
-              <div class="preview-body">
+            <div v-if="currentQuestion.type==='description' && (currentQuestion.title || currentQuestion.description)" class="q-desc-panel"><span v-html="currentQuestion.title || currentQuestion.description" /></div>
+            <div v-else-if="currentQuestion.description && currentQuestion.showDescription !== false" class="q-desc-panel"><span class="q-desc-label">说明：</span><span v-html="currentQuestion.description" /></div>
+            <div class="preview-body">
                 <el-input v-if="['input','text'].includes(currentQuestion.type)" v-model="answers[currentQuestion.id]" :placeholder="currentQuestion.placeholder || '请输入'" />
                 <div v-else-if="currentQuestion.type==='multiInput'" class="field-vertical">
                   <el-input v-for="(f, fi) in (currentQuestion.props?.fields||[])" :key="fi" v-model="answers[currentQuestion.id][fi]" :placeholder="f.placeholder||'请输入'" />
@@ -129,7 +131,7 @@
                 <el-time-picker v-else-if="currentQuestion.type==='time'" v-model="answers[currentQuestion.id]" placeholder="选择时间" style="width:100%" />
                 <el-switch v-else-if="currentQuestion.type==='switch'" v-model="answers[currentQuestion.id]" />
                 <el-divider v-else-if="currentQuestion.type==='divider'" style="margin:4px 0" />
-                <div v-else-if="currentQuestion.type==='description'" class="preview-plain" v-html="currentQuestion.description" />
+                <div v-else-if="currentQuestion.type==='description'" />
                 <div v-else-if="currentQuestion.type==='file'" class="file-upload-wrap">
                   <input :ref="el => { if(el) fileInputs[currentQuestion.id]=el as HTMLInputElement }" type="file" :multiple="currentQuestion.props?.multiple !== false" style="display:none" @change="(e: any) => onFileInput(currentQuestion.id, e)" />
                   <el-button text @click="triggerFileInput(currentQuestion.id)"><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M854.6 288.6L639.4 73.4c-6-6-14.1-9.4-22.6-9.4H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V311.3c0-8.5-3.4-16.7-9.4-22.7z"/></svg>选择文件</el-button>
@@ -218,6 +220,8 @@
                 <span v-if="exam.showScore && q.examScore" class="q-score">{{ q.examScore }}分</span>
               </template>
             </div>
+            <div v-if="q.type==='description' && (q.title || q.description)" class="q-desc-panel"><span v-html="q.title || q.description" /></div>
+            <div v-else-if="q.description && q.showDescription !== false" class="q-desc-panel"><span class="q-desc-label">说明：</span><span v-html="q.description" /></div>
             <div class="preview-body">
               <el-input v-if="['input','text'].includes(q.type)" v-model="answers[q.id]" :placeholder="q.placeholder || '请输入'" />
               <div v-else-if="q.type==='multiInput'" class="field-vertical">
@@ -256,7 +260,7 @@
               <el-time-picker v-else-if="q.type==='time'" v-model="answers[q.id]" placeholder="选择时间" style="width:100%" />
               <el-switch v-else-if="q.type==='switch'" v-model="answers[q.id]" />
               <el-divider v-else-if="q.type==='divider'" style="margin:4px 0" />
-              <div v-else-if="q.type==='description'" class="preview-plain" v-html="q.description" />
+              <div v-else-if="q.type==='description'" />
               <div v-else-if="q.type==='file'" class="file-upload-wrap">
                 <input :ref="el => { if(el) fileInputs[q.id]=el as HTMLInputElement }" type="file" :multiple="q.props?.multiple !== false" style="display:none" @change="(e: any) => onFileInput(q.id, e)" />
                 <el-button text @click="triggerFileInput(q.id)"><svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M854.6 288.6L639.4 73.4c-6-6-14.1-9.4-22.6-9.4H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V311.3c0-8.5-3.4-16.7-9.4-22.7z"/></svg>选择文件</el-button>
@@ -1023,6 +1027,8 @@ onUnmounted(() => {
 .q-item { padding:24px 28px; }
 
 .q-title { font-size:15px; color:#333; margin-bottom:16px; font-weight:500; word-break:break-word; }
+.q-desc-panel { background:#f5f5f5; border-radius:6px; padding:12px 16px; margin-bottom:16px; font-size:14px; color:#333; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.q-desc-panel .q-desc-label { font-weight:500; color:#666; margin-right:4px; }
 .q-num { color:#409eff; font-weight:600; }
 .q-text { word-break:break-word; }
 .q-text :deep(p), .q-text :deep(div), .q-text :deep(h1), .q-text :deep(h2), .q-text :deep(h3), .q-text :deep(h4), .q-text :deep(h5), .q-text :deep(h6), .q-text :deep(blockquote), .q-text :deep(ul), .q-text :deep(ol), .q-text :deep(li) { display:inline; }
@@ -1043,6 +1049,7 @@ onUnmounted(() => {
 .preview-radio-group,
 .preview-checkbox-group { gap:4px; align-items:flex-start; text-align:left; }
 .preview-plain { font-size:13px; color:#606266; white-space:pre-wrap; word-break:break-word; }
+.preview-desc { font-size:14px; color:#333; margin-top:4px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
 
 .preview-nps { padding:4px 0; }
 .preview-nps .nps-labels { display:flex; justify-content:space-between; font-size:12px; color:#909399; margin-bottom:2px; }

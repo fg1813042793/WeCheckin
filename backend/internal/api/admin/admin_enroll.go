@@ -18,7 +18,7 @@ type AdminEnrollHandler struct{}
 
 func NewAdminEnrollHandler() *AdminEnrollHandler { return &AdminEnrollHandler{} }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 获取打卡项目列表
 // @Param page query string false "页码"
 // @Param size query string false "每页数量"
@@ -44,7 +44,7 @@ func (h *AdminEnrollHandler) GetAdminEnrollList(ctx context.Context, c *app.Requ
 	response.JSON(c, map[string]interface{}{"list": list, "total": total})
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 新增打卡项目
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_insert [post]
@@ -113,7 +113,7 @@ func (h *AdminEnrollHandler) InsertEnroll(ctx context.Context, c *app.RequestCon
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 获取打卡项目详情
 // @Param id query string true "项目ID"
 // @Success 200 {object} response.Resp
@@ -128,7 +128,7 @@ func (h *AdminEnrollHandler) GetEnrollDetail(ctx context.Context, c *app.Request
 	response.JSON(c, data)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 编辑打卡项目
 // @Param id formData string true "项目ID"
 // @Param title formData string false "标题"
@@ -205,7 +205,7 @@ func (h *AdminEnrollHandler) EditEnroll(ctx context.Context, c *app.RequestConte
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 更新打卡表单
 // @Param id formData string true "项目ID"
 // @Param forms formData string false "表单数据"
@@ -222,7 +222,7 @@ func (h *AdminEnrollHandler) UpdateEnrollForms(ctx context.Context, c *app.Reque
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 清除打卡全部数据
 // @Param id formData string true "项目ID"
 // @Success 200 {object} response.Resp
@@ -237,7 +237,7 @@ func (h *AdminEnrollHandler) ClearEnrollAll(ctx context.Context, c *app.RequestC
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 删除打卡项目
 // @Param id formData string true "项目ID"
 // @Success 200 {object} response.Resp
@@ -266,7 +266,7 @@ func (h *AdminEnrollHandler) DelEnrolls(ctx context.Context, c *app.RequestConte
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 打卡项目排序
 // @Param id formData string true "项目ID"
 // @Param sort formData string true "排序值"
@@ -283,7 +283,7 @@ func (h *AdminEnrollHandler) SortEnroll(ctx context.Context, c *app.RequestConte
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 设置打卡推荐
 // @Param id formData string true "项目ID"
 // @Param vouch formData string true "推荐值"
@@ -300,7 +300,7 @@ func (h *AdminEnrollHandler) VouchEnroll(ctx context.Context, c *app.RequestCont
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 设置打卡状态
 // @Param id formData string true "项目ID"
 // @Param status formData string true "状态"
@@ -317,10 +317,10 @@ func (h *AdminEnrollHandler) StatusEnroll(ctx context.Context, c *app.RequestCon
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 获取打卡记录列表
 // @Param enrollId query string true "项目ID"
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 获取参与用户列表(含报名表单数据)
 // @Param enrollId query string true "项目ID"
 // @Success 200 {object} response.Resp
@@ -372,7 +372,7 @@ func (h *AdminEnrollHandler) GetEnrollJoinList(ctx context.Context, c *app.Reque
 	response.JSON(c, map[string]interface{}{"list": list, "total": total})
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 从打卡项目中移除用户（删除用户及所有打卡记录）
 // @Param enrollId formData string true "项目ID"
 // @Param userId formData string true "用户ID"
@@ -423,7 +423,7 @@ func (h *AdminEnrollHandler) EditEnrollUserForms(ctx context.Context, c *app.Req
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 删除打卡记录
 // @Param id formData string true "记录ID"
 // @Success 200 {object} response.Resp
@@ -455,7 +455,7 @@ func (h *AdminEnrollHandler) DelEnrollJoins(ctx context.Context, c *app.RequestC
 	response.JSON(c, nil)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 获取打卡数据导出链接
 // @Param enrollId query string true "项目ID"
 // @Success 200 {object} response.Resp
@@ -470,7 +470,7 @@ func (h *AdminEnrollHandler) EnrollJoinDataGet(ctx context.Context, c *app.Reque
 	response.JSON(c, data)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 导出打卡数据
 // @Param enrollId query string true "项目ID"
 // @Success 200 {object} response.Resp
@@ -488,7 +488,7 @@ func (h *AdminEnrollHandler) EnrollJoinDataExport(ctx context.Context, c *app.Re
 	response.JSON(c, fileURL)
 }
 
-// @Tags 打卡管理
+// @Tags 打卡管理, 管理端 API
 // @Summary 删除打卡导出数据
 // @Param enrollId formData string true "项目ID"
 // @Success 200 {object} response.Resp

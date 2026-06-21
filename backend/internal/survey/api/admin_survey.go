@@ -43,7 +43,7 @@ func (h *AdminSurveyHandler) lazyInit() {
 // ==================== Survey CRUD ====================
 
 // List GET /admin/survey/survey_list
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 问卷列表
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
@@ -97,7 +97,7 @@ func (h *AdminSurveyHandler) List(_ context.Context, c *app.RequestContext) {
 }
 
 // Detail GET /admin/survey/survey_detail?id=
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 问卷详情
 // @Param id query int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -120,7 +120,7 @@ func (h *AdminSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 }
 
 // Insert POST /admin/survey/survey_insert
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 创建问卷
 // @Param survey body model.Survey true "问卷数据"
 // @Success 200 {object} response.Resp
@@ -151,7 +151,7 @@ func (h *AdminSurveyHandler) Insert(_ context.Context, c *app.RequestContext) {
 }
 
 // Edit POST /admin/survey/survey_edit
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 编辑问卷
 // @Param survey body model.Survey true "问卷数据（需包含ID）"
 // @Success 200 {object} response.Resp
@@ -175,7 +175,7 @@ func (h *AdminSurveyHandler) Edit(_ context.Context, c *app.RequestContext) {
 }
 
 // Del POST /admin/survey/survey_del
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 删除问卷
 // @Param id formData int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -191,7 +191,7 @@ func (h *AdminSurveyHandler) Del(_ context.Context, c *app.RequestContext) {
 }
 
 // Status POST /admin/survey/survey_status
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 更新问卷状态
 // @Param id formData int true "问卷ID"
 // @Param status formData int true "状态(0草稿 1发布)"
@@ -209,7 +209,7 @@ func (h *AdminSurveyHandler) Status(_ context.Context, c *app.RequestContext) {
 }
 
 // Copy POST /admin/survey/survey_copy
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 复制问卷
 // @Param id formData int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -248,7 +248,7 @@ func (h *AdminSurveyHandler) Copy(_ context.Context, c *app.RequestContext) {
 // ==================== Response ====================
 
 // ResponseList GET /admin/survey/response_list?surveyId=
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 答卷列表
 // @Param surveyId query int true "问卷ID"
 // @Param page query int false "页码"
@@ -279,7 +279,7 @@ func (h *AdminSurveyHandler) ResponseList(_ context.Context, c *app.RequestConte
 }
 
 // ResponseDetail GET /admin/survey/response_detail?id=
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 答卷详情
 // @Param id query int true "答卷ID"
 // @Success 200 {object} response.Resp
@@ -308,7 +308,7 @@ func (h *AdminSurveyHandler) ResponseDetail(_ context.Context, c *app.RequestCon
 }
 
 // ResponseDel POST /admin/survey/response_del
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 删除答卷
 // @Param id formData int true "答卷ID"
 // @Success 200 {object} response.Resp
@@ -323,7 +323,7 @@ func (h *AdminSurveyHandler) ResponseDel(_ context.Context, c *app.RequestContex
 }
 
 // ResponseBatchDel POST /admin/survey/response_batch_del
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 批量删除答卷
 // @Param ids formData string true "逗号分隔的答卷ID"
 // @Success 200 {object} response.Resp
@@ -352,7 +352,7 @@ func (h *AdminSurveyHandler) ResponseBatchDel(_ context.Context, c *app.RequestC
 }
 
 // ResponseExport GET /admin/survey/response_export?surveyId= → CSV
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 导出答卷CSV
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {file} string
@@ -385,7 +385,7 @@ func (h *AdminSurveyHandler) ResponseExport(_ context.Context, c *app.RequestCon
 // ==================== Statistic ====================
 
 // Statistic GET /admin/survey/statistic?surveyId=
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 问卷统计
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -447,7 +447,7 @@ func (h *AdminSurveyHandler) Statistic(_ context.Context, c *app.RequestContext)
 // ==================== Channel ====================
 
 // ChannelList GET /admin/survey/channel_list?surveyId=
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 渠道列表
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -460,7 +460,7 @@ func (h *AdminSurveyHandler) ChannelList(_ context.Context, c *app.RequestContex
 }
 
 // ChannelInsert POST /admin/survey/channel_insert
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 创建渠道
 // @Param channel body model.SurveyChannel true "渠道数据"
 // @Success 200 {object} response.Resp
@@ -480,7 +480,7 @@ func (h *AdminSurveyHandler) ChannelInsert(_ context.Context, c *app.RequestCont
 }
 
 // ChannelDel POST /admin/survey/channel_del
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 删除渠道
 // @Param id formData int true "渠道ID"
 // @Success 200 {object} response.Resp
@@ -495,7 +495,7 @@ func (h *AdminSurveyHandler) ChannelDel(_ context.Context, c *app.RequestContext
 }
 
 // ResourceUpload POST /admin/survey/resource_upload
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 上传问卷资源（背景图/页眉图）
 // @Param file formData file true "文件"
 // @Param surveyId formData int true "问卷ID"
@@ -585,7 +585,7 @@ func (h *AdminSurveyHandler) ResourceUpload(_ context.Context, c *app.RequestCon
 }
 
 // ResourceList GET /admin/survey/resource_list
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 查询问卷资源列表
 // @Param surveyId query int true "问卷ID"
 // @Param resType query string false "资源类型: bg/header，为空则返回全部"
@@ -611,7 +611,7 @@ func (h *AdminSurveyHandler) ResourceList(_ context.Context, c *app.RequestConte
 }
 
 // ResourceDelete POST /admin/survey/resource_delete
-// @Tags 问卷管理
+// @Tags 问卷管理, 管理端 API
 // @Summary 删除问卷资源
 // @Param id formData int true "资源ID"
 // @Success 200 {object} response.Resp

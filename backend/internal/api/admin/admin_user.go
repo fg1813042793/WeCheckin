@@ -34,7 +34,7 @@ func parseUintSlice(s string) []uint {
 	return ids
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 获取用户列表
 // @Param page query string false "页码"
 // @Param size query string false "每页数量"
@@ -60,7 +60,7 @@ func (h *AdminUserHandler) GetUserList(ctx context.Context, c *app.RequestContex
 	response.JSON(c, map[string]interface{}{"list": list, "total": total})
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 获取用户详情
 // @Param openid query string true "用户OpenID"
 // @Success 200 {object} response.Resp
@@ -75,7 +75,7 @@ func (h *AdminUserHandler) GetUserDetail(ctx context.Context, c *app.RequestCont
 	response.JSON(c, data)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 根据ID获取用户详情
 // @Param id query string true "用户ID"
 // @Success 200 {object} response.Resp
@@ -90,7 +90,7 @@ func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContex
 	response.JSON(c, data)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 新增用户
 // @Param name formData string true "用户名"
 // @Param mobile formData string false "手机号"
@@ -113,7 +113,7 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 编辑用户
 // @Param id formData string true "用户ID"
 // @Param name formData string false "用户名"
@@ -138,7 +138,7 @@ func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) 
 	response.JSON(c, nil)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 删除用户
 // @Param id formData string true "用户ID"
 // @Success 200 {object} response.Resp
@@ -167,7 +167,7 @@ func (h *AdminUserHandler) DelUsers(ctx context.Context, c *app.RequestContext) 
 	response.JSON(c, nil)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 获取用户表单字段列表
 // @Success 200 {object} response.Resp
 // @Router /admin/user_form_fields [get]
@@ -183,7 +183,7 @@ func (h *AdminUserHandler) GetUserFormFields(ctx context.Context, c *app.Request
 	response.JSON(c, list)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 保存用户表单字段配置(全量替换)
 // @Param fields formData string true "字段JSON数组"
 // @Success 200 {object} response.Resp
@@ -204,7 +204,7 @@ func (h *AdminUserHandler) SaveUserFormFields(ctx context.Context, c *app.Reques
 	response.JSON(c, nil)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 设置用户状态
 // @Param id formData string true "用户ID"
 // @Param status formData string true "状态"
@@ -235,7 +235,7 @@ func (h *AdminUserHandler) ResetPassword(ctx context.Context, c *app.RequestCont
 	response.JSON(c, nil)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 获取用户数据导出链接
 // @Success 200 {object} response.Resp
 // @Router /admin/user_data_get [get]
@@ -248,7 +248,7 @@ func (h *AdminUserHandler) UserDataGet(ctx context.Context, c *app.RequestContex
 	response.JSON(c, data)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 导出用户数据
 // @Success 200 {object} response.Resp
 // @Router /admin/user_data_export [get]
@@ -261,7 +261,7 @@ func (h *AdminUserHandler) UserDataExport(ctx context.Context, c *app.RequestCon
 	response.JSON(c, data)
 }
 
-// @Tags 用户管理
+// @Tags 用户管理, 管理端 API
 // @Summary 删除用户数据
 // @Success 200 {object} response.Resp
 // @Router /admin/user_data_del [post]
@@ -300,7 +300,7 @@ func (h *AdminUserHandler) ForceOfflineUser(ctx context.Context, c *app.RequestC
 	response.JSON(c, nil)
 }
 
-// @Tags 在线用户
+// @Tags 在线用户, 管理端 API
 // @Summary 批量强制下线
 // @Param items body []object{idStr,token} true "items: [{idStr,token}, ...]"
 // @Success 200 {object} response.Resp

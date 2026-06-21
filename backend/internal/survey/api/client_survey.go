@@ -41,7 +41,7 @@ func (h *ClientSurveyHandler) lazyInit() {
 }
 
 // List GET /survey/list
-// @Tags 问卷-客户端
+// @Tags 问卷-客户端, 客户端 API
 // @Summary 获取问卷列表
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
@@ -65,7 +65,7 @@ func (h *ClientSurveyHandler) List(_ context.Context, c *app.RequestContext) {
 }
 
 // Detail GET /survey/view?id=
-// @Tags 问卷-客户端
+// @Tags 问卷-客户端, 客户端 API
 // @Summary 查看问卷详情
 // @Param id query int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -232,7 +232,7 @@ func (h *ClientSurveyHandler) Validate(_ context.Context, c *app.RequestContext)
 }
 
 // Submit POST /survey/submit
-// @Tags 问卷-客户端
+// @Tags 问卷-客户端, 客户端 API
 // @Summary 提交答卷
 // @Param surveyId formData int true "问卷ID"
 // @Param answers formData string true "答案JSON"
@@ -315,7 +315,7 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 }
 
 // MyResponses GET /survey/my_responses
-// @Tags 问卷-客户端
+// @Tags 问卷-客户端, 客户端 API
 // @Summary 我的答卷列表
 // @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
@@ -336,7 +336,7 @@ func (h *ClientSurveyHandler) MyResponses(_ context.Context, c *app.RequestConte
 }
 
 // MyResponseDetail GET /survey/my_response?id=
-// @Tags 问卷-客户端
+// @Tags 问卷-客户端, 客户端 API
 // @Summary 查看答卷详情
 // @Param id query int true "答卷ID"
 // @Param user_id query string false "用户ID"

@@ -462,5 +462,21 @@ export const adminApi = {
   },
   examResourceDelete(data: { id: number }) {
     return request.post('/admin/exam/resource_delete', data)
+  },
+  // ==================== Exam Question Bank ====================
+  examQuestionBankList(params?: any) {
+    return request.get('/admin/exam/question_bank_list', { params })
+  },
+  examQuestionBankInsert(data: any) {
+    return request.post('/admin/exam/question_bank_insert', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  },
+  examQuestionBankEdit(data: any) {
+    return request.post('/admin/exam/question_bank_edit', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  },
+  examQuestionBankDel(data: { id: number }) {
+    return request.post('/admin/exam/question_bank_del', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  },
+  examQuestionBankCategories() {
+    return request.get('/admin/exam/question_bank_categories')
   }
 }

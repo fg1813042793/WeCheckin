@@ -12,7 +12,7 @@ type AdminHomeHandler struct{}
 
 func NewAdminHomeHandler() *AdminHomeHandler { return &AdminHomeHandler{} }
 
-// @Tags 管理后台首页
+// @Tags 管理后台首页, 管理端 API
 // @Summary 管理后台首页数据
 // @Success 200 {object} response.Resp
 // @Router /admin/home [get]
@@ -27,7 +27,7 @@ func (h *AdminHomeHandler) AdminHome(ctx context.Context, c *app.RequestContext)
 	response.JSON(c, data)
 }
 
-// @Tags 管理后台首页
+// @Tags 管理后台首页, 管理端 API
 // @Summary 清除推荐数据
 // @Success 200 {object} response.Resp
 // @Router /admin/clear_vouch [get]

@@ -6,6 +6,10 @@
 //	@host			localhost:8080
 //	@BasePath		/
 //	@schemes		http
+//	@tag.name		管理端 API
+//	@tag.description	后台管理相关接口，需管理员 Token 认证
+//	@tag.name		客户端 API
+//	@tag.description	微信小程序/前端用户端接口，需用户 Token 认证
 //
 //	@securityDefinitions.apikey	AdminToken
 //	@in							header
@@ -416,6 +420,11 @@ func main() {
 	adminGroup.POST("/exam/resource_upload", aExam.ResourceUpload)
 	adminGroup.GET("/exam/resource_list", aExam.ResourceList)
 	adminGroup.POST("/exam/resource_delete", aExam.ResourceDelete)
+	adminGroup.GET("/exam/question_bank_list", aExam.QuestionBankList)
+	adminGroup.POST("/exam/question_bank_insert", aExam.QuestionBankInsert)
+	adminGroup.POST("/exam/question_bank_edit", aExam.QuestionBankEdit)
+	adminGroup.POST("/exam/question_bank_del", aExam.QuestionBankDel)
+	adminGroup.GET("/exam/question_bank_categories", aExam.QuestionBankCategories)
 
 	// ==================== File upload (public) ====================
 	uploadDir := "./uploads"

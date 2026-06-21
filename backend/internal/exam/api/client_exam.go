@@ -25,7 +25,7 @@ type ClientExamHandler struct{}
 func NewClientExamHandler() *ClientExamHandler { return &ClientExamHandler{} }
 
 // List GET /exam/list
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 获取考试列表
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
@@ -53,7 +53,7 @@ func (h *ClientExamHandler) List(_ context.Context, c *app.RequestContext) {
 }
 
 // View GET /exam/view?id=
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 查看考试详情
 // @Param id query int true "考试ID"
 // @Success 200 {object} response.Resp
@@ -219,6 +219,27 @@ func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 	if _, ok := settingsMap["answerVisible"]; !ok {
 		settingsMap["answerVisible"] = true
 	}
+	// 未开启显示答案时，从 schema 中移除答案相关字段
+	if answerVisible, _ := settingsMap["answerVisible"].(bool); !answerVisible {
+		if questions, ok := schMap["questions"].([]interface{}); ok {
+			for _, q := range questions {
+				if qm, ok := q.(map[string]interface{}); ok {
+					delete(qm, "examCorrectAnswer")
+					delete(qm, "examCorrect")
+				}
+			}
+		}
+	}
+	// 未开启分析时移除解析字段
+	if showAnalysis, _ := settingsMap["showAnalysis"].(bool); !showAnalysis {
+		if questions, ok := schMap["questions"].([]interface{}); ok {
+			for _, q := range questions {
+				if qm, ok := q.(map[string]interface{}); ok {
+					delete(qm, "examAnalysis")
+				}
+			}
+		}
+	}
 	resp := map[string]interface{}{
 		"id":            e.ID,
 		"title":         e.Title,
@@ -280,7 +301,7 @@ func checkExamLimit(e *model.Exam, uidStr string, device string, ip string) stri
 }
 
 // Validate POST /exam/validate
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 校验答案（必填项等）
 // @Router /exam/validate [post]
 func (h *ClientExamHandler) Validate(_ context.Context, c *app.RequestContext) {
@@ -350,7 +371,7 @@ func (h *ClientExamHandler) Validate(_ context.Context, c *app.RequestContext) {
 }
 
 // Start GET /exam/start?examId=
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 开始考试
 // @Param examId query int true "考试ID"
 // @Success 200 {object} response.Resp
@@ -445,7 +466,7 @@ func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 }
 
 // SaveAnswer POST /exam/save_answer
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 保存答案
 // @Param recordId formData int true "记录ID"
 // @Param answers formData string true "答案JSON"
@@ -481,7 +502,7 @@ func (h *ClientExamHandler) SaveAnswer(_ context.Context, c *app.RequestContext)
 }
 
 // Submit POST /exam/submit
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 提交考试
 // @Router /exam/submit [post]
 func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
@@ -682,7 +703,7 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 }
 
 // Record GET /exam/record?id=
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 查看考试记录
 // @Param id query int true "记录ID"
 // @Success 200 {object} response.Resp
@@ -744,7 +765,7 @@ func (h *ClientExamHandler) Record(_ context.Context, c *app.RequestContext) {
 }
 
 // MyRecords GET /exam/my_records
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 我的考试记录
 // @Success 200 {object} response.Resp
 // @Router /exam/my_records [get]
@@ -761,7 +782,7 @@ func (h *ClientExamHandler) MyRecords(_ context.Context, c *app.RequestContext) 
 }
 
 // ResultBySession GET /exam/result?session=
-// @Tags 考试-客户端
+// @Tags 考试-客户端, 客户端 API
 // @Summary 通过 session 查看考试结果
 // @Router /exam/result [get]
 func (h *ClientExamHandler) ResultBySession(_ context.Context, c *app.RequestContext) {

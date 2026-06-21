@@ -14,7 +14,7 @@ type AdminSetupHandler struct{}
 
 func NewAdminSetupHandler() *AdminSetupHandler { return &AdminSetupHandler{} }
 
-// @Tags 系统设置
+// @Tags 系统设置, 管理端 API
 // @Summary 设置系统配置
 // @Param key formData string true "设置键名"
 // @Param value formData string true "设置值"
@@ -33,7 +33,7 @@ func (h *AdminSetupHandler) SetSetup(ctx context.Context, c *app.RequestContext)
 	response.JSON(c, nil)
 }
 
-// @Tags 系统设置
+// @Tags 系统设置, 管理端 API
 // @Summary 设置内容配置
 // @Param key formData string true "设置键名"
 // @Param value formData string true "设置值"
@@ -52,7 +52,7 @@ func (h *AdminSetupHandler) SetContentSetup(ctx context.Context, c *app.RequestC
 	response.JSON(c, nil)
 }
 
-// @Tags 系统设置
+// @Tags 系统设置, 管理端 API
 // @Summary 生成小程序码
 // @Param page query string false "页面路径"
 // @Param scene query string false "场景值"

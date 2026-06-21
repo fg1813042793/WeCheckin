@@ -42,11 +42,11 @@
               <el-tag size="small" :type="visType(row.visibility)" round>{{ visText(row.visibility) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="时长" width="70" align="center">
-            <template #default="{ row }">{{ row.duration || '-' }}分</template>
+          <el-table-column label="最长交卷" width="80" align="center">
+            <template #default="{ row }">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? '分' : '' }}</template>
           </el-table-column>
           <el-table-column label="次数" width="60" align="center">
-            <template #default="{ row }">{{ row.maxAttempts || 1 }}</template>
+            <template #default="{ row }">{{ row.maxResponse || 0 }}{{ row.maxResponse ? '次' : '不限' }}</template>
           </el-table-column>
           <el-table-column label="时间窗" min-width="190">
             <template #default="{ row }">
@@ -90,8 +90,8 @@
             <p class="card-desc" v-if="row.description">{{ row.description.substring(0,60) }}{{ row.description.length>60?'...':'' }}</p>
           </div>
           <div class="card-foot">
-            <span><el-icon><Clock /></el-icon> {{ row.duration || '-' }}分</span>
-            <span><el-icon><Rank /></el-icon> {{ row.maxAttempts || 1 }}次</span>
+            <span><el-icon><Clock /></el-icon> {{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? '分' : '' }}</span>
+            <span><el-icon><Rank /></el-icon> {{ row.maxResponse || 0 }}{{ row.maxResponse ? '次' : '不限' }}</span>
             <span v-if="row.startTime || row.endTime"><el-icon><Calendar /></el-icon> {{ fmtDate(row.startTime) }}</span>
           </div>
           <div class="card-actions" @click.stop>
@@ -148,6 +148,12 @@ function visText(v: number) { return { 0:'公开', 1:'登录', 2:'部门' }[v] |
 function visType(v: number) { return ({ 0:'success', 1:'primary', 2:'warning' } as any)[v] || '' }
 function fmtTime(ms: number) { return ms ? new Date(ms).toLocaleDateString() : '-' }
 function fmtDate(ms: number) { return ms ? new Date(ms).toLocaleDateString() : '' }
+function maxSubmitMinutes(row: any) {
+  try {
+    const s = typeof row.settings === 'string' ? JSON.parse(row.settings) : (row.settings || {})
+    return s.maxSubmitMinutes || '-'
+  } catch { return '-' }
+}
 
 async function load() {
   loading.value = true

@@ -11,7 +11,7 @@ type FavHandler struct{}
 
 func NewFavHandler() *FavHandler { return &FavHandler{} }
 
-// @Tags 收藏
+// @Tags 收藏, 客户端 API
 // @Summary 更新收藏
 // @Param title formData string true "标题"
 // @Param oid formData string true "对象ID"
@@ -35,7 +35,7 @@ func (h *FavHandler) UpdateFav(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
-// @Tags 收藏
+// @Tags 收藏, 客户端 API
 // @Summary 删除收藏
 // @Param oid formData string true "对象ID"
 // @Param user_id formData string false "用户ID"
@@ -52,7 +52,7 @@ func (h *FavHandler) DelFav(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
-// @Tags 收藏
+// @Tags 收藏, 客户端 API
 // @Summary 是否已收藏
 // @Param oid query string true "对象ID"
 // @Param typ query string true "类型"
@@ -70,7 +70,7 @@ func (h *FavHandler) IsFav(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
-// @Tags 收藏
+// @Tags 收藏, 客户端 API
 // @Summary 获取我的收藏列表
 // @Param typ query string false "类型"
 // @Param user_id query string false "用户ID"

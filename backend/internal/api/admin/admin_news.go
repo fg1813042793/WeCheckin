@@ -15,7 +15,7 @@ type AdminNewsHandler struct{}
 
 func NewAdminNewsHandler() *AdminNewsHandler { return &AdminNewsHandler{} }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 获取新闻列表
 // @Param page query string false "页码"
 // @Param size query string false "每页数量"
@@ -41,7 +41,7 @@ func (h *AdminNewsHandler) GetAdminNewsList(ctx context.Context, c *app.RequestC
 	response.JSON(c, map[string]interface{}{"list": list, "total": total})
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 新增新闻
 // @Success 200 {object} response.Resp
 // @Router /admin/news_insert [post]
@@ -71,7 +71,7 @@ func (h *AdminNewsHandler) InsertNews(ctx context.Context, c *app.RequestContext
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 获取新闻详情
 // @Param id query string true "新闻ID"
 // @Success 200 {object} response.Resp
@@ -86,7 +86,7 @@ func (h *AdminNewsHandler) GetNewsDetail(ctx context.Context, c *app.RequestCont
 	response.JSON(c, data)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 编辑新闻
 // @Success 200 {object} response.Resp
 // @Router /admin/news_edit [post]
@@ -118,7 +118,7 @@ func (h *AdminNewsHandler) EditNews(ctx context.Context, c *app.RequestContext) 
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 更新新闻表单
 // @Param id formData string true "新闻ID"
 // @Param forms formData string false "表单数据"
@@ -135,7 +135,7 @@ func (h *AdminNewsHandler) UpdateNewsForms(ctx context.Context, c *app.RequestCo
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 更新新闻图片
 // @Param id formData string true "新闻ID"
 // @Param pic formData string false "图片数据"
@@ -152,7 +152,7 @@ func (h *AdminNewsHandler) UpdateNewsPic(ctx context.Context, c *app.RequestCont
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 更新新闻内容
 // @Param id formData string true "新闻ID"
 // @Param content formData string false "内容"
@@ -169,7 +169,7 @@ func (h *AdminNewsHandler) UpdateNewsContent(ctx context.Context, c *app.Request
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 删除新闻
 // @Param id formData string true "新闻ID"
 // @Success 200 {object} response.Resp
@@ -198,7 +198,7 @@ func (h *AdminNewsHandler) DelNewsList(ctx context.Context, c *app.RequestContex
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 新闻排序
 // @Param id formData string true "新闻ID"
 // @Param sort formData string true "排序值"
@@ -215,7 +215,7 @@ func (h *AdminNewsHandler) SortNews(ctx context.Context, c *app.RequestContext) 
 	response.JSON(c, nil)
 }
 
-// @Tags 新闻管理
+// @Tags 新闻管理, 管理端 API
 // @Summary 设置新闻状态
 // @Param id formData string true "新闻ID"
 // @Param status formData string true "状态"

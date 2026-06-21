@@ -16,7 +16,7 @@ type PassportHandler struct{}
 
 func NewPassportHandler() *PassportHandler { return &PassportHandler{} }
 
-// @Tags 通行证
+// @Tags 通行证, 客户端 API
 // @Summary 用户登录
 // @Param user_id formData string true "用户ID"
 // @Success 200 {object} response.Resp
@@ -33,7 +33,7 @@ func (h *PassportHandler) Login(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
-// @Tags 通行证
+// @Tags 通行证, 客户端 API
 // @Summary 密码登录
 // @Param name formData string true "用户名/手机号"
 // @Param pwd formData string true "密码"
@@ -64,7 +64,7 @@ func (h *PassportHandler) LoginByPwd(ctx context.Context, c *app.RequestContext)
 	response.JSON(c, data)
 }
 
-// @Tags 通行证
+// @Tags 通行证, 客户端 API
 // @Summary 获取手机号
 // @Param cloud_id formData string true "云ID"
 // @Success 200 {object} response.Resp
@@ -79,7 +79,7 @@ func (h *PassportHandler) GetPhone(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
-// @Tags 通行证
+// @Tags 通行证, 客户端 API
 // @Summary 用户注册
 // @Param user_id formData string true "用户ID"
 // @Param name formData string true "姓名"
@@ -103,7 +103,7 @@ func (h *PassportHandler) Register(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
-// @Tags 通行证
+// @Tags 通行证, 客户端 API
 // @Summary 获取我的详情
 // @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
@@ -119,7 +119,7 @@ func (h *PassportHandler) GetMyDetail(ctx context.Context, c *app.RequestContext
 	response.JSON(c, data)
 }
 
-// @Tags 通行证
+// @Tags 通行证, 客户端 API
 // @Summary 编辑基本信息
 // @Param name formData string false "姓名"
 // @Param mobile formData string false "手机号"

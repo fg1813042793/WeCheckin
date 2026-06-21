@@ -18,7 +18,8 @@ const docTemplate = `{
         "/admin/admin/batch_force_offline": {
             "post": {
                 "tags": [
-                    "在线管理员"
+                    "在线管理员",
+                    "管理端 API"
                 ],
                 "summary": "批量强制下线",
                 "parameters": [
@@ -48,7 +49,8 @@ const docTemplate = `{
         "/admin/clear_vouch": {
             "get": {
                 "tags": [
-                    "管理后台首页"
+                    "管理后台首页",
+                    "管理端 API"
                 ],
                 "summary": "清除推荐数据",
                 "responses": {
@@ -64,7 +66,8 @@ const docTemplate = `{
         "/admin/enroll_clear": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "清除打卡全部数据",
                 "parameters": [
@@ -89,7 +92,8 @@ const docTemplate = `{
         "/admin/enroll_del": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "删除打卡项目",
                 "parameters": [
@@ -114,7 +118,8 @@ const docTemplate = `{
         "/admin/enroll_detail": {
             "get": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "获取打卡项目详情",
                 "parameters": [
@@ -139,7 +144,8 @@ const docTemplate = `{
         "/admin/enroll_edit": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "编辑打卡项目",
                 "parameters": [
@@ -212,7 +218,8 @@ const docTemplate = `{
         "/admin/enroll_insert": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "新增打卡项目",
                 "responses": {
@@ -228,7 +235,8 @@ const docTemplate = `{
         "/admin/enroll_join_data_del": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "删除打卡导出数据",
                 "parameters": [
@@ -253,7 +261,8 @@ const docTemplate = `{
         "/admin/enroll_join_data_export": {
             "get": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "导出打卡数据",
                 "parameters": [
@@ -278,7 +287,8 @@ const docTemplate = `{
         "/admin/enroll_join_data_get": {
             "get": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "获取打卡数据导出链接",
                 "parameters": [
@@ -303,7 +313,8 @@ const docTemplate = `{
         "/admin/enroll_join_del": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "删除打卡记录",
                 "parameters": [
@@ -354,7 +365,8 @@ const docTemplate = `{
         "/admin/enroll_list": {
             "get": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "获取打卡项目列表",
                 "parameters": [
@@ -390,7 +402,8 @@ const docTemplate = `{
         "/admin/enroll_remove_user": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "从打卡项目中移除用户（删除用户及所有打卡记录）",
                 "parameters": [
@@ -422,7 +435,8 @@ const docTemplate = `{
         "/admin/enroll_sort": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "打卡项目排序",
                 "parameters": [
@@ -454,7 +468,8 @@ const docTemplate = `{
         "/admin/enroll_status": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "设置打卡状态",
                 "parameters": [
@@ -486,7 +501,8 @@ const docTemplate = `{
         "/admin/enroll_update_forms": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "更新打卡表单",
                 "parameters": [
@@ -518,7 +534,9 @@ const docTemplate = `{
             "get": {
                 "tags": [
                     "打卡管理",
-                    "打卡管理"
+                    "管理端 API",
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "获取参与用户列表(含报名表单数据)",
                 "parameters": [
@@ -550,7 +568,8 @@ const docTemplate = `{
         "/admin/enroll_vouch": {
             "post": {
                 "tags": [
-                    "打卡管理"
+                    "打卡管理",
+                    "管理端 API"
                 ],
                 "summary": "设置打卡推荐",
                 "parameters": [
@@ -582,7 +601,8 @@ const docTemplate = `{
         "/admin/exam/delete": {
             "post": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "删除考试",
                 "parameters": [
@@ -607,7 +627,8 @@ const docTemplate = `{
         "/admin/exam/detail": {
             "get": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "考试详情",
                 "parameters": [
@@ -632,7 +653,8 @@ const docTemplate = `{
         "/admin/exam/list": {
             "get": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "考试列表",
                 "parameters": [
@@ -677,10 +699,221 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/exam/question_bank_categories": {
+            "get": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "获取考试题库所有分类",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/question_bank_del": {
+            "post": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "删除题库题目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "题目ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/question_bank_edit": {
+            "post": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "编辑题库题目",
+                "parameters": [
+                    {
+                        "description": "题目ID",
+                        "name": "id",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "题干",
+                        "name": "title",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "题型",
+                        "name": "type",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "formkit JSON",
+                        "name": "schema",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "分类",
+                        "name": "category",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/question_bank_insert": {
+            "post": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "添加题目到考试题库",
+                "parameters": [
+                    {
+                        "description": "题干",
+                        "name": "title",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "题型",
+                        "name": "type",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "完整 formkit JSON",
+                        "name": "schema",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "分类",
+                        "name": "category",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/question_bank_list": {
+            "get": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "获取考试题库列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/exam/record_batch_del": {
             "post": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "批量删除考试记录",
                 "parameters": [
@@ -705,7 +938,8 @@ const docTemplate = `{
         "/admin/exam/record_del": {
             "post": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "删除考试记录",
                 "parameters": [
@@ -730,7 +964,8 @@ const docTemplate = `{
         "/admin/exam/record_detail": {
             "get": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "考试记录详情",
                 "parameters": [
@@ -755,7 +990,8 @@ const docTemplate = `{
         "/admin/exam/record_list": {
             "get": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "考试记录列表",
                 "parameters": [
@@ -795,10 +1031,109 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/exam/resource_delete": {
+            "post": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "删除考试资源",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "资源ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/resource_list": {
+            "get": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "查询考试资源列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "资源类型: bg/header",
+                        "name": "resType",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/exam/resource_upload": {
+            "post": {
+                "tags": [
+                    "考试管理",
+                    "管理端 API"
+                ],
+                "summary": "上传考试资源",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "资源类型: bg/header",
+                        "name": "resType",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/exam/save": {
             "post": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "创建/更新考试",
                 "parameters": [
@@ -931,7 +1266,8 @@ const docTemplate = `{
         "/admin/exam/statistics": {
             "get": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "考试统计",
                 "parameters": [
@@ -956,7 +1292,8 @@ const docTemplate = `{
         "/admin/exam/status": {
             "post": {
                 "tags": [
-                    "考试管理"
+                    "考试管理",
+                    "管理端 API"
                 ],
                 "summary": "更新考试状态",
                 "parameters": [
@@ -988,7 +1325,8 @@ const docTemplate = `{
         "/admin/home": {
             "get": {
                 "tags": [
-                    "管理后台首页"
+                    "管理后台首页",
+                    "管理端 API"
                 ],
                 "summary": "管理后台首页数据",
                 "responses": {
@@ -1004,7 +1342,8 @@ const docTemplate = `{
         "/admin/log_clear": {
             "get": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "清除操作日志",
                 "responses": {
@@ -1020,7 +1359,8 @@ const docTemplate = `{
         "/admin/log_list": {
             "get": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "获取操作日志列表",
                 "responses": {
@@ -1036,7 +1376,8 @@ const docTemplate = `{
         "/admin/login": {
             "post": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "管理员登录",
                 "parameters": [
@@ -1068,7 +1409,8 @@ const docTemplate = `{
         "/admin/mgr_del": {
             "post": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "删除管理员",
                 "parameters": [
@@ -1093,7 +1435,8 @@ const docTemplate = `{
         "/admin/mgr_detail": {
             "get": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "获取管理员详情",
                 "parameters": [
@@ -1118,7 +1461,8 @@ const docTemplate = `{
         "/admin/mgr_edit": {
             "post": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "编辑管理员",
                 "parameters": [
@@ -1161,7 +1505,8 @@ const docTemplate = `{
         "/admin/mgr_insert": {
             "post": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "新增管理员",
                 "parameters": [
@@ -1205,7 +1550,8 @@ const docTemplate = `{
         "/admin/mgr_list": {
             "get": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "获取管理员列表",
                 "responses": {
@@ -1221,7 +1567,8 @@ const docTemplate = `{
         "/admin/mgr_pwd": {
             "post": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "修改管理员密码",
                 "parameters": [
@@ -1253,7 +1600,8 @@ const docTemplate = `{
         "/admin/mgr_status": {
             "post": {
                 "tags": [
-                    "管理员管理"
+                    "管理员管理",
+                    "管理端 API"
                 ],
                 "summary": "设置管理员状态",
                 "parameters": [
@@ -1285,7 +1633,8 @@ const docTemplate = `{
         "/admin/news_del": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "删除新闻",
                 "parameters": [
@@ -1310,7 +1659,8 @@ const docTemplate = `{
         "/admin/news_detail": {
             "get": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "获取新闻详情",
                 "parameters": [
@@ -1335,7 +1685,8 @@ const docTemplate = `{
         "/admin/news_edit": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "编辑新闻",
                 "responses": {
@@ -1351,7 +1702,8 @@ const docTemplate = `{
         "/admin/news_insert": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "新增新闻",
                 "responses": {
@@ -1367,7 +1719,8 @@ const docTemplate = `{
         "/admin/news_list": {
             "get": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "获取新闻列表",
                 "parameters": [
@@ -1403,7 +1756,8 @@ const docTemplate = `{
         "/admin/news_sort": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "新闻排序",
                 "parameters": [
@@ -1435,7 +1789,8 @@ const docTemplate = `{
         "/admin/news_status": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "设置新闻状态",
                 "parameters": [
@@ -1467,7 +1822,8 @@ const docTemplate = `{
         "/admin/news_update_content": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "更新新闻内容",
                 "parameters": [
@@ -1498,7 +1854,8 @@ const docTemplate = `{
         "/admin/news_update_forms": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "更新新闻表单",
                 "parameters": [
@@ -1529,7 +1886,8 @@ const docTemplate = `{
         "/admin/news_update_pic": {
             "post": {
                 "tags": [
-                    "新闻管理"
+                    "新闻管理",
+                    "管理端 API"
                 ],
                 "summary": "更新新闻图片",
                 "parameters": [
@@ -1560,7 +1918,8 @@ const docTemplate = `{
         "/admin/setup_qr": {
             "get": {
                 "tags": [
-                    "系统设置"
+                    "系统设置",
+                    "管理端 API"
                 ],
                 "summary": "生成小程序码",
                 "parameters": [
@@ -1590,7 +1949,8 @@ const docTemplate = `{
         "/admin/setup_set": {
             "post": {
                 "tags": [
-                    "系统设置"
+                    "系统设置",
+                    "管理端 API"
                 ],
                 "summary": "设置系统配置",
                 "parameters": [
@@ -1622,7 +1982,8 @@ const docTemplate = `{
         "/admin/setup_set_content": {
             "post": {
                 "tags": [
-                    "系统设置"
+                    "系统设置",
+                    "管理端 API"
                 ],
                 "summary": "设置内容配置",
                 "parameters": [
@@ -1654,7 +2015,8 @@ const docTemplate = `{
         "/admin/survey/channel_del": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "删除渠道",
                 "parameters": [
@@ -1679,7 +2041,8 @@ const docTemplate = `{
         "/admin/survey/channel_insert": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "创建渠道",
                 "parameters": [
@@ -1706,7 +2069,8 @@ const docTemplate = `{
         "/admin/survey/channel_list": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "渠道列表",
                 "parameters": [
@@ -1731,7 +2095,8 @@ const docTemplate = `{
         "/admin/survey/eval": {
             "post": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "表达式试算",
                 "parameters": [
@@ -1768,7 +2133,8 @@ const docTemplate = `{
         "/admin/survey/export/enroll": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "导出打卡CSV",
                 "parameters": [
@@ -1793,7 +2159,8 @@ const docTemplate = `{
         "/admin/survey/export/event": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "导出活动CSV",
                 "parameters": [
@@ -1818,7 +2185,8 @@ const docTemplate = `{
         "/admin/survey/export/survey": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "导出问卷CSV",
                 "parameters": [
@@ -1843,7 +2211,8 @@ const docTemplate = `{
         "/admin/survey/report/enroll": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "打卡报表",
                 "parameters": [
@@ -1868,7 +2237,8 @@ const docTemplate = `{
         "/admin/survey/report/event": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "活动报表",
                 "parameters": [
@@ -1893,7 +2263,8 @@ const docTemplate = `{
         "/admin/survey/report/survey": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "问卷报表（schema-aware）",
                 "parameters": [
@@ -1918,7 +2289,8 @@ const docTemplate = `{
         "/admin/survey/resource_delete": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "删除问卷资源",
                 "parameters": [
@@ -1943,7 +2315,8 @@ const docTemplate = `{
         "/admin/survey/resource_list": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "查询问卷资源列表",
                 "parameters": [
@@ -1974,7 +2347,8 @@ const docTemplate = `{
         "/admin/survey/resource_upload": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "上传问卷资源（背景图/页眉图）",
                 "parameters": [
@@ -2013,7 +2387,8 @@ const docTemplate = `{
         "/admin/survey/response_batch_del": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "批量删除答卷",
                 "parameters": [
@@ -2038,7 +2413,8 @@ const docTemplate = `{
         "/admin/survey/response_del": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "删除答卷",
                 "parameters": [
@@ -2063,7 +2439,8 @@ const docTemplate = `{
         "/admin/survey/response_detail": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "答卷详情",
                 "parameters": [
@@ -2088,7 +2465,8 @@ const docTemplate = `{
         "/admin/survey/response_export": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "导出答卷CSV",
                 "parameters": [
@@ -2113,7 +2491,8 @@ const docTemplate = `{
         "/admin/survey/response_list": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "答卷列表",
                 "parameters": [
@@ -2150,7 +2529,8 @@ const docTemplate = `{
         "/admin/survey/schema/parse": {
             "post": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "解析 Schema",
                 "parameters": [
@@ -2175,7 +2555,8 @@ const docTemplate = `{
         "/admin/survey/statistic": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "问卷统计",
                 "parameters": [
@@ -2200,7 +2581,8 @@ const docTemplate = `{
         "/admin/survey/survey_copy": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "复制问卷",
                 "parameters": [
@@ -2225,7 +2607,8 @@ const docTemplate = `{
         "/admin/survey/survey_del": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "删除问卷",
                 "parameters": [
@@ -2250,7 +2633,8 @@ const docTemplate = `{
         "/admin/survey/survey_detail": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "问卷详情",
                 "parameters": [
@@ -2275,7 +2659,8 @@ const docTemplate = `{
         "/admin/survey/survey_edit": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "编辑问卷",
                 "parameters": [
@@ -2302,7 +2687,8 @@ const docTemplate = `{
         "/admin/survey/survey_insert": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "创建问卷",
                 "parameters": [
@@ -2329,7 +2715,8 @@ const docTemplate = `{
         "/admin/survey/survey_list": {
             "get": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "问卷列表",
                 "parameters": [
@@ -2377,7 +2764,8 @@ const docTemplate = `{
         "/admin/survey/survey_status": {
             "post": {
                 "tags": [
-                    "问卷管理"
+                    "问卷管理",
+                    "管理端 API"
                 ],
                 "summary": "更新问卷状态",
                 "parameters": [
@@ -2409,7 +2797,8 @@ const docTemplate = `{
         "/admin/survey/types": {
             "get": {
                 "tags": [
-                    "表单工具"
+                    "表单工具",
+                    "管理端 API"
                 ],
                 "summary": "获取题型列表",
                 "responses": {
@@ -2425,7 +2814,8 @@ const docTemplate = `{
         "/admin/user/batch_force_offline": {
             "post": {
                 "tags": [
-                    "在线用户"
+                    "在线用户",
+                    "管理端 API"
                 ],
                 "summary": "批量强制下线",
                 "parameters": [
@@ -2455,7 +2845,8 @@ const docTemplate = `{
         "/admin/user_add": {
             "post": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "新增用户",
                 "parameters": [
@@ -2498,7 +2889,8 @@ const docTemplate = `{
         "/admin/user_data_del": {
             "post": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "删除用户数据",
                 "responses": {
@@ -2514,7 +2906,8 @@ const docTemplate = `{
         "/admin/user_data_export": {
             "get": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "导出用户数据",
                 "responses": {
@@ -2530,7 +2923,8 @@ const docTemplate = `{
         "/admin/user_data_get": {
             "get": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "获取用户数据导出链接",
                 "responses": {
@@ -2546,7 +2940,8 @@ const docTemplate = `{
         "/admin/user_del": {
             "post": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "删除用户",
                 "parameters": [
@@ -2571,7 +2966,8 @@ const docTemplate = `{
         "/admin/user_detail": {
             "get": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "获取用户详情",
                 "parameters": [
@@ -2596,7 +2992,8 @@ const docTemplate = `{
         "/admin/user_detail_by_id": {
             "get": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "根据ID获取用户详情",
                 "parameters": [
@@ -2621,7 +3018,8 @@ const docTemplate = `{
         "/admin/user_edit": {
             "post": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "编辑用户",
                 "parameters": [
@@ -2670,7 +3068,8 @@ const docTemplate = `{
         "/admin/user_form_field_save": {
             "post": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "保存用户表单字段配置(全量替换)",
                 "parameters": [
@@ -2695,7 +3094,8 @@ const docTemplate = `{
         "/admin/user_form_fields": {
             "get": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "获取用户表单字段列表",
                 "responses": {
@@ -2711,7 +3111,8 @@ const docTemplate = `{
         "/admin/user_list": {
             "get": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "获取用户列表",
                 "parameters": [
@@ -2747,7 +3148,8 @@ const docTemplate = `{
         "/admin/user_status": {
             "post": {
                 "tags": [
-                    "用户管理"
+                    "用户管理",
+                    "管理端 API"
                 ],
                 "summary": "设置用户状态",
                 "parameters": [
@@ -3104,7 +3506,8 @@ const docTemplate = `{
         "/exam/list": {
             "get": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "获取考试列表",
                 "parameters": [
@@ -3140,7 +3543,8 @@ const docTemplate = `{
         "/exam/my_records": {
             "get": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "我的考试记录",
                 "responses": {
@@ -3156,7 +3560,8 @@ const docTemplate = `{
         "/exam/record": {
             "get": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "查看考试记录",
                 "parameters": [
@@ -3178,10 +3583,21 @@ const docTemplate = `{
                 }
             }
         },
+        "/exam/result": {
+            "get": {
+                "tags": [
+                    "考试-客户端",
+                    "客户端 API"
+                ],
+                "summary": "通过 session 查看考试结果",
+                "responses": {}
+            }
+        },
         "/exam/save_answer": {
             "post": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "保存答案",
                 "parameters": [
@@ -3213,7 +3629,8 @@ const docTemplate = `{
         "/exam/start": {
             "get": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "开始考试",
                 "parameters": [
@@ -3238,39 +3655,28 @@ const docTemplate = `{
         "/exam/submit": {
             "post": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "提交考试",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "记录ID",
-                        "name": "recordId",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "答案JSON",
-                        "name": "answers",
-                        "in": "formData",
-                        "required": true
-                    }
+                "responses": {}
+            }
+        },
+        "/exam/validate": {
+            "post": {
+                "tags": [
+                    "考试-客户端",
+                    "客户端 API"
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Resp"
-                        }
-                    }
-                }
+                "summary": "校验答案（必填项等）",
+                "responses": {}
             }
         },
         "/exam/view": {
             "get": {
                 "tags": [
-                    "考试-客户端"
+                    "考试-客户端",
+                    "客户端 API"
                 ],
                 "summary": "查看考试详情",
                 "parameters": [
@@ -3295,7 +3701,8 @@ const docTemplate = `{
         "/fav/del": {
             "post": {
                 "tags": [
-                    "收藏"
+                    "收藏",
+                    "客户端 API"
                 ],
                 "summary": "删除收藏",
                 "parameters": [
@@ -3326,7 +3733,8 @@ const docTemplate = `{
         "/fav/is_fav": {
             "get": {
                 "tags": [
-                    "收藏"
+                    "收藏",
+                    "客户端 API"
                 ],
                 "summary": "是否已收藏",
                 "parameters": [
@@ -3364,7 +3772,8 @@ const docTemplate = `{
         "/fav/my_list": {
             "get": {
                 "tags": [
-                    "收藏"
+                    "收藏",
+                    "客户端 API"
                 ],
                 "summary": "获取我的收藏列表",
                 "parameters": [
@@ -3394,7 +3803,8 @@ const docTemplate = `{
         "/fav/update": {
             "post": {
                 "tags": [
-                    "收藏"
+                    "收藏",
+                    "客户端 API"
                 ],
                 "summary": "更新收藏",
                 "parameters": [
@@ -3445,7 +3855,8 @@ const docTemplate = `{
         "/home/list": {
             "get": {
                 "tags": [
-                    "首页"
+                    "首页",
+                    "客户端 API"
                 ],
                 "summary": "获取首页列表",
                 "responses": {
@@ -3461,7 +3872,8 @@ const docTemplate = `{
         "/home/setup_get": {
             "get": {
                 "tags": [
-                    "首页"
+                    "首页",
+                    "客户端 API"
                 ],
                 "summary": "获取系统设置",
                 "parameters": [
@@ -3486,7 +3898,8 @@ const docTemplate = `{
         "/news/cate_list": {
             "get": {
                 "tags": [
-                    "新闻"
+                    "新闻",
+                    "客户端 API"
                 ],
                 "summary": "获取新闻分类列表",
                 "responses": {
@@ -3502,7 +3915,8 @@ const docTemplate = `{
         "/news/list": {
             "get": {
                 "tags": [
-                    "新闻"
+                    "新闻",
+                    "客户端 API"
                 ],
                 "summary": "获取新闻列表",
                 "parameters": [
@@ -3532,7 +3946,8 @@ const docTemplate = `{
         "/news/view": {
             "get": {
                 "tags": [
-                    "新闻"
+                    "新闻",
+                    "客户端 API"
                 ],
                 "summary": "查看新闻详情",
                 "parameters": [
@@ -3557,7 +3972,8 @@ const docTemplate = `{
         "/passport/edit_base": {
             "post": {
                 "tags": [
-                    "通行证"
+                    "通行证",
+                    "客户端 API"
                 ],
                 "summary": "编辑基本信息",
                 "parameters": [
@@ -3599,7 +4015,8 @@ const docTemplate = `{
         "/passport/login": {
             "post": {
                 "tags": [
-                    "通行证"
+                    "通行证",
+                    "客户端 API"
                 ],
                 "summary": "用户登录",
                 "parameters": [
@@ -3624,7 +4041,8 @@ const docTemplate = `{
         "/passport/login_pwd": {
             "post": {
                 "tags": [
-                    "通行证"
+                    "通行证",
+                    "客户端 API"
                 ],
                 "summary": "密码登录",
                 "parameters": [
@@ -3656,7 +4074,8 @@ const docTemplate = `{
         "/passport/my_detail": {
             "get": {
                 "tags": [
-                    "通行证"
+                    "通行证",
+                    "客户端 API"
                 ],
                 "summary": "获取我的详情",
                 "parameters": [
@@ -3680,7 +4099,8 @@ const docTemplate = `{
         "/passport/phone": {
             "post": {
                 "tags": [
-                    "通行证"
+                    "通行证",
+                    "客户端 API"
                 ],
                 "summary": "获取手机号",
                 "parameters": [
@@ -3705,7 +4125,8 @@ const docTemplate = `{
         "/passport/register": {
             "post": {
                 "tags": [
-                    "通行证"
+                    "通行证",
+                    "客户端 API"
                 ],
                 "summary": "用户注册",
                 "parameters": [
@@ -3759,7 +4180,8 @@ const docTemplate = `{
         "/survey/list": {
             "get": {
                 "tags": [
-                    "问卷-客户端"
+                    "问卷-客户端",
+                    "客户端 API"
                 ],
                 "summary": "获取问卷列表",
                 "parameters": [
@@ -3801,7 +4223,8 @@ const docTemplate = `{
         "/survey/my_response": {
             "get": {
                 "tags": [
-                    "问卷-客户端"
+                    "问卷-客户端",
+                    "客户端 API"
                 ],
                 "summary": "查看答卷详情",
                 "parameters": [
@@ -3832,7 +4255,8 @@ const docTemplate = `{
         "/survey/my_responses": {
             "get": {
                 "tags": [
-                    "问卷-客户端"
+                    "问卷-客户端",
+                    "客户端 API"
                 ],
                 "summary": "我的答卷列表",
                 "parameters": [
@@ -3856,7 +4280,8 @@ const docTemplate = `{
         "/survey/submit": {
             "post": {
                 "tags": [
-                    "问卷-客户端"
+                    "问卷-客户端",
+                    "客户端 API"
                 ],
                 "summary": "提交答卷",
                 "parameters": [
@@ -3921,7 +4346,8 @@ const docTemplate = `{
         "/survey/view": {
             "get": {
                 "tags": [
-                    "问卷-客户端"
+                    "问卷-客户端",
+                    "客户端 API"
                 ],
                 "summary": "查看问卷详情",
                 "parameters": [
@@ -4087,7 +4513,17 @@ const docTemplate = `{
             "name": "Authorization",
             "in": "header"
         }
-    }
+    },
+    "tags": [
+        {
+            "description": "后台管理相关接口，需管理员 Token 认证",
+            "name": "管理端 API"
+        },
+        {
+            "description": "微信小程序/前端用户端接口，需用户 Token 认证",
+            "name": "客户端 API"
+        }
+    ]
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it

@@ -28,7 +28,7 @@ type TypeMeta struct {
 }
 
 // ListTypes GET /admin/survey/types
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 获取题型列表
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/types [get]
@@ -48,7 +48,7 @@ func (h *AdminSurveyHandler) ListTypes(_ context.Context, c *app.RequestContext)
 }
 
 // ParseSchema POST /admin/survey/schema/parse
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 解析 Schema
 // @Param schema formData string true "Schema JSON"
 // @Success 200 {object} response.Resp
@@ -74,7 +74,7 @@ func (h *AdminSurveyHandler) ParseSchema(_ context.Context, c *app.RequestContex
 }
 
 // EvalExpr POST /admin/survey/eval
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 表达式试算
 // @Param expr formData string true "表达式"
 // @Param env formData string false "环境变量JSON"
@@ -170,7 +170,7 @@ func (h *AdminSurveyHandler) ApplyForm(_ context.Context, c *app.RequestContext)
 // ==================== Schema-aware 报表 (P6) ====================
 
 // ReportEnrollSchema GET /admin/survey/report/enroll?enrollId=xx
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 打卡报表
 // @Param enrollId query string true "打卡项目ID"
 // @Success 200 {object} response.Resp
@@ -210,7 +210,7 @@ func (h *AdminSurveyHandler) ReportEnrollSchema(_ context.Context, c *app.Reques
 }
 
 // ExportEnrollSchemaCSV GET /admin/survey/export/enroll?enrollId=xx
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 导出打卡CSV
 // @Param enrollId query string true "打卡项目ID"
 // @Success 200 {file} string
@@ -244,7 +244,7 @@ func (h *AdminSurveyHandler) ExportEnrollSchemaCSV(_ context.Context, c *app.Req
 }
 
 // ReportEventSchema GET /admin/survey/report/event?eventId=xx
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 活动报表
 // @Param eventId query string true "活动ID"
 // @Success 200 {object} response.Resp
@@ -283,7 +283,7 @@ func (h *AdminSurveyHandler) ReportEventSchema(_ context.Context, c *app.Request
 }
 
 // ExportEventSchemaCSV GET /admin/survey/export/event?eventId=xx
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 导出活动CSV
 // @Param eventId query string true "活动ID"
 // @Success 200 {file} string
@@ -317,7 +317,7 @@ func (h *AdminSurveyHandler) ExportEventSchemaCSV(_ context.Context, c *app.Requ
 }
 
 // ReportSurveySchema GET /admin/survey/report/survey?surveyId=xx
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 问卷报表（schema-aware）
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {object} response.Resp
@@ -357,7 +357,7 @@ func (h *AdminSurveyHandler) ReportSurveySchema(_ context.Context, c *app.Reques
 }
 
 // ExportSurveySchemaCSV GET /admin/survey/export/survey?surveyId=xx
-// @Tags 表单工具
+// @Tags 表单工具, 管理端 API
 // @Summary 导出问卷CSV
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {file} string

@@ -1,20 +1,21 @@
 package model
 
 // ExamQuestion 题库题目
-// 复用 formkit 题型，但额外带：正确答案 (Answer)、分值 (Score)、分类 (Category)、解析 (Analysis)
+// 复用 formkit 题型，schema 存放完整 formkit 配置 JSON
 type ExamQuestion struct {
 	ID         uint   `gorm:"primaryKey;column:exam_q_id" json:"id"`
-	Type       string `gorm:"column:exam_q_type;size:32" json:"type"`            // input/select/radio/checkbox/textarea
-	Title      string `gorm:"column:exam_q_title;size:255" json:"title"`          // 题干
-	Options    string `gorm:"column:exam_q_options;type:text" json:"options"`     // JSON 数组 [{label,value}]
-	Answer     string `gorm:"column:exam_q_answer;type:text" json:"answer"`       // 正确答案（JSON：string/[]string）
-	Score      int    `gorm:"column:exam_q_score;default:0" json:"score"`         // 分值
-	Category   string `gorm:"column:exam_q_category;size:64" json:"category"`     // 分类
-	Tags       string `gorm:"column:exam_q_tags;size:255" json:"tags"`            // 逗号分隔标签
-	Analysis   string `gorm:"column:exam_q_analysis;type:text" json:"analysis"`   // 解析
-	Difficulty int    `gorm:"column:exam_q_difficulty;default:1" json:"difficulty"` // 1=易 2=中 3=难
-	Status     int    `gorm:"column:exam_q_status;default:1" json:"status"`      // 1=启用 0=停用
-	DeptID     uint   `gorm:"column:exam_q_dept_id;default:0" json:"deptId"`      // 归属部门
+	Type       string `gorm:"column:exam_q_type;size:32" json:"type"`
+	Title      string `gorm:"column:exam_q_title;size:255" json:"title"`
+	Schema     string `gorm:"column:exam_q_schema;type:text" json:"schema"`
+	Options    string `gorm:"column:exam_q_options;type:text" json:"options"`
+	Answer     string `gorm:"column:exam_q_answer;type:text" json:"answer"`
+	Score      int    `gorm:"column:exam_q_score;default:0" json:"score"`
+	Category   string `gorm:"column:exam_q_category;size:64" json:"category"`
+	Tags       string `gorm:"column:exam_q_tags;size:255" json:"tags"`
+	Analysis   string `gorm:"column:exam_q_analysis;type:text" json:"analysis"`
+	Difficulty int    `gorm:"column:exam_q_difficulty;default:1" json:"difficulty"`
+	Status     int    `gorm:"column:exam_q_status;default:1" json:"status"`
+	DeptID     uint   `gorm:"column:exam_q_dept_id;default:0" json:"deptId"`
 	CreateBy   uint   `gorm:"column:exam_q_create_by;default:0" json:"createBy"`
 	AddTime    int64  `gorm:"column:exam_q_add_time" json:"addTime"`
 }

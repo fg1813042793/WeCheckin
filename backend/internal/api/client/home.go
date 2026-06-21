@@ -11,7 +11,7 @@ type HomeHandler struct{}
 
 func NewHomeHandler() *HomeHandler { return &HomeHandler{} }
 
-// @Tags 首页
+// @Tags 首页, 客户端 API
 // @Summary 获取系统设置
 // @Param key query string true "设置键名"
 // @Success 200 {object} response.Resp
@@ -27,7 +27,7 @@ func (h *HomeHandler) GetSetup(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, setup.Value)
 }
 
-// @Tags 首页
+// @Tags 首页, 客户端 API
 // @Summary 获取首页列表
 // @Success 200 {object} response.Resp
 // @Router /home/list [get]
