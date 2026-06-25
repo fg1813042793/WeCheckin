@@ -112,8 +112,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 批量强制下线
       tags:
-      - 在线管理员
-      - 管理端 API
+      - PC端-在线管理员
   /admin/clear_vouch:
     get:
       responses:
@@ -123,8 +122,259 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 清除推荐数据
       tags:
-      - 管理后台首页
-      - 管理端 API
+      - PC端-管理后台首页
+  /admin/dept/add:
+    post:
+      parameters:
+      - description: 部门名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 父部门ID
+        in: formData
+        name: parentId
+        type: integer
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增部门
+      tags:
+      - PC端-部门管理
+  /admin/dept/del:
+    post:
+      parameters:
+      - description: 部门ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除部门
+      tags:
+      - PC端-部门管理
+  /admin/dept/edit:
+    post:
+      parameters:
+      - description: 部门ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 部门名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 父部门ID
+        in: formData
+        name: parentId
+        type: integer
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      - description: 状态(1=启用 0=禁用)
+        in: formData
+        name: status
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑部门
+      tags:
+      - PC端-部门管理
+  /admin/dept/tree:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取部门树
+      tags:
+      - PC端-部门管理
+  /admin/dept_users:
+    get:
+      parameters:
+      - description: 部门ID列表(逗号分隔)
+        in: query
+        name: deptIds
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取部门用户列表
+      tags:
+      - PC端-赛事活动管理
+  /admin/dict/add:
+    post:
+      parameters:
+      - description: 类型编码
+        in: formData
+        name: typeCode
+        required: true
+        type: string
+      - description: 类型名称
+        in: formData
+        name: typeName
+        type: string
+      - description: 显示标签
+        in: formData
+        name: label
+        required: true
+        type: string
+      - description: 字典值
+        in: formData
+        name: value
+        type: string
+      - description: 备注
+        in: formData
+        name: remark
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增字典项
+      tags:
+      - PC端-字典管理
+  /admin/dict/clear:
+    post:
+      parameters:
+      - description: 类型编码
+        in: formData
+        name: typeCode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 清空指定类型的字典项
+      tags:
+      - PC端-字典管理
+  /admin/dict/del:
+    post:
+      parameters:
+      - description: 字典项ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除字典项
+      tags:
+      - PC端-字典管理
+  /admin/dict/edit:
+    post:
+      parameters:
+      - description: 字典项ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 显示标签
+        in: formData
+        name: label
+        type: string
+      - description: 字典值
+        in: formData
+        name: value
+        type: string
+      - description: 备注
+        in: formData
+        name: remark
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑字典项
+      tags:
+      - PC端-字典管理
+  /admin/dict/edit_type_name:
+    post:
+      parameters:
+      - description: 原类型编码
+        in: formData
+        name: oldTypeCode
+        required: true
+        type: string
+      - description: 新类型编码
+        in: formData
+        name: typeCode
+        required: true
+        type: string
+      - description: 类型名称
+        in: formData
+        name: typeName
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑字典类型名称
+      tags:
+      - PC端-字典管理
+  /admin/dict/items:
+    get:
+      parameters:
+      - description: 类型编码
+        in: query
+        name: typeCode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 根据类型获取字典项
+      tags:
+      - PC端-字典管理
+  /admin/dict/types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取字典类型列表
+      tags:
+      - PC端-字典管理
   /admin/enroll_clear:
     post:
       parameters:
@@ -140,8 +390,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 清除打卡全部数据
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_del:
     post:
       parameters:
@@ -157,8 +406,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除打卡项目
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_detail:
     get:
       parameters:
@@ -174,8 +422,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取打卡项目详情
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_edit:
     post:
       parameters:
@@ -223,8 +470,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 编辑打卡项目
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_insert:
     post:
       responses:
@@ -234,8 +480,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 新增打卡项目
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_join_data_del:
     post:
       parameters:
@@ -251,8 +496,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除打卡导出数据
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_join_data_export:
     get:
       parameters:
@@ -268,8 +512,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 导出打卡数据
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_join_data_get:
     get:
       parameters:
@@ -285,8 +528,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取打卡数据导出链接
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_join_del:
     post:
       parameters:
@@ -302,8 +544,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除打卡记录
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_join_list:
     get:
       parameters:
@@ -342,8 +583,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取打卡项目列表
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_remove_user:
     post:
       parameters:
@@ -364,8 +604,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 从打卡项目中移除用户（删除用户及所有打卡记录）
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_sort:
     post:
       parameters:
@@ -386,8 +625,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 打卡项目排序
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_status:
     post:
       parameters:
@@ -408,8 +646,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 设置打卡状态
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_update_forms:
     post:
       parameters:
@@ -429,16 +666,10 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 更新打卡表单
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_user_list:
     get:
       parameters:
-      - description: 项目ID
-        in: query
-        name: enrollId
-        required: true
-        type: string
       - description: 项目ID
         in: query
         name: enrollId
@@ -451,10 +682,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取参与用户列表(含报名表单数据)
       tags:
-      - 打卡管理
-      - 管理端 API
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
   /admin/enroll_vouch:
     post:
       parameters:
@@ -475,8 +703,553 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 设置打卡推荐
       tags:
-      - 打卡管理
-      - 管理端 API
+      - PC端-打卡管理
+  /admin/event_del:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除活动
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_dels:
+    post:
+      parameters:
+      - description: 活动ID列表(逗号分隔)
+        in: formData
+        name: ids
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量删除活动
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_detail:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动详情(管理端)
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_dynamic_add:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: eventId
+        required: true
+        type: string
+      - description: 动态标题
+        in: formData
+        name: title
+        type: string
+      - description: 动态内容
+        in: formData
+        name: content
+        type: string
+      - description: 图片列表(JSON)
+        in: formData
+        name: images
+        type: string
+      - description: 视频列表(JSON)
+        in: formData
+        name: videos
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 发布活动动态(管理端)
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_dynamic_del:
+    post:
+      parameters:
+      - description: 动态ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除活动动态
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_dynamic_dels:
+    post:
+      parameters:
+      - description: 动态ID列表(逗号分隔)
+        in: formData
+        name: ids
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量删除活动动态
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_dynamic_edit:
+    post:
+      parameters:
+      - description: 动态ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 动态标题
+        in: formData
+        name: title
+        type: string
+      - description: 动态内容
+        in: formData
+        name: content
+        type: string
+      - description: 图片列表(JSON)
+        in: formData
+        name: images
+        type: string
+      - description: 视频列表(JSON)
+        in: formData
+        name: videos
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑活动动态
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_dynamics:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: eventId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动动态列表(管理端)
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_edit:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 活动标题
+        in: formData
+        name: title
+        type: string
+      - description: 活动类型
+        in: formData
+        name: type
+        type: integer
+      - description: 分类ID
+        in: formData
+        name: cateId
+        type: string
+      - description: 分类名称
+        in: formData
+        name: cateName
+        type: string
+      - description: 状态
+        in: formData
+        name: status
+        type: integer
+      - description: 排序
+        in: formData
+        name: order
+        type: integer
+      - description: 报名开始时间(时间戳)
+        in: formData
+        name: regStart
+        type: integer
+      - description: 报名结束时间(时间戳)
+        in: formData
+        name: regEnd
+        type: integer
+      - description: 活动开始时间(时间戳)
+        in: formData
+        name: eventStart
+        type: integer
+      - description: 活动结束时间(时间戳)
+        in: formData
+        name: eventEnd
+        type: integer
+      - description: 报名表单(JSON)
+        in: formData
+        name: forms
+        type: string
+      - description: 评分字段(JSON)
+        in: formData
+        name: scoreFields
+        type: string
+      - description: 二维码URL
+        in: formData
+        name: qr
+        type: string
+      - description: 扩展对象(JSON)
+        in: formData
+        name: obj
+        type: string
+      - description: 发布部门IDs(逗号分隔)
+        in: formData
+        name: publishDeptIds
+        type: string
+      - description: 所属部门ID
+        in: formData
+        name: deptId
+        type: integer
+      - description: 组织者列表(JSON或逗号分隔)
+        in: formData
+        name: organizers
+        type: string
+      - description: 协助者列表(JSON或逗号分隔)
+        in: formData
+        name: assistants
+        type: string
+      - description: 裁判列表(JSON或逗号分隔)
+        in: formData
+        name: referees
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑活动
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_insert:
+    post:
+      parameters:
+      - description: 活动标题
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: 活动类型(1=活动 2=赛事)
+        in: formData
+        name: type
+        type: integer
+      - description: 分类ID
+        in: formData
+        name: cateId
+        type: string
+      - description: 分类名称
+        in: formData
+        name: cateName
+        type: string
+      - description: 状态
+        in: formData
+        name: status
+        type: integer
+      - description: 排序
+        in: formData
+        name: order
+        type: integer
+      - description: 报名开始时间(时间戳)
+        in: formData
+        name: regStart
+        type: integer
+      - description: 报名结束时间(时间戳)
+        in: formData
+        name: regEnd
+        type: integer
+      - description: 活动开始时间(时间戳)
+        in: formData
+        name: eventStart
+        type: integer
+      - description: 活动结束时间(时间戳)
+        in: formData
+        name: eventEnd
+        type: integer
+      - description: 报名表单(JSON)
+        in: formData
+        name: forms
+        type: string
+      - description: 评分字段(JSON)
+        in: formData
+        name: scoreFields
+        type: string
+      - description: 二维码URL
+        in: formData
+        name: qr
+        type: string
+      - description: 扩展对象(JSON)
+        in: formData
+        name: obj
+        type: string
+      - description: 发布部门IDs(逗号分隔)
+        in: formData
+        name: publishDeptIds
+        type: string
+      - description: 所属部门ID
+        in: formData
+        name: deptId
+        type: integer
+      - description: 组织者列表(JSON或逗号分隔)
+        in: formData
+        name: organizers
+        type: string
+      - description: 协助者列表(JSON或逗号分隔)
+        in: formData
+        name: assistants
+        type: string
+      - description: 裁判列表(JSON或逗号分隔)
+        in: formData
+        name: referees
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增活动
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_list:
+    get:
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 活动类型
+        in: query
+        name: type
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 排序
+        in: query
+        name: sort
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动列表(管理端)
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_participant_del:
+    post:
+      parameters:
+      - description: 参与记录ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除活动参与成员
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_participant_dels:
+    post:
+      parameters:
+      - description: 参与记录ID列表(逗号分隔)
+        in: formData
+        name: ids
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量删除活动参与成员
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_participant_edit:
+    post:
+      parameters:
+      - description: 参与记录ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 表单数据(JSON)
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑活动参与成员信息
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_participant_list:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: eventId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动参与成员列表
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_score_edit:
+    post:
+      parameters:
+      - description: 评分记录ID(为空时新增)
+        in: formData
+        name: id
+        type: string
+      - description: 评分
+        in: formData
+        name: score
+        required: true
+        type: string
+      - description: 活动ID(新增时必填)
+        in: formData
+        name: eventId
+        type: string
+      - description: 参赛者ID(新增时必填)
+        in: formData
+        name: participantId
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑活动评分
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_scores:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: eventId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动评分列表(管理端)
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_status:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 状态(1=启用 0=禁用)
+        in: formData
+        name: status
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置活动状态
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_top:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 置顶(1=置顶 0=取消)
+        in: formData
+        name: top
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 置顶活动
+      tags:
+      - PC端-赛事活动管理
+  /admin/event_vouch:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 推荐(1=推荐 0=取消)
+        in: formData
+        name: vouch
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置活动推荐
+      tags:
+      - PC端-赛事活动管理
   /admin/exam/delete:
     post:
       parameters:
@@ -492,8 +1265,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除考试
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/detail:
     get:
       parameters:
@@ -509,8 +1281,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 考试详情
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/list:
     get:
       parameters:
@@ -541,8 +1312,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 考试列表
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/question_bank_categories:
     get:
       responses:
@@ -552,8 +1322,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取考试题库所有分类
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/question_bank_del:
     post:
       parameters:
@@ -569,8 +1338,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除题库题目
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/question_bank_edit:
     post:
       parameters:
@@ -612,8 +1380,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 编辑题库题目
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/question_bank_insert:
     post:
       parameters:
@@ -652,8 +1419,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 添加题目到考试题库
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/question_bank_list:
     get:
       parameters:
@@ -676,8 +1442,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取考试题库列表
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/record_batch_del:
     post:
       parameters:
@@ -693,8 +1458,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 批量删除考试记录
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/record_del:
     post:
       parameters:
@@ -710,8 +1474,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除考试记录
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/record_detail:
     get:
       parameters:
@@ -727,8 +1490,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 考试记录详情
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/record_list:
     get:
       parameters:
@@ -756,8 +1518,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 考试记录列表
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/resource_delete:
     post:
       parameters:
@@ -773,8 +1534,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除考试资源
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/resource_list:
     get:
       parameters:
@@ -794,8 +1554,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 查询考试资源列表
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/resource_upload:
     post:
       parameters:
@@ -821,8 +1580,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 上传考试资源
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/save:
     post:
       parameters:
@@ -910,8 +1668,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 创建/更新考试
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/statistics:
     get:
       parameters:
@@ -927,8 +1684,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 考试统计
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/exam/status:
     post:
       parameters:
@@ -949,8 +1705,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 更新考试状态
       tags:
-      - 考试管理
-      - 管理端 API
+      - PC端-考试管理
   /admin/home:
     get:
       responses:
@@ -960,8 +1715,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 管理后台首页数据
       tags:
-      - 管理后台首页
-      - 管理端 API
+      - PC端-管理后台首页
   /admin/log_clear:
     get:
       responses:
@@ -971,8 +1725,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 清除操作日志
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/log_list:
     get:
       responses:
@@ -982,8 +1735,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取操作日志列表
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/login:
     post:
       parameters:
@@ -1004,8 +1756,132 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 管理员登录
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
+  /admin/menu/add:
+    post:
+      parameters:
+      - description: 菜单名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 父菜单ID
+        in: formData
+        name: parentId
+        type: integer
+      - description: 路由路径
+        in: formData
+        name: path
+        type: string
+      - description: 权限标识
+        in: formData
+        name: perms
+        type: string
+      - description: 图标
+        in: formData
+        name: icon
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      - description: 菜单类型
+        in: formData
+        name: type
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增菜单
+      tags:
+      - PC端-菜单管理
+  /admin/menu/del:
+    post:
+      parameters:
+      - description: 菜单ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除菜单
+      tags:
+      - PC端-菜单管理
+  /admin/menu/edit:
+    post:
+      parameters:
+      - description: 菜单ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 菜单名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 父菜单ID
+        in: formData
+        name: parentId
+        type: integer
+      - description: 路由路径
+        in: formData
+        name: path
+        type: string
+      - description: 权限标识
+        in: formData
+        name: perms
+        type: string
+      - description: 图标
+        in: formData
+        name: icon
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      - description: 状态(1=启用 0=禁用)
+        in: formData
+        name: status
+        type: integer
+      - description: 菜单类型
+        in: formData
+        name: type
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑菜单
+      tags:
+      - PC端-菜单管理
+  /admin/menu/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取菜单列表
+      tags:
+      - PC端-菜单管理
+  /admin/menu/tree:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取菜单树
+      tags:
+      - PC端-菜单管理
   /admin/mgr_del:
     post:
       parameters:
@@ -1021,8 +1897,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除管理员
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/mgr_detail:
     get:
       parameters:
@@ -1038,8 +1913,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取管理员详情
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/mgr_edit:
     post:
       parameters:
@@ -1067,8 +1941,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 编辑管理员
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/mgr_insert:
     post:
       parameters:
@@ -1097,8 +1970,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 新增管理员
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/mgr_list:
     get:
       responses:
@@ -1108,8 +1980,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取管理员列表
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/mgr_pwd:
     post:
       parameters:
@@ -1130,8 +2001,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 修改管理员密码
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/mgr_status:
     post:
       parameters:
@@ -1152,12 +2022,11 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 设置管理员状态
       tags:
-      - 管理员管理
-      - 管理端 API
+      - PC端-管理员管理
   /admin/news_del:
     post:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: formData
         name: id
         required: true
@@ -1167,14 +2036,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 删除新闻
+      summary: 删除通知公告
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_detail:
     get:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: query
         name: id
         required: true
@@ -1184,10 +2052,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取新闻详情
+      summary: 获取通知公告详情
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_edit:
     post:
       responses:
@@ -1195,10 +2062,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 编辑新闻
+      summary: 编辑通知公告
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_insert:
     post:
       responses:
@@ -1206,10 +2072,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 新增新闻
+      summary: 新增通知公告
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_list:
     get:
       parameters:
@@ -1230,14 +2095,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取新闻列表
+      summary: 获取通知公告列表
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_sort:
     post:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: formData
         name: id
         required: true
@@ -1252,14 +2116,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 新闻排序
+      summary: 通知公告排序
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_status:
     post:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: formData
         name: id
         required: true
@@ -1274,14 +2137,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 设置新闻状态
+      summary: 设置通知公告状态
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_update_content:
     post:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: formData
         name: id
         required: true
@@ -1295,14 +2157,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 更新新闻内容
+      summary: 更新通知公告内容
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_update_forms:
     post:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: formData
         name: id
         required: true
@@ -1316,14 +2177,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 更新新闻表单
+      summary: 更新通知公告表单
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
   /admin/news_update_pic:
     post:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: formData
         name: id
         required: true
@@ -1337,10 +2197,145 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 更新新闻图片
+      summary: 更新通知公告图片
       tags:
-      - 新闻管理
-      - 管理端 API
+      - PC端-通知公告
+  /admin/role/add:
+    post:
+      parameters:
+      - description: 角色名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 备注
+        in: formData
+        name: remark
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      - description: 数据权限范围(1=全部 2=自定义)
+        in: formData
+        name: dataScope
+        type: integer
+      - description: 菜单ID列表(逗号分隔)
+        in: formData
+        name: menuIds
+        type: string
+      - description: 部门ID列表(逗号分隔)
+        in: formData
+        name: deptIds
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 新增角色
+      tags:
+      - PC端-角色管理
+  /admin/role/del:
+    post:
+      parameters:
+      - description: 角色ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 删除角色
+      tags:
+      - PC端-角色管理
+  /admin/role/dels:
+    post:
+      parameters:
+      - description: 角色ID列表(逗号分隔)
+        in: formData
+        name: ids
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 批量删除角色
+      tags:
+      - PC端-角色管理
+  /admin/role/edit:
+    post:
+      parameters:
+      - description: 角色ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 角色名称
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: 备注
+        in: formData
+        name: remark
+        type: string
+      - description: 排序
+        in: formData
+        name: sort
+        type: integer
+      - description: 状态(1=启用 0=禁用)
+        in: formData
+        name: status
+        type: integer
+      - description: 数据权限范围
+        in: formData
+        name: dataScope
+        type: integer
+      - description: 菜单ID列表(逗号分隔)
+        in: formData
+        name: menuIds
+        type: string
+      - description: 部门ID列表(逗号分隔)
+        in: formData
+        name: deptIds
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 编辑角色
+      tags:
+      - PC端-角色管理
+  /admin/role/list:
+    get:
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取角色列表
+      tags:
+      - PC端-角色管理
   /admin/setup_qr:
     get:
       parameters:
@@ -1359,8 +2354,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 生成小程序码
       tags:
-      - 系统设置
-      - 管理端 API
+      - PC端-系统设置
   /admin/setup_set:
     post:
       parameters:
@@ -1381,8 +2375,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 设置系统配置
       tags:
-      - 系统设置
-      - 管理端 API
+      - PC端-系统设置
   /admin/setup_set_content:
     post:
       parameters:
@@ -1403,8 +2396,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 设置内容配置
       tags:
-      - 系统设置
-      - 管理端 API
+      - PC端-系统设置
   /admin/survey/channel_del:
     post:
       parameters:
@@ -1420,8 +2412,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除渠道
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/channel_insert:
     post:
       parameters:
@@ -1438,8 +2429,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 创建渠道
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/channel_list:
     get:
       parameters:
@@ -1455,8 +2445,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 渠道列表
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/eval:
     post:
       parameters:
@@ -1480,8 +2469,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 表达式试算
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/export/enroll:
     get:
       parameters:
@@ -1497,8 +2485,7 @@ paths:
             type: file
       summary: 导出打卡CSV
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/export/event:
     get:
       parameters:
@@ -1514,8 +2501,7 @@ paths:
             type: file
       summary: 导出活动CSV
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/export/survey:
     get:
       parameters:
@@ -1531,8 +2517,7 @@ paths:
             type: file
       summary: 导出问卷CSV
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/report/enroll:
     get:
       parameters:
@@ -1548,8 +2533,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 打卡报表
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/report/event:
     get:
       parameters:
@@ -1565,8 +2549,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 活动报表
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/report/survey:
     get:
       parameters:
@@ -1582,8 +2565,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 问卷报表（schema-aware）
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/resource_delete:
     post:
       parameters:
@@ -1599,8 +2581,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除问卷资源
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/resource_list:
     get:
       parameters:
@@ -1620,8 +2601,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 查询问卷资源列表
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/resource_upload:
     post:
       parameters:
@@ -1647,8 +2627,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 上传问卷资源（背景图/页眉图）
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/response_batch_del:
     post:
       parameters:
@@ -1664,8 +2643,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 批量删除答卷
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/response_del:
     post:
       parameters:
@@ -1681,8 +2659,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除答卷
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/response_detail:
     get:
       parameters:
@@ -1698,8 +2675,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 答卷详情
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/response_export:
     get:
       parameters:
@@ -1715,8 +2691,7 @@ paths:
             type: file
       summary: 导出答卷CSV
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/response_list:
     get:
       parameters:
@@ -1740,8 +2715,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 答卷列表
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/schema/parse:
     post:
       parameters:
@@ -1757,8 +2731,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 解析 Schema
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/survey/statistic:
     get:
       parameters:
@@ -1774,8 +2747,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 问卷统计
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_copy:
     post:
       parameters:
@@ -1791,8 +2763,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 复制问卷
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_del:
     post:
       parameters:
@@ -1808,8 +2779,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除问卷
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_detail:
     get:
       parameters:
@@ -1825,8 +2795,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 问卷详情
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_edit:
     post:
       parameters:
@@ -1843,8 +2812,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 编辑问卷
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_insert:
     post:
       parameters:
@@ -1861,8 +2829,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 创建问卷
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_list:
     get:
       parameters:
@@ -1893,8 +2860,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 问卷列表
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/survey_status:
     post:
       parameters:
@@ -1915,8 +2881,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 更新问卷状态
       tags:
-      - 问卷管理
-      - 管理端 API
+      - PC端-问卷管理
   /admin/survey/types:
     get:
       responses:
@@ -1926,8 +2891,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取题型列表
       tags:
-      - 表单工具
-      - 管理端 API
+      - PC端-表单工具
   /admin/user/batch_force_offline:
     post:
       parameters:
@@ -1946,8 +2910,27 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 批量强制下线
       tags:
-      - 在线用户
-      - 管理端 API
+      - PC端-在线用户
+  /admin/user/menus:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取当前管理员的菜单树
+      tags:
+      - PC端-菜单管理
+  /admin/user/perms:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取当前管理员的权限标识
+      tags:
+      - PC端-菜单管理
   /admin/user_add:
     post:
       parameters:
@@ -1975,8 +2958,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 新增用户
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_data_del:
     post:
       responses:
@@ -1986,8 +2968,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除用户数据
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_data_export:
     get:
       responses:
@@ -1997,8 +2978,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 导出用户数据
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_data_get:
     get:
       responses:
@@ -2008,8 +2988,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取用户数据导出链接
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_del:
     post:
       parameters:
@@ -2025,8 +3004,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除用户
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_detail:
     get:
       parameters:
@@ -2042,8 +3020,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取用户详情
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_detail_by_id:
     get:
       parameters:
@@ -2059,8 +3036,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 根据ID获取用户详情
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_edit:
     post:
       parameters:
@@ -2092,8 +3068,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 编辑用户
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_form_field_save:
     post:
       parameters:
@@ -2109,8 +3084,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 保存用户表单字段配置(全量替换)
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_form_fields:
     get:
       responses:
@@ -2120,8 +3094,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取用户表单字段列表
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_list:
     get:
       parameters:
@@ -2144,8 +3117,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取用户列表
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /admin/user_status:
     post:
       parameters:
@@ -2166,8 +3138,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 设置用户状态
       tags:
-      - 用户管理
-      - 管理端 API
+      - PC端-用户管理
   /enroll/enroll_submit:
     post:
       parameters:
@@ -2181,7 +3152,7 @@ paths:
         name: user_id
         required: true
         type: string
-      - description: 报名表单数据JSON
+      - description: 打卡表单数据JSON
         in: formData
         name: forms
         type: string
@@ -2190,13 +3161,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 用户报名(提交报名表单)
+      summary: 用户打卡(提交打卡表单)
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/join:
     post:
       parameters:
-      - description: 报名ID
+      - description: 打卡ID
         in: formData
         name: enroll_id
         required: true
@@ -2219,13 +3190,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 用户报名打卡
+      summary: 用户打卡
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/join_day:
     get:
       parameters:
-      - description: 报名ID
+      - description: 打卡ID
         in: query
         name: enroll_id
         required: true
@@ -2244,9 +3215,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 按日获取报名打卡记录
+      summary: 按日获取打卡记录
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/list:
     get:
       parameters:
@@ -2263,9 +3234,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取报名列表
+      summary: 获取打卡列表
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/my_calendar:
     get:
       parameters:
@@ -2284,7 +3255,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取我的日历打卡数据
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/my_day_records:
     get:
       parameters:
@@ -2303,7 +3274,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取我指定日期的打卡记录
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/my_join_list:
     get:
       parameters:
@@ -2318,7 +3289,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取我的打卡记录
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/my_records:
     get:
       parameters:
@@ -2341,7 +3312,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取我的打卡记录
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/my_user_list:
     get:
       parameters:
@@ -2354,13 +3325,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取我的报名用户列表
+      summary: 获取我的打卡用户列表
       tags:
-      - 报名
+      - 客户端-打卡
   /enroll/view:
     get:
       parameters:
-      - description: 报名ID
+      - description: 打卡ID
         in: query
         name: id
         required: true
@@ -2374,9 +3345,301 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 查看报名详情
+      summary: 查看打卡详情
       tags:
-      - 报名
+      - 客户端-打卡
+  /event/dynamic_post:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: event_id
+        required: true
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        required: true
+        type: string
+      - description: 动态标题
+        in: formData
+        name: title
+        type: string
+      - description: 动态内容
+        in: formData
+        name: content
+        type: string
+      - description: 图片列表(JSON)
+        in: formData
+        name: images
+        type: string
+      - description: 视频列表(JSON)
+        in: formData
+        name: videos
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 发布活动动态
+      tags:
+      - 客户端-赛事活动
+  /event/dynamics:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: event_id
+        required: true
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动动态列表
+      tags:
+      - 客户端-赛事活动
+  /event/list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 活动类型
+        in: query
+        name: type
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动列表
+      tags:
+      - 客户端-赛事活动
+  /event/my_list:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: 活动类型
+        in: query
+        name: type
+        type: string
+      - description: 活动状态
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的活动列表
+      tags:
+      - 客户端-赛事活动
+  /event/my_managed:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: 活动类型
+        in: query
+        name: type
+        type: string
+      - description: 活动状态
+        in: query
+        name: status
+        type: string
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我管理的活动列表
+      tags:
+      - 客户端-赛事活动
+  /event/my_roles:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取我的活动角色
+      tags:
+      - 客户端-赛事活动
+  /event/participant_list:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: event_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动参与成员列表
+      tags:
+      - 客户端-赛事活动
+  /event/participate:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: event_id
+        required: true
+        type: string
+      - description: 用户ID
+        in: formData
+        name: user_id
+        required: true
+        type: string
+      - description: 报名表单数据(JSON)
+        in: formData
+        name: forms
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 参与活动报名
+      tags:
+      - 客户端-赛事活动
+  /event/score_save:
+    post:
+      parameters:
+      - description: 活动ID
+        in: formData
+        name: event_id
+        required: true
+        type: string
+      - description: 参赛者ID
+        in: formData
+        name: participant_id
+        required: true
+        type: string
+      - description: 评分
+        in: formData
+        name: score
+        required: true
+        type: string
+      - description: 评委ID
+        in: formData
+        name: judge_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 保存活动评分
+      tags:
+      - 客户端-赛事活动
+  /event/scores:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: event_id
+        required: true
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取活动评分列表
+      tags:
+      - 客户端-赛事活动
+  /event/view:
+    get:
+      parameters:
+      - description: 活动ID
+        in: query
+        name: id
+        required: true
+        type: string
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查看活动详情
+      tags:
+      - 客户端-赛事活动
   /exam/list:
     get:
       parameters:
@@ -2399,8 +3662,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取考试列表
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/my_records:
     get:
       responses:
@@ -2410,8 +3672,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 我的考试记录
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/record:
     get:
       parameters:
@@ -2427,15 +3688,13 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 查看考试记录
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/result:
     get:
       responses: {}
       summary: 通过 session 查看考试结果
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/save_answer:
     post:
       parameters:
@@ -2456,8 +3715,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 保存答案
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/start:
     get:
       parameters:
@@ -2473,22 +3731,19 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 开始考试
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/submit:
     post:
       responses: {}
       summary: 提交考试
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/validate:
     post:
       responses: {}
       summary: 校验答案（必填项等）
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /exam/view:
     get:
       parameters:
@@ -2504,8 +3759,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 查看考试详情
       tags:
-      - 考试-客户端
-      - 客户端 API
+      - 客户端-考试
   /fav/del:
     post:
       parameters:
@@ -2525,8 +3779,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 删除收藏
       tags:
-      - 收藏
-      - 客户端 API
+      - 客户端-收藏
   /fav/is_fav:
     get:
       parameters:
@@ -2551,8 +3804,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 是否已收藏
       tags:
-      - 收藏
-      - 客户端 API
+      - 客户端-收藏
   /fav/my_list:
     get:
       parameters:
@@ -2571,8 +3823,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取我的收藏列表
       tags:
-      - 收藏
-      - 客户端 API
+      - 客户端-收藏
   /fav/update:
     post:
       parameters:
@@ -2606,8 +3857,28 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 更新收藏
       tags:
-      - 收藏
-      - 客户端 API
+      - 客户端-收藏
+  /geo/reverse:
+    get:
+      parameters:
+      - description: 纬度
+        in: query
+        name: lat
+        required: true
+        type: string
+      - description: 经度
+        in: query
+        name: lng
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 经纬度反查地址
+      tags:
+      - 客户端-地理编码
   /home/list:
     get:
       responses:
@@ -2617,8 +3888,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取首页列表
       tags:
-      - 首页
-      - 客户端 API
+      - 客户端-首页
   /home/setup_get:
     get:
       parameters:
@@ -2634,8 +3904,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取系统设置
       tags:
-      - 首页
-      - 客户端 API
+      - 客户端-首页
   /news/cate_list:
     get:
       responses:
@@ -2643,10 +3912,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取新闻分类列表
+      summary: 获取通知公告分类列表
       tags:
-      - 新闻
-      - 客户端 API
+      - 客户端-通知公告
   /news/list:
     get:
       parameters:
@@ -2663,14 +3931,13 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 获取新闻列表
+      summary: 获取通知公告列表
       tags:
-      - 新闻
-      - 客户端 API
+      - 客户端-通知公告
   /news/view:
     get:
       parameters:
-      - description: 新闻ID
+      - description: 通知公告ID
         in: query
         name: id
         required: true
@@ -2680,10 +3947,9 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Resp'
-      summary: 查看新闻详情
+      summary: 查看通知公告详情
       tags:
-      - 新闻
-      - 客户端 API
+      - 客户端-通知公告
   /passport/edit_base:
     post:
       parameters:
@@ -2710,8 +3976,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 编辑基本信息
       tags:
-      - 通行证
-      - 客户端 API
+      - 客户端-通行证
   /passport/login:
     post:
       parameters:
@@ -2727,8 +3992,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 用户登录
       tags:
-      - 通行证
-      - 客户端 API
+      - 客户端-通行证
   /passport/login_pwd:
     post:
       parameters:
@@ -2749,8 +4013,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 密码登录
       tags:
-      - 通行证
-      - 客户端 API
+      - 客户端-通行证
   /passport/my_detail:
     get:
       parameters:
@@ -2765,8 +4028,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取我的详情
       tags:
-      - 通行证
-      - 客户端 API
+      - 客户端-通行证
   /passport/phone:
     post:
       parameters:
@@ -2782,8 +4044,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取手机号
       tags:
-      - 通行证
-      - 客户端 API
+      - 客户端-通行证
   /passport/register:
     post:
       parameters:
@@ -2813,14 +4074,13 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 用户注册
       tags:
-      - 通行证
-      - 客户端 API
+      - 客户端-通行证
   /survey/apply:
     post:
       responses: {}
       summary: 应用表单逻辑（通用）
       tags:
-      - 表单工具
+      - 客户端-表单工具
   /survey/list:
     get:
       parameters:
@@ -2847,8 +4107,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 获取问卷列表
       tags:
-      - 问卷-客户端
-      - 客户端 API
+      - 客户端-问卷
   /survey/my_response:
     get:
       parameters:
@@ -2868,8 +4127,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 查看答卷详情
       tags:
-      - 问卷-客户端
-      - 客户端 API
+      - 客户端-问卷
   /survey/my_responses:
     get:
       parameters:
@@ -2884,8 +4142,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 我的答卷列表
       tags:
-      - 问卷-客户端
-      - 客户端 API
+      - 客户端-问卷
   /survey/submit:
     post:
       parameters:
@@ -2922,14 +4179,13 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 提交答卷
       tags:
-      - 问卷-客户端
-      - 客户端 API
+      - 客户端-问卷
   /survey/validate:
     post:
       responses: {}
       summary: 校验答案格式（通用）
       tags:
-      - 表单工具
+      - 客户端-表单工具
   /survey/view:
     get:
       parameters:
@@ -2945,8 +4201,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       summary: 查看问卷详情
       tags:
-      - 问卷-客户端
-      - 客户端 API
+      - 客户端-问卷
 schemes:
 - http
 securityDefinitions:
@@ -2962,7 +4217,55 @@ securityDefinitions:
     type: apiKey
 swagger: "2.0"
 tags:
-- description: 后台管理相关接口，需管理员 Token 认证
-  name: 管理端 API
-- description: 微信小程序/前端用户端接口，需用户 Token 认证
-  name: 客户端 API
+- description: 后台管理用户相关接口
+  name: PC端-用户管理
+- description: 后台管理通知公告相关接口
+  name: PC端-通知公告
+- description: 后台管理赛事活动相关接口
+  name: PC端-赛事活动管理
+- description: 后台管理打卡相关接口
+  name: PC端-打卡管理
+- description: 后台管理菜单相关接口
+  name: PC端-菜单管理
+- description: 后台管理角色相关接口
+  name: PC端-角色管理
+- description: 后台管理字典相关接口
+  name: PC端-字典管理
+- description: 后台管理部门相关接口
+  name: PC端-部门管理
+- description: 后台管理管理员相关接口
+  name: PC端-管理员管理
+- description: 后台系统设置相关接口
+  name: PC端-系统设置
+- description: 后台首页数据接口
+  name: PC端-管理后台首页
+- description: 后台管理考试相关接口
+  name: PC端-考试管理
+- description: 后台管理问卷相关接口
+  name: PC端-问卷管理
+- description: 后台表单工具相关接口
+  name: PC端-表单工具
+- description: 在线用户管理接口
+  name: PC端-在线用户
+- description: 在线管理员管理接口
+  name: PC端-在线管理员
+- description: 客户端用户认证相关接口
+  name: 客户端-通行证
+- description: 客户端打卡相关接口
+  name: 客户端-打卡
+- description: 客户端赛事活动相关接口
+  name: 客户端-赛事活动
+- description: 客户端考试相关接口
+  name: 客户端-考试
+- description: 客户端问卷相关接口
+  name: 客户端-问卷
+- description: 客户端地理编码相关接口
+  name: 客户端-地理编码
+- description: 客户端通知公告相关接口
+  name: 客户端-通知公告
+- description: 客户端首页数据接口
+  name: 客户端-首页
+- description: 客户端收藏相关接口
+  name: 客户端-收藏
+- description: 客户端表单工具相关接口
+  name: 客户端-表单工具

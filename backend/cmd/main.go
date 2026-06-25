@@ -6,10 +6,58 @@
 //	@host			localhost:8080
 //	@BasePath		/
 //	@schemes		http
-//	@tag.name		管理端 API
-//	@tag.description	后台管理相关接口，需管理员 Token 认证
-//	@tag.name		客户端 API
-//	@tag.description	微信小程序/前端用户端接口，需用户 Token 认证
+// @tag.name		PC端-用户管理
+// @tag.description	后台管理用户相关接口
+// @tag.name		PC端-通知公告
+// @tag.description	后台管理通知公告相关接口
+// @tag.name		PC端-赛事活动管理
+// @tag.description	后台管理赛事活动相关接口
+// @tag.name		PC端-打卡管理
+// @tag.description	后台管理打卡相关接口
+// @tag.name		PC端-菜单管理
+// @tag.description	后台管理菜单相关接口
+// @tag.name		PC端-角色管理
+// @tag.description	后台管理角色相关接口
+// @tag.name		PC端-字典管理
+// @tag.description	后台管理字典相关接口
+// @tag.name		PC端-部门管理
+// @tag.description	后台管理部门相关接口
+// @tag.name		PC端-管理员管理
+// @tag.description	后台管理管理员相关接口
+// @tag.name		PC端-系统设置
+// @tag.description	后台系统设置相关接口
+// @tag.name		PC端-管理后台首页
+// @tag.description	后台首页数据接口
+// @tag.name		PC端-考试管理
+// @tag.description	后台管理考试相关接口
+// @tag.name		PC端-问卷管理
+// @tag.description	后台管理问卷相关接口
+// @tag.name		PC端-表单工具
+// @tag.description	后台表单工具相关接口
+// @tag.name		PC端-在线用户
+// @tag.description	在线用户管理接口
+// @tag.name		PC端-在线管理员
+// @tag.description	在线管理员管理接口
+// @tag.name		客户端-通行证
+// @tag.description	客户端用户认证相关接口
+// @tag.name		客户端-打卡
+// @tag.description	客户端打卡相关接口
+// @tag.name		客户端-赛事活动
+// @tag.description	客户端赛事活动相关接口
+// @tag.name		客户端-考试
+// @tag.description	客户端考试相关接口
+// @tag.name		客户端-问卷
+// @tag.description	客户端问卷相关接口
+// @tag.name		客户端-地理编码
+// @tag.description	客户端地理编码相关接口
+// @tag.name		客户端-通知公告
+// @tag.description	客户端通知公告相关接口
+// @tag.name		客户端-首页
+// @tag.description	客户端首页数据接口
+// @tag.name		客户端-收藏
+// @tag.description	客户端收藏相关接口
+// @tag.name		客户端-表单工具
+// @tag.description	客户端表单工具相关接口
 //
 //	@securityDefinitions.apikey	AdminToken
 //	@in							header
@@ -43,14 +91,11 @@ import (
 	"github.com/hertz-contrib/swagger"
 	swaggerFiles "github.com/swaggo/files"
 	_ "wecheckin-backend/backend/docs/swagger"
-	"wecheckin-backend/backend/internal/api/admin"
-	"wecheckin-backend/backend/internal/api/client"
 	"wecheckin-backend/backend/internal/config"
-	"wecheckin-backend/backend/internal/database"
-	exam_api "wecheckin-backend/backend/internal/exam/api"
+	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/middleware"
-	"wecheckin-backend/backend/internal/service"
-	survey_api "wecheckin-backend/backend/internal/survey/api"
+	"wecheckin-backend/backend/internal/app/handler"
+	"wecheckin-backend/backend/internal/app/service"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
@@ -59,7 +104,7 @@ import (
 
 func main() {
 	env := flag.String("env", "", "运行环境 (dev/prod)")
-	exam := flag.Bool("exam", false, "启用在线考试菜单")
+	examFlag := flag.Bool("exam", false, "启用在线考试菜单")
 	flag.Parse()
 
 	cfg, err := config.LoadConfig(*env)
@@ -67,7 +112,8 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName, *exam)
+	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
+	service.InitBusiness(*examFlag)
 
 	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
 		logger.Logger.Printf("Warning: logger init: %v", err)
@@ -97,28 +143,28 @@ func main() {
 	})
 	h.GET("/swagger/*any", swagger.WrapHandler(swaggerFiles.Handler, url))
 
-	hm := client.NewHomeHandler()
-	pp := client.NewPassportHandler()
-	ns := client.NewNewsHandler()
-	el := client.NewEnrollHandler()
-	geo := client.NewGeoHandler()
-	fa := client.NewFavHandler()
-	ev := client.NewEventHandler()
-	cSurvey := survey_api.NewClientSurveyHandler()
-	aHome := admin.NewAdminHomeHandler()
-	aMgr := admin.NewAdminMgrHandler()
-	aSetup := admin.NewAdminSetupHandler()
-	aUser := admin.NewAdminUserHandler()
-	aNews := admin.NewAdminNewsHandler()
-	aEnroll := admin.NewAdminEnrollHandler()
-	aEvent := admin.NewAdminEventHandler()
-	aDict := admin.NewAdminDictHandler()
-	aDept := admin.NewAdminDeptHandler()
-	aRole := admin.NewAdminRoleHandler()
-	aMenu := admin.NewAdminMenuHandler()
-	aSurvey := survey_api.NewAdminSurveyHandler()
-	aExam := exam_api.NewAdminExamHandler()
-	cExam := exam_api.NewClientExamHandler()
+	hm := handler.NewHomeHandler()
+	pp := handler.NewPassportHandler()
+	ns := handler.NewNewsHandler()
+	el := handler.NewEnrollHandler()
+	geo := handler.NewGeoHandler()
+	fa := handler.NewFavHandler()
+	ev := handler.NewEventHandler()
+	cSurvey := handler.NewClientSurveyHandler()
+	aHome := handler.NewAdminHomeHandler()
+	aMgr := handler.NewAdminMgrHandler()
+	aSetup := handler.NewAdminSetupHandler()
+	aUser := handler.NewAdminUserHandler()
+	aNews := handler.NewAdminNewsHandler()
+	aEnroll := handler.NewAdminEnrollHandler()
+	aEvent := handler.NewAdminEventHandler()
+	aDict := handler.NewAdminDictHandler()
+	aDept := handler.NewAdminDeptHandler()
+	aRole := handler.NewAdminRoleHandler()
+	aMenu := handler.NewAdminMenuHandler()
+	aSurvey := handler.NewAdminSurveyHandler()
+	aExam := handler.NewAdminExamHandler()
+	cExam := handler.NewClientExamHandler()
 
 	// ==================== Public routes (no auth) ====================
 	h.GET("/test/test", func(ctx context.Context, c *app.RequestContext) {

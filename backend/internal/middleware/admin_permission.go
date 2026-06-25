@@ -8,7 +8,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/internal/service"
+	"wecheckin-backend/backend/internal/app/service"
 )
 
 // routePerms maps admin route paths to required permission keys.

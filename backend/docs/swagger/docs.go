@@ -18,8 +18,7 @@ const docTemplate = `{
         "/admin/admin/batch_force_offline": {
             "post": {
                 "tags": [
-                    "在线管理员",
-                    "管理端 API"
+                    "PC端-在线管理员"
                 ],
                 "summary": "批量强制下线",
                 "parameters": [
@@ -49,10 +48,397 @@ const docTemplate = `{
         "/admin/clear_vouch": {
             "get": {
                 "tags": [
-                    "管理后台首页",
-                    "管理端 API"
+                    "PC端-管理后台首页"
                 ],
                 "summary": "清除推荐数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dept/add": {
+            "post": {
+                "tags": [
+                    "PC端-部门管理"
+                ],
+                "summary": "新增部门",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "部门名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "父部门ID",
+                        "name": "parentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dept/del": {
+            "post": {
+                "tags": [
+                    "PC端-部门管理"
+                ],
+                "summary": "删除部门",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "部门ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dept/edit": {
+            "post": {
+                "tags": [
+                    "PC端-部门管理"
+                ],
+                "summary": "编辑部门",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "部门ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "父部门ID",
+                        "name": "parentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dept/tree": {
+            "get": {
+                "tags": [
+                    "PC端-部门管理"
+                ],
+                "summary": "获取部门树",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dept_users": {
+            "get": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "获取部门用户列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "部门ID列表(逗号分隔)",
+                        "name": "deptIds",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/add": {
+            "post": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "新增字典项",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型编码",
+                        "name": "typeCode",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型名称",
+                        "name": "typeName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "显示标签",
+                        "name": "label",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典值",
+                        "name": "value",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/clear": {
+            "post": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "清空指定类型的字典项",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型编码",
+                        "name": "typeCode",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/del": {
+            "post": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "删除字典项",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "字典项ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/edit": {
+            "post": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "编辑字典项",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "字典项ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "显示标签",
+                        "name": "label",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典值",
+                        "name": "value",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/edit_type_name": {
+            "post": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "编辑字典类型名称",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "原类型编码",
+                        "name": "oldTypeCode",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新类型编码",
+                        "name": "typeCode",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型名称",
+                        "name": "typeName",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/items": {
+            "get": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "根据类型获取字典项",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型编码",
+                        "name": "typeCode",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/dict/types": {
+            "get": {
+                "tags": [
+                    "PC端-字典管理"
+                ],
+                "summary": "获取字典类型列表",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -66,8 +452,7 @@ const docTemplate = `{
         "/admin/enroll_clear": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "清除打卡全部数据",
                 "parameters": [
@@ -92,8 +477,7 @@ const docTemplate = `{
         "/admin/enroll_del": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "删除打卡项目",
                 "parameters": [
@@ -118,8 +502,7 @@ const docTemplate = `{
         "/admin/enroll_detail": {
             "get": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "获取打卡项目详情",
                 "parameters": [
@@ -144,8 +527,7 @@ const docTemplate = `{
         "/admin/enroll_edit": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "编辑打卡项目",
                 "parameters": [
@@ -218,8 +600,7 @@ const docTemplate = `{
         "/admin/enroll_insert": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "新增打卡项目",
                 "responses": {
@@ -235,8 +616,7 @@ const docTemplate = `{
         "/admin/enroll_join_data_del": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "删除打卡导出数据",
                 "parameters": [
@@ -261,8 +641,7 @@ const docTemplate = `{
         "/admin/enroll_join_data_export": {
             "get": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "导出打卡数据",
                 "parameters": [
@@ -287,8 +666,7 @@ const docTemplate = `{
         "/admin/enroll_join_data_get": {
             "get": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "获取打卡数据导出链接",
                 "parameters": [
@@ -313,8 +691,7 @@ const docTemplate = `{
         "/admin/enroll_join_del": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "删除打卡记录",
                 "parameters": [
@@ -365,8 +742,7 @@ const docTemplate = `{
         "/admin/enroll_list": {
             "get": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "获取打卡项目列表",
                 "parameters": [
@@ -402,8 +778,7 @@ const docTemplate = `{
         "/admin/enroll_remove_user": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "从打卡项目中移除用户（删除用户及所有打卡记录）",
                 "parameters": [
@@ -435,8 +810,7 @@ const docTemplate = `{
         "/admin/enroll_sort": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "打卡项目排序",
                 "parameters": [
@@ -468,8 +842,7 @@ const docTemplate = `{
         "/admin/enroll_status": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "设置打卡状态",
                 "parameters": [
@@ -501,8 +874,7 @@ const docTemplate = `{
         "/admin/enroll_update_forms": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "更新打卡表单",
                 "parameters": [
@@ -533,20 +905,10 @@ const docTemplate = `{
         "/admin/enroll_user_list": {
             "get": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API",
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "获取参与用户列表(含报名表单数据)",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "项目ID",
-                        "name": "enrollId",
-                        "in": "query",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "项目ID",
@@ -568,8 +930,7 @@ const docTemplate = `{
         "/admin/enroll_vouch": {
             "post": {
                 "tags": [
-                    "打卡管理",
-                    "管理端 API"
+                    "PC端-打卡管理"
                 ],
                 "summary": "设置打卡推荐",
                 "parameters": [
@@ -598,11 +959,848 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/event_del": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "删除活动",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_dels": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "批量删除活动",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_detail": {
+            "get": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "获取活动详情(管理端)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_dynamic_add": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "发布活动动态(管理端)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片列表(JSON)",
+                        "name": "images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "视频列表(JSON)",
+                        "name": "videos",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_dynamic_del": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "删除活动动态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "动态ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_dynamic_dels": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "批量删除活动动态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "动态ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_dynamic_edit": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "编辑活动动态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "动态ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片列表(JSON)",
+                        "name": "images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "视频列表(JSON)",
+                        "name": "videos",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_dynamics": {
+            "get": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "获取活动动态列表(管理端)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_edit": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "编辑活动",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名开始时间(时间戳)",
+                        "name": "regStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名结束时间(时间戳)",
+                        "name": "regEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动开始时间(时间戳)",
+                        "name": "eventStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动结束时间(时间戳)",
+                        "name": "eventEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分字段(JSON)",
+                        "name": "scoreFields",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "二维码URL",
+                        "name": "qr",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展对象(JSON)",
+                        "name": "obj",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门IDs(逗号分隔)",
+                        "name": "publishDeptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "所属部门ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "组织者列表(JSON或逗号分隔)",
+                        "name": "organizers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "协助者列表(JSON或逗号分隔)",
+                        "name": "assistants",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "裁判列表(JSON或逗号分隔)",
+                        "name": "referees",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_insert": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "新增活动",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动类型(1=活动 2=赛事)",
+                        "name": "type",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名开始时间(时间戳)",
+                        "name": "regStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名结束时间(时间戳)",
+                        "name": "regEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动开始时间(时间戳)",
+                        "name": "eventStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动结束时间(时间戳)",
+                        "name": "eventEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分字段(JSON)",
+                        "name": "scoreFields",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "二维码URL",
+                        "name": "qr",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展对象(JSON)",
+                        "name": "obj",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门IDs(逗号分隔)",
+                        "name": "publishDeptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "所属部门ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "组织者列表(JSON或逗号分隔)",
+                        "name": "organizers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "协助者列表(JSON或逗号分隔)",
+                        "name": "assistants",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "裁判列表(JSON或逗号分隔)",
+                        "name": "referees",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_list": {
+            "get": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "获取活动列表(管理端)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_participant_del": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "删除活动参与成员",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "参与记录ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_participant_dels": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "批量删除活动参与成员",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "参与记录ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_participant_edit": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "编辑活动参与成员信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "参与记录ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_participant_list": {
+            "get": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "获取活动参与成员列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_score_edit": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "编辑活动评分",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "评分记录ID(为空时新增)",
+                        "name": "id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分",
+                        "name": "score",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动ID(新增时必填)",
+                        "name": "eventId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "参赛者ID(新增时必填)",
+                        "name": "participantId",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_scores": {
+            "get": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "获取活动评分列表(管理端)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_status": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "设置活动状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_top": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "置顶活动",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "置顶(1=置顶 0=取消)",
+                        "name": "top",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/event_vouch": {
+            "post": {
+                "tags": [
+                    "PC端-赛事活动管理"
+                ],
+                "summary": "设置活动推荐",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "推荐(1=推荐 0=取消)",
+                        "name": "vouch",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/exam/delete": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "删除考试",
                 "parameters": [
@@ -627,8 +1825,7 @@ const docTemplate = `{
         "/admin/exam/detail": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "考试详情",
                 "parameters": [
@@ -653,8 +1850,7 @@ const docTemplate = `{
         "/admin/exam/list": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "考试列表",
                 "parameters": [
@@ -702,8 +1898,7 @@ const docTemplate = `{
         "/admin/exam/question_bank_categories": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "获取考试题库所有分类",
                 "responses": {
@@ -719,8 +1914,7 @@ const docTemplate = `{
         "/admin/exam/question_bank_del": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "删除题库题目",
                 "parameters": [
@@ -745,8 +1939,7 @@ const docTemplate = `{
         "/admin/exam/question_bank_edit": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "编辑题库题目",
                 "parameters": [
@@ -813,8 +2006,7 @@ const docTemplate = `{
         "/admin/exam/question_bank_insert": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "添加题目到考试题库",
                 "parameters": [
@@ -875,8 +2067,7 @@ const docTemplate = `{
         "/admin/exam/question_bank_list": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "获取考试题库列表",
                 "parameters": [
@@ -912,8 +2103,7 @@ const docTemplate = `{
         "/admin/exam/record_batch_del": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "批量删除考试记录",
                 "parameters": [
@@ -938,8 +2128,7 @@ const docTemplate = `{
         "/admin/exam/record_del": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "删除考试记录",
                 "parameters": [
@@ -964,8 +2153,7 @@ const docTemplate = `{
         "/admin/exam/record_detail": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "考试记录详情",
                 "parameters": [
@@ -990,8 +2178,7 @@ const docTemplate = `{
         "/admin/exam/record_list": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "考试记录列表",
                 "parameters": [
@@ -1034,8 +2221,7 @@ const docTemplate = `{
         "/admin/exam/resource_delete": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "删除考试资源",
                 "parameters": [
@@ -1060,8 +2246,7 @@ const docTemplate = `{
         "/admin/exam/resource_list": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "查询考试资源列表",
                 "parameters": [
@@ -1092,8 +2277,7 @@ const docTemplate = `{
         "/admin/exam/resource_upload": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "上传考试资源",
                 "parameters": [
@@ -1132,8 +2316,7 @@ const docTemplate = `{
         "/admin/exam/save": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "创建/更新考试",
                 "parameters": [
@@ -1266,8 +2449,7 @@ const docTemplate = `{
         "/admin/exam/statistics": {
             "get": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "考试统计",
                 "parameters": [
@@ -1292,8 +2474,7 @@ const docTemplate = `{
         "/admin/exam/status": {
             "post": {
                 "tags": [
-                    "考试管理",
-                    "管理端 API"
+                    "PC端-考试管理"
                 ],
                 "summary": "更新考试状态",
                 "parameters": [
@@ -1325,8 +2506,7 @@ const docTemplate = `{
         "/admin/home": {
             "get": {
                 "tags": [
-                    "管理后台首页",
-                    "管理端 API"
+                    "PC端-管理后台首页"
                 ],
                 "summary": "管理后台首页数据",
                 "responses": {
@@ -1342,8 +2522,7 @@ const docTemplate = `{
         "/admin/log_clear": {
             "get": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "清除操作日志",
                 "responses": {
@@ -1359,8 +2538,7 @@ const docTemplate = `{
         "/admin/log_list": {
             "get": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "获取操作日志列表",
                 "responses": {
@@ -1376,8 +2554,7 @@ const docTemplate = `{
         "/admin/login": {
             "post": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "管理员登录",
                 "parameters": [
@@ -1406,11 +2583,202 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/menu/add": {
+            "post": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "新增菜单",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "菜单名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "父菜单ID",
+                        "name": "parentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "路由路径",
+                        "name": "path",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限标识",
+                        "name": "perms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图标",
+                        "name": "icon",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "菜单类型",
+                        "name": "type",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/menu/del": {
+            "post": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "删除菜单",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "菜单ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/menu/edit": {
+            "post": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "编辑菜单",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "菜单ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "菜单名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "父菜单ID",
+                        "name": "parentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "路由路径",
+                        "name": "path",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限标识",
+                        "name": "perms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图标",
+                        "name": "icon",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "菜单类型",
+                        "name": "type",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/menu/list": {
+            "get": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "获取菜单列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/menu/tree": {
+            "get": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "获取菜单树",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/mgr_del": {
             "post": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "删除管理员",
                 "parameters": [
@@ -1435,8 +2803,7 @@ const docTemplate = `{
         "/admin/mgr_detail": {
             "get": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "获取管理员详情",
                 "parameters": [
@@ -1461,8 +2828,7 @@ const docTemplate = `{
         "/admin/mgr_edit": {
             "post": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "编辑管理员",
                 "parameters": [
@@ -1505,8 +2871,7 @@ const docTemplate = `{
         "/admin/mgr_insert": {
             "post": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "新增管理员",
                 "parameters": [
@@ -1550,8 +2915,7 @@ const docTemplate = `{
         "/admin/mgr_list": {
             "get": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "获取管理员列表",
                 "responses": {
@@ -1567,8 +2931,7 @@ const docTemplate = `{
         "/admin/mgr_pwd": {
             "post": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "修改管理员密码",
                 "parameters": [
@@ -1600,8 +2963,7 @@ const docTemplate = `{
         "/admin/mgr_status": {
             "post": {
                 "tags": [
-                    "管理员管理",
-                    "管理端 API"
+                    "PC端-管理员管理"
                 ],
                 "summary": "设置管理员状态",
                 "parameters": [
@@ -1633,14 +2995,13 @@ const docTemplate = `{
         "/admin/news_del": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "删除新闻",
+                "summary": "删除通知公告",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "formData",
                         "required": true
@@ -1659,14 +3020,13 @@ const docTemplate = `{
         "/admin/news_detail": {
             "get": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "获取新闻详情",
+                "summary": "获取通知公告详情",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "query",
                         "required": true
@@ -1685,10 +3045,9 @@ const docTemplate = `{
         "/admin/news_edit": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "编辑新闻",
+                "summary": "编辑通知公告",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1702,10 +3061,9 @@ const docTemplate = `{
         "/admin/news_insert": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "新增新闻",
+                "summary": "新增通知公告",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1719,10 +3077,9 @@ const docTemplate = `{
         "/admin/news_list": {
             "get": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "获取新闻列表",
+                "summary": "获取通知公告列表",
                 "parameters": [
                     {
                         "type": "string",
@@ -1756,14 +3113,13 @@ const docTemplate = `{
         "/admin/news_sort": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "新闻排序",
+                "summary": "通知公告排序",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "formData",
                         "required": true
@@ -1789,14 +3145,13 @@ const docTemplate = `{
         "/admin/news_status": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "设置新闻状态",
+                "summary": "设置通知公告状态",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "formData",
                         "required": true
@@ -1822,14 +3177,13 @@ const docTemplate = `{
         "/admin/news_update_content": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "更新新闻内容",
+                "summary": "更新通知公告内容",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "formData",
                         "required": true
@@ -1854,14 +3208,13 @@ const docTemplate = `{
         "/admin/news_update_forms": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "更新新闻表单",
+                "summary": "更新通知公告表单",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "formData",
                         "required": true
@@ -1886,14 +3239,13 @@ const docTemplate = `{
         "/admin/news_update_pic": {
             "post": {
                 "tags": [
-                    "新闻管理",
-                    "管理端 API"
+                    "PC端-通知公告"
                 ],
-                "summary": "更新新闻图片",
+                "summary": "更新通知公告图片",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "formData",
                         "required": true
@@ -1915,11 +3267,219 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/role/add": {
+            "post": {
+                "tags": [
+                    "PC端-角色管理"
+                ],
+                "summary": "新增角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "数据权限范围(1=全部 2=自定义)",
+                        "name": "dataScope",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "菜单ID列表(逗号分隔)",
+                        "name": "menuIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID列表(逗号分隔)",
+                        "name": "deptIds",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/role/del": {
+            "post": {
+                "tags": [
+                    "PC端-角色管理"
+                ],
+                "summary": "删除角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/role/dels": {
+            "post": {
+                "tags": [
+                    "PC端-角色管理"
+                ],
+                "summary": "批量删除角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/role/edit": {
+            "post": {
+                "tags": [
+                    "PC端-角色管理"
+                ],
+                "summary": "编辑角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "角色名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "数据权限范围",
+                        "name": "dataScope",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "菜单ID列表(逗号分隔)",
+                        "name": "menuIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID列表(逗号分隔)",
+                        "name": "deptIds",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/role/list": {
+            "get": {
+                "tags": [
+                    "PC端-角色管理"
+                ],
+                "summary": "获取角色列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/setup_qr": {
             "get": {
                 "tags": [
-                    "系统设置",
-                    "管理端 API"
+                    "PC端-系统设置"
                 ],
                 "summary": "生成小程序码",
                 "parameters": [
@@ -1949,8 +3509,7 @@ const docTemplate = `{
         "/admin/setup_set": {
             "post": {
                 "tags": [
-                    "系统设置",
-                    "管理端 API"
+                    "PC端-系统设置"
                 ],
                 "summary": "设置系统配置",
                 "parameters": [
@@ -1982,8 +3541,7 @@ const docTemplate = `{
         "/admin/setup_set_content": {
             "post": {
                 "tags": [
-                    "系统设置",
-                    "管理端 API"
+                    "PC端-系统设置"
                 ],
                 "summary": "设置内容配置",
                 "parameters": [
@@ -2015,8 +3573,7 @@ const docTemplate = `{
         "/admin/survey/channel_del": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "删除渠道",
                 "parameters": [
@@ -2041,8 +3598,7 @@ const docTemplate = `{
         "/admin/survey/channel_insert": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "创建渠道",
                 "parameters": [
@@ -2069,8 +3625,7 @@ const docTemplate = `{
         "/admin/survey/channel_list": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "渠道列表",
                 "parameters": [
@@ -2095,8 +3650,7 @@ const docTemplate = `{
         "/admin/survey/eval": {
             "post": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "表达式试算",
                 "parameters": [
@@ -2133,8 +3687,7 @@ const docTemplate = `{
         "/admin/survey/export/enroll": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "导出打卡CSV",
                 "parameters": [
@@ -2159,8 +3712,7 @@ const docTemplate = `{
         "/admin/survey/export/event": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "导出活动CSV",
                 "parameters": [
@@ -2185,8 +3737,7 @@ const docTemplate = `{
         "/admin/survey/export/survey": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "导出问卷CSV",
                 "parameters": [
@@ -2211,8 +3762,7 @@ const docTemplate = `{
         "/admin/survey/report/enroll": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "打卡报表",
                 "parameters": [
@@ -2237,8 +3787,7 @@ const docTemplate = `{
         "/admin/survey/report/event": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "活动报表",
                 "parameters": [
@@ -2263,8 +3812,7 @@ const docTemplate = `{
         "/admin/survey/report/survey": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "问卷报表（schema-aware）",
                 "parameters": [
@@ -2289,8 +3837,7 @@ const docTemplate = `{
         "/admin/survey/resource_delete": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "删除问卷资源",
                 "parameters": [
@@ -2315,8 +3862,7 @@ const docTemplate = `{
         "/admin/survey/resource_list": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "查询问卷资源列表",
                 "parameters": [
@@ -2347,8 +3893,7 @@ const docTemplate = `{
         "/admin/survey/resource_upload": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "上传问卷资源（背景图/页眉图）",
                 "parameters": [
@@ -2387,8 +3932,7 @@ const docTemplate = `{
         "/admin/survey/response_batch_del": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "批量删除答卷",
                 "parameters": [
@@ -2413,8 +3957,7 @@ const docTemplate = `{
         "/admin/survey/response_del": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "删除答卷",
                 "parameters": [
@@ -2439,8 +3982,7 @@ const docTemplate = `{
         "/admin/survey/response_detail": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "答卷详情",
                 "parameters": [
@@ -2465,8 +4007,7 @@ const docTemplate = `{
         "/admin/survey/response_export": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "导出答卷CSV",
                 "parameters": [
@@ -2491,8 +4032,7 @@ const docTemplate = `{
         "/admin/survey/response_list": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "答卷列表",
                 "parameters": [
@@ -2529,8 +4069,7 @@ const docTemplate = `{
         "/admin/survey/schema/parse": {
             "post": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "解析 Schema",
                 "parameters": [
@@ -2555,8 +4094,7 @@ const docTemplate = `{
         "/admin/survey/statistic": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "问卷统计",
                 "parameters": [
@@ -2581,8 +4119,7 @@ const docTemplate = `{
         "/admin/survey/survey_copy": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "复制问卷",
                 "parameters": [
@@ -2607,8 +4144,7 @@ const docTemplate = `{
         "/admin/survey/survey_del": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "删除问卷",
                 "parameters": [
@@ -2633,8 +4169,7 @@ const docTemplate = `{
         "/admin/survey/survey_detail": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "问卷详情",
                 "parameters": [
@@ -2659,8 +4194,7 @@ const docTemplate = `{
         "/admin/survey/survey_edit": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "编辑问卷",
                 "parameters": [
@@ -2687,8 +4221,7 @@ const docTemplate = `{
         "/admin/survey/survey_insert": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "创建问卷",
                 "parameters": [
@@ -2715,8 +4248,7 @@ const docTemplate = `{
         "/admin/survey/survey_list": {
             "get": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "问卷列表",
                 "parameters": [
@@ -2764,8 +4296,7 @@ const docTemplate = `{
         "/admin/survey/survey_status": {
             "post": {
                 "tags": [
-                    "问卷管理",
-                    "管理端 API"
+                    "PC端-问卷管理"
                 ],
                 "summary": "更新问卷状态",
                 "parameters": [
@@ -2797,8 +4328,7 @@ const docTemplate = `{
         "/admin/survey/types": {
             "get": {
                 "tags": [
-                    "表单工具",
-                    "管理端 API"
+                    "PC端-表单工具"
                 ],
                 "summary": "获取题型列表",
                 "responses": {
@@ -2814,8 +4344,7 @@ const docTemplate = `{
         "/admin/user/batch_force_offline": {
             "post": {
                 "tags": [
-                    "在线用户",
-                    "管理端 API"
+                    "PC端-在线用户"
                 ],
                 "summary": "批量强制下线",
                 "parameters": [
@@ -2842,11 +4371,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/user/menus": {
+            "get": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "获取当前管理员的菜单树",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/perms": {
+            "get": {
+                "tags": [
+                    "PC端-菜单管理"
+                ],
+                "summary": "获取当前管理员的权限标识",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/user_add": {
             "post": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "新增用户",
                 "parameters": [
@@ -2889,8 +4449,7 @@ const docTemplate = `{
         "/admin/user_data_del": {
             "post": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "删除用户数据",
                 "responses": {
@@ -2906,8 +4465,7 @@ const docTemplate = `{
         "/admin/user_data_export": {
             "get": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "导出用户数据",
                 "responses": {
@@ -2923,8 +4481,7 @@ const docTemplate = `{
         "/admin/user_data_get": {
             "get": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "获取用户数据导出链接",
                 "responses": {
@@ -2940,8 +4497,7 @@ const docTemplate = `{
         "/admin/user_del": {
             "post": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "删除用户",
                 "parameters": [
@@ -2966,8 +4522,7 @@ const docTemplate = `{
         "/admin/user_detail": {
             "get": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "获取用户详情",
                 "parameters": [
@@ -2992,8 +4547,7 @@ const docTemplate = `{
         "/admin/user_detail_by_id": {
             "get": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "根据ID获取用户详情",
                 "parameters": [
@@ -3018,8 +4572,7 @@ const docTemplate = `{
         "/admin/user_edit": {
             "post": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "编辑用户",
                 "parameters": [
@@ -3068,8 +4621,7 @@ const docTemplate = `{
         "/admin/user_form_field_save": {
             "post": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "保存用户表单字段配置(全量替换)",
                 "parameters": [
@@ -3094,8 +4646,7 @@ const docTemplate = `{
         "/admin/user_form_fields": {
             "get": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "获取用户表单字段列表",
                 "responses": {
@@ -3111,8 +4662,7 @@ const docTemplate = `{
         "/admin/user_list": {
             "get": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "获取用户列表",
                 "parameters": [
@@ -3148,8 +4698,7 @@ const docTemplate = `{
         "/admin/user_status": {
             "post": {
                 "tags": [
-                    "用户管理",
-                    "管理端 API"
+                    "PC端-用户管理"
                 ],
                 "summary": "设置用户状态",
                 "parameters": [
@@ -3181,9 +4730,9 @@ const docTemplate = `{
         "/enroll/enroll_submit": {
             "post": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
-                "summary": "用户报名(提交报名表单)",
+                "summary": "用户打卡(提交打卡表单)",
                 "parameters": [
                     {
                         "type": "string",
@@ -3201,7 +4750,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "报名表单数据JSON",
+                        "description": "打卡表单数据JSON",
                         "name": "forms",
                         "in": "formData"
                     }
@@ -3219,13 +4768,13 @@ const docTemplate = `{
         "/enroll/join": {
             "post": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
-                "summary": "用户报名打卡",
+                "summary": "用户打卡",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "报名ID",
+                        "description": "打卡ID",
                         "name": "enroll_id",
                         "in": "formData",
                         "required": true
@@ -3263,13 +4812,13 @@ const docTemplate = `{
         "/enroll/join_day": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
-                "summary": "按日获取报名打卡记录",
+                "summary": "按日获取打卡记录",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "报名ID",
+                        "description": "打卡ID",
                         "name": "enroll_id",
                         "in": "query",
                         "required": true
@@ -3301,9 +4850,9 @@ const docTemplate = `{
         "/enroll/list": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
-                "summary": "获取报名列表",
+                "summary": "获取打卡列表",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3331,7 +4880,7 @@ const docTemplate = `{
         "/enroll/my_calendar": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
                 "summary": "获取我的日历打卡数据",
                 "parameters": [
@@ -3361,7 +4910,7 @@ const docTemplate = `{
         "/enroll/my_day_records": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
                 "summary": "获取我指定日期的打卡记录",
                 "parameters": [
@@ -3391,7 +4940,7 @@ const docTemplate = `{
         "/enroll/my_join_list": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
                 "summary": "获取我的打卡记录",
                 "parameters": [
@@ -3415,7 +4964,7 @@ const docTemplate = `{
         "/enroll/my_records": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
                 "summary": "获取我的打卡记录",
                 "parameters": [
@@ -3451,9 +5000,9 @@ const docTemplate = `{
         "/enroll/my_user_list": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
-                "summary": "获取我的报名用户列表",
+                "summary": "获取我的打卡用户列表",
                 "parameters": [
                     {
                         "type": "string",
@@ -3475,13 +5024,460 @@ const docTemplate = `{
         "/enroll/view": {
             "get": {
                 "tags": [
-                    "报名"
+                    "客户端-打卡"
                 ],
-                "summary": "查看报名详情",
+                "summary": "查看打卡详情",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "报名ID",
+                        "description": "打卡ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/dynamic_post": {
+            "post": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "发布活动动态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "event_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片列表(JSON)",
+                        "name": "images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "视频列表(JSON)",
+                        "name": "videos",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/dynamics": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取活动动态列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "event_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/list": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取活动列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/my_list": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取我的活动列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/my_managed": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取我管理的活动列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/my_roles": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取我的活动角色",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/participant_list": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取活动参与成员列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "event_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/participate": {
+            "post": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "参与活动报名",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "event_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单数据(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/score_save": {
+            "post": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "保存活动评分",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "event_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "参赛者ID",
+                        "name": "participant_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分",
+                        "name": "score",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "评委ID",
+                        "name": "judge_id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/scores": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "获取活动评分列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "event_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/event/view": {
+            "get": {
+                "tags": [
+                    "客户端-赛事活动"
+                ],
+                "summary": "查看活动详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
                         "name": "id",
                         "in": "query",
                         "required": true
@@ -3506,8 +5502,7 @@ const docTemplate = `{
         "/exam/list": {
             "get": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "获取考试列表",
                 "parameters": [
@@ -3543,8 +5538,7 @@ const docTemplate = `{
         "/exam/my_records": {
             "get": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "我的考试记录",
                 "responses": {
@@ -3560,8 +5554,7 @@ const docTemplate = `{
         "/exam/record": {
             "get": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "查看考试记录",
                 "parameters": [
@@ -3586,8 +5579,7 @@ const docTemplate = `{
         "/exam/result": {
             "get": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "通过 session 查看考试结果",
                 "responses": {}
@@ -3596,8 +5588,7 @@ const docTemplate = `{
         "/exam/save_answer": {
             "post": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "保存答案",
                 "parameters": [
@@ -3629,8 +5620,7 @@ const docTemplate = `{
         "/exam/start": {
             "get": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "开始考试",
                 "parameters": [
@@ -3655,8 +5645,7 @@ const docTemplate = `{
         "/exam/submit": {
             "post": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "提交考试",
                 "responses": {}
@@ -3665,8 +5654,7 @@ const docTemplate = `{
         "/exam/validate": {
             "post": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "校验答案（必填项等）",
                 "responses": {}
@@ -3675,8 +5663,7 @@ const docTemplate = `{
         "/exam/view": {
             "get": {
                 "tags": [
-                    "考试-客户端",
-                    "客户端 API"
+                    "客户端-考试"
                 ],
                 "summary": "查看考试详情",
                 "parameters": [
@@ -3701,8 +5688,7 @@ const docTemplate = `{
         "/fav/del": {
             "post": {
                 "tags": [
-                    "收藏",
-                    "客户端 API"
+                    "客户端-收藏"
                 ],
                 "summary": "删除收藏",
                 "parameters": [
@@ -3733,8 +5719,7 @@ const docTemplate = `{
         "/fav/is_fav": {
             "get": {
                 "tags": [
-                    "收藏",
-                    "客户端 API"
+                    "客户端-收藏"
                 ],
                 "summary": "是否已收藏",
                 "parameters": [
@@ -3772,8 +5757,7 @@ const docTemplate = `{
         "/fav/my_list": {
             "get": {
                 "tags": [
-                    "收藏",
-                    "客户端 API"
+                    "客户端-收藏"
                 ],
                 "summary": "获取我的收藏列表",
                 "parameters": [
@@ -3803,8 +5787,7 @@ const docTemplate = `{
         "/fav/update": {
             "post": {
                 "tags": [
-                    "收藏",
-                    "客户端 API"
+                    "客户端-收藏"
                 ],
                 "summary": "更新收藏",
                 "parameters": [
@@ -3852,11 +5835,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/geo/reverse": {
+            "get": {
+                "tags": [
+                    "客户端-地理编码"
+                ],
+                "summary": "经纬度反查地址",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "纬度",
+                        "name": "lat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "经度",
+                        "name": "lng",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/home/list": {
             "get": {
                 "tags": [
-                    "首页",
-                    "客户端 API"
+                    "客户端-首页"
                 ],
                 "summary": "获取首页列表",
                 "responses": {
@@ -3872,8 +5886,7 @@ const docTemplate = `{
         "/home/setup_get": {
             "get": {
                 "tags": [
-                    "首页",
-                    "客户端 API"
+                    "客户端-首页"
                 ],
                 "summary": "获取系统设置",
                 "parameters": [
@@ -3898,10 +5911,9 @@ const docTemplate = `{
         "/news/cate_list": {
             "get": {
                 "tags": [
-                    "新闻",
-                    "客户端 API"
+                    "客户端-通知公告"
                 ],
-                "summary": "获取新闻分类列表",
+                "summary": "获取通知公告分类列表",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3915,10 +5927,9 @@ const docTemplate = `{
         "/news/list": {
             "get": {
                 "tags": [
-                    "新闻",
-                    "客户端 API"
+                    "客户端-通知公告"
                 ],
-                "summary": "获取新闻列表",
+                "summary": "获取通知公告列表",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3946,14 +5957,13 @@ const docTemplate = `{
         "/news/view": {
             "get": {
                 "tags": [
-                    "新闻",
-                    "客户端 API"
+                    "客户端-通知公告"
                 ],
-                "summary": "查看新闻详情",
+                "summary": "查看通知公告详情",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "新闻ID",
+                        "description": "通知公告ID",
                         "name": "id",
                         "in": "query",
                         "required": true
@@ -3972,8 +5982,7 @@ const docTemplate = `{
         "/passport/edit_base": {
             "post": {
                 "tags": [
-                    "通行证",
-                    "客户端 API"
+                    "客户端-通行证"
                 ],
                 "summary": "编辑基本信息",
                 "parameters": [
@@ -4015,8 +6024,7 @@ const docTemplate = `{
         "/passport/login": {
             "post": {
                 "tags": [
-                    "通行证",
-                    "客户端 API"
+                    "客户端-通行证"
                 ],
                 "summary": "用户登录",
                 "parameters": [
@@ -4041,8 +6049,7 @@ const docTemplate = `{
         "/passport/login_pwd": {
             "post": {
                 "tags": [
-                    "通行证",
-                    "客户端 API"
+                    "客户端-通行证"
                 ],
                 "summary": "密码登录",
                 "parameters": [
@@ -4074,8 +6081,7 @@ const docTemplate = `{
         "/passport/my_detail": {
             "get": {
                 "tags": [
-                    "通行证",
-                    "客户端 API"
+                    "客户端-通行证"
                 ],
                 "summary": "获取我的详情",
                 "parameters": [
@@ -4099,8 +6105,7 @@ const docTemplate = `{
         "/passport/phone": {
             "post": {
                 "tags": [
-                    "通行证",
-                    "客户端 API"
+                    "客户端-通行证"
                 ],
                 "summary": "获取手机号",
                 "parameters": [
@@ -4125,8 +6130,7 @@ const docTemplate = `{
         "/passport/register": {
             "post": {
                 "tags": [
-                    "通行证",
-                    "客户端 API"
+                    "客户端-通行证"
                 ],
                 "summary": "用户注册",
                 "parameters": [
@@ -4171,7 +6175,7 @@ const docTemplate = `{
         "/survey/apply": {
             "post": {
                 "tags": [
-                    "表单工具"
+                    "客户端-表单工具"
                 ],
                 "summary": "应用表单逻辑（通用）",
                 "responses": {}
@@ -4180,8 +6184,7 @@ const docTemplate = `{
         "/survey/list": {
             "get": {
                 "tags": [
-                    "问卷-客户端",
-                    "客户端 API"
+                    "客户端-问卷"
                 ],
                 "summary": "获取问卷列表",
                 "parameters": [
@@ -4223,8 +6226,7 @@ const docTemplate = `{
         "/survey/my_response": {
             "get": {
                 "tags": [
-                    "问卷-客户端",
-                    "客户端 API"
+                    "客户端-问卷"
                 ],
                 "summary": "查看答卷详情",
                 "parameters": [
@@ -4255,8 +6257,7 @@ const docTemplate = `{
         "/survey/my_responses": {
             "get": {
                 "tags": [
-                    "问卷-客户端",
-                    "客户端 API"
+                    "客户端-问卷"
                 ],
                 "summary": "我的答卷列表",
                 "parameters": [
@@ -4280,8 +6281,7 @@ const docTemplate = `{
         "/survey/submit": {
             "post": {
                 "tags": [
-                    "问卷-客户端",
-                    "客户端 API"
+                    "客户端-问卷"
                 ],
                 "summary": "提交答卷",
                 "parameters": [
@@ -4337,7 +6337,7 @@ const docTemplate = `{
         "/survey/validate": {
             "post": {
                 "tags": [
-                    "表单工具"
+                    "客户端-表单工具"
                 ],
                 "summary": "校验答案格式（通用）",
                 "responses": {}
@@ -4346,8 +6346,7 @@ const docTemplate = `{
         "/survey/view": {
             "get": {
                 "tags": [
-                    "问卷-客户端",
-                    "客户端 API"
+                    "客户端-问卷"
                 ],
                 "summary": "查看问卷详情",
                 "parameters": [
@@ -4516,12 +6515,108 @@ const docTemplate = `{
     },
     "tags": [
         {
-            "description": "后台管理相关接口，需管理员 Token 认证",
-            "name": "管理端 API"
+            "description": "后台管理用户相关接口",
+            "name": "PC端-用户管理"
         },
         {
-            "description": "微信小程序/前端用户端接口，需用户 Token 认证",
-            "name": "客户端 API"
+            "description": "后台管理通知公告相关接口",
+            "name": "PC端-通知公告"
+        },
+        {
+            "description": "后台管理赛事活动相关接口",
+            "name": "PC端-赛事活动管理"
+        },
+        {
+            "description": "后台管理打卡相关接口",
+            "name": "PC端-打卡管理"
+        },
+        {
+            "description": "后台管理菜单相关接口",
+            "name": "PC端-菜单管理"
+        },
+        {
+            "description": "后台管理角色相关接口",
+            "name": "PC端-角色管理"
+        },
+        {
+            "description": "后台管理字典相关接口",
+            "name": "PC端-字典管理"
+        },
+        {
+            "description": "后台管理部门相关接口",
+            "name": "PC端-部门管理"
+        },
+        {
+            "description": "后台管理管理员相关接口",
+            "name": "PC端-管理员管理"
+        },
+        {
+            "description": "后台系统设置相关接口",
+            "name": "PC端-系统设置"
+        },
+        {
+            "description": "后台首页数据接口",
+            "name": "PC端-管理后台首页"
+        },
+        {
+            "description": "后台管理考试相关接口",
+            "name": "PC端-考试管理"
+        },
+        {
+            "description": "后台管理问卷相关接口",
+            "name": "PC端-问卷管理"
+        },
+        {
+            "description": "后台表单工具相关接口",
+            "name": "PC端-表单工具"
+        },
+        {
+            "description": "在线用户管理接口",
+            "name": "PC端-在线用户"
+        },
+        {
+            "description": "在线管理员管理接口",
+            "name": "PC端-在线管理员"
+        },
+        {
+            "description": "客户端用户认证相关接口",
+            "name": "客户端-通行证"
+        },
+        {
+            "description": "客户端打卡相关接口",
+            "name": "客户端-打卡"
+        },
+        {
+            "description": "客户端赛事活动相关接口",
+            "name": "客户端-赛事活动"
+        },
+        {
+            "description": "客户端考试相关接口",
+            "name": "客户端-考试"
+        },
+        {
+            "description": "客户端问卷相关接口",
+            "name": "客户端-问卷"
+        },
+        {
+            "description": "客户端地理编码相关接口",
+            "name": "客户端-地理编码"
+        },
+        {
+            "description": "客户端通知公告相关接口",
+            "name": "客户端-通知公告"
+        },
+        {
+            "description": "客户端首页数据接口",
+            "name": "客户端-首页"
+        },
+        {
+            "description": "客户端收藏相关接口",
+            "name": "客户端-收藏"
+        },
+        {
+            "description": "客户端表单工具相关接口",
+            "name": "客户端-表单工具"
         }
     ]
 }`

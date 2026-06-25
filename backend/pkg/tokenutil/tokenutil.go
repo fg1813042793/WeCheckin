@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"wecheckin-backend/backend/internal/config"
-	"wecheckin-backend/backend/internal/database"
+	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/model"
 )
 
