@@ -42,11 +42,13 @@ type SurveyResponse struct {
 	Status       int    `gorm:"column:survey_resp_status;default:1" json:"status"`         // 1=已完成 0=草稿
 	IP           string `gorm:"column:survey_resp_ip;size:64" json:"ip"`
 	Device       string `gorm:"column:survey_resp_device;size:255" json:"device"`
+	DeviceID     string `gorm:"column:survey_resp_device_id;size:128" json:"deviceId"`
 	Browser      string `gorm:"column:survey_resp_browser;size:64" json:"browser"`
 	DeviceType   string `gorm:"column:survey_resp_device_type;size:32" json:"deviceType"`
 	PlatformType string `gorm:"column:survey_resp_platform_type;size:32" json:"platformType"`
 	StartTime    int64  `gorm:"column:survey_resp_start_time" json:"startTime"`
 	SubmitTime   int64  `gorm:"column:survey_resp_submit_time" json:"submitTime"`
+	IsAutoSubmit int    `gorm:"column:survey_resp_auto_submit;default:0" json:"isAutoSubmit"`
 	AddTime      int64  `gorm:"column:survey_resp_add_time" json:"addTime"`
 }
 

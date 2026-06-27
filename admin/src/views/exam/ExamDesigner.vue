@@ -850,6 +850,11 @@
                 <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item>
                 <el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item>
                 <el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnalysis" /></el-form-item>
+                <el-form-item class="settings-full" label="填写模版">
+                  <el-select v-model="form.fillTemplate" style="width:100%">
+                    <el-option v-for="(label, val) in fillTemplates" :key="val" :value="val" :label="label" />
+                  </el-select>
+                </el-form-item>
                 <el-form-item class="settings-full" label="问卷链接">
                   <div style="display:flex;gap:8px;width:100%">
                     <el-input v-if="form.id" :model-value="publicUrl" readonly size="small" style="flex:1">
@@ -1088,7 +1093,8 @@ const form = reactive<any>({
   duration: 60, maxAttempts: 1, showScore: 1,
   deviceLimit: 0, ipLimit: 0, userLimit: 0,
   createBy: 0, collaborators: '',
-  backgroundImages: [] as string[], headerImages: [] as string[]
+  backgroundImages: [] as string[], headerImages: [] as string[],
+  fillTemplate: 'ef'
 })
 
 const activeView = ref('edit')
@@ -2065,7 +2071,8 @@ const envFromAnswers = computed(() => {
   const env: Record<string, any> = {}; for (const q of questions.value) env[q.id] = undefined; return env
 })
 
-const publicUrl = computed(() => form.id ? `${window.location.origin}/ef/${form.id}` : '')
+const fillTemplates: Record<string, string> = { ef: '默认模版', ef1: '新样式模版' }
+const publicUrl = computed(() => form.id ? `${window.location.origin}/${form.fillTemplate || 'ef'}/${form.id}` : '')
 function copyLink() { navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
 
 function goBack() { router.push('/exam/list') }
@@ -2110,7 +2117,8 @@ async function load() {
           minSubmitMinutes: s.minSubmitMinutes || 0, maxSubmitMinutes: s.maxSubmitMinutes || 0,
           deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0, userLimit: s.userLimit || 0,
           backgroundImages: s.backgroundImages || [], headerImages: s.headerImages || [],
-          collaborators: s.collaborators || ''
+          collaborators: s.collaborators || '',
+          fillTemplate: s.fillTemplate || 'ef'
         })
       } catch {}
     }
@@ -2172,7 +2180,8 @@ async function save() {
     randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
     maxSubmitMinutes: form.maxSubmitMinutes,
     deviceLimit: form.deviceLimit, ipLimit: form.ipLimit, userLimit: form.userLimit,
-    backgroundImages: form.backgroundImages, headerImages: form.headerImages
+    backgroundImages: form.backgroundImages, headerImages: form.headerImages,
+    fillTemplate: form.fillTemplate
   })
   const payload: any = {
     title: form.title, description: form.description, category: form.category, tags: form.tags,

@@ -163,7 +163,8 @@ type NumericStat struct {
 }
 
 // FieldStats 计算 schema 各字段的统计
-func FieldStats(schemaJSON string, items []AnswerItem) []FieldStat {
+// statMode: "value" 按选项值统计, "count" 按选项计数(label)统计, "score" 按分值统计
+func FieldStats(schemaJSON string, items []AnswerItem, statMode string) []FieldStat {
 	questions := schema.NormalizeSchemaForReport(schemaJSON)
 	// 解析原始 schema 用于获取矩阵题 props
 	rawQuestions := parseRawQuestions(schemaJSON)
@@ -204,23 +205,30 @@ func FieldStats(schemaJSON string, items []AnswerItem) []FieldStat {
 				if arr, ok := v.([]interface{}); ok {
 					for _, item := range arr {
 						if s, ok := item.(string); ok {
-							key := checkboxOptionLabel(s, q.Options)
+							key := s
+							if statMode != "value" {
+								key = checkboxOptionLabel(s, q.Options)
+							}
 							dist[key]++
 						}
 					}
 				}
 			} else if q.Type == "user" || q.Type == "dept" {
 				// 成员/部门：用 label 展示
+				keyFn := func(s string) string {
+					if statMode == "value" {
+						return s
+					}
+					return checkboxOptionLabel(s, q.Options)
+				}
 				if arr, ok := v.([]interface{}); ok {
 					for _, item := range arr {
 						if s, ok := item.(string); ok {
-							key := checkboxOptionLabel(s, q.Options)
-							dist[key]++
+							dist[keyFn(s)]++
 						}
 					}
 				} else if s, ok := v.(string); ok {
-					key := checkboxOptionLabel(s, q.Options)
-					dist[key]++
+					dist[keyFn(s)]++
 				}
 			} else if q.Type == "matrixRadio" || q.Type == "matrixCheckbox" {
 				m, ok := v.(map[string]interface{})
@@ -231,27 +239,38 @@ func FieldStats(schemaJSON string, items []AnswerItem) []FieldStat {
 				for _, rowVal := range m {
 					if q.Type == "matrixRadio" {
 						if s, ok := rowVal.(string); ok {
-							label := colValToLabel[s]
-							if label == "" {
-								label = s
+							key := s
+							if statMode != "value" {
+								key = colValToLabel[s]
 							}
-							dist[label]++
+							if key == "" {
+								key = s
+							}
+							dist[key]++
 						}
 					} else if q.Type == "matrixCheckbox" {
 						if arr, ok := rowVal.([]interface{}); ok {
 							for _, item := range arr {
 								s, _ := item.(string)
-								label := colValToLabel[s]
-								if label == "" {
-									label = s
+								key := s
+								if statMode != "value" {
+									key = colValToLabel[s]
 								}
-								dist[label]++
+								if key == "" {
+									key = s
+								}
+								dist[key]++
 							}
 						}
 					}
 				}
 			} else {
 				key := formatValue(v, q)
+				if statMode == "value" {
+					if s, ok := v.(string); ok {
+						key = s
+					}
+				}
 				dist[key]++
 			}
 		}

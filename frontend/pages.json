@@ -336,6 +336,17 @@
 			"navigationBarTitleText": "考试结果"
 		}
 	}, {
+		"path": "pages/exam/index",
+		"style": {
+			"navigationBarTitleText": "考试列表",
+			"enablePullDownRefresh": true
+		}
+	}, {
+		"path": "pages/exam/fill",
+		"style": {
+			"navigationBarTitleText": "考试"
+		}
+	}, {
 		"path": "pages/admin/event/admin_event_list",
 		"style": {
 			"navigationBarTitleText": "赛事活动管理",

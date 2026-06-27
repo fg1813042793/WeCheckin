@@ -237,7 +237,10 @@ func GetEnrollJoinByDay(enrollID, day string) ([]map[string]interface{}, error) 
 		// Parse forms JSON (兼容老/新格式)
 		formsArr := []map[string]interface{}{}
 		if j.Forms != "" {
-			fvs := schema.ExtractFieldValues(j.Forms, enrollModel.Forms)
+			var fvs []schema.FieldValue
+			if err := json.Unmarshal([]byte(j.Forms), &fvs); err != nil {
+				fvs = schema.ExtractFieldValues(j.Forms, enrollModel.Forms)
+			}
 			for _, fv := range fvs {
 				entry := map[string]interface{}{"label": fv.Label, "type": fv.Type, "value": fv.Value}
 				// 兼容老逻辑：保留 typeMap 合并

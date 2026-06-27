@@ -79,9 +79,10 @@ export default {
     }
   },
 
-  onLoad() {
-    this.loadData(true)
-  },
+  // onLoad 已注释，onShow 已覆盖
+  // onLoad() {
+  //   this.loadData(true)
+  // },
 
   onShow() {
     this.loadData(true)

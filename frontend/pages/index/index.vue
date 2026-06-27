@@ -164,9 +164,10 @@ export default {
     }
   },
 
-  onLoad() {
-    this.loadData()
-  },
+  // onLoad 已注释，onShow 已覆盖首次加载和返回刷新
+  // onLoad() {
+  //   this.loadData()
+  // },
 
   onShow() {
     this.loadData()

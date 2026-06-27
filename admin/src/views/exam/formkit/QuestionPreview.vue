@@ -350,6 +350,7 @@ import { ref, computed, watch } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { Html5Qrcode } from 'html5-qrcode'
+import '../../../utils/quill-image-resize'
 
 const props = defineProps<{ q: any; editing?: boolean }>()
 const emit = defineEmits<{
@@ -403,6 +404,7 @@ function cancelOptionAdvancedEdit() {
 function onTitleEditorReady(quill: any) {
   const toolbar = quill.getModule('toolbar')
   if (!toolbar || !toolbar.container) return
+  setupImageHandler(quill)
   const btn = document.createElement('button')
   btn.className = 'ql-advanced'
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
@@ -416,6 +418,7 @@ function onTitleEditorReady(quill: any) {
 function onOptionEditorReady(quill: any, idx: number) {
   const toolbar = quill.getModule('toolbar')
   if (!toolbar || !toolbar.container) return
+  setupImageHandler(quill)
   const btn = document.createElement('button')
   btn.className = 'ql-advanced'
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
@@ -457,6 +460,25 @@ function onFullEditorReady(quill: any) {
   const toolbar = quill.getModule('toolbar')
   if (!toolbar || !toolbar.container) return
   setupImageHandler(quill)
+
+  function addToolbarBtn(html: string, title: string, onClick: () => void) {
+    const b = document.createElement('button')
+    b.innerHTML = html
+    b.title = title
+    b.addEventListener('click', (e: MouseEvent) => { e.preventDefault(); onClick() })
+    toolbar.container.appendChild(b)
+    return b
+  }
+
+  addToolbarBtn(
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+    '撤销', () => quill.history.undo()
+  )
+  addToolbarBtn(
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+    '恢复', () => quill.history.redo()
+  )
+
   const btn = document.createElement('button')
   btn.className = 'ql-fullscreen'
   let fs = false
@@ -528,8 +550,10 @@ const titleEditorOptions = {
       ['bold', 'italic', 'underline', 'strike'],
       [{ color: [] }, { background: [] }],
       [{ list: 'ordered' }, { list: 'bullet' }],
+      ['link', 'image'],
       ['clean']
-    ]
+    ],
+    imageResize: {}
   }
 }
 const fullTitleEditorOptions = {
@@ -545,7 +569,8 @@ const fullTitleEditorOptions = {
       ['blockquote', 'code-block'],
       ['link', 'image'],
       ['clean']
-    ]
+    ],
+    imageResize: {}
   }
 }
 const optionEditorOptions = {
@@ -554,14 +579,35 @@ const optionEditorOptions = {
     toolbar: [
       ['bold', 'italic', 'underline', 'strike'],
       [{ color: [] }, { background: [] }],
+      ['link', 'image'],
       ['clean']
-    ]
+    ],
+    imageResize: {}
   }
 }
 function onOptionFullEditorReady(quill: any) {
   const toolbar = quill.getModule('toolbar')
   if (!toolbar || !toolbar.container) return
   setupImageHandler(quill)
+
+  function addToolbarBtn(html: string, title: string, onClick: () => void) {
+    const b = document.createElement('button')
+    b.innerHTML = html
+    b.title = title
+    b.addEventListener('click', (e: MouseEvent) => { e.preventDefault(); onClick() })
+    toolbar.container.appendChild(b)
+    return b
+  }
+
+  addToolbarBtn(
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+    '撤销', () => quill.history.undo()
+  )
+  addToolbarBtn(
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+    '恢复', () => quill.history.redo()
+  )
+
   const btn = document.createElement('button')
   btn.className = 'ql-fullscreen'
   let fs = false
@@ -1040,6 +1086,16 @@ function optionGrid(q: any) {
   align-items: flex-start;
   text-align: left;
 }
+.preview-options :deep(.el-radio),
+.preview-options :deep(.el-checkbox) { height:auto; min-height:0; padding:4px 0; }
+.preview-options :deep(.el-radio__label),
+.preview-options :deep(.el-checkbox__label) { display:inline-block; vertical-align:middle; overflow:hidden; }
+.preview-options :deep(.el-radio__label) img,
+.preview-options :deep(.el-checkbox__label) img { max-width:100%; height:auto; display:block; }
+.preview-options :deep(.el-radio__label) p,
+.preview-options :deep(.el-checkbox__label) p,
+.preview-options :deep(.el-radio__label) div,
+.preview-options :deep(.el-checkbox__label) div { margin:0; }
 .preview-plain {
   font-size: 13px;
   color: #606266;

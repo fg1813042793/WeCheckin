@@ -114,9 +114,10 @@ export default {
     }
   },
 
-  onLoad() {
-    this.checkAuth()
-  },
+  // onLoad 已注释，onShow 已覆盖
+  // onLoad() {
+  //   this.checkAuth()
+  // },
 
   onShow() {
     if (!this.adminInfo) {

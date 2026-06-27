@@ -431,7 +431,19 @@ func (h *AdminSurveyHandler) Statistic(_ context.Context, c *app.RequestContext)
 	for i, r := range allResp {
 		items[i] = report.AnswerItem{Forms: r.Answers}
 	}
-	fieldStats := report.FieldStats(sv.Schema, items)
+	// 从 settings 读取统计模式
+	statMode := "count"
+	if sv.Settings != "" {
+		var settings map[string]interface{}
+		if err := json.Unmarshal([]byte(sv.Settings), &settings); err == nil {
+			if rc, ok := settings["resultConfig"].(map[string]interface{}); ok {
+				if st, ok := rc["statType"].(string); ok && st != "" {
+					statMode = st
+				}
+			}
+		}
+	}
+	fieldStats := report.FieldStats(sv.Schema, items, statMode)
 
 	response.JSON(c, map[string]interface{}{
 		"survey":      sv,

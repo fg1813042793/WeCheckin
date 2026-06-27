@@ -73,10 +73,20 @@ const del = (url, data = {}) => {
   return request({ url, method: 'DELETE', data })
 }
 
+const postJSON = (url, data = {}) => {
+  return request({
+    url,
+    method: 'POST',
+    data: JSON.stringify(data),
+    header: { 'Content-Type': 'application/json' }
+  })
+}
+
 export {
   request,
   get,
   post,
+  postJSON,
   put,
   del,
   BASE_URL

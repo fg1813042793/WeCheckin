@@ -1,7 +1,6 @@
 package builtin
 
 import (
-	"strconv"
 	"strings"
 
 	"wecheckin-backend/backend/internal/app/formkit/question"
@@ -23,25 +22,22 @@ func (q *LocationQuestion) Validate(value interface{}, sch schema.Question) erro
 		}
 		return nil
 	}
-	// 兼容 "lat,lng" 字符串格式
+	// 字符串格式：接受任意非空字符串（"lat,lng" 或 "地址 (lat,lng)" 或人工输入纯地址）
 	if s, ok := value.(string); ok {
-		parts := strings.Split(s, ",")
-		if len(parts) == 2 {
-			_, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
-			_, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
-			if err1 == nil && err2 == nil {
-				return nil
-			}
+		if strings.TrimSpace(s) == "" {
+			return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请获取位置"}
 		}
-		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置格式不合法，应为 lat,lng"}
+		return nil
 	}
 	m, ok := value.(map[string]interface{})
 	if !ok {
-		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置题答案必须为对象或 lat,lng"}
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置题答案必须为字符串或对象"}
 	}
 	addr, _ := m["address"].(string)
-	if addr == "" {
-		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请获取位置（地址为空）"}
+	lat, _ := m["lat"].(string)
+	lng, _ := m["lng"].(string)
+	if addr == "" && lat == "" && lng == "" {
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请获取位置"}
 	}
 	return nil
 }

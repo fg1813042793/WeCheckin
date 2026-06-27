@@ -1,0 +1,787 @@
+<template>
+  <div
+    class="survey pc"
+    :style="bgStyle"
+  >
+    <div v-if="settings.progressBar" class="survey-progress">
+      <div class="survey-progress-inner">
+        <div class="survey-progress-track">
+          <div class="survey-progress-fill" :style="{ width: progressPct + '%' }" />
+        </div>
+        <span class="survey-progress-label">{{ answeredCount }}/{{ totalQuestions }}</span>
+      </div>
+    </div>
+
+    <div v-if="loading" class="survey-loading">
+      <div class="spinner">
+        <div v-for="i in 5" :key="i" :class="'rect' + i" />
+      </div>
+    </div>
+
+    <div v-else-if="showLogin" class="survey-login">
+      <div class="survey-card survey-card--narrow">
+        <div class="survey-login-header">
+          <h2 class="survey-login-title">登录后填写问卷</h2>
+          <p class="survey-login-desc" v-if="survey?.title">{{ survey.title }}</p>
+        </div>
+        <el-form label-position="top" @submit.prevent="doLogin">
+          <el-form-item label="账号">
+            <el-input v-model="loginForm.name" placeholder="用户名 / 手机号" @keyup.enter="doLogin" />
+          </el-form-item>
+          <el-form-item label="密码">
+            <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password @keyup.enter="doLogin" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" class="survey-btn--primary" :loading="loginLoading" @click="doLogin" style="width:100%">登录</el-button>
+          </el-form-item>
+        </el-form>
+        <div class="survey-login-footer">
+          <span>还没有账号？</span>
+          <a :href="`/login`" target="_blank" class="survey-login-link">去注册</a>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="error" class="survey-error">{{ error }}</div>
+
+    <!-- 提交成功页 -->
+    <div v-else-if="submitted" class="survey-end">
+      <div class="survey-end-content">
+        <h3 class="survey-end-title">{{ endContent ? '' : '已提交，感谢填写' }}</h3>
+        <div v-if="endContent" class="survey-end-desc" v-html="endContent" />
+        <div class="survey-end-result">
+          <div v-if="settings.redirectUrl" class="survey-end-result-copy">
+            <el-button type="primary" class="survey-btn--primary" @click="window.location.href = settings.redirectUrl">查看结果</el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 问卷填写 -->
+    <div v-else-if="survey" class="survey-card">
+      <div v-if="settings.headerImages?.length" class="survey-card-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
+      <div class="survey-header">
+        <h1 class="survey-title">{{ survey.title }}</h1>
+        <p v-if="survey.description" class="survey-desc">{{ survey.description }}</p>
+        <div class="survey-meta">
+          <span v-if="survey.anonymous === 1" class="survey-tag survey-tag--anon">匿名收集</span>
+          <span v-if="survey.showResult === 1" class="survey-tag survey-tag--result">提交后查看结果</span>
+          <span class="survey-tag">{{ totalQuestions }} 道题</span>
+          <span v-if="remaining > 0" class="survey-tag" :class="remaining < 60000 ? 'survey-tag--danger' : 'survey-tag--warn'">⏱ {{ formatRemaining(remaining) }}</span>
+        </div>
+      </div>
+
+      <el-form ref="formRef" :model="answers" label-position="top" class="survey-form">
+        <template v-if="settings.onePageOneQuestion && currentQuestion">
+          <div class="survey-form-scroll" @touchstart="onSwipeStart" @touchend="onSwipeEnd">
+            <QuestionField
+              :q="currentQuestion"
+              :index="currentNavIndex"
+              :answers="answers"
+              :settings="settings"
+              :file-lists="fileLists"
+              :file-inputs="fileInputs"
+              :sig-canvas-map="sigCanvasMap"
+              @update:answers="answers = $event"
+              @trigger-file="triggerFileInput"
+              @remove-file="removeFile"
+              @pick-location="pickLocation"
+              @sig-start="sigStart"
+              @sig-move="sigMove"
+              @sig-end="sigEnd"
+              @sig-touch-start="sigTouchStart"
+              @sig-touch-move="sigTouchMove"
+              @clear-signature="clearSignature"
+              @add-matrix-row="addMatrixAutoRow"
+              @remove-matrix-row="removeMatrixAutoRow"
+            />
+          </div>
+          <div class="survey-nav">
+            <el-button :disabled="currentNavIndex <= 0" @click="goPrev">上一题</el-button>
+            <span class="survey-nav-index">{{ currentNavIndex + 1 }} / {{ navQuestions.length }}</span>
+            <el-button v-if="!isLast" type="primary" class="survey-btn--primary" @click="goNext">下一题</el-button>
+            <el-button v-else type="primary" class="survey-btn--primary" size="large" :loading="submitting" @click="onSubmit">提交</el-button>
+          </div>
+        </template>
+
+        <template v-else>
+          <QuestionField
+            v-for="(q, i) in questions"
+            :key="q.id"
+            :q="q"
+            :index="questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length"
+            :answers="answers"
+            :settings="settings"
+            :file-lists="fileLists"
+            :file-inputs="fileInputs"
+            :sig-canvas-map="sigCanvasMap"
+            @update:answers="answers = $event"
+            @trigger-file="triggerFileInput"
+            @remove-file="removeFile"
+            @pick-location="pickLocation"
+            @sig-start="sigStart"
+            @sig-move="sigMove"
+            @sig-end="sigEnd"
+            @sig-touch-start="sigTouchStart"
+            @sig-touch-move="sigTouchMove"
+            @clear-signature="clearSignature"
+            @add-matrix-row="addMatrixAutoRow"
+            @remove-matrix-row="removeMatrixAutoRow"
+          />
+          <div class="survey-footer">
+            <el-button type="primary" class="survey-btn--primary" size="large" :loading="submitting" @click="onSubmit">提交</el-button>
+          </div>
+        </template>
+      </el-form>
+    </div>
+
+    <!-- 答题卡 -->
+    <div v-if="settings.answerSheetVisible && !loading && survey && sheetVisible" class="survey-sheet" :style="sheetStyle">
+      <div class="survey-sheet-header" @mousedown.prevent="onSheetDragStart">
+        <span>≡ 答题卡</span>
+        <span class="survey-sheet-close" @click.stop="sheetVisible = false">✕</span>
+      </div>
+      <div class="survey-sheet-grid">
+        <div
+          v-for="(q, i) in realQuestions" :key="q.id"
+          class="survey-sheet-item"
+          :class="{
+            'survey-sheet-item--done': isAnswered(q, answers[q.id]),
+            'survey-sheet-item--cur': settings.onePageOneQuestion && q === currentQuestion
+          }"
+          @click="jumpToQuestion(q)"
+        >{{ i + 1 }}</div>
+      </div>
+      <div class="survey-sheet-stat">{{ answeredCount }}/{{ totalQuestions }}</div>
+    </div>
+    <div v-if="settings.answerSheetVisible && !loading && survey && !sheetVisible" class="survey-sheet-toggle" @click="sheetVisible = true">≡ {{ answeredCount }}/{{ totalQuestions }}</div>
+
+    <el-dialog v-if="showScanner" v-model="showScanner" title="扫码" width="400px" :close-on-click-modal="false" destroy-on-close @opened="onScannerOpen" @close="onScannerClose">
+      <div ref="scannerRef" style="width:100%;aspect-ratio:1;overflow:hidden;background:#000;border-radius:8px" />
+      <template #footer><el-button @click="showScanner = false">取消</el-button></template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Html5Qrcode } from 'html5-qrcode'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import QuestionField from './components/QuestionField.vue'
+
+const route = useRoute()
+const survey = ref<any>(null)
+const settings = ref<any>({})
+const questions = ref<any[]>([])
+const answers = ref<any>({})
+const loading = ref(true)
+const error = ref('')
+const submitting = ref(false)
+const session = ref('')
+const submitted = ref(false)
+const endContent = ref('')
+const showLogin = ref(false)
+const loginLoading = ref(false)
+const loginForm = reactive({ name: '', password: '' })
+const showScanner = ref(false)
+const scannerRef = ref<HTMLDivElement>()
+const formRef = ref<any>()
+function getDeviceId() {
+  const key = '_device_id'
+  let id = localStorage.getItem(key)
+  if (!id) {
+    try { id = crypto.randomUUID() } catch {}
+    if (!id) id = 'd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10)
+    localStorage.setItem(key, id)
+  }
+  return id
+}
+let scanner: Html5Qrcode | null = null
+
+const fileLists: Record<string, File[]> = reactive({})
+const fileInputs: Record<string, HTMLInputElement> = {}
+const sigCanvasMap: Record<string, HTMLCanvasElement> = {}
+const sigDrawing = ref(false)
+const sigCurId = ref('')
+const startAt = ref(0)
+const remaining = ref(0)
+const currentIndex = ref(0)
+const sheetVisible = ref(true)
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+let draftTimer: ReturnType<typeof setTimeout> | null = null
+let userDeptId = 0
+
+const bgStyle = computed(() => {
+  const s: Record<string, string> = { backgroundColor: 'rgb(28, 144, 153)' }
+  const imgs = settings.value.backgroundImages
+  if (imgs?.length) {
+    const img = typeof imgs[0] === 'string' ? imgs[0] : imgs[0]?.url
+    if (img) {
+      s.backgroundImage = `url(${img})`
+      s.backgroundSize = 'cover'
+      s.backgroundPosition = 'center'
+    }
+  }
+  return s
+})
+
+const LAYOUT_TYPES = ['description', 'divider', 'pagination']
+const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
+const totalQuestions = computed(() => realQuestions.value.length)
+const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
+const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
+const navQuestions = computed(() => realQuestions.value)
+const currentNavIndex = computed(() => { const q = questions.value[currentIndex.value]; return q ? navQuestions.value.indexOf(q) : -1 })
+const isLast = computed(() => currentIndex.value >= questions.value.length - 1)
+const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
+
+const AUTO_SAVE_KEY = 'survey_draft_'
+function getDraftKey() { return AUTO_SAVE_KEY + route.params.id }
+function saveDraft() {
+  if (!settings.value.autoSave) return
+  try { localStorage.setItem(getDraftKey(), JSON.stringify({ answers: answers.value, updatedAt: Date.now() })) } catch {}
+}
+function loadDraft() {
+  if (!settings.value.autoSave) return null
+  try { const raw = localStorage.getItem(getDraftKey()); return raw ? JSON.parse(raw) : null } catch { return null }
+}
+function clearDraft() { localStorage.removeItem(getDraftKey()) }
+function scheduleDraft() { if (draftTimer) clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 2000) }
+
+function goNext() { if (currentIndex.value < questions.value.length - 1) currentIndex.value++ }
+function goPrev() { if (currentIndex.value > 0) currentIndex.value-- }
+
+const swipeStartX = ref(0)
+const swipeStartY = ref(0)
+function onSwipeStart(e: TouchEvent) { swipeStartX.value = e.touches[0].clientX; swipeStartY.value = e.touches[0].clientY }
+function onSwipeEnd(e: TouchEvent) {
+  if (sigDrawing.value) return
+  const dx = e.changedTouches[0].clientX - swipeStartX.value
+  const dy = e.changedTouches[0].clientY - swipeStartY.value
+  if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    dx > 0 ? goPrev() : goNext()
+  }
+}
+
+function jumpToQuestion(q: any) {
+  const idx = questions.value.indexOf(q)
+  if (idx < 0) return
+  if (settings.value.onePageOneQuestion) { currentIndex.value = idx }
+  else { const el = document.querySelector(`[data-qid="${q.id}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+}
+
+// 答题卡拖拽
+const sheetX = ref(0)
+const sheetY = ref(0)
+const sheetDragging = ref(false)
+const sheetDragStartX = ref(0)
+const sheetDragStartY = ref(0)
+const sheetOrigX = ref(0)
+const sheetOrigY = ref(0)
+const sheetStyle = computed(() => {
+  const s: Record<string, string> = {}
+  if (sheetX.value || sheetY.value) s.transform = `translate(calc(-50% + ${sheetX.value}px), calc(-50% + ${sheetY.value}px))`
+  if (sheetDragging.value) s.cursor = 'grabbing'
+  return s
+})
+function onSheetDragStart(e: MouseEvent) {
+  sheetDragging.value = true
+  sheetDragStartX.value = e.clientX
+  sheetDragStartY.value = e.clientY
+  sheetOrigX.value = sheetX.value
+  sheetOrigY.value = sheetY.value
+  document.addEventListener('mousemove', onSheetDragMove)
+  document.addEventListener('mouseup', onSheetDragEnd)
+}
+function onSheetDragMove(e: MouseEvent) {
+  if (!sheetDragging.value) return
+  sheetX.value = sheetOrigX.value + e.clientX - sheetDragStartX.value
+  sheetY.value = sheetOrigY.value + e.clientY - sheetDragStartY.value
+}
+function onSheetDragEnd() {
+  sheetDragging.value = false
+  document.removeEventListener('mousemove', onSheetDragMove)
+  document.removeEventListener('mouseup', onSheetDragEnd)
+}
+
+function isAnswered(q: any, val: any): boolean {
+  const type = q.type
+  if (val === undefined || val === null) return false
+  if (['checkbox', 'file'].includes(type)) return Array.isArray(val) && val.length > 0
+  if (['rating', 'nps'].includes(type)) return val > 0
+  if (['multiInput', 'hInput'].includes(type)) return Array.isArray(val) && val.some((v: any) => !!v)
+  if (type === 'matrixRadio') return Object.keys(val).length > 0
+  if (type === 'matrixCheckbox') return Object.values(val).some((v: any) => Array.isArray(v) && v.length > 0)
+  if (type === 'matrixFillBlank') return Object.values(val).some((v: any) => !!v)
+  if (type === 'matrixAuto') return Array.isArray(val) && val.some((row: any) => row.some((v: any) => !!v))
+  if (type === 'dateRange') return Array.isArray(val) && val.some((v: any) => !!v)
+  if (type === 'switch') return val === true
+  if (type === 'cascade') return Array.isArray(val) && val.length > 0
+  if (['user', 'dept'].includes(type)) return q.multiple ? (Array.isArray(val) && val.length > 0) : !!val
+  if (type === 'picker') return !!val
+  return !!val
+}
+
+function optionGrid(q: any) {
+  const cols = q.optionLayout
+  if (!cols || cols <= 1) return {}
+  return { display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }
+}
+
+function getInitVal(q: any): any {
+  const type = q.type
+  if (type === 'checkbox') return []
+  if (type === 'switch') return false
+  if (type === 'number') return undefined
+  if (type === 'rating') return 0
+  if (type === 'nps') return 0
+  if (type === 'dateRange') return ['', '']
+  if (['matrixRadio', 'matrixCheckbox', 'matrixFillBlank'].includes(type)) return {}
+  if (type === 'matrixAuto') return []
+  if (['multiInput', 'hInput'].includes(type)) return Array((q.props?.fields || []).length).fill('')
+  if (['user', 'dept'].includes(type)) return q.multiple ? [] : ''
+  if (['cascade'].includes(type)) return []
+  if (type === 'picker') return ''
+  if (type === 'file') return []
+  return ''
+}
+
+function buildUserDeptTree(q: any) {
+  const opts = q.props?.options || []
+  if (q.type === 'user') {
+    const deptMap: Record<string, any> = {}
+    opts.forEach((o: any) => {
+      const deptId = o.deptId || ''
+      if (!deptMap[deptId]) deptMap[deptId] = { value: '__d__' + deptId, label: o.deptName || deptId || '未分组', children: [] }
+      deptMap[deptId].children.push({ value: o.value, label: o.label || '成员' })
+    })
+    return Object.values(deptMap)
+  }
+  const map: Record<string, any> = {}
+  opts.forEach((o: any) => { map[o.value] = { ...o, children: [] } })
+  const roots: any[] = []
+  opts.forEach((o: any) => {
+    if (o.parentId && map[o.parentId]) map[o.parentId].children.push(map[o.value])
+    else roots.push(map[o.value])
+  })
+  return roots
+}
+
+function addMatrixAutoRow(qid: string) {
+  const q = questions.value.find((x: any) => x.id === qid)
+  if (!q) return
+  const cols = q.props?.columns?.length || 0
+  if (!answers.value[qid]) answers.value[qid] = []
+  answers.value[qid].push(Array(cols).fill(''))
+}
+function removeMatrixAutoRow(qid: string, ri: number) { if (answers.value[qid]) answers.value[qid].splice(ri, 1) }
+
+function triggerFileInput(qid: string) { fileInputs[qid]?.click() }
+function onFileInput(qid: string, e: Event) {
+  const input = e.target as HTMLInputElement
+  if (!input.files?.length) return
+  if (!fileLists[qid]) fileLists[qid] = []
+  for (const f of input.files) fileLists[qid].push(f)
+  input.value = ''
+  answers.value[qid] = fileLists[qid].map(f => f.name)
+}
+function removeFile(qid: string, idx: number) {
+  if (fileLists[qid]) fileLists[qid].splice(idx, 1)
+  answers.value[qid] = fileLists[qid]?.length ? fileLists[qid].map(f => f.name) : ''
+}
+function pickLocation(qid: string) {
+  if (!navigator.geolocation) { ElMessage.warning('浏览器不支持定位'); return }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { answers.value[qid] = `${pos.coords.latitude},${pos.coords.longitude}` },
+    () => { ElMessage.warning('定位失败，请检查权限设置') },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
+
+function initSigCanvas(id: string) {
+  const c = sigCanvasMap[id]
+  if (!c) return
+  if (c.offsetWidth && c.offsetWidth !== c.width) c.setAttribute('width', String(c.offsetWidth))
+  if (c.offsetHeight && c.offsetHeight !== c.height) c.setAttribute('height', String(c.offsetHeight))
+  const ctx = c.getContext('2d')
+  if (ctx) { ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.lineCap = 'round' }
+}
+function sigPos(e: MouseEvent | Touch, c: HTMLCanvasElement) {
+  const rect = c.getBoundingClientRect()
+  return { x: (e.clientX - rect.left) * (c.width / rect.width), y: (e.clientY - rect.top) * (c.height / rect.height) }
+}
+function sigStart(e: MouseEvent | Touch, id: string) {
+  const c = sigCanvasMap[id]; if (!c) return
+  const p = sigPos(e, c); sigCurId.value = id; sigDrawing.value = true
+  const ctx = c.getContext('2d'); if (ctx) { ctx.beginPath(); ctx.moveTo(p.x, p.y) }
+}
+function sigMove(e: MouseEvent | Touch, id: string) {
+  if (!sigDrawing.value || sigCurId.value !== id) return
+  const c = sigCanvasMap[id]; if (!c) return
+  const p = sigPos(e, c); const ctx = c.getContext('2d'); if (ctx) { ctx.lineTo(p.x, p.y); ctx.stroke() }
+}
+function sigEnd() {
+  sigDrawing.value = false
+  const id = sigCurId.value; sigCurId.value = ''
+  if (!id) return; const c = sigCanvasMap[id]; if (!c) return
+  answers.value[id] = c.toDataURL()
+}
+function sigTouchStart(e: TouchEvent, id: string) { if (e.touches[0]) sigStart(e.touches[0], id) }
+function sigTouchMove(e: TouchEvent, id: string) { if (e.touches[0]) sigMove(e.touches[0], id) }
+function clearSignature(id: string) {
+  const c = sigCanvasMap[id]; if (!c) return
+  const ctx = c.getContext('2d'); if (ctx) ctx.clearRect(0, 0, c.width, c.height)
+  answers.value[id] = ''
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+
+async function doLogin() {
+  loginLoading.value = true
+  try {
+    const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
+    if (res.code === 0) {
+      localStorage.setItem('user_token', res.data.token)
+      userDeptId = res.data.userInfo?.deptId || 0
+      showLogin.value = false; loading.value = true; load()
+    } else { ElMessage.error(res.msg || '登录失败') }
+  } catch { ElMessage.error('登录失败') }
+  finally { loginLoading.value = false }
+}
+
+async function apiGet(path: string) {
+  const token = localStorage.getItem('user_token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = token
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  return res.json()
+}
+async function apiPost(path: string, data: any) {
+  const token = localStorage.getItem('user_token')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = token
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: JSON.stringify(data), headers })
+  return res.json()
+}
+
+async function load() {
+  const id = route.params.id
+  if (!id) { error.value = '参数错误'; loading.value = false; return }
+  session.value = localStorage.getItem('survey_session_' + id) || ''
+  try {
+    const res = await apiGet(`/survey/view?id=${id}&session=${session.value}`)
+    if (res.code !== 0) {
+      if (res.msg === '请先登录') { showLogin.value = true; loading.value = false; return }
+      error.value = res.msg || '加载失败'; loading.value = false; return
+    }
+    survey.value = res.data
+    if (res.data?.settings && typeof res.data.settings === 'string') {
+      try { settings.value = JSON.parse(res.data.settings) } catch { settings.value = {} }
+    } else { settings.value = res.data?.settings || {} }
+    if (res.data?.session) { session.value = res.data.session; localStorage.setItem('survey_session_' + id, session.value) }
+    if (res.data?.startAt) startAt.value = res.data.startAt
+    if (settings.value.loginRequired || Number(survey.value?.visibility) === 1 || Number(survey.value?.visibility) === 2) {
+      const token = localStorage.getItem('user_token')
+      if (!token) { showLogin.value = true; loading.value = false; return }
+      if (survey.value?.visibility === 2) {
+        const deptIds = (survey.value.deptIds || '').split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n))
+        if (deptIds.length && !deptIds.includes(userDeptId)) { error.value = '您不在该问卷的可见部门中'; loading.value = false; return }
+      }
+    }
+    const raw = res.data?.schema
+    const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
+    questions.value = sch.questions || []
+    const init: any = {}
+    questions.value.forEach((q: any) => { init[q.id] = getInitVal(q) })
+    answers.value = init
+    const draft = loadDraft()
+    if (draft && draft.answers) {
+      for (const key of Object.keys(draft.answers)) { if (key in answers.value) answers.value[key] = draft.answers[key] }
+    }
+    await nextTick()
+    questions.value.filter((q: any) => q.type === 'signature').forEach((q: any) => initSigCanvas(q.id))
+  } catch { error.value = '加载失败' }
+  finally { loading.value = false }
+  startCountdown()
+}
+
+function formatRemaining(ms: number) {
+  if (ms <= 0) return '已超时'
+  const t = Math.ceil(ms / 1000)
+  return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`
+}
+function startCountdown() {
+  stopCountdown()
+  const limit = settings.value.timeLimit
+  if (!limit || limit <= 0 || !startAt.value) return
+  const tick = () => {
+    const left = limit * 60 * 1000 - (Date.now() - startAt.value)
+    remaining.value = Math.max(0, left)
+    if (left <= 0) { stopCountdown(); ElMessage.warning('作答时间已到，自动提交'); onSubmit(true) }
+  }
+  tick(); countdownTimer = setInterval(tick, 1000)
+}
+function stopCountdown() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null } }
+
+function handleSubmitSuccess(_data: any) {
+  const url = settings.value?.redirectUrl
+  const content = settings.value?.endContent
+  if (url) { window.location.href = url; return }
+  if (content) { endContent.value = content; submitted.value = true; return }
+  ElMessage.success('已提交'); survey.value = null; questions.value = []
+}
+
+async function onSubmit(skipConfirm = false) {
+  if (typeof skipConfirm !== 'boolean') skipConfirm = false
+  const id = Number(route.params.id)
+  if (!skipConfirm) {
+    try {
+      const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
+      if (vr.data && !vr.data.valid) { ElMessage.warning((vr.data.errors || []).map((e: any) => e.message).join('; ') || '请检查填写内容'); return }
+    } catch {}
+  }
+  if (skipConfirm) {
+    submitting.value = true
+    try {
+      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
+      if (res.code !== 0) { ElMessage.error(res.msg || '提交失败') }
+      else { stopCountdown(); clearDraft(); localStorage.removeItem('survey_session_' + id); handleSubmitSuccess(res.data) }
+    } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
+    finally { submitting.value = false }
+    return
+  }
+  ElMessageBox.confirm('确认提交？提交后不可修改', '提示', { type: 'info' }).then(async () => {
+    submitting.value = true
+    try {
+      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
+      if (res.code !== 0) { ElMessage.error(res.msg || '提交失败') }
+      else { stopCountdown(); clearDraft(); localStorage.removeItem('survey_session_' + id); handleSubmitSuccess(res.data) }
+    } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
+    finally { submitting.value = false }
+  }).catch(() => {})
+}
+
+onMounted(load)
+watch(answers, () => { scheduleDraft() }, { deep: true })
+watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
+watch(() => settings.value.timeLimit, () => { startCountdown() })
+onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); stopCountdown() })
+</script>
+
+<style scoped>
+/* === SurveyKing Desktop Fill Page === */
+.survey {
+  min-height: 100vh;
+  background-color: rgb(28, 144, 153);
+  padding: 48px 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-repeat: no-repeat;
+  background-position: top;
+  background-size: cover;
+  background-attachment: fixed;
+}
+.survey:has(.survey-progress) { padding-top: 72px; }
+
+/* === 进度条 === */
+.survey-progress {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 8px 24px;
+  animation: fadeInDown .3s ease;
+}
+.survey-progress-inner {
+  max-width: 720px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+}
+.survey-progress-track { flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden; }
+.survey-progress-fill { height: 100%; background: #3873f6; border-radius: 3px; transition: width .4s ease; }
+.survey-progress-label { font-size: 13px; color: #909399; white-space: nowrap; }
+
+/* === 卡片容器 === */
+.survey-card {
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  overflow: hidden;
+}
+.survey-card--narrow { width: 98%; }
+.survey-card-img { width: 100%; overflow: hidden; line-height: 0; }
+.survey-card-img img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
+
+/* === 头部 === */
+.survey-header { padding: 32px 36px 20px; border-bottom: 1px solid #f0f0f0; }
+.survey-title { font-size: 22px; font-weight: 600; color: #1a1a1a; margin: 0 0 6px; line-height: 1.4; }
+.survey-desc { font-size: 14px; color: #666; line-height: 1.6; margin: 0 0 14px; }
+.survey-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.survey-tag {
+  display: inline-block; padding: 1px 8px; border-radius: 3px;
+  font-size: 12px; line-height: 22px; background: #f0f2f5; color: #606266;
+}
+.survey-tag--anon { background: #e6f7ff; color: #1890ff; }
+.survey-tag--result { background: #f6ffed; color: #52c41a; }
+.survey-tag--warn { background: #fff7e6; color: #fa8c16; }
+.survey-tag--danger { background: #fff1f0; color: #f5222d; }
+
+/* === 表单 === */
+.survey-form { width: 100%; }
+
+/* === 题目 === */
+.survey-form-scroll { padding: 28px 36px; min-height: 600px; }
+
+/* === 导航 === */
+.survey-nav {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  padding: 16px 36px; border-top: 1px solid #f0f0f0;
+}
+.survey-nav-index { font-size: 13px; color: #909399; }
+
+/* === 尾部 === */
+.survey-footer { text-align: center; padding: 24px 0 32px; }
+
+/* === 按钮 === */
+.survey-btn--primary { background: #3873f6; border-color: #3873f6; }
+.survey-btn--primary:hover,
+.survey-btn--primary:focus { background: #2a5fd9; border-color: #2a5fd9; }
+
+/* === 登录 === */
+.survey-login { max-width: 720px; margin: 0 auto; }
+.survey-login-header { text-align: center; margin-bottom: 28px; }
+.survey-login-title { font-size: 20px; color: #333; font-weight: 600; margin: 0 0 8px; }
+.survey-login-desc { font-size: 14px; color: #909399; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.survey-login .el-form { width: 98%; margin: 0 auto; }
+.survey-login-footer { text-align: center; margin-top: 8px; font-size: 13px; color: #909399; }
+.survey-login-link { color: #3873f6; text-decoration: none; margin-left: 4px; }
+.survey-login-link:hover { text-decoration: underline; }
+
+/* === 错误 === */
+.survey-error { max-width: 720px; margin: 0 auto; padding: 100px 0; text-align: center; color: #909399; font-size: 16px; }
+
+/* === 加载 === */
+.survey-loading { display: flex; align-items: center; justify-content: center; padding: 120px 0; }
+.spinner { width: 50px; height: 40px; font-size: 10px; text-align: center; }
+.spinner > div {
+  display: inline-block; width: 6px; height: 100%;
+  background: #3873f6;
+  animation: sk-stretchdelay 1.2s infinite ease-in-out;
+}
+.spinner .rect2 { animation-delay: -1.1s; }
+.spinner .rect3 { animation-delay: -1s; }
+.spinner .rect4 { animation-delay: -.9s; }
+.spinner .rect5 { animation-delay: -.8s; }
+@keyframes sk-stretchdelay {
+  0%, 40%, 100% { transform: scaleY(.4); }
+  20% { transform: scaleY(1); }
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* === 提交成功 === */
+.survey-end {
+  position: absolute; top: 50%; left: 50%; z-index: 300;
+  width: 100%; max-width: 650px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  animation: fadeInUp .4s ease;
+}
+.survey-end-content {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  padding: 60px 40px;
+}
+.survey-end-title {
+  font-size: 22px; font-weight: 400; color: #333;
+  margin: 0 0 16px;
+}
+.survey-end-desc { font-size: 14px; color: #666; white-space: pre-wrap; word-break: break-word; }
+.survey-end-result { margin-top: 24px; }
+.survey-end-result-copy { margin-top: 8px; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translate(-50%, -30%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* === 答题卡 === */
+.survey-sheet {
+  position: fixed; right: 24px; top: 50%; z-index: 900;
+  width: 100px;
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.1);
+  padding: 10px 10px 8px;
+  display: flex; flex-direction: column;
+  user-select: none;
+  transform: translateY(-50%);
+}
+.survey-sheet-header {
+  font-size: 13px; font-weight: 600; color: #333;
+  text-align: center; margin-bottom: 8px; padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: grab;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.survey-sheet-close { display: none; cursor: pointer; color: #909399; font-size: 14px; line-height: 1; }
+.survey-sheet-close:hover { color: #333; }
+.survey-sheet-toggle {
+  display: none;
+  position: fixed; right: 0; top: 50%; z-index: 900;
+  transform: translateY(-50%);
+  background: #3873f6; color: #fff; font-size: 12px;
+  padding: 8px 6px; border-radius: 6px 0 0 6px;
+  cursor: pointer; line-height: 1.4; text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.survey-sheet-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 4px; overflow-y: auto; flex: 1;
+}
+.survey-sheet-item {
+  display: flex; align-items: center; justify-content: center;
+  height: 26px; border-radius: 4px; cursor: pointer;
+  font-size: 12px; color: #606266; background: #f5f6f8;
+  transition: all .15s;
+}
+.survey-sheet-item:hover { background: #e0e2e6; }
+.survey-sheet-item--done { background: #eef2ff; color: #3873f6; }
+.survey-sheet-item--cur { border: 2px solid #3873f6; font-weight: 600; }
+.survey-sheet-stat {
+  text-align: center; font-size: 12px; color: #909399;
+  padding-top: 6px; margin-top: 6px; border-top: 1px solid #f0f0f0;
+}
+
+/* === H5 响应式 === */
+@media (max-width: 768px) {
+  .survey.pc { padding: 0; background: #f5f6f8; }
+  .survey-card { border-radius: 0; box-shadow: none; min-height: 100vh; max-width: 100%; }
+  .survey-header { padding: 20px 16px 16px; }
+  .survey-title { font-size: 18px; }
+  .survey-form-scroll { padding: 8px 0; min-height: 280px; }
+  .survey-form { max-width: 100%; }
+  .survey-form :deep(.q-item) { padding-left: 12px; padding-right: 12px; }
+  .survey-form :deep(.q-item--layout) { padding-left: 12px; padding-right: 12px; }
+  .survey-form :deep(.el-form-item) { width: 100%; max-width: 100%; }
+  .survey-form :deep(.el-form-item__content) { width: 100%; max-width: 100%; }
+  .survey-form :deep(.el-input), .survey-form :deep(.el-select),
+  .survey-form :deep(.el-textarea), .survey-form :deep(.el-cascader),
+  .survey-form :deep(.el-rate), .survey-form :deep(.el-slider) { width: 100% !important; max-width: 100% !important; }
+  .survey-nav { padding: 12px 16px; gap: 8px; flex-wrap: wrap; }
+  .survey-sheet { right: 8px; width: 80px; }
+  .survey-sheet-close { display: block; }
+  .survey-sheet-toggle { display: block; }
+  .survey-end { max-width: 90%; }
+  .survey-end-content { padding: 40px 20px; }
+  .survey-login { max-width: 100%; padding: 0; margin-top: 0; display: flex; align-items: flex-start; }
+  .survey-login .survey-card--narrow { width: 100%; }
+  .survey-login-header { margin-bottom: 12px; padding-top: 8px; }
+  .survey-login-title { font-size: 17px; }
+  .survey-login .el-form-item { margin-bottom: 12px; }
+  .survey-login-footer { margin-top: 0; }
+}
+</style>

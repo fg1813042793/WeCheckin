@@ -67,7 +67,8 @@ export default {
     }
   },
   onLoad() {
-    this.loadData()
+    // onLoad 中 loadData() 已注释，onShow 已覆盖
+    // this.loadData()
     const sys = uni.getSystemInfoSync()
     if (sys.platform === 'android') {
       this.fixedTop = '12rpx'
@@ -78,6 +79,7 @@ export default {
       this.containerPad = (navOffset + 6 + Math.round(180 / 750 * sys.windowWidth)) + 'px'
     }
   },
+
   onShow() {
     const typeFilter = uni.getStorageSync('eventTypeFilter')
     if (typeFilter) {

@@ -225,7 +225,7 @@ export default {
         uni.navigateTo({ url: '/pages/login/login' })
         return
       }
-      uni.navigateTo({ url: '/pages/survey/exam/exam_index' })
+      uni.navigateTo({ url: '/pages/exam/index' })
     },
 
     goSurvey() {

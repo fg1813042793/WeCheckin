@@ -217,34 +217,30 @@ export default {
 
     getLocation(fi) {
       const field = this.formFields[fi]
-      uni.getLocation({
-        type: 'gcj02',
-        isHighAccuracy: true,
-        success: (res) => {
-          field.value = {
-            enabled: true,
-            addr: res.latitude.toFixed(6) + ', ' + res.longitude.toFixed(6),
-            lat: res.latitude,
-            lng: res.longitude
-          }
-        },
-        fail: () => {
+      const setPos = (lat, lng) => {
+        field.value = { enabled: true, addr: lat.toFixed(6) + ', ' + lng.toFixed(6), lat, lng }
+      }
+      const fail = () => {
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              field.value = {
-                enabled: true,
-                addr: pos.coords.latitude.toFixed(6) + ', ' + pos.coords.longitude.toFixed(6),
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude
-              }
-            },
-            () => {
-              uni.showToast({ title: '获取位置失败，请检查定位权限', icon: 'none' })
-              field.value = { enabled: false, addr: '', lat: 0, lng: 0 }
-            }
+            (pos) => setPos(pos.coords.latitude, pos.coords.longitude),
+            () => { uni.showToast({ title: '获取位置失败，请检查定位权限', icon: 'none' }); field.value = { enabled: false, addr: '', lat: 0, lng: 0 } }
           )
+        } else {
+          uni.showToast({ title: '定位失败，请检查定位权限', icon: 'none' })
+          field.value = { enabled: false, addr: '', lat: 0, lng: 0 }
         }
-      })
+      }
+      try {
+        uni.getLocation({
+          type: 'gcj02',
+          isHighAccuracy: false,
+          success: (res) => setPos(res.latitude, res.longitude),
+          fail: () => fail()
+        })
+      } catch (e) {
+        fail()
+      }
     },
 
     async handleSubmit() {

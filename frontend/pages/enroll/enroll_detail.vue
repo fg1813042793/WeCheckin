@@ -89,7 +89,7 @@
                 </view>
                 <view class="timeline-forms" v-if="u.formsArr && u.formsArr.length > 0">
                   <template v-for="(f, fi) in u.formsArr" :key="fi">
-                    <view v-if="!isImgField(f)" class="form-row">
+                    <view v-if="!isImgField(f) && !isLocationField(f)" class="form-row">
                       <text class="form-label">{{ f.label }}：</text>
                       <text class="form-value">{{ f.value }}</text>
                     </view>
@@ -256,12 +256,14 @@ export default {
         console.error('加载打卡动态失败', e)
       }
     },
-
+	isLocationField(f){
+		if (f.type === 'location') return true
+	},
     isImgField(f) {
       if (f.type === 'image') return true
       if (f.locField) return true
       const label = (f.label || '').toLowerCase()
-      const val = (f.value || '')
+      const val = typeof f.value === 'string' ? f.value : ''
       if (label === '位置' || label.includes('纬度') || label.includes('经度')) return true
       return val.startsWith('http') && (label.includes('图') || label.includes('照片') || label.includes('img') || label.includes('pic') || label.includes('image'))
     },
@@ -285,10 +287,16 @@ export default {
 
     getLocation(formsArr) {
       if (!formsArr) return ''
-      const addr = formsArr.find(f => f.locField === '地址')
-      if (addr) return addr.value
-      const f = formsArr.find(f => f.label === '位置')
-      return f ? f.value : ''
+      //const addr = formsArr.find(f => f.locField === '地址')
+      //if (addr) return addr.value
+      //const f = formsArr.find(f => f.label === '位置')
+      //return f ? f.value : ''
+	  const addr = formsArr.find(f => f.type === 'location')
+	  console.log(addr)
+	  if (addr){
+		  if (addr.value.addr){return addr.value.addr}
+		  if (addr.value.lat && addr.value.lng){return addr.value.lat+","+addr.value.lng}
+	  }
     },
 
     formatTimestamp(ts) {

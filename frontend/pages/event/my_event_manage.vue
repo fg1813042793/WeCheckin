@@ -64,17 +64,19 @@ export default {
     }
   },
   onLoad() {
-    this.loadData()
+    // onLoad 中 loadData() 已注释，onShow 已覆盖
+    // this.loadData()
     const sys = uni.getSystemInfoSync()
     if (sys.platform === 'android') {
-      this.fixedTop = '12rpx'
+      this.fixedTop = '0px'
       this.containerPad = '192rpx'
     } else {
       const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = (navOffset + 6) + 'px'
-      this.containerPad = (navOffset + 6 + Math.round(180 / 750 * sys.windowWidth)) + 'px'
+      this.fixedTop = navOffset + 'px'
+      this.containerPad = (navOffset + Math.round(180 / 750 * sys.windowWidth)) + 'px'
     }
   },
+
   onShow() {
     this.page = 1
     this.hasMore = true

@@ -107,7 +107,7 @@ function convertOneSK(sk: any): any {
       const letter = i < 26 ? String.fromCharCode(65 + i) : `opt${i + 1}`
       return {
         label: c.title || '',
-        value: c.value || letter,
+        value: c.value || c.id || letter,
         quota: c.attribute?.quota,
       }
     })
@@ -119,7 +119,7 @@ function convertOneSK(sk: any): any {
     wc.dataType = child0.attribute?.dataType || ''
     wc.props.options = sk.children.map((c: any, i: number) => ({
       label: c.title || '',
-      value: c.value || (i < 26 ? String.fromCharCode(65 + i) : `opt${i + 1}`),
+      value: c.value || c.id || (i < 26 ? String.fromCharCode(65 + i) : `opt${i + 1}`),
       required: !!c.attribute?.required,
       readOnly: !!c.attribute?.readOnly,
       calculate: c.attribute?.calculate || '',
@@ -137,7 +137,7 @@ function convertOneSK(sk: any): any {
   if (['textarea', 'signature', 'scanCode', 'file'].includes(wcType) && Array.isArray(sk.children)) {
     wc.props.options = sk.children.map((c: any, i: number) => ({
       label: c.title || `字段${i + 1}`,
-      value: c.value || (i < 26 ? String.fromCharCode(65 + i) : `opt${i + 1}`),
+      value: c.value || c.id || (i < 26 ? String.fromCharCode(65 + i) : `opt${i + 1}`),
       required: !!c.attribute?.required,
       readOnly: !!c.attribute?.readOnly,
       calculate: c.attribute?.calculate || '',
@@ -261,6 +261,7 @@ function convertOneWC(wc: any): any {
     sk.children = wc.props.options.map((o: any) => ({
       title: o.label || '',
       id: o.value || shortId(),
+      value: o.value || '',
     }))
   }
 
@@ -269,6 +270,7 @@ function convertOneWC(wc: any): any {
     sk.children = wc.props.options.map((o: any) => ({
       id: o.value || shortId(),
       title: o.label || '',
+      value: o.value || '',
       attribute: {
         dataType: o.dataType || wc.dataType || '',
         required: !!o.required,
@@ -296,6 +298,7 @@ function convertOneWC(wc: any): any {
       ? wc.props.options.map((o: any) => ({
           id: o.value || shortId(),
           title: o.label || '',
+          value: o.value || '',
           attribute: {
             required: !!o.required,
             readOnly: !!o.readOnly,

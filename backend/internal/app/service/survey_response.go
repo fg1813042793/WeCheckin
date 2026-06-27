@@ -30,7 +30,7 @@ func NewResponseService() *ResponseService {
 //   - 应用计算值
 //   - 应用显隐逻辑
 //   - 持久化
-func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, startTime int64, answers map[string]interface{}, ip, device string) (*model.SurveyResponse, error) {
+func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, startTime int64, answers map[string]interface{}, ip, device string, autoSubmit bool, deviceId string) (*model.SurveyResponse, error) {
 	sv, err := r.Survey.Get(surveyID)
 	if err != nil {
 		logger.Logger.Printf("[Submit] 问卷不存在 surveyId=%d", surveyID)
@@ -72,13 +72,13 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 			}
 		}
 	}
-	if deviceLimit > 0 && device != "" {
+	if deviceLimit > 0 && deviceId != "" {
 		var devCnt int64
 		database.DB.Model(&model.SurveyResponse{}).
-			Where("`survey_resp_survey_id` = ? AND `survey_resp_device` = ? AND `survey_resp_status` = 1", surveyID, device).
+			Where("`survey_resp_survey_id` = ? AND `survey_resp_device_id` = ? AND `survey_resp_status` = 1", surveyID, deviceId).
 			Count(&devCnt)
 		if devCnt >= int64(deviceLimit) {
-			logger.Logger.Printf("[Submit] 设备次数上限 surveyId=%d limit=%d current=%d device=%s", surveyID, deviceLimit, devCnt, device)
+			logger.Logger.Printf("[Submit] 设备次数上限 surveyId=%d limit=%d current=%d deviceId=%s", surveyID, deviceLimit, devCnt, deviceId)
 			return nil, errors.New("该设备答题次数已达上限")
 		}
 	}
@@ -127,6 +127,10 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 		duration = int((now - st) / 1000)
 	}
 	browser, deviceType, platformType := parseUA(device)
+	autoSubmitVal := 0
+	if autoSubmit {
+		autoSubmitVal = 1
+	}
 	resp := &model.SurveyResponse{
 		SurveyID:     surveyID,
 		UserID:       userIDToStr(userID, sv.Anonymous == 1),
@@ -136,11 +140,13 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 		Status:       1,
 		IP:           ip,
 		Device:       device,
+		DeviceID:     deviceId,
 		Browser:      browser,
 		DeviceType:   deviceType,
 		PlatformType: platformType,
 		StartTime:    st,
 		SubmitTime:   now,
+		IsAutoSubmit: autoSubmitVal,
 		AddTime:      now,
 	}
 	if err := database.DB.Create(resp).Error; err != nil {

@@ -132,7 +132,8 @@ export default {
     const now = new Date()
     this.calendarYear = now.getFullYear()
     this.calendarMonth = now.getMonth() + 1
-    this.loadData()
+    // onLoad 中 loadData() 已注释，onShow 已覆盖
+    // this.loadData()
     const sys = uni.getSystemInfoSync()
     const pxScale = 750 / sys.windowWidth
     if (sys.platform === 'android') {

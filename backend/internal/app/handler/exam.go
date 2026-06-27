@@ -49,7 +49,33 @@ func (h *ClientExamHandler) List(_ context.Context, c *app.RequestContext) {
 	q.Count(&total)
 	var list []model.Exam
 	q.Order("`exam_order` DESC, `exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
-	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize})
+
+	deviceId := c.Query("deviceId")
+	clientIP := c.ClientIP()
+	limitsMap := make(map[uint]map[string]bool)
+	for _, e := range list {
+		li := make(map[string]bool)
+		var settingsMap map[string]interface{}
+		_ = json.Unmarshal([]byte(e.Settings), &settingsMap)
+		if deviceLimit, _ := settingsMap["deviceLimit"].(float64); deviceLimit > 0 && deviceId != "" {
+			var cnt int64
+			database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_device_id` = ? AND `exam_r_status` >= 1", e.ID, deviceId).Count(&cnt)
+			if int(cnt) >= int(deviceLimit) {
+				li["deviceFull"] = true
+			}
+		}
+		if ipLimit, _ := settingsMap["ipLimit"].(float64); ipLimit > 0 && clientIP != "" {
+			var cnt int64
+			database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_add_ip` = ? AND `exam_r_status` >= 1", e.ID, clientIP).Count(&cnt)
+			if int(cnt) >= int(ipLimit) {
+				li["ipFull"] = true
+			}
+		}
+		if len(li) > 0 {
+			limitsMap[e.ID] = li
+		}
+	}
+	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize, "limits": limitsMap})
 }
 
 // View GET /exam/view?id=
@@ -262,7 +288,7 @@ func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 	response.JSON(c, resp)
 }
 
-func checkExamLimit(e *model.Exam, uidStr string, device string, ip string) string {
+func checkExamLimit(e *model.Exam, uidStr string, device string, deviceId string, ip string) string {
 	if e.MaxResponse > 0 {
 		var cnt int64
 		database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", e.ID).Count(&cnt)
@@ -281,11 +307,11 @@ func checkExamLimit(e *model.Exam, uidStr string, device string, ip string) stri
 	}
 	var settingsMap map[string]interface{}
 	_ = json.Unmarshal([]byte(e.Settings), &settingsMap)
-	if deviceLimit, _ := settingsMap["deviceLimit"].(float64); deviceLimit > 0 && device != "" {
+	if deviceLimit, _ := settingsMap["deviceLimit"].(float64); deviceLimit > 0 && deviceId != "" {
 		var cnt int64
-		database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_device` = ? AND `exam_r_status` >= 1", e.ID, device).Count(&cnt)
+		database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_device_id` = ? AND `exam_r_status` >= 1", e.ID, deviceId).Count(&cnt)
 		if int(cnt) >= int(deviceLimit) {
-			logger.Logger.Printf("[ExamCheckLimit] 设备次数上限 examId=%d limit=%d current=%d device=%s", e.ID, int(deviceLimit), cnt, device)
+			logger.Logger.Printf("[ExamCheckLimit] 设备次数上限 examId=%d limit=%d current=%d deviceId=%s", e.ID, int(deviceLimit), cnt, deviceId)
 			return "已达每台设备最大答题次数"
 		}
 	}
@@ -307,9 +333,10 @@ func checkExamLimit(e *model.Exam, uidStr string, device string, ip string) stri
 func (h *ClientExamHandler) Validate(_ context.Context, c *app.RequestContext) {
 	raw, _ := c.Body()
 	var req struct {
-		ExamID  int                    `json:"examId"`
-		Answers map[string]interface{} `json:"answers"`
-		Device  string                 `json:"device"`
+		ExamID   int                    `json:"examId"`
+		Answers  map[string]interface{} `json:"answers"`
+		Device   string                 `json:"device"`
+		DeviceID string                 `json:"deviceId"`
 	}
 	if err := json.Unmarshal(raw, &req); err != nil || req.ExamID == 0 {
 		response.Fail(c, "参数错误")
@@ -321,12 +348,13 @@ func (h *ClientExamHandler) Validate(_ context.Context, c *app.RequestContext) {
 		response.Fail(c, "考试不存在或未发布")
 		return
 	}
+	uid := getUID(c)
 	uidStr := ""
-	if uidVal, ok := c.Get("user_id"); ok {
-		uidStr = fmt.Sprintf("%d", uidVal.(int64))
+	if uid > 0 {
+		uidStr = strconv.FormatUint(uint64(uid), 10)
 	}
 	clientIP := c.ClientIP()
-	if msg := checkExamLimit(&e, uidStr, req.Device, clientIP); msg != "" {
+	if msg := checkExamLimit(&e, uidStr, req.Device, req.DeviceID, clientIP); msg != "" {
 		response.JSON(c, map[string]interface{}{"ok": false, "errors": []map[string]string{{"questionId": "", "message": msg}}})
 		return
 	}
@@ -377,8 +405,7 @@ func (h *ClientExamHandler) Validate(_ context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /exam/start [get]
 func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
-	uidVal, _ := c.Get("user_id")
-	uid := uint(uidVal.(int64))
+	uid := getUID(c)
 	if uid == 0 {
 		response.Fail(c, "未登录")
 		return
@@ -388,6 +415,7 @@ func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 		response.Fail(c, "examId 必填")
 		return
 	}
+	deviceId := c.Query("deviceId")
 	var e model.Exam
 	if err := database.DB.Where("`exam_id` = ?", examID).First(&e).Error; err != nil {
 		response.Fail(c, "考试不存在")
@@ -430,6 +458,7 @@ func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 			TotalScore: p.TotalScore,
 			Status:     0,
 			StartTime:  nowMs,
+			DeviceID:   deviceId,
 		}
 		database.DB.Create(&rec)
 	}
@@ -473,8 +502,7 @@ func (h *ClientExamHandler) Start(_ context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /exam/save_answer [post]
 func (h *ClientExamHandler) SaveAnswer(_ context.Context, c *app.RequestContext) {
-	uidVal, _ := c.Get("user_id")
-	uid := uint(uidVal.(int64))
+	uid := getUID(c)
 	if uid == 0 {
 		response.Fail(c, "未登录")
 		return
@@ -508,11 +536,13 @@ func (h *ClientExamHandler) SaveAnswer(_ context.Context, c *app.RequestContext)
 func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 	raw, _ := c.Body()
 	var req struct {
-		RecordID int                    `json:"recordId"`
-		ExamID   int                    `json:"examId"`
-		Answers  map[string]interface{} `json:"answers"`
-		Session  string                 `json:"session"`
-		Device   string                 `json:"device"`
+		RecordID   int                    `json:"recordId"`
+		ExamID     int                    `json:"examId"`
+		Answers    map[string]interface{} `json:"answers"`
+		Session    string                 `json:"session"`
+		Device     string                 `json:"device"`
+		DeviceID   string                 `json:"deviceId"`
+		AutoSubmit bool                   `json:"autoSubmit"`
 	}
 	if err := json.Unmarshal(raw, &req); err != nil {
 		response.Fail(c, "参数错误")
@@ -523,8 +553,7 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 
 	if req.RecordID > 0 {
 		// ── PaperID 模式（记录式） ──
-		uidVal, _ := c.Get("user_id")
-		uid := uint(uidVal.(int64))
+		uid := getUID(c)
 		if uid == 0 {
 			response.Fail(c, "未登录")
 			return
@@ -557,12 +586,19 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 		res := examPkg.Grade(exQs, req.Answers)
 		resultJSON, _ := json.Marshal(res)
 		nowMs := time.Now().UnixMilli()
+		autoSubmitVal := 0
+		if req.AutoSubmit {
+			autoSubmitVal = 1
+		}
 		updates := map[string]interface{}{
-			"exam_r_answers":     string(answersJSON),
-			"exam_r_score":       res.TotalScore,
-			"exam_r_status":      1,
-			"exam_r_submit_time": nowMs,
-			"exam_r_result":      string(resultJSON),
+			"exam_r_answers":      string(answersJSON),
+			"exam_r_score":        res.TotalScore,
+			"exam_r_status":       1,
+			"exam_r_submit_time":  nowMs,
+			"exam_r_result":       string(resultJSON),
+			"exam_r_auto_submit":  autoSubmitVal,
+			"exam_r_device_id":    req.DeviceID,
+			"exam_r_add_ip":       clientIP,
 		}
 		if rec.StartTime > 0 && nowMs > rec.StartTime {
 			updates["exam_r_time_spent"] = int((nowMs - rec.StartTime) / 1000)
@@ -624,7 +660,7 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 	// 从 Redis 读取开始时间
 	sessionStart, _ := rd.RDB.Get(rd.Ctx, redisKey).Int64()
 	clientIP = c.ClientIP()
-	if msg := checkExamLimit(&e, uidStr, req.Device, clientIP); msg != "" {
+	if msg := checkExamLimit(&e, uidStr, req.Device, req.DeviceID, clientIP); msg != "" {
 		response.Fail(c, msg)
 		return
 	}
@@ -673,20 +709,26 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 		timeSpent = int((nowMs - sessionStart) / 1000)
 	}
 	// 写入 ExamRecord
+	autoSubmitVal := 0
+	if req.AutoSubmit {
+		autoSubmitVal = 1
+	}
 	rec := model.ExamRecord{
-		ExamID:     uint(req.ExamID),
-		UserID:     uidStr,
-		Answers:    string(answersJSON),
-		Score:      res.TotalScore,
-		TotalScore: res.FullScore,
-		Status:     2,
-		StartTime:  sessionStart,
-		SubmitTime: nowMs,
-		TimeSpent:  timeSpent,
-		Device:     req.Device,
-		AddIP:      clientIP,
-		Session:    req.Session,
-		Result:     string(resultJSON),
+		ExamID:       uint(req.ExamID),
+		UserID:       uidStr,
+		Answers:      string(answersJSON),
+		Score:        res.TotalScore,
+		TotalScore:   res.FullScore,
+		Status:       2,
+		StartTime:    sessionStart,
+		SubmitTime:   nowMs,
+		TimeSpent:    timeSpent,
+		IsAutoSubmit: autoSubmitVal,
+		Device:       req.Device,
+		DeviceID:     req.DeviceID,
+		AddIP:        clientIP,
+		Session:      req.Session,
+		Result:       string(resultJSON),
 	}
 	if err := database.DB.Create(&rec).Error; err != nil {
 		logger.Logger.Printf("[ExamSubmit] Schema模式持久化失败 examId=%d uid=%s err=%s", req.ExamID, uidStr, err.Error())
@@ -709,8 +751,7 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /exam/record [get]
 func (h *ClientExamHandler) Record(_ context.Context, c *app.RequestContext) {
-	uidVal, _ := c.Get("user_id")
-	uid := uint(uidVal.(int64))
+	uid := getUID(c)
 	if uid == 0 {
 		response.Fail(c, "未登录")
 		return
@@ -770,8 +811,7 @@ func (h *ClientExamHandler) Record(_ context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /exam/my_records [get]
 func (h *ClientExamHandler) MyRecords(_ context.Context, c *app.RequestContext) {
-	uidVal, _ := c.Get("user_id")
-	uid := uint(uidVal.(int64))
+	uid := getUID(c)
 	if uid == 0 {
 		response.Fail(c, "未登录")
 		return

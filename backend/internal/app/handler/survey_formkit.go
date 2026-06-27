@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -199,7 +200,7 @@ func (h *AdminSurveyHandler) ReportEnrollSchema(_ context.Context, c *app.Reques
 		})
 	}
 	table, _ := report.RenderAnswers(enroll.Forms, items)
-	stats := report.FieldStats(enroll.Forms, items)
+	stats := report.FieldStats(enroll.Forms, items, "count")
 	response.JSON(c, map[string]interface{}{
 		"schema": enroll.Forms,
 		"table":  table,
@@ -272,7 +273,7 @@ func (h *AdminSurveyHandler) ReportEventSchema(_ context.Context, c *app.Request
 		})
 	}
 	table, _ := report.RenderAnswers(event.Forms, items)
-	stats := report.FieldStats(event.Forms, items)
+	stats := report.FieldStats(event.Forms, items, "count")
 	response.JSON(c, map[string]interface{}{
 		"schema": event.Forms,
 		"table":  table,
@@ -345,8 +346,20 @@ func (h *AdminSurveyHandler) ReportSurveySchema(_ context.Context, c *app.Reques
 			Forms:   r.Answers,
 		})
 	}
+	// 从 settings 读取统计模式
+	statMode := "count"
+	if sv.Settings != "" {
+		var settings map[string]interface{}
+		if err := json.Unmarshal([]byte(sv.Settings), &settings); err == nil {
+			if rc, ok := settings["resultConfig"].(map[string]interface{}); ok {
+				if st, ok := rc["statType"].(string); ok && st != "" {
+					statMode = st
+				}
+			}
+		}
+	}
 	table, _ := report.RenderAnswers(sv.Schema, items)
-	stats := report.FieldStats(sv.Schema, items)
+	stats := report.FieldStats(sv.Schema, items, statMode)
 	response.JSON(c, map[string]interface{}{
 		"schema": sv.Schema,
 		"table":  table,

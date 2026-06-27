@@ -91,8 +91,10 @@ type ExamRecord struct {
 	SubmitTime int64  `gorm:"column:exam_r_submit_time" json:"submitTime"`
 	TimeSpent  int    `gorm:"column:exam_r_time_spent;default:0" json:"timeSpent"`     // 秒
 	AddIP      string `gorm:"column:exam_r_add_ip;size:64" json:"addIp"`
-	Device     string `gorm:"column:exam_r_device;size:512" json:"device"`
-	Session    string `gorm:"column:exam_r_session;size:128" json:"session"`
+	IsAutoSubmit int    `gorm:"column:exam_r_auto_submit;default:0" json:"isAutoSubmit"`
+	Device       string `gorm:"column:exam_r_device;size:512" json:"device"`
+	DeviceID     string `gorm:"column:exam_r_device_id;size:128" json:"deviceId"`
+	Session      string `gorm:"column:exam_r_session;size:128" json:"session"`
 	Result     string `gorm:"column:exam_r_result;type:text" json:"result"`
 }
 

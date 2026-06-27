@@ -86,7 +86,9 @@ export default {
       this.containerPad = (navOffset + toolbarH + tabsH) + 'px'
     }
   },
-  onLoad() { this.loadData() },
+  onLoad() { 
+	this.loadData()
+  },
   onPullDownRefresh() {
     this.loadData().then(() => { uni.stopPullDownRefresh() })
   },

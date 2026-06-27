@@ -41,11 +41,7 @@
       </div>
       <div v-if="settings.showAnalysis" class="q-list">
         <div v-for="(q, i) in realQuestions" :key="q.id" class="q-item">
-          <div class="q-title">
-            <span v-if="settings.questionNumber !== false" class="q-num">{{ i + 1 }}.</span>
-            <span class="q-text" v-html="q.title" />
-            <span v-if="q.required" class="q-req">*</span>
-          </div>
+          <div class="q-title" v-html="analysisTitleHtml(q, i)" />
           <div style="margin:8px 0;font-size:13px">
             <div v-if="answers[q.id]" style="margin-bottom:4px">
               <span style="color:#909399">你的答案：</span><span v-html="answers[q.id]" />
@@ -78,21 +74,14 @@
         <div class="q-list q-list-single">
           <div class="q-item-scroll">
             <div class="q-item" :data-qid="currentQuestion.id">
-            <div class="q-title">
-              <template v-if="LAYOUT_TYPES.includes(currentQuestion.type)">
-                <span v-if="currentQuestion.type==='description'" class="q-type-label">描述</span>
-                <span v-else-if="currentQuestion.type==='divider'" class="q-type-label">分隔</span>
-                <span v-else class="q-type-label">分页</span>
-              </template>
-              <template v-else>
-                <span v-if="settings.questionNumber !== false" class="q-num">{{ currentNavIndex + 1 }}.</span>
-                <span class="q-text" v-html="currentQuestion.title" />
-                <span v-if="currentQuestion.required" class="q-req">*</span>
-                <span v-if="exam.showScore && currentQuestion.examScore" class="q-score">{{ currentQuestion.examScore }}分</span>
-              </template>
+            <div v-if="LAYOUT_TYPES.includes(currentQuestion.type)" class="q-title">
+              <span v-if="currentQuestion.type==='description'" class="q-type-label">描述</span>
+              <span v-else-if="currentQuestion.type==='divider'" class="q-type-label">分隔</span>
+              <span v-else class="q-type-label">分页</span>
             </div>
-            <div v-if="currentQuestion.type==='description' && (currentQuestion.title || currentQuestion.description)" class="q-desc-panel"><span v-html="currentQuestion.title || currentQuestion.description" /></div>
-            <div v-else-if="currentQuestion.description && currentQuestion.showDescription !== false" class="q-desc-panel"><span class="q-desc-label">说明：</span><span v-html="currentQuestion.description" /></div>
+            <div v-else class="q-title" v-html="currentTitleHtml" />
+            <div v-if="currentQuestion.type==='description' && (currentQuestion.title || currentQuestion.description)" class="q-desc-panel"><div v-html="currentQuestion.title || currentQuestion.description" /></div>
+            <div v-else-if="currentQuestion.description && currentQuestion.showDescription !== false" class="q-desc-panel"><span class="q-desc-label">说明：</span><div v-html="currentQuestion.description" /></div>
             <div class="preview-body">
                 <el-input v-if="['input','text'].includes(currentQuestion.type)" v-model="answers[currentQuestion.id]" :placeholder="currentQuestion.placeholder || '请输入'" />
                 <div v-else-if="currentQuestion.type==='multiInput'" class="field-vertical">
@@ -207,19 +196,12 @@
       <template v-else>
         <div class="q-list">
           <div v-for="(q, i) in visibleQuestions" :key="q.id" class="q-item" :data-qid="q.id">
-            <div class="q-title">
-              <template v-if="LAYOUT_TYPES.includes(q.type)">
-                <span v-if="q.type==='description'" class="q-type-label">描述</span>
-                <span v-else-if="q.type==='divider'" class="q-type-label">分隔</span>
-                <span v-else class="q-type-label">分页</span>
-              </template>
-              <template v-else>
-                <span v-if="settings.questionNumber !== false" class="q-num">{{ visibleQuestions.slice(0, i).filter((x: any) => !LAYOUT_TYPES.includes(x.type)).length + 1 }}.</span>
-                <span class="q-text" v-html="q.title" />
-                <span v-if="q.required" class="q-req">*</span>
-                <span v-if="exam.showScore && q.examScore" class="q-score">{{ q.examScore }}分</span>
-              </template>
+            <div v-if="LAYOUT_TYPES.includes(q.type)" class="q-title">
+              <span v-if="q.type==='description'" class="q-type-label">描述</span>
+              <span v-else-if="q.type==='divider'" class="q-type-label">分隔</span>
+              <span v-else class="q-type-label">分页</span>
             </div>
+            <div v-else class="q-title" v-html="questionTitleHtml(q, i)" />
             <div v-if="q.type==='description' && (q.title || q.description)" class="q-desc-panel"><span v-html="q.title || q.description" /></div>
             <div v-else-if="q.description && q.showDescription !== false" class="q-desc-panel"><span class="q-desc-label">说明：</span><span v-html="q.description" /></div>
             <div class="preview-body">
@@ -385,6 +367,71 @@ const remaining = ref(0) // milliseconds
 const countdownToStart = ref(0)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 let startTimer: ReturnType<typeof setInterval> | null = null
+function getDeviceId() {
+  let id = localStorage.getItem('_deviceId')
+  if (!id) {
+    id = 'web_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
+    localStorage.setItem('_deviceId', id)
+  }
+  return id
+}
+
+function unwrapOuterP(html: string): string {
+  const trimmed = (html || '').trim()
+  const match = trimmed.match(/^<p([^>]*)>([\s\S]*)<\/p>$/)
+  if (!match) return html || ''
+  const attrs = match[1]
+  const content = match[2]
+  if (/\bql-align-\w+\b/.test(attrs)) {
+    return `<span${attrs} style="display:inline-block;width:100%;text-align:inherit">${content}</span>`
+  }
+  return content
+}
+
+const currentTitleHtml = computed(() => {
+  if (!currentQuestion.value || LAYOUT_TYPES.includes(currentQuestion.value.type)) return ''
+  let html = ''
+  if (settings.value.questionNumber !== false) {
+    html += `<span class="q-num">${currentNavIndex.value + 1}.</span>`
+  }
+  if (exam.value.showScore && currentQuestion.value.examScore) {
+    html += `<span class="q-score">${currentQuestion.value.examScore}分</span>`
+  }
+  html += unwrapOuterP(currentQuestion.value.title || '')
+  if (currentQuestion.value.required) {
+    html += '<span class="q-req">*</span>'
+  }
+  return html
+})
+
+function questionTitleHtml(q: any, i: number): string {
+  if (LAYOUT_TYPES.includes(q.type)) return ''
+  let html = ''
+  if (settings.value.questionNumber !== false) {
+    const num = visibleQuestions.value.slice(0, i).filter((x: any) => !LAYOUT_TYPES.includes(x.type)).length + 1
+    html += `<span class="q-num">${num}.</span>`
+  }
+  if (exam.value.showScore && q.examScore) {
+    html += `<span class="q-score">${q.examScore}分</span>`
+  }
+  html += unwrapOuterP(q.title || '')
+  if (q.required) {
+    html += '<span class="q-req">*</span>'
+  }
+  return html
+}
+
+function analysisTitleHtml(q: any, i: number): string {
+  let html = ''
+  if (settings.value.questionNumber !== false) {
+    html += `<span class="q-num">${i + 1}.</span>`
+  }
+  html += unwrapOuterP(q.title || '')
+  if (q.required) {
+    html += '<span class="q-req">*</span>'
+  }
+  return html
+}
 const examTimeRange = computed(() => {
   if (!exam.value) return ''
   const st = Number(exam.value.startTime)
@@ -921,8 +968,8 @@ function stopCountdown() {
 async function onSubmit(skipConfirm = false) {
   const id = Number(route.params.id)
   try {
-    const vr = await apiPost('/exam/validate', { examId: id, answers: answers.value, device: navigator.userAgent })
-    if (vr.data && !vr.data.ok) {
+    const vr = await apiPost('/exam/validate', { examId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
+    if (vr.data && !vr.data.valid) {
       const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
       ElMessage.warning(msgs || '请检查填写内容')
       return
@@ -941,7 +988,7 @@ async function onSubmit(skipConfirm = false) {
   if (skipConfirm) {
     submitting.value = true
     try {
-      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value })
+      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
@@ -971,7 +1018,7 @@ async function onSubmit(skipConfirm = false) {
   ElMessageBox.confirm('确认提交？提交后不可修改', '提示', { type: 'info' }).then(async () => {
     submitting.value = true
     try {
-      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value })
+      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
@@ -1026,14 +1073,16 @@ onUnmounted(() => {
 .q-list { display:flex; flex-direction:column; gap:12px; }
 .q-item { padding:24px 28px; }
 
-.q-title { font-size:15px; color:#333; margin-bottom:16px; font-weight:500; word-break:break-word; }
-.q-desc-panel { background:#f5f5f5; border-radius:6px; padding:12px 16px; margin-bottom:16px; font-size:14px; color:#333; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
-.q-desc-panel .q-desc-label { font-weight:500; color:#666; margin-right:4px; }
-.q-num { color:#409eff; font-weight:600; }
-.q-text { word-break:break-word; }
-.q-text :deep(p), .q-text :deep(div), .q-text :deep(h1), .q-text :deep(h2), .q-text :deep(h3), .q-text :deep(h4), .q-text :deep(h5), .q-text :deep(h6), .q-text :deep(blockquote), .q-text :deep(ul), .q-text :deep(ol), .q-text :deep(li) { display:inline; }
-.q-req { color:#f56c6c; margin-left:2px; }
-.q-score { color:#fb454c; margin-left:8px; font-size:12px; font-weight:500; position:relative; top:-1px; }
+.q-title { font-size:15px; color:#333; margin-bottom:16px; font-weight:500; word-break:break-word; white-space:pre-wrap; }
+.q-title :deep(.q-num) { color:#409eff; font-weight:600; margin-right:6px; }
+.q-title :deep(.q-req) { color:#f56c6c; margin-left:2px; font-weight:600; }
+.q-title :deep(.q-score) { color:#fb454c; font-size:12px; font-weight:500; }
+.q-title :deep(img) { max-width:100%; height:auto; }
+:deep(.ql-align-center) { text-align: center; }
+:deep(.ql-align-right) { text-align: right; }
+:deep(.ql-align-justify) { text-align: justify; }
+:deep(.ql-code-block-container) { background: #f5f5f5; border-radius: 4px; padding: 10px 14px; margin: 6px 0; font-family: monospace; font-size: 13px; line-height: 1.5; overflow-x: auto; }
+:deep(.ql-code-block) { white-space: pre; }
 
 .preview-body { width:100%; min-height:28px; }
 .preview-body .el-input,
@@ -1048,6 +1097,16 @@ onUnmounted(() => {
 .preview-options { display:flex; flex-direction:column; gap:4px; width:100%; }
 .preview-radio-group,
 .preview-checkbox-group { gap:4px; align-items:flex-start; text-align:left; }
+.preview-options :deep(.el-radio),
+.preview-options :deep(.el-checkbox) { height:auto; min-height:0; padding:4px 0; }
+.preview-options :deep(.el-radio__label),
+.preview-options :deep(.el-checkbox__label) { display:inline-block; vertical-align:middle; overflow:hidden; }
+.preview-options :deep(.el-radio__label) img,
+.preview-options :deep(.el-checkbox__label) img { max-width:100%; height:auto; display:block; }
+.preview-options :deep(.el-radio__label) p,
+.preview-options :deep(.el-checkbox__label) p,
+.preview-options :deep(.el-radio__label) div,
+.preview-options :deep(.el-checkbox__label) div { margin:0; }
 .preview-plain { font-size:13px; color:#606266; white-space:pre-wrap; word-break:break-word; }
 .preview-desc { font-size:14px; color:#333; margin-top:4px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
 

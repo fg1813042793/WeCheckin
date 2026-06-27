@@ -64,8 +64,7 @@
           <QuillEditor v-model:content="o.label" content-type="html"
             :options="optionEditorOptions"
             placeholder="输入选项"
-            @ready="(quill: any) => onOptionEditorReady(quill, i)"
-            @click.stop />
+            @ready="(quill: any) => onOptionEditorReady(quill, i)" />
         </div>
         <el-button text size="small" type="danger" class="opt-del-btn" @click="removeOption(i)">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
@@ -301,7 +300,7 @@
       <div v-else-if="q.type==='pagination'" class="preview-plain">—— 分页 ——</div>
       <el-cascader v-else-if="q.type==='user'||q.type==='dept'" v-model="val" :placeholder="q.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="userDeptTreeOptions" :props="{ multiple: !!q.multiple, emitPath: false }" clearable />
       <div v-else-if="q.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
-        <QuillEditor v-model:content="val" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...' }" style="min-height:150px" />
+        <QuillEditor v-model:content="val" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...', modules: { imageResize: {} } }" style="min-height:150px" />
       </div>
       <div v-else-if="q.type==='autopop'" class="preview-plain"><el-input placeholder="自动填充" v-model="val" /></div>
       <div v-else-if="q.type==='nps'" class="preview-nps">
@@ -349,6 +348,7 @@ import { ref, computed, watch } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { Html5Qrcode } from 'html5-qrcode'
+import '../../../utils/quill-image-resize'
 
 const props = defineProps<{ q: any; editing?: boolean }>()
 const emit = defineEmits<{
@@ -534,6 +534,7 @@ const titleEditorOptions = {
 const fullTitleEditorOptions = {
   theme: 'snow',
   modules: {
+    imageResize: {},
     toolbar: [
       [{ header: [1, 2, 3, false] }],
       ['bold', 'italic', 'underline', 'strike'],
@@ -550,6 +551,7 @@ const fullTitleEditorOptions = {
 const optionEditorOptions = {
   theme: 'snow',
   modules: {
+    imageResize: {},
     toolbar: [
       ['bold', 'italic', 'underline', 'strike'],
       [{ color: [] }, { background: [] }],
@@ -1032,6 +1034,16 @@ function optionGrid(q: any) {
   align-items: flex-start;
   text-align: left;
 }
+.preview-options :deep(.el-radio),
+.preview-options :deep(.el-checkbox) { height:auto; min-height:0; padding:4px 0; }
+.preview-options :deep(.el-radio__label),
+.preview-options :deep(.el-checkbox__label) { display:inline-block; vertical-align:middle; overflow:hidden; }
+.preview-options :deep(.el-radio__label) img,
+.preview-options :deep(.el-checkbox__label) img { max-width:100%; height:auto; display:block; }
+.preview-options :deep(.el-radio__label) p,
+.preview-options :deep(.el-checkbox__label) p,
+.preview-options :deep(.el-radio__label) div,
+.preview-options :deep(.el-checkbox__label) div { margin:0; }
 .preview-plain {
   font-size: 13px;
   color: #606266;

@@ -1,4 +1,4 @@
-import { get, post } from '../utils/request'
+import { get, post, postJSON } from '../utils/request'
 
 export const homeApi = {
   getList(params) {
@@ -159,34 +159,34 @@ export const formkitApi = {
     return post('/survey/eval', data)
   },
   validate(data) {
-    return post('/survey/validate', data)
+    return postJSON('/survey/validate', data)
   },
   apply(data) {
-    return post('/survey/apply', data)
+    return postJSON('/survey/apply', data)
   }
 }
 
 export const examApi = {
   getList(params) {
-    return get('/survey/exam_list', params)
+    return get('/exam/list', params)
   },
   getDetail(params) {
-    return get('/survey/exam_view', params)
+    return get('/exam/view', params)
   },
   start(data) {
-    return get('/survey/exam_start', data)
+    return get('/exam/start', data)
   },
   saveAnswer(data) {
-    return post('/survey/exam_save_answer', data)
+    return post('/exam/save_answer', data)
   },
   submit(data) {
-    return post('/survey/exam_submit', data)
+    return postJSON('/exam/submit', data)
   },
   getRecord(params) {
-    return get('/survey/exam_record', params)
+    return get('/exam/record', params)
   },
   myRecords() {
-    return get('/survey/exam_my_records')
+    return get('/exam/my_records')
   }
 }
 
@@ -198,13 +198,13 @@ export const surveyApi = {
     return get('/survey/view', params)
   },
   apply(data) {
-    return post('/survey/apply', data)
+    return postJSON('/survey/apply', data)
   },
   validate(data) {
-    return post('/survey/validate', data)
+    return postJSON('/survey/validate', data)
   },
   submit(data) {
-    return post('/survey/submit', data)
+    return postJSON('/survey/submit', data)
   },
   myResponses() {
     return get('/survey/my_responses')

@@ -43,8 +43,12 @@
               <svg viewBox="0 0 1024 1024" width="20" height="20" fill="currentColor"><path d="M632.888889 56.888889c0-31.288889-25.6-56.888889-56.888889-56.888889H455.111111c-31.288889 0-56.888889 25.6-56.888889 56.888889v120.888889H170.666667c-31.288889 0-56.888889 25.6-56.888889 56.888889v113.777777c0 31.288889 25.6 56.888889 56.888889 56.888889h120.888889v369.777778c0 31.288889 25.6 56.888889 56.888889 56.888889h113.777777c31.288889 0 56.888889-25.6 56.888889-56.888889V462.222222h113.777778c31.288889 0 56.888889-25.6 56.888889-56.888889V291.555556c0-31.288889-25.6-56.888889-56.888889-56.888889H632.888889V56.888889z"/></svg>
               <span class="tab-label">逻辑</span>
             </div>
+            <div class="survey-sidebar-panel-tabs-pane" :class="{ active: middleTab==='result' }" title="统计" @click="middleTab='result'">
+              <svg viewBox="0 0 1024 1024" width="20" height="20" fill="currentColor"><path d="M128 128h768v85.333333H213.333333v682.666667H128V128z m170.666667 170.666667h85.333333v426.666666h-85.333333V298.666667z m170.666666 128h85.333334v298.666666h-85.333334V426.666667z m170.666667-42.666667h85.333333v341.333333h-85.333333V384z"/></svg>
+              <span class="tab-label">统计</span>
+            </div>
           </div>
-          <div class="survey-sidebar-panel-tabs-content" v-show="middleTab!=='logic'">
+          <div class="survey-sidebar-panel-tabs-content" v-show="middleTab!=='logic' && middleTab!=='result'">
             <!-- 题目 -->
             <template v-if="middleTab==='item'">
               <el-tabs v-model="sideSubTab" class="side-sub-tabs">
@@ -221,6 +225,62 @@
           </div>
         </div>
 
+        <!-- 统计配置（全宽） -->
+        <div v-if="middleTab==='result'" class="logic-panel logic-full-panel">
+          <div class="logic-toolbar">
+            <h4 style="margin:0;font-size:14px">问卷统计配置</h4>
+          </div>
+          <div style="font-size:12px;color:#606266;background:#e8f4fd;border:1px solid #b3d8f0;border-radius:4px;padding:8px 12px;margin-bottom:12px;line-height:1.8">
+            配置问卷提交后的结果统计方式，包括统计字段、图表展示、数据导出等。
+          </div>
+          <div class="logic-body">
+            <div class="logic-editor-area">
+              <el-form label-position="top" size="small">
+                <el-form-item label="统计方式">
+                  <el-radio-group v-model="form.resultConfig.statType">
+                    <el-radio value="value">按选项值统计</el-radio>
+                    <el-radio value="count">按选项计数统计</el-radio>
+                    <el-radio value="score">按分值统计（仅考试模式）</el-radio>
+                  </el-radio-group>
+                  <div style="font-size:11px;color:#999;margin-top:4px">
+                    <template v-if="form.resultConfig.statType==='value'">统计时使用选项设置的「选项值」字段进行计算</template>
+                    <template v-else-if="form.resultConfig.statType==='count'">统计每个选项被选择的次数</template>
+                    <template v-else>基于题目设置的「分值」计算总分/平均分</template>
+                  </div>
+                </el-form-item>
+                <el-divider />
+                <el-form-item label="统计范围">
+                  <el-checkbox-group v-model="form.resultConfig.scope">
+                    <el-checkbox value="all" label="全部题目" />
+                    <el-checkbox value="choice" label="仅选择题" />
+                    <el-checkbox value="score" label="仅评分题" />
+                  </el-checkbox-group>
+                </el-form-item>
+                <el-form-item label="结果显示">
+                  <el-switch v-model="form.resultConfig.showChart" active-text="显示图表" inactive-text="隐藏图表" style="margin-bottom:8px;display:block" />
+                  <el-switch v-model="form.resultConfig.showDetail" active-text="显示详细数据" inactive-text="隐藏详细数据" />
+                </el-form-item>
+                <el-form-item label="导出时选项字段">
+                  <el-radio-group v-model="form.resultConfig.exportField">
+                    <el-radio value="value">选项值 (value)</el-radio>
+                    <el-radio value="label">选项文本 (label)</el-radio>
+                    <el-radio value="both">值+文本 (value / label)</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+              </el-form>
+            </div>
+            <div class="logic-sidebar">
+              <div style="font-size:12px;font-weight:600;color:#606266;margin-bottom:6px">配置说明</div>
+              <div style="font-size:12px;line-height:2.2">
+                <div><strong>按选项值统计：</strong>适用于选项有数值含义的题目（如评分、分级），使用选项的 value 字段参与计算。</div>
+                <div><strong>按选项计数统计：</strong>统计每个选项被选中次数，适用于普通选择题。</div>
+                <div><strong>按分值统计：</strong>基于题目设置的分值（考试模式）计算总分和平均分。</div>
+                <div><strong>导出字段：</strong>控制 CSV/Excel 导出时使用选项值还是选项文本。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 添加/编辑规则对话框 -->
         <el-dialog v-model="showAddRule" :title="editingRuleIdx>=0?'编辑规则':'增加规则'" width="560px" :close-on-click-modal="false">
           <el-form label-position="top" size="small">
@@ -335,7 +395,7 @@
         </el-dialog>
 
         <!-- 中: 画布 -->
-        <div v-show="middleTab!=='logic'" class="survey-main-panel" @click.self="deselectQuestion">
+        <div v-show="middleTab!=='logic' && middleTab!=='result'" class="survey-main-panel" @click.self="deselectQuestion">
           <div class="survey-main-panel-toolbar">
             <div class="toolbar-left">
               <el-button-group class="toolbar-btn-group">
@@ -445,7 +505,7 @@
         </div>
 
         <!-- 右: 属性面板 -->
-        <div class="survey-setting-panel" v-show="middleTab!=='logic'" @click.self="deselectQuestion">
+        <div class="survey-setting-panel" v-show="middleTab!=='logic' && middleTab!=='result'" @click.self="deselectQuestion">
           <div v-if="selected" class="props-panel">
             <!-- 矩阵行设置模式 -->
             <!-- 文件上传设置 -->
@@ -520,7 +580,7 @@
 
             <!-- 选项设置模式 -->
             <template v-else-if="selectedOptIdx>=0 && selected.props?.options?.[selectedOptIdx]">
-              <h3>选项设置 - {{ selected.props.options[selectedOptIdx].label }}</h3>
+              <h3>选项设置-{{ stripHtml(selected.props.options[selectedOptIdx].label || '') }}</h3>
               <el-form label-position="top" size="small">
                 <el-form-item label="选项值"><el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="默认同选项名称" /></el-form-item>
 
@@ -829,6 +889,7 @@
                       :props="{ label: 'name', children: 'children' }"
                       node-key="id"
                       show-checkbox
+                      check-strictly
                       :default-checked-keys="deptCheckedKeys"
                       @check="onDeptCheck"
                     />
@@ -838,6 +899,7 @@
                 <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
                 <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
                 <!--<el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>-->
+                <el-form-item label="每人只能作答一次"><el-switch v-model="form.allowMultiBool" :active-value="0" :inactive-value="1" /></el-form-item>
                 <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
                 <el-form-item label="回收上限"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
                 <el-form-item label="作答时间(分钟)"><el-input-number v-model="form.timeLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
@@ -864,6 +926,11 @@
                 <el-form-item label="自定义跳转页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容" /></el-form-item>
                 <el-form-item label="自定义跳转链接"><el-input v-model="form.redirectUrl" placeholder="答题完成后跳转的自定义 URL" /></el-form-item>
               </div>
+              <el-form-item class="settings-full" label="填写模版">
+                <el-select v-model="form.fillTemplate" style="width:100%">
+                  <el-option v-for="(label, val) in fillTemplates" :key="val" :value="val" :label="label" />
+                </el-select>
+              </el-form-item>
               <el-form-item class="settings-full" label="问卷链接">
                 <div style="display:flex;flex-direction:column;gap:8px;width:100%">
                   <el-input v-if="form.id" v-model="publicUrl" readonly><template #append><el-button @click="copyLink">复制</el-button></template></el-input>
@@ -1000,6 +1067,10 @@
                     <span v-else-if="col.key === 'browser'">{{ row.browser || '-' }}</span>
                     <span v-else-if="col.key === 'deviceType'">{{ row.deviceType || '-' }}</span>
                     <span v-else-if="col.key === 'platformType'">{{ row.platformType || '-' }}</span>
+                    <span v-else-if="col.key === 'isAutoSubmit'">
+                      <el-tag v-if="row.isAutoSubmit === 1" size="small" type="warning">自动</el-tag>
+                      <span v-else>-</span>
+                    </span>
                     <span v-else-if="col.key === 'answer-'+col.qId">{{ formatAnswer(row.answers?.[col.qId], col.qType) }}</span>
                     <span v-else-if="col.key === 'actions'">
                       <el-button text size="small" type="danger" @click="deleteResponse(row.id)">删除</el-button>
@@ -1297,7 +1368,15 @@ const form = reactive<any>({
   defaultAnswer: false, defaultLang: 'zh-CN',
   deviceLimit: 0, ipLimit: 0, userLimit: 0,
   publicQuery: false, showAnswerAnalysis: false,
-  createBy: 0, collaborators: '', timeLimit: 0
+  createBy: 0, collaborators: '', timeLimit: 0,
+  fillTemplate: 'sf1',
+  resultConfig: {
+    statType: 'value',
+    scope: ['all'],
+    showChart: true,
+    showDetail: true,
+    exportField: 'value',
+  },
 })
 
 const activeView = ref('edit')
@@ -1455,9 +1534,16 @@ function parseTextToQuestions(text: string) {
     if (optMatch) {
       if (!current) current = { type: 'radio', title: '', options: [], rows: [], columns: [], fields: [] }
       if (!current.options) current.options = []
-      const label = stripHtmlTag(optMatch[2])
-      if (label) {
-        current.options.push({ label, value: optMatch[1] })
+      const text = stripHtmlTag(optMatch[2])
+      if (text) {
+        let label = text
+        let value = optMatch[1]
+        const bracketMatch = text.match(/^\[(.+?)\]\s*(.*)/)
+        if (bracketMatch) {
+          value = bracketMatch[1]
+          label = bracketMatch[2]
+        }
+        current.options.push({ label, value })
         if (current.type === 'input') current.type = 'radio'
       }
       continue
@@ -1621,7 +1707,12 @@ function surveyToText() {
     if (q.props?.options?.length) {
       q.props.options.forEach((o: any, oi: number) => {
         const prefix = String.fromCharCode(65 + oi) // A, B, C...
-        lines.push(`   ${prefix}. ${o.label}`)
+        const label = stripHtmlTag(o.label || '')
+        if (o.value && o.value !== prefix) {
+          lines.push(`   ${prefix}. [${o.value}] ${label}`)
+        } else {
+          lines.push(`   ${prefix}. ${label}`)
+        }
       })
     }
     if (q.props?.fields?.length) {
@@ -1655,7 +1746,7 @@ const deptTreeData = ref<any[]>([])
 const deptCheckedKeys = ref<number[]>([])
 
 function onDeptCheck() {
-  form.deptIds = deptTreeRef.value?.getCheckedKeys(true)?.join(',') || ''
+  form.deptIds = deptTreeRef.value?.getCheckedKeys()?.join(',') || ''
 }
 
 async function loadDeptTree() {
@@ -1712,7 +1803,7 @@ function buildAdminTree(depts: any[], mgrs: any[]): any[] {
 watch(() => form.visibility, (v) => {
   if (v === 2) { loadDeptTree() }
 })
-watch(() => form.id, (v) => { if (v) { genQR(); loadReport() } else { reportData.value = null } })
+watch(() => form.id, (v) => { if (v) { loadReport() } else { reportData.value = null } })
 async function loadBank() {
   clearTimeout(bankTimer)
   bankTimer = setTimeout(async () => {
@@ -2048,7 +2139,8 @@ async function saveLogicRules() {
       defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
       deviceLimit: form.deviceLimit,
       ipLimit: form.ipLimit, userLimit: form.userLimit,
-      publicQuery: form.publicQuery, collaborators: form.collaborators, timeLimit: form.timeLimit
+      publicQuery: form.publicQuery, collaborators: form.collaborators, timeLimit: form.timeLimit,
+      fillTemplate: form.fillTemplate
     })
     const payload: any = {
       id: form.id,
@@ -2142,7 +2234,7 @@ const responseKeyword = ref('')
 const responseSource = ref<any[]>([])
 const dataTableRef = ref<any>(null)
 const dragColKey = ref('')
-const dataBaseOrder = ref<string[]>(['nickname', 'startTime', 'submitTime', 'duration', 'ip', 'browser', 'deviceType', 'platformType'])
+const dataBaseOrder = ref<string[]>(['nickname', 'startTime', 'submitTime', 'duration', 'ip', 'browser', 'deviceType', 'platformType', 'isAutoSubmit'])
 
 const dataColumnKeys = computed(() => {
   const keys = [...dataBaseOrder.value]
@@ -2169,6 +2261,7 @@ const dataColumns = computed(() => {
         browser: { key: 'browser', label: '浏览器', width: 100 },
         deviceType: { key: 'deviceType', label: '设备类型', width: 90 },
         platformType: { key: 'platformType', label: '平台类型', width: 90 },
+        isAutoSubmit: { key: 'isAutoSubmit', label: '自动提交', width: 80 },
         actions: { key: 'actions', label: '操作', width: 80, fixed: 'right' },
       }
       if (defs[key]) cols.push(defs[key])
@@ -2215,6 +2308,7 @@ async function loadResponses(page = 1) {
         id: r.id, nickname: r.nickname, submitTime: r.submitTime, startTime: r.startTime,
         duration: r.duration, ip: r.ip,
         browser: r.browser || '-', deviceType: r.deviceType || '-', platformType: r.platformType || '-',
+        isAutoSubmit: r.isAutoSubmit,
         answers
       }
     })
@@ -2551,13 +2645,15 @@ function selectOption(qId: string, optIdx: number) {
   selected.value = questions.value.find(q => q.id === qId) || null
   selectedOptIdx.value = optIdx
   showSurveySettings.value = false
-  if (selected.value && (selected.value.type === 'user' || selected.value.type === 'dept')) {
+  if (selected.value) {
     if (!selected.value.props) selected.value.props = {}
-    if (!Array.isArray(selected.value.props.options)) selected.value.props.options = []
-    while (selected.value.props.options.length <= optIdx) {
-      selected.value.props.options.push(selected.value.type === 'user'
-        ? { label: '', value: '', deptName: '', deptId: '', parentDeptId: '' }
-        : { label: '', value: '', parentId: '' })
+    if (selected.value.type === 'user' || selected.value.type === 'dept') {
+      if (!Array.isArray(selected.value.props.options)) selected.value.props.options = []
+      while (selected.value.props.options.length <= optIdx) {
+        selected.value.props.options.push(selected.value.type === 'user'
+          ? { label: '', value: '', deptName: '', deptId: '', parentDeptId: '' }
+          : { label: '', value: '', parentId: '' })
+      }
     }
   }
 }
@@ -2634,14 +2730,14 @@ function triggerMediaUpload() {
   input.click()
 }
 
-const publicUrl = computed(() => form.id ? `${window.location.origin}/sf/${form.id}` : '')
-const qrUrl = ref('')
+const fillTemplates: Record<string, string> = { sf: '默认模版', sf1: '新样式模版' }
+const publicUrl = computed(() => form.id ? `${window.location.origin}/${form.fillTemplate || 'sf'}/${form.id}` : '')
+const qrUrl = computed(() => publicUrl.value ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value)}` : '')
 const embedCode = computed(() => form.id ? `<iframe src="${publicUrl.value}" width="100%" height="600" frameborder="0"></iframe>` : '')
 
 const exportedJson = ref('')
 
 function copyLink() { navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
-function genQR() { qrUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value)}` }
 function downloadQR() {
   fetch(qrUrl.value)
     .then(r => r.blob())
@@ -2828,7 +2924,9 @@ async function load() {
           deviceLimit: s.deviceLimit || 0, ipLimit: s.ipLimit || 0,
           userLimit: s.userLimit || 0,
           publicQuery: s.publicQuery ?? false, showAnswerAnalysis: s.showAnswerAnalysis ?? false,
-          collaborators: s.collaborators || '', timeLimit: s.timeLimit || 0
+          collaborators: s.collaborators || '', timeLimit: s.timeLimit || 0,
+          fillTemplate: s.fillTemplate || 'sf1',
+          resultConfig: s.resultConfig || { statType: 'value', scope: ['all'], showChart: true, showDetail: true, exportField: 'value' }
         })
       } catch {}
     } else {
@@ -2843,7 +2941,9 @@ async function load() {
         defaultAnswer: false, defaultLang: 'zh-CN',
         deviceLimit: 0, ipLimit: 0, userLimit: 0,
   publicQuery: false,
-        collaborators: '', timeLimit: 0
+        collaborators: '', timeLimit: 0,
+        fillTemplate: 'sf1',
+        resultConfig: { statType: 'value', scope: ['all'], showChart: true, showDetail: true, exportField: 'value' }
       })
     }
     Object.assign(form, base)
@@ -2891,7 +2991,8 @@ async function save() {
       deviceLimit: form.deviceLimit,
       ipLimit: form.ipLimit, userLimit: form.userLimit,
       publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-      collaborators: form.collaborators, timeLimit: form.timeLimit
+      collaborators: form.collaborators, timeLimit: form.timeLimit,
+      resultConfig: form.resultConfig
     })
     const payload: any = {
       title: form.title, description: form.description, category: form.category, tags: form.tags,

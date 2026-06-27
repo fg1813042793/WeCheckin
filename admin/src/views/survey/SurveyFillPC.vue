@@ -131,7 +131,7 @@
                 <div v-else-if="currentQuestion.type==='questionSet'" class="preview-plain">问题组（内部题）</div>
                 <div v-else-if="currentQuestion.type==='pagination'" class="preview-plain">—— 分页 ——</div>
                 <div v-else-if="currentQuestion.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
-                  <QuillEditor v-model:content="answers[currentQuestion.id]" content-type="html" :options="{ theme: 'snow', placeholder: currentQuestion.placeholder || '输入富文本内容...' }" style="min-height:150px" />
+                  <QuillEditor v-model:content="answers[currentQuestion.id]" content-type="html" :options="{ theme: 'snow', placeholder: currentQuestion.placeholder || '输入富文本内容...', modules: { imageResize: {} } }" style="min-height:150px" />
                 </div>
                 <el-input v-else-if="currentQuestion.type==='scanCode'" v-model="answers[currentQuestion.id]" placeholder="扫码" class="scan-code-input">
                   <template #prefix><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></template>
@@ -298,6 +298,7 @@ import { ref, reactive, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { Html5Qrcode } from 'html5-qrcode'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import '../../utils/quill-image-resize'
 import { useRoute } from 'vue-router'
 import { computed, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -330,6 +331,12 @@ const showLogin = ref(false)
 const loginLoading = ref(false)
 const loginForm = reactive({ name: '', password: '' })
 let userDeptId = 0
+function getDeviceId() {
+  const key = '_device_id'
+  let id = localStorage.getItem(key)
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem(key, id) }
+  return id
+}
 
 const AUTO_SAVE_KEY = 'survey_draft_'
 
@@ -764,8 +771,8 @@ function handleSubmitSuccess(_data: any) {
 async function onSubmit(skipConfirm = false) {
   const id = Number(route.params.id)
   try {
-    const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent })
-    if (vr.data && !vr.data.ok) {
+    const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
+    if (vr.data && !vr.data.valid) {
       const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
       ElMessage.warning(msgs || '请检查填写内容')
       return
@@ -775,7 +782,7 @@ async function onSubmit(skipConfirm = false) {
   if (skipConfirm) {
     submitting.value = true
     try {
-      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value })
+      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
@@ -792,7 +799,7 @@ async function onSubmit(skipConfirm = false) {
   ElMessageBox.confirm('确认提交？提交后不可修改', '提示', { type: 'info' }).then(async () => {
     submitting.value = true
     try {
-      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value })
+      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
@@ -852,6 +859,16 @@ onUnmounted(() => {
 .preview-options { display:flex; flex-direction:column; gap:4px; width:100%; }
 .preview-radio-group,
 .preview-checkbox-group { gap:4px; align-items:flex-start; text-align:left; }
+.preview-options :deep(.el-radio),
+.preview-options :deep(.el-checkbox) { height:auto; min-height:0; padding:4px 0; }
+.preview-options :deep(.el-radio__label),
+.preview-options :deep(.el-checkbox__label) { display:inline-block; vertical-align:middle; overflow:hidden; }
+.preview-options :deep(.el-radio__label) img,
+.preview-options :deep(.el-checkbox__label) img { max-width:100%; height:auto; display:block; }
+.preview-options :deep(.el-radio__label) p,
+.preview-options :deep(.el-checkbox__label) p,
+.preview-options :deep(.el-radio__label) div,
+.preview-options :deep(.el-checkbox__label) div { margin:0; }
 .preview-plain { font-size:13px; color:#606266; white-space:pre-wrap; word-break:break-word; }
 
 .preview-nps { padding:4px 0; }

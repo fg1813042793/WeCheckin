@@ -81,7 +81,8 @@ export default {
 
   onLoad() {
     this.checkAdmin()
-    this.loadData()
+    // onLoad 中 loadData() 已注释，onShow 已覆盖
+    // this.loadData()
     const sys = uni.getSystemInfoSync()
     const pxScale = 750 / sys.windowWidth
     if (sys.platform === 'android') {

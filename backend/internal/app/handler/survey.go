@@ -28,6 +28,19 @@ type ClientSurveyHandler struct {
 	responses *service.ResponseService
 }
 
+func getUID(c *app.RequestContext) uint {
+	uidVal, _ := c.Get("user_id")
+	if uidVal == nil {
+		return 0
+	}
+	switch v := uidVal.(type) {
+	case uint: return v
+	case int64: return uint(v)
+	case float64: return uint(v)
+	}
+	return 0
+}
+
 func NewClientSurveyHandler() *ClientSurveyHandler { return &ClientSurveyHandler{} }
 
 func (h *ClientSurveyHandler) lazyInit() {
@@ -54,13 +67,56 @@ func (h *ClientSurveyHandler) List(_ context.Context, c *app.RequestContext) {
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	keyword := c.Query("keyword")
 	category := c.Query("category")
+	deviceId := c.Query("deviceId")
+	clientIP := c.ClientIP()
 	// 客户端只看到 status=1
 	list, total, err := h.survey.List(keyword, category, 1, page, pageSize)
 	if err != nil {
 		response.Fail(c, "查询失败: "+err.Error())
 		return
 	}
-	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize})
+	type limitInfo struct {
+		DeviceFull bool `json:"deviceFull"`
+		IPFull     bool `json:"ipFull"`
+	}
+	limitsMap := make(map[uint]limitInfo)
+	for _, sv := range list {
+		var deviceLimit, ipLimit int
+		if sv.Settings != "" {
+			var sm map[string]interface{}
+			if json.Unmarshal([]byte(sv.Settings), &sm) == nil {
+				if v, ok := sm["deviceLimit"].(float64); ok {
+					deviceLimit = int(v)
+				}
+				if v, ok := sm["ipLimit"].(float64); ok {
+					ipLimit = int(v)
+				}
+			}
+		}
+		li := limitInfo{}
+		if deviceLimit > 0 && deviceId != "" {
+			var cnt int64
+			database.DB.Model(&model.SurveyResponse{}).
+				Where("`survey_resp_survey_id` = ? AND `survey_resp_device_id` = ? AND `survey_resp_status` = 1", sv.ID, deviceId).
+				Count(&cnt)
+			if cnt >= int64(deviceLimit) {
+				li.DeviceFull = true
+			}
+		}
+		if ipLimit > 0 && clientIP != "" {
+			var cnt int64
+			database.DB.Model(&model.SurveyResponse{}).
+				Where("`survey_resp_survey_id` = ? AND `survey_resp_ip` = ? AND `survey_resp_status` = 1", sv.ID, clientIP).
+				Count(&cnt)
+			if cnt >= int64(ipLimit) {
+				li.IPFull = true
+			}
+		}
+		if deviceLimit > 0 || ipLimit > 0 {
+			limitsMap[sv.ID] = li
+		}
+	}
+	response.JSON(c, map[string]interface{}{"list": list, "total": total, "page": page, "size": pageSize, "limits": limitsMap})
 }
 
 // Detail GET /survey/view?id=
@@ -244,12 +300,14 @@ func (h *ClientSurveyHandler) Validate(_ context.Context, c *app.RequestContext)
 func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	var req struct {
-		SurveyID  uint                   `json:"surveyId"`
-		Answers   map[string]interface{} `json:"answers"`
-		Nickname  string                 `json:"nickname"`
-		Session   string                 `json:"session"`
-		StartTime int64                  `json:"startTime"`
-		Device    string                 `json:"device"`
+		SurveyID   uint                   `json:"surveyId"`
+		Answers    map[string]interface{} `json:"answers"`
+		Nickname   string                 `json:"nickname"`
+		Session    string                 `json:"session"`
+		StartTime  int64                  `json:"startTime"`
+		Device     string                 `json:"device"`
+		AutoSubmit bool                   `json:"autoSubmit"`
+		DeviceID   string                 `json:"deviceId"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
 		response.Fail(c, "参数错误: "+err.Error())
@@ -268,6 +326,20 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 		loginRequired2 = v
 	} else if v, ok := settingsMap2["loginRequired"].(float64); ok {
 		loginRequired2 = v != 0
+	}
+	// 尝试从 Authorization 头解析用户信息
+	token := string(c.Request.Header.Peek("Authorization"))
+	if token != "" {
+		_, prefix := tokenutil.GetTokenConfig("user")
+		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
+		if err == nil && jsonStr != "" {
+			var tokenInfo struct {
+				ID uint `json:"id"`
+			}
+			if err := json.Unmarshal([]byte(jsonStr), &tokenInfo); err == nil && tokenInfo.ID > 0 {
+				c.Set("user_id", tokenInfo.ID)
+			}
+		}
 	}
 	if loginRequired2 {
 		token := string(c.Request.Header.Peek("Authorization"))
@@ -293,17 +365,10 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 			rd.RDB.Del(rd.Ctx, redisKey)
 		}
 	}
-	// 用户 ID（公开链接可以匿名）
-	uidVal, _ := c.Get("user_id")
-	var uid uint
-	if uidVal != nil {
-		if v, ok := uidVal.(int64); ok {
-			uid = uint(v)
-		}
-	}
+	uid := getUID(c)
 	// IP
 	ip := c.ClientIP()
-	resp, err := h.responses.Submit(req.SurveyID, uid, req.Nickname, req.StartTime, req.Answers, ip, req.Device)
+	resp, err := h.responses.Submit(req.SurveyID, uid, req.Nickname, req.StartTime, req.Answers, ip, req.Device, req.AutoSubmit, req.DeviceID)
 	if err != nil {
 		logger.Logger.Printf("[SurveySubmit] 失败 surveyId=%d uid=%d err=%s ip=%s device=%s", req.SurveyID, uid, err.Error(), ip, req.Device)
 		response.Fail(c, err.Error())
@@ -321,12 +386,11 @@ func (h *ClientSurveyHandler) Submit(_ context.Context, c *app.RequestContext) {
 // @Router /survey/my_responses [get]
 func (h *ClientSurveyHandler) MyResponses(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
-	uidVal, _ := c.Get("user_id")
-	if uidVal == nil {
+	uid := getUID(c)
+	if uid == 0 {
 		response.Fail(c, "未登录")
 		return
 	}
-	uid := uint(uidVal.(int64))
 	uidStr := strconv.FormatUint(uint64(uid), 10)
 	var list []model.SurveyResponse
 	database.DB.Where("`survey_resp_user_id` = ? AND `survey_resp_status` = 1", uidStr).
@@ -343,12 +407,11 @@ func (h *ClientSurveyHandler) MyResponses(_ context.Context, c *app.RequestConte
 // @Router /survey/my_response [get]
 func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
-	uidVal, _ := c.Get("user_id")
-	if uidVal == nil {
+	uid := getUID(c)
+	if uid == 0 {
 		response.Fail(c, "未登录")
 		return
 	}
-	uid := uint(uidVal.(int64))
 	id, _ := strconv.Atoi(c.Query("id"))
 	resp, err := h.responses.Get(uint(id))
 	if err != nil {
@@ -381,6 +444,7 @@ func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestCo
 		Schema   string                 `json:"schema"`
 		Answers  map[string]interface{} `json:"answers"`
 		Device   string                 `json:"device"`
+		DeviceID string                 `json:"deviceId"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
 		response.Fail(c, "请求参数错误: "+err.Error())
@@ -403,7 +467,7 @@ func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestCo
 			if count >= int64(sv.MaxResponse) {
 				logger.Logger.Printf("[SurveyValidate] 回收上限已满 surveyId=%d max=%d current=%d", req.SurveyID, sv.MaxResponse, count)
 				response.JSON(c, map[string]interface{}{
-					"ok": false, "errors": []map[string]string{{"questionId": "", "message": "回收上限已满"}},
+					"valid": false, "errors": []map[string]string{{"questionId": "", "message": "回收上限已满"}},
 				})
 				return
 			}
@@ -422,15 +486,15 @@ func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestCo
 			}
 		}
 		clientIP := c.ClientIP()
-		if deviceLimit > 0 && req.Device != "" {
+		if deviceLimit > 0 && req.DeviceID != "" {
 			var devCount int64
 			database.DB.Model(&model.SurveyResponse{}).
-				Where("`survey_resp_survey_id` = ? AND `survey_resp_device` = ? AND `survey_resp_status` = 1", req.SurveyID, req.Device).
+				Where("`survey_resp_survey_id` = ? AND `survey_resp_device_id` = ? AND `survey_resp_status` = 1", req.SurveyID, req.DeviceID).
 				Count(&devCount)
 			if devCount >= int64(deviceLimit) {
-				logger.Logger.Printf("[SurveyValidate] 设备次数上限 surveyId=%d limit=%d current=%d device=%s", req.SurveyID, deviceLimit, devCount, req.Device)
+				logger.Logger.Printf("[SurveyValidate] 设备次数上限 surveyId=%d limit=%d current=%d deviceId=%s", req.SurveyID, deviceLimit, devCount, req.DeviceID)
 				response.JSON(c, map[string]interface{}{
-					"ok": false, "errors": []map[string]string{{"questionId": "", "message": "该设备答题次数已达上限"}},
+					"valid": false, "errors": []map[string]string{{"questionId": "", "message": "该设备答题次数已达上限"}},
 				})
 				return
 			}
@@ -443,7 +507,7 @@ func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestCo
 			if ipCount >= int64(ipLimit) {
 				logger.Logger.Printf("[SurveyValidate] IP次数上限 surveyId=%d limit=%d current=%d ip=%s", req.SurveyID, ipLimit, ipCount, clientIP)
 				response.JSON(c, map[string]interface{}{
-					"ok": false, "errors": []map[string]string{{"questionId": "", "message": "该IP答题次数已达上限"}},
+					"valid": false, "errors": []map[string]string{{"questionId": "", "message": "该IP答题次数已达上限"}},
 				})
 				return
 			}
@@ -474,7 +538,7 @@ func (h *ClientSurveyHandler) PublicValidate(_ context.Context, c *app.RequestCo
 			errs = append(errs, fieldErr{QuestionID: q.ID, Message: err.Error()})
 		}
 	}
-	response.JSON(c, map[string]interface{}{"ok": len(errs) == 0, "errors": errs})
+	response.JSON(c, map[string]interface{}{"valid": len(errs) == 0, "errors": errs})
 }
 
 // PublicApply POST /survey/apply
