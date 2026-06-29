@@ -451,6 +451,11 @@ func main() {
 	adminGroup.POST("/survey/question_bank_edit", aSurvey.QuestionBankEdit)
 	adminGroup.POST("/survey/question_bank_del", aSurvey.QuestionBankDel)
 	adminGroup.GET("/survey/question_bank_categories", aSurvey.QuestionBankCategories)
+	adminGroup.GET("/survey/notify_list", aSurvey.NotifyList)
+	adminGroup.POST("/survey/notify_read", aSurvey.NotifyRead)
+	adminGroup.GET("/survey/notify_unread_count", aSurvey.NotifyUnreadCount)
+	adminGroup.GET("/survey/template_presets", aSurvey.TemplatePresetsGet)
+	adminGroup.POST("/survey/template_presets", aSurvey.TemplatePresetsSave)
 
 	// ==================== Exam 独立子系统（与 survey 完全分离）====================
 	adminGroup.GET("/exam/list", aExam.List)

@@ -478,5 +478,23 @@ export const adminApi = {
   },
   examQuestionBankCategories() {
     return request.get('/admin/exam/question_bank_categories')
+  },
+  surveyNotifyList(params?: any) {
+    return request.get('/admin/survey/notify_list', { params })
+  },
+  surveyNotifyRead(data: { id?: number; all?: boolean; userId?: string }) {
+    return request.post('/admin/survey/notify_read', data)
+  },
+  surveyNotifyUnreadCount(params?: { userId?: string }) {
+    return request.get('/admin/survey/notify_unread_count', { params })
+  },
+  surveyTemplatePresetsGet() {
+    return request.get('/admin/survey/template_presets')
+  },
+  surveyTemplatePresetsSave(data: { presets: { label: string; value: string }[] }) {
+    return request.post('/admin/survey/template_presets', data, {
+      transformRequest: [(d: any) => JSON.stringify(d)],
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
 }

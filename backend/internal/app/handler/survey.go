@@ -202,6 +202,28 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 	// 解析 settings
 	var settingsMap map[string]interface{}
 	_ = json.Unmarshal([]byte(sv.Settings), &settingsMap)
+	// 过滤掉后端规则（scope=backend），只给前端前端规则
+	if raw, ok := settingsMap["logicRules"]; ok {
+		var rules []interface{}
+		switch v := raw.(type) {
+		case string:
+			json.Unmarshal([]byte(v), &rules)
+		case []interface{}:
+			rules = v
+		}
+		if len(rules) > 0 {
+			filtered := make([]interface{}, 0, len(rules))
+			for _, item := range rules {
+				if m, ok := item.(map[string]interface{}); ok {
+					if scope, _ := m["scope"].(string); scope == "backend" {
+						continue
+					}
+				}
+				filtered = append(filtered, item)
+			}
+			settingsMap["logicRules"] = filtered
+		}
+	}
 	// session 复用：前端传现有 session 则不再新生成
 	session := c.Query("session")
 	if session == "" {

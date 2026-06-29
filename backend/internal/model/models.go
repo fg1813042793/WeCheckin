@@ -215,10 +215,25 @@ type Setup struct {
 	Value    string `json:"value" gorm:"type:text;column:setup_value;comment:配置值"`
 	Type     string `json:"setup_type" gorm:"size:20;column:setup_type;comment:配置类型"`
 	AddTime  int64  `json:"setup_add_time" gorm:"column:setup_add_time;comment:创建时间"`
-	EditTime int64  `json:"setup_edit_time" gorm:"column:setup_edit_time;comment:修改时间"`
+	EditTime int64  `json:"edit_time" gorm:"column:setup_edit_time;comment:修改时间"`
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }
+
+// Notify 通用站内通知
+type Notify struct {
+	ID         uint   `gorm:"primaryKey;column:notify_id" json:"id"`
+	Title      string `gorm:"column:notify_title;size:255" json:"title"`
+	Content    string `gorm:"column:notify_content;type:text" json:"content"`
+	Type       string `gorm:"column:notify_type;size:32;index" json:"type"`
+	SourceID   string `gorm:"column:notify_source_id;size:64;index" json:"sourceId"`
+	SourceType string `gorm:"column:notify_source_type;size:32;index" json:"sourceType"`
+	UserID     string `gorm:"column:notify_user_id;size:128;index" json:"userId"`
+	IsRead     int    `gorm:"column:notify_is_read;default:0" json:"isRead"`
+	AddTime    int64  `gorm:"column:notify_add_time" json:"addTime"`
+}
+
+func (Notify) TableName() string { return "notify" }
 
 type UserDept struct {
 	ID        uint      `json:"id" gorm:"primaryKey;comment:关联ID"`

@@ -117,6 +117,25 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 			nickname = u.Name
 		}
 	}
+	// 昵称仍为空时，依次从个人信息题取值
+	if nickname == "" && sch != nil {
+		personalTypes := []string{"name", "phone", "email", "studentId", "employeeId"}
+		for _, pt := range personalTypes {
+			for _, q := range sch.Questions {
+				if q.Type == pt {
+					if val, ok := answers[q.ID]; ok && val != nil {
+						if s, ok := val.(string); ok && s != "" {
+							nickname = s
+							break
+						}
+					}
+				}
+			}
+			if nickname != "" {
+				break
+			}
+		}
+	}
 	// 计算时长
 	st := startTime
 	if st == 0 {
@@ -157,6 +176,7 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 	database.DB.Model(&model.SurveyChannel{}).Where("`survey_ch_survey_id` = ?", surveyID).
 		UpdateColumn("survey_ch_submit_cnt", gorm.Expr("`survey_ch_submit_cnt` + 1"))
 	logger.Logger.Printf("[Submit] 成功 surveyId=%d userId=%d respId=%d ip=%s device=%s", surveyID, userID, resp.ID, ip, device)
+	go ProcessPostStat(surveyID, userID, nickname, resp.Answers)
 	return resp, nil
 }
 

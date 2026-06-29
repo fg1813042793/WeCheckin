@@ -26,6 +26,8 @@
             <el-menu-item index="/survey">问卷管理</el-menu-item>
             <el-menu-item index="/survey/responses">答卷管理</el-menu-item>
             <el-menu-item index="/survey/statistic">问卷统计</el-menu-item>
+            <el-menu-item index="/survey/stat-report">统计报表</el-menu-item>
+            <el-menu-item index="/survey/notify">站内通知</el-menu-item>
           </el-sub-menu>
           <el-sub-menu index="/exam">
             <template #title><el-icon><EditPen /></el-icon><span>在线考试</span></template>

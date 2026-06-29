@@ -16,7 +16,9 @@
       <el-table :data="list" v-loading="loading" stripe style="margin-top:16px" border @selection-change="onSelectionChange">
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="userId" label="用户" width="120" />
+        <el-table-column label="用户ID" width="120">
+          <template #default="{ row }">{{ (row.userId === 0 || row.userId === '0' || row.userId === undefined) ? '-' : row.userId }}</template>
+        </el-table-column>
         <el-table-column label="得分" width="100" align="center">
           <template #default="{ row }">{{ row.score }}/{{ row.totalScore }}</template>
         </el-table-column>

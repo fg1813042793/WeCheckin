@@ -54,6 +54,7 @@ func autoMigrate() error {
 		&model.SurveyAILog{},
 		&model.SurveyResource{},
 		&model.SurveyQuestion{},
+		&model.Notify{},
 	)
 	if err != nil {
 		return err

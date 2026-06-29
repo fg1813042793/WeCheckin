@@ -64,6 +64,7 @@
               <el-button size="small" type="primary" @click="goDesigner(row)">设计</el-button>
               <el-button size="small" @click="goResponses(row)">数据</el-button>
               <el-button size="small" @click="goStatistic(row)">统计</el-button>
+              <el-button size="small" type="success" @click="goStatReport(row)">报表</el-button>
               <el-dropdown trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
@@ -176,6 +177,7 @@ function goEdit(row: any) { router.push({ path: '/survey/designer', query: { id:
 function goDesigner(row: any) { router.push({ path: '/survey/designer', query: { id: String(row.id) } }) }
 function goResponses(row: any) { router.push({ path: '/survey/responses', query: { surveyId: String(row.id), title: row.title } }) }
 function goStatistic(row: any) { router.push({ path: '/survey/statistic', query: { surveyId: String(row.id), title: row.title } }) }
+function goStatReport(row: any) { router.push({ path: '/survey/stat-report', query: { surveyId: String(row.id), title: row.title } }) }
 
 async function delRow(row: any) {
   await adminApi.surveyDel({ id: row.id })

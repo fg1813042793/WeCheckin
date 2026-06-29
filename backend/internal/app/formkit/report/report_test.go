@@ -76,7 +76,7 @@ func TestFieldStats_Number(t *testing.T) {
 		{UserID: "u3", Forms: `[40]`},
 		{UserID: "u4", Forms: `[null]`},
 	}
-	stats := FieldStats(schema, items)
+	stats := FieldStats(schema, items, "count")
 	if len(stats) != 1 {
 		t.Fatalf("expected 1 stat, got %d", len(stats))
 	}
@@ -112,7 +112,7 @@ func TestFieldStats_Distribution(t *testing.T) {
 		{UserID: "u3", Forms: `{"q1":"b"}`},
 		{UserID: "u4", Forms: `{}`},
 	}
-	stats := FieldStats(schema, items)
+	stats := FieldStats(schema, items, "count")
 	if len(stats) != 1 {
 		t.Fatalf("expected 1, got %d", len(stats))
 	}

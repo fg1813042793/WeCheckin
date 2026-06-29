@@ -769,3 +769,123 @@ func (h *AdminSurveyHandler) QuestionBankCategories(_ context.Context, c *app.Re
 		Pluck("`survey_q_category`", &categories)
 	response.JSON(c, categories)
 }
+
+// NotifyList GET /admin/notify/list
+func (h *AdminSurveyHandler) NotifyList(_ context.Context, c *app.RequestContext) {
+	sourceType := c.Query("sourceType")
+	sourceID := c.Query("sourceId")
+	userID := c.Query("userId")
+	page, _ := strconv.Atoi(c.Query("page"))
+	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	q := database.DB.Model(&model.Notify{})
+	if sourceType != "" {
+		q = q.Where("`notify_source_type` = ?", sourceType)
+	}
+	if sourceID != "" {
+		q = q.Where("`notify_source_id` = ?", sourceID)
+	}
+	if userID != "" {
+		q = q.Where("`notify_user_id` = ? OR `notify_user_id` = ''", userID)
+	}
+	var total int64
+	q.Count(&total)
+	var list []model.Notify
+	q.Order("`notify_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	response.JSON(c, map[string]interface{}{"list": list, "total": total})
+}
+
+// NotifyRead POST /admin/notify/read
+func (h *AdminSurveyHandler) NotifyRead(_ context.Context, c *app.RequestContext) {
+	var req struct {
+		ID     uint   `json:"id"`
+		All    bool   `json:"all"`
+		UserID string `json:"userId"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		response.Fail(c, "参数错误")
+		return
+	}
+	if req.All {
+		q := database.DB.Model(&model.Notify{}).Where("`notify_is_read` = 0")
+		if req.UserID != "" {
+			q = q.Where("`notify_user_id` = ? OR `notify_user_id` = ''", req.UserID)
+		}
+		q.UpdateColumn("notify_is_read", 1)
+	} else if req.ID > 0 {
+		database.DB.Model(&model.Notify{}).Where("`notify_id` = ?", req.ID).UpdateColumn("notify_is_read", 1)
+	}
+	response.JSON(c, nil)
+}
+
+// NotifyUnreadCount GET /admin/notify/unread_count
+func (h *AdminSurveyHandler) NotifyUnreadCount(_ context.Context, c *app.RequestContext) {
+	userID := c.Query("userId")
+	q := database.DB.Model(&model.Notify{}).Where("`notify_is_read` = 0")
+	if userID != "" {
+		q = q.Where("`notify_user_id` = ? OR `notify_user_id` = ''", userID)
+	}
+	var cnt int64
+	q.Count(&cnt)
+	response.JSON(c, map[string]int64{"count": cnt})
+}
+
+// TemplatePresetsGet GET /admin/survey/template_presets
+func (h *AdminSurveyHandler) TemplatePresetsGet(_ context.Context, c *app.RequestContext) {
+	admin, ok := c.Get("admin")
+	if !ok {
+		response.JSON(c, []map[string]string{})
+		return
+	}
+	a := admin.(*model.Admin)
+	key := fmt.Sprintf("template_presets_%d", a.ID)
+	var entry model.Setup
+	if err := database.DB.Where("`setup_key` = ?", key).First(&entry).Error; err != nil {
+		response.JSON(c, []map[string]string{})
+		return
+	}
+	var out []map[string]string
+	json.Unmarshal([]byte(entry.Value), &out)
+	response.JSON(c, out)
+}
+
+// TemplatePresetsSave POST /admin/survey/template_presets
+func (h *AdminSurveyHandler) TemplatePresetsSave(_ context.Context, c *app.RequestContext) {
+	admin, ok := c.Get("admin")
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
+	a := admin.(*model.Admin)
+	var req struct {
+		Presets []map[string]string `json:"presets"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		response.Fail(c, "参数错误")
+		return
+	}
+	key := fmt.Sprintf("template_presets_%d", a.ID)
+	now := time.Now().Unix()
+	bytes, _ := json.Marshal(req.Presets)
+	var entry model.Setup
+	if err := database.DB.Where("`setup_key` = ?", key).First(&entry).Error; err == nil {
+		database.DB.Model(&model.Setup{}).Where("`setup_key` = ?", key).Updates(map[string]interface{}{
+			"setup_value":    string(bytes),
+			"setup_edit_time": now,
+		})
+	} else {
+		database.DB.Create(&model.Setup{
+			Key:     key,
+			Value:   string(bytes),
+			Type:    "template_presets",
+			AddTime: now,
+			EditTime: now,
+		})
+	}
+	response.JSON(c, nil)
+}

@@ -1599,20 +1599,12 @@ async function loadResources() {
 
 // ===== 逻辑规则 =====
 interface LogicCondition { questionIdx?: number; optionIdx?: number; operator?: string; compareValue?: string }
-interface LogicRuleItem { id: string; conditionType: string; conditions: LogicCondition[]; action: string; targetQuestionIdx?: number; targetOptionIdxs?: number[]; branchFromIdx?: number; branchToIdx?: number; branchToEnd?: boolean; formula?: string }
+interface LogicRuleItem { id: string; conditionType: string; conditions: LogicCondition[]; action: string; scope: 'frontend' | 'backend'; targetQuestionIdx?: number; targetOptionIdxs?: number[]; branchFromIdx?: number; branchToIdx?: number; branchToEnd?: boolean; formula?: string }
 const logicRuleList = ref<LogicRuleItem[]>([])
 const showAddRule = ref(false)
 const editingRuleIdx = ref(-1)
-const defaultRuleForm = (): LogicRuleItem => ({ id: '', conditionType: 'simple', conditions: [{ questionIdx: undefined, optionIdx: undefined, operator: undefined, compareValue: undefined }], action: 'show', targetQuestionIdx: undefined, targetOptionIdxs: [], branchFromIdx: undefined, branchToIdx: undefined, branchToEnd: false, formula: '' })
+const defaultRuleForm = (): LogicRuleItem => ({ id: '', conditionType: 'simple', conditions: [{ questionIdx: undefined, optionIdx: undefined, operator: undefined, compareValue: undefined }], action: 'show', scope: 'frontend', targetQuestionIdx: undefined, targetOptionIdxs: [], branchFromIdx: undefined, branchToIdx: undefined, branchToEnd: false, formula: '' })
 const ruleForm = ref<LogicRuleItem>(defaultRuleForm())
-
-watch(logicRuleList, () => { syncLogicRules() }, { deep: true })
-
-function syncLogicRules() {
-  if (!selected.value) return
-  if (!selected.value.props) selected.value.props = {}
-  selected.value.props.logicRules = generateLogicDSL()
-}
 
 const choiceTypes = ['select','radio','checkbox','picker','cascade','judge','multiInput','hInput']
 function hasOptionsByIndex(idx?: number) { if (idx===undefined) return false; const q = questions.value[idx]; return q && choiceTypes.includes(q.type) && !!q.props?.options?.length }
@@ -1667,10 +1659,6 @@ function renderRuleDSL(rule: LogicRuleItem): string {
   return rule.conditionType==='none' ? actionStr : `IF ${condStr} THEN ${actionStr}`
 }
 
-function generateLogicDSL(): string {
-  return logicRuleList.value.map(r => renderRuleDSL(r)).join('\n')
-}
-
 function confirmRule() {
   const rf = ruleForm.value
   if (rf.conditionType!=='none') {
@@ -1684,13 +1672,13 @@ function confirmRule() {
   if (rf.action==='branch' && rf.branchFromIdx===undefined) { ElMessage.warning('请选择跳转来源题目'); return }
   if (rf.action==='branch' && !rf.branchToEnd && rf.branchToIdx===undefined) { ElMessage.warning('请选择跳转目标题目或勾选结束问卷'); return }
   if (['assignment','validate','replace'].includes(rf.action) && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
+  rf.scope = rf.action === 'postStat' ? 'backend' : 'frontend'
   rf.id = 'rule_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)
   if (editingRuleIdx.value>=0) {
     logicRuleList.value[editingRuleIdx.value] = { ...rf }
   } else {
     logicRuleList.value.push({ ...rf })
   }
-  syncLogicRules()
   showAddRule.value = false
   ruleForm.value = defaultRuleForm()
   editingRuleIdx.value = -1
@@ -1704,14 +1692,11 @@ function editRule(idx: number) {
 
 function removeRule(idx: number) {
   logicRuleList.value.splice(idx, 1)
-  syncLogicRules()
 }
 
 async function saveLogicRules() {
   if (!form.id) { ElMessage.warning('请先保存考试'); return }
-  syncLogicRules()
-  const dsl = generateLogicDSL()
-  const schema = JSON.stringify({ version: '2.0', questions: questions.value, setting: { logicRules: dsl } })
+  const schema = JSON.stringify({ version: '2.0', questions: questions.value })
   const settings = JSON.stringify({
     questionNumber: form.questionNumber, progressBar: form.progressBar,
     autoSave: form.autoSave, password: form.password,

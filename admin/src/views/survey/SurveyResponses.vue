@@ -18,7 +18,9 @@
       <el-table :data="list" v-loading="loading" stripe style="margin-top:16px" border @selection-change="onSelectionChange">
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="userId" label="用户" width="120" />
+        <el-table-column label="用户ID" width="120">
+          <template #default="{ row }">{{ (row.userId === 0 || row.userId === '0' || row.userId === undefined) ? '-' : row.userId }}</template>
+        </el-table-column>
         <el-table-column prop="nickname" label="昵称" width="140" />
         <el-table-column prop="browser" label="浏览器" width="100" />
         <el-table-column prop="deviceType" label="设备类型" width="100" />

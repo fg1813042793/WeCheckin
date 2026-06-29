@@ -46,6 +46,7 @@
             <div class="survey-sidebar-panel-tabs-pane" :class="{ active: middleTab==='result' }" title="统计" @click="middleTab='result'">
               <svg viewBox="0 0 1024 1024" width="20" height="20" fill="currentColor"><path d="M128 128h768v85.333333H213.333333v682.666667H128V128z m170.666667 170.666667h85.333333v426.666666h-85.333333V298.666667z m170.666666 128h85.333334v298.666666h-85.333334V426.666667z m170.666667-42.666667h85.333333v341.333333h-85.333333V384z"/></svg>
               <span class="tab-label">统计</span>
+              <span v-if="form.resultConfig.viewMode === 'perResponse'" class="tab-badge">逐份</span>
             </div>
           </div>
           <div class="survey-sidebar-panel-tabs-content" v-show="middleTab!=='logic' && middleTab!=='result'">
@@ -181,7 +182,7 @@
           <div class="logic-toolbar">
             <h4 style="margin:0;font-size:14px">自定义逻辑</h4>
             <div style="display:flex;gap:8px">
-              <el-button size="small" type="primary" @click="showAddRule = true">+ 增加规则</el-button>
+              <el-button size="small" type="primary" @click="addNewRule">+ 增加规则</el-button>
               <el-button size="small" @click="saveLogicRules">保存全部规则</el-button>
             </div>
           </div>
@@ -220,6 +221,7 @@
                 <div><code>ASSIGNMENT Q3 WITH SUM(Q1,Q2)</code> — Q3赋值为Q1+Q2</div>
                 <div><code>VALIDATE Q2 WITH IF(Q2>100,"超出","")</code> — 校验Q2不超100</div>
                 <div><code>REPLACE Q2 WITH "你好"</code> — 替换Q2标题</div>
+                <div><code>POST_STAT VALUE CHANNEL(webhook) WEBHOOK(dingtalk:https://oapi.dingtalk.com/robot/send?access_token=xxx) NOTIFY_ADMIN USERS(123,456)</code> — 交卷后按选项值统计，钉钉群通知+站内通知管理员和指定成员</div>
               </div>
             </div>
           </div>
@@ -249,16 +251,25 @@
                   </div>
                 </el-form-item>
                 <el-divider />
-                <el-form-item label="统计范围">
+                <el-form-item label="查看模式">
+                  <el-radio-group v-model="form.resultConfig.viewMode">
+                    <el-radio value="aggregate">总览统计（所有答卷汇总）</el-radio>
+                    <el-radio value="perResponse">逐份统计（每份答卷单独查看）</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item v-if="form.resultConfig.viewMode === 'aggregate'" label="统计范围">
                   <el-checkbox-group v-model="form.resultConfig.scope">
-                    <el-checkbox value="all" label="全部题目" />
-                    <el-checkbox value="choice" label="仅选择题" />
-                    <el-checkbox value="score" label="仅评分题" />
+                    <el-checkbox value="all">全部题目</el-checkbox>
+                    <el-checkbox value="choice">仅选择题</el-checkbox>
+                    <el-checkbox value="score">仅评分题</el-checkbox>
                   </el-checkbox-group>
                 </el-form-item>
+                <el-divider />
                 <el-form-item label="结果显示">
-                  <el-switch v-model="form.resultConfig.showChart" active-text="显示图表" inactive-text="隐藏图表" style="margin-bottom:8px;display:block" />
-                  <el-switch v-model="form.resultConfig.showDetail" active-text="显示详细数据" inactive-text="隐藏详细数据" />
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <el-switch v-model="form.resultConfig.showChart" active-text="显示图表" inactive-text="隐藏图表" />
+                    <el-switch v-model="form.resultConfig.showDetail" active-text="显示详细数据" inactive-text="隐藏详细数据" />
+                  </div>
                 </el-form-item>
                 <el-form-item label="导出时选项字段">
                   <el-radio-group v-model="form.resultConfig.exportField">
@@ -275,22 +286,28 @@
                 <div><strong>按选项值统计：</strong>适用于选项有数值含义的题目（如评分、分级），使用选项的 value 字段参与计算。</div>
                 <div><strong>按选项计数统计：</strong>统计每个选项被选中次数，适用于普通选择题。</div>
                 <div><strong>按分值统计：</strong>基于题目设置的分值（考试模式）计算总分和平均分。</div>
+                <div><strong>总览统计：</strong>所有答卷合并，以图表/表格展示每题的整体分布。</div>
+                <div><strong>逐份统计：</strong>每份答卷独立展示，便于查看每个提交者的具体作答。</div>
                 <div><strong>导出字段：</strong>控制 CSV/Excel 导出时使用选项值还是选项文本。</div>
               </div>
             </div>
           </div>
+          <div style="padding:12px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:center">
+            <el-button type="primary" size="small" :loading="saving" @click="save">保存配置</el-button>
+            <el-button size="small" plain @click="goToStatReport">查看统计报表</el-button>
+          </div>
         </div>
 
         <!-- 添加/编辑规则对话框 -->
-        <el-dialog v-model="showAddRule" :title="editingRuleIdx>=0?'编辑规则':'增加规则'" width="560px" :close-on-click-modal="false">
+        <el-dialog v-model="showAddRule" :title="editingRuleIdx>=0?'编辑规则':'增加规则'" width="680px" :close-on-click-modal="false">
           <el-form label-position="top" size="small">
             <el-form-item label="条件类型">
-              <el-select v-model="ruleForm.conditionType" style="width:100%">
+              <el-select v-model="ruleForm.conditionType" style="width:100%" :disabled="ruleForm.action==='postStat'">
                 <el-option label="简单条件 (单个)" value="simple" />
                 <el-option label="且 (AND)" value="and" />
                 <el-option label="或 (OR)" value="or" />
                 <el-option label="非 (NOT)" value="not" />
-                <el-option label="无条件 (赋值/校验/替换)" value="none" />
+                <el-option label="无条件 (赋值/校验/替换/交卷后统计)" value="none" />
               </el-select>
             </el-form-item>
             <template v-if="ruleForm.conditionType!=='none'">
@@ -329,6 +346,7 @@
                 <el-option label="校验 (VALIDATE)" value="validate" />
                 <el-option label="文本替换 (REPLACE)" value="replace" />
                 <el-option label="结束问卷 (END)" value="end" />
+                <el-option label="交卷后统计 (POST_STAT)" value="postStat" />
               </el-select>
             </el-form-item>
 
@@ -385,6 +403,80 @@
             <el-form-item v-if="ruleForm.action==='replace'" label="替换文本/公式">
               <el-input v-model="ruleForm.formula" placeholder='如 CONCATENATE("你好，",Q1)' />
             </el-form-item>
+
+            <!-- POST_STAT 交卷后统计 -->
+            <template v-if="ruleForm.action==='postStat'">
+              <el-form-item label="统计字段">
+                <el-radio-group v-model="ruleForm.statField">
+                  <el-radio value="label">选项标签 (label)</el-radio>
+                  <el-radio value="value">选项值 (value)</el-radio>
+                </el-radio-group>
+                <div style="font-size:11px;color:#999;margin-top:4px">选择统计时使用的字段，与「统计配置」中的统计方式联动</div>
+              </el-form-item>
+              <el-form-item label="统计范围">
+                <el-radio-group v-model="ruleForm.statScope">
+                  <el-radio value="all">全部统计（统计所有答卷）</el-radio>
+                  <el-radio value="single">单卷统计（仅统计当前答卷）</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-divider />
+              <el-form-item label="通知方式">
+                <el-radio-group v-model="ruleForm.notifyChannel">
+                  <el-radio value="internal">站内通知</el-radio>
+                  <el-radio value="webhook">Webhook</el-radio>
+                  <el-radio value="both">全部</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <template v-if="ruleForm.notifyChannel==='webhook'||ruleForm.notifyChannel==='both'">
+                <el-form-item label="Webhook 类型">
+                  <el-select v-model="ruleForm.webhookType" style="width:100%">
+                    <el-option label="钉钉" value="dingtalk" />
+                    <el-option label="企业微信" value="wecom" />
+                    <el-option label="飞书" value="lark" />
+                    <el-option label="自定义" value="custom" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="Webhook URL">
+                  <el-input v-model="ruleForm.webhookUrl" :placeholder="webhookPlaceholder" clearable />
+                  <div style="font-size:11px;color:#999;margin-top:4px">{{ webhookHint }}</div>
+                </el-form-item>
+              </template>
+              <el-divider />
+              <el-form-item label="通知消息模板">
+                <div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
+                  <el-select v-model="templatePreset" size="small" style="width:140px" placeholder="模版预设" @change="applyTemplatePreset" clearable>
+                    <el-option-group label="内置模版">
+                      <el-option v-for="p in allPresets.filter(x=>x.group==='builtin')" :key="p.value" :label="p.label" :value="p.value" />
+                    </el-option-group>
+                    <el-option-group label="自定义模版" v-if="customPresets.length">
+                      <el-option v-for="p in allPresets.filter(x=>x.group==='custom')" :key="p.value" :label="p.label" :value="p.value">
+                        <span>{{ p.label }}</span>
+                        <span style="float:right;color:#999;font-size:11px;cursor:pointer" @click.stop="deleteCustomPreset(p.label)">删除</span>
+                      </el-option>
+                    </el-option-group>
+                  </el-select>
+                  <el-button text size="small" @click="showSavePresetDialog = true; newPresetName = ''">另存为</el-button>
+                  <el-button text size="small" @click="resetTemplate" :disabled="!ruleForm.messageTemplate">恢复默认</el-button>
+                </div>
+                <el-input v-model="ruleForm.messageTemplate" type="textarea" :rows="5" placeholder="📋 问卷「{title}」收到新答卷&#10;提交人：{submitter}　时间：{date}&#10;共 {total} 份提交&#10;&#10;{result}" />
+                <div style="font-size:11px;color:#999;margin-top:4px;line-height:1.8">
+                  可用变量：
+                  <code>{title}</code> 问卷标题 ·
+                  <code>{questionCount}</code> 题目数 ·
+                  <code>{total}</code> 总答卷数 ·
+                  <code>{submitter}</code> 提交人 ·
+                  <code>{date}</code> 提交时间 ·
+                  <code>{result}</code> 统计结果（自动生成表格）
+                  <br>支持插入 <code>\n</code> 换行，留空使用默认模版
+                </div>
+              </el-form-item>
+              <el-divider />
+              <el-form-item label="通知对象">
+                <el-checkbox v-model="ruleForm.notifyAdmin" style="margin-bottom:8px;display:block">通知管理员</el-checkbox>
+                <el-input v-model="ruleForm.notifyUserIds" placeholder="指定成员 ID（多个用逗号隔开）" clearable />
+                <div style="font-size:11px;color:#999;margin-top:4px">通知管理员和指定成员为选填，仅用于站内通知</div>
+              </el-form-item>
+            </template>
 
             <!-- END 不需要额外设置 -->
           </el-form>
@@ -1288,6 +1380,19 @@
         </template>
       </el-dialog>
 
+      <!-- 保存自定义模版弹窗 -->
+      <el-dialog v-model="showSavePresetDialog" title="保存自定义模版" width="360px" :close-on-click-modal="false">
+        <el-form label-position="top" size="small">
+          <el-form-item label="模版名称">
+            <el-input v-model="newPresetName" placeholder="输入模版名称" maxlength="50" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showSavePresetDialog=false">取消</el-button>
+          <el-button type="primary" @click="confirmSavePreset">保存</el-button>
+        </template>
+      </el-dialog>
+
       <!-- 上传题库弹窗 -->
       <el-dialog v-model="bankDialog.visible" title="上传到题库" width="420px" :close-on-click-modal="false">
         <el-form label-position="top" size="small">
@@ -1345,6 +1450,7 @@ import { ref, computed, reactive, onMounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'
+import request from '../../utils/request'
 import { normalizeQuestions, importFromSurveyKing, exportToSurveyKing, isSurveyKingFormat, toSkType, toWcType } from '../../utils/surveyKingBridge'
 import DraggableList from './formkit/DraggableList.vue'
 
@@ -1372,6 +1478,7 @@ const form = reactive<any>({
   fillTemplate: 'sf1',
   resultConfig: {
     statType: 'value',
+    viewMode: 'aggregate',
     scope: ['all'],
     showChart: true,
     showDetail: true,
@@ -2003,22 +2110,120 @@ function confirmFormula() {
 }
 // ===== 逻辑规则（表单编辑） =====
 interface LogicCondition { questionIdx?: number; optionIdx?: number; operator?: string; compareValue?: string }
-interface LogicRuleItem { id: string; conditionType: string; conditions: LogicCondition[]; action: string; targetQuestionIdx?: number; targetOptionIdxs?: number[]; branchFromIdx?: number; branchToIdx?: number; branchToEnd?: boolean; formula?: string }
+interface LogicRuleItem { id: string; conditionType: string; conditions: LogicCondition[]; action: string; scope: 'frontend' | 'backend'; targetQuestionIdx?: number; targetOptionIdxs?: number[]; branchFromIdx?: number; branchToIdx?: number; branchToEnd?: boolean; formula?: string; statField?: string; statScope?: string; notifyAdmin?: boolean; notifyUserIds?: string; notifyChannel?: string; webhookType?: string; webhookUrl?: string; messageTemplate?: string }
 const logicRuleList = ref<LogicRuleItem[]>([])
 const showAddRule = ref(false)
 const editingRuleIdx = ref(-1)
-const defaultRuleForm = (): LogicRuleItem => ({ id: '', conditionType: 'simple', conditions: [{ questionIdx: undefined, optionIdx: undefined, operator: undefined, compareValue: undefined }], action: 'show', targetQuestionIdx: undefined, targetOptionIdxs: [], branchFromIdx: undefined, branchToIdx: undefined, branchToEnd: false, formula: '' })
+const defaultRuleForm = (): LogicRuleItem => ({ id: '', conditionType: 'simple', conditions: [{ questionIdx: undefined, optionIdx: undefined, operator: undefined, compareValue: undefined }], action: 'show', scope: 'frontend', targetQuestionIdx: undefined, targetOptionIdxs: [], branchFromIdx: undefined, branchToIdx: undefined, branchToEnd: false, formula: '', statField: 'label', statScope: 'all', notifyAdmin: false, notifyUserIds: '', notifyChannel: 'internal', webhookType: 'dingtalk', webhookUrl: '', messageTemplate: '' })
 const ruleForm = ref<LogicRuleItem>(defaultRuleForm())
 
-// 规则变更时自动保存到当前题目
-watch(logicRuleList, () => {
-  syncLogicRules()
-}, { deep: true })
+const webhookPlaceholder = computed(() => {
+  const t = ruleForm.value.webhookType || 'dingtalk'
+  const map: Record<string, string> = {
+    dingtalk: 'https://oapi.dingtalk.com/robot/send?access_token=xxx',
+    wecom: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx',
+    lark: 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx',
+    custom: 'https://your-domain.com/webhook/xxx'
+  }
+  return map[t] || ''
+})
+const webhookHint = computed(() => {
+  const t = ruleForm.value.webhookType || 'dingtalk'
+  const map: Record<string, string> = {
+    dingtalk: '在钉钉群中添加机器人获取 Webhook 地址',
+    wecom: '在企业微信群中添加机器人获取 Webhook 地址',
+    lark: '在飞书群中添加机器人获取 Webhook 地址',
+    custom: '通用 Webhook，POST JSON 格式消息体'
+  }
+  return map[t] || ''
+})
 
-function syncLogicRules() {
-  if (!selected.value) return
-  if (!selected.value.props) selected.value.props = {}
-  selected.value.props.logicRules = generateLogicDSL()
+const templatePreset = ref('')
+const customPresets = ref<{ label: string; value: string }[]>([])
+async function loadCustomPresets() {
+  try {
+    const res = await adminApi.surveyTemplatePresetsGet()
+    if (res.code === 0 && Array.isArray(res.data)) {
+      customPresets.value = res.data
+    }
+  } catch {}
+}
+loadCustomPresets()
+
+const defaultBuiltinPresets: Record<string, string> = {
+  '简洁': '📋 问卷「{title}」收到新答卷\n新提交人：{submitter}\n时间：{date}\n共 {total} 份提交\n\n{result}',
+  '详细': '📊 问卷统计报告\n━━━━━━━━━━━━━━━━━━\n📌 问卷：{title}\n👤 新提交人：{submitter}\n🕐 时间：{date}\n📈 总提交数：{total}\n\n{result}\n━━━━━━━━━━━━━━━━━━',
+  '仅统计结果': '{result}'
+}
+const builtinPresets = ref<Record<string, string>>({...defaultBuiltinPresets})
+async function loadBuiltinPresets() {
+  try {
+    const res = await request.get('/home/setup_get', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
+    if (res.code === 0 && res.data) {
+      const parsed = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+      if (Array.isArray(parsed) && parsed.length) {
+        const obj: Record<string, string> = {}
+        for (const p of parsed) {
+          obj[p.label] = p.value
+        }
+        builtinPresets.value = obj
+      }
+    }
+  } catch {}
+}
+loadBuiltinPresets()
+
+const allPresets = computed(() => {
+  const items: { label: string; value: string; group: string }[] = []
+  for (const key of Object.keys(builtinPresets.value)) {
+    items.push({ label: key, value: key, group: 'builtin' })
+  }
+  for (const c of customPresets.value) {
+    items.push({ label: c.label, value: 'custom:' + c.label, group: 'custom' })
+  }
+  return items
+})
+
+const showSavePresetDialog = ref(false)
+const newPresetName = ref('')
+
+async function saveCustomPresets() {
+  try {
+    await adminApi.surveyTemplatePresetsSave({ presets: customPresets.value })
+  } catch {}
+}
+function confirmSavePreset() {
+  const name = newPresetName.value.trim()
+  if (!name) { ElMessage.warning('请输入模版名称'); return }
+  if (!ruleForm.value.messageTemplate) { ElMessage.warning('请先填写模版内容'); return }
+  const existing = customPresets.value.findIndex(c => c.label === name)
+  const entry = { label: name, value: ruleForm.value.messageTemplate }
+  if (existing >= 0) {
+    customPresets.value[existing] = entry
+  } else {
+    customPresets.value.push(entry)
+  }
+  saveCustomPresets()
+  showSavePresetDialog.value = false
+  ElMessage.success('已保存自定义模版')
+}
+function deleteCustomPreset(label: string) {
+  customPresets.value = customPresets.value.filter(c => c.label !== label)
+  saveCustomPresets()
+}
+
+function applyTemplatePreset(val: string) {
+  if (!val) return
+  if (val.startsWith('custom:')) {
+    const label = val.slice(7)
+    const c = customPresets.value.find(p => p.label === label)
+    if (c) ruleForm.value.messageTemplate = c.value
+  } else if (builtinPresets.value[val]) {
+    ruleForm.value.messageTemplate = builtinPresets.value[val]
+  }
+}
+function resetTemplate() {
+  ruleForm.value.messageTemplate = ''
 }
 
 const choiceTypes = ['select','radio','checkbox','picker','cascade','judge','multiInput','hInput']
@@ -2046,7 +2251,7 @@ function renderRuleDSL(rule: LogicRuleItem): string {
   }
 
   let actionStr = ''
-  const actionMap: Record<string, string> = { show: 'SHOW', hide: 'HIDE', required: 'REQUIRED', check: 'CHECK', branch: 'BRANCH', assignment: 'ASSIGNMENT', validate: 'VALIDATE', replace: 'REPLACE', end: 'BRANCH' }
+  const actionMap: Record<string, string> = { show: 'SHOW', hide: 'HIDE', required: 'REQUIRED', check: 'CHECK', branch: 'BRANCH', assignment: 'ASSIGNMENT', validate: 'VALIDATE', replace: 'REPLACE', end: 'BRANCH', postStat: 'POST_STAT' }
   const a = actionMap[rule.action] || rule.action.toUpperCase()
 
   if (rule.action==='branch') {
@@ -2069,6 +2274,15 @@ function renderRuleDSL(rule: LogicRuleItem): string {
   } else if (rule.action==='end') {
     const fromTag = rule.branchFromIdx!==undefined ? `Q${rule.branchFromIdx+1}` : '?'
     actionStr = `BRANCH FROM ${fromTag} TO END`
+  } else if (rule.action==='postStat') {
+    const field = rule.statField === 'value' ? 'VALUE' : 'LABEL'
+    const channel = rule.notifyChannel || 'internal'
+    const parts = [`POST_STAT ${field} CHANNEL(${channel})`]
+    if (rule.webhookUrl) parts.push(`WEBHOOK(${rule.webhookType || 'dingtalk'}:${rule.webhookUrl})`)
+    if (rule.notifyAdmin) parts.push('NOTIFY_ADMIN')
+    if (rule.notifyUserIds) parts.push(`USERS(${rule.notifyUserIds})`)
+    if (rule.messageTemplate) parts.push(`TEMPLATE("${rule.messageTemplate.replace(/"/g, '\\"')}")`)
+    actionStr = parts.join(' ')
   } else {
     const tTag = rule.targetQuestionIdx!==undefined ? `Q${rule.targetQuestionIdx+1}` : '?'
     actionStr = `${a} ${tTag}`
@@ -2077,11 +2291,7 @@ function renderRuleDSL(rule: LogicRuleItem): string {
   return rule.conditionType==='none' ? actionStr : `IF ${condStr} THEN ${actionStr}`
 }
 
-function generateLogicDSL(): string {
-  return logicRuleList.value.map(r => renderRuleDSL(r)).join('\n')
-}
-
-function confirmRule() {
+async function confirmRule() {
   const rf = ruleForm.value
   if (rf.conditionType!=='none') {
     for (const c of rf.conditions) {
@@ -2089,6 +2299,12 @@ function confirmRule() {
     }
   }
   if (!rf.action) { ElMessage.warning('请选择动作'); return }
+  if (rf.action==='postStat') {
+    if (!rf.statField) { ElMessage.warning('请选择统计字段'); return }
+    if (!rf.notifyChannel) { ElMessage.warning('请选择通知方式'); return }
+    if ((rf.notifyChannel==='webhook'||rf.notifyChannel==='both') && !rf.webhookUrl) { ElMessage.warning('请填写 Webhook URL'); return }
+    if ((rf.notifyChannel==='webhook'||rf.notifyChannel==='both') && !rf.webhookType) { ElMessage.warning('请选择 Webhook 类型'); return }
+  }
   // Validate targets
   if (['show','hide','required'].includes(rf.action) && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
   if (rf.action==='check' && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
@@ -2096,16 +2312,23 @@ function confirmRule() {
   if (rf.action==='branch' && !rf.branchToEnd && rf.branchToIdx===undefined) { ElMessage.warning('请选择跳转目标题目或勾选结束问卷'); return }
   if (['assignment','validate','replace'].includes(rf.action) && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
 
+  rf.scope = rf.action === 'postStat' ? 'backend' : 'frontend'
   rf.id = 'rule_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)
   if (editingRuleIdx.value>=0) {
     logicRuleList.value[editingRuleIdx.value] = { ...rf }
   } else {
     logicRuleList.value.push({ ...rf })
   }
-  syncLogicRules()
   showAddRule.value = false
   ruleForm.value = defaultRuleForm()
   editingRuleIdx.value = -1
+  if (form.id) await saveLogicRules(false)
+}
+
+function addNewRule() {
+  editingRuleIdx.value = -1
+  ruleForm.value = defaultRuleForm()
+  showAddRule.value = true
 }
 
 function editRule(idx: number) {
@@ -2115,15 +2338,15 @@ function editRule(idx: number) {
 }
 
 function removeRule(idx: number) {
-  logicRuleList.value.splice(idx, 1)
-  syncLogicRules()
+  ElMessageBox.confirm('确定删除该条规则？', '提示', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }).then(() => {
+    logicRuleList.value.splice(idx, 1)
+    saveLogicRules(true)
+  }).catch(() => {})
 }
 
-async function saveLogicRules() {
-  if (!form.id) { ElMessage.warning('请先保存问卷'); return }
-  syncLogicRules()
-  const dsl = generateLogicDSL()
-  const schema = JSON.stringify({ version: '2.0', questions: questions.value, setting: { logicRules: dsl } })
+async function saveLogicRules(showMsg = true) {
+  if (!form.id) { if (showMsg) ElMessage.warning('请先保存问卷'); return }
+  const schema = JSON.stringify({ version: '2.0', questions: questions.value })
   const settings = JSON.stringify({
     questionNumber: form.questionNumber, progressBar: form.progressBar,
     autoSave: form.autoSave, password: form.password,
@@ -2140,11 +2363,14 @@ async function saveLogicRules() {
       deviceLimit: form.deviceLimit,
       ipLimit: form.ipLimit, userLimit: form.userLimit,
       publicQuery: form.publicQuery, collaborators: form.collaborators, timeLimit: form.timeLimit,
-      fillTemplate: form.fillTemplate
+      fillTemplate: form.fillTemplate,
+      showAnswerAnalysis: form.showAnswerAnalysis,
+      resultConfig: form.resultConfig,
+      logicRules: JSON.stringify(logicRuleList.value)
     })
     const payload: any = {
       id: form.id,
-    title: form.title, desc: form.description, category: form.category, tags: form.tags,
+      title: form.title, description: form.description, category: form.category, tags: form.tags,
     visibility: form.visibility, allowMulti: form.allowMultiBool,
     anonymous: form.anonymousBool, showResult: form.showResultBool,
     startTime: form.startDate || 0, endTime: form.endDate || 0,
@@ -2152,10 +2378,10 @@ async function saveLogicRules() {
     schema, deptIds: form.deptIds, mode: form.mode, settings
   }
   try {
-    const r: any = await adminApi.surveySave(payload)
+    const r: any = await adminApi.surveyEdit(payload)
     if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
     ElMessage.success('已保存')
-  } catch { ElMessage.error('保存失败') }
+  } catch { if (showMsg) ElMessage.error('保存失败') }
   finally { saving.value = false }
 }
 
@@ -2926,8 +3152,10 @@ async function load() {
           publicQuery: s.publicQuery ?? false, showAnswerAnalysis: s.showAnswerAnalysis ?? false,
           collaborators: s.collaborators || '', timeLimit: s.timeLimit || 0,
           fillTemplate: s.fillTemplate || 'sf1',
-          resultConfig: s.resultConfig || { statType: 'value', scope: ['all'], showChart: true, showDetail: true, exportField: 'value' }
+          resultConfig: Object.assign({ statType: 'value', viewMode: 'aggregate', scope: ['all'], showChart: true, showDetail: true, exportField: 'value' }, s.resultConfig || {}),
+          logicRules: s.logicRules || '[]'
         })
+        try { logicRuleList.value = JSON.parse(s.logicRules || '[]') } catch { logicRuleList.value = [] }
       } catch {}
     } else {
       Object.assign(base, {
@@ -2943,7 +3171,7 @@ async function load() {
   publicQuery: false,
         collaborators: '', timeLimit: 0,
         fillTemplate: 'sf1',
-        resultConfig: { statType: 'value', scope: ['all'], showChart: true, showDetail: true, exportField: 'value' }
+        resultConfig: { statType: 'value', viewMode: 'aggregate', scope: ['all'], showChart: true, showDetail: true, exportField: 'value' }
       })
     }
     Object.assign(form, base)
@@ -2958,9 +3186,6 @@ async function load() {
           questions.value = normalizeQuestions(sch.questions)
           idCounter = questions.value.length
         }
-        if (sch.setting?.logicRules) {
-          logicRuleList.value = parseDSLToRules(sch.setting.logicRules)
-        }
       } catch {}
     }
     await nextTick()
@@ -2972,9 +3197,7 @@ async function save() {
   if (!form.title) { ElMessage.warning('请填写标题'); return }
   saving.value = true
   try {
-    syncLogicRules()
-    const dsl = generateLogicDSL()
-    const schema = JSON.stringify({ version: '2.0', questions: questions.value, setting: { logicRules: dsl } })
+    const schema = JSON.stringify({ version: '2.0', questions: questions.value })
     const settings = JSON.stringify({
       questionNumber: form.questionNumber, progressBar: form.progressBar,
       autoSave: form.autoSave, password: form.password,
@@ -2992,7 +3215,8 @@ async function save() {
       ipLimit: form.ipLimit, userLimit: form.userLimit,
       publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
       collaborators: form.collaborators, timeLimit: form.timeLimit,
-      resultConfig: form.resultConfig
+      resultConfig: form.resultConfig,
+      logicRules: JSON.stringify(logicRuleList.value)
     })
     const payload: any = {
       title: form.title, description: form.description, category: form.category, tags: form.tags,
@@ -3018,6 +3242,10 @@ async function save() {
 }
 
 function goBack() { router.push('/survey') }
+function goToStatReport() {
+  const id = form.value.id || route.query.id
+  window.open(`/survey/stat-report?surveyId=${id}&title=${encodeURIComponent(form.value.title || '')}`, '_blank')
+}
 
 const FALLBACK_TYPES = [
   // 选择题
@@ -3131,6 +3359,8 @@ onMounted(async () => {
 }
 .survey-sidebar-panel-tabs-pane:hover { color:#666; }
 .survey-sidebar-panel-tabs-pane.active { color:#fb454c; background:#fff; border-radius:6px; }
+.survey-sidebar-panel-tabs-pane .tab-badge { position:absolute; top:-2px; right:-6px; font-size:9px; background:#fb454c; color:#fff; border-radius:8px; padding:1px 4px; line-height:1.4; }
+.survey-sidebar-panel-tabs-pane { position:relative; }
 .survey-sidebar-panel-tabs-content {
   display:flex; flex-direction:column; width:240px; height:100%;
   border-right:1px solid #e8e8e8; overflow-y:auto;
