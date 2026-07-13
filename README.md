@@ -1,171 +1,169 @@
 # MY打卡 - 多功能打卡应用
 
-一个基于uni-app开发的多平台打卡应用，支持Android、iOS、HarmonyOS和微信小程序。
+一个包含移动端、小程序端、PC 管理台和 Go 后端的打卡/活动/问卷/考试系统。
 
 ## 项目结构
 
-```
+```text
 WeCheckin/
-├── frontend/                 # 前端代码
-│   ├── pages/              # 页面组件
-│   ├── components/         # 通用组件
-│   ├── utils/              # 工具函数
-│   ├── api/                # API接口
-│   ├── config/             # 配置文件
-│   ├── static/             # 静态资源
-│   ├── store/              # 状态管理
-│   ├── App.vue             # 根组件
-│   ├── main.js             # 入口文件
-│   ├── pages.json          # 页面配置
-│   ├── manifest.json       # 应用配置
-│   └── package.json        # 依赖管理
-├── backend/                # 后端代码
-│   ├── cmd/                # 命令行入口
-│   ├── internal/           # 内部包
-│   │   ├── config/         # 配置管理
-│   │   ├── model/          # 数据模型
-│   │   ├── service/        # 业务逻辑
-│   │   └── handler/        # 请求处理
-│   ├── api/                # API路由
-│   ├── config.yaml         # 配置文件
-│   ├── go.mod             # Go模块
-│   ├── docker-compose.yml  # Docker配置
-│   └── Dockerfile         # Docker构建
-├── docs/                  # 文档
-│   ├── HBUILDER_DEBUG.md  # HBuilder调试指南
-│   └── MY打卡小程序安装使用手册.docx  # 安装手册
-├── project.config.json    # 项目配置
-├── project.private.config.json  # 项目私有配置
-└── README.md             # 项目说明
+├── backend/                 # Go 后端服务
+│   ├── cmd/main.go          # 服务入口
+│   ├── config/              # 运行配置，默认端口 8083
+│   ├── internal/            # 业务模块、模型、处理器、中间件
+│   ├── docs/swagger/        # Swagger 文档产物
+│   ├── scripts/             # 数据和迁移脚本
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── admin/                   # PC 管理台，Vue 3 + Vite + Element Plus
+│   ├── src/api/
+│   ├── src/router/
+│   ├── src/views/
+│   └── package.json
+├── frontend/                # uni-app 客户端，支持 H5/App/微信小程序
+│   ├── pages/
+│   ├── components/
+│   ├── api/
+│   ├── config/
+│   ├── pages.json
+│   ├── manifest.json
+│   └── package.json
+├── docs/                    # 使用和调试文档
+├── openspec/                # 规格驱动变更记录
+├── go.mod                   # 后端 Go module
+└── README.md
 ```
 
-## 功能特性
+## 功能模块
 
-- 📱 多平台支持：Android、iOS、HarmonyOS、微信小程序
-- 🔐 用户认证：JWT token认证
-- 📝 打卡管理：创建、编辑、删除打卡活动
-- 📊 数据统计：打卡统计、用户分析
-- 🔔 消息通知：实时通知推送
-- 🎨 现代化UI：基于uni-ui的精美界面
+- 用户认证、管理员认证、JWT/Redis token 管理
+- 打卡项目、打卡记录、报名表单和统计导出
+- 通知公告、收藏、首页配置
+- 赛事活动、参与用户、动态和成绩管理
+- 问卷系统、答卷、统计报表、题库和资源管理
+- 在线考试、考试记录、题库和资源管理
+- PC 管理台的用户、部门、角色、菜单和权限管理
 
 ## 技术栈
 
-### 前端
-- **框架**：uni-app (Vue 2)
-- **UI库**：uni-ui
-- **状态管理**：Vuex
-- **HTTP客户端**：Axios
-- **构建工具**：HBuilderX
-
 ### 后端
-- **语言**：Go 1.19+
-- **框架**：Hertz (CloudWeGo)
-- **数据库**：MySQL + GORM
-- **缓存**：Redis
-- **认证**：JWT
-- **容器化**：Docker
+
+- Go 1.24 module
+- Hertz (CloudWeGo)
+- GORM + MySQL
+- Redis
+- Swagger
+
+### PC 管理台
+
+- Vue 3
+- Vite
+- TypeScript
+- Element Plus
+- Axios
+- ECharts / vue-echarts
+
+### 移动端 / 小程序端
+
+- uni-app
+- Vue 3
+- Vite
+- HBuilderX / DCloud 工具链
 
 ## 快速开始
 
-### 前端开发
+### 后端服务
 
-1. 进入前端目录：
-```bash
-cd frontend
-```
+默认配置文件位于 `backend/config/config.yaml`，默认监听端口为 `8083`。
 
-2. 安装依赖：
-```bash
-npm install
-```
-
-3. 开发调试：
-```bash
-npm run dev
-```
-
-4. 构建项目：
-```bash
-npm run build
-```
-
-### 后端开发
-
-1. 进入后端目录：
 ```bash
 cd backend
-```
-
-2. 安装依赖：
-```bash
 go mod tidy
-```
-
-3. 运行服务：
-```bash
 go run cmd/main.go
 ```
 
-4. 使用Docker运行：
+也可以使用启动脚本：
+
 ```bash
-docker-compose up -d
+cd backend
+bash start.sh
+```
+
+Swagger 入口：
+
+```text
+http://localhost:8083/swagger/index.html
+```
+
+### PC 管理台
+
+管理台开发服务默认端口为 `3000`，请求通过 `admin/vite.config.ts` 代理到 `http://localhost:8083`。
+
+```bash
+cd admin
+npm install
+npm run dev
+```
+
+构建：
+
+```bash
+cd admin
+npm run build
+```
+
+### uni-app 客户端
+
+客户端 API 地址在 `frontend/config/index.js` 中配置。
+
+```bash
+cd frontend
+npm install
+npm run dev:h5
+```
+
+常用脚本：
+
+```bash
+npm run dev:h5
+npm run dev:app
+npm run dev:mp-weixin
+npm run build:h5
+npm run build:app
+npm run build:mp-weixin
 ```
 
 ## 配置说明
 
-### 前端配置
+- `backend/config/config.yaml`：后端默认配置。
+- `backend/config/config.dev.yaml`：开发环境覆盖配置，可通过 `go run cmd/main.go -env dev` 合并读取。
+- `frontend/config/index.js`：uni-app 客户端 API 地址、版本和缓存配置。
+- `admin/vite.config.ts`：管理台开发代理配置。
 
-- `config/index.js`：API地址配置
-- `manifest.json`：应用配置
-- `pages.json`：页面路由配置
+后端启动时会自动执行 GORM AutoMigrate，并初始化部分系统配置和菜单数据。
 
-### 后端配置
+## 测试
 
-- `config.yaml`：服务配置
-- 数据库配置：MySQL连接信息
-- Redis配置：缓存服务配置
+当前项目测试主要集中在后端 formkit 子系统：
 
-## 开发指南
-
-### 添加新页面
-
-1. 在 `frontend/pages/` 下创建新页面目录
-2. 在 `frontend/pages.json` 中添加页面配置
-3. 创建对应的Vue组件
-
-### 添加新API
-
-1. 在 `frontend/api/` 下添加API接口文件
-2. 在 `backend/api/` 下添加对应的API处理函数
-3. 在 `backend/internal/service/` 下添加业务逻辑
-
-## 部署说明
-
-### 前端部署
-
-1. 构建项目：
 ```bash
-cd frontend && npm run build
+GOCACHE=$PWD/.cache/go-build go test ./backend/internal/app/formkit/...
 ```
 
-2. 将 `dist` 目录部署到Web服务器
+如果测试后生成 `.cache/`，可以删除该目录；它已加入 `.gitignore`。
 
-### 后端部署
+## 文档
 
-1. 构建Docker镜像：
+- [HBuilderX Android 调试指南](docs/HBUILDER_DEBUG.md)
+- [测试数据说明](docs/TEST_DATA.md)
+- `docs/CC打卡小程序安装使用手册.docx`
+
+## 部署
+
+后端提供 Dockerfile 和 docker-compose 示例：
+
 ```bash
-cd backend && docker build -t wecheckin-backend .
-```
-
-2. 使用Docker Compose部署：
-```bash
+cd backend
 docker-compose up -d
 ```
 
-## 许可证
-
-MIT License
-
-## 联系方式
-
-如有问题，请提交Issue或联系开发团队。
+部署前请根据目标环境调整 MySQL、Redis、端口、上传目录和反向代理配置。

@@ -55,9 +55,9 @@ fi
 echo -e "${GREEN}✓ 依赖下载完成${NC}"
 
 # 检查配置文件
-if [ ! -f "config.yaml" ]; then
+if [ ! -f "config/config.yaml" ]; then
     echo -e "${RED}错误: 配置文件不存在${NC}"
-    echo -e "${YELLOW}请创建 config.yaml 文件${NC}"
+    echo -e "${YELLOW}请创建 config/config.yaml 文件${NC}"
     exit 1
 fi
 
@@ -73,7 +73,7 @@ export APP_ENV=development
 
 # 启动服务
 echo -e "${GREEN}正在启动服务...${NC}"
-echo -e "${YELLOW}服务将在 http://localhost:8080 启动${NC}"
+echo -e "${YELLOW}服务将在 http://localhost:8083 启动${NC}"
 echo -e "${YELLOW}按 Ctrl+C 停止服务${NC}"
 
 # 运行服务

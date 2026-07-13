@@ -397,10 +397,10 @@ const currentTitleHtml = computed(() => {
   if (exam.value.showScore && currentQuestion.value.examScore) {
     html += `<span class="q-score">${currentQuestion.value.examScore}分</span>`
   }
-  html += unwrapOuterP(currentQuestion.value.title || '')
   if (currentQuestion.value.required) {
     html += '<span class="q-req">*</span>'
   }
+  html += unwrapOuterP(currentQuestion.value.title || '')
   return html
 })
 
@@ -414,10 +414,10 @@ function questionTitleHtml(q: any, i: number): string {
   if (exam.value.showScore && q.examScore) {
     html += `<span class="q-score">${q.examScore}分</span>`
   }
-  html += unwrapOuterP(q.title || '')
   if (q.required) {
     html += '<span class="q-req">*</span>'
   }
+  html += unwrapOuterP(q.title || '')
   return html
 }
 
@@ -426,10 +426,10 @@ function analysisTitleHtml(q: any, i: number): string {
   if (settings.value.questionNumber !== false) {
     html += `<span class="q-num">${i + 1}.</span>`
   }
-  html += unwrapOuterP(q.title || '')
   if (q.required) {
     html += '<span class="q-req">*</span>'
   }
+  html += unwrapOuterP(q.title || '')
   return html
 }
 const examTimeRange = computed(() => {

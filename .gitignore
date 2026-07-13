@@ -2,6 +2,7 @@ node_modules/
 dist/
 unpackage/
 .hbuilderx/
+.cache/
 
 # OS
 .DS_Store
@@ -16,6 +17,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+backend/logs/
 
 # Environment
 .env
@@ -27,3 +29,9 @@ npm-debug.log*
 *.aab
 *.ipa
 *.wgt
+backend/bin/
+backend/cmd/cmd
+cmd.exe
+
+# Runtime uploads / exports
+backend/uploads/

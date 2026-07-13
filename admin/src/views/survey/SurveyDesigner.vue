@@ -3,9 +3,9 @@
     <!-- 最左侧导航: 概述 / 编辑 / 设置 / 数据 / 报表 / 项目 -->
     <div class="survey-main-navigator">
       <div class="nav-actions">
-        <button class="nav-btn" :class="{ active: activeView==='overview' }" @click="activeView='overview'" title="概述">
+        <!--<button class="nav-btn" :class="{ active: activeView==='overview' }" @click="activeView='overview'" title="概述">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </button>
+        </button>-->
         <button class="nav-btn" :class="{ active: activeView==='edit' }" @click="activeView='edit'" title="编辑">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
@@ -1038,6 +1038,9 @@
               </el-form-item>
               <div class="settings-grid">
                 <el-form-item label="公开查询设置"><el-switch v-model="form.publicQuery" /></el-form-item>
+                <el-form-item label="问卷状态">
+                  <el-switch v-model="form.statusBool" :active-value="1" :inactive-value="0" active-text="已开启" inactive-text="已停用" />
+                </el-form-item>
               </div>
             </el-form>
           </div>
@@ -1067,10 +1070,10 @@
       </div>
 
       <!-- 概览视图 -->
-      <div v-show="activeView==='overview'" class="overview-wrapper">
+      <!--<div v-show="activeView==='overview'" class="overview-wrapper">
         <div class="overview-scroll">
           <!-- 日收集问卷图表 -->
-          <div class="overview-card">
+          <!--<div class="overview-card">
             <div class="overview-card-title">📊 日收集问卷</div>
             <div class="chart-placeholder">
               <div class="chart-bars">
@@ -1080,10 +1083,10 @@
                 </div>
               </div>
             </div>
-          </div>
+          </div>-->
 
           <!-- 系统设置 -->
-          <div class="overview-card">
+          <!--<div class="overview-card">
             <div class="overview-card-title">⚙️ 系统设置</div>
             <div class="overview-settings">
               <div class="setting-row">
@@ -1117,7 +1120,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </div>-->
 
       <!-- 数据视图 -->
       <div v-show="activeView==='data'" class="setting-wrapper">
@@ -1140,12 +1143,12 @@
               <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
                 <el-input v-model="responseKeyword" placeholder="搜索提交人..." size="small" clearable style="width:200px" @input="onSearch" />
               </div>
-              <el-row :gutter="12" style="margin-bottom:12px">
+              <!--<el-row :gutter="12" style="margin-bottom:12px">
                 <el-col :span="6"><el-statistic title="总提交数" :value="stats.totalCount" /></el-col>
                 <el-col :span="6"><el-statistic title="今日提交" :value="stats.todayCount" /></el-col>
                 <el-col :span="6"><el-statistic title="平均完成时间" :value="stats.avgTime" suffix="秒" /></el-col>
                 <el-col :span="6"><el-statistic title="完成率" :value="stats.completionRate" suffix="%" /></el-col>
-              </el-row>
+              </el-row>-->
               <el-table ref="dataTableRef" :data="responseRows" border size="small" style="width:100%" max-height="500px" @selection-change="onSelectionChange">
                 <el-table-column type="selection" width="40" fixed />
                 <el-table-column v-for="col in dataColumns" :key="col.key" :label="col.label" :width="col.width" :min-width="col.minWidth" :show-overflow-tooltip="col.showOverflowTooltip" :fixed="col.fixed">

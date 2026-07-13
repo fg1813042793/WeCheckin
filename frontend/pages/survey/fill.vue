@@ -106,6 +106,7 @@
 <script>
 import { surveyApi } from '../../api/index'
 import QuestionField from '../../components/survey/QuestionField.vue'
+import { evaluateFrontendRules } from '../../utils/logicEngine'
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
 
@@ -139,14 +140,16 @@ export default {
       session: '',
       swipeStartX: 0,
       swipeStartY: 0,
-      isSigOpen: false
+      isSigOpen: false,
+      hiddenIds: [],
+      logicRules: []
     }
   },
   computed: {
     totalQuestions() { return this.realQuestions.length },
     answeredCount() { return this.realQuestions.filter(q => this.isAnswered(q, this.answers[q.id])).length },
     progressPct() { return this.totalQuestions ? Math.round(this.answeredCount / this.totalQuestions * 100) : 0 },
-    realQuestions() { return (this.questions || []).filter(q => !LAYOUT_TYPES.includes(q.type)) },
+    realQuestions() { return (this.questions || []).filter(q => !LAYOUT_TYPES.includes(q.type) && this.hiddenIds.indexOf(q.id) < 0) },
     isLast() { return this.currentQIndex >= this.totalQuestions - 1 },
     currentQuestion() { return this.settings.onePageOneQuestion ? (this.realQuestions[this.currentQIndex] || null) : null },
     headerImage() {
@@ -185,6 +188,11 @@ export default {
         this.survey = res.data
         const rawSettings = res.data?.settings
         this.settings = rawSettings ? (typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings) : {}
+        const rawRules = this.settings.logicRules
+        if (rawRules) {
+          if (typeof rawRules === 'string') { try { this.logicRules = JSON.parse(rawRules) } catch { this.logicRules = [] } }
+          else if (Array.isArray(rawRules)) this.logicRules = rawRules
+        }
         const raw = res.data?.schema
         const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
         this.questions = sch.questions || []
@@ -197,6 +205,7 @@ export default {
           }
         }
         this.answers = init
+        this.reevaluateRules()
         if (res.data?.session) { this.session = res.data.session; this.saveSession(this.session) }
         if (res.data?.startAt) this.startAt = res.data.startAt
         if (this.settings.timeLimit) this.startCountdown()
@@ -242,8 +251,16 @@ export default {
       return !!val
     },
 
+    reevaluateRules() {
+      if (!this.logicRules || !this.logicRules.length) { this.hiddenIds = []; return }
+      const frontendRules = this.logicRules.filter(r => r.scope !== 'backend')
+      if (!frontendRules.length) { this.hiddenIds = []; return }
+      const result = evaluateFrontendRules(frontendRules, this.questions, this.answers)
+      this.hiddenIds = Array.from(result.hiddenIds)
+    },
     setAnswer(qid, val) {
       this.$set(this.answers, qid, val)
+      this.reevaluateRules()
       this.autoSave()
     },
 
@@ -347,7 +364,20 @@ export default {
       else this.goPrev()
     },
 
+    validateRequired() {
+      const msgs = []
+      for (const q of (this.questions || [])) {
+        if (LAYOUT_TYPES.includes(q.type)) continue
+        if (this.hiddenIds.indexOf(q.id) >= 0) continue
+        if (q.required && !this.isAnswered(q, this.answers[q.id])) {
+          msgs.push((q.title ? q.title.replace(/<[^>]+>/g, '').slice(0, 20) : '未命名') + ' 为必填项')
+        }
+      }
+      if (msgs.length) { uni.showModal({ title: '请检查', content: msgs.join('; '), showCancel: false }); return false }
+      return true
+    },
     async onSubmit() {
+      if (!this.validateRequired()) return
       uni.showModal({
         title: '确认提交',
         content: '提交后不可修改',

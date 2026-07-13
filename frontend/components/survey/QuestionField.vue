@@ -321,10 +321,10 @@ export default {
       if (this.qScore) {
         html += `<span style="font-size:24rpx;color:#fa8c16;font-weight:500;padding-top:4rpx;margin-right:8rpx">(${this.qScore}分)</span>`
       }
-      html += this.unwrapOuterP(q.title || '')
       if (q.required) {
         html += `<span style="color:#f56c6c;margin-right:6rpx">*</span>`
       }
+      html += this.unwrapOuterP(q.title || '')
       return html.replace(/<img\b/gi, '<img style="max-width:100%;height:auto" ')
     },
     udTreeFlat() {

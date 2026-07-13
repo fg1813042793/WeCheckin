@@ -108,8 +108,9 @@
           <QuestionField
             v-for="(q, i) in questions"
             :key="q.id"
+            v-if="!hiddenQuestionIds.has(q.id)"
             :q="q"
-            :index="questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length"
+            :index="questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type) && !hiddenQuestionIds.has(x.id)).length"
             :answers="answers"
             :settings="settings"
             :file-lists="fileLists"
@@ -171,6 +172,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import QuestionField from './components/QuestionField.vue'
+import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
 
 const route = useRoute()
 const survey = ref<any>(null)
@@ -210,6 +212,24 @@ const startAt = ref(0)
 const remaining = ref(0)
 const currentIndex = ref(0)
 const sheetVisible = ref(true)
+const hiddenQuestionIds = ref<Set<string>>(new Set())
+const logicRules = ref<any[]>([])
+
+function reevaluateRules() {
+  if (!logicRules.value.length) { hiddenQuestionIds.value = new Set(); return }
+  const frontendRules = logicRules.value.filter((r: any) => r.scope !== 'backend')
+  if (!frontendRules.length) { hiddenQuestionIds.value = new Set(); return }
+  const result = evaluateFrontendRules(frontendRules, questions.value, answers.value)
+  hiddenQuestionIds.value = result.hiddenIds
+  // 当页当前题目被隐藏，跳转到下一可见题
+  if (settings.value.onePageOneQuestion) {
+    const cur = questions.value[currentIndex.value]
+    if (cur && hiddenQuestionIds.value.has(cur.id)) {
+      const next = nextVisibleIndex(currentIndex.value)
+      if (next >= 0) currentIndex.value = next
+    }
+  }
+}
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 let draftTimer: ReturnType<typeof setTimeout> | null = null
 let userDeptId = 0
@@ -229,13 +249,17 @@ const bgStyle = computed(() => {
 })
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
-const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
+const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type) && !hiddenQuestionIds.value.has(q.id)))
 const totalQuestions = computed(() => realQuestions.value.length)
 const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
 const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
 const navQuestions = computed(() => realQuestions.value)
 const currentNavIndex = computed(() => { const q = questions.value[currentIndex.value]; return q ? navQuestions.value.indexOf(q) : -1 })
-const isLast = computed(() => currentIndex.value >= questions.value.length - 1)
+const isLast = computed(() => {
+  if (!settings.value.onePageOneQuestion) return currentIndex.value >= questions.value.length - 1
+  const nextVis = nextVisibleIndex(currentIndex.value)
+  return nextVis < 0
+})
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
 
 const AUTO_SAVE_KEY = 'survey_draft_'
@@ -251,8 +275,24 @@ function loadDraft() {
 function clearDraft() { localStorage.removeItem(getDraftKey()) }
 function scheduleDraft() { if (draftTimer) clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 2000) }
 
-function goNext() { if (currentIndex.value < questions.value.length - 1) currentIndex.value++ }
-function goPrev() { if (currentIndex.value > 0) currentIndex.value-- }
+function nextVisibleIndex(from: number): number {
+  let i = from + 1
+  while (i < questions.value.length && hiddenQuestionIds.value.has(questions.value[i]?.id)) i++
+  return i < questions.value.length ? i : -1
+}
+function prevVisibleIndex(from: number): number {
+  let i = from - 1
+  while (i >= 0 && hiddenQuestionIds.value.has(questions.value[i]?.id)) i--
+  return i
+}
+function goNext() {
+  const next = nextVisibleIndex(currentIndex.value)
+  if (next >= 0) currentIndex.value = next
+}
+function goPrev() {
+  const prev = prevVisibleIndex(currentIndex.value)
+  if (prev >= 0) currentIndex.value = prev
+}
 
 const swipeStartX = ref(0)
 const swipeStartY = ref(0)
@@ -262,7 +302,11 @@ function onSwipeEnd(e: TouchEvent) {
   const dx = e.changedTouches[0].clientX - swipeStartX.value
   const dy = e.changedTouches[0].clientY - swipeStartY.value
   if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-    dx > 0 ? goPrev() : goNext()
+    if (dx > 0) goPrev()
+    else {
+      const q = currentQuestion.value
+      if (q && q.type !== 'pagination') goNext()
+    }
   }
 }
 
@@ -494,9 +538,15 @@ async function load() {
     const raw = res.data?.schema
     const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
     questions.value = sch.questions || []
+    const rawRules = settings.value.logicRules
+    if (rawRules) {
+      if (typeof rawRules === 'string') { try { logicRules.value = JSON.parse(rawRules) } catch { logicRules.value = [] } }
+      else if (Array.isArray(rawRules)) logicRules.value = rawRules
+    }
     const init: any = {}
     questions.value.forEach((q: any) => { init[q.id] = getInitVal(q) })
     answers.value = init
+    reevaluateRules()
     const draft = loadDraft()
     if (draft && draft.answers) {
       for (const key of Object.keys(draft.answers)) { if (key in answers.value) answers.value[key] = draft.answers[key] }
@@ -534,10 +584,24 @@ function handleSubmitSuccess(_data: any) {
   ElMessage.success('已提交'); survey.value = null; questions.value = []
 }
 
+function validateRequired(): boolean {
+  const msgs: string[] = []
+  for (const q of questions.value) {
+    if (LAYOUT_TYPES.includes(q.type)) continue
+    if (hiddenQuestionIds.value.has(q.id)) continue
+    if (q.required && !isAnswered(q, answers.value[q.id])) {
+      msgs.push((q.title ? q.title.replace(/<[^>]+>/g, '').slice(0, 20) : '未命名') + ' 为必填项')
+    }
+  }
+  if (msgs.length) { ElMessage.warning(msgs.join('; ')); return false }
+  return true
+}
+
 async function onSubmit(skipConfirm = false) {
   if (typeof skipConfirm !== 'boolean') skipConfirm = false
   const id = Number(route.params.id)
   if (!skipConfirm) {
+    if (!validateRequired()) return
     try {
       const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
       if (vr.data && !vr.data.valid) { ElMessage.warning((vr.data.errors || []).map((e: any) => e.message).join('; ') || '请检查填写内容'); return }
@@ -565,7 +629,7 @@ async function onSubmit(skipConfirm = false) {
 }
 
 onMounted(load)
-watch(answers, () => { scheduleDraft() }, { deep: true })
+watch(answers, () => { scheduleDraft(); reevaluateRules() }, { deep: true })
 watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
 watch(() => settings.value.timeLimit, () => { startCountdown() })
 onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); stopCountdown() })

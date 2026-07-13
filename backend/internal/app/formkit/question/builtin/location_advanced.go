@@ -1,8 +1,6 @@
 package builtin
 
 import (
-	"strings"
-
 	"wecheckin-backend/backend/internal/app/formkit/question"
 	"wecheckin-backend/backend/internal/app/formkit/schema"
 )
@@ -22,16 +20,9 @@ func (q *LocationQuestion) Validate(value interface{}, sch schema.Question) erro
 		}
 		return nil
 	}
-	// 字符串格式：接受任意非空字符串（"lat,lng" 或 "地址 (lat,lng)" 或人工输入纯地址）
-	if s, ok := value.(string); ok {
-		if strings.TrimSpace(s) == "" {
-			return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "请获取位置"}
-		}
-		return nil
-	}
 	m, ok := value.(map[string]interface{})
 	if !ok {
-		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置题答案必须为字符串或对象"}
+		return &question.ValidationError{QuestionID: sch.ID, Field: sch.ID, Message: "位置题答案必须为对象"}
 	}
 	addr, _ := m["address"].(string)
 	lat, _ := m["lat"].(string)

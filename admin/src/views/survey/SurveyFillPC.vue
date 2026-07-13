@@ -159,7 +159,7 @@
       </template>
       <template v-else>
         <div class="q-list">
-          <div v-for="(q, i) in questions" :key="q.id" class="q-item" :data-qid="q.id">
+          <div v-for="(q, i) in questions" :key="q.id" v-if="!hiddenQuestionIds.has(q.id)" class="q-item" :data-qid="q.id">
             <div class="q-title">
               <template v-if="LAYOUT_TYPES.includes(q.type)">
                 <span v-if="q.type==='description'" class="q-type-label">描述</span>
@@ -167,7 +167,7 @@
                 <span v-else class="q-type-label">分页</span>
               </template>
               <template v-else>
-                <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length + 1 }}.</span>
+                <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type) && !hiddenQuestionIds.has(x.id)).length + 1 }}.</span>
                 <span class="q-text" v-html="q.title" />
                 <span v-if="q.required" class="q-req">*</span>
               </template>
@@ -302,6 +302,7 @@ import '../../utils/quill-image-resize'
 import { useRoute } from 'vue-router'
 import { computed, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
 
 const route = useRoute()
 const survey = ref<any>(null)
@@ -435,7 +436,33 @@ function isAnswered(q: any, val: any): boolean {
 }
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
-const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
+const hiddenQuestionIds = ref<Set<string>>(new Set())
+const logicRules = ref<any[]>([])
+function reevaluateRules() {
+  if (!logicRules.value.length) { hiddenQuestionIds.value = new Set(); return }
+  const frontendRules = logicRules.value.filter((r: any) => r.scope !== 'backend')
+  if (!frontendRules.length) { hiddenQuestionIds.value = new Set(); return }
+  const result = evaluateFrontendRules(frontendRules, questions.value, answers.value)
+  hiddenQuestionIds.value = result.hiddenIds
+  if (settings.value.onePageOneQuestion) {
+    const cur = questions.value[currentIndex.value]
+    if (cur && hiddenQuestionIds.value.has(cur.id)) {
+      const next = nextVisibleIndex(currentIndex.value)
+      if (next >= 0) currentIndex.value = next
+    }
+  }
+}
+function nextVisibleIndex(from: number): number {
+  let i = from + 1
+  while (i < questions.value.length && hiddenQuestionIds.value.has(questions.value[i]?.id)) i++
+  return i < questions.value.length ? i : -1
+}
+function prevVisibleIndex(from: number): number {
+  let i = from - 1
+  while (i >= 0 && hiddenQuestionIds.value.has(questions.value[i]?.id)) i--
+  return i
+}
+const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type) && !hiddenQuestionIds.value.has(q.id)))
 const totalQuestions = computed(() => realQuestions.value.length)
 const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
 const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
@@ -446,10 +473,19 @@ const currentNavIndex = computed(() => {
   const q = questions.value[currentIndex.value]
   return q ? navQuestions.value.indexOf(q) : -1
 })
-const isLast = computed(() => currentIndex.value >= questions.value.length - 1)
+const isLast = computed(() => {
+  if (!settings.value.onePageOneQuestion) return currentIndex.value >= questions.value.length - 1
+  return nextVisibleIndex(currentIndex.value) < 0
+})
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
-function goNext() { if (currentIndex.value < questions.value.length - 1) currentIndex.value++ }
-function goPrev() { if (currentIndex.value > 0) currentIndex.value-- }
+function goNext() {
+  const next = nextVisibleIndex(currentIndex.value)
+  if (next >= 0) currentIndex.value = next
+}
+function goPrev() {
+  const prev = prevVisibleIndex(currentIndex.value)
+  if (prev >= 0) currentIndex.value = prev
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
@@ -672,6 +708,11 @@ async function load() {
     } else {
       settings.value = res.data?.settings || {}
     }
+    const rawRules = settings.value.logicRules
+    if (rawRules) {
+      if (typeof rawRules === 'string') { try { logicRules.value = JSON.parse(rawRules) } catch { logicRules.value = [] } }
+      else if (Array.isArray(rawRules)) logicRules.value = rawRules
+    }
     // 更新 session（首次获取或后端重用时）
     if (res.data?.session) {
       session.value = res.data.session
@@ -705,6 +746,7 @@ async function load() {
       init[q.id] = getInitVal(q)
     })
     answers.value = init
+    reevaluateRules()
     // 自动暂存恢复
     const draft = loadDraft()
     if (draft && draft.answers) {
@@ -768,16 +810,32 @@ function handleSubmitSuccess(_data: any) {
   questions.value = []
 }
 
+function validateRequired(): boolean {
+  const msgs: string[] = []
+  for (const q of questions.value) {
+    if (LAYOUT_TYPES.includes(q.type)) continue
+    if (hiddenQuestionIds.value.has(q.id)) continue
+    if (q.required && !isAnswered(q, answers.value[q.id])) {
+      msgs.push((q.title ? q.title.replace(/<[^>]+>/g, '').slice(0, 20) : '未命名') + ' 为必填项')
+    }
+  }
+  if (msgs.length) { ElMessage.warning(msgs.join('; ')); return false }
+  return true
+}
+
 async function onSubmit(skipConfirm = false) {
   const id = Number(route.params.id)
-  try {
-    const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
-    if (vr.data && !vr.data.valid) {
-      const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
-      ElMessage.warning(msgs || '请检查填写内容')
-      return
-    }
-  } catch {}
+  if (!skipConfirm) {
+    if (!validateRequired()) return
+    try {
+      const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
+      if (vr.data && !vr.data.valid) {
+        const msgs = (vr.data.errors || []).map((e: any) => e.message).join('; ')
+        ElMessage.warning(msgs || '请检查填写内容')
+        return
+      }
+    } catch {}
+  }
 
   if (skipConfirm) {
     submitting.value = true
@@ -815,7 +873,7 @@ async function onSubmit(skipConfirm = false) {
 
 onMounted(load)
 
-watch(answers, () => { scheduleDraft() }, { deep: true })
+watch(answers, () => { scheduleDraft(); reevaluateRules() }, { deep: true })
 watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
 watch(() => settings.value.timeLimit, () => { startCountdown() })
 

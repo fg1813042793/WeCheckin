@@ -138,10 +138,10 @@ const processedTitleHtml = computed(() => {
   if (props.score) {
     html += `<span class="q-score-inline">(${props.score}分)</span>`
   }
-  html += unwrapOuterP(props.q.title || '')
   if (props.q.required) {
     html += '<span class="q-req">*</span>'
   }
+  html += unwrapOuterP(props.q.title || '')
   return html
 })
 
