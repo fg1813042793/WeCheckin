@@ -322,7 +322,7 @@ const dailyOption = computed(() => {
     grid: { left: 40, right: 20, bottom: 30, top: 20 },
     xAxis: { type: 'category', data: daily.map((d: any) => d.date) },
     yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'line', data: daily.map((d: any) => d.count), smooth: true, areaStyle: { opacity: 0.15 }, lineStyle: { color: '#fb454c' }, itemStyle: { color: '#fb454c' } }]
+    series: [{ type: 'line', data: daily.map((d: any) => d.count), smooth: true, areaStyle: { opacity: 0.15, color: '#2563eb' }, lineStyle: { color: '#2563eb' }, itemStyle: { color: '#2563eb' } }]
   }
 })
 
@@ -382,9 +382,9 @@ function distOption(fs: any) {
 }
 
 function detailRows(fs: any) {
-  const dist = fs.dist || {}
-  const entries = Object.entries(dist).sort((a: any, b: any) => b[1] - a[1])
-  const total = entries.reduce((s: number, e: any) => s + e[1], 0) || 1
+  const dist = (fs.dist || {}) as Record<string, number>
+  const entries = Object.entries(dist).sort((a, b) => b[1] - a[1])
+  const total = entries.reduce((s, e) => s + e[1], 0) || 1
   const q = questions.value.find((x: any) => x.id === fs.questionId)
   const labelMap: Record<string, string> = {}
   if (q && q.props?.options) {
@@ -394,7 +394,7 @@ function detailRows(fs: any) {
       labelMap[val] = lbl
     }
   }
-  return entries.map(([k, v]: [string, number]) => {
+  return entries.map(([k, v]) => {
     let label = stripHtml(labelMap[k] ?? k)
     if (statMode.value === 'value' && labelMap[k]) {
       if (exportField.value === 'value') label = k

@@ -28,6 +28,7 @@
 
 <script>
 import { eventApi } from '../../api/index'
+import { getClientUserId } from '../../utils/auth'
 export default {
   data() {
     return {
@@ -43,9 +44,7 @@ export default {
   onReachBottom() { this.loadMore() },
   methods: {
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
     switchStatus(s) { this.status = s; this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
     async loadData() {

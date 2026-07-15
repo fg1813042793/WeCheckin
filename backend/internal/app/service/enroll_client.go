@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/app/formkit/schema"
 	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
 )
 
 func GetEnrollList(page, pageSize int, userID, keyword string) (map[string]interface{}, error) {
@@ -23,8 +23,8 @@ func GetEnrollList(page, pageSize int, userID, keyword string) (map[string]inter
 	if userID != "" {
 		deptIDs := getUserDeptIDsByMiniOpenID(userID)
 		if len(deptIDs) > 0 {
-			query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL OR "+
-				buildDeptOverlap("enroll_publish_dept_ids", deptIDs)+")")
+			query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL OR " +
+				buildDeptOverlap("enroll_publish_dept_ids", deptIDs) + ")")
 		} else {
 			query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL)")
 		}
@@ -226,13 +226,13 @@ func GetEnrollJoinByDay(enrollID, day string) ([]map[string]interface{}, error) 
 	for _, j := range joins {
 		u, _ := userMap[j.UserID]
 		item := map[string]interface{}{
-			"id":          j.ID,
-			"userId":      j.UserID,
-			"userName":    u.Name,
-			"userAvatar":  GetFullURL(u.Pic),
-			"forms":       j.Forms,
-			"day":         j.Day,
-			"addTime":     j.AddTime,
+			"id":         j.ID,
+			"userId":     j.UserID,
+			"userName":   u.Name,
+			"userAvatar": GetFullURL(u.Pic),
+			"forms":      j.Forms,
+			"day":        j.Day,
+			"addTime":    j.AddTime,
 		}
 		// Parse forms JSON (兼容老/新格式)
 		formsArr := []map[string]interface{}{}
@@ -457,187 +457,4 @@ func GetMyEnrollJoinList(userID, enrollID string, page, pageSize int) (interface
 		_ = idStr
 	}
 	return list, 0, nil
-}
-
-func checkPublishDeptAccess(publishDeptIds string, userDeptIDs []uint) bool {
-	if publishDeptIds == "" {
-		return true
-	}
-	ids := strings.Split(publishDeptIds, ",")
-	for _, pid := range ids {
-		pid = strings.TrimSpace(pid)
-		if pid == "" {
-			continue
-		}
-		for _, uid := range userDeptIDs {
-			if strconv.FormatUint(uint64(uid), 10) == pid {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func EnrollJoin(enrollID, userID, day, forms, addIP string, status int) error {
-	var enroll model.Enroll
-	if err := database.DB.Where("`id` = ?", enrollID).First(&enroll).Error; err != nil {
-		return fmt.Errorf("项目不存在")
-	}
-	if enroll.PublishDeptIds != "" {
-		deptIDs := getUserDeptIDsByMiniOpenID(userID)
-		if !checkPublishDeptAccess(enroll.PublishDeptIds, deptIDs) {
-			return fmt.Errorf("您不在该打卡项目的发布部门范围内")
-		}
-	}
-	if !enroll.AllowRepeat {
-		var cnt int64
-		database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ? AND `enroll_join_day` = ?", enrollID, userID, day).Count(&cnt)
-		if cnt > 0 {
-			return fmt.Errorf("已打卡")
-		}
-	}
-	join := model.EnrollJoin{
-		EnrollID: enrollID,
-		UserID:   userID,
-		Day:      day,
-		Forms:    forms,
-		Status:   status,
-		AddTime:  database.Now(),
-		AddIP:    addIP,
-	}
-	if err := database.DB.Create(&join).Error; err != nil {
-		return err
-	}
-	database.DB.Model(&enroll).UpdateColumn("enroll_join_cnt", enroll.JoinCnt+1)
-
-	var eu model.EnrollUser
-	result := database.DB.Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", enrollID, userID).First(&eu)
-	if result.Error != nil {
-		eu = model.EnrollUser{
-			EnrollID:   enrollID,
-			MiniOpenID: userID,
-			JoinCnt:    1,
-			DayCnt:     1,
-			LastDay:    day,
-			AddTime:    database.Now(),
-		}
-		database.DB.Create(&eu)
-		database.DB.Model(&enroll).UpdateColumn("enroll_user_cnt", enroll.UserCnt+1)
-	} else {
-		updates := map[string]interface{}{
-			"enroll_user_join_cnt":  eu.JoinCnt + 1,
-			"enroll_user_last_day":  day,
-			"enroll_user_edit_time": database.Now(),
-		}
-		// Check if this is a new day
-		if eu.LastDay != day {
-			updates["enroll_user_day_cnt"] = eu.DayCnt + 1
-		}
-		database.DB.Model(&eu).Updates(updates)
-	}
-	return nil
-}
-
-func EnrollUserSubmit(enrollID, userID, forms, addIP string) error {
-	var enroll model.Enroll
-	if err := database.DB.Where("`id` = ?", enrollID).First(&enroll).Error; err != nil {
-		return fmt.Errorf("项目不存在")
-	}
-	if enroll.PublishDeptIds != "" {
-		deptIDs := getUserDeptIDsByMiniOpenID(userID)
-		if !checkPublishDeptAccess(enroll.PublishDeptIds, deptIDs) {
-			return fmt.Errorf("您不在该打卡项目的发布部门范围内")
-		}
-	}
-	var cnt int64
-	database.DB.Model(&model.EnrollUser{}).Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", enrollID, userID).Count(&cnt)
-	if cnt > 0 {
-		return fmt.Errorf("已参与")
-	}
-	eu := model.EnrollUser{
-		EnrollID:   enrollID,
-		MiniOpenID: userID,
-		Forms:      forms,
-		AddTime:    database.Now(),
-		AddIP:      addIP,
-	}
-	if err := database.DB.Create(&eu).Error; err != nil {
-		return err
-	}
-	database.DB.Model(&enroll).UpdateColumn("enroll_user_cnt", enroll.UserCnt+1)
-	return nil
-}
-
-func getJoinStatusDesc(status int) string {
-	switch status {
-	case 0:
-		return "待审核"
-	case 1:
-		return "已通过"
-	case 2:
-		return "未通过"
-	default:
-		return "未知"
-	}
-}
-
-func getTimeShow(t int64) string {
-	return time.UnixMilli(t).Format("2006-01-02 15:04:05")
-}
-
-func msToTime(ms int64) time.Time {
-	return time.UnixMilli(ms)
-}
-
-func getUserDeptIDsByMiniOpenID(miniOpenID string) []uint {
-	var user model.User
-	if err := database.DB.Where("`user_mini_openid` = ?", miniOpenID).First(&user).Error; err != nil {
-		return nil
-	}
-	ids := getUserDeptIDs(user.ID)
-	// Include all ancestor departments so users see items published to any parent department
-	seen := map[uint]bool{}
-	for _, id := range ids {
-		seen[id] = true
-	}
-	for _, id := range ids {
-		for _, aid := range getAncestorDeptIDs(id) {
-			if !seen[aid] {
-				ids = append(ids, aid)
-				seen[aid] = true
-			}
-		}
-	}
-	return ids
-}
-
-func getAncestorDeptIDs(deptID uint) []uint {
-	var result []uint
-	visited := map[uint]bool{}
-	for deptID > 0 {
-		if visited[deptID] {
-			break
-		}
-		visited[deptID] = true
-		var dept model.Department
-		if err := database.DB.First(&dept, deptID).Error; err != nil {
-			break
-		}
-		if dept.ParentID > 0 {
-			result = append(result, dept.ParentID)
-		}
-		deptID = dept.ParentID
-	}
-	return result
-}
-
-func buildDeptOverlap(column string, deptIDs []uint) string {
-	if len(deptIDs) == 0 {
-		return "1 = 0"
-	}
-	parts := make([]string, len(deptIDs))
-	for i, id := range deptIDs {
-		parts[i] = fmt.Sprintf("FIND_IN_SET('%d', `%s`)", id, column)
-	}
-	return strings.Join(parts, " OR ")
 }

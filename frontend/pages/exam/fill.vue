@@ -171,6 +171,7 @@
 import { examApi } from '../../api/index'
 import QuestionField from '../../components/survey/QuestionField.vue'
 import CONFIG from '../../config/index'
+import { getClientToken } from '../../utils/auth'
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
 
@@ -362,7 +363,7 @@ export default {
     },
 
     async apiPost(path, data) {
-      const token = uni.getStorageSync('token')
+      const token = getClientToken()
       const BASE_URL = CONFIG.BASE_URL
       return new Promise((resolve) => {
         uni.request({

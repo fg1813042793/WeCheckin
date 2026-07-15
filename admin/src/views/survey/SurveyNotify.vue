@@ -84,5 +84,5 @@ onMounted(() => { load(); loadUnreadCount() })
 .survey-notify-page { padding: 20px; }
 .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
 .page-header h3 { margin:0; font-size:16px; }
-.page-footer { margin-top:16px; display:flex; justify-content:center; }
+.page-footer { margin-top:16px; display:flex; justify-content:flex-start; }
 </style>

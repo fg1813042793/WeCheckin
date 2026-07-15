@@ -125,6 +125,7 @@
 
 <script>
 import { eventApi } from '../../api/index'
+import { getClientUserId, getClientUserInfo } from '../../utils/auth'
 export default {
   data() {
     return {
@@ -163,9 +164,7 @@ export default {
   },
   methods: {
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
     async loadDetail() {
       this.loading = true
@@ -235,7 +234,8 @@ export default {
     },
     goScore() {
       if (this.scores.length > 0) {
-        const item = this.scores.find(s => s.participantId === this.getUserId() || s.userName === (uni.getStorageSync('userInfo') || {}).nickname)
+        const userInfo = getClientUserInfo() || {}
+        const item = this.scores.find(s => s.participantId === this.getUserId() || s.userName === userInfo.nickname)
         if (item) {
           let content = ''
           if (item._parsed && item._parsed.length > 0) {

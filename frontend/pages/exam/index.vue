@@ -46,6 +46,7 @@
 
 <script>
 import { examApi } from '../../api/index'
+import { getClientUserInfo, hasClientAuth } from '../../utils/auth'
 
 export default {
   data() {
@@ -59,11 +60,11 @@ export default {
   },
   computed: {
     isLogged() {
-      return !!uni.getStorageSync('token')
+      return hasClientAuth()
     },
     myDeptId() {
       try {
-        const info = uni.getStorageSync('userInfo')
+        const info = getClientUserInfo()
         return (info && info.deptId) || 0
       } catch (e) { return 0 }
     }
@@ -172,12 +173,12 @@ export default {
 .meta-tag--limit { background: #fff1f0; color: #f5222d; }
 .s-time { color: #888; font-size: 24rpx; margin-bottom: 18rpx; }
 .s-limit { margin-bottom: 18rpx; }
-.s-foot { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 30rpx; border-top: 1rpx solid #f0f0f0; margin-top: 16rpx; background: #fff; }
-.s-my-rec { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; }
+.s-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16rpx; padding: 20rpx 30rpx; border-top: 1rpx solid #f0f0f0; margin-top: 16rpx; background: #fff; }
+.s-my-rec { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; }
 .s-my-badge { background: #e8f5e8; color: #4caf50; font-size: 22rpx; padding: 2rpx 12rpx; border-radius: 4rpx; }
 .s-my-time { font-size: 22rpx; color: #999; }
 .s-my-duration { font-size: 20rpx; color: #aaa; }
-.btn-fill { background: linear-gradient(90deg, #fb454c, #ff6b6b); color: #fff; border-radius: 50rpx; font-size: 26rpx; height: 64rpx; line-height: 64rpx; padding: 0 32rpx; border: none; flex-shrink: 0; }
+.btn-fill { margin: 0 0 0 auto; background: linear-gradient(90deg, #fb454c, #ff6b6b); color: #fff; border-radius: 50rpx; font-size: 26rpx; height: 64rpx; line-height: 64rpx; padding: 0 32rpx; border: none; flex-shrink: 0; }
 .btn-filled { background: linear-gradient(90deg, #999, #bbb); }
 .btn-fill:disabled { opacity: 0.6; }
 .empty { text-align: center; padding: 100rpx 0; color: #aaa; font-size: 28rpx; }

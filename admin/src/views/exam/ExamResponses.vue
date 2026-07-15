@@ -50,7 +50,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="text-align:center;margin-top:16px">
+      <div class="admin-pagination">
         <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="load" />
       </div>
     </el-card>

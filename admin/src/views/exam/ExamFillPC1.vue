@@ -54,7 +54,7 @@
           <el-button v-else-if="settings.showAnalysis" type="primary" size="large" @click="showResultView = true">查看解析</el-button>
           <el-button v-else type="primary" size="large" @click="showResultView = true">查看成绩</el-button>
           <div v-if="settings.redirectUrl" class="exam-end-result-copy">
-            <el-button type="primary" class="exam-btn--primary" @click="window.location.href = settings.redirectUrl">查看结果</el-button>
+            <el-button type="primary" class="exam-btn--primary" @click="openRedirectUrl">查看结果</el-button>
           </div>
         </div>
       </div>
@@ -233,6 +233,22 @@ const result = ref<any>(null)
 const showResultView = ref(false)
 const countdownToStart = ref(0)
 let startTimer: ReturnType<typeof setInterval> | null = null
+
+function openRedirectUrl() {
+  const url = settings.value?.redirectUrl
+  if (url) window.location.href = url
+}
+
+function onScannerOpen() {
+  // PC1 模板保留扫码弹窗位；当前未启用扫码入口时保持安全 no-op。
+}
+
+function onScannerClose() {
+  if (scanner) {
+    scanner.stop().catch(() => {})
+    scanner = null
+  }
+}
 
 function getDeviceId() {
   const key = '_device_id'

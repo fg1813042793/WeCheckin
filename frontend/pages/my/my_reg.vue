@@ -39,6 +39,7 @@
 <script>
 import { passportApi, userFormFields } from '../../api/index'
 import CONFIG from '../../config/index'
+import { getClientUserId, getClientUserInfo, setClientUserInfo } from '../../utils/auth'
 
 export default {
   data() {
@@ -58,10 +59,7 @@ export default {
 
   methods: {
     getUserId() {
-      if (this.userId) return this.userId
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId(this.userId)
     },
 
     async init() {
@@ -194,10 +192,10 @@ export default {
             user_id: uid,
             forms: formsStr
           })
-          const userInfo = uni.getStorageSync('userInfo') || {}
+          const userInfo = getClientUserInfo() || {}
           userInfo.name = this.formName
           userInfo.avatar = this.formPic
-          uni.setStorageSync('userInfo', userInfo)
+          setClientUserInfo(userInfo)
           uni.hideLoading()
           uni.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(() => { uni.navigateBack() }, 1500)
@@ -212,7 +210,7 @@ export default {
           uni.hideLoading()
           if (res.code === 0) {
             if (res.data) {
-              uni.setStorageSync('userInfo', res.data)
+              setClientUserInfo(res.data)
             }
             uni.showToast({ title: '注册成功', icon: 'success' })
             setTimeout(() => { uni.redirectTo({ url: '/pages/my/my_index' }) }, 1500)

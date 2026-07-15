@@ -13,11 +13,12 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	examPkg "wecheckin-backend/backend/internal/app/formkit/exam"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
+	"wecheckin-backend/backend/pkg/logger"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin-backend/backend/pkg/tokenutil"
 )
 
 type ClientExamHandler struct{}
@@ -143,7 +144,7 @@ func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 			response.Fail(c, "请先登录")
 			return
 		}
-		rdKey := "user_token:a:" + token
+		rdKey := tokenutil.TokenAuthKey("user", token)
 		jsonStr, err := rd.RDB.Get(rd.Ctx, rdKey).Result()
 		if err != nil || jsonStr == "" {
 			logger.Logger.Printf("[ExamView] token无效 examId=%d", e.ID)
@@ -214,15 +215,15 @@ func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 		safe := make([]map[string]interface{}, 0, len(qs))
 		for _, q := range qs {
 			safe = append(safe, map[string]interface{}{
-				"id":                 q.ID,
-				"type":               q.Type,
-				"title":              q.Title,
-				"options":            q.Options,
-				"score":              q.Score,
-				"difficulty":         q.Difficulty,
-				"category":           q.Category,
-				"examCorrectAnswer":  q.Answer,
-				"examAnalysis":       q.Analysis,
+				"id":                q.ID,
+				"type":              q.Type,
+				"title":             q.Title,
+				"options":           q.Options,
+				"score":             q.Score,
+				"difficulty":        q.Difficulty,
+				"category":          q.Category,
+				"examCorrectAnswer": q.Answer,
+				"examAnalysis":      q.Analysis,
 			})
 		}
 		response.JSON(c, map[string]interface{}{
@@ -267,23 +268,23 @@ func (h *ClientExamHandler) View(_ context.Context, c *app.RequestContext) {
 		}
 	}
 	resp := map[string]interface{}{
-		"id":            e.ID,
-		"title":         e.Title,
-		"description":   e.Description,
-		"visibility":    e.Visibility,
-		"anonymous":     e.Anonymous,
-		"showResult":    e.ShowResult,
-		"showScore":     e.ShowScore,
-		"duration":      e.Duration,
-		"maxAttempts":   e.MaxAttempts,
-		"startTime":     e.StartTime,
-		"endTime":       e.EndTime,
-		"schema":        schMap,
-		"settings":      settingsMap,
-		"startAt":       startAt,
-		"session":       session,
-		"deptIds":       e.DeptIds,
-		"mode":          e.Mode,
+		"id":          e.ID,
+		"title":       e.Title,
+		"description": e.Description,
+		"visibility":  e.Visibility,
+		"anonymous":   e.Anonymous,
+		"showResult":  e.ShowResult,
+		"showScore":   e.ShowScore,
+		"duration":    e.Duration,
+		"maxAttempts": e.MaxAttempts,
+		"startTime":   e.StartTime,
+		"endTime":     e.EndTime,
+		"schema":      schMap,
+		"settings":    settingsMap,
+		"startAt":     startAt,
+		"session":     session,
+		"deptIds":     e.DeptIds,
+		"mode":        e.Mode,
 	}
 	response.JSON(c, resp)
 }
@@ -591,14 +592,14 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 			autoSubmitVal = 1
 		}
 		updates := map[string]interface{}{
-			"exam_r_answers":      string(answersJSON),
-			"exam_r_score":        res.TotalScore,
-			"exam_r_status":       1,
-			"exam_r_submit_time":  nowMs,
-			"exam_r_result":       string(resultJSON),
-			"exam_r_auto_submit":  autoSubmitVal,
-			"exam_r_device_id":    req.DeviceID,
-			"exam_r_add_ip":       clientIP,
+			"exam_r_answers":     string(answersJSON),
+			"exam_r_score":       res.TotalScore,
+			"exam_r_status":      1,
+			"exam_r_submit_time": nowMs,
+			"exam_r_result":      string(resultJSON),
+			"exam_r_auto_submit": autoSubmitVal,
+			"exam_r_device_id":   req.DeviceID,
+			"exam_r_add_ip":      clientIP,
 		}
 		if rec.StartTime > 0 && nowMs > rec.StartTime {
 			updates["exam_r_time_spent"] = int((nowMs - rec.StartTime) / 1000)
@@ -647,7 +648,7 @@ func (h *ClientExamHandler) Submit(_ context.Context, c *app.RequestContext) {
 	uidStr := ""
 	auth := string(c.GetHeader("Authorization"))
 	if auth != "" {
-		rdKey := "user_token:a:" + auth
+		rdKey := tokenutil.TokenAuthKey("user", auth)
 		if jsonStr, err := rd.RDB.Get(rd.Ctx, rdKey).Result(); err == nil && jsonStr != "" {
 			var userInfo struct {
 				ID uint `json:"id"`

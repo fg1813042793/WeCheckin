@@ -54,6 +54,7 @@ export function normalizeSchema(schemaStr) {
     description: q.description || '',
     required: !!q.required,
     placeholder: q.placeholder || '',
+    props: q.props || {},
     options: (q.props && q.props.options) || [],
     validate: q.validate || [],
     logic: q.logic || [],

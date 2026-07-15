@@ -1,24 +1,23 @@
 <template>
-  <div>
-    <el-tabs v-model="activeTab">
-      <el-tab-pane label="用户列表" name="list">
-        <el-card>
-          <div style="display:flex;gap:10px;margin-bottom:12px">
-            <el-input v-model="keyword" placeholder="搜索用户名/姓名" clearable style="width:300px" @keyup.enter="search" />
-            <el-button type="primary" @click="search">搜索</el-button>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div>
-              <el-button v-if="hasPerm('user:add')" type="success" @click="showAdd">+ 增加用户</el-button>
-              <el-button v-if="hasPerm('user:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
-            </div>
-            <div>
-              <el-button circle icon="Refresh" title="刷新" @click="load" />
-              <el-button circle icon="Upload" title="导入" @click="ElMessage.info('导入功能开发中')" />
-              <el-button circle icon="Download" title="导出" @click="exportData" />
-              <SortPopover :columns="sortColumns" v-model="sortRules" @change="onSortChange" />
-            </div>
-          </div>
+  <div class="admin-page user-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索用户名/姓名" clearable style="width:300px" @keyup.enter="search" />
+          <el-button type="primary" @click="search">搜索</el-button>
+        </div>
+      </div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-button v-if="hasPerm('user:add')" type="success" @click="showAdd">+ 新增用户</el-button>
+          <el-button v-if="hasPerm('user:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+        </div>
+        <div class="admin-toolbar__right">
+          <el-button circle icon="Refresh" title="刷新" @click="load" />
+          <el-button circle icon="Download" title="导出" @click="exportData" />
+          <SortPopover :columns="sortColumns" v-model="sortRules" @change="onSortChange" />
+        </div>
+      </div>
           <el-table :data="list" v-loading="loading" stripe style="width:100%" @selection-change="selected = $event">
             <el-table-column type="selection" width="45" />
             <el-table-column label="头像" width="70">
@@ -43,31 +42,30 @@
             <el-table-column label="注册时间" width="160">
               <template #default="{ row }">{{ fmtTime(row.addTime) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="500" fixed="right">
+            <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
-                <div class="table-actions">
+                <div class="admin-table-actions">
                   <el-button v-if="hasPerm('user:list')" size="small" @click="showDetail(row)">详情</el-button>
                   <el-button v-if="hasPerm('user:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-                <template v-if="row.status === 0">
-                  <el-button v-if="hasPerm('user:edit')" size="small" type="success" @click="changeStatus(row, '1')">审核通过</el-button>
-                </template>
-                <template v-else-if="row.status === 1">
-                  <el-button v-if="hasPerm('user:edit')" size="small" type="warning" @click="showReason(row)">禁用</el-button>
-                </template>
-                <template v-else-if="row.status === 2">
-                  <el-button v-if="hasPerm('user:edit')" size="small" type="success" @click="changeStatus(row, '1')">恢复正常</el-button>
-                </template>
-                  <el-button v-if="hasPerm('user:edit')" size="small" @click="resetPwd(row)">重置密码</el-button>
-                  <el-popconfirm v-if="hasPerm('user:del')" title="确定删除该用户？" @confirm="remove(row)">
-                    <template #reference>
-                      <el-button size="small" type="danger">删除</el-button>
+                  <el-dropdown v-if="hasRowMoreActions(row)" trigger="click" @command="(cmd:string) => handleRowCommand(cmd, row)">
+                    <el-button size="small">
+                      更多<el-icon><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-if="hasPerm('user:edit') && row.status === 0" command="approve">审核通过</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('user:edit') && row.status === 1" command="disable">禁用</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('user:edit') && row.status === 2" command="enable">恢复正常</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('user:edit')" command="resetPwd" divided>重置密码</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('user:del')" command="delete" divided>删除</el-dropdown-item>
+                      </el-dropdown-menu>
                     </template>
-                  </el-popconfirm>
+                  </el-dropdown>
                 </div>
               </template>
             </el-table-column>
           </el-table>
-          <div style="text-align:center;margin-top:16px">
+          <div class="admin-pagination">
             <el-pagination
               v-model:current-page="page"
               :page-size="pageSize"
@@ -78,9 +76,7 @@
               @size-change="(val:number) => { pageSize = val; page = 1; load() }"
             />
           </div>
-        </el-card>
-      </el-tab-pane>
-    </el-tabs>
+    </el-card>
 
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="600px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" label-width="80px">
@@ -167,12 +163,10 @@
 <script lang="ts" setup>
 import SortPopover from '../../components/SortPopover.vue'
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
-import { Delete } from '@element-plus/icons-vue'
 import { adminApi } from '../../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 
-const activeTab = ref('list')
 const loading = ref(false)
 const saving = ref(false)
 const list = ref<any[]>([])
@@ -283,6 +277,25 @@ async function changeStatus(row: any, status: string, reason?: string) {
   await adminApi.userStatus({ id: row.id, status, reason: reason || '' })
   ElMessage.success('操作成功')
   load()
+}
+
+function hasRowMoreActions(_row: any) {
+  return hasPerm('user:edit') || hasPerm('user:del')
+}
+
+async function handleRowCommand(cmd: string, row: any) {
+  if (cmd === 'approve' || cmd === 'enable') {
+    await changeStatus(row, '1')
+  } else if (cmd === 'disable') {
+    showReason(row)
+  } else if (cmd === 'resetPwd') {
+    await resetPwd(row)
+  } else if (cmd === 'delete') {
+    try {
+      await ElMessageBox.confirm(`确定删除用户「${row.name}」？`, '提示', { type: 'warning' })
+      await remove(row)
+    } catch {}
+  }
 }
 
 async function remove(row: any) {

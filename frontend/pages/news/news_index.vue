@@ -33,6 +33,7 @@
 
 <script>
 import { newsApi } from '../../api/index'
+import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -82,9 +83,7 @@ export default {
     },
 
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
 
     async loadData() {

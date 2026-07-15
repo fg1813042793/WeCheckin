@@ -1,5 +1,7 @@
 import request from '../utils/request'
 
+export type TemplatePreset = { label: string; value: string }
+
 export const adminApi = {
   login(data: { name: string; password: string }) {
     return request.post('/admin/login', data)
@@ -446,10 +448,10 @@ export const adminApi = {
     return request.get('/admin/survey/question_bank_list', { params })
   },
   surveyQuestionBankInsert(data: any) {
-    return request.post('/admin/survey/question_bank_insert', data)
+    return request.post('/admin/survey/question_bank_insert', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
   },
   surveyQuestionBankEdit(data: any) {
-    return request.post('/admin/survey/question_bank_edit', data)
+    return request.post('/admin/survey/question_bank_edit', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
   },
   surveyQuestionBankDel(data: { id: number }) {
     return request.post('/admin/survey/question_bank_del', data)
@@ -474,7 +476,7 @@ export const adminApi = {
     return request.post('/admin/exam/question_bank_edit', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
   },
   examQuestionBankDel(data: { id: number }) {
-    return request.post('/admin/exam/question_bank_del', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+    return request.post('/admin/exam/question_bank_del', data)
   },
   examQuestionBankCategories() {
     return request.get('/admin/exam/question_bank_categories')
@@ -489,9 +491,9 @@ export const adminApi = {
     return request.get('/admin/survey/notify_unread_count', { params })
   },
   surveyTemplatePresetsGet() {
-    return request.get('/admin/survey/template_presets')
+    return request.get<TemplatePreset[]>('/admin/survey/template_presets')
   },
-  surveyTemplatePresetsSave(data: { presets: { label: string; value: string }[] }) {
+  surveyTemplatePresetsSave(data: { presets: TemplatePreset[] }) {
     return request.post('/admin/survey/template_presets', data, {
       transformRequest: [(d: any) => JSON.stringify(d)],
       headers: { 'Content-Type': 'application/json' }

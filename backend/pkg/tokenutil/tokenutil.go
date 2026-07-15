@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"wecheckin-backend/backend/internal/config"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
 )
 
 const setupCacheTTL = 30 * time.Second
@@ -90,6 +90,16 @@ func GetTokenConfig(role string) (expire time.Duration, redisPrefix string) {
 		expire = 24 * time.Hour
 	}
 	return
+}
+
+func TokenAuthKey(role, token string) string {
+	_, prefix := GetTokenConfig(role)
+	return prefix + "a:" + token
+}
+
+func TokenSetKey(role, id string) string {
+	_, prefix := GetTokenConfig(role)
+	return prefix + "s:" + id
 }
 
 func IsAdminSingleLogin() bool {

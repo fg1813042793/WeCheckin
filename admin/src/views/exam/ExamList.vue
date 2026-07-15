@@ -6,7 +6,7 @@
           <el-input v-model="keyword" placeholder="搜索标题" clearable style="width:220px" @keyup.enter="load" />
           <el-input v-model="category" placeholder="分类" clearable style="width:140px" @keyup.enter="load" />
           <el-select v-model="statusFilter" placeholder="状态" clearable style="width:120px" @change="load">
-            <el-option label="发布" :value="1" />
+            <el-option label="已发布" :value="1" />
             <el-option label="停用" :value="0" />
           </el-select>
           <el-button type="primary" @click="load">搜索</el-button>
@@ -15,8 +15,12 @@
           <el-tooltip content="刷新"><el-button circle @click="load"><el-icon><Refresh /></el-icon></el-button></el-tooltip>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:16px">
+      <div class="action-row">
         <el-button type="primary" @click="goCreate"><el-icon style="margin-right:4px"><Plus /></el-icon>新建考试</el-button>
+        <div class="view-toggle">
+          <el-button class="view-toggle__btn" :class="{ active: !gridView }" size="small" aria-label="列表视图" @click="gridView=false"><el-icon><List /></el-icon></el-button>
+          <el-button class="view-toggle__btn" :class="{ active: gridView }" size="small" aria-label="卡片视图" @click="gridView=true"><el-icon><Grid /></el-icon></el-button>
+        </div>
       </div>
 
       <div class="stat-bar">
@@ -26,7 +30,7 @@
       </div>
 
       <div v-if="!gridView" class="table-wrap">
-        <el-table :data="list" v-loading="loading" stripe>
+        <el-table class="exam-table" :data="list" v-loading="loading" stripe>
           <el-table-column prop="id" label="ID" width="70" />
           <el-table-column label="标题" min-width="200">
             <template #default="{ row }">
@@ -45,7 +49,7 @@
           <el-table-column label="最长交卷" width="80" align="center">
             <template #default="{ row }">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? '分' : '' }}</template>
           </el-table-column>
-          <el-table-column label="次数" width="60" align="center">
+          <el-table-column label="次数" width="80" align="center">
             <template #default="{ row }">{{ row.maxResponse || 0 }}{{ row.maxResponse ? '次' : '不限' }}</template>
           </el-table-column>
           <el-table-column label="时间窗" min-width="190">
@@ -59,35 +63,51 @@
               <el-switch :model-value="row.status===1" :before-change="()=>toggleStatus(row)" />
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" type="primary" @click="goDesigner(row)">设计</el-button>
-              <el-dropdown trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
-                <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item :command="row.status===1?'disable':'enable'">
-                      {{ row.status===1?'停用':'发布' }}
-                    </el-dropdown-item>
-                    <el-dropdown-item command="del" divided>删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <div class="table-actions">
+                <el-button size="small" type="primary" @click="goDesigner(row)">设计</el-button>
+                <el-dropdown trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+                  <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                      <el-dropdown-item :command="row.status===1?'disable':'enable'">
+                        {{ row.status===1?'停用':'发布' }}
+                      </el-dropdown-item>
+                      <el-dropdown-item command="del" divided>删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </template>
           </el-table-column>
         </el-table>
       </div>
 
       <div v-else class="card-grid">
-        <div v-for="row in list" :key="row.id" class="project-card" @click="goDesigner(row)">
+        <div v-for="row in list" :key="row.id" class="project-card" :class="row.status===1?'is-published':'is-stopped'" @click="goDesigner(row)">
           <div class="card-head" :class="row.status===1?'pub':'stop'">
-            <div class="card-type">{{ row.category || '考试' }}</div>
-            <el-tag size="small" :type="row.status===1?'success':'danger'" effect="dark" round>{{ row.status===1?'发布':'停用' }}</el-tag>
+            <div class="card-type">
+              <el-icon><Document /></el-icon>
+              <span>{{ row.category || '考试' }}</span>
+            </div>
+            <el-tag size="small" :type="row.status===1?'success':'danger'" effect="dark" round>{{ row.status===1?'已发布':'停用' }}</el-tag>
           </div>
           <div class="card-body">
             <h4 class="card-title">{{ row.title }}</h4>
             <p class="card-desc" v-if="row.description">{{ row.description.substring(0,60) }}{{ row.description.length>60?'...':'' }}</p>
+            <div class="exam-preview-panel" aria-hidden="true">
+              <div class="exam-preview-row">
+                <span class="exam-preview-label">时长</span>
+                <span class="exam-preview-value">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? ' 分钟' : '' }}</span>
+              </div>
+              <div class="exam-preview-row">
+                <span class="exam-preview-label">次数</span>
+                <span class="exam-preview-value">{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</span>
+              </div>
+              <div class="exam-preview-line"></div>
+            </div>
           </div>
           <div class="card-foot">
             <span><el-icon><Clock /></el-icon> {{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? '分' : '' }}</span>
@@ -108,10 +128,6 @@
       </div>
 
       <div class="pagination-bar">
-        <div class="view-toggle">
-          <el-button :type="gridView?'':'default'" size="small" @click="gridView=false"><el-icon><List /></el-icon></el-button>
-          <el-button :type="gridView?'default':''" size="small" @click="gridView=true"><el-icon><Grid /></el-icon></el-button>
-        </div>
         <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="load" background />
       </div>
     </el-card>
@@ -208,39 +224,216 @@ onMounted(load)
 </script>
 
 <style scoped>
-.exam-page { }
+.exam-page {
+  --exam-accent: #0f766e;
+  --exam-accent-soft: #ecfdf5;
+  --exam-accent-border: #99f6e4;
+  --exam-border: #e8edf5;
+  --exam-surface: #f8fafc;
+  --exam-text: #1f2937;
+  --exam-muted: #667085;
+}
 
-.main-card { border-radius:12px; }
-.toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+.main-card { border-radius:12px; border:1px solid var(--exam-border); }
+.toolbar {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-bottom:14px;
+  padding:14px;
+  background:var(--exam-surface);
+  border:1px solid var(--exam-border);
+  border-radius:10px;
+}
 .toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.stat-bar { display:flex; gap:24px; margin-bottom:16px; padding:12px 16px; background:#f8f9fc; border-radius:8px; }
+.toolbar-right { display:flex; align-items:center; gap:8px; }
+
+.action-row { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
+.view-toggle {
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:3px;
+  background:#f3f5f8;
+  border:1px solid var(--exam-border);
+  border-radius:8px;
+}
+.view-toggle__btn { width:32px; height:28px; padding:0; border:none; color:#667085; background:transparent; }
+.view-toggle__btn.active { color:var(--exam-accent); background:#fff; box-shadow:0 4px 10px rgba(15,23,42,0.08); }
+.view-toggle :deep(.el-button + .el-button) { margin-left:0; }
+
+.stat-bar {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:24px;
+  margin-bottom:16px;
+  padding:12px 16px;
+  background:#f8f9fc;
+  border-radius:8px;
+}
 .stat-item { font-size:13px; color:#888; }
 .stat-num { font-weight:600; color:#333; font-size:16px; margin-right:4px; }
 .stat-num.active { color:#67c23a; }
 .stat-num.muted { color:#999; }
 
-.table-wrap { margin-top:4px; }
-.cell-title { font-weight:500; color:#333; }
-.cell-meta { margin-top:4px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-.tag-dot { font-size:11px; color:#888; background:#f0f0f0; padding:1px 8px; border-radius:3px; }
-.time-range { font-size:12px; color:#888; }
-.no-limit { color:#bbb; font-size:12px; }
+.table-wrap {
+  margin-top:4px;
+  overflow:hidden;
+  border:1px solid var(--exam-border);
+  border-radius:10px;
+}
+.exam-table :deep(.el-table__header th) { background:#f8fafc; color:#475467; font-weight:600; }
+.exam-table :deep(.el-table__row) { height:58px; }
+.exam-table :deep(.el-table__cell) { border-bottom-color:#edf1f7; }
+.cell-title { font-weight:600; color:var(--exam-text); line-height:20px; }
+.cell-meta { margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.tag-dot { font-size:11px; color:#667085; background:#f6f8fb; border:1px solid #edf1f7; padding:1px 8px; border-radius:4px; }
+.time-range { font-size:12px; color:#667085; }
+.no-limit { color:#b0b7c3; font-size:12px; }
+.table-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.table-actions :deep(.el-button + .el-button) { margin-left:0; }
 
-.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin-top:8px; }
-.project-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; overflow:hidden; cursor:pointer; transition:all 0.2s; }
-.project-card:hover { border-color:#fb454c; box-shadow:0 4px 20px rgba(251,69,76,0.08); transform:translateY(-2px); }
-.card-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; }
-.card-head.pub { background:linear-gradient(135deg,#f0f9f0,#e8f5e8); }
-.card-head.stop { background:linear-gradient(135deg,#f8f9fc,#f0f0f0); }
-.card-type { font-size:12px; color:#888; font-weight:500; }
-.card-body { padding:14px 18px; min-height:60px; }
-.card-title { margin:0; font-size:15px; font-weight:600; color:#1a1a2e; }
-.card-desc { margin:6px 0 0; font-size:12px; color:#999; line-height:1.4; }
-.card-foot { display:flex; gap:16px; padding:10px 18px; border-top:1px solid #f5f5f5; font-size:12px; color:#999; }
-.card-actions { display:none; padding:10px 18px; gap:8px; border-top:1px solid #f0f0f0; background:#fafafa; }
-.project-card:hover .card-actions { display:flex; }
-.empty-state { grid-column:1/-1; text-align:center; padding:80px 0; color:#aaa; }
+.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; margin-top:8px; }
+.project-card {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  min-height:266px;
+  background:
+    linear-gradient(90deg, var(--exam-accent-soft) 0 8px, transparent 8px),
+    #fff;
+  border:1px solid var(--exam-border);
+  border-radius:10px;
+  overflow:hidden;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(15,23,42,0.05);
+  transition:border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.project-card::before {
+  content:'';
+  position:absolute;
+  top:18px;
+  bottom:18px;
+  left:18px;
+  width:1px;
+  background:var(--exam-accent);
+  opacity:0.26;
+}
+.project-card.is-stopped {
+  background:
+    linear-gradient(90deg, #f2f4f7 0 8px, transparent 8px),
+    #fff;
+}
+.project-card.is-stopped::before { background:#98a2b3; }
+.project-card:hover { border-color:var(--exam-accent-border); box-shadow:0 12px 28px rgba(15,23,42,0.08); transform:translateY(-2px); }
+.card-head,
+.card-body,
+.card-foot,
+.card-actions { position:relative; z-index:1; }
+.card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 18px 8px 32px; }
+.card-head.pub,
+.card-head.stop { background:transparent; }
+.card-type {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+  max-width:70%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+  color:#667085;
+  font-weight:600;
+}
+.card-type .el-icon { color:var(--exam-accent); font-size:15px; }
+.card-type span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.project-card.is-stopped .card-type .el-icon { color:#98a2b3; }
+.card-body { flex:1; padding:8px 20px 16px 32px; min-height:134px; }
+.card-title {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  margin:0;
+  font-size:16px;
+  font-weight:700;
+  color:var(--exam-text);
+  line-height:22px;
+}
+.card-desc {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  margin:8px 0 0;
+  font-size:12px;
+  color:#7a8494;
+  line-height:18px;
+}
+.exam-preview-panel {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:14px;
+  padding:12px;
+  background:#fbfefd;
+  border:1px solid #d9f3ee;
+  border-radius:8px;
+}
+.exam-preview-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  font-size:12px;
+}
+.exam-preview-label { color:#98a2b3; }
+.exam-preview-value { color:var(--exam-text); font-weight:600; }
+.exam-preview-line {
+  width:76%;
+  height:7px;
+  margin-top:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg, #ccfbf1, #edf1f7);
+}
+.card-foot {
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  padding:11px 18px 11px 32px;
+  border-top:1px solid #f0f3f8;
+  background:#fbfcfe;
+  font-size:12px;
+  color:#667085;
+}
+.card-foot span { display:inline-flex; align-items:center; gap:4px; }
+.card-actions {
+  display:flex;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  padding:10px 18px 14px 32px;
+  gap:8px;
+  border-top:1px solid #f0f3f8;
+  background:#fff;
+}
+.card-actions :deep(.el-button + .el-button) { margin-left:0; }
+.empty-state { grid-column:1/-1; text-align:center; padding:80px 0; color:#98a2b3; }
 
-.pagination-bar { display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
-.view-toggle { display:flex; gap:4px; }
+.pagination-bar { display:flex; justify-content:flex-start; align-items:center; gap:12px; margin-top:16px; }
+
+@media (max-width: 768px) {
+  .toolbar { align-items:stretch; }
+  .toolbar-left,
+  .toolbar-right { width:100%; }
+  .toolbar-left :deep(.el-input),
+  .toolbar-left :deep(.el-select) { width:100%!important; }
+  .action-row { justify-content:space-between; }
+  .stat-bar { gap:16px; }
+  .card-grid { grid-template-columns:1fr; }
+  .card-actions { justify-content:flex-start; }
+}
 </style>

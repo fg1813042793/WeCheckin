@@ -80,6 +80,7 @@ import { ref, reactive, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { adminApi, dictApi } from '../../../api/admin'
 import CONFIG from '../../../config/index'
+import { getAdminToken } from '../../../utils/auth'
 
 const form = reactive({
   id: 0,
@@ -207,7 +208,7 @@ function chooseCover() {
         filePath: tempPath,
         name: 'file',
         header: {
-          Authorization: uni.getStorageSync('admin_token') || ''
+          Authorization: getAdminToken()
         },
         success: (uploadRes) => {
           const data = JSON.parse(uploadRes.data)

@@ -1,20 +1,20 @@
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <el-input v-model="keyword" placeholder="搜索角色名称" clearable style="width:300px" @keyup.enter="search" />
-        <el-button type="primary" @click="search">搜索</el-button>
+  <div class="admin-page role-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索角色名称" clearable style="width:300px" @keyup.enter="search" />
+          <el-button type="primary" @click="search">搜索</el-button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button v-if="hasPerm('role:add')" type="success" @click="showAdd">+ 新增角色</el-button>
           <el-button v-if="hasPerm('role:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
-        <div>
+        <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="loadList" />
-          <el-button circle icon="Upload" title="导入" @click="ElMessage.info('导入功能开发中')" />
           <el-button circle icon="Download" title="导出" @click="exportData" />
-
         </div>
       </div>
       <el-table :data="list" v-loading="loading" stripe style="width:100%" @selection-change="selected = $event">
@@ -37,7 +37,7 @@
         </el-table-column>
         <el-table-column label="操作" width="260">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('role:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
               <el-popconfirm v-if="hasPerm('role:del')" title="确定删除该角色？" @confirm="handleDel(row)">
                 <template #reference>
@@ -48,7 +48,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="text-align:center;margin-top:16px">
+      <div class="admin-pagination">
         <el-pagination
           v-model:current-page="page"
           :page-size="pageSize"

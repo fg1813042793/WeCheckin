@@ -1,63 +1,118 @@
 <template>
-  <div>
-    <el-card class="resp-card">
-      <div class="header">
-        <el-button @click="goBack">‹ 返回</el-button>
-        <h3 style="margin:0 0 0 12px;display:inline-block">答卷: {{ surveyTitle }}</h3>
-        <el-tag v-if="surveyId" type="info" size="small" style="margin-left:8px">SurveyID: {{ surveyId }}</el-tag>
-      </div>
-      <div class="toolbar">
-        <el-input v-model="keyword" placeholder="搜索昵称/用户ID/设备" clearable style="width:260px" @clear="search" @keyup.enter="search" />
-        <div class="toolbar-actions">
-          <el-button size="small" type="danger" :disabled="!selectedIds.length" @click="batchDel">批量删除</el-button>
-          <span style="flex:1" />
-          <el-button size="small" @click="exportCSV">导出 CSV</el-button>
+  <div class="responses-page">
+    <el-card class="resp-card" shadow="never">
+      <div class="page-head">
+        <div class="page-head-main">
+          <el-button class="back-btn" @click="goBack">‹ 返回</el-button>
+          <div class="title-block">
+            <h3>答卷管理</h3>
+            <div class="title-meta">
+              <span class="survey-title">{{ surveyTitle }}</span>
+              <el-tag v-if="surveyId" type="info" size="small">ID: {{ surveyId }}</el-tag>
+            </div>
+          </div>
+        </div>
+        <div class="page-head-actions">
+          <el-button @click="load">刷新</el-button>
+          <el-button type="primary" @click="exportCSV">导出 CSV</el-button>
         </div>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe style="margin-top:16px" border @selection-change="onSelectionChange">
-        <el-table-column type="selection" width="40" />
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column label="用户ID" width="120">
-          <template #default="{ row }">{{ (row.userId === 0 || row.userId === '0' || row.userId === undefined) ? '-' : row.userId }}</template>
-        </el-table-column>
-        <el-table-column prop="nickname" label="昵称" width="140" />
-        <el-table-column prop="browser" label="浏览器" width="100" />
-        <el-table-column prop="deviceType" label="设备类型" width="100" />
-        <el-table-column prop="platformType" label="平台" width="80" />
-        <el-table-column label="状态" width="70">
-          <template #default="{ row }">
-            <el-tag :type="row.status===1 ? 'success' : 'info'" size="small">
-              {{ row.status===1 ? '完成' : '草稿' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="用时" width="80">
-          <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
-        </el-table-column>
-        <el-table-column label="开始时间" min-width="140">
-          <template #default="{ row }">{{ formatTime(row.startTime) }}</template>
-        </el-table-column>
-        <el-table-column label="设备" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.device || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="提交时间" min-width="150">
-          <template #default="{ row }">{{ formatTime(row.submitTime) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="viewDetail(row)">查看</el-button>
-            <el-button size="small" type="danger" @click="del(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div style="text-align:center;margin-top:16px">
-        <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="load" />
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span class="stat-label">答卷总数</span>
+          <strong>{{ total }}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">本页完成</span>
+          <strong class="stat-success">{{ responseStats.completed }}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">本页草稿</span>
+          <strong class="stat-muted">{{ responseStats.draft }}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">本页平均用时</span>
+          <strong>{{ formatDuration(responseStats.avgDuration) }}</strong>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <el-input v-model="keyword" class="keyword-input" placeholder="搜索昵称/用户ID/设备" clearable @clear="search" @keyup.enter="search" />
+          <el-button type="primary" @click="search">搜索</el-button>
+        </div>
+        <div class="toolbar-actions">
+          <el-button size="small" type="danger" :disabled="!selectedIds.length" @click="batchDel">批量删除</el-button>
+          <span class="selected-tip">已选 {{ selectedIds.length }} 条</span>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <el-table
+          :data="list"
+          v-loading="loading"
+          class="response-table"
+          stripe
+          row-key="id"
+          empty-text="暂无答卷数据"
+          @selection-change="onSelectionChange"
+        >
+          <el-table-column type="selection" width="44" />
+          <el-table-column prop="id" label="ID" width="76" />
+          <el-table-column label="答卷用户" min-width="180">
+            <template #default="{ row }">
+              <div class="user-cell">
+                <div class="user-name">{{ row.nickname || '匿名用户' }}</div>
+                <div class="user-meta">用户ID：{{ formatUserId(row.userId) }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="row.status===1 ? 'success' : 'info'" size="small" round>
+                {{ row.status===1 ? '已完成' : '草稿' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="用时" width="96">
+            <template #default="{ row }"><span class="duration-text">{{ formatDuration(row.duration) }}</span></template>
+          </el-table-column>
+          <el-table-column label="设备信息" min-width="230" show-overflow-tooltip>
+            <template #default="{ row }">
+              <div class="device-cell">
+                <div class="device-tags">
+                  <el-tag v-if="row.deviceType" size="small" effect="plain">{{ row.deviceType }}</el-tag>
+                  <el-tag v-if="row.platformType" size="small" type="info" effect="plain">{{ row.platformType }}</el-tag>
+                  <el-tag v-if="row.browser" size="small" type="info" effect="plain">{{ row.browser }}</el-tag>
+                </div>
+                <div class="device-text">{{ row.device || '-' }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="开始时间" min-width="150">
+            <template #default="{ row }">{{ formatTime(row.startTime) }}</template>
+          </el-table-column>
+          <el-table-column label="提交时间" min-width="150">
+            <template #default="{ row }">{{ formatTime(row.submitTime) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <div class="table-actions">
+                <el-button size="small" @click="viewDetail(row)">查看</el-button>
+                <el-button size="small" type="danger" plain @click="del(row)">删除</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div class="admin-pagination">
+        <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" background @current-change="load" />
       </div>
     </el-card>
 
-    <el-dialog v-model="detailDialog.visible" :title="`答卷详情 #${detailDialog.response?.id}`" width="800px">
-      <el-descriptions :column="2" border size="small" style="margin-bottom:12px">
+    <el-dialog v-model="detailDialog.visible" class="response-detail-dialog" :title="`答卷详情 #${detailDialog.response?.id}`" width="860px">
+      <el-descriptions :column="2" border size="small" class="response-desc">
         <el-descriptions-item label="用户">{{ detailDialog.response?.userId || '匿名' }}</el-descriptions-item>
         <el-descriptions-item label="用时">{{ formatDuration(detailDialog.response?.duration) }}</el-descriptions-item>
         <el-descriptions-item label="设备">{{ detailDialog.response?.device || '-' }}</el-descriptions-item>
@@ -65,7 +120,7 @@
         <el-descriptions-item label="开始">{{ formatTime(detailDialog.response?.startTime) }}</el-descriptions-item>
         <el-descriptions-item label="提交">{{ formatTime(detailDialog.response?.submitTime) }}</el-descriptions-item>
       </el-descriptions>
-      <el-table :data="answerRows" stripe size="small" border>
+      <el-table :data="answerRows" class="answer-table" stripe size="small">
         <el-table-column prop="questionId" label="题号" width="80" />
         <el-table-column prop="title" label="题目" min-width="200" show-overflow-tooltip />
         <el-table-column prop="value" label="答案" min-width="200" />
@@ -95,6 +150,14 @@ const skipTypes = ['divider', 'description', 'pagination', 'questionSet']
 const keyword = ref('')
 const selectedIds = ref<number[]>([])
 
+const responseStats = computed(() => {
+  const completed = list.value.filter((r: any) => r.status === 1).length
+  const draft = list.value.filter((r: any) => r.status !== 1).length
+  const durations = list.value.map((r: any) => Number(r.duration || 0)).filter((d: number) => d > 0)
+  const avgDuration = durations.length ? Math.round(durations.reduce((sum: number, d: number) => sum + d, 0) / durations.length) : 0
+  return { completed, draft, avgDuration }
+})
+
 function onSelectionChange(rows: any[]) {
   selectedIds.value = rows.map((r: any) => r.id)
 }
@@ -108,6 +171,9 @@ function formatDuration(sec: number) {
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return m > 0 ? `${m}分${s}秒` : `${s}秒`
+}
+function formatUserId(userId: any) {
+  return (userId === 0 || userId === '0' || userId === undefined || userId === null) ? '-' : userId
 }
 
 async function load() {
@@ -199,8 +265,228 @@ onMounted(load)
 </script>
 
 <style scoped>
-.header { display:flex; align-items:center; }
-.resp-card { overflow:visible; }
-.toolbar { position:sticky; top:0; z-index:10; background:#fff; padding:8px 0; }
-.toolbar-actions { margin-top:8px; display:flex; gap:8px; justify-content:flex-end; }
+.responses-page {
+  --resp-accent:#2563eb;
+  --resp-accent-soft:#eff6ff;
+  --resp-border:#e8edf5;
+  --resp-surface:#f8fafc;
+  --resp-text:#1f2937;
+  --resp-muted:#667085;
+}
+
+.resp-card {
+  overflow:visible;
+  border:1px solid var(--resp-border);
+  border-radius:12px;
+}
+
+.page-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--resp-border);
+}
+.page-head-main {
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  min-width:0;
+}
+.back-btn {
+  flex-shrink:0;
+}
+.title-block {
+  min-width:0;
+}
+.title-block h3 {
+  margin:0;
+  color:var(--resp-text);
+  font-size:18px;
+  font-weight:700;
+  line-height:28px;
+}
+.title-meta {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+  min-width:0;
+  color:var(--resp-muted);
+  font-size:12px;
+}
+.survey-title {
+  max-width:520px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.page-head-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.stat-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin:16px 0;
+}
+.stat-card {
+  min-height:66px;
+  padding:12px 14px;
+  background:#fff;
+  border:1px solid var(--resp-border);
+  border-radius:10px;
+  box-shadow:0 1px 2px rgba(15,23,42,0.03);
+}
+.stat-label {
+  display:block;
+  color:var(--resp-muted);
+  font-size:12px;
+  line-height:18px;
+}
+.stat-card strong {
+  display:block;
+  margin-top:6px;
+  color:var(--resp-text);
+  font-size:20px;
+  line-height:24px;
+}
+.stat-card .stat-success {
+  color:#16a34a;
+}
+.stat-card .stat-muted {
+  color:#98a2b3;
+}
+
+.toolbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+  padding:14px;
+  background:var(--resp-surface);
+  border:1px solid var(--resp-border);
+  border-radius:10px;
+}
+.toolbar-left,
+.toolbar-actions {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.keyword-input {
+  width:280px;
+}
+.selected-tip {
+  color:var(--resp-muted);
+  font-size:12px;
+}
+
+.table-shell {
+  overflow:hidden;
+  border:1px solid var(--resp-border);
+  border-radius:10px;
+}
+.response-table :deep(.el-table__header th) {
+  background:#f8fafc;
+  color:#475467;
+  font-weight:600;
+}
+.response-table :deep(.el-table__row) {
+  height:64px;
+}
+.response-table :deep(.el-table__cell) {
+  border-bottom-color:#edf1f7;
+}
+.user-cell,
+.device-cell {
+  min-width:0;
+}
+.user-name {
+  color:var(--resp-text);
+  font-weight:600;
+  line-height:20px;
+}
+.user-meta,
+.device-text {
+  margin-top:3px;
+  color:#98a2b3;
+  font-size:12px;
+  line-height:18px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.device-tags {
+  display:flex;
+  align-items:center;
+  gap:4px;
+  flex-wrap:wrap;
+}
+.duration-text {
+  color:var(--resp-accent);
+  font-weight:600;
+}
+.table-actions {
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.table-actions :deep(.el-button + .el-button) {
+  margin-left:0;
+}
+.admin-pagination {
+  display:flex;
+  justify-content:flex-start;
+  margin-top:16px;
+}
+
+.response-desc {
+  margin-bottom:14px;
+}
+.answer-table {
+  border:1px solid var(--resp-border);
+  border-radius:8px;
+  overflow:hidden;
+}
+.answer-table :deep(.el-table__header th) {
+  background:#f8fafc;
+  color:#475467;
+  font-weight:600;
+}
+
+@media (max-width: 900px) {
+  .page-head,
+  .toolbar {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .page-head-actions,
+  .toolbar-actions {
+    justify-content:flex-start;
+  }
+  .stat-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .keyword-input {
+    width:100%!important;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-head-main {
+    flex-direction:column;
+  }
+  .stat-grid {
+    grid-template-columns:1fr;
+  }
+}
 </style>

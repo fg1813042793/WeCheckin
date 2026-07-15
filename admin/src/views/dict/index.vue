@@ -1,16 +1,18 @@
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <el-input v-model="keyword" placeholder="搜索字典名称" clearable style="width:300px" @keyup.enter="search" />
-        <el-button type="primary" @click="search">搜索</el-button>
+  <div class="admin-page dict-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索字典名称" clearable style="width:300px" @keyup.enter="search" />
+          <el-button type="primary" @click="search">搜索</el-button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button v-if="hasPerm('dict:add')" type="success" @click="showTypeAdd">+ 新增字典类型</el-button>
           <el-button v-if="hasPerm('dict:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
-        <div>
+        <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="loadTypes" />
           <el-button circle icon="Download" title="导出" @click="exportData" />
         </div>
@@ -22,7 +24,7 @@
         <el-table-column prop="itemCnt" label="数据条数" width="100" />
         <el-table-column label="操作" width="320">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('dict:list')" size="small" type="primary" @click="showItems(row)">管理数据</el-button>
               <el-button v-if="hasPerm('dict:edit')" size="small" @click="showTypeEdit(row)">编辑</el-button>
               <el-button v-if="hasPerm('dict:del')" size="small" type="danger" @click="clearType(row)">清空</el-button>
@@ -65,7 +67,7 @@
         <el-table-column prop="remark" label="备注" min-width="120" />
         <el-table-column label="操作" width="150">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('dict:edit')" size="small" @click="showItemEdit(row)">编辑</el-button>
               <el-popconfirm v-if="hasPerm('dict:del')" title="确定删除？" @confirm="delItem(row)">
                 <template #reference>

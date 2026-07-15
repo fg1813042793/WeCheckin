@@ -23,6 +23,7 @@
 import { eventApi, formkitApi } from '../../api/index'
 import FormRender from '../../components/formkit/FormRender.vue'
 import { isOldSchema, normalizeSchema, initAnswers, serializeAnswers } from '../../utils/formkit.js'
+import { getClientUserId } from '../../utils/auth'
 
 export default {
   components: { FormRender },
@@ -39,9 +40,7 @@ export default {
   },
   methods: {
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
     async loadEvent() {
       try {

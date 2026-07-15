@@ -1,11 +1,22 @@
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex;gap:10px;margin-bottom:16px">
-        <span style="line-height:32px;font-size:16px;font-weight:600">部门管理</span>
-        <el-button v-if="hasPerm('dept:add')" type="success" @click="showAdd(0)">+ 新增顶级部门</el-button>
+  <div class="admin-page department-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索部门名称" clearable style="width:300px" @keyup.enter="refreshTreeView" />
+          <el-button type="primary" @click="refreshTreeView">搜索</el-button>
+        </div>
       </div>
-      <el-table :data="treeData" v-loading="loading" row-key="id" stripe default-expand-all :tree-props="{ children: 'children' }">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-button v-if="hasPerm('dept:add')" type="success" @click="showAdd(0)">+ 新增顶级部门</el-button>
+          <el-button @click="toggleExpand">{{ allExpanded ? '折叠全部' : '展开全部' }}</el-button>
+        </div>
+        <div class="admin-toolbar__right">
+          <el-button circle icon="Refresh" title="刷新" @click="loadTree" />
+        </div>
+      </div>
+      <el-table :key="tableKey" :data="filteredTreeData" v-loading="loading" row-key="id" stripe :default-expand-all="allExpanded" :tree-props="{ children: 'children' }">
         <el-table-column prop="name" label="部门名称" min-width="200" />
         <el-table-column prop="sort" label="排序" width="80" />
         <el-table-column label="状态" width="80">
@@ -15,7 +26,7 @@
         </el-table-column>
         <el-table-column label="操作" width="260">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('dept:add')" size="small" type="primary" @click="showAdd(row.id)">添加子部门</el-button>
               <el-button v-if="hasPerm('dept:edit')" size="small" @click="showEdit(row)">编辑</el-button>
               <el-popconfirm v-if="hasPerm('dept:del')" title="确定删除该部门及其子部门？" @confirm="handleDel(row)">
@@ -56,7 +67,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { adminApi } from '../../api'
 import { ElMessage } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
@@ -64,6 +75,10 @@ import { hasPerm } from '../../utils/permission'
 const loading = ref(false)
 const saving = ref(false)
 const treeData = ref<any[]>([])
+const keyword = ref('')
+const allExpanded = ref(false)
+const tableKey = ref(0)
+const filteredTreeData = computed(() => filterDeptTree(treeData.value, keyword.value))
 
 const dialog = reactive({
   visible: false,
@@ -85,11 +100,30 @@ async function loadTree() {
   try {
     const res = await adminApi.deptTree()
     treeData.value = Array.isArray(res.data) ? res.data : []
-  } catch (e) {
-    console.error('加载部门树失败', e)
-  } finally {
+  } catch {} finally {
     loading.value = false
   }
+}
+
+function filterDeptTree(list: any[], rawKeyword: string): any[] {
+  const text = rawKeyword.trim().toLowerCase()
+  if (!text) return list
+  return list
+    .map(item => {
+      const children = item.children?.length ? filterDeptTree(item.children, rawKeyword) : []
+      const hit = String(item.name || '').toLowerCase().includes(text)
+      return hit || children.length ? { ...item, children } : null
+    })
+    .filter(Boolean) as any[]
+}
+
+function refreshTreeView() {
+  tableKey.value++
+}
+
+function toggleExpand() {
+  allExpanded.value = !allExpanded.value
+  tableKey.value++
 }
 
 function showAdd(parentId: number) {
@@ -131,9 +165,7 @@ async function handleSave() {
     }
     dialog.visible = false
     await loadTree()
-  } catch (e) {
-    console.error('操作失败', e)
-  } finally {
+  } catch {} finally {
     saving.value = false
   }
 }
@@ -143,9 +175,7 @@ async function handleDel(row: any) {
     await adminApi.deptDel({ id: row.id })
     ElMessage.success('删除成功')
     await loadTree()
-  } catch (e) {
-    console.error('删除失败', e)
-  }
+  } catch {}
 }
 
 onMounted(() => {

@@ -128,6 +128,7 @@
 
 <script>
 import { enrollApi } from '../../api/index'
+import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -204,9 +205,7 @@ export default {
   methods: {
     async loadDetail() {
       try {
-        const userInfo = uni.getStorageSync('userInfo')
-        const token = uni.getStorageSync('token')
-        const uid = (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+        const uid = getClientUserId()
         const res = await enrollApi.detail({ id: this.id, user_id: uid })
         if (!res.data) {
           this.isLoad = null
@@ -291,12 +290,11 @@ export default {
       //if (addr) return addr.value
       //const f = formsArr.find(f => f.label === '位置')
       //return f ? f.value : ''
-	  const addr = formsArr.find(f => f.type === 'location')
-	  console.log(addr)
-	  if (addr){
-		  if (addr.value.addr){return addr.value.addr}
-		  if (addr.value.lat && addr.value.lng){return addr.value.lat+","+addr.value.lng}
-	  }
+      const addr = formsArr.find(f => f.type === 'location')
+      if (addr) {
+        if (addr.value.addr) { return addr.value.addr }
+        if (addr.value.lat && addr.value.lng) { return addr.value.lat + "," + addr.value.lng }
+      }
     },
 
     formatTimestamp(ts) {

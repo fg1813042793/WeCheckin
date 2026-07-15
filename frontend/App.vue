@@ -3,6 +3,8 @@
 </template>
 
 <script>
+import { hasAnyAuth } from './utils/auth'
+
 export default {
   globalData: {
     statusBarHeight: 0,
@@ -11,35 +13,15 @@ export default {
     token: null
   },
   onLaunch: function() {
-    console.log('App Launch')
-    const token = uni.getStorageSync('token') || uni.getStorageSync('admin_token')
-    if (!token) {
+    if (!hasAnyAuth()) {
       uni.reLaunch({ url: '/pages/login/login' })
     }
-  },
-  onShow: function() {
-    console.log('App Show')
-  },
-  onHide: function() {
-    console.log('App Hide')
   },
   methods: {
     initApp() {
       // 获取系统信息
       const systemInfo = uni.getSystemInfoSync()
       this.globalData.statusBarHeight = systemInfo.statusBarHeight
-      
-      // #ifdef APP-PLUS
-      if (systemInfo.platform === 'android') {
-        console.log('Android 平台')
-      } else if (systemInfo.platform === 'ios') {
-        console.log('iOS 平台')
-      }
-      // #endif
-      
-      // #ifdef HARMONY
-      console.log('鸿蒙平台')
-      // #endif
     }
   }
 }

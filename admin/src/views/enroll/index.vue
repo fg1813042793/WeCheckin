@@ -1,18 +1,19 @@
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <el-input v-model="keyword" placeholder="搜索打卡标题" clearable style="width:300px" @keyup.enter="search" />
-        <el-button type="primary" @click="search">搜索</el-button>
+  <div class="admin-page enroll-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索打卡标题" clearable style="width:300px" @keyup.enter="search" />
+          <el-button type="primary" @click="search">搜索</el-button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button v-if="hasPerm('enroll:add')" type="success" @click="showAdd">+ 新增打卡</el-button>
           <el-button v-if="hasPerm('enroll:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
-        <div class="toolbar-icons">
+        <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
-          <el-button circle icon="Upload" title="导入" @click="ElMessage.info('导入功能开发中')" />
           <el-button circle icon="Download" title="导出" @click="exportData" />
           <SortPopover :columns="sortColumns" v-model="sortRules" @change="onSortChange" />
         </div>
@@ -33,7 +34,7 @@
         <el-table-column prop="joinCount" label="打卡数" width="80" />
         <el-table-column label="操作" width="400" fixed="right">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('enroll:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
               <el-button v-if="hasPerm('enroll:list')" size="small" @click="showJoins(row)">打卡记录</el-button>
               <el-button v-if="hasPerm('enroll:list')" size="small" @click="showUsers(row)">参与用户</el-button>
@@ -53,7 +54,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="text-align:center;margin-top:16px">
+      <div class="admin-pagination">
         <el-pagination
           v-model:current-page="page"
           :page-size="pageSize"
@@ -173,15 +174,17 @@
 
     <!-- 打卡记录 -->
     <el-dialog v-model="joinDialog.visible" :title="joinDialog.title" width="1200px">
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <el-input v-model="joinKeyword" placeholder="搜索用户名/ID" clearable style="width:240px" @keyup.enter="searchJoins" />
-        <el-button type="primary" @click="searchJoins">搜索</el-button>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="joinKeyword" placeholder="搜索用户名/ID" clearable style="width:240px" @keyup.enter="searchJoins" />
+          <el-button type="primary" @click="searchJoins">搜索</el-button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button type="danger" :disabled="joinSelected.length === 0" @click="delSelectedJoins">批量删除</el-button>
         </div>
-        <div class="toolbar-icons">
+        <div class="admin-toolbar__right">
           <el-date-picker v-model="joinExportRange" type="daterange" range-separator="~" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width:240px" />
           <el-button type="primary" size="small" @click="exportJoins">导出</el-button>
         </div>
@@ -224,22 +227,24 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="text-align:center;margin-top:16px">
+      <div class="admin-pagination">
         <el-pagination v-model:current-page="joinPage" :page-size="joinPageSize" :page-sizes="[10,20,50,100]" :total="joinTotal" layout="total,sizes,prev,pager,next" @current-change="loadJoins" @size-change="(val:number) => { joinPageSize = val; joinPage = 1; loadJoins() }" />
       </div>
     </el-dialog>
 
     <!-- 参与用户 -->
     <el-dialog v-model="userDialog.visible" :title="userDialog.title" width="1200px">
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <el-input v-model="userKeyword" placeholder="搜索用户名" clearable style="width:240px" @keyup.enter="searchUsers" />
-        <el-button type="primary" @click="searchUsers">搜索</el-button>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="userKeyword" placeholder="搜索用户名" clearable style="width:240px" @keyup.enter="searchUsers" />
+          <el-button type="primary" @click="searchUsers">搜索</el-button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button type="danger" :disabled="userSelected.length === 0" @click="delSelectedUsers">批量移除</el-button>
         </div>
-        <div class="toolbar-icons">
+        <div class="admin-toolbar__right">
           <el-button circle icon="Download" title="导出 CSV" @click="exportUsers" />
         </div>
       </div>
@@ -764,16 +769,6 @@ onMounted(() => { load(); loadCategories(); loadDeptTree() })
   font-size: 12px;
   flex-shrink: 0;
   margin-left: auto;
-}
-.toolbar-icons {
-  display: flex;
-  align-items: center;
-}
-.toolbar-icons > * {
-  margin-left: 8px;
-}
-.toolbar-icons > :first-child {
-  margin-left: 0;
 }
 </style>
 <style>

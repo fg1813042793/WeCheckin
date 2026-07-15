@@ -1,22 +1,23 @@
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <el-input v-model="keyword" placeholder="搜索标题" clearable style="width:200px" @keyup.enter="search" />
-        <el-select v-model="typeFilter" placeholder="全部类型" clearable style="width:120px" @change="search">
-          <el-option label="活动" :value="1" />
-          <el-option label="赛事" :value="2" />
-        </el-select>
-        <el-button type="primary" @click="search">搜索</el-button>
+  <div class="admin-page event-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索标题" clearable style="width:200px" @keyup.enter="search" />
+          <el-select v-model="typeFilter" placeholder="全部类型" clearable style="width:120px" @change="search">
+            <el-option label="活动" :value="1" />
+            <el-option label="赛事" :value="2" />
+          </el-select>
+          <el-button type="primary" @click="search">搜索</el-button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button v-if="hasPerm('event:add')" type="success" @click="showAdd">+ 新增</el-button>
           <el-button v-if="hasPerm('event:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
-        <div class="toolbar-icons">
+        <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
-          <el-button circle icon="Upload" title="导入" @click="ElMessage.info('导入功能开发中')" />
           <el-button circle icon="Download" title="导出" @click="exportData" />
           <SortPopover :columns="sortColumns" v-model="sortRules" @change="onSortChange" />
         </div>
@@ -49,7 +50,7 @@
         <el-table-column prop="userCnt" label="参与人数" width="80" />
         <el-table-column label="操作" width="350" fixed="right">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('event:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
               <el-button v-if="hasPerm('event:list')" size="small" @click="showParticipants(row)">参与者</el-button>
               <el-button v-if="hasPerm('event:list')" size="small" @click="showDynamics(row)">动态</el-button>
@@ -70,7 +71,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="text-align:center;margin-top:16px">
+      <div class="admin-pagination">
         <el-pagination v-model:current-page="page" :page-size="pageSize" :page-sizes="[10,20,50,100]" :total="total" layout="total,sizes,prev,pager,next" @current-change="load" @size-change="(val:number) => { pageSize = val; page = 1; load() }" />
       </div>
     </el-card>
@@ -244,11 +245,11 @@
 
     <!-- 参与者列表 -->
     <el-dialog v-model="partDialog.visible" :title="partDialog.title" width="1000px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button type="danger" :disabled="partSelected.length === 0" @click="delSelectedParticipants">批量删除</el-button>
         </div>
-        <div class="toolbar-icons">
+        <div class="admin-toolbar__right">
           <el-button circle icon="Download" title="导出 CSV" @click="exportParticipants" />
         </div>
       </div>
@@ -276,15 +277,10 @@
 
     <!-- 动态列表 -->
     <el-dialog v-model="dynDialog.visible" :title="dynDialog.title" width="1200px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="toolbar-icons">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button size="small" type="primary" @click="addDynamic">添加动态</el-button>
           <el-button size="small" type="danger" :disabled="dynSelected.length === 0" @click="delSelectedDynamics">批量删除</el-button>
-        </div>
-        <div class="toolbar-icons">
-          <el-button circle icon="Upload" title="导入" size="small" @click="ElMessage.info('导入功能开发中')" />
-          <el-button circle icon="Download" title="导出" size="small" @click="ElMessage.info('导出功能开发中')" />
-          <el-button circle icon="Sort" title="排序" size="small" @click="ElMessage.info('排序功能开发中')" />
         </div>
       </div>
       <el-table :data="dynList" stripe @selection-change="dynSelected = $event">
@@ -369,16 +365,15 @@
 
     <!-- 成绩列表 -->
     <el-dialog v-model="scoreDialog.visible" :title="scoreDialog.title" width="720px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button size="small" type="primary" @click="addScore">添加成绩</el-button>
         </div>
-        <div class="toolbar-icons">
+        <div class="admin-toolbar__right">
           <el-upload :show-file-list="false" :before-upload="importScoresCSV" accept=".csv" style="display:inline-block">
             <el-button circle icon="Upload" title="导入" size="small" />
           </el-upload>
           <el-button circle icon="Download" title="导出 CSV" size="small" @click="exportScores" />
-          <el-button circle icon="Sort" title="排序" size="small" @click="ElMessage.info('排序功能开发中')" />
         </div>
       </div>
       <el-table :data="scoreList" v-loading="scoreLoading" stripe>
@@ -1225,16 +1220,6 @@ onMounted(() => { load(); loadCategories('activity_type'); loadDeptTree() })
 .dyn-upload-btn:hover {
   border-color: #409eff;
   color: #409eff;
-}
-.toolbar-icons {
-  display: flex;
-  align-items: center;
-}
-.toolbar-icons > * {
-  margin-left: 8px;
-}
-.toolbar-icons > :first-child {
-  margin-left: 0;
 }
 </style>
 <style>

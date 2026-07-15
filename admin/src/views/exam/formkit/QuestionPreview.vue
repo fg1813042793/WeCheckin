@@ -302,7 +302,7 @@
       <div v-else-if="q.type==='pagination'" class="preview-plain">—— 分页 ——</div>
       <el-cascader v-else-if="q.type==='user'||q.type==='dept'" v-model="val" :placeholder="q.type==='user'?'选择成员':'选择部门'" style="width:100%" :options="userDeptTreeOptions" :props="{ multiple: !!q.multiple, emitPath: false }" clearable />
       <div v-else-if="q.type==='richText'" style="border:1px solid #dcdfe6;border-radius:4px;overflow:hidden">
-        <QuillEditor v-model:content="val" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...' }" style="min-height:150px" />
+        <QuillEditor v-model:content="val" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...', modules: { imageResize: {} } }" style="min-height:150px" />
       </div>
       <div v-else-if="q.type==='autopop'" class="preview-plain"><el-input placeholder="自动填充" v-model="val" /></div>
       <div v-else-if="q.type==='nps'" class="preview-nps">
@@ -320,10 +320,23 @@
     </el-dialog>
 
     <!-- 题干高级编辑弹窗 -->
-    <el-dialog v-if="showTitleAdvancedEditor" v-model="showTitleAdvancedEditor" title="编辑题干" width="700px" destroy-on-close draggable @close="cancelTitleAdvancedEdit" class="title-full-editor-dialog">
+    <el-dialog
+      v-if="showTitleAdvancedEditor"
+      v-model="showTitleAdvancedEditor"
+      title="编辑题干"
+      width="760px"
+      top="6vh"
+      append-to-body
+      destroy-on-close
+      draggable
+      :close-on-click-modal="false"
+      class="question-rich-editor-dialog"
+      modal-class="question-rich-editor-modal"
+      @close="cancelTitleAdvancedEdit"
+    >
       <QuillEditor v-model:content="titleEditBuffer" content-type="html"
+        class="question-rich-editor"
         :options="fullTitleEditorOptions"
-        style="min-height:50vh"
         @ready="onFullEditorReady" />
       <template #footer>
         <el-button @click="showTitleAdvancedEditor = false">取消</el-button>
@@ -332,10 +345,23 @@
     </el-dialog>
 
     <!-- 选项高级编辑弹窗 -->
-    <el-dialog v-if="showOptionAdvancedEditor" v-model="showOptionAdvancedEditor" title="编辑选项" width="700px" destroy-on-close draggable @close="cancelOptionAdvancedEdit">
+    <el-dialog
+      v-if="showOptionAdvancedEditor"
+      v-model="showOptionAdvancedEditor"
+      title="编辑选项"
+      width="760px"
+      top="6vh"
+      append-to-body
+      destroy-on-close
+      draggable
+      :close-on-click-modal="false"
+      class="question-rich-editor-dialog"
+      modal-class="question-rich-editor-modal"
+      @close="cancelOptionAdvancedEdit"
+    >
       <QuillEditor v-model:content="optionEditBuffer" content-type="html"
+        class="question-rich-editor"
         :options="fullTitleEditorOptions"
-        style="min-height:50vh"
         @ready="onOptionFullEditorReady" />
       <template #footer>
         <el-button @click="showOptionAdvancedEditor = false">取消</el-button>
@@ -1000,15 +1026,18 @@ function optionGrid(q: any) {
 <style scoped>
 .question-preview {
   padding: 0 0 6px;
+  --exam-designer-accent: var(--designer-accent, #0f766e);
+  --exam-designer-accent-soft: var(--designer-accent-soft, #ecfdf5);
+  --exam-designer-accent-border: var(--designer-accent-border, #99f6e4);
 }
 .question-preview.editing {
   padding: 0 8px 8px;
-  border: 1px dashed #fb454c;
+  border: 1px dashed var(--exam-designer-accent);
   border-radius: 8px;
   background: #fff;
   overflow: visible;
 }
-.required-tag { border:1px solid #fb454c !important; }
+.required-tag { border:1px solid var(--exam-designer-accent) !important; }
 .question-preview.is-hidden {
   opacity: 0.4;
   filter: grayscale(0.6);
@@ -1282,7 +1311,7 @@ function optionGrid(q: any) {
   line-height: 1.5;
 }
 .option-editable:focus {
-  border-color: #fb454c;
+  border-color: var(--exam-designer-accent);
   background: #fff;
 }
 .option-editor-wrap {
@@ -1323,7 +1352,7 @@ function optionGrid(q: any) {
   height: auto;
 }
 .option-editor-wrap:focus-within :deep(.ql-container) {
-  border-color: #fb454c;
+  border-color: var(--exam-designer-accent);
   background: #fff;
 }
 .option-editor-wrap :deep(.ql-toolbar .ql-formats) {
@@ -1338,5 +1367,73 @@ function optionGrid(q: any) {
 }
 .add-option-btn {
   margin-top: 6px;
+}
+
+:global(.question-rich-editor-modal) {
+  z-index: 3000;
+}
+:global(.question-rich-editor-dialog.el-dialog),
+:global(.question-rich-editor-dialog .el-dialog),
+:global(.question-rich-editor-modal .el-dialog) {
+  max-width: calc(100vw - 40px);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+}
+:global(.question-rich-editor-dialog .el-dialog__header),
+:global(.question-rich-editor-modal .el-dialog__header) {
+  margin-right: 0;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #edf0f5;
+}
+:global(.question-rich-editor-dialog .el-dialog__title),
+:global(.question-rich-editor-modal .el-dialog__title) {
+  font-size: 16px;
+  font-weight: 650;
+  color: #303133;
+}
+:global(.question-rich-editor-dialog .el-dialog__body),
+:global(.question-rich-editor-modal .el-dialog__body) {
+  padding: 14px 18px;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+}
+:global(.question-rich-editor-dialog .el-dialog__footer),
+:global(.question-rich-editor-modal .el-dialog__footer) {
+  padding: 12px 18px 16px;
+  border-top: 1px solid #edf0f5;
+}
+:global(.question-rich-editor) {
+  height: min(54vh, 520px);
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+:global(.question-rich-editor .ql-toolbar) {
+  flex-shrink: 0;
+  border-radius: 6px 6px 0 0;
+}
+:global(.question-rich-editor .ql-container) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 0 0 6px 6px;
+}
+:global(.question-rich-editor .ql-editor) {
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  :global(.question-rich-editor-dialog.el-dialog),
+  :global(.question-rich-editor-dialog .el-dialog),
+  :global(.question-rich-editor-modal .el-dialog) {
+    width: calc(100vw - 24px) !important;
+    margin-top: 4vh !important;
+  }
+  :global(.question-rich-editor) {
+    height: 58vh;
+    min-height: 300px;
+  }
 }
 </style>

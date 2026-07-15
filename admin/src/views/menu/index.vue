@@ -1,17 +1,22 @@
 <template>
-  <div>
-    <el-card>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div style="display:flex;gap:10px;align-items:center">
-          <span style="line-height:32px;font-size:16px;font-weight:600">菜单权限管理</span>
+  <div class="admin-page menu-page">
+    <el-card class="admin-card" shadow="never">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-input v-model="keyword" placeholder="搜索菜单名称/路径/权限" clearable style="width:300px" @keyup.enter="refreshTreeView" />
+          <el-button type="primary" @click="refreshTreeView">搜索</el-button>
+        </div>
+      </div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
           <el-button v-if="hasPerm('menu:add')" type="success" @click="showAdd(0)">+ 新增顶级菜单</el-button>
           <el-button @click="toggleExpand">{{ allExpanded ? '折叠全部' : '展开全部' }}</el-button>
         </div>
-        <div>
+        <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="loadTree" />
         </div>
       </div>
-      <el-table :key="tableKey" :data="treeData" v-loading="loading" row-key="id" stripe :default-expand-all="allExpanded" :tree-props="{ children: 'children' }">
+      <el-table :key="tableKey" :data="filteredTreeData" v-loading="loading" row-key="id" stripe :default-expand-all="allExpanded" :tree-props="{ children: 'children' }">
         <el-table-column label="菜单名称" min-width="200">
           <template #default="{ row }">
             <span>{{ row.name }}</span>
@@ -24,7 +29,7 @@
         <el-table-column prop="perms" label="权限标识" width="200" />
         <el-table-column label="图标" width="80">
           <template #default="{ row }">
-            <el-icon v-if="row.icon" :size="18"><component :is="row.icon" /></el-icon>
+            <el-icon v-if="resolveAdminIcon(row.icon)" :size="18"><component :is="resolveAdminIcon(row.icon)" /></el-icon>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -36,7 +41,7 @@
         </el-table-column>
         <el-table-column label="操作" width="320">
           <template #default="{ row }">
-            <div class="table-actions">
+            <div class="admin-table-actions">
               <el-button v-if="hasPerm('menu:add')" size="small" type="primary" @click="showAdd(row.id)">添加子项</el-button>
               <el-button v-if="hasPerm('menu:edit')" size="small" @click="showEdit(row)">编辑</el-button>
               <el-popconfirm v-if="hasPerm('menu:del')" title="确定删除该菜单及其子项？" @confirm="handleDel(row)">
@@ -93,17 +98,20 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { adminApi } from '../../api'
 import { ElMessage } from 'element-plus'
 import IconPicker from '../../components/IconPicker.vue'
+import { resolveAdminIcon } from '../../icons'
 import { hasPerm } from '../../utils/permission'
 
 const loading = ref(false)
 const saving = ref(false)
 const treeData = ref<any[]>([])
-const allExpanded = ref(true)
+const keyword = ref('')
+const allExpanded = ref(false)
 const tableKey = ref(0)
+const filteredTreeData = computed(() => filterMenuTree(treeData.value, keyword.value))
 
 const dialog = reactive({
   visible: false,
@@ -131,6 +139,23 @@ async function loadTree() {
     treeData.value = Array.isArray(res.data) ? res.data : []
   } catch { treeData.value = [] }
   loading.value = false
+}
+
+function filterMenuTree(list: any[], rawKeyword: string): any[] {
+  const text = rawKeyword.trim().toLowerCase()
+  if (!text) return list
+  return list
+    .map(item => {
+      const children = item.children?.length ? filterMenuTree(item.children, rawKeyword) : []
+      const hit = [item.name, item.path, item.perms, item.icon]
+        .some(value => String(value || '').toLowerCase().includes(text))
+      return hit || children.length ? { ...item, children } : null
+    })
+    .filter(Boolean) as any[]
+}
+
+function refreshTreeView() {
+  tableKey.value++
 }
 
 function showAdd(parentId: number) {

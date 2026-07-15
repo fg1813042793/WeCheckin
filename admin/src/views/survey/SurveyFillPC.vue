@@ -159,20 +159,21 @@
       </template>
       <template v-else>
         <div class="q-list">
-          <div v-for="(q, i) in questions" :key="q.id" v-if="!hiddenQuestionIds.has(q.id)" class="q-item" :data-qid="q.id">
-            <div class="q-title">
-              <template v-if="LAYOUT_TYPES.includes(q.type)">
-                <span v-if="q.type==='description'" class="q-type-label">描述</span>
-                <span v-else-if="q.type==='divider'" class="q-type-label">分隔</span>
-                <span v-else class="q-type-label">分页</span>
-              </template>
-              <template v-else>
-                <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type) && !hiddenQuestionIds.has(x.id)).length + 1 }}.</span>
-                <span class="q-text" v-html="q.title" />
-                <span v-if="q.required" class="q-req">*</span>
-              </template>
-            </div>
-            <div class="preview-body">
+          <template v-for="(q, i) in questions" :key="q.id">
+            <div v-if="!hiddenQuestionIds.has(q.id)" class="q-item" :data-qid="q.id">
+              <div class="q-title">
+                <template v-if="LAYOUT_TYPES.includes(q.type)">
+                  <span v-if="q.type==='description'" class="q-type-label">描述</span>
+                  <span v-else-if="q.type==='divider'" class="q-type-label">分隔</span>
+                  <span v-else class="q-type-label">分页</span>
+                </template>
+                <template v-else>
+                  <span v-if="settings.questionNumber !== false" class="q-num">{{ questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type) && !hiddenQuestionIds.has(x.id)).length + 1 }}.</span>
+                  <span class="q-text" v-html="q.title" />
+                  <span v-if="q.required" class="q-req">*</span>
+                </template>
+              </div>
+              <div class="preview-body">
               <el-input v-if="['input','text'].includes(q.type)" v-model="answers[q.id]" :placeholder="q.placeholder || '请输入'" />
               <div v-else-if="q.type==='multiInput'" class="field-vertical">
                 <el-input v-for="(f, fi) in (q.props?.fields||[])" :key="fi" v-model="answers[q.id][fi]" :placeholder="f.placeholder||'请输入'" />
@@ -263,9 +264,10 @@
                 <canvas :ref="el => sigCanvasMap[q.id] = el as HTMLCanvasElement" class="sig-canvas" @mousedown="sigStart($event, q.id)" @mousemove="sigMove($event, q.id)" @mouseup="sigEnd" @mouseleave="sigEnd" @touchstart.prevent="e => sigTouchStart(e, q.id)" @touchmove.prevent="e => sigTouchMove(e, q.id)" @touchend="sigEnd"></canvas>
                 <div style="display:flex;gap:8px;margin-top:4px"><el-button size="small" text @click="clearSignature(q.id)">清除</el-button></div>
               </div>
-              <el-input v-else v-model="answers[q.id]" placeholder="请输入" />
+                <el-input v-else v-model="answers[q.id]" placeholder="请输入" />
+              </div>
             </div>
-          </div>
+          </template>
         </div>
         <div class="footer">
           <el-button type="primary" size="large" :loading="submitting" @click="onSubmit()">提交</el-button>

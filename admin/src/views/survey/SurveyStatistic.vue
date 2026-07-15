@@ -126,7 +126,7 @@ const dailyOption = computed(() => {
     grid: { left: 40, right: 20, bottom: 30, top: 20 },
     xAxis: { type: 'category', data: daily.map((d: any) => d.date) },
     yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'line', data: daily.map((d: any) => d.count), smooth: true, areaStyle: { opacity: 0.15 }, lineStyle: { color: '#fb454c' }, itemStyle: { color: '#fb454c' } }]
+    series: [{ type: 'line', data: daily.map((d: any) => d.count), smooth: true, areaStyle: { opacity: 0.15, color: '#2563eb' }, lineStyle: { color: '#2563eb' }, itemStyle: { color: '#2563eb' } }]
   }
 })
 

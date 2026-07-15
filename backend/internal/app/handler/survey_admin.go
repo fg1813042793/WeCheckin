@@ -13,11 +13,11 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/pkg/database"
 	_ "wecheckin-backend/backend/internal/app/formkit/question/builtin" // 注册 24 个内置题型
 	"wecheckin-backend/backend/internal/app/formkit/report"
-	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/internal/app/service"
+	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
 )
@@ -338,7 +338,9 @@ func (h *AdminSurveyHandler) ResponseBatchDel(_ context.Context, c *app.RequestC
 	var ids []int
 	for _, p := range parts {
 		id, err := strconv.Atoi(strings.TrimSpace(p))
-		if err == nil { ids = append(ids, id) }
+		if err == nil {
+			ids = append(ids, id)
+		}
 	}
 	if len(ids) == 0 {
 		response.Fail(c, "参数错误")
@@ -446,13 +448,13 @@ func (h *AdminSurveyHandler) Statistic(_ context.Context, c *app.RequestContext)
 	fieldStats := report.FieldStats(sv.Schema, items, statMode)
 
 	response.JSON(c, map[string]interface{}{
-		"survey":      sv,
-		"total":       total,
-		"todayCount":  todayCnt,
-		"daily":       daily,
-		"deviceStat":  map[string]int64{"mobile": mobileCnt, "pc": pcCnt},
-		"fieldStats":  fieldStats,
-		"viewUrl":     "/admin/survey/response_list?surveyId=" + c.Query("surveyId"),
+		"survey":     sv,
+		"total":      total,
+		"todayCount": todayCnt,
+		"daily":      daily,
+		"deviceStat": map[string]int64{"mobile": mobileCnt, "pc": pcCnt},
+		"fieldStats": fieldStats,
+		"viewUrl":    "/admin/survey/response_list?surveyId=" + c.Query("surveyId"),
 	})
 }
 
@@ -656,6 +658,8 @@ func (h *AdminSurveyHandler) QuestionBankList(_ context.Context, c *app.RequestC
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	keyword := c.Query("keyword")
+	category := c.Query("category")
+	qType := c.Query("type")
 	if page < 1 {
 		page = 1
 	}
@@ -665,6 +669,12 @@ func (h *AdminSurveyHandler) QuestionBankList(_ context.Context, c *app.RequestC
 	q := database.DB.Model(&model.SurveyQuestion{})
 	if keyword != "" {
 		q = q.Where("`survey_q_title` LIKE ? OR `survey_q_type` LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	if category != "" {
+		q = q.Where("`survey_q_category` = ?", category)
+	}
+	if qType != "" {
+		q = q.Where("`survey_q_type` = ?", qType)
 	}
 	var total int64
 	q.Count(&total)
@@ -875,15 +885,15 @@ func (h *AdminSurveyHandler) TemplatePresetsSave(_ context.Context, c *app.Reque
 	var entry model.Setup
 	if err := database.DB.Where("`setup_key` = ?", key).First(&entry).Error; err == nil {
 		database.DB.Model(&model.Setup{}).Where("`setup_key` = ?", key).Updates(map[string]interface{}{
-			"setup_value":    string(bytes),
+			"setup_value":     string(bytes),
 			"setup_edit_time": now,
 		})
 	} else {
 		database.DB.Create(&model.Setup{
-			Key:     key,
-			Value:   string(bytes),
-			Type:    "template_presets",
-			AddTime: now,
+			Key:      key,
+			Value:    string(bytes),
+			Type:     "template_presets",
+			AddTime:  now,
 			EditTime: now,
 		})
 	}

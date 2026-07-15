@@ -50,6 +50,7 @@
 <script>
 import { passportApi, userFormFields } from '../../api/index'
 import CONFIG from '../../config/index'
+import { getClientUserId, getClientUserInfo, setClientUserInfo } from '../../utils/auth'
 
 export default {
   data() {
@@ -73,8 +74,7 @@ export default {
 
   methods: {
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      return (userInfo && userInfo.miniOpenID) || userInfo.id || ''
+      return getClientUserId()
     },
 
     async loadDetail() {
@@ -195,10 +195,10 @@ export default {
         })
         uni.hideLoading()
         if (res.code === 0) {
-          const userInfo = uni.getStorageSync('userInfo') || {}
+          const userInfo = getClientUserInfo() || {}
           userInfo.name = this.formName
           userInfo.avatar = this.formPic
-          uni.setStorageSync('userInfo', userInfo)
+          setClientUserInfo(userInfo)
           uni.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(() => {
             uni.navigateBack()

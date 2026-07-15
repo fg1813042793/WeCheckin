@@ -99,6 +99,7 @@
 
 <script>
 import { adminApi } from '../../api/admin'
+import { clearAdminAuth, getAdminAuth, hasClientAuth } from '../../utils/auth'
 
 export default {
   data() {
@@ -133,12 +134,11 @@ export default {
 
   methods: {
     checkAuth() {
-      const token = uni.getStorageSync('admin_token')
+      const { token, info } = getAdminAuth()
       if (!token) {
         uni.redirectTo({ url: '/pages/admin/admin_login' })
         return
       }
-      const info = uni.getStorageSync('admin_info')
       if (info) {
         this.adminInfo = info
       }
@@ -211,10 +211,8 @@ export default {
         content: '您确认退出?',
         success: (res) => {
           if (res.confirm) {
-            uni.removeStorageSync('admin_token')
-            uni.removeStorageSync('admin_info')
-            const clientToken = uni.getStorageSync('token')
-            if (clientToken) {
+            clearAdminAuth()
+            if (hasClientAuth()) {
               uni.reLaunch({ url: '/pages/my/my_index' })
             } else {
               uni.reLaunch({ url: '/pages/login/login' })

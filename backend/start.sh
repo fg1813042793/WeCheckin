@@ -77,6 +77,6 @@ echo -e "${YELLOW}服务将在 http://localhost:8083 启动${NC}"
 echo -e "${YELLOW}按 Ctrl+C 停止服务${NC}"
 
 # 运行服务
-go run cmd/main.go
+go run ./cmd "$@"
 
 echo -e "${GREEN}服务已停止${NC}"

@@ -1,23 +1,72 @@
-import axios from 'axios'
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
+import { clearPerms } from './permission'
 
-const request = axios.create({
+export interface ApiResponse<T = any> {
+  code: number
+  msg: string
+  data: T
+}
+
+export type ApiRequest = Omit<AxiosInstance, 'get' | 'post' | 'put' | 'delete' | 'patch'> & {
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>>
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>>
+  post<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ApiResponse<T>>
+  put<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ApiResponse<T>>
+  patch<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<ApiResponse<T>>
+}
+
+const LOGIN_EXPIRED_MESSAGES = new Set([
+  '未登录',
+  '登录已过期',
+  '登录已过期或已被强制下线',
+  '账号异常'
+])
+
+let redirectingToLogin = false
+
+function clearAdminSession() {
+  localStorage.removeItem('admin_token')
+  localStorage.removeItem('admin_info')
+  clearPerms()
+}
+
+function redirectToLogin() {
+  if (redirectingToLogin || window.location.pathname === '/login') return
+  redirectingToLogin = true
+  window.location.href = '/login'
+}
+
+function encodeFormBody(data: any) {
+  const params = new URLSearchParams()
+  if (!data) return params.toString()
+  for (const key in data) {
+    if (data[key] !== undefined && data[key] !== null) {
+      params.append(key, String(data[key]))
+    }
+  }
+  return params.toString()
+}
+
+const axiosInstance = axios.create({
   baseURL: '',
   timeout: 15000,
-  transformRequest: [(data: any) => {
-    if (data instanceof FormData) return data
-    const params = new URLSearchParams()
-    for (const key in data) {
-      if (data[key] !== undefined && data[key] !== null) {
-        params.append(key, String(data[key]))
+  transformRequest: [(data: any, headers: any) => {
+    if (data instanceof FormData) {
+      if (headers && typeof headers.delete === 'function') {
+        headers.delete('Content-Type')
+      } else if (headers) {
+        delete headers['Content-Type']
+        delete headers['content-type']
       }
+      return data
     }
-    return params.toString()
+    return encodeFormBody(data)
   }],
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
 })
 
-request.interceptors.request.use(config => {
+axiosInstance.interceptors.request.use(config => {
   const token = localStorage.getItem('admin_token')
   if (token) {
     config.headers.Authorization = token
@@ -25,15 +74,14 @@ request.interceptors.request.use(config => {
   return config
 })
 
-request.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   res => {
     if (res.data.code === 0) {
       return res.data
     }
-    if (res.data.msg === '未登录' || res.data.msg === '登录已过期' || res.data.msg === '登录已过期或已被强制下线' || res.data.msg === '账号异常') {
-      localStorage.removeItem('admin_token')
-      localStorage.removeItem('admin_info')
-      window.location.href = '/login'
+    if (LOGIN_EXPIRED_MESSAGES.has(res.data.msg)) {
+      clearAdminSession()
+      redirectToLogin()
       return Promise.reject(res.data)
     }
     ElMessage.error(res.data.msg || '请求失败')
@@ -44,5 +92,7 @@ request.interceptors.response.use(
     return Promise.reject(err)
   }
 )
+
+const request = axiosInstance as ApiRequest
 
 export default request

@@ -318,10 +318,23 @@
     </el-dialog>
 
     <!-- 题干高级编辑弹窗 -->
-    <el-dialog v-if="showTitleAdvancedEditor" v-model="showTitleAdvancedEditor" title="编辑题干" width="700px" destroy-on-close draggable @close="cancelTitleAdvancedEdit" class="title-full-editor-dialog">
+    <el-dialog
+      v-if="showTitleAdvancedEditor"
+      v-model="showTitleAdvancedEditor"
+      title="编辑题干"
+      width="760px"
+      top="6vh"
+      append-to-body
+      destroy-on-close
+      draggable
+      :close-on-click-modal="false"
+      class="question-rich-editor-dialog"
+      modal-class="question-rich-editor-modal"
+      @close="cancelTitleAdvancedEdit"
+    >
       <QuillEditor v-model:content="titleEditBuffer" content-type="html"
+        class="question-rich-editor"
         :options="fullTitleEditorOptions"
-        style="min-height:50vh"
         @ready="onFullEditorReady" />
       <template #footer>
         <el-button @click="showTitleAdvancedEditor = false">取消</el-button>
@@ -330,10 +343,23 @@
     </el-dialog>
 
     <!-- 选项高级编辑弹窗 -->
-    <el-dialog v-if="showOptionAdvancedEditor" v-model="showOptionAdvancedEditor" title="编辑选项" width="700px" destroy-on-close draggable @close="cancelOptionAdvancedEdit">
+    <el-dialog
+      v-if="showOptionAdvancedEditor"
+      v-model="showOptionAdvancedEditor"
+      title="编辑选项"
+      width="760px"
+      top="6vh"
+      append-to-body
+      destroy-on-close
+      draggable
+      :close-on-click-modal="false"
+      class="question-rich-editor-dialog"
+      modal-class="question-rich-editor-modal"
+      @close="cancelOptionAdvancedEdit"
+    >
       <QuillEditor v-model:content="optionEditBuffer" content-type="html"
+        class="question-rich-editor"
         :options="fullTitleEditorOptions"
-        style="min-height:50vh"
         @ready="onOptionFullEditorReady" />
       <template #footer>
         <el-button @click="showOptionAdvancedEditor = false">取消</el-button>
@@ -910,6 +936,7 @@ const typeName = (t: string) => {
     rating: '评分', nps: 'NPS评分',
     date: '日期', time: '时间', dateRange: '日期范围',
     phone: '手机', email: '邮箱', idCard: '身份证', password: '密码',
+    name: '姓名', studentId: '学号', employeeId: '工号', class: '班级',
     switch: '开关', location: '地理位置',
     matrixRadio: '矩阵单选', matrixCheckbox: '矩阵多选',
     matrixFillBlank: '矩阵填空', matrixAuto: '表格自增',
@@ -927,6 +954,7 @@ const tagType = (t: string) => {
     rating: 'success', nps: 'success',
     file: '', signature: '', location: '',
     phone: '', email: '', idCard: '', password: '', switch: '',
+    name: '', studentId: '', employeeId: '', class: '',
     matrixRadio: '', matrixCheckbox: '', matrixFillBlank: '', matrixAuto: '',
     divider: 'info', description: 'info',
     questionSet: 'info', pagination: 'info',
@@ -958,12 +986,12 @@ function optionGrid(q: any) {
 }
 .question-preview.editing {
   padding: 0 8px 8px;
-  border: 1px dashed #fb454c;
+  border: 1px dashed #2563eb;
   border-radius: 8px;
   background: #fff;
   overflow: visible;
 }
-.required-tag { border:1px solid #fb454c !important; }
+.required-tag { border:1px solid #2563eb !important; }
 .question-preview.is-hidden {
   opacity: 0.4;
   filter: grayscale(0.6);
@@ -1230,7 +1258,7 @@ function optionGrid(q: any) {
   line-height: 1.5;
 }
 .option-editable:focus {
-  border-color: #fb454c;
+  border-color: #2563eb;
   background: #fff;
 }
 .option-editor-wrap {
@@ -1271,7 +1299,7 @@ function optionGrid(q: any) {
   height: auto;
 }
 .option-editor-wrap:focus-within :deep(.ql-container) {
-  border-color: #fb454c;
+  border-color: #2563eb;
   background: #fff;
 }
 .option-editor-wrap :deep(.ql-toolbar .ql-formats) {
@@ -1286,5 +1314,73 @@ function optionGrid(q: any) {
 }
 .add-option-btn {
   margin-top: 6px;
+}
+
+:global(.question-rich-editor-modal) {
+  z-index: 3000;
+}
+:global(.question-rich-editor-dialog.el-dialog),
+:global(.question-rich-editor-dialog .el-dialog),
+:global(.question-rich-editor-modal .el-dialog) {
+  max-width: calc(100vw - 40px);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+}
+:global(.question-rich-editor-dialog .el-dialog__header),
+:global(.question-rich-editor-modal .el-dialog__header) {
+  margin-right: 0;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #edf0f5;
+}
+:global(.question-rich-editor-dialog .el-dialog__title),
+:global(.question-rich-editor-modal .el-dialog__title) {
+  font-size: 16px;
+  font-weight: 650;
+  color: #303133;
+}
+:global(.question-rich-editor-dialog .el-dialog__body),
+:global(.question-rich-editor-modal .el-dialog__body) {
+  padding: 14px 18px;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+}
+:global(.question-rich-editor-dialog .el-dialog__footer),
+:global(.question-rich-editor-modal .el-dialog__footer) {
+  padding: 12px 18px 16px;
+  border-top: 1px solid #edf0f5;
+}
+:global(.question-rich-editor) {
+  height: min(54vh, 520px);
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+:global(.question-rich-editor .ql-toolbar) {
+  flex-shrink: 0;
+  border-radius: 6px 6px 0 0;
+}
+:global(.question-rich-editor .ql-container) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 0 0 6px 6px;
+}
+:global(.question-rich-editor .ql-editor) {
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  :global(.question-rich-editor-dialog.el-dialog),
+  :global(.question-rich-editor-dialog .el-dialog),
+  :global(.question-rich-editor-modal .el-dialog) {
+    width: calc(100vw - 24px) !important;
+    margin-top: 4vh !important;
+  }
+  :global(.question-rich-editor) {
+    height: 58vh;
+    min-height: 300px;
+  }
 }
 </style>

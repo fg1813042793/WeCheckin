@@ -1,18 +1,47 @@
 import CONFIG from '../config/index'
+import { clearRequestAuthState, getRequestAuthState } from './auth'
 
 const BASE_URL = CONFIG.BASE_URL
+const LOGIN_EXPIRED_MESSAGES = new Set([
+  '未登录',
+  '登录已过期',
+  '登录已过期或已被强制下线',
+  '账号异常'
+])
+
+let redirectingToLogin = false
+
+function getAuthState(isAdmin) {
+  return getRequestAuthState(isAdmin)
+}
+
+function clearAuthState(authState) {
+  clearRequestAuthState(authState)
+}
+
+function redirectToLogin(authState) {
+  if (redirectingToLogin) return
+  redirectingToLogin = true
+  uni.redirectTo({
+    url: authState.loginUrl,
+    complete: () => {
+      redirectingToLogin = false
+    }
+  })
+}
 
 const request = (options) => {
   return new Promise((resolve, reject) => {
     const isAdmin = options.url.startsWith('/admin/')
-    const token = isAdmin ? uni.getStorageSync('admin_token') : uni.getStorageSync('token')
+    const authState = getAuthState(isAdmin)
     uni.request({
       url: BASE_URL + options.url,
-      method: options.method || 'GET',
+      method: (options.method || 'GET').toUpperCase(),
       data: options.data || {},
+      timeout: options.timeout || 15000,
       header: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': token || '',
+        'Authorization': authState.token || '',
         ...options.header
       },
       success: (res) => {
@@ -20,16 +49,10 @@ const request = (options) => {
           if (res.data.code === 0) {
             resolve(res.data)
           } else {
-            if (res.data.msg === '未登录' || res.data.msg === '登录已过期' || res.data.msg === '登录已过期或已被强制下线') {
-              if (isAdmin) {
-                uni.removeStorageSync('admin_token')
-                uni.removeStorageSync('admin_info')
-                uni.redirectTo({ url: '/pages/admin/admin_login' })
-              } else {
-                uni.removeStorageSync('token')
-                uni.removeStorageSync('userInfo')
-                uni.redirectTo({ url: '/pages/login/login' })
-              }
+            if (LOGIN_EXPIRED_MESSAGES.has(res.data.msg)) {
+              clearAuthState(authState)
+              redirectToLogin(authState)
+              reject(res.data)
               return
             }
             uni.showToast({
@@ -77,7 +100,7 @@ const postJSON = (url, data = {}) => {
   return request({
     url,
     method: 'POST',
-    data: JSON.stringify(data),
+    data,
     header: { 'Content-Type': 'application/json' }
   })
 }

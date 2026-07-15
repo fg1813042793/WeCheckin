@@ -2,11 +2,11 @@ package service
 
 import (
 	"encoding/json"
+	"gorm.io/gorm"
 	"sort"
 	"strings"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/model"
-	"gorm.io/gorm"
+	"wecheckin-backend/backend/pkg/database"
 )
 
 func GetSetup(key string) (*model.Setup, error) {
@@ -21,11 +21,11 @@ func GetSetup(key string) (*model.Setup, error) {
 func GetStaticDomain() string {
 	var setup model.Setup
 	if err := database.DB.Where("`setup_key` = ?", "STATIC_DOMAIN").First(&setup).Error; err != nil {
-		return "http://localhost:8080"
+		return "http://localhost:8083"
 	}
 	domain := setup.Value
 	if domain == "" {
-		return "http://localhost:8080"
+		return "http://localhost:8083"
 	}
 	return domain
 }

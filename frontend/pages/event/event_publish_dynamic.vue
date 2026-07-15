@@ -50,6 +50,7 @@
 <script>
 import CONFIG from '../../config/index'
 import { eventApi } from '../../api/index'
+import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -69,9 +70,7 @@ export default {
   },
   methods: {
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
     uploadFile(path) {
       return new Promise((resolve, reject) => {

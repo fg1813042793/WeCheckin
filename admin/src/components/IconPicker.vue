@@ -23,21 +23,21 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
-import * as ElIcons from '@element-plus/icons-vue'
+import { ADMIN_ICON_NAMES, resolveAdminIcon } from '../icons'
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
 
 const iconComponent = computed(() => {
   if (!props.modelValue) return null
-  return (ElIcons as any)[props.modelValue] || null
+  return resolveAdminIcon(props.modelValue) || null
 })
 
 const icons = ref<string[]>([])
 
 function loadIcons() {
   if (icons.value.length > 0) return
-  icons.value = Object.keys(ElIcons).filter(k => k !== 'default')
+  icons.value = ADMIN_ICON_NAMES
 }
 
 function selectIcon(name: string) {

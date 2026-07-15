@@ -1,0 +1,90 @@
+:root {
+  --admin-bg: #f5f7fb;
+  --admin-sidebar-bg: #1f2d3d;
+  --admin-sidebar-active: #409eff;
+  --admin-header-height: 64px;
+  --admin-border: #e5e7eb;
+  --admin-text: #1f2937;
+  --admin-muted: #6b7280;
+  --admin-card-radius: 8px;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-card {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  box-shadow: none;
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-toolbar__left,
+.admin-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.admin-table-actions > * {
+  margin: 0 !important;
+}
+
+.admin-pagination {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.admin-muted {
+  color: var(--admin-muted);
+}
+
+@media (max-width: 768px) {
+  .admin-toolbar {
+    align-items: stretch;
+  }
+
+  .admin-toolbar__left,
+  .admin-toolbar__right {
+    width: 100%;
+  }
+
+  .admin-toolbar__left .el-input,
+  .admin-toolbar__left .el-select {
+    width: 100% !important;
+  }
+}

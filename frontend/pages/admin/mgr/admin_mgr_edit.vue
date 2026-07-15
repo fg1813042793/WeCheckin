@@ -42,6 +42,7 @@
 <script>
 import { adminApi } from '../../../api/admin'
 import CONFIG from '../../../config/index'
+import { getAdminToken } from '../../../utils/auth'
 
 export default {
   data() {
@@ -88,7 +89,7 @@ export default {
             filePath: tempPath,
             name: 'file',
             header: {
-              Authorization: uni.getStorageSync('admin_token') || ''
+              Authorization: getAdminToken()
             },
             success: (uploadRes) => {
               const data = JSON.parse(uploadRes.data)

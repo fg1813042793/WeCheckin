@@ -39,6 +39,7 @@
 
 <script>
 import { passportApi } from '../../api/index'
+import { setClientAuth } from '../../utils/auth'
 
 export default {
   data() {
@@ -73,8 +74,7 @@ export default {
       try {
         const res = await passportApi.login(this.form)
         if (res.data) {
-          uni.setStorageSync('token', res.data.token || '')
-          uni.setStorageSync('userInfo', res.data.userInfo || res.data)
+          setClientAuth(res.data)
         }
         uni.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {
@@ -119,8 +119,7 @@ export default {
           try {
             const res = await passportApi.login({ user_id: loginRes.code })
             if (res.data) {
-              uni.setStorageSync('token', res.data.token || '')
-              uni.setStorageSync('userInfo', res.data.userInfo || res.data)
+              setClientAuth(res.data)
             }
             uni.showToast({ title: '登录成功', icon: 'success' })
             setTimeout(() => {

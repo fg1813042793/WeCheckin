@@ -1,109 +1,47 @@
-package service
+package bootstrap
 
 import (
+	"errors"
 	"log"
-	"time"
+	"strings"
 
+	"gorm.io/gorm"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/database"
 )
 
-func InitBusiness(enableExam bool) {
-	if err := autoMigrate(); err != nil {
-		log.Printf("Migration warning: %v (continuing)", err)
-	}
+const menuSeedInitializedKey = "SYSTEM_MENU_SEED_INITIALIZED"
 
-	database.DB.Exec("DROP TABLE IF EXISTS `user_form_fields`")
-
-	seedSetups()
-	seedMenus(enableExam)
-}
-
-func autoMigrate() error {
-	err := database.DB.AutoMigrate(
-		&model.User{},
-		&model.News{},
-		&model.Enroll{},
-		&model.EnrollJoin{},
-		&model.EnrollUser{},
-		&model.Favorite{},
-		&model.Admin{},
-		&model.Log{},
-		&model.Setup{},
-		&model.Role{},
-		&model.SysDict{},
-		&model.Department{},
-		&model.UserDept{},
-		&model.Menu{},
-		&model.RoleMenu{},
-		&model.AdminDept{},
-		&model.RoleDept{},
-		&model.Event{},
-		&model.EventRole{},
-		&model.EventParticipant{},
-		&model.EventDynamic{},
-		&model.EventScore{},
-		&model.ExamQuestion{},
-		&model.ExamPaper{},
-		&model.Exam{},
-		&model.ExamRecord{},
-		&model.ExamResource{},
-		&model.Survey{},
-		&model.SurveyResponse{},
-		&model.SurveyChannel{},
-		&model.SurveyAILog{},
-		&model.SurveyResource{},
-		&model.SurveyQuestion{},
-		&model.Notify{},
-	)
-	if err != nil {
-		return err
-	}
-	database.DB.Exec("ALTER TABLE `event_scores` MODIFY COLUMN `event_score_score` TEXT COMMENT '成绩'")
-	database.DB.Exec("ALTER TABLE `survey` MODIFY COLUMN `survey_schema` MEDIUMTEXT COMMENT 'formkit schema (JSON)'")
-	return nil
-}
-
-func seedSetups() {
-	type setupDef struct {
-		Key   string
-		Value string
-		Type  string
-	}
-	defs := []setupDef{
-		{Key: "ADMIN_SINGLE_LOGIN", Value: "0", Type: "switch"},
-		{Key: "USER_SINGLE_LOGIN", Value: "0", Type: "switch"},
-		{Key: "TOKEN_ADMIN_EXPIRE", Value: "168h", Type: "string"},
-		{Key: "TOKEN_ADMIN_REDIS_PREFIX", Value: "admin_token:", Type: "string"},
-		{Key: "TOKEN_USER_EXPIRE", Value: "999d", Type: "string"},
-		{Key: "TOKEN_USER_REDIS_PREFIX", Value: "user_token:", Type: "string"},
-	}
-	for _, d := range defs {
-		var existing model.Setup
-		if err := database.DB.Where("setup_key = ?", d.Key).First(&existing).Error; err != nil {
-			setup := model.Setup{
-				Key:     d.Key,
-				Value:   d.Value,
-				Type:    d.Type,
-				AddTime: time.Now().UnixMilli(),
-			}
-			if err := database.DB.Create(&setup).Error; err != nil {
-				log.Printf("seed setup %s error: %v", d.Key, err)
-			}
-		}
-	}
+type menuDef struct {
+	Name   string
+	Path   string
+	Perms  string
+	Icon   string
+	Sort   int
+	Type   int
+	Parent string
 }
 
 func seedMenus(enableExam bool) {
-	type menuDef struct {
-		Name   string
-		Path   string
-		Perms  string
-		Icon   string
-		Sort   int
-		Type   int
-		Parent string
+	markerValue, err := getMenuSeedInitializedValue()
+	if err != nil {
+		log.Printf("check menu seed marker error: %v", err)
+		return
 	}
+
+	var existingMenus int64
+	if err := database.DB.Model(&model.Menu{}).Count(&existingMenus).Error; err != nil {
+		log.Printf("check menu count error: %v", err)
+		return
+	}
+
+	if !shouldSeedMenus(existingMenus, markerValue) {
+		if !isMenuSeedInitialized(markerValue) {
+			markMenuSeedInitialized()
+		}
+		return
+	}
+
 	defs := []menuDef{
 		{Name: "控制台", Path: "/dashboard", Perms: "", Icon: "Odometer", Sort: 1, Type: 1},
 		{Name: "用户管理", Path: "/user", Perms: "user:list", Icon: "User", Sort: 2, Type: 1},
@@ -119,9 +57,11 @@ func seedMenus(enableExam bool) {
 		{Name: "系统配置", Path: "/setup", Perms: "setup:list,setup:edit", Icon: "Setting", Sort: 12, Type: 1},
 		{Name: "赛事活动", Path: "/event", Perms: "event:list", Icon: "TrophyBase", Sort: 13, Type: 1},
 		{Name: "问卷调查", Path: "/survey", Perms: "survey:list", Icon: "List", Sort: 14, Type: 0},
+		{Name: "问卷考试", Path: "/question-exam", Perms: "question-bank:list", Icon: "Collection", Sort: 16, Type: 0},
 		{Name: "问卷管理", Path: "/survey", Parent: "/survey", Sort: 1, Type: 1},
 		{Name: "答卷管理", Path: "/survey/responses", Parent: "/survey", Sort: 2, Type: 1},
 		{Name: "问卷统计", Path: "/survey/statistic", Parent: "/survey", Sort: 3, Type: 1},
+		{Name: "题库管理", Path: "/question-bank", Parent: "/question-exam", Sort: 1, Type: 1},
 		{Name: "用户列表", Perms: "user:list", Parent: "/user", Sort: 1, Type: 2},
 		{Name: "用户新增", Perms: "user:add", Parent: "/user", Sort: 2, Type: 2},
 		{Name: "用户编辑", Perms: "user:edit", Parent: "/user", Sort: 3, Type: 2},
@@ -182,6 +122,10 @@ func seedMenus(enableExam bool) {
 		{Name: "答卷列表", Perms: "response:list", Parent: "/survey", Sort: 7, Type: 2},
 		{Name: "答卷删除", Perms: "response:del", Parent: "/survey", Sort: 8, Type: 2},
 		{Name: "导出答卷", Perms: "response:export", Parent: "/survey", Sort: 9, Type: 2},
+		{Name: "题库列表", Perms: "question-bank:list", Parent: "/question-exam", Sort: 1, Type: 2},
+		{Name: "题库新增", Perms: "question-bank:add", Parent: "/question-exam", Sort: 2, Type: 2},
+		{Name: "题库编辑", Perms: "question-bank:edit", Parent: "/question-exam", Sort: 3, Type: 2},
+		{Name: "题库删除", Perms: "question-bank:del", Parent: "/question-exam", Sort: 4, Type: 2},
 	}
 	if enableExam {
 		examDefs := []menuDef{
@@ -240,5 +184,65 @@ func seedMenus(enableExam bool) {
 			}
 			database.DB.Create(&m)
 		}
+	}
+
+	markMenuSeedInitialized()
+}
+
+func shouldSeedMenus(existingMenus int64, markerValue string) bool {
+	return existingMenus == 0 && !isMenuSeedInitialized(markerValue)
+}
+
+func isMenuSeedInitialized(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func getMenuSeedInitializedValue() (string, error) {
+	var setup model.Setup
+	err := database.DB.Where("setup_key = ?", menuSeedInitializedKey).First(&setup).Error
+	if err == nil {
+		return setup.Value, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	return "", err
+}
+
+func markMenuSeedInitialized() {
+	now := database.Now()
+	var setup model.Setup
+	err := database.DB.Where("setup_key = ?", menuSeedInitializedKey).First(&setup).Error
+	if err == nil {
+		if isMenuSeedInitialized(setup.Value) {
+			return
+		}
+		if err := database.DB.Model(&setup).Updates(map[string]interface{}{
+			"setup_value":     "1",
+			"setup_type":      "system",
+			"setup_edit_time": now,
+		}).Error; err != nil {
+			log.Printf("mark menu seed initialized error: %v", err)
+		}
+		return
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("read menu seed marker error: %v", err)
+		return
+	}
+
+	if err := database.DB.Create(&model.Setup{
+		Key:      menuSeedInitializedKey,
+		Value:    "1",
+		Type:     "system",
+		AddTime:  now,
+		EditTime: now,
+	}).Error; err != nil {
+		log.Printf("create menu seed marker error: %v", err)
 	}
 }

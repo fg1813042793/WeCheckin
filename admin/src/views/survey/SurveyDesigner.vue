@@ -71,11 +71,9 @@
                     </div>
                     <div class="question-type">
                       <dl class="menu-group" v-for="(items, group) in groupedBySub" :key="group">
-                        <dt class="menu-group-title">{{ group }}</dt>
                         <dd v-for="t in items" :key="t.type" class="menu-group-item" @click="addQuestion(t)">
                           <span class="itemIcon"><question-icon :type="t.type" /></span>
                           <span class="item-label">{{ t.displayName }}</span>
-                          <span class="item-type">{{ t.type }}</span>
                         </dd>
                       </dl>
                     </div>
@@ -88,23 +86,27 @@
                     </div>
                     <div class="bank-list">
                       <template v-if="bankTree.length">
-                        <div v-for="cat in bankTree" :key="cat.label" class="bank-cat">
-                          <div class="bank-cat-title" @click="toggleBankExpand(`cat:${cat.label}`)">
-                            <span class="bank-arrow">{{ cat._expanded ? '▼' : '▶' }}</span>
-                            {{ cat.label || '未分类' }}
-                            <span class="bank-count">{{ cat.children.length }} 题</span>
+                        <div v-for="cat in bankTree" :key="cat.key" class="bank-cat">
+                          <div class="bank-cat-title" @click="toggleBankExpand(`cat:${cat.expandKey}`)">
+                            <span class="bank-arrow" :class="{ expanded: cat._expanded }"></span>
+                            <span class="bank-cat-name">{{ cat.label }}</span>
+                            <span class="bank-count">{{ cat.count }} 题</span>
                           </div>
                           <div v-show="cat._expanded" class="bank-cat-body">
-                            <div v-for="grp in cat.children" :key="grp.label" class="bank-type-group">
-                              <div class="bank-type-title" @click="toggleBankExpand(`type:${cat.label}|${grp.label}`)">
-                                <span class="bank-arrow">{{ grp._expanded ? '▼' : '▶' }}</span>
-                                {{ typeName(grp.label) }}
+                            <div v-for="grp in cat.children" :key="grp.key" class="bank-type-group">
+                              <div class="bank-type-title" @click="toggleBankExpand(`type:${cat.expandKey}|${grp.expandKey}`)">
+                                <span class="bank-arrow" :class="{ expanded: grp._expanded }"></span>
+                                <question-icon :type="grp.label" class="bank-icon" />
+                                <span class="bank-type-name">{{ typeName(grp.label) }}</span>
                                 <span class="bank-count">{{ grp.children.length }} 题</span>
                               </div>
                               <div v-show="grp._expanded" class="bank-type-body">
                                 <div v-for="q in grp.children" :key="q.id" class="bank-item" @click="addFromBank(q)">
-                                  <question-icon :type="q.type" class="bank-icon" />
-                                  <span class="bank-title">{{ q.title || '未命名' }}</span>
+                                  <span class="bank-item-main">
+                                    <span class="bank-title" :title="bankQuestionTitle(q)">{{ bankQuestionTitle(q) }}</span>
+                                    <span class="bank-meta">#{{ q.id }}</span>
+                                  </span>
+                                  <span class="bank-type">{{ typeName(q.type) }}</span>
                                 </div>
                               </div>
                             </div>
@@ -112,33 +114,31 @@
                         </div>
                       </template>
                       <el-empty v-if="!bankTree.length && !bankLoading" description="题库暂无题目" :image-size="40" />
-                      <div v-if="bankLoading" class="bank-loading">加载中...</div>
+                      <div v-if="bankLoadingVisible" class="bank-loading">加载中...</div>
                     </div>
                   </div>
                 </el-tab-pane>
                 <el-tab-pane label="大纲" name="outline">
                   <div class="outline-tree">
                     <div class="tree-root">
-                      <span class="tree-root-icon">📋</span>
-                      <span class="tree-root-title">{{ outlineRoot.title }}</span>
+                      <div class="tree-root-main">
+                        <span class="tree-root-icon">📋</span>
+                        <span class="tree-root-title">{{ outlineRoot.title }}</span>
+                      </div>
                       <span class="tree-root-count">{{ outlineRoot.children.length }}题</span>
                     </div>
-                    <div class="tree-root-line"></div>
-                    <div class="tree-children">
-                      <div v-for="(child, ci) in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id)">
-                        <div class="tree-connector">
-                          <span class="tree-line"></span>
-                          <span class="tree-branch"></span>
-                        </div>
+                    <div v-if="outlineRoot.children.length" class="tree-children">
+                      <div v-for="child in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id, true)">
+                        <span v-if="child.q.type !== 'description'" class="tree-index">{{ child.index }}.</span>
                         <div class="tree-child-body">
-                          <span v-if="child.q.type !== 'description'" class="tree-index">{{ child.index }}.</span>
                           <question-icon :type="child.q.type" class="tree-icon" />
-                          <span class="tree-title">{{ child.q.title || '未命名' }}</span>
-                          <span class="tree-type">{{ child.q.type }}</span>
+                          <span class="tree-title" :title="outlineQuestionTitle(child.q)">{{ outlineQuestionTitle(child.q) }}</span>
+                          <span v-if="child.q.required" class="tree-required">必</span>
+                          <span class="tree-type">{{ typeName(child.q.type) }}</span>
                         </div>
                       </div>
                     </div>
-                    <el-empty v-if="!questions.length" description="暂无题目" :image-size="40" />
+                    <el-empty v-else class="outline-empty" description="暂无题目" :image-size="40" />
                   </div>
                 </el-tab-pane>
               </el-tabs>
@@ -198,11 +198,11 @@
               <div v-if="logicRuleList.length===0" style="color:#999;font-size:13px;padding:40px 0;text-align:center">暂无规则，点击上方「+ 增加规则」添加</div>
               <div v-for="(rule, ri) in logicRuleList" :key="rule.id" class="logic-rule-card">
                 <div class="rule-header">
-                  <span class="rule-index">#{{ ri+1 }}</span>
+                  <span class="rule-index">#{{ toNumericIndex(ri) + 1 }}</span>
                   <span class="rule-dsl">{{ renderRuleDSL(rule) }}</span>
                   <div class="rule-actions">
-                    <el-button text size="small" @click="editRule(ri)">编辑</el-button>
-                    <el-button text size="small" type="danger" @click="removeRule(ri)">删除</el-button>
+                    <el-button text size="small" @click="editRule(toNumericIndex(ri))">编辑</el-button>
+                    <el-button text size="small" type="danger" @click="removeRule(toNumericIndex(ri))">删除</el-button>
                   </div>
                 </div>
               </div>
@@ -311,14 +311,14 @@
               </el-select>
             </el-form-item>
             <template v-if="ruleForm.conditionType!=='none'">
-              <el-form-item v-for="(cond, ci) in ruleForm.conditions" :key="ci" :label="ci===0?'条件':'条件 '+(ci+1)">
+              <el-form-item v-for="(cond, ci) in ruleForm.conditions" :key="ci" :label="toNumericIndex(ci) === 0 ? '条件' : '条件 ' + (toNumericIndex(ci) + 1)">
                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                   <el-select v-model="cond.questionIdx" placeholder="选择题目" style="width:160px" @change="cond.optionIdx=undefined;cond.operator=undefined">
-                    <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,20)}`" :value="qi" />
+                    <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,20)}`" :value="toNumericIndex(qi)" />
                   </el-select>
                   <!-- 选项选择（仅选择题） -->
                   <el-select v-model="cond.optionIdx" placeholder="选择选项" style="width:120px" v-if="hasOptionsByIndex(cond.questionIdx)" clearable @change="cond.operator='optSelected'">
-                    <el-option v-for="(o, oi) in getOptionsByIndex(cond.questionIdx)" :key="oi" :label="o.label" :value="oi" />
+                    <el-option v-for="(o, oi) in getOptionsByIndex(cond.questionIdx)" :key="oi" :label="o.label" :value="toNumericIndex(oi)" />
                   </el-select>
                   <!-- 判断条件（所有题型） -->
                   <el-select v-model="cond.operator" placeholder="判断条件" style="width:120px" v-if="cond.optionIdx===undefined">
@@ -329,7 +329,7 @@
                     <el-option label="小于" value="lt" />
                   </el-select>
                   <el-input v-model="cond.compareValue" placeholder="比较值" style="width:100px" v-if="cond.operator==='eq'||cond.operator==='gt'||cond.operator==='lt'" />
-                  <el-button v-if="ruleForm.conditions.length>1 && ci===ruleForm.conditions.length-1" text size="small" type="danger" @click="ruleForm.conditions.splice(ci,1)">✕</el-button>
+                  <el-button v-if="ruleForm.conditions.length>1 && toNumericIndex(ci) === ruleForm.conditions.length - 1" text size="small" type="danger" @click="ruleForm.conditions.splice(toNumericIndex(ci), 1)">✕</el-button>
                 </div>
               </el-form-item>
               <el-button v-if="ruleForm.conditionType==='and'||ruleForm.conditionType==='or'" text size="small" @click="ruleForm.conditions.push({questionIdx:undefined,optionIdx:undefined})">+ 添加条件</el-button>
@@ -353,7 +353,7 @@
             <!-- 目标选择 (SHOW/HIDE/REQUIRED/CHECK 需要目标题目) -->
             <el-form-item v-if="['show','hide','required'].includes(ruleForm.action)" label="目标题目">
               <el-select v-model="ruleForm.targetQuestionIdx" placeholder="选择题目" style="width:100%">
-                <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,30)}`" :value="toNumericIndex(qi)" />
               </el-select>
             </el-form-item>
 
@@ -361,12 +361,12 @@
             <template v-if="ruleForm.action==='check'">
               <el-form-item label="目标题目">
                 <el-select v-model="ruleForm.targetQuestionIdx" placeholder="选择题目" style="width:100%" @change="ruleForm.targetOptionIdxs=[]">
-                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,30)}`" :value="toNumericIndex(qi)" />
                 </el-select>
               </el-form-item>
               <el-form-item v-if="ruleForm.targetQuestionIdx!==undefined" label="目标选项（可多选）">
                 <el-select v-model="ruleForm.targetOptionIdxs" multiple placeholder="选择选项" style="width:100%">
-                  <el-option v-for="(o, oi) in getOptionsByIndex(ruleForm.targetQuestionIdx)" :key="oi" :label="o.label" :value="oi" />
+                  <el-option v-for="(o, oi) in getOptionsByIndex(ruleForm.targetQuestionIdx)" :key="oi" :label="o.label" :value="toNumericIndex(oi)" />
                 </el-select>
               </el-form-item>
             </template>
@@ -375,23 +375,32 @@
             <template v-if="ruleForm.action==='branch'">
               <el-form-item label="从题目">
                 <el-select v-model="ruleForm.branchFromIdx" placeholder="选择题目" style="width:100%" :key="'branchFrom'+showAddRule">
-                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,30)}`" :value="toNumericIndex(qi)" />
                 </el-select>
               </el-form-item>
               <el-form-item label="跳到">
                 <div style="display:flex;gap:8px;align-items:center">
                   <el-select v-model="ruleForm.branchToIdx" placeholder="选择目标题目" style="flex:1;min-width:280px" :disabled="ruleForm.branchToEnd" :key="'branchTo'+showAddRule">
-                    <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                    <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,30)}`" :value="toNumericIndex(qi)" />
                   </el-select>
                   <el-checkbox v-model="ruleForm.branchToEnd" style="white-space:nowrap">结束问卷</el-checkbox>
                 </div>
               </el-form-item>
             </template>
 
+            <!-- END -->
+            <template v-if="ruleForm.action==='end'">
+              <el-form-item label="从题目">
+                <el-select v-model="ruleForm.branchFromIdx" placeholder="选择触发结束的题目" style="width:100%" :key="'endFrom'+showAddRule">
+                  <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,30)}`" :value="toNumericIndex(qi)" />
+                </el-select>
+              </el-form-item>
+            </template>
+
             <!-- ASSIGNMENT / VALIDATE / REPLACE 需要公式输入 -->
             <el-form-item v-if="ruleForm.action==='assignment'||ruleForm.action==='validate'||ruleForm.action==='replace'" label="目标题目">
               <el-select v-model="ruleForm.targetQuestionIdx" placeholder="选择题目" style="width:100%">
-                <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${qi+1}: ${q.title?.slice(0,30)}`" :value="qi" />
+                <el-option v-for="(q, qi) in questions" :key="qi" :label="`Q${toNumericIndex(qi) + 1}: ${q.title?.slice(0,30)}`" :value="toNumericIndex(qi)" />
               </el-select>
             </el-form-item>
             <el-form-item v-if="ruleForm.action==='assignment'" label="赋值公式">
@@ -518,6 +527,17 @@
                 </el-tooltip>
               </el-button-group>
             </div>
+            <div class="toolbar-center">
+              <div class="toolbar-title-row">
+                <span class="toolbar-title">{{ form.title || '未命名问卷' }}</span>
+                <span class="toolbar-mode">{{ form.mode === 'exam' ? '考试' : '问卷' }}</span>
+              </div>
+              <div class="toolbar-meta">
+                <span>总题数 {{ questions.length }}</span>
+                <span>可答 {{ answerableQuestionCount }}</span>
+                <span>{{ panelModeLabel }}</span>
+              </div>
+            </div>
             <div class="toolbar-right">
               <el-button-group class="toolbar-btn-group">
                 <el-tooltip content="编辑" placement="bottom">
@@ -561,6 +581,15 @@
                 <!-- 题目列表 -->
                 <div class="questions-area" @click.self="deselectQuestion">
                   <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" @upload-bank="onUploadBank" />
+                  <div v-if="!questions.length" class="designer-empty-canvas">
+                    <div class="empty-canvas-icon">+</div>
+                    <div class="empty-canvas-title">未添加题目</div>
+                    <div class="empty-canvas-desc">可以从左侧题型库添加，也可以用文本导入批量生成。</div>
+                    <div class="empty-canvas-actions">
+                      <el-button size="small" type="primary" @click.stop="addQuestion({ type: 'radio', displayName: '单选题' })">添加单选题</el-button>
+                      <el-button size="small" @click.stop="openTextImport">文本导入</el-button>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- 底部 -->
@@ -813,7 +842,7 @@
                     <el-option label="多行" value="textarea" />
                     <el-option label="日期" value="date" />
                   </el-select>
-                  <el-button text size="small" type="danger" @click="removeAutoCol(ci)">×</el-button>
+                  <el-button text size="small" type="danger" @click="removeAutoCol(toNumericIndex(ci))">×</el-button>
                 </div>
                 <el-button size="small" @click="addAutoCol" plain>+ 添加列</el-button>
                 <el-row :gutter="8" style="margin-top:8px">
@@ -856,8 +885,8 @@
                     <span v-if="selected.type==='user' && o.parentDeptId" style="color:#999;margin-left:4px;font-size:11px">父级:{{ o.parentDeptId }}</span>
                     <span v-if="selected.type==='dept' && o.parentId" style="color:#999;margin-left:4px;font-size:11px">父级:{{ o.parentId }}</span>
                   </span>
-                  <el-button text size="small" type="primary" @click="selectOption(selected.id, i)" style="font-size:11px">编辑</el-button>
-                  <el-button text size="small" type="danger" @click="removeUserOpt(i)">×</el-button>
+                  <el-button text size="small" type="primary" @click="selectOption(selected.id, toNumericIndex(i))" style="font-size:11px">编辑</el-button>
+                  <el-button text size="small" type="danger" @click="removeUserOpt(toNumericIndex(i))">×</el-button>
                 </div>
                 <div style="display:flex;gap:4px;margin-top:4px">
                   <el-button size="small" @click="addUserOpt" plain>{{ selected.type==='user'?'+ 添加成员':'+ 添加部门' }}</el-button>
@@ -924,40 +953,39 @@
             </div>
             <el-empty v-if="!form.backgroundImages.length && !form.headerImages.length" description="暂无已应用图片" :image-size="30" />
           </div>
-          <el-empty v-else description="选择题目编辑属性" :image-size="60" />
+          <div v-else class="props-panel props-empty-panel">
+            <el-empty description="未选择题目" :image-size="60">
+              <el-button size="small" type="primary" @click="openSurveySettings">问卷设置</el-button>
+            </el-empty>
+          </div>
         </div>
       </div>
 
       <!-- 设置视图 -->
       <div v-show="activeView==='setting'" class="setting-wrapper">
+        <div class="setting-header">
+          <div>
+            <div class="setting-page-title">配置中心</div>
+            <div class="setting-page-desc">管理问卷展示、回收规则、投放链接和协作人员</div>
+          </div>
+          <div class="setting-header-actions">
+            <el-tag size="small" :type="form.id ? 'success' : 'info'">{{ form.id ? '配置自动保存' : '保存后启用自动保存' }}</el-tag>
+            <el-button type="primary" size="small" :loading="saving" @click="save">保存配置</el-button>
+          </div>
+        </div>
         <div class="setting-scroll">
           <!-- 问卷显示设置 -->
           <div class="setting-group">
             <div class="group-title">问卷显示设置</div>
             <el-form label-position="top">
               <div class="settings-grid">
-                <el-form-item label="开启自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
+                <el-form-item label="填写端自动暂存"><el-switch v-model="form.autoSave" /></el-form-item>
                 <el-form-item label="显示题目序号"><el-switch v-model="form.questionNumber" /></el-form-item>
                 <el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
                 <!--<el-form-item label="设置问卷默认答案"><el-switch v-model="form.defaultAnswer" /></el-form-item>-->
                 <el-form-item label="一页一题"><el-switch v-model="form.onePageOneQuestion" /></el-form-item>
                 <el-form-item label="显示答题卡"><el-switch v-model="form.answerSheetVisible" /></el-form-item>
                 <!--<el-form-item label="允许复制题目"><el-switch v-model="form.copyEnabled" /></el-form-item>-->
-                <el-form-item label="问题校验">
-                  <el-select v-model="form.triggerType">
-                    <el-option value="onInput" label="输入时" />
-                    <el-option value="onBlur" label="失焦时" />
-                    <el-option value="onSubmit" label="提交时" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="默认语言">
-                  <el-select v-model="form.defaultLang">
-                    <el-option value="zh-CN" label="简体中文" />
-                    <el-option value="zh-TW" label="繁體中文" />
-                    <el-option value="en" label="English" />
-                    <el-option value="ja" label="日本語" />
-                  </el-select>
-                </el-form-item>
               </div>
             </el-form>
           </div>
@@ -973,8 +1001,8 @@
                     <el-radio :value="2" border>部门限定</el-radio>
                   </el-radio-group>
                 </el-form-item>
-                <el-form-item v-if="form.visibility===2" class="settings-full" label="限定部门">
-                  <div style="width:100%;max-height:300px;overflow:auto;border:1px solid #dcdfe6;border-radius:4px;padding:8px">
+                <el-form-item v-if="form.visibility===2" class="settings-full" label="限定部门" :class="{ 'is-error': selectedDeptCount === 0 }">
+                  <div class="setting-tree-box" :class="{ invalid: selectedDeptCount === 0 }">
                     <el-tree
                       ref="deptTreeRef"
                       :data="deptTreeData"
@@ -986,15 +1014,41 @@
                       @check="onDeptCheck"
                     />
                   </div>
+                  <div class="setting-help" :class="{ danger: selectedDeptCount === 0 }">
+                    {{ selectedDeptCount ? `已选择 ${selectedDeptCount} 个部门` : '部门限定需要至少选择一个部门' }}
+                  </div>
                 </el-form-item>
-                <el-form-item label="凭密码填写"><el-input v-model="form.password" placeholder="留空不设密码" /></el-form-item>
-                <el-form-item label="每台设备答题次数"><el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="每个IP答题次数"><el-input-number v-model="form.ipLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="每台设备答题次数">
+                  <div class="setting-control-stack">
+                    <el-input-number v-model="form.deviceLimit" :min="0" style="width:100%" />
+                    <span class="setting-help">0 表示不限</span>
+                  </div>
+                </el-form-item>
+                <el-form-item label="每个 IP 答题次数">
+                  <div class="setting-control-stack">
+                    <el-input-number v-model="form.ipLimit" :min="0" style="width:100%" />
+                    <span class="setting-help">0 表示不限</span>
+                  </div>
+                </el-form-item>
                 <!--<el-form-item label="每个账号答题次数"><el-input-number v-model="form.userLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>-->
-                <el-form-item label="每人只能作答一次"><el-switch v-model="form.allowMultiBool" :active-value="0" :inactive-value="1" /></el-form-item>
-                <el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
-                <el-form-item label="回收上限"><el-input-number v-model="form.maxResponse" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
-                <el-form-item label="作答时间(分钟)"><el-input-number v-model="form.timeLimit" :min="0" style="width:100%" /><span style="font-size:11px;color:#999;margin-left:4px">0=不限</span></el-form-item>
+                <el-form-item label="允许多次填写"><el-switch v-model="form.allowMultiBool" :active-value="1" :inactive-value="0" active-text="允许" inactive-text="仅一次" /></el-form-item>
+                <el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" /></el-form-item>
+                <el-form-item label="结束时间">
+                  <el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" style="width:100%" />
+                  <div v-if="hasInvalidTimeRange" class="setting-help danger">结束时间不能早于开始时间</div>
+                </el-form-item>
+                <el-form-item label="回收上限">
+                  <div class="setting-control-stack">
+                    <el-input-number v-model="form.maxResponse" :min="0" style="width:100%" />
+                    <span class="setting-help">0 表示不限</span>
+                  </div>
+                </el-form-item>
+                <el-form-item label="作答时间（分钟）">
+                  <div class="setting-control-stack">
+                    <el-input-number v-model="form.timeLimit" :min="0" style="width:100%" />
+                    <span class="setting-help">0 表示不限</span>
+                  </div>
+                </el-form-item>
               </div>
             </el-form>
           </div>
@@ -1014,9 +1068,19 @@
           <div class="setting-group">
             <div class="group-title">投放与分享</div>
             <el-form label-position="top">
+              <el-form-item class="settings-full" label="提交后处理">
+                <el-radio-group v-model="completionAction" class="completion-radio-group">
+                  <el-radio-button value="default">默认完成页</el-radio-button>
+                  <el-radio-button value="content">自定义页面</el-radio-button>
+                  <el-radio-button value="redirect">跳转链接</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
               <div class="settings-grid">
-                <el-form-item label="自定义跳转页面"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容" /></el-form-item>
-                <el-form-item label="自定义跳转链接"><el-input v-model="form.redirectUrl" placeholder="答题完成后跳转的自定义 URL" /></el-form-item>
+                <el-form-item v-if="completionAction === 'content'" label="自定义完成页"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="答题完成后显示的 HTML 内容" /></el-form-item>
+                <el-form-item v-if="completionAction === 'redirect'" label="跳转链接">
+                  <el-input v-model="form.redirectUrl" placeholder="https://example.com 或站内路径" />
+                  <div v-if="form.redirectUrl && !isValidRedirectUrl(form.redirectUrl)" class="setting-help danger">请输入 http(s) 链接或以 / 开头的站内路径</div>
+                </el-form-item>
               </div>
               <el-form-item class="settings-full" label="填写模版">
                 <el-select v-model="form.fillTemplate" style="width:100%">
@@ -1037,7 +1101,6 @@
                 </div>
               </el-form-item>
               <div class="settings-grid">
-                <el-form-item label="公开查询设置"><el-switch v-model="form.publicQuery" /></el-form-item>
                 <el-form-item label="问卷状态">
                   <el-switch v-model="form.statusBool" :active-value="1" :inactive-value="0" active-text="已开启" inactive-text="已停用" />
                 </el-form-item>
@@ -1205,7 +1268,7 @@
               <div v-for="(fs, qi) in (reportData.fieldStats||[])" :key="fs?.questionId||qi" style="margin-bottom:16px;border:1px solid #eee;border-radius:6px;padding:12px">
                 <template v-if="fs && fs.totalCount > 0 && fs.dist">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                  <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">{{ qi+1 }}. {{ firstLine(stripHtml(fs.title)) }}</span>
+                  <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">{{ toNumericIndex(qi) + 1 }}. {{ firstLine(stripHtml(fs.title)) }}</span>
                   <span class="chart-type-btns">
                     <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='bar' }" @click="chartTypes[fs.questionId]='bar'" title="条形图">≡</button>
                     <button :class="{ active: (chartTypes[fs.questionId]||'bar')==='column' }" @click="chartTypes[fs.questionId]='column'" title="柱形图">▯</button>
@@ -1224,7 +1287,7 @@
                   <div v-else-if="(chartTypes[fs.questionId]||'bar')==='column'" style="display:flex;align-items:flex-end;justify-content:center;gap:12px;padding:16px 0;min-height:160px">
                     <div v-for="(cnt, label) in fs.dist" :key="label" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;max-width:80px">
                       <span style="font-size:11px;color:#999">{{ cnt }}</span>
-                      <div :style="{ height: Math.max(cnt/fs.totalCount*140, 4) + 'px', width: '100%', background: '#fb454c', borderRadius: '4px 4px 0 0', transition: 'height .3s' }"></div>
+                      <div :style="{ height: Math.max(cnt/fs.totalCount*140, 4) + 'px', width: '100%', background: '#2563eb', borderRadius: '4px 4px 0 0', transition: 'height .3s' }"></div>
                       <span style="font-size:11px;color:#666;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">{{ label || '(空)' }}</span>
                     </div>
                   </div>
@@ -1247,7 +1310,7 @@
                   </div>
                 </template>
                 <template v-else-if="fs && fs.tableData?.length">
-                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">{{ qi+1 }}. {{ firstLine(stripHtml(fs.title)) }}</div>
+                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">{{ toNumericIndex(qi) + 1 }}. {{ firstLine(stripHtml(fs.title)) }}</div>
                   <div style="max-height:200px;overflow:auto">
                     <el-table :data="fs.tableData" border size="small" style="width:100%">
                       <el-table-column type="index" label="#" width="40" fixed />
@@ -1301,7 +1364,7 @@
                 <li>判断相等用 <code>==</code>，赋值用 <code>=</code></li>
                 <li>手动输入的文本用引号包裹，例如 <code>"优秀"</code></li>
                 <li>公式结果类型需与目标题型匹配（数字题不能接收文本结果）</li>
-                <li>点击右侧<strong style="color:#fb454c">红色高亮标签</strong>可插入题目标签到光标位置</li>
+                <li>点击右侧<strong style="color:#2563eb">蓝色高亮标签</strong>可插入题目标签到光标位置</li>
               </ul>
             </div>
             <!-- 函数参考 + 案例 -->
@@ -1367,9 +1430,9 @@
               <div v-for="q in formulaQuestions" :key="q.id" style="margin-bottom:6px">
                 <div style="font-size:11px;color:#999;margin-bottom:2px">{{ q.title?.slice(0,20) }}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:4px">
-                  <el-tag size="small" type="danger" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}`)">Q{{ questions.indexOf(q)+1 }}</el-tag>
+                  <el-tag size="small" type="primary" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}`)">Q{{ questions.indexOf(q)+1 }}</el-tag>
                   <template v-if="q.props?.options?.length">
-                    <el-tag v-for="(o, oi) in q.props.options.slice(0,4)" :key="oi" size="small" type="warning" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}A${oi+1}`)">Q{{ questions.indexOf(q)+1 }}A{{ oi+1 }}</el-tag>
+                    <el-tag v-for="(o, oi) in q.props.options.slice(0,4)" :key="oi" size="small" type="warning" style="cursor:pointer" @click="insertFormulaTag(`Q${questions.indexOf(q)+1}A${toNumericIndex(oi) + 1}`)">Q{{ questions.indexOf(q)+1 }}A{{ toNumericIndex(oi) + 1 }}</el-tag>
                   </template>
                 </div>
               </div>
@@ -1463,6 +1526,10 @@ import QuestionPreview from './formkit/QuestionPreview.vue'
 const route = useRoute()
 const router = useRouter()
 
+function toNumericIndex(index: string | number): number {
+  return Number(index)
+}
+
 const form = reactive<any>({
   id: 0, title: '', description: '', category: '', tags: '', mode: 'survey',
   visibility: 0, allowMultiBool: 0, anonymousBool: 0, showResultBool: 0,
@@ -1489,8 +1556,38 @@ const form = reactive<any>({
   },
 })
 
+const completionAction = ref<'default' | 'content' | 'redirect'>('default')
+
+function syncCompletionActionFromForm() {
+  if (String(form.redirectUrl || '').trim()) {
+    completionAction.value = 'redirect'
+  } else if (String(form.endContent || '').trim()) {
+    completionAction.value = 'content'
+  } else {
+    completionAction.value = 'default'
+  }
+}
+
+watch(completionAction, (value, oldValue) => {
+  if (value === 'default') {
+    form.redirectUrl = ''
+    form.endContent = ''
+  } else if (value === 'content' && oldValue !== 'content') {
+    form.redirectUrl = ''
+  } else if (value === 'redirect' && oldValue !== 'redirect') {
+    form.endContent = ''
+  }
+})
+
+const hasInvalidTimeRange = computed(() => {
+  const start = Number(form.startDate || 0)
+  const end = Number(form.endDate || 0)
+  return start > 0 && end > 0 && end < start
+})
+
 const activeView = ref('edit')
 const panelMode = ref<'edit' | 'json' | 'preview'>('edit')
+const panelModeLabel = computed(() => ({ edit: '编辑模式', json: 'JSON模式', preview: '预览模式' }[panelMode.value]))
 const middleTab = ref('item')
 const showSurveySettings = ref(false)
 const reportData = ref<any>(null)
@@ -1505,7 +1602,10 @@ const saving = ref(false)
 const bankKeyword = ref('')
 const bankQuestions = ref<any[]>([])
 const bankLoading = ref(false)
+const bankLoadingVisible = ref(false)
 let bankTimer: any = null
+let bankLoadingTimer: ReturnType<typeof setTimeout> | null = null
+let bankLoadSeq = 0
 
 const bankCategories = ref<string[]>([])
 
@@ -1518,15 +1618,23 @@ const bankTree = computed(() => {
     if (!map[cat][type]) map[cat][type] = []
     map[cat][type].push(q)
   })
-  return Object.entries(map).map(([cat, types]) => ({
-    label: cat || '未分类',
-    _expanded: bankExpanded.value[`cat:${cat}`] ?? false,
-    children: Object.entries(types).map(([type, items]) => ({
+  return Object.entries(map).map(([cat, types]) => {
+    const children = Object.entries(types).map(([type, items]) => ({
+      key: type || '__unknown_type__',
+      expandKey: type,
       label: type,
       _expanded: bankExpanded.value[`type:${cat}|${type}`] ?? false,
       children: items
     }))
-  }))
+    return {
+      key: cat || '__uncategorized__',
+      expandKey: cat,
+      label: cat || '未分类',
+      count: children.reduce((sum, grp) => sum + grp.children.length, 0),
+      _expanded: bankExpanded.value[`cat:${cat}`] ?? false,
+      children
+    }
+  })
 })
 
 const bankExpanded = ref<Record<string, boolean>>({})
@@ -1854,6 +1962,11 @@ function exportSurvey() {
 const deptTreeRef = ref<any>(null)
 const deptTreeData = ref<any[]>([])
 const deptCheckedKeys = ref<number[]>([])
+const selectedDeptCount = computed(() => parseDeptIds(form.deptIds).length)
+
+function parseDeptIds(value: string) {
+  return String(value || '').split(',').map(id => Number(id.trim())).filter(Boolean)
+}
 
 function onDeptCheck() {
   form.deptIds = deptTreeRef.value?.getCheckedKeys()?.join(',') || ''
@@ -1916,26 +2029,75 @@ watch(() => form.visibility, (v) => {
 watch(() => form.id, (v) => { if (v) { loadReport() } else { reportData.value = null } })
 async function loadBank() {
   clearTimeout(bankTimer)
+  if (bankLoadingTimer) {
+    clearTimeout(bankLoadingTimer)
+    bankLoadingTimer = null
+  }
+  bankLoadingVisible.value = false
+  const seq = ++bankLoadSeq
   bankTimer = setTimeout(async () => {
     bankLoading.value = true
+    bankLoadingTimer = setTimeout(() => {
+      if (bankLoading.value && seq === bankLoadSeq) {
+        bankLoadingVisible.value = true
+      }
+    }, 450)
     try {
       const res: any = await adminApi.surveyQuestionBankList({ keyword: bankKeyword.value, page: 1, pageSize: 100 })
-      bankQuestions.value = res.data?.list || []
-    } catch { bankQuestions.value = [] }
-    finally { bankLoading.value = false }
+      if (seq === bankLoadSeq) bankQuestions.value = res.data?.list || []
+    } catch {
+      if (seq === bankLoadSeq) bankQuestions.value = []
+    }
+    finally {
+      if (seq === bankLoadSeq) {
+        bankLoading.value = false
+        bankLoadingVisible.value = false
+        if (bankLoadingTimer) {
+          clearTimeout(bankLoadingTimer)
+          bankLoadingTimer = null
+        }
+      }
+    }
   }, 300)
 }
-function addFromBank(q: any) {
-  let schema = {}
-  try { schema = JSON.parse(q.schema) } catch {}
-  const newQ: any = {
-    id: ++idCounter,
-    type: q.type,
-    title: q.title || '未命名',
-    schema: schema
+function clonePlain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value ?? {}))
+}
+
+function getBankQuestionSchema(item: any) {
+  let parsed: any = {}
+  try {
+    parsed = typeof item.schema === 'string' ? JSON.parse(item.schema) : (item.schema || {})
+  } catch {
+    parsed = {}
   }
+  const raw = Array.isArray(parsed?.questions) ? parsed.questions[0] : parsed
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  return normalizeQuestions([raw])[0] || raw
+}
+
+function addFromBank(q: any) {
+  const source: any = clonePlain(getBankQuestionSchema(q))
+  const newQ: Question = {
+    ...source,
+    id: genId(),
+    type: source.type || q.type || 'input',
+    title: source.title || q.title || '未命名',
+    required: source.required ?? false,
+    readOnly: source.readOnly ?? false,
+    dataType: source.dataType ?? '',
+    placeholder: source.placeholder ?? '',
+    mediaType: source.mediaType ?? '',
+    mediaUrl: source.mediaUrl ?? '',
+    mediaWidth: source.mediaWidth ?? '',
+    mediaAlign: source.mediaAlign ?? 'center',
+    showDescription: source.showDescription ?? !['description', 'questionSet', 'pagination', 'divider'].includes(source.type || q.type || 'input'),
+    props: source.props ? clonePlain(source.props) : {}
+  }
+  delete (newQ as any).schema
   questions.value.push(newQ)
   selected.value = newQ
+  selectedOptIdx.value = -1
 }
 
 async function onUploadBank(id: string) {
@@ -1992,6 +2154,16 @@ const outlineRoot = computed<OutlineNode>(() => ({
     .filter((q: any) => q.type !== 'divider' && q.type !== 'pagination' && q.type !== 'description' && q.type !== 'questionSet')
     .map((q: any, i: number) => ({ q, index: i + 1 }))
 }))
+
+function outlineQuestionTitle(q: any) {
+  const title = firstLine(stripHtml(String(q?.title || ''))).replace(/\s+/g, ' ').trim()
+  return title || '未命名'
+}
+
+function bankQuestionTitle(q: any) {
+  const title = firstLine(stripHtml(String(q?.title || ''))).replace(/\s+/g, ' ').trim()
+  return title || '未命名'
+}
 
 // 题型 tab 滚动
 const tabsBarRef = ref<HTMLElement | null>(null)
@@ -2161,7 +2333,7 @@ const defaultBuiltinPresets: Record<string, string> = {
 const builtinPresets = ref<Record<string, string>>({...defaultBuiltinPresets})
 async function loadBuiltinPresets() {
   try {
-    const res = await request.get('/home/setup_get', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
+    const res = await request.get<string | { label: string; value: string }[]>('/home/setup_get', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
     if (res.code === 0 && res.data) {
       const parsed = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
       if (Array.isArray(parsed) && parsed.length) {
@@ -2227,6 +2399,107 @@ function applyTemplatePreset(val: string) {
 }
 function resetTemplate() {
   ruleForm.value.messageTemplate = ''
+}
+
+function buildSettingsPayload() {
+  return {
+    questionNumber: form.questionNumber,
+    progressBar: form.progressBar,
+    autoSave: form.autoSave,
+    password: form.password,
+    loginRequired: form.loginRequired,
+    onePageOneQuestion: form.onePageOneQuestion,
+    answerSheetVisible: form.answerSheetVisible,
+    copyEnabled: form.copyEnabled,
+    triggerType: form.triggerType,
+    redirectUrl: form.redirectUrl,
+    endContent: form.endContent,
+    examRankingEnabled: form.examRankingEnabled,
+    exerciseMode: form.exerciseMode,
+    randomOrder: form.randomOrder,
+    minSubmitMinutes: form.minSubmitMinutes,
+    maxSubmitMinutes: form.maxSubmitMinutes,
+    backgroundImages: form.backgroundImages,
+    headerImages: form.headerImages,
+    defaultAnswer: form.defaultAnswer,
+    defaultLang: form.defaultLang,
+    deviceLimit: form.deviceLimit,
+    ipLimit: form.ipLimit,
+    userLimit: form.userLimit,
+    publicQuery: form.publicQuery,
+    showAnswerAnalysis: form.showAnswerAnalysis,
+    collaborators: form.collaborators,
+    timeLimit: form.timeLimit,
+    fillTemplate: form.fillTemplate,
+    resultConfig: form.resultConfig,
+    logicRules: JSON.stringify(logicRuleList.value)
+  }
+}
+
+function buildSurveyPayload(schema: string, settings: string) {
+  return {
+    title: form.title,
+    description: form.description,
+    category: form.category,
+    tags: form.tags,
+    visibility: form.visibility,
+    allowMulti: form.allowMultiBool,
+    anonymous: form.anonymousBool,
+    showResult: form.showResultBool,
+    startTime: form.startDate || 0,
+    endTime: form.endDate || 0,
+    maxResponse: form.maxResponse,
+    status: form.statusBool,
+    schema,
+    deptIds: form.deptIds,
+    mode: form.mode,
+    settings
+  }
+}
+
+function isValidRedirectUrl(value: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return true
+  if (raw.startsWith('/')) return true
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function normalizeCompletionSettings() {
+  form.title = String(form.title || '').trim()
+  if (completionAction.value === 'default') {
+    form.redirectUrl = ''
+    form.endContent = ''
+  } else if (completionAction.value === 'content') {
+    form.redirectUrl = ''
+  } else {
+    form.redirectUrl = String(form.redirectUrl || '').trim()
+    form.endContent = ''
+  }
+}
+
+function validateSurveySettings(showMessage = true) {
+  if (!String(form.title || '').trim()) {
+    if (showMessage) ElMessage.warning('请填写标题')
+    return false
+  }
+  if (form.visibility === 2 && selectedDeptCount.value === 0) {
+    if (showMessage) ElMessage.warning('请选择限定部门')
+    return false
+  }
+  if (hasInvalidTimeRange.value) {
+    if (showMessage) ElMessage.warning('结束时间不能早于开始时间')
+    return false
+  }
+  if (form.redirectUrl && !isValidRedirectUrl(form.redirectUrl)) {
+    if (showMessage) ElMessage.warning('请输入有效的跳转链接')
+    return false
+  }
+  return true
 }
 
 const choiceTypes = ['select','radio','checkbox','picker','cascade','judge','multiInput','hInput']
@@ -2313,6 +2586,7 @@ async function confirmRule() {
   if (rf.action==='check' && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
   if (rf.action==='branch' && rf.branchFromIdx===undefined) { ElMessage.warning('请选择跳转来源题目'); return }
   if (rf.action==='branch' && !rf.branchToEnd && rf.branchToIdx===undefined) { ElMessage.warning('请选择跳转目标题目或勾选结束问卷'); return }
+  if (rf.action==='end' && rf.branchFromIdx===undefined) { ElMessage.warning('请选择结束来源题目'); return }
   if (['assignment','validate','replace'].includes(rf.action) && rf.targetQuestionIdx===undefined) { ElMessage.warning('请选择目标题目'); return }
 
   rf.scope = rf.action === 'postStat' ? 'backend' : 'frontend'
@@ -2349,41 +2623,16 @@ function removeRule(idx: number) {
 
 async function saveLogicRules(showMsg = true) {
   if (!form.id) { if (showMsg) ElMessage.warning('请先保存问卷'); return }
+  if (!validateSurveySettings(showMsg)) return
+  normalizeCompletionSettings()
+  saving.value = true
   const schema = JSON.stringify({ version: '2.0', questions: questions.value })
-  const settings = JSON.stringify({
-    questionNumber: form.questionNumber, progressBar: form.progressBar,
-    autoSave: form.autoSave, password: form.password,
-    loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
-    answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-    triggerType: form.triggerType,
-    
-    redirectUrl: form.redirectUrl, endContent: form.endContent,
-    examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
-    randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
-      maxSubmitMinutes: form.maxSubmitMinutes,
-      backgroundImages: form.backgroundImages, headerImages: form.headerImages,
-      defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
-      deviceLimit: form.deviceLimit,
-      ipLimit: form.ipLimit, userLimit: form.userLimit,
-      publicQuery: form.publicQuery, collaborators: form.collaborators, timeLimit: form.timeLimit,
-      fillTemplate: form.fillTemplate,
-      showAnswerAnalysis: form.showAnswerAnalysis,
-      resultConfig: form.resultConfig,
-      logicRules: JSON.stringify(logicRuleList.value)
-    })
-    const payload: any = {
-      id: form.id,
-      title: form.title, description: form.description, category: form.category, tags: form.tags,
-    visibility: form.visibility, allowMulti: form.allowMultiBool,
-    anonymous: form.anonymousBool, showResult: form.showResultBool,
-    startTime: form.startDate || 0, endTime: form.endDate || 0,
-    maxResponse: form.maxResponse, status: form.statusBool,
-    schema, deptIds: form.deptIds, mode: form.mode, settings
-  }
+  const settings = JSON.stringify(buildSettingsPayload())
+  const payload: any = { id: form.id, ...buildSurveyPayload(schema, settings) }
   try {
     const r: any = await adminApi.surveyEdit(payload)
     if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
-    ElMessage.success('已保存')
+    if (showMsg) ElMessage.success('已保存')
   } catch { if (showMsg) ElMessage.error('保存失败') }
   finally { saving.value = false }
 }
@@ -2527,7 +2776,8 @@ async function loadResponses(page = 1) {
   if (!form.id) return
   responsePage.value = page
   try {
-    const res: any = await adminApi.surveyResponseList({ surveyId: form.id, page, pageSize: responsePageSize.value })
+    const keyword = responseKeyword.value.trim()
+    const res: any = await adminApi.surveyResponseList({ surveyId: form.id, page, pageSize: responsePageSize.value, keyword })
     const list: any[] = res.data?.list || []
     responseTotal.value = res.data?.total || 0
     responseSource.value = list.map((r: any) => {
@@ -2542,17 +2792,12 @@ async function loadResponses(page = 1) {
       }
     })
     stats.totalCount = responseTotal.value
-    applyFilter()
+    responseRows.value = responseSource.value
     setupColDrag()
   } catch { responseRows.value = [] }
 }
 
 function onSearch() { responsePage.value = 1; loadResponses(1) }
-
-function applyFilter() {
-  const kw = responseKeyword.value.trim().toLowerCase()
-  responseRows.value = kw ? responseSource.value.filter((r: any) => (r.nickname || '').toLowerCase().includes(kw)) : responseSource.value
-}
 
 function onPageChange(page: number) { loadResponses(page) }
 function onPageSizeChange(size: number) { responsePageSize.value = size; loadResponses(1) }
@@ -2595,7 +2840,7 @@ function stripHtml(html: string) {
   return d.textContent || d.innerText || ''
 }
 function firstLine(s: string) { return s.split('\n')[0] || s }
-const PIE_COLORS = ['#fb454c','#ff7a45','#ffc53d','#73d13d','#36cfc9','#597ef7','#b37feb','#f759ab']
+const PIE_COLORS = ['#2563eb','#06b6d4','#22c55e','#f59e0b','#8b5cf6','#14b8a6','#64748b','#f97316']
 function pieDasharray(cnt: number, total: number) {
   const ratio = cnt / total
   const circumference = 2 * Math.PI * 70
@@ -2608,7 +2853,7 @@ async function deleteResponse(id: number) {
     responseSource.value = responseSource.value.filter((r: any) => r.id !== id)
     responseTotal.value--
     stats.totalCount = responseTotal.value
-    applyFilter()
+    responseRows.value = responseSource.value
   } catch { ElMessage.error('删除失败') }
 }
 
@@ -2632,7 +2877,7 @@ function batchDeleteResponses() {
 }
 function exportResponses() { ElMessage.info('导出数据功能待实现') }
 function importResponses() { ElMessage.info('导入数据功能待实现') }
-function refreshResponses() { loadResponses(); ElMessage.success('已刷新') }
+function refreshResponses() { loadResponses(responsePage.value); ElMessage.success('已刷新') }
 
 async function loadReport() {
   if (!form.id) { reportData.value = null; return }
@@ -2785,7 +3030,21 @@ const selected = ref<Question | null>(null)
 
 let idCounter = 0
 
-function genId() { idCounter++; return 'q' + idCounter }
+function syncIdCounterFromQuestions(list: Question[] = questions.value) {
+  idCounter = list.reduce((max, q) => {
+    const match = String(q.id || '').match(/^q(\d+)$/)
+    return match ? Math.max(max, Number(match[1])) : max
+  }, 0)
+}
+
+function genId() {
+  let id = ''
+  do {
+    idCounter++
+    id = 'q' + idCounter
+  } while (questions.value.some(q => q.id === id))
+  return id
+}
 
 function addQuestion(t: any) {
   const q: Question = { id: genId(), type: t.type, title: t.displayName, required: false, readOnly: false, dataType: '', placeholder: '', mediaType: '', mediaUrl: '', mediaWidth: '', mediaAlign: 'center', props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {} }
@@ -2865,10 +3124,22 @@ function addQuestion(t: any) {
 }
 
 const selectedOptIdx = ref(-1)
-function selectQuestion(id: string) {
+function scrollQuestionIntoView(id: string) {
+  nextTick(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-survey-question-id]'))
+    const target = cards.find(el => el.dataset.surveyQuestionId === id)
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  })
+}
+
+function selectQuestion(id: string, shouldScroll = false) {
   selected.value = questions.value.find(q => q.id === id) || null
   selectedOptIdx.value = -1
   showSurveySettings.value = false
+  if (shouldScroll && selected.value) {
+    panelMode.value = 'edit'
+    scrollQuestionIntoView(id)
+  }
 }
 function selectOption(qId: string, optIdx: number) {
   selected.value = questions.value.find(q => q.id === qId) || null
@@ -2887,7 +3158,7 @@ function selectOption(qId: string, optIdx: number) {
   }
 }
 function onQuestionsUpdate(newQ: Question[]) {
-  questions.value.splice(0, questions.value.length, ...newQ)
+  replaceQuestions(newQ)
   if (selected.value) {
     selected.value = questions.value.find(q => q.id === selected.value!.id) || null
   }
@@ -2898,21 +3169,27 @@ async function removeSelected() {
     await ElMessageBox.confirm('确定删除此题？', '确认', { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' })
   } catch { return }
   const sel = selected.value
-  questions.value = questions.value.filter(q => q.id !== sel.id)
+  replaceQuestions(questions.value.filter(q => q.id !== sel.id))
   selected.value = questions.value.length ? questions.value[questions.value.length - 1] : null
+  selectedOptIdx.value = -1
 }
 async function clearAll() {
   if (!questions.value.length) return
   try {
     await ElMessageBox.confirm(`确定清空全部 ${questions.value.length} 题？`, '确认', { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' })
   } catch { return }
-  questions.value = []; selected.value = null; idCounter = 0
+  questions.value = []
+  logicRuleList.value = []
+  selected.value = null
+  selectedOptIdx.value = -1
+  idCounter = 0
 }
 
 function hasOptions(q: Question) { return ['select','radio','checkbox','picker','matrixRadio','matrixCheckbox','judge','cascade'].includes(q.type) }
 function hasDataType(q: Question) { return ['input','textarea','number','name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'].includes(q.type) }
 const LAYOUT_PURE = ['divider','description','pagination']
 const LAYOUT_ALL = ['divider','description','pagination','questionSet']
+const answerableQuestionCount = computed(() => questions.value.filter(q => !LAYOUT_ALL.includes(q.type)).length)
 const CHOICE_TYPES = ['select','radio','checkbox','picker','cascade','judge']
 const INPUT_TYPES = ['input','textarea','number','multiInput','hInput']
 const MATRIX_QR = ['matrixRadio','matrixCheckbox','matrixFillBlank']
@@ -2931,9 +3208,57 @@ function isMatrixQR(t: string) { return MATRIX_QR.includes(t) }
 function isMatrixAll(t: string) { return MATRIX_ALL.includes(t) }
 function isPersonal(t: string) { return PERSONAL_TYPES.includes(t) }
 
+function remapQuestionIndex(idx: number | undefined, oldQuestions: Question[], nextIndexById: Map<string, number>) {
+  if (idx === undefined) return undefined
+  const oldId = oldQuestions[idx]?.id
+  if (!oldId) return undefined
+  return nextIndexById.get(oldId)
+}
+
+function isLogicRuleUsable(rule: LogicRuleItem) {
+  if (rule.conditionType !== 'none' && (rule.conditions || []).some(cond => cond.questionIdx === undefined)) return false
+  if (['show','hide','required','check','assignment','validate','replace'].includes(rule.action) && rule.targetQuestionIdx === undefined) return false
+  if (['branch','end'].includes(rule.action) && rule.branchFromIdx === undefined) return false
+  if (rule.action === 'branch' && !rule.branchToEnd && rule.branchToIdx === undefined) return false
+  return true
+}
+
+function syncLogicRulesAfterQuestionChange(oldQuestions: Question[], nextQuestions: Question[]) {
+  if (!logicRuleList.value.length) return
+  const nextIndexById = new Map(nextQuestions.map((q, idx) => [q.id, idx]))
+  const remappedRules = logicRuleList.value.map((rule) => {
+    const nextRule: LogicRuleItem = {
+      ...rule,
+      conditions: (rule.conditions || []).map((cond) => ({
+        ...cond,
+        questionIdx: remapQuestionIndex(cond.questionIdx, oldQuestions, nextIndexById)
+      }))
+    }
+    nextRule.targetQuestionIdx = remapQuestionIndex(rule.targetQuestionIdx, oldQuestions, nextIndexById)
+    nextRule.branchFromIdx = remapQuestionIndex(rule.branchFromIdx, oldQuestions, nextIndexById)
+    nextRule.branchToIdx = rule.branchToEnd ? undefined : remapQuestionIndex(rule.branchToIdx, oldQuestions, nextIndexById)
+    return nextRule
+  })
+  const nextRules = remappedRules.filter(isLogicRuleUsable)
+  const removed = remappedRules.length - nextRules.length
+  logicRuleList.value = nextRules
+  if (removed > 0) {
+    ElMessage.warning(`已移除 ${removed} 条关联失效题目的逻辑规则`)
+  }
+}
+
+function replaceQuestions(nextQuestions: Question[]) {
+  const oldQuestions = [...questions.value]
+  questions.value.splice(0, questions.value.length, ...nextQuestions)
+  syncLogicRulesAfterQuestionChange(oldQuestions, questions.value)
+}
+
 function removeQuestionById(id: string) {
-  questions.value = questions.value.filter(q => q.id !== id)
-  if (selected.value?.id === id) selected.value = null
+  replaceQuestions(questions.value.filter(q => q.id !== id))
+  if (selected.value?.id === id) {
+    selected.value = null
+    selectedOptIdx.value = -1
+  }
 }
 
 function onMediaTypeChange(v: string) {
@@ -2966,6 +3291,13 @@ const embedCode = computed(() => form.id ? `<iframe src="${publicUrl.value}" wid
 
 const exportedJson = ref('')
 
+function genQR() {
+  if (!form.id) {
+    ElMessage.warning('请先保存问卷')
+    return
+  }
+  ElMessage.success('二维码已生成')
+}
 function copyLink() { navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
 function downloadQR() {
   fetch(qrUrl.value)
@@ -2995,8 +3327,8 @@ async function loadSurveyKingJson() {
     const raw = parsed.questions || parsed
     const converted = importFromSurveyKing(raw)
     if (!converted.length) { ElMessage.warning('未识别到有效题目'); return }
-    questions.value = converted
-    idCounter = questions.value.length
+    replaceQuestions(converted)
+    syncIdCounterFromQuestions()
     selected.value = converted[0] || null
     ElMessage.success(`已导入 ${converted.length} 题`)
   } catch { ElMessage.error('JSON 解析失败') }
@@ -3089,32 +3421,54 @@ watch(() => activeView.value, (v) => { if (v === 'data') loadResponses() })
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let dataLoaded = false
 const settingsSnapshot = computed(() => JSON.stringify({
-  questionNumber: form.questionNumber, progressBar: form.progressBar,
-  autoSave: form.autoSave, password: form.password,
-  loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
-  answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
+  questionNumber: form.questionNumber,
+  progressBar: form.progressBar,
+  autoSave: form.autoSave,
+  password: form.password,
+  loginRequired: form.loginRequired,
+  onePageOneQuestion: form.onePageOneQuestion,
+  answerSheetVisible: form.answerSheetVisible,
+  copyEnabled: form.copyEnabled,
   triggerType: form.triggerType,
-  
-  redirectUrl: form.redirectUrl, endContent: form.endContent,
-  examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
-  randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
+  redirectUrl: form.redirectUrl,
+  endContent: form.endContent,
+  examRankingEnabled: form.examRankingEnabled,
+  exerciseMode: form.exerciseMode,
+  randomOrder: form.randomOrder,
+  minSubmitMinutes: form.minSubmitMinutes,
   maxSubmitMinutes: form.maxSubmitMinutes,
-  backgroundImages: form.backgroundImages, headerImages: form.headerImages,
-  defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
-      deviceLimit: form.deviceLimit,
-      ipLimit: form.ipLimit, userLimit: form.userLimit,
-      publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-  collaborators: form.collaborators, timeLimit: form.timeLimit,
-  visibility: form.visibility, allowMultiBool: form.allowMultiBool,
-  anonymousBool: form.anonymousBool, showResultBool: form.showResultBool,
-  startDate: form.startDate, endDate: form.endDate, maxResponse: form.maxResponse,
-  deptIds: form.deptIds, statusBool: form.statusBool, mode: form.mode,
-  title: form.title, description: form.description, category: form.category, tags: form.tags
+  backgroundImages: form.backgroundImages,
+  headerImages: form.headerImages,
+  defaultAnswer: form.defaultAnswer,
+  defaultLang: form.defaultLang,
+  deviceLimit: form.deviceLimit,
+  ipLimit: form.ipLimit,
+  userLimit: form.userLimit,
+  publicQuery: form.publicQuery,
+  showAnswerAnalysis: form.showAnswerAnalysis,
+  collaborators: form.collaborators,
+  timeLimit: form.timeLimit,
+  fillTemplate: form.fillTemplate,
+  resultConfig: form.resultConfig,
+  visibility: form.visibility,
+  allowMultiBool: form.allowMultiBool,
+  anonymousBool: form.anonymousBool,
+  showResultBool: form.showResultBool,
+  startDate: form.startDate,
+  endDate: form.endDate,
+  maxResponse: form.maxResponse,
+  deptIds: form.deptIds,
+  statusBool: form.statusBool,
+  mode: form.mode,
+  title: form.title,
+  description: form.description,
+  category: form.category,
+  tags: form.tags
 }))
 watch(settingsSnapshot, () => {
   if (!form.id || !dataLoaded) return
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => { save() }, 800)
+  autoSaveTimer = setTimeout(() => { save(false) }, 800)
 })
 
 async function load() {
@@ -3178,6 +3532,7 @@ async function load() {
       })
     }
     Object.assign(form, base)
+    syncCompletionActionFromForm()
     deptCheckedKeys.value = form.deptIds ? form.deptIds.split(',').map(Number).filter(Boolean) : []
     loadAdminTree()
     loadResources()
@@ -3187,7 +3542,7 @@ async function load() {
         const sch = JSON.parse(rawSchema)
         if (sch.questions) {
           questions.value = normalizeQuestions(sch.questions)
-          idCounter = questions.value.length
+          syncIdCounterFromQuestions()
         }
       } catch {}
     }
@@ -3196,58 +3551,42 @@ async function load() {
   } catch { ElMessage.error('加载失败') }
 }
 
-async function save() {
-  if (!form.title) { ElMessage.warning('请填写标题'); return }
+async function save(showMessage: boolean | Event = true) {
+  const shouldShowMessage = typeof showMessage === 'boolean' ? showMessage : true
+  if (!validateSurveySettings(shouldShowMessage)) return false
+  normalizeCompletionSettings()
   saving.value = true
   try {
     const schema = JSON.stringify({ version: '2.0', questions: questions.value })
-    const settings = JSON.stringify({
-      questionNumber: form.questionNumber, progressBar: form.progressBar,
-      autoSave: form.autoSave, password: form.password,
-      loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
-      answerSheetVisible: form.answerSheetVisible, copyEnabled: form.copyEnabled,
-      triggerType: form.triggerType,
-      
-      redirectUrl: form.redirectUrl, endContent: form.endContent,
-      examRankingEnabled: form.examRankingEnabled, exerciseMode: form.exerciseMode,
-      randomOrder: form.randomOrder, minSubmitMinutes: form.minSubmitMinutes,
-      maxSubmitMinutes: form.maxSubmitMinutes,
-      backgroundImages: form.backgroundImages, headerImages: form.headerImages,
-      defaultAnswer: form.defaultAnswer, defaultLang: form.defaultLang,
-      deviceLimit: form.deviceLimit,
-      ipLimit: form.ipLimit, userLimit: form.userLimit,
-      publicQuery: form.publicQuery, showAnswerAnalysis: form.showAnswerAnalysis,
-      collaborators: form.collaborators, timeLimit: form.timeLimit,
-      resultConfig: form.resultConfig,
-      logicRules: JSON.stringify(logicRuleList.value)
-    })
-    const payload: any = {
-      title: form.title, description: form.description, category: form.category, tags: form.tags,
-      visibility: form.visibility, allowMulti: form.allowMultiBool,
-      anonymous: form.anonymousBool, showResult: form.showResultBool,
-      startTime: form.startDate || 0, endTime: form.endDate || 0,
-      maxResponse: form.maxResponse, status: form.statusBool,
-      schema, deptIds: form.deptIds, mode: form.mode, settings
-    }
+    const settings = JSON.stringify(buildSettingsPayload())
+    const payload: any = buildSurveyPayload(schema, settings)
     if (form.id) {
       payload.id = form.id
       await adminApi.surveyEdit(payload)
-      ElMessage.success('已更新')
+      if (shouldShowMessage) ElMessage.success('已更新')
     } else {
       const r: any = await adminApi.surveyInsert(payload)
       form.id = r.data?.id || r.id
-      ElMessage.success('已创建')
+      if (shouldShowMessage) ElMessage.success('已创建')
       router.replace({ query: { id: String(form.id) } })
     }
     await loadAdminTree()
-  } catch { ElMessage.error('保存失败') }
+    return true
+  } catch {
+    if (shouldShowMessage) ElMessage.error('保存失败')
+    return false
+  }
   finally { saving.value = false }
 }
 
 function goBack() { router.push('/survey') }
 function goToStatReport() {
-  const id = form.value.id || route.query.id
-  window.open(`/survey/stat-report?surveyId=${id}&title=${encodeURIComponent(form.value.title || '')}`, '_blank')
+  const id = form.id || Number(route.query.id || 0)
+  if (!id) {
+    ElMessage.warning('请先保存问卷')
+    return
+  }
+  window.open(`/survey/stat-report?surveyId=${id}&title=${encodeURIComponent(form.title || '')}`, '_blank')
 }
 
 const FALLBACK_TYPES = [
@@ -3324,119 +3663,142 @@ onMounted(async () => {
 
 <style scoped>
 /* ======= 主布局 ======= */
-.survey-main { display:flex; height:calc(100vh - 56px); background:#fff; }
+.survey-main {
+  --designer-accent:#2563eb;
+  --designer-accent-soft:#eff6ff;
+  --designer-accent-border:#bfdbfe;
+  --designer-accent-hover:#dbeafe;
+  --designer-bg:#f4f6fa;
+  --designer-panel:#ffffff;
+  --designer-panel-muted:#f8fafc;
+  --designer-border:#e6eaf0;
+  --designer-text:#1f2937;
+  --designer-muted:#6b7280;
+  --designer-shadow:0 12px 32px rgba(15, 23, 42, 0.08);
+  display:flex;
+  height:calc(100vh - 56px);
+  min-width:0;
+  background:var(--designer-bg);
+  color:var(--designer-text);
+}
 
 /* ======= 左侧导航 ======= */
 .survey-main-navigator {
   display:flex; flex:0 0 54px; flex-direction:column; justify-content:space-between;
-  border-right:1px solid #e8e8e8; background:#fafafa; padding:8px 0; align-items:center;
+  border-right:1px solid var(--designer-border); background:#fff; padding:10px 0; align-items:center;
+  box-shadow:1px 0 0 rgba(15,23,42,0.02);
 }
-.nav-actions { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.nav-actions { display:flex; flex-direction:column; align-items:center; gap:6px; }
 .nav-bottom { display:flex; flex-direction:column; align-items:center; }
 .nav-btn {
-  width:36px; height:36px; min-width:36px; padding:0; margin:0;
-  border:none; border-radius:8px; color:#999; font-size:13px; cursor:pointer;
+  width:38px; height:38px; min-width:38px; padding:0; margin:0;
+  border:1px solid transparent; border-radius:10px; color:#8a94a6; font-size:13px; cursor:pointer;
   display:flex; align-items:center; justify-content:center; flex-shrink:0;
   background:transparent; outline:none; line-height:1;
+  transition:background .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
-.nav-btn:hover { background:#f0f0f0; color:#666; }
-.nav-btn.active { background:#fff; color:#fb454c; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.nav-btn:hover { background:#f7f8fb; color:#374151; border-color:#eef1f5; }
+.nav-btn.active { background:var(--designer-accent-soft); color:var(--designer-accent); border-color:var(--designer-accent-border); box-shadow:0 6px 14px rgba(37,99,235,0.12); }
 .nav-btn svg { display:block; flex-shrink:0; }
 
 /* ======= 主内容 ======= */
 .survey-main-content { position:relative; flex:1 1 auto; overflow:hidden; }
 
 /* ======= 编辑器 ======= */
-.survey-editor { display:flex; height:100%; font-family:"PingFang SC",-apple-system,"Helvetica Neue",Helvetica,BlinkMacSystemFont,"Microsoft YaHei",tahoma,Arial,"Open Sans","Hiragino Sans GB","Heiti SC","WenQuanYi Micro Hei",sans-serif; }
+.survey-editor { display:flex; height:100%; min-width:0; font-family:"PingFang SC",-apple-system,"Helvetica Neue",Helvetica,BlinkMacSystemFont,"Microsoft YaHei",tahoma,Arial,"Open Sans","Hiragino Sans GB","Heiti SC","WenQuanYi Micro Hei",sans-serif; }
 
 /* ======= 左侧题型面板 ======= */
-.survey-sidebar-panel { position:relative; z-index:2; display:flex; flex-grow:0; flex-shrink:0; user-select:none; }
+.survey-sidebar-panel { position:relative; z-index:2; display:flex; flex-grow:0; flex-shrink:0; user-select:none; box-shadow:2px 0 14px rgba(15,23,42,0.04); }
 .survey-sidebar-panel-tabs {
   display:flex; flex-direction:column; font-size:12px;
-  background:#f5f5f5; border-right:1px solid #e8e8e8;
+  background:#f7f8fb; border-right:1px solid var(--designer-border); padding:6px 0;
 }
 .survey-sidebar-panel-tabs-pane {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  width:40px; height:40px; color:#999; cursor:pointer; border-radius:0;
-  margin:2px; transition:all 0.15s;
+  width:44px; height:42px; color:#8a94a6; cursor:pointer; border-radius:10px;
+  margin:2px 5px; transition:all 0.15s;
 }
-.survey-sidebar-panel-tabs-pane:hover { color:#666; }
-.survey-sidebar-panel-tabs-pane.active { color:#fb454c; background:#fff; border-radius:6px; }
-.survey-sidebar-panel-tabs-pane .tab-badge { position:absolute; top:-2px; right:-6px; font-size:9px; background:#fb454c; color:#fff; border-radius:8px; padding:1px 4px; line-height:1.4; }
+.survey-sidebar-panel-tabs-pane:hover { color:#374151; background:#fff; }
+.survey-sidebar-panel-tabs-pane.active { color:var(--designer-accent); background:#fff; border-radius:10px; box-shadow:0 6px 14px rgba(15,23,42,0.08); }
+.survey-sidebar-panel-tabs-pane .tab-badge { position:absolute; top:-2px; right:-6px; font-size:9px; background:var(--designer-accent); color:#fff; border-radius:8px; padding:1px 4px; line-height:1.4; }
 .survey-sidebar-panel-tabs-pane { position:relative; }
 .survey-sidebar-panel-tabs-content {
-  display:flex; flex-direction:column; width:240px; height:100%;
-  border-right:1px solid #e8e8e8; overflow-y:auto;
+  display:flex; flex-direction:column; width:256px; height:100%;
+  border-right:1px solid var(--designer-border); overflow-y:auto; background:#fff;
 }
 
 /* 题型 / 大纲 tab 切换 */
 .side-sub-tabs { display:flex; flex-direction:column; height:100%; }
-.side-sub-tabs :deep(.el-tabs__header) { margin:0; padding:0 8px; background:#fafafa; border-bottom:1px solid #e8e8e8; }
+.side-sub-tabs :deep(.el-tabs__header) { margin:0; padding:0 10px; background:#fff; border-bottom:1px solid var(--designer-border); }
 .side-sub-tabs :deep(.el-tabs__nav-wrap) { margin-bottom:0; }
-.side-sub-tabs :deep(.el-tabs__active-bar) { background:#fb454c; height:2px; }
+.side-sub-tabs :deep(.el-tabs__nav-scroll) { display:flex; }
+.side-sub-tabs :deep(.el-tabs__nav) { display:flex; width:100%; }
+.side-sub-tabs :deep(.el-tabs__active-bar) { background:var(--designer-accent); height:2px; }
 .side-sub-tabs :deep(.el-tabs__item) {
-  padding:0 12px; font-size:13px; height:32px; line-height:32px; color:#666; transition:color 0.15s;
+  flex:1; justify-content:center; padding:0; font-size:13px; height:36px; line-height:36px; color:#667085; text-align:center; transition:color 0.15s;
 }
-.side-sub-tabs :deep(.el-tabs__item:hover) { color:#333; }
-.side-sub-tabs :deep(.el-tabs__item.is-active) { color:#fb454c; font-weight:500; }
+.side-sub-tabs :deep(.el-tabs__item:hover) { color:#1f2937; }
+.side-sub-tabs :deep(.el-tabs__item.is-active) { color:var(--designer-accent); font-weight:600; }
 .side-sub-tabs :deep(.el-tabs__content) { flex:1; overflow-y:auto; }
 
 /* 题型分类标签（自定义按钮滚动） */
-.question-panel { padding:8px; }
-.type-tabs-bar { display:flex; align-items:stretch; gap:0; margin-bottom:8px; }
+.question-panel { padding:10px; }
+.type-tabs-bar { display:flex; align-items:stretch; gap:4px; margin-bottom:12px; }
 .tab-scroll-viewport { flex:1; overflow:hidden; }
 .tab-scroll-track { display:flex; gap:4px; transition:transform .2s ease; }
 .tab-scroll-btn {
-  flex:0 0 20px; border:1px solid #e8e8e8; border-radius:4px; background:#fff;
+  flex:0 0 24px; border:1px solid var(--designer-border); border-radius:6px; background:#fff;
   color:#999; cursor:pointer; font-size:14px; line-height:1;
   display:flex; align-items:center; justify-content:center; padding:0;
   transition:all .15s;
 }
-.tab-scroll-btn:hover:not(:disabled) { color:#fb454c; border-color:#fb454c; }
+.tab-scroll-btn:hover:not(:disabled) { color:var(--designer-accent); border-color:var(--designer-accent); }
 .tab-scroll-btn:disabled { opacity:0.3; cursor:default; }
 .type-tab-btn {
-  flex:0 0 auto; min-width:0; padding:3px 6px; font-size:12px; line-height:20px; height:26px;
-  border:1px solid #e8e8e8; border-radius:4px; color:#666; cursor:pointer; text-align:center;
+  flex:0 0 auto; min-width:0; padding:4px 8px; font-size:12px; line-height:20px; height:30px;
+  border:1px solid var(--designer-border); border-radius:7px; color:#667085; cursor:pointer; text-align:center;
   background:#fff; transition:all 0.15s; white-space:nowrap;
 }
-.type-tab-btn:hover { border-color:#fb454c; color:#fb454c; }
-.type-tab-btn.active { color:#fff; background:#fb454c; border-color:#fb454c; font-weight:500; }
+.type-tab-btn:hover { border-color:var(--designer-accent-border); color:var(--designer-accent); background:var(--designer-accent-soft); }
+.type-tab-btn.active { color:#fff; background:var(--designer-accent); border-color:var(--designer-accent); font-weight:600; box-shadow:0 6px 14px rgba(37,99,235,0.16); }
 
-.question-type { padding:4px 0; }
-.menu-group { margin:0 0 12px; }
-.menu-group-title {
-  font-size:12px; font-weight:500; color:#888; margin-bottom:6px; padding:0 4px;
-}
+.question-type { padding:2px 0 8px; }
+.menu-group { margin:0 0 14px; padding:0; }
 .menu-group-item {
-  display:flex; align-items:center; gap:6px; padding:6px 8px;
-  border-radius:6px; cursor:pointer; transition:all 0.12s; line-height:20px;
+  display:flex; align-items:center; gap:8px; padding:8px 10px; margin:0 0 6px;
+  border:1px solid #edf0f5; border-radius:8px; cursor:pointer; transition:all 0.14s; line-height:20px;
+  background:#fff;
 }
-.menu-group-item:hover { background:#fff5f5; color:#fb454c; }
-.itemIcon { flex-shrink:0; font-size:16px; width:20px; text-align:center; color:#999; }
-.menu-group-item:hover .itemIcon { color:#fb454c; }
+.menu-group-item:hover { background:var(--designer-accent-soft); color:var(--designer-accent); border-color:var(--designer-accent-border); box-shadow:0 8px 18px rgba(37,99,235,0.08); transform:translateY(-1px); }
+.itemIcon {
+  flex-shrink:0; width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center;
+  color:#999; font-size:15px; line-height:1;
+}
+.itemIcon :deep(svg) { display:block; width:1em; height:1em; }
+.menu-group-item:hover .itemIcon { color:var(--designer-accent); }
 .item-label { font-size:13px; flex:1; }
-.item-type { font-size:10px; color:#bbb; }
 
 /* 外观面板 */
-.appearance-panel { padding:12px; }
+.appearance-panel { padding:14px 16px 14px 18px; }
 .appearance-panel :deep(.el-tabs__header) { margin:0 0 8px; }
 .appearance-panel :deep(.el-tabs__item) { font-size:12px; padding:0 12px; }
-.appearance-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.appearance-grid { display:grid; grid-template-columns:repeat(auto-fill, 86px); gap:10px; justify-content:start; padding-left:2px; }
+.appearance-grid :deep(.el-upload) { width:86px; }
 .appearance-add, .appearance-thumb {
-  width:72px; height:72px; border-radius:6px; overflow:hidden; flex-shrink:0;
+  width:86px; height:86px; border-radius:8px; overflow:hidden; flex-shrink:0;
 }
 .appearance-add {
   display:flex; align-items:center; justify-content:center;
-  border:2px dashed #e8e8e8; background:#fff; cursor:pointer;
+  border:2px dashed var(--designer-border); background:#fff; cursor:pointer;
   font-size:24px; color:#ccc; transition:all .15s;
 }
-.appearance-add:hover { border-color:#fb454c; color:#fb454c; }
+.appearance-add:hover { border-color:var(--designer-accent); color:var(--designer-accent); background:var(--designer-accent-soft); }
 .appearance-thumb {
   position:relative; cursor:pointer;
   border:2px solid transparent; transition:border-color .15s;
 }
-.appearance-thumb:hover { border-color:#fb454c; }
-.appearance-thumb.active { border-color:#fb454c; background:#fff5f5; }
+.appearance-thumb:hover { border-color:var(--designer-accent); }
+.appearance-thumb.active { border-color:var(--designer-accent); background:var(--designer-accent-soft); box-shadow:0 8px 18px rgba(37,99,235,0.12); }
 .appearance-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
 .appearance-overlay {
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -3453,28 +3815,31 @@ onMounted(async () => {
 /* ======= 逻辑面板（全宽） ======= */
 .logic-full-panel {
   display:flex; flex:1; flex-direction:column; overflow:hidden;
-  background:#f7f8fa; padding:20px 32px;
+  background:var(--designer-bg); padding:24px 32px;
 }
 .logic-toolbar {
   display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:12px; flex-shrink:0;
+  margin-bottom:14px; flex-shrink:0; padding:12px 14px;
+  border:1px solid var(--designer-border); border-radius:10px; background:#fff;
+  box-shadow:0 8px 18px rgba(15,23,42,0.04);
 }
 .logic-body {
   display:flex; gap:16px; flex:1; overflow:hidden;
 }
 .logic-editor-area {
-  flex:1; display:flex; flex-direction:column; overflow-y:auto;
+  flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0;
 }
 .logic-sidebar {
   width:260px; flex-shrink:0; overflow-y:auto;
-  background:#fff; border-radius:6px; padding:12px;
-  border:1px solid #e8e8e8; line-height:1.8;
+  background:#fff; border-radius:10px; padding:14px;
+  border:1px solid var(--designer-border); line-height:1.8;
+  box-shadow:0 8px 18px rgba(15,23,42,0.04);
 }
 .logic-rule-card {
-  background:#fff; border:1px solid #e8e8e8; border-radius:6px; margin-bottom:6px; transition:box-shadow .15s;
+  background:#fff; border:1px solid var(--designer-border); border-radius:9px; margin-bottom:8px; transition:box-shadow .15s, border-color .15s;
 }
-.logic-rule-card:hover { box-shadow:0 1px 4px rgba(0,0,0,0.06); }
-.rule-header { display:flex; align-items:center; gap:8px; padding:8px 12px; }
+.logic-rule-card:hover { border-color:var(--designer-accent-border); box-shadow:0 8px 18px rgba(37,99,235,0.08); }
+.rule-header { display:flex; align-items:center; gap:8px; padding:10px 12px; }
 .rule-index { font-size:11px; color:#999; font-weight:600; width:24px; flex-shrink:0; }
 .rule-dsl { font-size:12px; font-family:Consolas,Monaco,"Courier New",monospace; flex:1; color:#303133; }
 .rule-actions { flex-shrink:0; }
@@ -3482,25 +3847,58 @@ onMounted(async () => {
 /* ======= 中间画布 ======= */
 .survey-main-panel {
   display:flex; flex:1 1; flex-direction:column; overflow:hidden;
-  background-color:#f7f8fa; padding:0;
+  min-width:0; background:linear-gradient(180deg,#f8fafc 0%, #eef2f7 100%); padding:0;
 }
 .survey-main-panel-toolbar {
   display:flex; align-items:center; justify-content:space-between;
-  padding:8px 16px; background:#fff; border-bottom:1px solid #e8e8e8; gap:12px;
+  min-height:58px; padding:9px 18px; background:rgba(255,255,255,0.92);
+  border-bottom:1px solid var(--designer-border); gap:14px;
+  backdrop-filter:saturate(120%) blur(10px);
+}
+.toolbar-left,
+.toolbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.toolbar-center {
+  min-width:0; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; text-align:center;
+}
+.toolbar-title-row { display:flex; align-items:center; justify-content:center; gap:8px; max-width:100%; }
+.toolbar-title {
+  max-width:min(420px, 42vw); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:14px; font-weight:650; color:#1f2937; line-height:20px;
+}
+.toolbar-mode {
+  flex-shrink:0; padding:1px 7px; border-radius:999px; background:#f2f4f7;
+  color:#667085; font-size:11px; line-height:18px;
+}
+.toolbar-meta { display:flex; align-items:center; justify-content:center; gap:10px; color:#98a2b3; font-size:11px; line-height:16px; }
+.toolbar-meta span + span { position:relative; }
+.toolbar-meta span + span::before {
+  content:''; position:absolute; left:-6px; top:50%; width:2px; height:2px; border-radius:50%;
+  background:#cbd5e1; transform:translateY(-50%);
 }
 .toolbar-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.toolbar-btn-group { display:inline-flex; align-items:center; background:#f5f6f8; border-radius:6px; padding:2px; gap:0; }
+.toolbar-btn-group { display:inline-flex; align-items:center; background:#f3f5f8; border:1px solid #edf0f5; border-radius:9px; padding:3px; gap:2px; }
 .toolbar-btn-group .el-button { border:none; }
+.toolbar-btn {
+  width:30px; height:30px; min-width:30px; padding:0!important; margin:0!important;
+  color:#667085; border-radius:7px!important;
+}
+.toolbar-btn:hover { color:#1f2937; background:#fff!important; }
+.toolbar-btn.active { color:var(--designer-accent); background:#fff!important; box-shadow:0 5px 12px rgba(15,23,42,0.08); }
+.toolbar-divider { width:1px; height:24px; background:var(--designer-border); margin:0 2px; display:inline-block; }
 
-.survey-main-panel-content { flex:1; overflow-y:auto; padding:20px 40px; }
+.survey-main-panel-content { flex:1; overflow-y:auto; padding:26px 44px 36px; }
 .editor-wrapper { max-width:210mm; margin:0 auto; }
-.editor { border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow:hidden; }
+.editor {
+  min-height:calc(100vh - 174px); border-radius:14px; box-shadow:var(--designer-shadow);
+  overflow:hidden; background:#fff; border:1px solid rgba(226,232,240,0.9);
+}
 .json-panel, .survey-preview-panel { display:flex; flex-direction:column; height:100%; }
 .json-panel { padding:0; }
 .json-panel :deep(.el-textarea__inner) { height:100% !important; min-height:500px; font-size:13px; }
 .preview-iframe-wrapper { flex:1; }
 .preview-iframe { width:100%; height:100%; border-radius:8px; }
-.survey-preview-panel { max-width:210mm; margin:0 auto; background-color:transparent; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.06); overflow-y:auto; }
+.survey-preview-panel { max-width:210mm; margin:0 auto; background-color:#fff; border-radius:14px; box-shadow:var(--designer-shadow); overflow-y:auto; border:1px solid rgba(226,232,240,0.9); }
 .survey-preview-header { padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0; }
 .preview-form-title { font-size:22px; font-weight:600; color:#303133; }
 .preview-form-desc { font-size:14px; color:#666; margin-top:6px; white-space:pre-wrap; word-break:break-word; text-align:left; }
@@ -3525,8 +3923,20 @@ onMounted(async () => {
 .header-title-input :deep(.el-input__inner):focus { cursor:text; }
 .header-desc { font-size:14px; color:#666; margin-top:6px; white-space:pre-wrap; word-break:break-word; text-align:left; }
 
-.questions-area { padding:16px 24px; }
-.questions-area :deep(.draggable-list) { gap:8px; }
+.questions-area { padding:18px 26px 22px; min-height:320px; }
+.questions-area :deep(.draggable-list) { gap:10px; }
+.designer-empty-canvas {
+  margin:8px 0 4px; min-height:230px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border:1px dashed #d6dae3; border-radius:12px; background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%);
+  color:#98a2b3; text-align:center; padding:28px 20px;
+}
+.empty-canvas-icon {
+  width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  color:var(--designer-accent); background:var(--designer-accent-soft); font-size:28px; line-height:1; margin-bottom:12px;
+}
+.empty-canvas-title { font-size:15px; font-weight:650; color:#344054; margin-bottom:6px; }
+.empty-canvas-desc { font-size:12px; color:#98a2b3; margin-bottom:14px; }
+.empty-canvas-actions { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
 
 .applied-image-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px; background:#fff; border-radius:6px; border:1px solid #eee; }
 .applied-image-thumb { width:40px; height:40px; border-radius:4px; object-fit:cover; flex-shrink:0; }
@@ -3540,24 +3950,57 @@ onMounted(async () => {
 .footer-inner { font-size:13px; color:#999; }
 
 /* ======= 右侧属性面板 ======= */
-.survey-setting-panel { width:380px; flex-shrink:0; border-left:1px solid #e8e8e8; background:#fafafa; overflow-y:auto; }
-.props-panel { padding:12px; }
-.props-panel h3 { font-size:14px; font-weight:500; color:#fb454c; margin:0 0 8px; padding-bottom:8px; border-bottom:2px solid #fb454c; }
-.props-panel :deep(.el-form-item) { margin-bottom:8px; }
-.props-panel :deep(.el-form-item__label) { font-size:12px; color:#666; padding-bottom:2px; font-weight:500; line-height:1.2; }
-.props-panel :deep(.el-divider) { margin:8px 0; }
-.props-panel :deep(.el-collapse-item__header) { font-size:12px; font-weight:500; }
-.props-footer { padding:8px 12px; border-top:1px solid #e8e8e8; background:#fafafa; position:sticky; bottom:0; z-index:1; }
-.setting-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:12px; color:#666; }
+.survey-setting-panel {
+  width:380px; flex-shrink:0; border-left:1px solid var(--designer-border);
+  background:#fff; overflow-y:auto; box-shadow:-2px 0 14px rgba(15,23,42,0.04);
+}
+.props-panel { padding:14px; min-height:100%; box-sizing:border-box; }
+.props-panel h3 {
+  position:sticky; top:0; z-index:2; font-size:14px; font-weight:650; color:#1f2937;
+  margin:-14px -14px 12px; padding:14px 14px 12px; border-bottom:1px solid var(--designer-border);
+  background:rgba(255,255,255,0.96); backdrop-filter:saturate(120%) blur(8px);
+}
+.props-panel h3::before {
+  content:''; display:inline-block; width:3px; height:14px; border-radius:999px;
+  background:var(--designer-accent); margin-right:8px; vertical-align:-2px;
+}
+.props-panel :deep(.el-form-item) { margin-bottom:10px; }
+.props-panel :deep(.el-form-item__label) { font-size:12px; color:#667085; padding-bottom:4px; font-weight:600; line-height:1.2; }
+.props-panel :deep(.el-divider) { margin:12px 0; }
+.props-panel :deep(.el-collapse-item__header) { font-size:12px; font-weight:600; }
+.props-panel :deep(.el-input__wrapper),
+.props-panel :deep(.el-textarea__inner),
+.props-panel :deep(.el-select__wrapper),
+.props-panel :deep(.el-input-number .el-input__wrapper) {
+  border-radius:7px;
+}
+.props-footer {
+  padding:10px 0 0; border-top:1px solid var(--designer-border); background:#fff;
+  position:sticky; bottom:0; z-index:1; margin-top:12px;
+}
+.setting-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; font-size:12px; color:#667085; }
 .setting-row .setting-label { font-weight:500; }
-.props-options-section { margin-bottom:8px; padding:8px; background:#f5f6f8; border-radius:6px; }
-.setting-opt-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+.props-options-section { margin-bottom:10px; padding:10px; background:#f8fafc; border:1px solid #edf0f5; border-radius:9px; }
+.setting-opt-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; min-width:0; }
+.props-empty-panel { display:flex; align-items:center; justify-content:center; }
+.props-empty-panel :deep(.el-empty) { width:100%; }
 
 /* ======= 设置/投放视图 ======= */
-.setting-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; }
-.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:20px; padding:20px 24px; align-items:start; }
-.setting-group { padding:16px 20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
-.group-title { font-size:13px; font-weight:500; color:#888; margin-bottom:12px; letter-spacing:0.5px;}
+.setting-wrapper { height:100%; overflow-y:auto; background:var(--designer-bg); }
+.setting-header {
+  position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between;
+  gap:16px; padding:18px 24px; background:rgba(248,250,252,0.94);
+  border-bottom:1px solid var(--designer-border); backdrop-filter:saturate(120%) blur(10px);
+}
+.setting-page-title { font-size:18px; font-weight:700; color:#1f2937; line-height:1.3; }
+.setting-page-desc { margin-top:3px; font-size:12px; color:#667085; line-height:1.5; }
+.setting-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-shrink:0; }
+.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:18px; padding:24px; align-items:start; }
+.setting-group {
+  padding:18px 20px; background:#fff; border-radius:10px;
+  border:1px solid var(--designer-border); box-shadow:0 8px 18px rgba(15,23,42,0.04);
+}
+.group-title { font-size:14px; font-weight:650; color:#344054; margin-bottom:14px; letter-spacing:0;}
 .settings-grid { display:flex; flex-direction:column; gap:0; }
 .settings-grid .el-form-item { width:100%; min-width:0; box-sizing:border-box; }
 .settings-grid .el-form-item .el-input,
@@ -3566,107 +4009,250 @@ onMounted(async () => {
 .settings-grid .el-form-item .el-date-editor { width:100% !important; }
 .settings-grid .el-form-item .el-form-item__content { min-width:0; overflow:hidden; }
 .setting-group { overflow:hidden; }
+.setting-control-stack { display:flex; flex-direction:column; gap:4px; width:100%; min-width:0; }
+.setting-help { width:100%; margin-top:4px; font-size:12px; color:#98a2b3; line-height:1.5; }
+.setting-help.danger { color:#f04438; }
+.setting-tree-box {
+  width:100%; max-height:300px; overflow:auto; border:1px solid #dcdfe6;
+  border-radius:7px; padding:8px; box-sizing:border-box; transition:border-color 0.15s, box-shadow 0.15s;
+}
+.setting-tree-box.invalid { border-color:#fda29b; box-shadow:0 0 0 2px rgba(240,68,56,0.08); }
+.completion-radio-group { display:flex; width:100%; min-width:0; }
+.completion-radio-group :deep(.el-radio-button) { flex:1; min-width:0; }
+.completion-radio-group :deep(.el-radio-button__inner) { width:100%; padding-left:8px; padding-right:8px; }
 :deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 :deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .settings-full { width:100%; }
 .hint { font-size:12px; color:#aaa; margin-left:8px; }
-.save-tip { padding:60px 0; text-align:center; color:#aaa; font-size:14px; }
+.save-tip { padding:60px 0; text-align:center; color:#98a2b3; font-size:14px; }
 .share-card { max-width:600px; }
 .share-title { font-size:13px; font-weight:500; color:#555; margin:16px 0 8px; }
 .share-row { margin-bottom:8px; }
 .qr-box { margin-top:12px; display:inline-block; padding:12px; background:#fff; border:1px solid #f0f0f0; border-radius:12px; }
 
 /* ======= 概览视图 ======= */
-.overview-wrapper { height:100%; overflow-y:auto; background:#f5f6f8; padding:20px 24px; }
+.overview-wrapper { height:100%; overflow-y:auto; background:var(--designer-bg); padding:20px 24px; }
 .overview-scroll { max-width:860px; margin:0 auto; }
 .overview-card { margin-bottom:20px; padding:20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
 .overview-card-title { font-size:14px; font-weight:600; color:#303133; margin-bottom:16px; }
 .chart-placeholder { padding:10px 0; }
 .chart-bars { display:flex; align-items:flex-end; justify-content:space-around; height:150px; gap:8px; }
 .chart-bar-group { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
-.chart-bar { width:100%; max-width:40px; border-radius:4px 4px 0 0; background:linear-gradient(to top,#fb454c,#ff7875); transition:height 0.3s; min-height:8px; }
+.chart-bar { width:100%; max-width:40px; border-radius:4px 4px 0 0; background:linear-gradient(to top,#2563eb,#60a5fa); transition:height 0.3s; min-height:8px; }
 .chart-label { font-size:11px; color:#999; }
 .overview-settings { display:flex; flex-direction:column; gap:14px; }
-.setting-row { display:flex; align-items:center; gap:12px; }
-.setting-label { font-size:13px; color:#555; min-width:80px; flex-shrink:0; }
-.setting-value { flex:1; }
+.overview-settings .setting-row { display:flex; align-items:center; gap:12px; }
+.overview-settings .setting-label { font-size:13px; color:#555; min-width:80px; flex-shrink:0; }
+.overview-settings .setting-value { flex:1; }
 
 /* 题库面板 */
-.bank-panel { padding:8px; display:flex; flex-direction:column; height:100%; }
-.bank-search { margin-bottom:8px; }
-.bank-list { flex:1; overflow-y:auto; }
-.bank-item {
-  display:flex; align-items:center; gap:6px; padding:6px 8px;
-  border-radius:6px; cursor:pointer; transition:all 0.12s; line-height:20px;
+.bank-panel { padding:10px 8px 12px; display:flex; flex-direction:column; height:100%; background:#fff; box-sizing:border-box; }
+.bank-search { margin-bottom:10px; flex-shrink:0; }
+.bank-search :deep(.el-input__wrapper) { border-radius:8px; box-shadow:0 0 0 1px #e5e7eb inset; }
+.bank-search :deep(.el-input__wrapper:hover) { box-shadow:0 0 0 1px #bfdbfe inset; }
+.bank-search :deep(.el-input__wrapper.is-focus) { box-shadow:0 0 0 1px var(--designer-accent) inset; }
+.bank-list { flex:1; min-height:0; overflow-y:auto; padding-right:2px; display:flex; flex-direction:column; gap:6px; }
+.bank-cat { border:1px solid #eef2f7; border-radius:9px; background:#fff; overflow:hidden; }
+.bank-cat-title,
+.bank-type-title {
+  display:flex; align-items:center; gap:7px; min-width:0; cursor:pointer;
+  transition:background 0.12s, color 0.12s, border-color 0.12s;
 }
-.bank-item:hover { background:#fff5f5; color:#fb454c; }
-.bank-item.active { background:#fff0f0; color:#fb454c; }
-.bank-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
-.bank-item:hover .bank-icon { color:#fb454c; }
-.bank-index { font-size:12px; color:#bbb; min-width:20px; }
-.bank-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bank-type { font-size:10px; color:#bbb; }
-.bank-cat { margin-bottom:4px; }
-.bank-cat-title { display:flex; align-items:center; gap:6px; padding:6px 8px; font-size:13px; font-weight:600; color:#333; cursor:pointer; border-radius:6px; }
-.bank-cat-title:hover { background:#f5f5f5; }
-.bank-arrow { font-size:10px; color:#999; width:14px; flex-shrink:0; }
-.bank-count { font-size:11px; color:#bbb; font-weight:400; margin-left:auto; }
-.bank-cat-body { padding-left:16px; }
-.bank-type-group { margin-bottom:2px; }
-.bank-type-title { display:flex; align-items:center; gap:6px; padding:4px 8px; font-size:12px; color:#666; cursor:pointer; border-radius:4px; }
-.bank-type-title:hover { background:#f5f5f5; }
-.bank-type-body { padding-left:16px; }
+.bank-cat-title { padding:7px 8px; font-size:13px; font-weight:650; color:#1f2937; background:#f8fafc; }
+.bank-cat-title:hover { background:#eff6ff; color:var(--designer-accent); }
+.bank-cat-name,
+.bank-type-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bank-arrow {
+  width:16px; height:16px; flex-shrink:0; border-radius:5px; color:#94a3b8;
+  display:flex; align-items:center; justify-content:center;
+}
+.bank-arrow::before {
+  content:''; width:5px; height:5px; border:solid currentColor; border-width:0 1.5px 1.5px 0;
+  transform:rotate(-45deg); transition:transform 0.12s; margin-left:-2px;
+}
+.bank-arrow.expanded::before { transform:rotate(45deg); margin-left:0; margin-top:-2px; }
+.bank-count {
+  flex-shrink:0; font-size:11px; color:var(--designer-accent); font-weight:600;
+  background:var(--designer-accent-soft); border:1px solid var(--designer-accent-border);
+  border-radius:999px; padding:1px 7px; line-height:18px;
+}
+.bank-cat-body { padding:4px 6px 6px; }
+.bank-type-group { margin-bottom:3px; }
+.bank-type-group:last-child { margin-bottom:0; }
+.bank-type-title { padding:5px 6px; font-size:12px; font-weight:600; color:#475569; border-radius:7px; }
+.bank-type-title:hover { background:#f8fafc; color:var(--designer-accent); }
+.bank-type-title .bank-count { color:#64748b; background:#f8fafc; border-color:#e2e8f0; }
+.bank-type-body {
+  display:flex; flex-direction:column; gap:2px; padding:1px 0 1px 28px;
+}
+.bank-item {
+  display:flex; align-items:center; gap:6px; min-height:30px; padding:4px 6px;
+  border:1px solid transparent; border-radius:7px; background:transparent; cursor:pointer;
+  transition:background 0.12s, border-color 0.12s, color 0.12s;
+}
+.bank-item:hover {
+  background:#f8fbff; border-color:#dbeafe;
+}
+.bank-icon {
+  flex-shrink:0; width:16px; height:16px; border-radius:5px; background:#f1f5f9;
+  color:#64748b; display:flex; align-items:center; justify-content:center; font-size:10px;
+}
+.bank-type-title:hover .bank-icon { background:var(--designer-accent-soft); color:var(--designer-accent); }
+.bank-item-main { flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
+.bank-title { flex:1; min-width:0; font-size:13px; color:#1f2937; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bank-meta { flex-shrink:0; max-width:42px; font-size:11px; line-height:16px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bank-type {
+  flex-shrink:0; max-width:54px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:11px; color:var(--designer-accent); background:var(--designer-accent-soft);
+  border:1px solid var(--designer-accent-border); border-radius:999px; padding:1px 6px; line-height:16px;
+}
+.bank-loading {
+  display:flex; align-items:center; justify-content:center; gap:8px; padding:18px 0;
+  color:#64748b; font-size:12px;
+}
+.bank-loading::before {
+  content:''; width:12px; height:12px; border:2px solid #dbeafe; border-top-color:var(--designer-accent);
+  border-radius:50%; animation:bank-spin 0.8s linear infinite;
+}
+.bank-list :deep(.el-empty) { padding:34px 0; }
+@keyframes bank-spin { to { transform:rotate(360deg); } }
 
 /* 大纲树 */
-.outline-tree { padding:4px 0; }
+.outline-tree { height:100%; min-height:0; padding:6px 7px 10px; display:flex; flex-direction:column; background:#fff; box-sizing:border-box; }
 .tree-root {
-  display:flex; align-items:center; gap:8px; padding:8px 10px;
-  border-radius:8px; font-weight:600; font-size:14px; color:#333;
-  background:#f5f7fa;
+  display:flex; align-items:center; justify-content:space-between; gap:8px; flex-shrink:0;
+  padding:9px 8px 10px; border-bottom:1px solid var(--designer-border); margin-bottom:6px; background:#fff;
 }
-.tree-root-icon { font-size:16px; }
-.tree-root-title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tree-root-count { font-size:11px; color:#999; font-weight:400; }
-.tree-root-line {
-  height:12px; margin-left:29px; border-left:2px dashed #d0d5dd;
+.tree-root-main { display:flex; align-items:center; gap:8px; min-width:0; }
+.tree-root-icon { font-size:16px; flex-shrink:0; }
+.tree-root-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:650; font-size:13px; color:#1f2937; }
+.tree-root-count {
+  flex-shrink:0; font-size:11px; color:var(--designer-accent); font-weight:600;
+  background:var(--designer-accent-soft); border:1px solid var(--designer-accent-border);
+  border-radius:999px; padding:1px 8px; line-height:18px;
 }
-.tree-children { padding-left:20px; }
+.tree-children {
+  position:relative; flex:1; min-height:0; overflow-y:auto; padding:4px 2px 2px 18px;
+  display:flex; flex-direction:column; gap:3px;
+}
+.tree-children::before {
+  content:''; position:absolute; left:9px; top:10px; bottom:10px;
+  border-left:1px dashed #cbd5e1; pointer-events:none;
+}
 .tree-child {
-  display:flex; align-items:stretch; cursor:pointer; border-radius:6px;
-  transition:all 0.12s; min-height:32px; position:relative;
+  display:flex; align-items:center; gap:7px; cursor:pointer; border-radius:8px; min-height:34px;
+  padding:5px 6px; border:1px solid transparent; position:relative;
+  transition:background 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
-.tree-child:hover { background:#fff5f5; }
-.tree-child.active { background:#fff0f0; }
-.tree-connector {
-  position:relative; width:20px; flex-shrink:0;
+.tree-child::after {
+  content:''; position:absolute; left:-9px; top:50%; width:9px;
+  border-top:1px dashed #cbd5e1; transform:translateY(-50%); pointer-events:none;
 }
-.tree-line {
-  position:absolute; left:50%; top:0; bottom:0;
-  border-left:2px dashed #d0d5dd; margin-left:-1px;
+.tree-child:hover { background:#f8fbff; border-color:#dbeafe; }
+.tree-child.active { background:var(--designer-accent-soft); border-color:var(--designer-accent-border); box-shadow:none; }
+.tree-child.active::before {
+  content:''; position:absolute; left:0; top:7px; bottom:7px; width:3px;
+  border-radius:999px; background:var(--designer-accent);
 }
 .chart-type-btns { display:flex; gap:2px; flex-shrink:0; }
 .chart-type-btns button {
   width:26px; height:26px; border:1px solid #e8e8e8; border-radius:4px; background:#fff;
   font-size:14px; line-height:1; cursor:pointer; color:#888; display:flex; align-items:center; justify-content:center;
 }
-.chart-type-btns button:hover { border-color:#fb454c; color:#fb454c; }
-.chart-type-btns button.active { background:#fb454c; border-color:#fb454c; color:#fff; }
-.tree-child:last-child .tree-line { bottom:50%; }
-.tree-branch {
-  position:absolute; left:50%; top:50%; width:10px;
-  border-top:2px dashed #d0d5dd;
-}
+.chart-type-btns button:hover { border-color:var(--designer-accent); color:var(--designer-accent); }
+.chart-type-btns button.active { background:var(--designer-accent); border-color:var(--designer-accent); color:#fff; }
 .tree-child-body {
-  display:flex; align-items:center; gap:6px; padding:6px 8px; flex:1; min-width:0;
-  border-radius:0 6px 6px 0;
+  display:flex; align-items:center; gap:6px; flex:1; min-width:0;
 }
 .tree-child.active .tree-child-body { font-weight:500; }
-.tree-index { font-size:12px; color:#bbb; min-width:22px; text-align:right; flex-shrink:0; }
-.tree-icon { flex-shrink:0; font-size:14px; width:18px; text-align:center; color:#999; }
+.tree-index {
+  display:flex; align-items:center; justify-content:flex-end; flex:0 0 26px; height:22px;
+  color:#98a2b3; font-size:12px; font-weight:600; line-height:1;
+}
+.tree-child.active .tree-index { color:var(--designer-accent); }
+.tree-icon { flex-shrink:0; font-size:13px; width:16px; text-align:center; color:#98a2b3; }
 .tree-child:hover .tree-icon,
-.tree-child.active .tree-icon { color:#fb454c; }
-.tree-title { font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tree-type { font-size:10px; color:#bbb; padding:1px 5px; border-radius:3px; background:#f5f5f5; flex-shrink:0; }
+.tree-child.active .tree-icon { color:var(--designer-accent); }
+.tree-title {
+  flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:#344054; font-size:13px; line-height:20px;
+}
+.tree-child.active .tree-title { color:#1f2937; font-weight:650; }
+.tree-type {
+  max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:10px; color:#667085; padding:1px 6px; border-radius:999px; background:#f2f4f7; flex-shrink:0; line-height:16px;
+}
+.tree-required {
+  display:flex; align-items:center; justify-content:center; flex:0 0 16px; height:16px;
+  font-size:10px; color:#dc6803; border-radius:999px; background:#fff7ed;
+}
 .tree-child:hover .tree-type,
-.tree-child.active .tree-type { background:#fee; color:#fb454c; }
+.tree-child.active .tree-type { background:var(--designer-accent-soft); color:var(--designer-accent); }
+.outline-empty { flex:1; display:flex; align-items:center; justify-content:center; }
+
+.survey-sidebar-panel-tabs-content::-webkit-scrollbar,
+.survey-setting-panel::-webkit-scrollbar,
+.survey-main-panel-content::-webkit-scrollbar,
+.setting-wrapper::-webkit-scrollbar,
+.logic-editor-area::-webkit-scrollbar,
+.logic-sidebar::-webkit-scrollbar,
+.tree-children::-webkit-scrollbar {
+  width:8px;
+  height:8px;
+}
+.survey-sidebar-panel-tabs-content::-webkit-scrollbar-thumb,
+.survey-setting-panel::-webkit-scrollbar-thumb,
+.survey-main-panel-content::-webkit-scrollbar-thumb,
+.setting-wrapper::-webkit-scrollbar-thumb,
+.logic-editor-area::-webkit-scrollbar-thumb,
+.logic-sidebar::-webkit-scrollbar-thumb,
+.tree-children::-webkit-scrollbar-thumb {
+  background:#cfd6e2;
+  border-radius:999px;
+  border:2px solid transparent;
+  background-clip:content-box;
+}
+.survey-sidebar-panel-tabs-content::-webkit-scrollbar-thumb:hover,
+.survey-setting-panel::-webkit-scrollbar-thumb:hover,
+.survey-main-panel-content::-webkit-scrollbar-thumb:hover,
+.setting-wrapper::-webkit-scrollbar-thumb:hover,
+.logic-editor-area::-webkit-scrollbar-thumb:hover,
+.logic-sidebar::-webkit-scrollbar-thumb:hover,
+.tree-children::-webkit-scrollbar-thumb:hover {
+  background:#aeb8c8;
+  border:2px solid transparent;
+  background-clip:content-box;
+}
+
+@media (max-width: 1440px) {
+  .survey-sidebar-panel-tabs-content { width:232px; }
+  .survey-setting-panel { width:350px; }
+  .survey-main-panel-content { padding:22px 28px 32px; }
+  .toolbar-title { max-width:34vw; }
+}
+
+@media (max-width: 1240px) {
+  .toolbar-center { align-items:flex-start; text-align:left; }
+  .toolbar-title-row,
+  .toolbar-meta { justify-content:flex-start; }
+  .survey-sidebar-panel-tabs-content { width:216px; }
+  .survey-setting-panel { width:324px; }
+  .setting-header { align-items:flex-start; flex-direction:column; }
+  .setting-header-actions { width:100%; justify-content:flex-start; flex-wrap:wrap; }
+  .setting-scroll { grid-template-columns:1fr; }
+}
+
+@media (max-width: 1080px) {
+  .survey-main-navigator { flex-basis:48px; }
+  .nav-btn { width:34px; height:34px; min-width:34px; border-radius:9px; }
+  .survey-sidebar-panel-tabs-pane { width:38px; height:38px; margin:2px 4px; }
+  .survey-sidebar-panel-tabs-content { width:196px; }
+  .toolbar-center { display:none; }
+  .survey-setting-panel { width:300px; }
+  .survey-main-panel-content { padding:18px; }
+  .questions-area { padding:16px 18px 20px; }
+  .logic-full-panel { padding:18px; }
+  .logic-body { flex-direction:column; overflow-y:auto; }
+  .logic-sidebar { width:auto; }
+}
 </style>

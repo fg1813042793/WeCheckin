@@ -4,6 +4,7 @@
       v-for="(q, idx) in questions"
       :key="q.id"
       class="question-card"
+      :data-exam-question-id="q.id"
       :class="{ selected: q.id === selectedId, dragging: dragIndex === idx, 'drop-before': overIndex === idx && dragIndex !== idx }"
       @click="$emit('select', q.id)"
       @dragover.prevent
@@ -140,8 +141,11 @@ function patchQuestion(id: string, key: string, val: any) {
 .draggable-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   position: relative;
+  --exam-designer-accent: var(--designer-accent, #0f766e);
+  --exam-designer-accent-soft: var(--designer-accent-soft, #ecfdf5);
+  --exam-designer-accent-border: var(--designer-accent-border, #99f6e4);
 }
 /* TransitionGroup move animation */
 .drag-move,
@@ -159,17 +163,23 @@ function patchQuestion(id: string, key: string, val: any) {
   display: flex;
   align-items: flex-start;
   background: #fff;
-  border-radius: 8px;
-  padding: 10px 12px;
+  border: 1px solid #edf0f5;
+  border-radius: 10px;
+  padding: 12px 14px;
   cursor: pointer;
   transition: all 0.25s ease;
   position: relative;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.03);
 }
 .question-card:hover {
-  background: #fafafa;
+  border-color: var(--exam-designer-accent-border);
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.08);
+  transform: translateY(-1px);
 }
 .question-card.selected {
-  background: #fff5f5;
+  background: var(--exam-designer-accent-soft);
+  border-color: var(--exam-designer-accent);
+  box-shadow: 0 12px 26px rgba(15, 118, 110, 0.12);
 }
 .question-card.dragging {
   opacity: 0.3;
@@ -187,24 +197,24 @@ function patchQuestion(id: string, key: string, val: any) {
   right: 0;
   top: calc(-1 * var(--ph-h, 54px) - 8px);
   height: var(--ph-h, 54px);
-  border: 2px dashed #fb454c;
+  border: 2px dashed var(--exam-designer-accent);
   border-radius: 8px;
-  background: rgba(251, 69, 76, 0.04);
+  background: rgba(15, 118, 110, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fb454c;
+  color: var(--exam-designer-accent);
   font-size: 12px;
   letter-spacing: 2px;
   box-sizing: border-box;
 }
 .question-card::before {
-  content: ''; position:absolute; left:0; top:4px; bottom:4px; width:3px;
-  border-radius:0 2px 2px 0; background:transparent; transition:all 0.15s;
+  content: ''; position:absolute; left:-1px; top:8px; bottom:8px; width:3px;
+  border-radius:0 999px 999px 0; background:transparent; transition:all 0.15s;
 }
-.question-card.selected::before { background:#fb454c; }
+.question-card.selected::before { background:var(--exam-designer-accent); }
 .card-handle {
-  color: #d0d0d0;
+  color: #c0c7d2;
   font-size: 16px;
   margin-right: 6px;
   cursor: grab;
@@ -218,7 +228,7 @@ function patchQuestion(id: string, key: string, val: any) {
 .card-index {
   font-size: 15px;
   font-weight: 600;
-  color: #fb454c;
+  color: var(--exam-designer-accent);
   margin-right: 8px;
   line-height: 24px;
   min-width: 24px;
@@ -244,7 +254,7 @@ function patchQuestion(id: string, key: string, val: any) {
   text-align:center; color:#ccc; font-size:13px; transition:all 0.2s;
 }
 .list-tail-zone.active {
-  border-color:#fb454c; background:rgba(251,69,76,0.04); color:#fb454c; padding:32px 12px;
+  border-color:var(--exam-designer-accent); background:rgba(15,118,110,0.05); color:var(--exam-designer-accent); padding:32px 12px;
 }
 .tail-indicator { display:none; }
 </style>

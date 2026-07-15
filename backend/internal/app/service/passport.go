@@ -1,14 +1,13 @@
 package service
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
 
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
+	"wecheckin-backend/backend/pkg/passwordutil"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/tokenutil"
 )
@@ -32,9 +31,10 @@ func RegisterUser(userID, mobile, name, pic string, forms interface{}, status in
 		b, _ := json.Marshal(forms)
 		formsStr = string(b)
 	}
-	// Generate a random default password: md5(mobile)
-	h := md5.Sum([]byte(mobile))
-	defaultPwd := hex.EncodeToString(h[:])
+	defaultPwd, err := passwordutil.Hash(mobile)
+	if err != nil {
+		return nil, err
+	}
 	user := model.User{
 		MiniOpenID: userID,
 		Mobile:     mobile,
@@ -144,12 +144,21 @@ func LoginUser(userID, addIP, device string) (map[string]interface{}, error) {
 }
 
 func LoginByPwd(name, password, addIP, device string) (map[string]interface{}, error) {
-	h := md5.Sum([]byte(password))
-	passwordMD5 := hex.EncodeToString(h[:])
 	var user model.User
-	err := database.DB.Where("(`user_name` = ? OR `user_mobile` = ?) AND `user_password` = ?", name, name, passwordMD5).First(&user).Error
+	err := database.DB.Where("`user_name` = ? OR `user_mobile` = ?", name, name).First(&user).Error
 	if err != nil {
 		return nil, fmt.Errorf("账号或密码错误")
+	}
+	if !passwordutil.Verify(user.Password, password) {
+		return nil, fmt.Errorf("账号或密码错误")
+	}
+	if passwordutil.NeedsRehash(user.Password) {
+		newHash, err := passwordutil.Hash(password)
+		if err != nil {
+			return nil, err
+		}
+		database.DB.Model(&user).Update("user_password", newHash)
+		user.Password = newHash
 	}
 	database.DB.Model(&user).Update("user_login_time", database.Now())
 	database.DB.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)

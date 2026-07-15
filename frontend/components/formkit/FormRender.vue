@@ -16,7 +16,7 @@
       <block v-else>
         <view class="fr-label">
           <text class="fr-title">{{ q.title }}</text>
-          <text v-if="q.required" class="fr-required">*</text>
+          <text v-if="isRequired(q)" class="fr-required">*</text>
         </view>
         <view v-if="q.description" class="fr-helper">{{ q.description }}</view>
 
@@ -28,6 +28,7 @@
           @input="(e) => setVal(q, e.detail.value)"
           :placeholder="q.placeholder || placeholderFor(q.type)"
           :password="q.type === 'password'"
+          :disabled="isCalculated(q)"
           class="fr-input"
         />
 
@@ -36,8 +37,9 @@
           v-else-if="q.type === 'number'"
           type="number"
           :value="getVal(q)"
-          @input="(e) => setVal(q, parseFloat(e.detail.value))"
+          @input="(e) => setVal(q, normalizeNumberInput(e.detail.value))"
           :placeholder="q.placeholder || '请输入数字'"
+          :disabled="isCalculated(q)"
           class="fr-input"
         />
 
@@ -47,6 +49,7 @@
           :value="getVal(q)"
           @input="(e) => setVal(q, e.detail.value)"
           :placeholder="q.placeholder || '请输入'"
+          :disabled="isCalculated(q)"
           class="fr-textarea"
         />
 
@@ -55,6 +58,7 @@
           v-else-if="q.type === 'select' || q.type === 'picker'"
           :range="optionLabels(q)"
           @change="(e) => onPickerChange(q, e)"
+          :disabled="isCalculated(q)"
         >
           <view class="fr-picker">
             <text :class="getVal(q) ? 'fr-picker-val' : 'fr-picker-ph'">
@@ -96,6 +100,7 @@
           v-else-if="q.type === 'switch'"
           :checked="getVal(q) === '1' || getVal(q) === true"
           @change="(e) => setVal(q, e.detail.value ? '1' : '0')"
+          :disabled="isCalculated(q)"
           color="#3b82f6"
         />
 
@@ -209,6 +214,8 @@
 
 <script>
 import { isOldSchema, normalizeSchema, initAnswers, getAnswerValue, setAnswerValue } from '../../utils/formkit.js'
+import { applyFormkitCalcValues, getCalculatedQuestionIds } from '../../utils/formkitCalc.js'
+import { evaluateFrontendRules } from '../../utils/logicEngine.js'
 
 export default {
   name: 'FormRender',
@@ -221,7 +228,11 @@ export default {
     return {
       questions: [],
       answers: null,
-      isOld: true
+      isOld: true,
+      logicRules: [],
+      hiddenIds: [],
+      requiredIds: [],
+      calculatedIds: []
     }
   },
   watch: {
@@ -230,6 +241,7 @@ export default {
       handler(v) {
         this.isOld = isOldSchema(v)
         this.questions = normalizeSchema(v)
+        this.logicRules = this.extractLogicRules(v)
         if (this.value !== null && this.value !== undefined) {
           this.answers = Array.isArray(this.value) || typeof this.value === 'object'
             ? JSON.parse(JSON.stringify(this.value))
@@ -237,13 +249,21 @@ export default {
         } else {
           this.answers = initAnswers(this.questions, this.isOld)
         }
+        this.calculatedIds = this.extractCalculatedIds()
+        this.applyCalculatedAnswers()
+        this.reevaluateRules()
       }
     }
   },
   methods: {
     isHidden(q) {
-      // 简化：不做 logic 求值，后续 P3+ 集成
-      return false
+      return this.hiddenIds.indexOf(q.id) >= 0
+    },
+    isRequired(q) {
+      return !!q.required || this.requiredIds.indexOf(q.id) >= 0
+    },
+    isCalculated(q) {
+      return q && this.calculatedIds.indexOf(q.id) >= 0
     },
     isLayout(t) {
       return t === 'divider' || t === 'description'
@@ -252,9 +272,110 @@ export default {
       return getAnswerValue(this.answers, q, this.isOld)
     },
     setVal(q, v) {
+      if (this.isCalculated(q)) return
       setAnswerValue(this.answers, q, v, this.isOld)
+      this.applyCalculatedAnswers()
+      this.reevaluateRules()
       this.$emit('update:value', this.answers)
       this.$emit('change', { id: q.id, value: v })
+    },
+    extractCalculatedIds() {
+      if (this.isOld || !this.questions.length) return []
+      return Array.from(getCalculatedQuestionIds(this.questions))
+    },
+    applyCalculatedAnswers() {
+      if (this.isOld || !this.answers) return
+      this.answers = applyFormkitCalcValues(this.questions, this.answers)
+    },
+    parseSchema(v) {
+      if (!v) return null
+      try {
+        return typeof v === 'string' ? JSON.parse(v) : v
+      } catch (e) {
+        return null
+      }
+    },
+    parseRuleList(raw) {
+      if (!raw) return []
+      if (Array.isArray(raw)) return raw
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw)
+          return Array.isArray(parsed) ? parsed : []
+        } catch (e) {
+          return []
+        }
+      }
+      return []
+    },
+    extractLogicRules(schemaValue) {
+      const schema = this.parseSchema(schemaValue)
+      if (!schema || this.isOld) return []
+      const rootRules = this.parseRuleList(schema.logicRules || (schema.settings && schema.settings.logicRules))
+        .filter((rule) => rule.scope !== 'backend')
+      const rawQuestions = Array.isArray(schema.questions) ? schema.questions : []
+      const embeddedRules = []
+      for (const rawQuestion of rawQuestions) {
+        const rules = Array.isArray(rawQuestion.logic) ? rawQuestion.logic : []
+        for (const rule of rules) {
+          const converted = this.convertEmbeddedRule(rawQuestion, rule)
+          if (converted) embeddedRules.push(converted)
+        }
+      }
+      return rootRules.concat(embeddedRules)
+    },
+    convertEmbeddedRule(ownerQuestion, rule) {
+      const when = rule && rule.when
+      if (!when || !when.questionId) return null
+      const questionIdx = this.questions.findIndex((q) => q.id === when.questionId)
+      const targetId = rule.target || ownerQuestion.id
+      const targetQuestionIdx = this.questions.findIndex((q) => q.id === targetId)
+      if (questionIdx < 0 || targetQuestionIdx < 0) return null
+      return {
+        conditionType: 'and',
+        conditions: [{
+          questionIdx,
+          operator: this.mapLogicOperator(when.operator),
+          compareValue: when.value
+        }],
+        action: this.mapLogicAction(rule.action),
+        scope: 'frontend',
+        targetQuestionIdx
+      }
+    },
+    mapLogicOperator(operator) {
+      const map = {
+        notEmpty: 'filled',
+        empty: 'empty',
+        '==': 'eq',
+        '!=': 'neq',
+        '>': 'gt',
+        '<': 'lt',
+        '>=': 'gte',
+        '<=': 'lte'
+      }
+      return map[operator] || operator || 'eq'
+    },
+    mapLogicAction(action) {
+      if (action === 'require') return 'required'
+      return action || 'show'
+    },
+    answersForLogic() {
+      const obj = {}
+      for (const q of this.questions) {
+        obj[q.id] = getAnswerValue(this.answers, q, this.isOld)
+      }
+      return obj
+    },
+    reevaluateRules() {
+      if (!this.logicRules.length || !this.questions.length || !this.answers) {
+        this.hiddenIds = []
+        this.requiredIds = []
+        return
+      }
+      const result = evaluateFrontendRules(this.logicRules, this.questions, this.answersForLogic())
+      this.hiddenIds = Array.from(result.hiddenIds)
+      this.requiredIds = Array.from(result.requiredIds)
     },
     inputType(t) {
       if (t === 'phone' || t === 'idCard' || t === 'password' || t === 'email' || t === 'number') return t
@@ -263,6 +384,11 @@ export default {
     placeholderFor(t) {
       const map = { phone: '请输入手机号', email: '请输入邮箱', idCard: '请输入身份证号', password: '请输入密码' }
       return map[t] || '请输入'
+    },
+    normalizeNumberInput(value) {
+      if (value === '' || value === null || value === undefined) return ''
+      const parsed = parseFloat(value)
+      return Number.isFinite(parsed) ? parsed : ''
     },
     optionLabels(q) {
       return (q.options || []).map((o) => o.label)

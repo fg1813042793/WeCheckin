@@ -78,7 +78,7 @@ WeCheckin/
 ```bash
 cd backend
 go mod tidy
-go run cmd/main.go
+go run ./cmd
 ```
 
 也可以使用启动脚本：
@@ -135,35 +135,126 @@ npm run build:mp-weixin
 ## 配置说明
 
 - `backend/config/config.yaml`：后端默认配置。
-- `backend/config/config.dev.yaml`：开发环境覆盖配置，可通过 `go run cmd/main.go -env dev` 合并读取。
+- `backend/config/config.dev.yaml`：开发环境覆盖配置，可通过 `go run ./cmd -env dev` 合并读取。
+- `backend/config/config.example.yaml`：安全示例配置，适合复制为新环境的起点。
 - `frontend/config/index.js`：uni-app 客户端 API 地址、版本和缓存配置。
 - `admin/vite.config.ts`：管理台开发代理配置。
 
-后端启动时会自动执行 GORM AutoMigrate，并初始化部分系统配置和菜单数据。
+uni-app 客户端默认读取 `frontend/.env` 中的 `VITE_API_BASE_URL` 作为后端 API 地址。可以复制 `frontend/.env.example` 为 `frontend/.env` 后按环境修改：
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+本地 H5 调试可使用 `http://localhost:8083`；真机或小程序调试需要填写设备可访问的局域网、测试环境或生产环境地址。
+
+后端支持 `WECHECKIN_` 环境变量覆盖 YAML 配置，环境变量优先级高于配置文件。敏感值建议通过环境变量注入，例如：
+
+```bash
+cd backend
+WECHECKIN_DATABASE_PASSWORD='your-db-password' \
+WECHECKIN_REDIS_PASSWORD='your-redis-password' \
+go run ./cmd
+```
+
+常用覆盖项包括：
+
+- `WECHECKIN_SERVER_PORT`
+- `WECHECKIN_DATABASE_HOST`
+- `WECHECKIN_DATABASE_PORT`
+- `WECHECKIN_DATABASE_USER`
+- `WECHECKIN_DATABASE_PASSWORD`
+- `WECHECKIN_DATABASE_DBNAME`
+- `WECHECKIN_REDIS_HOST`
+- `WECHECKIN_REDIS_PORT`
+- `WECHECKIN_REDIS_PASSWORD`
+- `WECHECKIN_REDIS_DB`
+- `WECHECKIN_CORS_ALLOW_ORIGINS`
+- `WECHECKIN_AUTO_MIGRATE`
+
+`WECHECKIN_CORS_ALLOW_ORIGINS`、`WECHECKIN_CORS_ALLOW_METHODS` 和 `WECHECKIN_CORS_ALLOW_HEADERS` 使用英文逗号分隔多个值。
+
+后端启动时默认会执行 GORM AutoMigrate，并初始化部分系统配置和菜单数据。生产环境如需关闭启动迁移，可设置 `WECHECKIN_AUTO_MIGRATE=false`，再使用单独迁移流程管理数据库结构。
+
+密码写入已使用 bcrypt。历史 MD5 密码仍可登录，登录成功后会自动升级为 bcrypt 哈希。
+
+后端健康检查：
+
+```text
+http://localhost:8083/health
+http://localhost:8083/ready
+```
+
+用户扩展表单字段通过 `setups` 表中的 `SETUP_USER_FORM_FIELDS` 配置项保存。后端启动不会清理旧 `user_form_fields` 表；如需迁移历史数据，应使用单独迁移脚本处理。
 
 ## 测试
 
-当前项目测试主要集中在后端 formkit 子系统：
+推荐使用项目级检查脚本验证当前关键回归检查：
+
+```bash
+bash scripts/check.sh
+```
+
+该脚本会使用项目内 `.cache/go-build` 作为 Go 构建缓存，并在结束时自动清理 `.cache/`。默认覆盖范围包括：
+
+- 后端启动入口、Token、handler、service、配置和 formkit 测试。
+- uni-app 客户端 API 配置、请求层、登录态、生产日志和 FormRender 逻辑静态检查。
+- 管理后台请求层、导航配置和 Vite 构建分包静态检查。
+
+如需在同一条命令中追加构建验证，可以使用以下开关：
+
+```bash
+CHECK_FRONTEND_BUILD=1 bash scripts/check.sh
+CHECK_ADMIN_BUILD=1 bash scripts/check.sh
+CHECK_BUILDS=1 bash scripts/check.sh
+```
+
+其中 `CHECK_BUILDS=1` 会同时运行前端 H5 构建和管理后台构建。
+
+如需单独运行 formkit 测试，也可以执行：
 
 ```bash
 GOCACHE=$PWD/.cache/go-build go test ./backend/internal/app/formkit/...
 ```
 
-如果测试后生成 `.cache/`，可以删除该目录；它已加入 `.gitignore`。
-
 ## 文档
 
+- [中文部署和排障指南](docs/DEPLOYMENT_TROUBLESHOOTING.md)
 - [HBuilderX Android 调试指南](docs/HBUILDER_DEBUG.md)
 - [测试数据说明](docs/TEST_DATA.md)
 - `docs/CC打卡小程序安装使用手册.docx`
 
 ## 部署
 
-后端提供 Dockerfile 和 docker-compose 示例：
+完整部署步骤、环境变量清单、Nginx 示例和常见问题请查看：
+
+- [中文部署和排障指南](docs/DEPLOYMENT_TROUBLESHOOTING.md)
+
+后端提供 Dockerfile 和 docker-compose 示例，可作为容器化部署起点：
 
 ```bash
 cd backend
+cp .env.example .env
 docker-compose up -d
 ```
 
-部署前请根据目标环境调整 MySQL、Redis、端口、上传目录和反向代理配置。
+Dockerfile、Compose 和 Nginx 示例已统一到后端端口 `8083`。`backend/.env.example` 提供 Docker 部署环境变量样板，复制为 `.env` 后必须修改 MySQL、Redis 密码、域名、CORS 和迁移开关。
+
+Docker Compose 中 MySQL、Redis、后端和 Nginx 均配置了 healthcheck，backend 依赖 MySQL/Redis healthy，Nginx 依赖 backend healthy。该配置依赖 Docker Compose v2 的 `condition: service_healthy`。
+
+Compose 已配置 Docker 日志轮转，Nginx 会记录并透传 `X-Request-ID`。查看容器日志：
+
+```bash
+cd backend
+bash scripts/docker-logs.sh backend
+bash scripts/docker-logs.sh nginx
+```
+
+Docker 场景数据库备份和恢复脚本：
+
+```bash
+cd backend
+bash scripts/docker-backup.sh
+bash scripts/docker-restore.sh backups/wecheckin-YYYYMMDD-HHMMSS.sql
+```

@@ -12,9 +12,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/internal/app/service"
+	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -497,6 +497,8 @@ func (h *AdminExamHandler) QuestionBankList(_ context.Context, c *app.RequestCon
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	keyword := c.Query("keyword")
+	category := c.Query("category")
+	qType := c.Query("type")
 	if page < 1 {
 		page = 1
 	}
@@ -507,10 +509,16 @@ func (h *AdminExamHandler) QuestionBankList(_ context.Context, c *app.RequestCon
 	if keyword != "" {
 		q = q.Where("`exam_q_title` LIKE ? OR `exam_q_type` LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
+	if category != "" {
+		q = q.Where("`exam_q_category` = ?", category)
+	}
+	if qType != "" {
+		q = q.Where("`exam_q_type` = ?", qType)
+	}
 	var total int64
 	q.Count(&total)
 	var list []model.ExamQuestion
-	q.Order("`exam_q_add_time` DESC").Offset((page-1)*pageSize).Limit(pageSize).Find(&list)
+	q.Order("`exam_q_add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
 	response.JSON(c, response.PageData{List: list, Total: total, Size: pageSize, Page: page})
 }
 

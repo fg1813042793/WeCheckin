@@ -51,7 +51,7 @@
         <div v-if="endContent" class="survey-end-desc" v-html="endContent" />
         <div class="survey-end-result">
           <div v-if="settings.redirectUrl" class="survey-end-result-copy">
-            <el-button type="primary" class="survey-btn--primary" @click="window.location.href = settings.redirectUrl">查看结果</el-button>
+            <el-button type="primary" class="survey-btn--primary" @click="openRedirectUrl">查看结果</el-button>
           </div>
         </div>
       </div>
@@ -79,6 +79,7 @@
               :index="currentNavIndex"
               :answers="answers"
               :settings="settings"
+              :required-question-ids="requiredQuestionIds"
               :file-lists="fileLists"
               :file-inputs="fileInputs"
               :sig-canvas-map="sigCanvasMap"
@@ -86,6 +87,7 @@
               @trigger-file="triggerFileInput"
               @remove-file="removeFile"
               @pick-location="pickLocation"
+              @open-scanner="openScanner"
               @sig-start="sigStart"
               @sig-move="sigMove"
               @sig-end="sigEnd"
@@ -105,30 +107,32 @@
         </template>
 
         <template v-else>
-          <QuestionField
-            v-for="(q, i) in questions"
-            :key="q.id"
-            v-if="!hiddenQuestionIds.has(q.id)"
-            :q="q"
-            :index="questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type) && !hiddenQuestionIds.has(x.id)).length"
-            :answers="answers"
-            :settings="settings"
-            :file-lists="fileLists"
-            :file-inputs="fileInputs"
-            :sig-canvas-map="sigCanvasMap"
-            @update:answers="answers = $event"
-            @trigger-file="triggerFileInput"
-            @remove-file="removeFile"
-            @pick-location="pickLocation"
-            @sig-start="sigStart"
-            @sig-move="sigMove"
-            @sig-end="sigEnd"
-            @sig-touch-start="sigTouchStart"
-            @sig-touch-move="sigTouchMove"
-            @clear-signature="clearSignature"
-            @add-matrix-row="addMatrixAutoRow"
-            @remove-matrix-row="removeMatrixAutoRow"
-          />
+          <template v-for="(q, i) in questions" :key="q.id">
+            <QuestionField
+              v-if="!hiddenQuestionIds.has(q.id)"
+              :q="q"
+              :index="questions.slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type) && !hiddenQuestionIds.has(x.id)).length"
+              :answers="answers"
+              :settings="settings"
+              :required-question-ids="requiredQuestionIds"
+              :file-lists="fileLists"
+              :file-inputs="fileInputs"
+              :sig-canvas-map="sigCanvasMap"
+              @update:answers="answers = $event"
+              @trigger-file="triggerFileInput"
+              @remove-file="removeFile"
+              @pick-location="pickLocation"
+              @open-scanner="openScanner"
+              @sig-start="sigStart"
+              @sig-move="sigMove"
+              @sig-end="sigEnd"
+              @sig-touch-start="sigTouchStart"
+              @sig-touch-move="sigTouchMove"
+              @clear-signature="clearSignature"
+              @add-matrix-row="addMatrixAutoRow"
+              @remove-matrix-row="removeMatrixAutoRow"
+            />
+          </template>
           <div class="survey-footer">
             <el-button type="primary" class="survey-btn--primary" size="large" :loading="submitting" @click="onSubmit">提交</el-button>
           </div>
@@ -137,7 +141,7 @@
     </div>
 
     <!-- 答题卡 -->
-    <div v-if="settings.answerSheetVisible && !loading && survey && sheetVisible" class="survey-sheet" :style="sheetStyle">
+    <div v-if="settings.answerSheetVisible !== false && !loading && survey && sheetVisible" class="survey-sheet" :style="sheetStyle">
       <div class="survey-sheet-header" @mousedown.prevent="onSheetDragStart">
         <span>≡ 答题卡</span>
         <span class="survey-sheet-close" @click.stop="sheetVisible = false">✕</span>
@@ -155,7 +159,7 @@
       </div>
       <div class="survey-sheet-stat">{{ answeredCount }}/{{ totalQuestions }}</div>
     </div>
-    <div v-if="settings.answerSheetVisible && !loading && survey && !sheetVisible" class="survey-sheet-toggle" @click="sheetVisible = true">≡ {{ answeredCount }}/{{ totalQuestions }}</div>
+    <div v-if="settings.answerSheetVisible !== false && !loading && survey && !sheetVisible" class="survey-sheet-toggle" @click="sheetVisible = true">≡ {{ answeredCount }}/{{ totalQuestions }}</div>
 
     <el-dialog v-if="showScanner" v-model="showScanner" title="扫码" width="400px" :close-on-click-modal="false" destroy-on-close @opened="onScannerOpen" @close="onScannerClose">
       <div ref="scannerRef" style="width:100%;aspect-ratio:1;overflow:hidden;background:#000;border-radius:8px" />
@@ -189,6 +193,7 @@ const showLogin = ref(false)
 const loginLoading = ref(false)
 const loginForm = reactive({ name: '', password: '' })
 const showScanner = ref(false)
+const scanQid = ref('')
 const scannerRef = ref<HTMLDivElement>()
 const formRef = ref<any>()
 function getDeviceId() {
@@ -213,22 +218,58 @@ const remaining = ref(0)
 const currentIndex = ref(0)
 const sheetVisible = ref(true)
 const hiddenQuestionIds = ref<Set<string>>(new Set())
+const requiredQuestionIds = ref<Set<string>>(new Set())
 const logicRules = ref<any[]>([])
 
+function openRedirectUrl() {
+  const url = settings.value?.redirectUrl
+  if (url) window.location.href = url
+}
+
+function onScannerOpen() {
+  if (!scannerRef.value) return
+  const scannerId = 'survey-pc1-scanner'
+  scannerRef.value.id = scannerId
+  scanner = new Html5Qrcode(scannerId)
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      if (scanQid.value) answers.value[scanQid.value] = decodedText
+      showScanner.value = false
+    },
+    () => {}
+  ).catch(() => {
+    ElMessage.warning('无法打开摄像头，请检查浏览器权限')
+  })
+}
+
+function onScannerClose() {
+  if (scanner) {
+    scanner.stop().catch(() => {})
+    scanner = null
+  }
+  scanQid.value = ''
+}
+
 function reevaluateRules() {
-  if (!logicRules.value.length) { hiddenQuestionIds.value = new Set(); return }
+  if (!logicRules.value.length) {
+    hiddenQuestionIds.value = new Set()
+    requiredQuestionIds.value = new Set()
+    ensureCurrentQuestionVisible()
+    return
+  }
   const frontendRules = logicRules.value.filter((r: any) => r.scope !== 'backend')
-  if (!frontendRules.length) { hiddenQuestionIds.value = new Set(); return }
+  if (!frontendRules.length) {
+    hiddenQuestionIds.value = new Set()
+    requiredQuestionIds.value = new Set()
+    ensureCurrentQuestionVisible()
+    return
+  }
   const result = evaluateFrontendRules(frontendRules, questions.value, answers.value)
   hiddenQuestionIds.value = result.hiddenIds
-  // 当页当前题目被隐藏，跳转到下一可见题
-  if (settings.value.onePageOneQuestion) {
-    const cur = questions.value[currentIndex.value]
-    if (cur && hiddenQuestionIds.value.has(cur.id)) {
-      const next = nextVisibleIndex(currentIndex.value)
-      if (next >= 0) currentIndex.value = next
-    }
-  }
+  requiredQuestionIds.value = result.requiredIds || new Set()
+  ensureCurrentQuestionVisible()
 }
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 let draftTimer: ReturnType<typeof setTimeout> | null = null
@@ -275,15 +316,28 @@ function loadDraft() {
 function clearDraft() { localStorage.removeItem(getDraftKey()) }
 function scheduleDraft() { if (draftTimer) clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 2000) }
 
+function isVisibleInputQuestion(q: any): boolean {
+  return !!q && !LAYOUT_TYPES.includes(q.type) && !hiddenQuestionIds.value.has(q.id)
+}
 function nextVisibleIndex(from: number): number {
   let i = from + 1
-  while (i < questions.value.length && hiddenQuestionIds.value.has(questions.value[i]?.id)) i++
+  while (i < questions.value.length && !isVisibleInputQuestion(questions.value[i])) i++
   return i < questions.value.length ? i : -1
 }
 function prevVisibleIndex(from: number): number {
   let i = from - 1
-  while (i >= 0 && hiddenQuestionIds.value.has(questions.value[i]?.id)) i--
+  while (i >= 0 && !isVisibleInputQuestion(questions.value[i])) i--
   return i
+}
+function ensureCurrentQuestionVisible() {
+  if (!settings.value.onePageOneQuestion) return
+  if (isVisibleInputQuestion(questions.value[currentIndex.value])) return
+  const next = nextVisibleIndex(currentIndex.value)
+  if (next >= 0) { currentIndex.value = next; return }
+  const prev = prevVisibleIndex(currentIndex.value)
+  if (prev >= 0) { currentIndex.value = prev; return }
+  const first = nextVisibleIndex(-1)
+  if (first >= 0) currentIndex.value = first
 }
 function goNext() {
   const next = nextVisibleIndex(currentIndex.value)
@@ -444,6 +498,10 @@ function pickLocation(qid: string) {
     { enableHighAccuracy: true, timeout: 10000 }
   )
 }
+function openScanner(qid: string) {
+  scanQid.value = qid
+  showScanner.value = true
+}
 
 function initSigCanvas(id: string) {
   const c = sigCanvasMap[id]
@@ -483,13 +541,38 @@ function clearSignature(id: string) {
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
+function getStoredUserInfo(): any {
+  for (const key of ['user_info', 'userInfo']) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+  }
+  return null
+}
+
+function getUserDeptId(info: any): number {
+  const deptId = Number(info?.deptId ?? info?.DeptID ?? info?.dept_id ?? 0)
+  return Number.isFinite(deptId) ? deptId : 0
+}
+
+function setStoredUserInfo(userInfo: any) {
+  if (!userInfo) return
+  try {
+    const raw = JSON.stringify(userInfo)
+    localStorage.setItem('user_info', raw)
+    localStorage.setItem('userInfo', raw)
+  } catch {}
+  userDeptId = getUserDeptId(userInfo)
+}
+
 async function doLogin() {
   loginLoading.value = true
   try {
     const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
     if (res.code === 0) {
       localStorage.setItem('user_token', res.data.token)
-      userDeptId = res.data.userInfo?.deptId || 0
+      setStoredUserInfo(res.data.userInfo)
       showLogin.value = false; loading.value = true; load()
     } else { ElMessage.error(res.msg || '登录失败') }
   } catch { ElMessage.error('登录失败') }
@@ -515,6 +598,7 @@ async function load() {
   const id = route.params.id
   if (!id) { error.value = '参数错误'; loading.value = false; return }
   session.value = localStorage.getItem('survey_session_' + id) || ''
+  userDeptId = getUserDeptId(getStoredUserInfo())
   try {
     const res = await apiGet(`/survey/view?id=${id}&session=${session.value}`)
     if (res.code !== 0) {
@@ -530,7 +614,7 @@ async function load() {
     if (settings.value.loginRequired || Number(survey.value?.visibility) === 1 || Number(survey.value?.visibility) === 2) {
       const token = localStorage.getItem('user_token')
       if (!token) { showLogin.value = true; loading.value = false; return }
-      if (survey.value?.visibility === 2) {
+      if (Number(survey.value?.visibility) === 2 && userDeptId > 0) {
         const deptIds = (survey.value.deptIds || '').split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n))
         if (deptIds.length && !deptIds.includes(userDeptId)) { error.value = '您不在该问卷的可见部门中'; loading.value = false; return }
       }
@@ -546,11 +630,11 @@ async function load() {
     const init: any = {}
     questions.value.forEach((q: any) => { init[q.id] = getInitVal(q) })
     answers.value = init
-    reevaluateRules()
     const draft = loadDraft()
     if (draft && draft.answers) {
       for (const key of Object.keys(draft.answers)) { if (key in answers.value) answers.value[key] = draft.answers[key] }
     }
+    reevaluateRules()
     await nextTick()
     questions.value.filter((q: any) => q.type === 'signature').forEach((q: any) => initSigCanvas(q.id))
   } catch { error.value = '加载失败' }
@@ -579,9 +663,10 @@ function stopCountdown() { if (countdownTimer) { clearInterval(countdownTimer); 
 function handleSubmitSuccess(_data: any) {
   const url = settings.value?.redirectUrl
   const content = settings.value?.endContent
+  submitted.value = true
   if (url) { window.location.href = url; return }
   if (content) { endContent.value = content; submitted.value = true; return }
-  ElMessage.success('已提交'); survey.value = null; questions.value = []
+  ElMessage.success('已提交')
 }
 
 function validateRequired(): boolean {
@@ -589,7 +674,7 @@ function validateRequired(): boolean {
   for (const q of questions.value) {
     if (LAYOUT_TYPES.includes(q.type)) continue
     if (hiddenQuestionIds.value.has(q.id)) continue
-    if (q.required && !isAnswered(q, answers.value[q.id])) {
+    if (isQuestionRequired(q) && !isAnswered(q, answers.value[q.id])) {
       msgs.push((q.title ? q.title.replace(/<[^>]+>/g, '').slice(0, 20) : '未命名') + ' 为必填项')
     }
   }
@@ -597,20 +682,37 @@ function validateRequired(): boolean {
   return true
 }
 
+function isQuestionRequired(q: any): boolean {
+  return !!q?.required || requiredQuestionIds.value.has(q.id)
+}
+
+function buildSubmitAnswers() {
+  const payload: Record<string, any> = {}
+  for (const q of questions.value) {
+    if (LAYOUT_TYPES.includes(q.type)) continue
+    if (hiddenQuestionIds.value.has(q.id)) continue
+    payload[q.id] = answers.value[q.id]
+  }
+  return payload
+}
+
 async function onSubmit(skipConfirm = false) {
   if (typeof skipConfirm !== 'boolean') skipConfirm = false
+  if (submitting.value || submitted.value) return
   const id = Number(route.params.id)
+  reevaluateRules()
+  const submitAnswers = buildSubmitAnswers()
   if (!skipConfirm) {
     if (!validateRequired()) return
     try {
-      const vr = await apiPost('/survey/validate', { surveyId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
+      const vr = await apiPost('/survey/validate', { surveyId: id, answers: submitAnswers, device: navigator.userAgent, deviceId: getDeviceId() })
       if (vr.data && !vr.data.valid) { ElMessage.warning((vr.data.errors || []).map((e: any) => e.message).join('; ') || '请检查填写内容'); return }
     } catch {}
   }
   if (skipConfirm) {
     submitting.value = true
     try {
-      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
+      const res = await apiPost('/survey/submit', { surveyId: id, answers: submitAnswers, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
       if (res.code !== 0) { ElMessage.error(res.msg || '提交失败') }
       else { stopCountdown(); clearDraft(); localStorage.removeItem('survey_session_' + id); handleSubmitSuccess(res.data) }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
@@ -620,7 +722,7 @@ async function onSubmit(skipConfirm = false) {
   ElMessageBox.confirm('确认提交？提交后不可修改', '提示', { type: 'info' }).then(async () => {
     submitting.value = true
     try {
-      const res = await apiPost('/survey/submit', { surveyId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
+      const res = await apiPost('/survey/submit', { surveyId: id, answers: submitAnswers, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) { ElMessage.error(res.msg || '提交失败') }
       else { stopCountdown(); clearDraft(); localStorage.removeItem('survey_session_' + id); handleSubmitSuccess(res.data) }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
@@ -632,7 +734,12 @@ onMounted(load)
 watch(answers, () => { scheduleDraft(); reevaluateRules() }, { deep: true })
 watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
 watch(() => settings.value.timeLimit, () => { startCountdown() })
-onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); stopCountdown() })
+onUnmounted(() => {
+  if (draftTimer) clearTimeout(draftTimer)
+  stopCountdown()
+  onSheetDragEnd()
+  onScannerClose()
+})
 </script>
 
 <style scoped>

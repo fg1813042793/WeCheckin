@@ -62,6 +62,7 @@
 
 <script>
 import { enrollApi, favApi } from '../../api/index'
+import { getClientUserId, getClientUserInfo } from '../../utils/auth'
 
 export default {
   data() {
@@ -120,7 +121,7 @@ export default {
 
   methods: {
     checkAdmin() {
-      const userInfo = uni.getStorageSync('userInfo')
+      const userInfo = getClientUserInfo()
       this.isAdmin = userInfo && userInfo.role === 'admin'
     },
 
@@ -141,9 +142,7 @@ export default {
     },
 
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
 
     async loadFav() {

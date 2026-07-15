@@ -1,28 +1,34 @@
 <template>
-  <div>
-    <el-card>
-      <el-tabs v-model="activeTab">
+  <div class="admin-page online-page">
+    <el-card class="admin-card" shadow="never">
+      <el-tabs v-model="activeTab" class="online-tabs">
         <el-tab-pane label="在线用户" name="users">
-          <div class="toolbar">
-            <el-input
-              v-model="userKeyword"
-              placeholder="搜索 用户名/手机号/设备/IP"
-              clearable
-              size="small"
-              style="width:280px"
-              @input="onUserSearch"
-            />
-            <div class="actions">
+          <div class="admin-toolbar">
+            <div class="admin-toolbar__left">
+              <el-input
+                v-model="userKeyword"
+                placeholder="搜索用户名/手机号/设备/IP"
+                clearable
+                style="width:300px"
+                @input="onUserSearch"
+                @keyup.enter="onUserSearch"
+              />
+              <el-button type="primary" @click="onUserSearch">搜索</el-button>
+            </div>
+          </div>
+          <div class="admin-toolbar">
+            <div class="admin-toolbar__left">
               <el-button
                 v-if="hasPerm('online:force_offline')"
                 type="danger"
-                size="small"
                 :disabled="userSelection.length === 0"
                 @click="confirmBatchUsers"
               >
                 批量下线 ({{ userSelection.length }})
               </el-button>
-              <el-button size="small" @click="loadUsers">立即刷新</el-button>
+            </div>
+            <div class="admin-toolbar__right">
+              <el-button circle icon="Refresh" title="刷新" @click="loadUsers" />
             </div>
           </div>
           <el-table
@@ -30,6 +36,7 @@
             v-loading="usersLoading"
             stripe
             style="width:100%"
+            empty-text="暂无在线用户"
             @selection-change="(rows: any[]) => userSelection = rows"
           >
             <el-table-column type="selection" width="46" />
@@ -51,15 +58,17 @@
             </el-table-column>
             <el-table-column label="操作" width="120">
               <template #default="{ row }">
-                <el-popconfirm title="确定强制该用户下线？" @confirm="forceOfflineUser(row.id, row.token)">
-                  <template #reference>
-                    <el-button v-if="hasPerm('online:force_offline')" size="small" type="danger">强制下线</el-button>
-                  </template>
-                </el-popconfirm>
+                <div class="admin-table-actions">
+                  <el-popconfirm title="确定强制该用户下线？" @confirm="forceOfflineUser(row.id, row.token)">
+                    <template #reference>
+                      <el-button v-if="hasPerm('online:force_offline')" size="small" type="danger">强制下线</el-button>
+                    </template>
+                  </el-popconfirm>
+                </div>
               </template>
             </el-table-column>
           </el-table>
-          <div style="margin-top:12px;color:#999;font-size:13px">
+          <div class="online-summary admin-muted">
             共 {{ userList.length }} 人在线
             <span v-if="userKeyword && filteredUsers.length !== userList.length">
               （已过滤 {{ filteredUsers.length }} 条）
@@ -68,26 +77,32 @@
         </el-tab-pane>
 
         <el-tab-pane label="在线管理员" name="admins">
-          <div class="toolbar">
-            <el-input
-              v-model="adminKeyword"
-              placeholder="搜索 用户名/描述/角色/设备/IP"
-              clearable
-              size="small"
-              style="width:280px"
-              @input="onAdminSearch"
-            />
-            <div class="actions">
+          <div class="admin-toolbar">
+            <div class="admin-toolbar__left">
+              <el-input
+                v-model="adminKeyword"
+                placeholder="搜索用户名/描述/角色/设备/IP"
+                clearable
+                style="width:300px"
+                @input="onAdminSearch"
+                @keyup.enter="onAdminSearch"
+              />
+              <el-button type="primary" @click="onAdminSearch">搜索</el-button>
+            </div>
+          </div>
+          <div class="admin-toolbar">
+            <div class="admin-toolbar__left">
               <el-button
                 v-if="hasPerm('online:force_offline')"
                 type="danger"
-                size="small"
                 :disabled="adminSelection.length === 0"
                 @click="confirmBatchAdmins"
               >
                 批量下线 ({{ adminSelection.length }})
               </el-button>
-              <el-button size="small" @click="loadAdmins">立即刷新</el-button>
+            </div>
+            <div class="admin-toolbar__right">
+              <el-button circle icon="Refresh" title="刷新" @click="loadAdmins" />
             </div>
           </div>
           <el-table
@@ -95,6 +110,7 @@
             v-loading="adminsLoading"
             stripe
             style="width:100%"
+            empty-text="暂无在线管理员"
             @selection-change="(rows: any[]) => adminSelection = rows"
           >
             <el-table-column type="selection" width="46" />
@@ -116,15 +132,17 @@
             </el-table-column>
             <el-table-column label="操作" width="120">
               <template #default="{ row }">
-                <el-popconfirm title="确定强制该管理员下线？" @confirm="forceOfflineAdmin(row.id, row.token)">
-                  <template #reference>
-                    <el-button v-if="hasPerm('online:force_offline')" size="small" type="danger">强制下线</el-button>
-                  </template>
-                </el-popconfirm>
+                <div class="admin-table-actions">
+                  <el-popconfirm title="确定强制该管理员下线？" @confirm="forceOfflineAdmin(row.id, row.token)">
+                    <template #reference>
+                      <el-button v-if="hasPerm('online:force_offline')" size="small" type="danger">强制下线</el-button>
+                    </template>
+                  </el-popconfirm>
+                </div>
               </template>
             </el-table-column>
           </el-table>
-          <div style="margin-top:12px;color:#999;font-size:13px">
+          <div class="online-summary admin-muted">
             共 {{ adminList.length }} 人在线
             <span v-if="adminKeyword && filteredAdmins.length !== adminList.length">
               （已过滤 {{ filteredAdmins.length }} 条）
@@ -175,9 +193,9 @@ function onAdminSearch() {
 
 function fmtTTL(seconds: number) {
   if (seconds <= 0) return '即将过期'
-  if (seconds < 60) return seconds + '秒前'
-  if (seconds < 3600) return Math.floor(seconds / 60) + '分钟前'
-  return Math.floor(seconds / 3600) + '小时前'
+  if (seconds < 60) return seconds + '秒'
+  if (seconds < 3600) return Math.floor(seconds / 60) + '分钟'
+  return Math.floor(seconds / 3600) + '小时'
 }
 
 function fmtLoginTime(ts: number) {
@@ -268,15 +286,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 12px;
+.online-tabs :deep(.el-tabs__header) {
+  margin-bottom: 16px;
 }
-.actions {
-  display: flex;
-  gap: 8px;
+
+.online-summary {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 </style>

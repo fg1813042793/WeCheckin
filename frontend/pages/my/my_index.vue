@@ -115,6 +115,14 @@
 <script>
 import config from '../../config/index'
 import { passportApi, eventApi } from '../../api/index'
+import {
+  AUTH_STORAGE_KEYS,
+  clearClientAuth,
+  getAdminAuth,
+  getClientAuth,
+  getClientUserId,
+  setClientUserInfo
+} from '../../utils/auth'
 
 export default {
   data() {
@@ -134,16 +142,14 @@ export default {
 
   methods: {
     loadAdminInfo() {
-      const token = uni.getStorageSync('admin_token')
-      const info = uni.getStorageSync('admin_info')
+      const { token, info } = getAdminAuth()
       this.adminInfo = token && info ? info : null
     },
     async loadUserInfo() {
-      const local = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
+      const { token, info: local } = getClientAuth()
       if (token && local && local.id) {
         try {
-          const uid = (local && (local.miniOpenID || local.id)) || token
+          const uid = getClientUserId()
           const res = await passportApi.getMyDetail({ user_id: uid })
           const user = res.data && res.data.user
           if (user && user.id) {
@@ -152,7 +158,7 @@ export default {
               user.avatar = domain + user.avatar
             }
             this.userInfo = user
-            uni.setStorageSync('userInfo', user)
+            setClientUserInfo(user)
             return
           }
         } catch (e) {
@@ -164,11 +170,10 @@ export default {
 
     async loadEventRole() {
       this.hasEventRole = false
-      const local = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
+      const { token, info: local } = getClientAuth()
       if (!token || !local) return
       try {
-        const uid = (local && (local.miniOpenID || local.id)) || token
+        const uid = getClientUserId()
         const res = await eventApi.myRoles({ user_id: uid })
         if (res.data) {
           this.hasEventRole = res.data.hasOrganizer || res.data.hasAssistant || res.data.hasReferee
@@ -239,7 +244,7 @@ export default {
         success: (res) => {
           if (res.confirm) {
             try {
-              const keep = ['token', 'userInfo', 'admin_token', 'admin_info']
+              const keep = AUTH_STORAGE_KEYS
               const saved = {}
               for (const key of keep) {
                 try { saved[key] = uni.getStorageSync(key) } catch (e) {}
@@ -269,8 +274,7 @@ export default {
         content: '确定要退出登录吗？',
         success: (res) => {
           if (res.confirm) {
-            uni.removeStorageSync('userInfo')
-            uni.removeStorageSync('token')
+            clearClientAuth()
             uni.showToast({ title: '已退出登录', icon: 'success' })
             setTimeout(() => {
               uni.reLaunch({ url: '/pages/login/login' })

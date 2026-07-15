@@ -153,6 +153,7 @@
 
 <script>
 import { homeApi } from '../../api/index'
+import { getClientUserInfo } from '../../utils/auth'
 
 export default {
   data() {
@@ -182,7 +183,7 @@ export default {
   methods: {
     async loadData() {
       try {
-        const userInfo = uni.getStorageSync('userInfo')
+        const userInfo = getClientUserInfo()
         const userId = (userInfo && (userInfo.miniOpenID || userInfo.id)) || ''
         const res = await homeApi.getList({ user_id: userId })
         if (res.data) {

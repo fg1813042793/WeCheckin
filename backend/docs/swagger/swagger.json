@@ -9,7 +9,7 @@
         "contact": {},
         "version": "2.0"
     },
-    "host": "localhost:8080",
+    "host": "localhost:8083",
     "basePath": "/",
     "paths": {
         "/admin/admin/batch_force_offline": {

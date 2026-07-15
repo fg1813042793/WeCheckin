@@ -31,7 +31,7 @@
       </el-table-column>
       <el-table-column prop="LOG_ADD_IP" label="IP地址" width="140" />
     </el-table>
-    <div style="text-align:center;margin-top:16px">
+    <div class="admin-pagination">
       <el-pagination
         v-model:current-page="page"
         :page-size="pageSize"

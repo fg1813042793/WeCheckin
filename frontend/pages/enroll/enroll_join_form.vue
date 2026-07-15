@@ -95,6 +95,7 @@
 <script>
 import { enrollApi } from '../../api/index'
 import CONFIG from '../../config'
+import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -285,9 +286,7 @@ export default {
       const today = new Date()
       const dayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
 
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      const uid = (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      const uid = getClientUserId()
 
       this.submitting = true
       try {

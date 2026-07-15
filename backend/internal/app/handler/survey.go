@@ -14,13 +14,13 @@ import (
 	schemaPkg "wecheckin-backend/backend/internal/app/formkit/schema"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin-backend/backend/internal/app/service"
 	"wecheckin-backend/backend/internal/model"
+	"wecheckin-backend/backend/pkg/database"
+	"wecheckin-backend/backend/pkg/logger"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
 	"wecheckin-backend/backend/pkg/tokenutil"
-	"wecheckin-backend/backend/internal/app/service"
-	"wecheckin-backend/backend/pkg/logger"
 )
 
 type ClientSurveyHandler struct {
@@ -34,9 +34,12 @@ func getUID(c *app.RequestContext) uint {
 		return 0
 	}
 	switch v := uidVal.(type) {
-	case uint: return v
-	case int64: return uint(v)
-	case float64: return uint(v)
+	case uint:
+		return v
+	case int64:
+		return uint(v)
+	case float64:
+		return uint(v)
 	}
 	return 0
 }
@@ -48,7 +51,7 @@ func (h *ClientSurveyHandler) lazyInit() {
 		h.survey = service.NewSurveyService()
 	}
 	if h.responses == nil {
-		h.responses =  service.NewResponseService()
+		h.responses = service.NewResponseService()
 	}
 }
 
@@ -151,7 +154,7 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 			response.Fail(c, "请先登录")
 			return
 		}
-		rdKey := "user_token:a:" + token
+		rdKey := tokenutil.TokenAuthKey("user", token)
 		jsonStr, err := rd.RDB.Get(rd.Ctx, rdKey).Result()
 		if err != nil || jsonStr == "" {
 			logger.Logger.Printf("[SurveyDetail] token无效 id=%d", id)
@@ -245,23 +248,23 @@ func (h *ClientSurveyHandler) Detail(_ context.Context, c *app.RequestContext) {
 	}
 	// 公开视图
 	publicView := map[string]interface{}{
-		"id":           sv.ID,
-		"title":        sv.Title,
-		"description":  sv.Desc,
-		"category":     sv.Category,
-		"cover":        sv.Cover,
-		"visibility":   sv.Visibility,
-		"anonymous":    sv.Anonymous,
-		"allowMulti":   sv.AllowMulti,
-		"startTime":    sv.StartTime,
-		"endTime":      sv.EndTime,
-		"maxResponse":  sv.MaxResponse,
-		"showResult":   sv.ShowResult,
-		"schema":       schMap,
-		"settings":     settingsMap,
-		"session":      session,
-		"startAt":      startAt,
-		"deptIds":      sv.DeptIDs,
+		"id":          sv.ID,
+		"title":       sv.Title,
+		"description": sv.Desc,
+		"category":    sv.Category,
+		"cover":       sv.Cover,
+		"visibility":  sv.Visibility,
+		"anonymous":   sv.Anonymous,
+		"allowMulti":  sv.AllowMulti,
+		"startTime":   sv.StartTime,
+		"endTime":     sv.EndTime,
+		"maxResponse": sv.MaxResponse,
+		"showResult":  sv.ShowResult,
+		"schema":      schMap,
+		"settings":    settingsMap,
+		"session":     session,
+		"startAt":     startAt,
+		"deptIds":     sv.DeptIDs,
 	}
 	logger.Logger.Printf("[SurveyDetail] 成功 id=%d title=%s", id, sv.Title)
 	response.JSON(c, publicView)
@@ -304,7 +307,7 @@ func (h *ClientSurveyHandler) Validate(_ context.Context, c *app.RequestContext)
 		response.Fail(c, "问卷不存在")
 		return
 	}
-	errs :=  service.ValidateAnswers(sv, req.Answers)
+	errs := service.ValidateAnswers(sv, req.Answers)
 	response.JSON(c, map[string]interface{}{"errors": errs, "valid": len(errs) == 0})
 }
 

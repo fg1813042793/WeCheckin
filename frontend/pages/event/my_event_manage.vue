@@ -49,6 +49,7 @@
 
 <script>
 import { eventApi } from '../../api/index'
+import { getClientUserId } from '../../utils/auth'
 export default {
   data() {
     return {
@@ -92,9 +93,7 @@ export default {
   },
   methods: {
     getUserId() {
-      const userInfo = uni.getStorageSync('userInfo')
-      const token = uni.getStorageSync('token')
-      return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+      return getClientUserId()
     },
     handleSearch() { this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
     switchTab(tab) { this.cur = tab; this.keyword = ''; this.page = 1; this.list = []; this.hasMore = true; this.loadData() },

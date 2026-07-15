@@ -79,6 +79,7 @@
 <script>
 import CONFIG from '../../../config/index'
 import { adminApi } from '../../../api/admin'
+import { getAdminToken } from '../../../utils/auth'
 
 export default {
   data() {
@@ -218,7 +219,7 @@ export default {
         success: (res) => {
           const tempFile = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
-          const token = uni.getStorageSync('admin_token')
+          const token = getAdminToken()
           uni.uploadFile({
             url: CONFIG.BASE_URL + '/upload',
             filePath: tempFile,

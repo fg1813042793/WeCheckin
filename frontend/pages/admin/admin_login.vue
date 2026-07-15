@@ -37,6 +37,7 @@
 
 <script>
 import { adminApi } from '../../api/admin'
+import { clearAdminAuth, setAdminAuth } from '../../utils/auth'
 
 export default {
   data() {
@@ -47,8 +48,7 @@ export default {
   },
 
   onLoad() {
-    uni.removeStorageSync('admin_token')
-    uni.removeStorageSync('admin_info')
+    clearAdminAuth()
   },
 
   methods: {
@@ -68,8 +68,7 @@ export default {
         uni.hideLoading()
 
         if (res.data && res.data.token) {
-          uni.setStorageSync('admin_token', res.data.token)
-          uni.setStorageSync('admin_info', res.data)
+          setAdminAuth(res.data)
           uni.showToast({ title: '登录成功', icon: 'success' })
           uni.redirectTo({ url: '/pages/admin/admin_home' })
         } else {

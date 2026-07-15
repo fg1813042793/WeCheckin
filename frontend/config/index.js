@@ -1,6 +1,7 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8083'
+
 export default {
-  BASE_URL: 'http://192.168.50.6:8083',
-  //BASE_URL: 'http://192.168.1.66:8083',
+  BASE_URL: API_BASE_URL,
   VER: 'build 2026.05.28',
   COMPANY: 'MY打卡',
 

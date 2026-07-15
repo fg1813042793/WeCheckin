@@ -86,6 +86,14 @@
         <div v-else-if="q.type==='richText'" class="q-quill-wrap">
           <QuillEditor v-model:content="localAnswers[q.id]" content-type="html" :options="{ theme: 'snow', placeholder: q.placeholder || '输入富文本内容...', modules: { imageResize: {} } }" style="min-height:150px" />
         </div>
+        <el-input v-else-if="q.type==='scanCode'" v-model="localAnswers[q.id]" :placeholder="q.placeholder || '扫码'" class="scan-code-input">
+          <template #prefix>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </template>
+          <template #suffix>
+            <el-button text type="primary" size="small" class="scan-code-btn" @click.stop="openScanner(q.id)">扫码</el-button>
+          </template>
+        </el-input>
         <div v-else-if="q.type==='signature'" class="q-sig-wrap">
           <canvas :ref="el => { if(el) { sigCanvasMap[q.id]=el as HTMLCanvasElement; restoreSignature(q.id, el as HTMLCanvasElement) } }" class="q-sig-canvas" @mousedown="sigStart($event, q.id)" @mousemove="sigMove($event, q.id)" @mouseup="sigEnd" @mouseleave="sigEnd" @touchstart.stop.prevent="e => sigTouchStart(e, q.id)" @touchmove.stop.prevent="e => sigTouchMove(e, q.id)" @touchend.stop="sigEnd" />
           <div class="q-sig-actions"><el-button size="small" text @click="clearSignature(q.id)">清除</el-button></div>
@@ -107,6 +115,7 @@ const props = defineProps<{
   index: number
   answers: any
   settings: any
+  requiredQuestionIds?: Set<string>
   score?: number | string
   fileLists: Record<string, File[]>
   fileInputs: Record<string, HTMLInputElement>
@@ -118,6 +127,7 @@ const emit = defineEmits<{
   'triggerFile': [qid: string]
   'removeFile': [qid: string, idx: number]
   'pickLocation': [qid: string]
+  'openScanner': [qid: string]
   'sigStart': [e: MouseEvent | Touch, id: string]
   'sigMove': [e: MouseEvent | Touch, id: string]
   'sigEnd': []
@@ -138,7 +148,7 @@ const processedTitleHtml = computed(() => {
   if (props.score) {
     html += `<span class="q-score-inline">(${props.score}分)</span>`
   }
-  if (props.q.required) {
+  if (isRequired.value) {
     html += '<span class="q-req">*</span>'
   }
   html += unwrapOuterP(props.q.title || '')
@@ -161,6 +171,7 @@ const localAnswers = computed({
   get: () => props.answers,
   set: (val) => emit('update:answers', val)
 })
+const isRequired = computed(() => !!props.q.required || !!props.requiredQuestionIds?.has(props.q.id))
 
 function optionGrid(q: any) {
   const cols = q.optionLayout
@@ -204,6 +215,7 @@ function onFileInput(e: Event) {
 }
 function removeFile(qid: string, idx: number) { emit('removeFile', qid, idx) }
 function pickLocation(qid: string) { emit('pickLocation', qid) }
+function openScanner(qid: string) { emit('openScanner', qid) }
 function sigStart(e: MouseEvent | Touch, id: string) { emit('sigStart', e, id) }
 function sigMove(e: MouseEvent | Touch, id: string) { emit('sigMove', e, id) }
 function sigEnd() { emit('sigEnd') }
@@ -306,4 +318,6 @@ function removeMatrixRow(qid: string, ri: number) { emit('removeMatrixRow', qid,
 .q-sig-actions { margin-top: 6px; }
 
 .q-quill-wrap { border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; }
+.scan-code-input :deep(.el-input__wrapper) { width: 100%; }
+.scan-code-btn { margin-right: -8px; height: 28px; }
 </style>
