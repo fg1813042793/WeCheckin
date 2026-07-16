@@ -2,18 +2,24 @@ package main
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"wecheckin-backend/backend/internal/app/handler"
+	clientenroll "wecheckin-backend/backend/internal/app/handler/client/enroll"
+	clientevent "wecheckin-backend/backend/internal/app/handler/client/event"
+	clientexam "wecheckin-backend/backend/internal/app/handler/client/exam"
+	clientfavorite "wecheckin-backend/backend/internal/app/handler/client/favorite"
+	clientnews "wecheckin-backend/backend/internal/app/handler/client/news"
+	clientpassport "wecheckin-backend/backend/internal/app/handler/client/passport"
+	clientsurvey "wecheckin-backend/backend/internal/app/handler/client/survey"
 	"wecheckin-backend/backend/internal/middleware"
 )
 
 func registerClientRoutes(h *server.Hertz) {
-	pp := handler.NewPassportHandler()
-	ns := handler.NewNewsHandler()
-	el := handler.NewEnrollHandler()
-	fa := handler.NewFavHandler()
-	ev := handler.NewEventHandler()
-	cSurvey := handler.NewClientSurveyHandler()
-	cExam := handler.NewClientExamHandler()
+	pp := clientpassport.NewPassportHandler()
+	ns := clientnews.NewNewsHandler()
+	el := clientenroll.NewEnrollHandler()
+	fa := clientfavorite.NewFavHandler()
+	ev := clientevent.NewEventHandler()
+	cSurvey := clientsurvey.NewClientSurveyHandler()
+	cExam := clientexam.NewClientExamHandler()
 
 	clientGroup := h.Group("/passport", middleware.ClientAuth())
 	clientGroup.POST("/phone", pp.GetPhone)

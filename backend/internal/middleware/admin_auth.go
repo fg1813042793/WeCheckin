@@ -35,8 +35,10 @@ func AdminAuth() app.HandlerFunc {
 		}
 
 		expire, prefix := tokenutil.GetTokenConfig("admin")
+		redisCtx, cancel := rd.OperationContext(ctx)
+		defer cancel()
 
-		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
+		jsonStr, err := rd.RDB.Get(redisCtx, prefix+"a:"+token).Result()
 		if err != nil {
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
@@ -65,7 +67,7 @@ func AdminAuth() app.HandlerFunc {
 
 		// Slide TTL: only the a: key needs sliding on every request.
 		// The s: Set is refreshed when tokens are added/removed.
-		rd.RDB.Expire(rd.Ctx, prefix+"a:"+token, expire)
+		rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
 
 		admin := &model.Admin{
 			ID:     info.ID,

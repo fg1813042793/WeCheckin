@@ -3,12 +3,22 @@ package main
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/route"
-	"wecheckin-backend/backend/internal/app/handler"
+	admindept "wecheckin-backend/backend/internal/app/handler/admin/department"
+	admindict "wecheckin-backend/backend/internal/app/handler/admin/dict"
+	adminenroll "wecheckin-backend/backend/internal/app/handler/admin/enroll"
+	adminevent "wecheckin-backend/backend/internal/app/handler/admin/event"
+	adminhome "wecheckin-backend/backend/internal/app/handler/admin/home"
+	adminmenu "wecheckin-backend/backend/internal/app/handler/admin/menu"
+	adminmgr "wecheckin-backend/backend/internal/app/handler/admin/mgr"
+	adminnews "wecheckin-backend/backend/internal/app/handler/admin/news"
+	adminrole "wecheckin-backend/backend/internal/app/handler/admin/role"
+	adminsetup "wecheckin-backend/backend/internal/app/handler/admin/setup"
+	adminuser "wecheckin-backend/backend/internal/app/handler/admin/user"
 	"wecheckin-backend/backend/internal/middleware"
 )
 
 func registerAdminRoutes(h *server.Hertz) {
-	aMgr := handler.NewAdminMgrHandler()
+	aMgr := adminmgr.NewAdminMgrHandler()
 	h.POST("/admin/login", aMgr.AdminLogin)
 
 	adminGroup := h.Group("/admin", middleware.AdminAuth(), middleware.AdminPerm())
@@ -19,10 +29,10 @@ func registerAdminRoutes(h *server.Hertz) {
 	registerAdminExamRoutes(adminGroup)
 }
 
-func registerAdminBaseRoutes(adminGroup *route.RouterGroup, aMgr *handler.AdminMgrHandler) {
-	aHome := handler.NewAdminHomeHandler()
-	aSetup := handler.NewAdminSetupHandler()
-	aUser := handler.NewAdminUserHandler()
+func registerAdminBaseRoutes(adminGroup *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler) {
+	aHome := adminhome.NewAdminHomeHandler()
+	aSetup := adminsetup.NewAdminSetupHandler()
+	aUser := adminuser.NewAdminUserHandler()
 
 	adminGroup.GET("/home", aHome.AdminHome)
 	adminGroup.GET("/clear_vouch", aHome.ClearVouchData)
@@ -67,9 +77,9 @@ func registerAdminBaseRoutes(adminGroup *route.RouterGroup, aMgr *handler.AdminM
 }
 
 func registerAdminContentRoutes(adminGroup *route.RouterGroup) {
-	aNews := handler.NewAdminNewsHandler()
-	aEnroll := handler.NewAdminEnrollHandler()
-	aEvent := handler.NewAdminEventHandler()
+	aNews := adminnews.NewAdminNewsHandler()
+	aEnroll := adminenroll.NewAdminEnrollHandler()
+	aEvent := adminevent.NewAdminEventHandler()
 
 	adminGroup.GET("/news_list", aNews.GetAdminNewsList)
 	adminGroup.POST("/news_insert", aNews.InsertNews)
@@ -130,10 +140,10 @@ func registerAdminContentRoutes(adminGroup *route.RouterGroup) {
 }
 
 func registerAdminSystemRoutes(adminGroup *route.RouterGroup) {
-	aDict := handler.NewAdminDictHandler()
-	aDept := handler.NewAdminDeptHandler()
-	aRole := handler.NewAdminRoleHandler()
-	aMenu := handler.NewAdminMenuHandler()
+	aDict := admindict.NewAdminDictHandler()
+	aDept := admindept.NewAdminDeptHandler()
+	aRole := adminrole.NewAdminRoleHandler()
+	aMenu := adminmenu.NewAdminMenuHandler()
 
 	adminGroup.GET("/dict/types", aDict.GetDictTypes)
 	adminGroup.GET("/dict/items", aDict.GetDictByType)

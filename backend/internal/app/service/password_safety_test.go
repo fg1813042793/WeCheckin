@@ -2,12 +2,13 @@ package service
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestPasswordLoginDoesNotFilterByStoredHashInSQL(t *testing.T) {
-	for _, file := range []string{"admin_auth.go", "passport.go"} {
+	for _, file := range []string{filepath.Join("adminauth", "service.go"), filepath.Join("passport", "login.go")} {
 		src, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("read %s: %v", file, err)
@@ -26,7 +27,7 @@ func TestPasswordLoginDoesNotFilterByStoredHashInSQL(t *testing.T) {
 }
 
 func TestPasswordLoginUpgradesLegacyHashes(t *testing.T) {
-	for _, file := range []string{"admin_auth.go", "passport.go"} {
+	for _, file := range []string{filepath.Join("adminauth", "service.go"), filepath.Join("passport", "login.go")} {
 		src, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("read %s: %v", file, err)

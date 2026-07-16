@@ -99,7 +99,9 @@ func main() {
 	}
 
 	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
-	bootstrap.InitBusiness(*examFlag)
+	if err := bootstrap.InitBusiness(*examFlag); err != nil {
+		log.Fatalf("Failed to initialize business data: %v", err)
+	}
 
 	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
 		logger.Logger.Printf("Warning: logger init: %v", err)

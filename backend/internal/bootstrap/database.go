@@ -1,11 +1,14 @@
 package bootstrap
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
-func InitBusiness(enableExam bool) {
+func InitBusiness(enableExam bool) error {
 	if autoMigrateEnabled() {
 		if err := autoMigrate(); err != nil {
-			log.Printf("Migration warning: %v (continuing)", err)
+			return fmt.Errorf("auto migrate: %w", err)
 		}
 	} else {
 		log.Println("AutoMigrate disabled by WECHECKIN_AUTO_MIGRATE")
@@ -13,4 +16,5 @@ func InitBusiness(enableExam bool) {
 
 	seedSetups()
 	seedMenus(enableExam)
+	return nil
 }

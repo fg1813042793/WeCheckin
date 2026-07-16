@@ -2,11 +2,12 @@ package main
 
 import (
 	"github.com/cloudwego/hertz/pkg/route"
-	"wecheckin-backend/backend/internal/app/handler"
+	adminexam "wecheckin-backend/backend/internal/app/handler/admin/exam"
+	adminsurvey "wecheckin-backend/backend/internal/app/handler/admin/survey"
 )
 
 func registerAdminSurveyRoutes(adminGroup *route.RouterGroup) {
-	aSurvey := handler.NewAdminSurveyHandler()
+	aSurvey := adminsurvey.NewAdminSurveyHandler()
 
 	adminGroup.GET("/survey/types", aSurvey.ListTypes)
 	adminGroup.POST("/survey/schema/parse", aSurvey.ParseSchema)
@@ -51,7 +52,7 @@ func registerAdminSurveyRoutes(adminGroup *route.RouterGroup) {
 }
 
 func registerAdminExamRoutes(adminGroup *route.RouterGroup) {
-	aExam := handler.NewAdminExamHandler()
+	aExam := adminexam.NewAdminExamHandler()
 
 	adminGroup.GET("/exam/list", aExam.List)
 	adminGroup.GET("/exam/detail", aExam.Detail)

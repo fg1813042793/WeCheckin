@@ -5,17 +5,22 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"wecheckin-backend/backend/internal/app/handler"
+	admindict "wecheckin-backend/backend/internal/app/handler/admin/dict"
+	adminuser "wecheckin-backend/backend/internal/app/handler/admin/user"
+	clientpassport "wecheckin-backend/backend/internal/app/handler/client/passport"
+	clientsurvey "wecheckin-backend/backend/internal/app/handler/client/survey"
+	publicgeo "wecheckin-backend/backend/internal/app/handler/public/geo"
+	publichome "wecheckin-backend/backend/internal/app/handler/public/home"
 	"wecheckin-backend/backend/pkg/response"
 )
 
 func registerPublicRoutes(h *server.Hertz) {
-	hm := handler.NewHomeHandler()
-	pp := handler.NewPassportHandler()
-	geo := handler.NewGeoHandler()
-	aUser := handler.NewAdminUserHandler()
-	aDict := handler.NewAdminDictHandler()
-	cSurvey := handler.NewClientSurveyHandler()
+	hm := publichome.NewHomeHandler()
+	pp := clientpassport.NewPassportHandler()
+	geo := publicgeo.NewGeoHandler()
+	aUser := adminuser.NewAdminUserHandler()
+	aDict := admindict.NewAdminDictHandler()
+	cSurvey := clientsurvey.NewClientSurveyHandler()
 
 	h.GET("/test/test", func(ctx context.Context, c *app.RequestContext) {
 		response.JSON(c, map[string]string{"msg": "ok"})

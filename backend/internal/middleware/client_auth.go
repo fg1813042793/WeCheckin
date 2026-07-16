@@ -35,8 +35,10 @@ func ClientAuth() app.HandlerFunc {
 		}
 
 		expire, prefix := tokenutil.GetTokenConfig("user")
+		redisCtx, cancel := rd.OperationContext(ctx)
+		defer cancel()
 
-		jsonStr, err := rd.RDB.Get(rd.Ctx, prefix+"a:"+token).Result()
+		jsonStr, err := rd.RDB.Get(redisCtx, prefix+"a:"+token).Result()
 		if err != nil {
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
@@ -62,7 +64,7 @@ func ClientAuth() app.HandlerFunc {
 			return
 		}
 
-		rd.RDB.Expire(rd.Ctx, prefix+"a:"+token, expire)
+		rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
 
 		user := &model.User{
 			ID:         info.ID,

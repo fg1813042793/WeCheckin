@@ -15,18 +15,16 @@ func TestHandlersDoNotHardcodeTokenRedisKeys(t *testing.T) {
 		`"admin_token:s:"`,
 	}
 
-	files, err := filepath.Glob("*.go")
-	if err != nil {
-		t.Fatalf("glob handler files: %v", err)
-	}
-
-	for _, file := range files {
-		if strings.HasSuffix(file, "_test.go") {
-			continue
+	err := filepath.WalkDir(".", func(file string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || !strings.HasSuffix(file, ".go") || strings.HasSuffix(file, "_test.go") {
+			return nil
 		}
 		src, err := os.ReadFile(file)
 		if err != nil {
-			t.Fatalf("read %s: %v", file, err)
+			return err
 		}
 		text := string(src)
 		for _, needle := range forbidden {
@@ -34,5 +32,9 @@ func TestHandlersDoNotHardcodeTokenRedisKeys(t *testing.T) {
 				t.Fatalf("%s must not hardcode token redis key %s", file, needle)
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk handler files: %v", err)
 	}
 }

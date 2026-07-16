@@ -56,6 +56,36 @@ func TestAutoMigrateCanBeDisabledFromEnvironment(t *testing.T) {
 	}
 }
 
+func TestBusinessInitializationReturnsStartupErrors(t *testing.T) {
+	src, err := os.ReadFile("database.go")
+	if err != nil {
+		t.Fatalf("read database.go: %v", err)
+	}
+
+	text := string(src)
+	if !strings.Contains(text, "func InitBusiness(enableExam bool) error") {
+		t.Fatalf("InitBusiness must return an error so startup can fail on migration problems")
+	}
+	for _, snippet := range []string{"Migration warning", "continuing"} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("InitBusiness must not hide startup migration failures with %q", snippet)
+		}
+	}
+}
+
+func TestRawMigrationSQLErrorsAreChecked(t *testing.T) {
+	src, err := os.ReadFile("migrate.go")
+	if err != nil {
+		t.Fatalf("read migrate.go: %v", err)
+	}
+
+	for i, line := range strings.Split(string(src), "\n") {
+		if strings.Contains(line, "database.DB.Exec(") && !strings.Contains(line, ".Error") {
+			t.Fatalf("migrate.go:%d raw migration SQL must check .Error: %s", i+1, strings.TrimSpace(line))
+		}
+	}
+}
+
 func TestMenuSeedOnlyRunsBeforeFirstInitialization(t *testing.T) {
 	cases := []struct {
 		name          string

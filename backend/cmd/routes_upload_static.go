@@ -13,7 +13,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/utils"
-	"wecheckin-backend/backend/internal/app/service"
+	"wecheckin-backend/backend/internal/app/support/media"
 	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
 )
@@ -81,7 +81,7 @@ func registerUploadRoutes(h *server.Hertz) {
 				thumbRelFile = "/uploads/" + dateDir + "/" + thumbName
 			}
 		}
-		response.JSON(c, utils.H{"url": relFile, "thumb": thumbRelFile, "path": filepath.Join(absUpload, relPath), "filename": filename, "domain": service.GetStaticDomain()})
+		response.JSON(c, utils.H{"url": relFile, "thumb": thumbRelFile, "path": filepath.Join(absUpload, relPath), "filename": filename, "domain": media.StaticDomain()})
 	})
 	absUpload, _ := filepath.Abs(uploadDir)
 	h.GET("/uploads/*filepath", func(ctx context.Context, c *app.RequestContext) {

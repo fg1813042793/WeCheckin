@@ -44,6 +44,9 @@ func TestMainUsesBootstrapForStartupInitialization(t *testing.T) {
 	if !strings.Contains(text, "bootstrap.InitBusiness") {
 		t.Fatalf("main.go must delegate startup database initialization to bootstrap.InitBusiness")
 	}
+	if !strings.Contains(text, "if err := bootstrap.InitBusiness(*examFlag); err != nil") {
+		t.Fatalf("main.go must handle bootstrap.InitBusiness errors")
+	}
 	if strings.Contains(text, "service.InitBusiness") {
 		t.Fatalf("main.go must not call service.InitBusiness directly")
 	}
@@ -74,7 +77,7 @@ func TestBackendPortReferencesUse8083(t *testing.T) {
 			required:  []string{"localhost:8083"},
 			forbidden: []string{"localhost:8080"},
 		},
-		"../internal/app/service/home.go": {
+		"../internal/app/support/media/static.go": {
 			required:  []string{"http://localhost:8083"},
 			forbidden: []string{"http://localhost:8080"},
 		},
