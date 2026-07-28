@@ -29,3 +29,7 @@
 - `backend/internal/api/client/event.go`、`geo.go`
 - `backend/internal/api/admin/admin_event.go`、`admin_department.go`、`admin_menu.go`、`admin_dict.go`、`admin_role.go`
 - `backend/docs/swagger/swagger.yaml`、`swagger.json`、`docs.go`
+
+## Current Status
+
+2026-07-18 更新：项目已新增 `/api/v2` RESTful 路由层，Swagger 产物已重新生成并包含 v2 公开接口、客户端登录后接口和 `/api/v2/admin` 后台接口。当前接口总览以 `docs/API_V2.md` 与 `backend/docs/swagger/` 为准。

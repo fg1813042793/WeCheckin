@@ -4,7 +4,7 @@
 
 ### 1. 安装 HBuilderX
 - 下载地址: https://www.dcloud.io/hbuilderx.html
-- 推荐版本: HBuilderX 3.8+ (标准版或App开发版)
+- 推荐版本: HBuilderX 3.8+ (标准版或 App 开发版)
 
 ### 2. 安装必要插件
 打开 HBuilderX → 工具 → 插件安装，安装以下插件:
@@ -24,7 +24,7 @@
 
 ### 步骤1: 打开项目
 1. 打开 HBuilderX
-2. 文件 → 打开目录 → 选择 `WeCheckin` 项目文件夹
+2. 文件 → 打开目录 → 选择 `WeCheckin/frontend` 目录
 3. 等待项目初始化完成（右下角会显示"就绪"）
 
 ### 步骤2: 运行到 Android 设备
@@ -80,10 +80,11 @@ adb.exe devices
 
 ### 问题3: 编译错误
 **检查清单:**
-- [ ] Node.js 版本 >= 16
+- [ ] Node.js 版本建议使用 20.x 或更高的当前 LTS 版本
 - [ ] npm install 已执行
 - [ ] manifest.json 中 appid 已配置
 - [ ] pages.json 路由配置正确
+- [ ] `frontend/.env` 中 `VITE_API_BASE_URL` 是设备可访问的后端地址
 
 ### 问题4: 白屏/闪退
 **排查步骤:**
@@ -110,8 +111,8 @@ onLoad() {
 ### 3. 查看网络请求
 在 HBuilderX 控制台查看 API 请求:
 ```
-[Network] GET /api/home/list 200 OK
-[Network] POST /api/user/login 401 Unauthorized
+[Network] GET /api/v2/home 200 OK
+[Network] POST /api/v2/auth/password-login 401 Unauthorized
 ```
 
 ### 4. 性能分析
@@ -141,6 +142,7 @@ onLoad() {
 2. **保持USB连接**: 调试期间不要拔掉数据线
 3. **权限申请**: 首次运行会请求相机、位置等权限
 4. **日志过滤**: 控制台可使用过滤器只看关键信息
+5. **接口地址**: App 和真机调试不能使用电脑本机的 `localhost`，请改为手机可访问的局域网或测试域名
 
 ## 下一步
 

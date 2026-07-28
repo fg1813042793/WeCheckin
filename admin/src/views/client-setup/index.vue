@@ -154,7 +154,7 @@ export default {
 
     const loadBuiltinPresets = async () => {
       try {
-        const res = await request.get('/home/setup_get', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
+        const res = await request.get('/api/v2/home/setup', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
         if (res.code === 0 && res.data) {
           const parsed = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
           builtinPresets.value = Array.isArray(parsed) && parsed.length ? parsed : [...defaultBuiltinPresets]
@@ -174,7 +174,7 @@ export default {
     const saveBuiltinPresets = async () => {
       savingBuiltin.value = true
       try {
-        await request.post('/admin/setup_set_content', { key: 'BUILTIN_TEMPLATE_PRESETS', value: JSON.stringify(builtinPresets.value) })
+        await request.put('/api/v2/admin/settings/content', { key: 'BUILTIN_TEMPLATE_PRESETS', value: JSON.stringify(builtinPresets.value) })
         ElMessage.success('保存成功')
       } catch (e) {
         console.error(e)
@@ -185,7 +185,7 @@ export default {
 
     const loadCustomPresets = async () => {
       try {
-        const res = await request.get('/admin/survey/template_presets')
+        const res = await request.get('/api/v2/admin/survey-template-presets')
         if (res.code === 0 && Array.isArray(res.data)) {
           customPresets.value = res.data
         }
@@ -200,7 +200,7 @@ export default {
     const saveCustomPresets = async () => {
       savingCustom.value = true
       try {
-        await request.post('/admin/survey/template_presets', JSON.stringify({ presets: customPresets.value }), {
+        await request.put('/api/v2/admin/survey-template-presets', JSON.stringify({ presets: customPresets.value }), {
           headers: { 'Content-Type': 'application/json' },
           transformRequest: [(d) => d]
         })
@@ -263,7 +263,7 @@ export default {
 
     const loadContent = async (key) => {
       try {
-        const res = await request.get('/home/setup_get', { params: { key } })
+        const res = await request.get('/api/v2/home/setup', { params: { key } })
         contents[key] = res.data || ''
       } catch (e) {
         contents[key] = ''
@@ -273,7 +273,7 @@ export default {
     const saveContent = async (key) => {
       savingKey.value = key
       try {
-        await request.post('/admin/setup_set_content', { key, value: contents[key] || '' })
+        await request.put('/api/v2/admin/settings/content', { key, value: contents[key] || '' })
         ElMessage.success('保存成功')
       } catch (e) {
         console.error(e)
@@ -284,7 +284,7 @@ export default {
 
     const loadFormFields = async () => {
       try {
-        const res = await request.get('/user_form_fields')
+        const res = await request.get('/api/v2/user-form-fields')
         formFields.value = res.data || []
       } catch (e) {
         formFields.value = []
@@ -302,7 +302,7 @@ export default {
     const saveFormFields = async () => {
       savingForm.value = true
       try {
-        await request.post('/admin/setup_set_content', { key: 'SETUP_USER_FORM_FIELDS', value: JSON.stringify(formFields.value) })
+        await request.put('/api/v2/admin/settings/content', { key: 'SETUP_USER_FORM_FIELDS', value: JSON.stringify(formFields.value) })
         ElMessage.success('保存成功')
       } catch (e) {
         console.error(e)
@@ -313,7 +313,7 @@ export default {
 
     const loadHomeConfig = async () => {
       try {
-        const res = await request.get('/home/setup_get', { params: { key: 'HOME_PAGE_CONFIG' } })
+        const res = await request.get('/api/v2/home/setup', { params: { key: 'HOME_PAGE_CONFIG' } })
         if (res.data) {
           const parsed = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
           Object.assign(homeConfig, parsed)
@@ -326,7 +326,7 @@ export default {
     const saveHomeConfig = async () => {
       savingHome.value = true
       try {
-        await request.post('/admin/setup_set_content', { key: 'HOME_PAGE_CONFIG', value: JSON.stringify(homeConfig) })
+        await request.put('/api/v2/admin/settings/content', { key: 'HOME_PAGE_CONFIG', value: JSON.stringify(homeConfig) })
         ElMessage.success('保存成功')
       } catch (e) {
         console.error(e)
@@ -337,7 +337,7 @@ export default {
 
     const loadStaticDomain = async () => {
       try {
-        const res = await request.get('/home/setup_get', { params: { key: 'STATIC_DOMAIN' } })
+        const res = await request.get('/api/v2/home/setup', { params: { key: 'STATIC_DOMAIN' } })
         staticDomain.value = res.data || 'http://localhost:8083'
       } catch (e) {
         staticDomain.value = 'http://localhost:8083'
@@ -347,7 +347,7 @@ export default {
     const saveStaticDomain = async () => {
       savingDomain.value = true
       try {
-        await request.post('/admin/setup_set_content', { key: 'STATIC_DOMAIN', value: staticDomain.value })
+        await request.put('/api/v2/admin/settings/content', { key: 'STATIC_DOMAIN', value: staticDomain.value })
         ElMessage.success('保存成功')
       } catch (e) {
         console.error(e)
@@ -366,7 +366,7 @@ export default {
     const loadTokenConfig = async () => {
       const results = await Promise.allSettled(
         Object.entries(tokenConfigKeys).map(([field, key]) =>
-          request.get('/home/setup_get', { params: { key } }).then(res => ({ field, value: res.data || '' }))
+          request.get('/api/v2/home/setup', { params: { key } }).then(res => ({ field, value: res.data || '' }))
         )
       )
       for (const r of results) {
@@ -376,13 +376,13 @@ export default {
       }
       // 单点登录开关
       try {
-        const resUser = await request.get('/home/setup_get', { params: { key: 'USER_SINGLE_LOGIN' } })
+        const resUser = await request.get('/api/v2/home/setup', { params: { key: 'USER_SINGLE_LOGIN' } })
         tokenConfig.userSingleLogin = resUser.data === '1' ? 1 : 0
       } catch (e) {
         tokenConfig.userSingleLogin = 0
       }
       try {
-        const resAdmin = await request.get('/home/setup_get', { params: { key: 'ADMIN_SINGLE_LOGIN' } })
+        const resAdmin = await request.get('/api/v2/home/setup', { params: { key: 'ADMIN_SINGLE_LOGIN' } })
         tokenConfig.adminSingleLogin = resAdmin.data === '1' ? 1 : 0
       } catch (e) {
         tokenConfig.adminSingleLogin = 0
@@ -394,13 +394,13 @@ export default {
       try {
         await Promise.all([
           ...Object.entries(tokenConfigKeys).map(([field, key]) =>
-            request.post('/admin/setup_set_content', { key, value: tokenConfig[field] || '' })
+            request.put('/api/v2/admin/settings/content', { key, value: tokenConfig[field] || '' })
           ),
-          request.post('/admin/setup_set_content', {
+          request.put('/api/v2/admin/settings/content', {
             key: 'USER_SINGLE_LOGIN',
             value: String(tokenConfig.userSingleLogin)
           }),
-          request.post('/admin/setup_set_content', {
+          request.put('/api/v2/admin/settings/content', {
             key: 'ADMIN_SINGLE_LOGIN',
             value: String(tokenConfig.adminSingleLogin)
           })

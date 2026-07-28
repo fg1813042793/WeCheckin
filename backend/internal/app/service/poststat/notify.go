@@ -1,6 +1,7 @@
 package poststat
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +12,12 @@ import (
 )
 
 func sendInternalNotification(surveyID uint, title string, notifyAdmin bool, notifyUserIds string, msg string) {
+	sendInternalNotificationContext(context.Background(), surveyID, title, notifyAdmin, notifyUserIds, msg)
+}
+
+func sendInternalNotificationContext(ctx context.Context, surveyID uint, title string, notifyAdmin bool, notifyUserIds string, msg string) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	surveyIDStr := strconv.FormatUint(uint64(surveyID), 10)
 	if notifyAdmin {
 		notify := model.Notify{
@@ -22,7 +29,7 @@ func sendInternalNotification(surveyID uint, title string, notifyAdmin bool, not
 			UserID:     "",
 			AddTime:    time.Now().UnixMilli(),
 		}
-		if err := database.DB.Create(&notify).Error; err != nil {
+		if err := db.Create(&notify).Error; err != nil {
 			logger.Logger.Printf("[PostStat] create notify error: %v", err)
 		}
 	}
@@ -41,7 +48,7 @@ func sendInternalNotification(surveyID uint, title string, notifyAdmin bool, not
 			UserID:     id,
 			AddTime:    time.Now().UnixMilli(),
 		}
-		if err := database.DB.Create(&notify).Error; err != nil {
+		if err := db.Create(&notify).Error; err != nil {
 			logger.Logger.Printf("[PostStat] create notify error: %v", err)
 		}
 	}

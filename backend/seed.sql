@@ -11,16 +11,19 @@ TRUNCATE TABLE `enroll_users`;
 TRUNCATE TABLE `enrolls`;
 TRUNCATE TABLE `news`;
 TRUNCATE TABLE `setups`;
-TRUNCATE TABLE `admins`;
 TRUNCATE TABLE `users`;
--- ========================================
--- 1. 管理员 (admins)
--- ========================================
-INSERT INTO `admins` (`ADMIN_NAME`, `ADMIN_PASSWORD`, `ADMIN_DESC`, `ADMIN_PHONE`, `ADMIN_STATUS`, `ADMIN_TYPE`, `ADMIN_TOKEN`, `ADMIN_LOGIN_CNT`, `ADMIN_LOGIN_TIME`, `ADMIN_ADD_TIME`, `ADMIN_EDIT_TIME`, `ADMIN_ADD_IP`, `ADMIN_EDIT_IP`, `created_at`, `updated_at`) VALUES
-('admin', '0192023a7bbd73250516f069df18b500', '超级管理员', '13800000000', 1, 1, '', 0, 0, 1769472000000, 1769472000000, '127.0.0.1', '127.0.0.1', NOW(), NOW());
 
-INSERT INTO `admins` (`ADMIN_NAME`, `ADMIN_PASSWORD`, `ADMIN_DESC`, `ADMIN_PHONE`, `ADMIN_STATUS`, `ADMIN_TYPE`, `ADMIN_TOKEN`, `ADMIN_LOGIN_CNT`, `ADMIN_LOGIN_TIME`, `ADMIN_ADD_TIME`, `ADMIN_EDIT_TIME`, `ADMIN_ADD_IP`, `ADMIN_EDIT_IP`, `created_at`, `updated_at`) VALUES
-('editor', '0192023a7bbd73250516f069df18b500', '编辑员', '13900000000', 1, 0, '', 0, 0, 1769472000000, 1769472000000, '127.0.0.1', '127.0.0.1', NOW(), NOW());
+INSERT INTO `roles` (`role_name`, `role_remark`, `role_sort`, `role_status`, `role_allow_admin_login`, `role_data_scope`, `role_add_time`, `role_edit_time`, `role_add_ip`, `role_edit_ip`, `created_at`, `updated_at`)
+SELECT '超级管理员', '系统内置角色', 0, 1, 1, 1, 1769472000000, 1769472000000, '127.0.0.1', '127.0.0.1', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `roles` WHERE `role_name` = '超级管理员');
+SET @super_admin_role_id := (SELECT `id` FROM `roles` WHERE `role_name` = '超级管理员' ORDER BY `id` LIMIT 1);
+
+-- ========================================
+-- 1. 后台账号 (users)
+-- ========================================
+INSERT INTO `users` (`user_mini_openid`, `user_account`, `user_password`, `user_admin_desc`, `user_name`, `user_pic`, `user_mobile`, `user_status`, `user_admin_enabled`, `user_admin_type`, `user_role_id`, `user_admin_token`, `user_admin_token_time`, `user_login_cnt`, `user_login_time`, `user_add_time`, `user_edit_time`, `user_add_ip`, `user_edit_ip`, `user_forms`, `user_obj`, `created_at`, `updated_at`) VALUES
+('admin:1', 'admin', '0192023a7bbd73250516f069df18b500', '超级管理员', '超级管理员', '/static/default-avatar.png', '13800000000', 1, 1, 1, @super_admin_role_id, '', 0, 0, 0, 1769472000000, 1769472000000, '127.0.0.1', '127.0.0.1', '[]', '{}', NOW(), NOW()),
+('admin:2', 'editor', '0192023a7bbd73250516f069df18b500', '编辑员', '编辑员', '/static/default-avatar.png', '13900000000', 1, 1, 0, 0, '', 0, 0, 0, 1769472000000, 1769472000000, '127.0.0.1', '127.0.0.1', '[]', '{}', NOW(), NOW());
 
 -- ========================================
 -- 2. 用户 (users)

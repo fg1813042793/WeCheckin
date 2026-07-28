@@ -7,8 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"wecheckin-backend/backend/internal/app/support/access"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/database"
+
+	"gorm.io/gorm"
 )
 
 // Service manages online exam definitions, records, and statistics.
@@ -17,11 +20,53 @@ type Service struct{}
 // NewService creates an exam service instance.
 func NewService() *Service { return &Service{} }
 
+func scopedExamQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
+	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Exam{}, "`exam_dept_id`", "`exam_create_by`")
+}
+
+func ensureExamVisibleContext(ctx context.Context, db *gorm.DB, examID uint, adminID uint) error {
+	queryBuilder, err := scopedExamQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return queryBuilder.Where("`exam_id` = ?", examID).First(&model.Exam{}).Error
+}
+
 type RecordDetailResult struct {
 	Record  model.ExamRecord       `json:"record"`
 	Answers map[string]interface{} `json:"answers"`
 	Scoring map[string]bool        `json:"scoring"`
 	Schema  interface{}            `json:"schema"`
+}
+
+type DetailResult struct {
+	Exam          *model.Exam `json:"exam"`
+	ResponseCount int64       `json:"responseCount"`
+	Schema        string      `json:"schema"`
+}
+
+type StatisticsResult struct {
+	Total      int64                `json:"total"`
+	Submitted  int64                `json:"submitted"`
+	Passed     int64                `json:"passed"`
+	PassRate   float64              `json:"passRate"`
+	Daily      []DailyCount         `json:"daily"`
+	ScoreDist  map[string]int64     `json:"scoreDist"`
+	FieldStats []QuestionFieldStats `json:"fieldStats"`
+}
+
+type DailyCount struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+type QuestionFieldStats struct {
+	QuestionID string `json:"questionId"`
+	Type       string `json:"type"`
+	Title      string `json:"title"`
+	NonEmpty   int64  `json:"nonEmpty"`
+	Empty      int64  `json:"empty"`
+	TotalCount int64  `json:"totalCount"`
 }
 
 func (s *Service) List(keyword, category, status string, page, pageSize int) ([]model.Exam, int64, error) {
@@ -50,6 +95,35 @@ func (s *Service) ListContext(ctx context.Context, keyword, category, status str
 	return list, total, nil
 }
 
+func (s *Service) ListForAdminContext(ctx context.Context, keyword, category, status string, page, pageSize int, adminID uint) ([]model.Exam, int64, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	q, err := scopedExamQueryContext(ctx, db, adminID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if keyword != "" {
+		q = q.Where("`exam_title` LIKE ?", "%"+keyword+"%")
+	}
+	if category != "" {
+		q = q.Where("`exam_category` = ?", category)
+	}
+	if status != "" {
+		if st, err := strconv.Atoi(status); err == nil && st >= 0 {
+			q = q.Where("`exam_status` = ?", st)
+		}
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.Exam
+	if err := q.Order("`exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}
+
 func (s *Service) Get(id uint) (*model.Exam, error) {
 	return s.GetContext(context.Background(), id)
 }
@@ -62,6 +136,64 @@ func (s *Service) GetContext(ctx context.Context, id uint) (*model.Exam, error) 
 		return nil, err
 	}
 	return &exam, nil
+}
+
+func (s *Service) GetForAdminContext(ctx context.Context, id uint, adminID uint) (*model.Exam, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedExamQueryContext(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	var exam model.Exam
+	if err := queryBuilder.Where("`exam_id` = ?", id).First(&exam).Error; err != nil {
+		return nil, err
+	}
+	return &exam, nil
+}
+
+func (s *Service) Detail(id uint) (*DetailResult, error) {
+	return s.DetailContext(context.Background(), id)
+}
+
+func (s *Service) DetailContext(ctx context.Context, id uint) (*DetailResult, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var exam model.Exam
+	if err := db.Where("`exam_id` = ?", id).First(&exam).Error; err != nil {
+		return nil, err
+	}
+	var responseCount int64
+	if err := db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ?", id).Count(&responseCount).Error; err != nil {
+		return nil, err
+	}
+	return &DetailResult{
+		Exam:          &exam,
+		ResponseCount: responseCount,
+		Schema:        exam.Schema,
+	}, nil
+}
+
+func (s *Service) DetailForAdminContext(ctx context.Context, id uint, adminID uint) (*DetailResult, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedExamQueryContext(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	var exam model.Exam
+	if err := queryBuilder.Where("`exam_id` = ?", id).First(&exam).Error; err != nil {
+		return nil, err
+	}
+	var responseCount int64
+	if err := db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ?", id).Count(&responseCount).Error; err != nil {
+		return nil, err
+	}
+	return &DetailResult{
+		Exam:          &exam,
+		ResponseCount: responseCount,
+		Schema:        exam.Schema,
+	}, nil
 }
 
 func (s *Service) Create(req model.Exam) (*model.Exam, error) {
@@ -103,6 +235,17 @@ func (s *Service) UpdateContext(ctx context.Context, id uint, updates map[string
 	return db.Model(&model.Exam{}).Where("`exam_id` = ?", id).Updates(updates).Error
 }
 
+func (s *Service) UpdateForAdminContext(ctx context.Context, id uint, updates map[string]interface{}, adminID uint) error {
+	updates["exam_edit_time"] = time.Now().UnixMilli()
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedExamQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`exam_id` = ?", id).Updates(updates))
+}
+
 func (s *Service) SetStatus(id uint, status int) error {
 	return s.SetStatusContext(context.Background(), id, status)
 }
@@ -113,6 +256,16 @@ func (s *Service) SetStatusContext(ctx context.Context, id uint, status int) err
 	return db.Model(&model.Exam{}).Where("`exam_id` = ?", id).Update("exam_status", status).Error
 }
 
+func (s *Service) SetStatusForAdminContext(ctx context.Context, id uint, status int, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedExamQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`exam_id` = ?", id).Update("exam_status", status))
+}
+
 func (s *Service) Delete(id uint) error {
 	return s.DeleteContext(context.Background(), id)
 }
@@ -120,11 +273,30 @@ func (s *Service) Delete(id uint) error {
 func (s *Service) DeleteContext(ctx context.Context, id uint) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	if err := db.Where("`exam_id` = ?", id).Delete(&model.Exam{}).Error; err != nil {
-		return err
-	}
-	db.Where("`exam_r_exam_id` = ?", id).Delete(&model.ExamRecord{})
-	return nil
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("`exam_id` = ?", id).Delete(&model.Exam{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("`exam_r_exam_id` = ?", id).Delete(&model.ExamRecord{}).Error
+	})
+}
+
+func (s *Service) DeleteForAdminContext(ctx context.Context, id uint, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Transaction(func(tx *gorm.DB) error {
+		queryBuilder, err := scopedExamQueryContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := queryBuilder.Where("`exam_id` = ?", id).First(&model.Exam{}).Error; err != nil {
+			return err
+		}
+		if err := access.RequireRowsAffected(tx.Where("`exam_id` = ?", id).Delete(&model.Exam{})); err != nil {
+			return err
+		}
+		return tx.Where("`exam_r_exam_id` = ?", id).Delete(&model.ExamRecord{}).Error
+	})
 }
 
 // RecordList returns paged exam submission records.
@@ -146,6 +318,15 @@ func (s *Service) RecordListContext(ctx context.Context, examID int, keyword str
 	return list, total, nil
 }
 
+func (s *Service) RecordListForAdminContext(ctx context.Context, examID int, keyword string, page, pageSize int, adminID uint) ([]model.ExamRecord, int64, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	if err := ensureExamVisibleContext(ctx, db, uint(examID), adminID); err != nil {
+		return nil, 0, err
+	}
+	return s.RecordListContext(ctx, examID, keyword, page, pageSize)
+}
+
 // RecordDetail returns one submission record with parsed answers and schema.
 func (s *Service) RecordDetail(id uint) (*RecordDetailResult, error) {
 	return s.RecordDetailContext(context.Background(), id)
@@ -156,6 +337,21 @@ func (s *Service) RecordDetailContext(ctx context.Context, id uint) (*RecordDeta
 	defer cancel()
 	var record model.ExamRecord
 	if err := db.Where("`exam_r_id` = ?", id).First(&record).Error; err != nil {
+		return nil, err
+	}
+	var exam model.Exam
+	db.Where("`exam_id` = ?", record.ExamID).First(&exam)
+	return decodeRecordDetailPayload(record, exam), nil
+}
+
+func (s *Service) RecordDetailForAdminContext(ctx context.Context, id uint, adminID uint) (*RecordDetailResult, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var record model.ExamRecord
+	if err := db.Where("`exam_r_id` = ?", id).First(&record).Error; err != nil {
+		return nil, err
+	}
+	if err := ensureExamVisibleContext(ctx, db, record.ExamID, adminID); err != nil {
 		return nil, err
 	}
 	var exam model.Exam
@@ -185,37 +381,105 @@ func decodeRecordDetailPayload(record model.ExamRecord, exam model.Exam) *Record
 }
 
 func (s *Service) RecordDelete(id uint) {
-	database.DB.Where("`exam_r_id` = ?", id).Delete(&model.ExamRecord{})
+	_ = s.RecordDeleteContext(context.Background(), id)
+}
+
+func (s *Service) RecordDeleteContext(ctx context.Context, id uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Where("`exam_r_id` = ?", id).Delete(&model.ExamRecord{}).Error
+}
+
+func (s *Service) RecordDeleteForAdminContext(ctx context.Context, id uint, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var record model.ExamRecord
+	if err := db.Where("`exam_r_id` = ?", id).First(&record).Error; err != nil {
+		return err
+	}
+	if err := ensureExamVisibleContext(ctx, db, record.ExamID, adminID); err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(db.Where("`exam_r_id` = ?", id).Delete(&model.ExamRecord{}))
 }
 
 func (s *Service) RecordBatchDelete(ids string) {
-	database.DB.Where("`exam_r_id` IN ?", strings.Split(ids, ",")).Delete(&model.ExamRecord{})
+	_ = s.RecordBatchDeleteContext(context.Background(), ids)
+}
+
+func (s *Service) RecordBatchDeleteContext(ctx context.Context, ids string) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Where("`exam_r_id` IN ?", strings.Split(ids, ",")).Delete(&model.ExamRecord{}).Error
+}
+
+func (s *Service) RecordBatchDeleteForAdminContext(ctx context.Context, ids string, adminID uint) error {
+	for _, item := range strings.Split(ids, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		id, err := strconv.Atoi(item)
+		if err != nil {
+			return err
+		}
+		if err := s.RecordDeleteForAdminContext(ctx, uint(id), adminID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Statistics returns summary, trend, score distribution, and field-level stats.
-func (s *Service) Statistics(examID int) map[string]interface{} {
-	var total, submitted, passed int64
-	database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ?", examID).Count(&total)
-	database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).Count(&submitted)
-	database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_pass` = 1", examID).Count(&passed)
+func (s *Service) Statistics(examID int) StatisticsResult {
+	result, _ := s.StatisticsContext(context.Background(), examID)
+	return result
+}
+
+func (s *Service) StatisticsContext(ctx context.Context, examID int) (StatisticsResult, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	type summaryRow struct {
+		Total     int64 `gorm:"column:total"`
+		Submitted int64 `gorm:"column:submitted"`
+		Passed    int64 `gorm:"column:passed"`
+	}
+	var summary summaryRow
+	if err := db.Model(&model.ExamRecord{}).
+		Select("COUNT(*) AS total, COALESCE(SUM(CASE WHEN `exam_r_status` >= 1 THEN 1 ELSE 0 END), 0) AS submitted, COALESCE(SUM(CASE WHEN `exam_r_pass` = 1 THEN 1 ELSE 0 END), 0) AS passed").
+		Where("`exam_r_exam_id` = ?", examID).
+		Scan(&summary).Error; err != nil {
+		return StatisticsResult{}, err
+	}
 	var passRate float64
-	if submitted > 0 {
-		passRate = float64(passed) / float64(submitted)
+	if summary.Submitted > 0 {
+		passRate = float64(summary.Passed) / float64(summary.Submitted)
 	}
 
-	type dailyCount struct {
-		Date  string `json:"date"`
-		Count int64  `json:"count"`
-	}
-	var daily []dailyCount
 	now := time.Now()
+	daily := make([]DailyCount, 7)
+	dayCountMap := map[string]int64{}
+	sevenDayStart := time.Date(now.Year(), now.Month(), now.Day()-6, 0, 0, 0, 0, time.Local)
+	tomorrowStart := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.Local)
+	type dailyRow struct {
+		Date  string `gorm:"column:date"`
+		Count int64  `gorm:"column:count"`
+	}
+	var dailyRows []dailyRow
+	if err := db.Model(&model.ExamRecord{}).
+		Select("DATE_FORMAT(FROM_UNIXTIME(`exam_r_submit_time` / 1000), '%m-%d') AS date, COUNT(*) AS count").
+		Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1 AND `exam_r_submit_time` >= ? AND `exam_r_submit_time` < ?", examID, sevenDayStart.UnixMilli(), tomorrowStart.UnixMilli()).
+		Group("date").
+		Scan(&dailyRows).Error; err != nil {
+		return StatisticsResult{}, err
+	}
+	for _, row := range dailyRows {
+		dayCountMap[row.Date] = row.Count
+	}
 	for i := 6; i >= 0; i-- {
 		day := now.AddDate(0, 0, -i)
-		start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.Local).UnixMilli()
-		end := time.Date(day.Year(), day.Month(), day.Day(), 23, 59, 59, 999, time.Local).UnixMilli()
-		var cnt int64
-		database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_submit_time` >= ? AND `exam_r_submit_time` <= ?", examID, start, end).Count(&cnt)
-		daily = append(daily, dailyCount{Date: day.Format("01-02"), Count: cnt})
+		date := day.Format("01-02")
+		daily[6-i] = DailyCount{Date: date, Count: dayCountMap[date]}
 	}
 
 	type scoreDist struct {
@@ -223,7 +487,14 @@ func (s *Service) Statistics(examID int) map[string]interface{} {
 		Count int64 `json:"count"`
 	}
 	var sds []scoreDist
-	database.DB.Model(&model.ExamRecord{}).Select("FLOOR(`exam_r_score`/10)*10 as score, COUNT(*) as count").Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).Group("score").Order("score").Find(&sds)
+	if err := db.Model(&model.ExamRecord{}).
+		Select("FLOOR(`exam_r_score`/10)*10 as score, COUNT(*) as count").
+		Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).
+		Group("score").
+		Order("score").
+		Find(&sds).Error; err != nil {
+		return StatisticsResult{}, err
+	}
 	scoreDistMap := make(map[string]int64)
 	for _, sd := range sds {
 		key := strconv.Itoa(sd.Score) + "-" + strconv.Itoa(sd.Score+9)
@@ -231,36 +502,109 @@ func (s *Service) Statistics(examID int) map[string]interface{} {
 	}
 
 	var exam model.Exam
-	database.DB.Where("`exam_id` = ?", examID).First(&exam)
+	if err := db.Where("`exam_id` = ?", examID).First(&exam).Error; err != nil {
+		return StatisticsResult{}, err
+	}
 	var schema struct {
 		Questions []map[string]interface{} `json:"questions"`
 	}
-	json.Unmarshal([]byte(exam.Schema), &schema)
-	var fieldStats []map[string]interface{}
+	_ = json.Unmarshal([]byte(exam.Schema), &schema)
+	var answerRows []model.ExamRecord
+	if err := db.Select("exam_r_answers").
+		Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).
+		Find(&answerRows).Error; err != nil {
+		return StatisticsResult{}, err
+	}
+	nonEmptyByQuestionID := countExamQuestionNonEmptyAnswers(schema.Questions, answerRows)
+	var fieldStats []QuestionFieldStats
 	for _, q := range schema.Questions {
-		qid, _ := q["id"].(string)
+		qid := questionIDString(q["id"])
 		qtype, _ := q["type"].(string)
 		title, _ := q["title"].(string)
-		var nonEmpty, empty, totalCnt int64
-		database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1 AND JSON_EXTRACT(`exam_r_answers`, '$.\""+qid+"\"') IS NOT NULL AND JSON_EXTRACT(`exam_r_answers`, '$.\""+qid+"\"') != ''", examID).Count(&nonEmpty)
-		database.DB.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).Count(&totalCnt)
-		empty = totalCnt - nonEmpty
-		fieldStats = append(fieldStats, map[string]interface{}{
-			"questionId": qid,
-			"type":       qtype,
-			"title":      title,
-			"nonEmpty":   nonEmpty,
-			"empty":      empty,
-			"totalCount": totalCnt,
+		nonEmpty := nonEmptyByQuestionID[qid]
+		fieldStats = append(fieldStats, QuestionFieldStats{
+			QuestionID: qid,
+			Type:       qtype,
+			Title:      title,
+			NonEmpty:   nonEmpty,
+			Empty:      summary.Submitted - nonEmpty,
+			TotalCount: summary.Submitted,
 		})
 	}
-	return map[string]interface{}{
-		"total":      total,
-		"submitted":  submitted,
-		"passed":     passed,
-		"passRate":   passRate,
-		"daily":      daily,
-		"scoreDist":  scoreDistMap,
-		"fieldStats": fieldStats,
+	return StatisticsResult{
+		Total:      summary.Total,
+		Submitted:  summary.Submitted,
+		Passed:     summary.Passed,
+		PassRate:   passRate,
+		Daily:      daily,
+		ScoreDist:  scoreDistMap,
+		FieldStats: fieldStats,
+	}, nil
+}
+
+func (s *Service) StatisticsForAdminContext(ctx context.Context, examID int, adminID uint) (StatisticsResult, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	if err := ensureExamVisibleContext(ctx, db, uint(examID), adminID); err != nil {
+		return StatisticsResult{}, err
+	}
+	return s.StatisticsContext(ctx, examID)
+}
+
+func countExamQuestionNonEmptyAnswers(questions []map[string]interface{}, answerRows []model.ExamRecord) map[string]int64 {
+	result := make(map[string]int64, len(questions))
+	if len(questions) == 0 || len(answerRows) == 0 {
+		return result
+	}
+	questionIDs := make([]string, 0, len(questions))
+	for _, q := range questions {
+		qid := questionIDString(q["id"])
+		if qid == "" {
+			continue
+		}
+		questionIDs = append(questionIDs, qid)
+		result[qid] = 0
+	}
+	for _, row := range answerRows {
+		var answers map[string]interface{}
+		if row.Answers == "" || json.Unmarshal([]byte(row.Answers), &answers) != nil {
+			continue
+		}
+		for _, qid := range questionIDs {
+			if answerValueNonEmpty(answers[qid]) {
+				result[qid]++
+			}
+		}
+	}
+	return result
+}
+
+func questionIDString(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case float64:
+		return strconv.FormatInt(int64(v), 10)
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	default:
+		return ""
+	}
+}
+
+func answerValueNonEmpty(value interface{}) bool {
+	switch v := value.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(v) != ""
+	case []interface{}:
+		return len(v) > 0
+	case map[string]interface{}:
+		return len(v) > 0
+	default:
+		return true
 	}
 }

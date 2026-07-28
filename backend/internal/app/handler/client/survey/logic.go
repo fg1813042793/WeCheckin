@@ -26,7 +26,7 @@ func (h *ClientSurveyHandler) ApplyLogic(_ context.Context, c *app.RequestContex
 		return
 	}
 	out, _ := h.survey.ApplyLogic(sv, req.Answers)
-	response.JSON(c, answersResponse{Answers: out})
+	response.JSON(c, answersResponse{Answers: out.Answers})
 }
 
 // Validate POST /survey/validate

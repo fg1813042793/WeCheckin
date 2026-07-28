@@ -105,7 +105,6 @@ Component({
 
 						let maxSize = 20; //TODO setting
 						let imageMaxSize = 1024 * 1000 * maxSize;
-						console.log('IMGX SIZE=' + size + 'Byte,' + size / 1024 + 'K');
 						if (!contentCheckHelper.imgSizeCheck(size, imageMaxSize)) {
 							wx.hideLoading();
 							return pageHelper.showModal('图片大小不能超过 ' + maxSize + '兆');

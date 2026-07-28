@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	setupservice "wecheckin-backend/backend/internal/app/service/setup"
 	"wecheckin-backend/backend/internal/app/support/dept"
 	"wecheckin-backend/backend/internal/app/support/media"
 	"wecheckin-backend/backend/internal/app/support/publish"
@@ -19,6 +20,24 @@ type ListResponse struct {
 type CategoryItem struct {
 	ID   interface{} `json:"id"`
 	Name interface{} `json:"name"`
+}
+
+var ListColumns = []string{
+	"id",
+	"news_title",
+	"news_desc",
+	"news_status",
+	"news_dept_id",
+	"news_publish_dept_ids",
+	"news_create_by",
+	"news_cate_id",
+	"news_cate_name",
+	"news_order",
+	"news_vouch",
+	"news_view_cnt",
+	"news_pic",
+	"news_add_time",
+	"news_edit_time",
 }
 
 func PopulateFields(list []model.News) []model.News {
@@ -49,7 +68,7 @@ func GetNewsListContext(ctx context.Context, page, pageSize int, keyword, userID
 		query = query.Where("`news_title` LIKE ?", "%"+keyword+"%")
 	}
 	if userID != "" {
-		deptIDs := dept.UserDeptIDsByMiniOpenID(userID)
+		deptIDs := dept.UserDeptIDsByMiniOpenIDContext(ctx, userID)
 		if len(deptIDs) > 0 {
 			query = query.Where("(`news_publish_dept_ids` = '' OR `news_publish_dept_ids` IS NULL OR " +
 				publish.DeptOverlap("news_publish_dept_ids", deptIDs) + ")")
@@ -60,7 +79,7 @@ func GetNewsListContext(ctx context.Context, page, pageSize int, keyword, userID
 		query = query.Where("(`news_publish_dept_ids` = '' OR `news_publish_dept_ids` IS NULL)")
 	}
 	query.Count(&total)
-	err := query.Order("`news_order` ASC, `news_add_time` DESC").
+	err := query.Select(ListColumns).Order("`news_order` ASC, `news_add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, err
@@ -91,10 +110,7 @@ func GetNewsCateList() ([]CategoryItem, error) {
 }
 
 func GetNewsCateListContext(ctx context.Context) ([]CategoryItem, error) {
-	var setup model.Setup
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	err := db.Where("`setup_key` = ?", "news_cate").First(&setup).Error
+	setup, err := setupservice.GetSetupContext(ctx, "news_cate")
 	if err != nil {
 		return nil, err
 	}

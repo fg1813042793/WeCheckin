@@ -33,7 +33,7 @@ func (h *AdminNewsHandler) GetAdminNewsList(ctx context.Context, c *app.RequestC
 	size, _ := strconv.Atoi(sizeStr)
 	keyword := c.Query("keyword")
 	sortStr := c.Query("sort")
-	list, total, err := admincontentservice.GetAdminNewsList(keyword, sortStr, page, size, admin.ID)
+	list, total, err := admincontentservice.GetAdminNewsListContext(ctx, keyword, sortStr, page, size, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -63,7 +63,7 @@ func (h *AdminNewsHandler) InsertNews(ctx context.Context, c *app.RequestContext
 	deptID, _ := strconv.ParseUint(c.PostForm("deptId"), 10, 64)
 	publishDeptIds := c.PostForm("publishDeptIds")
 
-	err := admincontentservice.InsertNews(title, desc, cateID, cateName, content, "", img, "", addIP, publishDeptIds, 1, order, uint(deptID), admin.ID)
+	err := admincontentservice.InsertNewsContext(ctx, title, desc, cateID, cateName, content, "", img, "", addIP, publishDeptIds, 1, order, uint(deptID), admin.ID)
 	if err != nil {
 		response.Fail(c, "添加失败")
 		return
@@ -77,8 +77,10 @@ func (h *AdminNewsHandler) InsertNews(ctx context.Context, c *app.RequestContext
 // @Success 200 {object} response.Resp
 // @Router /admin/news_detail [get]
 func (h *AdminNewsHandler) GetNewsDetail(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.Query("id")
-	data, err := admincontentservice.GetNewsDetail(id)
+	data, err := admincontentservice.GetNewsDetailForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -91,6 +93,8 @@ func (h *AdminNewsHandler) GetNewsDetail(ctx context.Context, c *app.RequestCont
 // @Success 200 {object} response.Resp
 // @Router /admin/news_edit [post]
 func (h *AdminNewsHandler) EditNews(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	title := c.PostForm("title")
 	desc := c.PostForm("desc")
@@ -107,13 +111,13 @@ func (h *AdminNewsHandler) EditNews(ctx context.Context, c *app.RequestContext) 
 	deptID, _ := strconv.ParseUint(c.PostForm("deptId"), 10, 64)
 	publishDeptIds := c.PostForm("publishDeptIds")
 
-	err := admincontentservice.EditNews(id, title, desc, cateID, cateName, content, "", addIP, publishDeptIds, 1, order, uint(deptID))
+	err := admincontentservice.EditNewsForAdminContext(ctx, id, title, desc, cateID, cateName, content, "", addIP, publishDeptIds, 1, order, uint(deptID), admin.ID)
 	if err != nil {
 		response.Fail(c, "编辑失败")
 		return
 	}
 	if img != "" {
-		admincontentservice.UpdateNewsPic(id, img)
+		_ = admincontentservice.UpdateNewsPicForAdminContext(ctx, id, img, admin.ID)
 	}
 	response.JSON(c, nil)
 }
@@ -125,9 +129,11 @@ func (h *AdminNewsHandler) EditNews(ctx context.Context, c *app.RequestContext) 
 // @Success 200 {object} response.Resp
 // @Router /admin/news_update_forms [post]
 func (h *AdminNewsHandler) UpdateNewsForms(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	forms := c.PostForm("forms")
-	err := admincontentservice.UpdateNewsForms(id, forms)
+	err := admincontentservice.UpdateNewsFormsForAdminContext(ctx, id, forms, admin.ID)
 	if err != nil {
 		response.Fail(c, "更新失败")
 		return
@@ -142,9 +148,11 @@ func (h *AdminNewsHandler) UpdateNewsForms(ctx context.Context, c *app.RequestCo
 // @Success 200 {object} response.Resp
 // @Router /admin/news_update_pic [post]
 func (h *AdminNewsHandler) UpdateNewsPic(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	pic := c.PostForm("pic")
-	err := admincontentservice.UpdateNewsPic(id, pic)
+	err := admincontentservice.UpdateNewsPicForAdminContext(ctx, id, pic, admin.ID)
 	if err != nil {
 		response.Fail(c, "更新失败")
 		return
@@ -159,9 +167,11 @@ func (h *AdminNewsHandler) UpdateNewsPic(ctx context.Context, c *app.RequestCont
 // @Success 200 {object} response.Resp
 // @Router /admin/news_update_content [post]
 func (h *AdminNewsHandler) UpdateNewsContent(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	content := c.PostForm("content")
-	err := admincontentservice.UpdateNewsContent(id, content)
+	err := admincontentservice.UpdateNewsContentForAdminContext(ctx, id, content, admin.ID)
 	if err != nil {
 		response.Fail(c, "更新失败")
 		return
@@ -175,8 +185,10 @@ func (h *AdminNewsHandler) UpdateNewsContent(ctx context.Context, c *app.Request
 // @Success 200 {object} response.Resp
 // @Router /admin/news_del [post]
 func (h *AdminNewsHandler) DelNews(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
-	err := admincontentservice.DelNews(id)
+	err := admincontentservice.DelNewsForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "删除失败")
 		return
@@ -185,13 +197,15 @@ func (h *AdminNewsHandler) DelNews(ctx context.Context, c *app.RequestContext) {
 }
 
 func (h *AdminNewsHandler) DelNewsList(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
 	ids := strings.Split(idsStr, ",")
-	if err := admincontentservice.DelNewsList(ids); err != nil {
+	if err := admincontentservice.DelNewsListForAdminContext(ctx, ids, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -205,9 +219,11 @@ func (h *AdminNewsHandler) DelNewsList(ctx context.Context, c *app.RequestContex
 // @Success 200 {object} response.Resp
 // @Router /admin/news_sort [post]
 func (h *AdminNewsHandler) SortNews(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	sortStr := c.PostForm("sort")
-	err := admincontentservice.SortNews(id, sortStr)
+	err := admincontentservice.SortNewsForAdminContext(ctx, id, sortStr, admin.ID)
 	if err != nil {
 		response.Fail(c, "排序失败")
 		return
@@ -222,9 +238,30 @@ func (h *AdminNewsHandler) SortNews(ctx context.Context, c *app.RequestContext) 
 // @Success 200 {object} response.Resp
 // @Router /admin/news_status [post]
 func (h *AdminNewsHandler) StatusNews(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	status, _ := strconv.Atoi(c.PostForm("status"))
-	err := admincontentservice.StatusNews(id, status)
+	err := admincontentservice.StatusNewsForAdminContext(ctx, id, status, admin.ID)
+	if err != nil {
+		response.Fail(c, "操作失败")
+		return
+	}
+	response.JSON(c, nil)
+}
+
+// @Tags PC端-通知公告
+// @Summary 设置通知公告推荐
+// @Param id formData string true "通知公告ID"
+// @Param vouch formData int true "推荐(1=推荐 0=取消)"
+// @Success 200 {object} response.Resp
+// @Router /admin/news_vouch [post]
+func (h *AdminNewsHandler) VouchNews(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	id := c.PostForm("id")
+	vouch, _ := strconv.Atoi(c.PostForm("vouch"))
+	err := admincontentservice.VouchNewsForAdminContext(ctx, id, vouch, admin.ID)
 	if err != nil {
 		response.Fail(c, "操作失败")
 		return

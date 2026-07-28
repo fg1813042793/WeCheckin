@@ -1,11 +1,14 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="toolbar" :style="{ top: fixedTop }">
+  <view class="container">
+    <view class="toolbar">
       <view class="search-bar">
-        <input class="search-input" v-model="keyword" placeholder="搜索用户名/手机号" @confirm="onSearch" />
-        <text class="search-btn" @click="onSearch">搜索</text>
+        <input class="search-input" v-model="keyword" placeholder="搜索用户名/手机号" confirm-type="search" @confirm="onSearch" />
       </view>
-      <view class="add-btn" v-if="hasPerm('user:add')" @click="goAddUser">+ 增加用户</view>
+      <view class="action-row">
+        <view class="add-btn" v-if="hasPerm('user:add')" aria-label="创建用户" @click="goAddUser">
+          <text class="add-text">创建</text>
+        </view>
+      </view>
     </view>
 
     <scroll-view scroll-y class="scroll-area">
@@ -89,28 +92,13 @@ export default {
       modalTitle: '',
       modalReason: '',
       modalItem: null,
-      modalStatus: null,
-      fixedTop: '0px',
-      containerPad: '0px'
+      modalStatus: null
     }
   },
 
   computed: {
     hasMore() {
       return this.list.length < this.total
-    }
-  },
-
-  onReady() {
-    const sys = uni.getSystemInfoSync()
-    if (sys.platform === 'android') {
-      this.fixedTop = '0px'
-      this.containerPad = '124rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = navOffset + 'px'
-      const pxScale = 750 / sys.windowWidth
-      this.containerPad = (navOffset + Math.round(120 / pxScale)) + 'px'
     }
   },
 
@@ -249,14 +237,16 @@ export default {
   background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
+  padding-top: 206rpx;
+  box-sizing: border-box;
 }
 
-.toolbar { position: fixed; left: 0; right: 0; z-index: 10; display: flex; align-items: center; padding: 24rpx 20rpx; background-color: #fff; }
-.toolbar::before { content: ''; position: absolute; left: 0; right: 0; top: -12rpx; height: 12rpx; background-color: #f5f5f5; }
-.search-bar { flex: 1; display: flex; align-items: center; }
-.search-input { flex: 1; height: 64rpx; background-color: #f5f5f5; border-radius: 32rpx; padding: 0 24rpx; font-size: 26rpx; }
-.search-btn { font-size: 26rpx; color: #fb454c; flex-shrink: 0; margin-left: 16rpx; }
-.add-btn { background-color: #fb454c; color: #fff; padding: 14rpx 28rpx; border-radius: 32rpx; font-size: 26rpx; flex-shrink: 0; margin-left: 16rpx; }
+.toolbar { position: fixed; left: 0; right: 0; top: var(--window-top, 0px); z-index: 20; display: flex; flex-direction: column; align-items: flex-start; gap: 16rpx; padding: 20rpx; background-color: #fff; box-sizing: border-box; }
+.search-bar { display: flex; align-items: center; width: 100%; min-width: 0; }
+.search-input { flex: 1; height: 70rpx; background-color: #f5f5f5; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; }
+.action-row { display: flex; align-items: center; gap: 12rpx; min-height: 56rpx; }
+.add-btn { height: 56rpx; line-height: 56rpx; display: flex; align-items: center; justify-content: center; background-color: #eaf3ff; color: #1677ff; padding: 0 28rpx; border-radius: 16rpx; box-shadow: none; }
+.add-text { color: #1677ff; font-size: 24rpx; font-weight: 600; line-height: 56rpx; }
 
 .scroll-area {
   flex: 1;
@@ -298,9 +288,10 @@ export default {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background-color: #fb454c;
-  color: #fff;
+  background-color: #eaf3ff;
+  color: #1677ff;
   font-size: 28rpx;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -349,8 +340,8 @@ export default {
 }
 
 .tag-disabled {
-  background-color: #fbe9e7;
-  color: #c62828;
+  background-color: #f1f5f9;
+  color: #64748b;
 }
 
 .tag-admin {
@@ -387,7 +378,7 @@ export default {
 }
 
 .info-value.red {
-  color: #c62828;
+  color: #d97706;
 }
 
 .card-actions {
@@ -411,27 +402,34 @@ export default {
   padding: 8rpx 20rpx;
   border-radius: 8rpx;
   text-align: center;
-  color: #fff;
+  color: #475569;
+  background-color: #f8fafc;
+  border: 1rpx solid transparent;
 }
 
 .btn-edit {
-  background-color: #2499f2;
+  background-color: #eaf3ff;
+  color: #1677ff;
 }
 
 .btn-success {
-  background-color: #2e7d32;
+  background-color: #eaf8f0;
+  color: #1f7a45;
 }
 
 .btn-warning {
-  background-color: #ff9800;
+  background-color: #fff7ed;
+  color: #d97706;
 }
 
 .btn-disabled {
-  background-color: #c62828;
+  background-color: #f1f5f9;
+  color: #64748b;
 }
 
 .btn-danger {
-  background-color: #fb454c;
+  background-color: #fff1f2;
+  color: #be123c;
 }
 
 .empty {
@@ -516,7 +514,7 @@ export default {
 }
 
 .btn-confirm {
-  background-color: #fb454c;
+  background-color: #1677ff;
   color: #fff;
 }
 </style>

@@ -10,13 +10,13 @@ import (
 )
 
 func (h *AdminUserHandler) GetOnlineUsers(ctx context.Context, c *app.RequestContext) {
-	list, err := onlineservice.GetOnlineUsers()
+	list, err := onlineservice.GetOnlineUsersContext(ctx)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
 	}
 	if list == nil {
-		list = []map[string]interface{}{}
+		list = []onlineservice.UserSession{}
 	}
 	response.JSON(c, list)
 }
@@ -28,7 +28,7 @@ func (h *AdminUserHandler) ForceOfflineUser(ctx context.Context, c *app.RequestC
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := onlineservice.ForceOfflineUser(idStr, token); err != nil {
+	if err := onlineservice.ForceOfflineUserContext(ctx, idStr, token); err != nil {
 		response.Fail(c, "操作失败")
 		return
 	}
@@ -64,7 +64,7 @@ func (h *AdminUserHandler) BatchForceOfflineUser(ctx context.Context, c *app.Req
 		response.Fail(c, "参数错误")
 		return
 	}
-	n, err := onlineservice.BatchForceOfflineUser(items)
+	n, err := onlineservice.BatchForceOfflineUserContext(ctx, items)
 	if err != nil {
 		response.Fail(c, "操作失败")
 		return

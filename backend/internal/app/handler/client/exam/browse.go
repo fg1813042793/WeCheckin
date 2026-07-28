@@ -12,8 +12,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	examservice "wecheckin-backend/backend/internal/app/service/exam"
 	"wecheckin-backend/backend/pkg/logger"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
@@ -37,41 +36,16 @@ func (h *ClientExamHandler) List(ctx context.Context, c *app.RequestContext) {
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	q := db.Model(&model.Exam{}).Where("`exam_status` = 1")
-	if kw := c.Query("keyword"); kw != "" {
-		q = q.Where("`exam_title` LIKE ?", "%"+kw+"%")
-	}
-	var total int64
-	q.Count(&total)
-	var list []model.Exam
-	q.Order("`exam_order` DESC, `exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
-
 	deviceId := c.Query("deviceId")
 	clientIP := c.ClientIP()
-	limitsMap := make(map[uint]examLimitInfo)
-	for _, e := range list {
-		li := examLimitInfo{}
-		var settingsMap map[string]interface{}
-		_ = json.Unmarshal([]byte(e.Settings), &settingsMap)
-		if deviceLimit, _ := settingsMap["deviceLimit"].(float64); deviceLimit > 0 && deviceId != "" {
-			var cnt int64
-			db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_device_id` = ? AND `exam_r_status` >= 1", e.ID, deviceId).Count(&cnt)
-			if int(cnt) >= int(deviceLimit) {
-				li.DeviceFull = true
-			}
-		}
-		if ipLimit, _ := settingsMap["ipLimit"].(float64); ipLimit > 0 && clientIP != "" {
-			var cnt int64
-			db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_add_ip` = ? AND `exam_r_status` >= 1", e.ID, clientIP).Count(&cnt)
-			if int(cnt) >= int(ipLimit) {
-				li.IPFull = true
-			}
-		}
-		if li.DeviceFull || li.IPFull {
-			limitsMap[e.ID] = li
-		}
+	list, total, serviceLimits, err := h.service().PublishedListWithLimitsContext(ctx, c.Query("keyword"), page, pageSize, deviceId, clientIP)
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
+	}
+	limitsMap := make(map[uint]examLimitInfo, len(serviceLimits))
+	for id, limit := range serviceLimits {
+		limitsMap[id] = examLimitInfo{DeviceFull: limit.DeviceFull, IPFull: limit.IPFull}
 	}
 	response.JSON(c, examListResponse{List: list, Total: total, Page: page, Size: pageSize, Limits: limitsMap})
 }
@@ -88,10 +62,8 @@ func (h *ClientExamHandler) View(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "id 必填")
 		return
 	}
-	var e model.Exam
-	db, dbCancel := database.WithContext(ctx)
-	defer dbCancel()
-	if err := db.Where("`exam_id` = ? AND `exam_status` = 1", id).First(&e).Error; err != nil {
+	e, err := h.service().PublishedExamContext(ctx, uint(id))
+	if err != nil {
 		logger.Logger.Printf("[ExamView] 考试不存在或未发布 examId=%d", id)
 		response.Fail(c, "考试不存在或未发布")
 		return
@@ -155,19 +127,18 @@ func (h *ClientExamHandler) View(ctx context.Context, c *app.RequestContext) {
 			if id, ok := userInfo["id"].(float64); ok {
 				uid = uint(id)
 			}
-			var ud model.UserDept
-			db.Where("`user_dept_user_id` = ?", uid).First(&ud)
+			deptID, _ := h.service().UserDeptIDContext(ctx, uid)
 			deptIds := strings.Split(e.DeptIds, ",")
 			allowed := false
 			for _, did := range deptIds {
 				d, _ := strconv.Atoi(strings.TrimSpace(did))
-				if uint(d) == ud.DeptID {
+				if uint(d) == deptID {
 					allowed = true
 					break
 				}
 			}
 			if !allowed {
-				logger.Logger.Printf("[ExamView] 部门未授权 examId=%d userId=%d deptId=%d", e.ID, uid, ud.DeptID)
+				logger.Logger.Printf("[ExamView] 部门未授权 examId=%d userId=%d deptId=%d", e.ID, uid, deptID)
 				response.Fail(c, "您不在该考试的可见部门中")
 				return
 			}
@@ -195,32 +166,17 @@ func (h *ClientExamHandler) View(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 	if e.PaperID > 0 {
-		var p model.ExamPaper
-		if err := db.Where("`exam_p_id` = ?", e.PaperID).First(&p).Error; err != nil {
+		paperResult, err := h.service().PaperQuestionsContext(ctx, e.PaperID, examservice.PaperQuestionOptions{
+			IncludeExamAnswer:   true,
+			IncludeExamAnalysis: true,
+			IncludeCategory:     true,
+			IncludeDifficulty:   true,
+		})
+		if err != nil {
 			response.Fail(c, "试卷不存在")
 			return
 		}
-		var qids []uint
-		_ = json.Unmarshal([]byte(p.QuestionIDs), &qids)
-		var qs []model.ExamQuestion
-		if len(qids) > 0 {
-			db.Where("`exam_q_id` IN ?", qids).Find(&qs)
-		}
-		safe := make([]map[string]interface{}, 0, len(qs))
-		for _, q := range qs {
-			safe = append(safe, map[string]interface{}{
-				"id":                q.ID,
-				"type":              q.Type,
-				"title":             q.Title,
-				"options":           q.Options,
-				"score":             q.Score,
-				"difficulty":        q.Difficulty,
-				"category":          q.Category,
-				"examCorrectAnswer": q.Answer,
-				"examAnalysis":      q.Analysis,
-			})
-		}
-		response.JSON(c, examViewPaperResponse{Exam: e, Paper: p, Questions: safe, StartAt: startAt, Session: session})
+		response.JSON(c, examViewPaperResponse{Exam: *e, Paper: paperResult.Paper, Questions: paperResult.Questions, StartAt: startAt, Session: session})
 		return
 	}
 	var schMap map[string]interface{}

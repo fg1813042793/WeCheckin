@@ -43,12 +43,21 @@ func (h *AdminRoleHandler) GetRoleList(ctx context.Context, c *app.RequestContex
 }
 
 // @Tags PC端-角色管理
+// @Summary 获取应用菜单权限树
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/roles/application-permissions [get]
+func (h *AdminRoleHandler) GetApplicationPermissionTree(ctx context.Context, c *app.RequestContext) {
+	response.JSON(c, roleservice.ApplicationPermissionTree())
+}
+
+// @Tags PC端-角色管理
 // @Summary 新增角色
 // @Param name formData string true "角色名称"
 // @Param remark formData string false "备注"
 // @Param sort formData int false "排序"
 // @Param dataScope formData int false "数据权限范围(1=全部 2=自定义)"
-// @Param menuIds formData string false "菜单ID列表(逗号分隔)"
+// @Param adminPermissionKeys formData string false "后台权限编码列表(逗号分隔)"
+// @Param adminApiPermissionKeys formData string false "后台接口权限编码列表(逗号分隔)"
 // @Param deptIds formData string false "部门ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
 // @Router /admin/role/add [post]
@@ -57,22 +66,17 @@ func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 	remark := c.PostForm("remark")
 	sort, _ := strconv.Atoi(c.PostForm("sort"))
 	dataScope, _ := strconv.Atoi(c.PostForm("dataScope"))
+	allowAdminLogin := parseAllowAdminLogin(c.PostForm("allowAdminLogin"), true)
+	adminPermissionKeys := parsePermissionKeys(c.PostForm("adminPermissionKeys"))
+	adminAPIPermissionKeys := parsePermissionKeys(c.PostForm("adminApiPermissionKeys"))
+	clientMenuKeys := parsePermissionKeys(c.PostForm("clientMenuKeys"))
+	dingtalkH5MenuKeys := parsePermissionKeys(c.PostForm("dingtalkH5MenuKeys"))
 	if dataScope == 0 {
 		dataScope = 1
 	}
 	if name == "" {
 		response.Fail(c, "角色名称不能为空")
 		return
-	}
-	var menuIDs []uint
-	menuIDsStr := c.PostForm("menuIds")
-	if menuIDsStr != "" {
-		for _, s := range strings.Split(menuIDsStr, ",") {
-			s = strings.TrimSpace(s)
-			if mid, err := strconv.Atoi(s); err == nil && mid > 0 {
-				menuIDs = append(menuIDs, uint(mid))
-			}
-		}
 	}
 	var deptIDs []uint
 	deptIDsStr := c.PostForm("deptIds")
@@ -84,7 +88,7 @@ func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 			}
 		}
 	}
-	if _, err := roleservice.AddWithAssignmentsContext(ctx, name, remark, c.ClientIP(), sort, dataScope, menuIDs, deptIDs); err != nil {
+	if _, err := roleservice.AddWithAssignmentsContext(ctx, name, remark, c.ClientIP(), sort, dataScope, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, deptIDs, clientMenuKeys, dingtalkH5MenuKeys); err != nil {
 		response.Fail(c, "添加失败")
 		return
 	}
@@ -99,7 +103,8 @@ func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 // @Param sort formData int false "排序"
 // @Param status formData int false "状态(1=启用 0=禁用)"
 // @Param dataScope formData int false "数据权限范围"
-// @Param menuIds formData string false "菜单ID列表(逗号分隔)"
+// @Param adminPermissionKeys formData string false "后台权限编码列表(逗号分隔)"
+// @Param adminApiPermissionKeys formData string false "后台接口权限编码列表(逗号分隔)"
 // @Param deptIds formData string false "部门ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
 // @Router /admin/role/edit [post]
@@ -110,22 +115,20 @@ func (h *AdminRoleHandler) EditRole(ctx context.Context, c *app.RequestContext) 
 	sort, _ := strconv.Atoi(c.PostForm("sort"))
 	status, _ := strconv.Atoi(c.PostForm("status"))
 	dataScope, _ := strconv.Atoi(c.PostForm("dataScope"))
+	allowAdminLogin := -1
+	if value, ok := c.GetPostForm("allowAdminLogin"); ok {
+		allowAdminLogin = parseAllowAdminLogin(value, true)
+	}
+	adminPermissionKeys := parsePermissionKeys(c.PostForm("adminPermissionKeys"))
+	adminAPIPermissionKeys := parsePermissionKeys(c.PostForm("adminApiPermissionKeys"))
+	clientMenuKeys := parsePermissionKeys(c.PostForm("clientMenuKeys"))
+	dingtalkH5MenuKeys := parsePermissionKeys(c.PostForm("dingtalkH5MenuKeys"))
 	if dataScope == 0 {
 		dataScope = 1
 	}
 	if name == "" || id == 0 {
 		response.Fail(c, "参数错误")
 		return
-	}
-	var menuIDs []uint
-	menuIDsStr := c.PostForm("menuIds")
-	if menuIDsStr != "" {
-		for _, s := range strings.Split(menuIDsStr, ",") {
-			s = strings.TrimSpace(s)
-			if mid, err := strconv.Atoi(s); err == nil && mid > 0 {
-				menuIDs = append(menuIDs, uint(mid))
-			}
-		}
 	}
 	var deptIDs []uint
 	deptIDsStr := c.PostForm("deptIds")
@@ -137,11 +140,42 @@ func (h *AdminRoleHandler) EditRole(ctx context.Context, c *app.RequestContext) 
 			}
 		}
 	}
-	if err := roleservice.EditWithAssignmentsContext(ctx, uint(id), name, remark, c.ClientIP(), sort, status, dataScope, menuIDs, deptIDs); err != nil {
+	if err := roleservice.EditWithAssignmentsContext(ctx, uint(id), name, remark, c.ClientIP(), sort, status, dataScope, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, deptIDs, clientMenuKeys, dingtalkH5MenuKeys); err != nil {
 		response.Fail(c, "编辑失败")
 		return
 	}
 	response.JSON(c, nil)
+}
+
+func parseAllowAdminLogin(value string, defaultValue bool) int {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "0", "false", "off", "no":
+		return 0
+	case "1", "true", "on", "yes":
+		return 1
+	default:
+		if defaultValue {
+			return 1
+		}
+		return 0
+	}
+}
+
+func parsePermissionKeys(value string) []string {
+	if value == "" {
+		return nil
+	}
+	keys := make([]string, 0)
+	seen := map[string]bool{}
+	for _, raw := range strings.Split(value, ",") {
+		key := strings.TrimSpace(raw)
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // @Tags PC端-角色管理

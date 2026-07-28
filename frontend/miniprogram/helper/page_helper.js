@@ -27,7 +27,6 @@ function addPhoneCalendar(title, startTime, endTime, alarmOffset = 3600) {
 			}
 		},
 		complete: (res) => {
-			console.log(res)
 		}
 
 	});
@@ -623,7 +622,6 @@ function url(e, that) {
 						})
 					},
 					fail: function (err) {
-						console.log(err);
 					}
 				})
 			}

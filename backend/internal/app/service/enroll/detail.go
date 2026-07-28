@@ -1,6 +1,7 @@
 package enroll
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -11,22 +12,28 @@ import (
 )
 
 func ViewEnroll(id, userID string) (*model.Enroll, error) {
+	return ViewEnrollContext(context.Background(), id, userID)
+}
+
+func ViewEnrollContext(ctx context.Context, id, userID string) (*model.Enroll, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var enroll model.Enroll
-	err := database.DB.Where("`id` = ?", id).First(&enroll).Error
+	err := db.Where("`id` = ?", id).First(&enroll).Error
 	if err != nil {
 		return nil, err
 	}
-	database.DB.Model(&enroll).UpdateColumn("enroll_view_cnt", enroll.ViewCnt+1)
+	db.Model(&enroll).UpdateColumn("enroll_view_cnt", enroll.ViewCnt+1)
 
 	// Check if current user has joined
 	if userID != "" {
 		var euCnt int64
-		database.DB.Model(&model.EnrollUser{}).Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", id, userID).Count(&euCnt)
+		db.Model(&model.EnrollUser{}).Where("`enroll_user_enroll_id` = ? AND `enroll_user_mini_openid` = ?", id, userID).Count(&euCnt)
 		if euCnt > 0 {
 			enroll.IsJoin = true
 		}
 		var jCnt int64
-		database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ? AND `enroll_join_day` = ?", id, userID, time.Now().Format("2006-01-02")).Count(&jCnt)
+		db.Model(&model.EnrollJoin{}).Where("`enroll_join_enroll_id` = ? AND `enroll_join_user_id` = ? AND `enroll_join_day` = ?", id, userID, time.Now().Format("2006-01-02")).Count(&jCnt)
 		if jCnt > 0 {
 			enroll.MyEnrollJoinID = "1"
 		}
@@ -86,7 +93,7 @@ func ViewEnroll(id, userID string) (*model.Enroll, error) {
 
 	// DayList from join records
 	var days []string
-	database.DB.Model(&model.EnrollJoin{}).
+	db.Model(&model.EnrollJoin{}).
 		Where("`enroll_join_enroll_id` = ?", id).
 		Select("DISTINCT `enroll_join_day`").
 		Order("`enroll_join_day` ASC").
@@ -105,15 +112,24 @@ func ViewEnroll(id, userID string) (*model.Enroll, error) {
 
 	// RankList from enroll_users
 	var enrollUsers []model.EnrollUser
-	database.DB.Where("`enroll_user_enroll_id` = ?", id).
+	if err := db.Where("`enroll_user_enroll_id` = ?", id).
 		Order("`enroll_user_join_cnt` DESC, `enroll_user_day_cnt` DESC").
-		Find(&enrollUsers)
+		Find(&enrollUsers).Error; err != nil {
+		return nil, err
+	}
 
 	userMap := map[string]model.User{}
-	var allUsers []model.User
-	database.DB.Find(&allUsers)
-	for _, u := range allUsers {
-		userMap[u.MiniOpenID] = u
+	userOpenIDs := rankUserOpenIDs(enrollUsers)
+	if len(userOpenIDs) > 0 {
+		var users []model.User
+		if err := db.Select("user_mini_openid", "user_name", "user_pic").
+			Where("`user_mini_openid` IN ?", userOpenIDs).
+			Find(&users).Error; err != nil {
+			return nil, err
+		}
+		for _, u := range users {
+			userMap[u.MiniOpenID] = u
+		}
 	}
 
 	for _, eu := range enrollUsers {
@@ -135,4 +151,20 @@ func ViewEnroll(id, userID string) (*model.Enroll, error) {
 	}
 
 	return &enroll, nil
+}
+
+func rankUserOpenIDs(enrollUsers []model.EnrollUser) []string {
+	seen := make(map[string]struct{}, len(enrollUsers))
+	openIDs := make([]string, 0, len(enrollUsers))
+	for _, enrollUser := range enrollUsers {
+		if enrollUser.MiniOpenID == "" {
+			continue
+		}
+		if _, ok := seen[enrollUser.MiniOpenID]; ok {
+			continue
+		}
+		seen[enrollUser.MiniOpenID] = struct{}{}
+		openIDs = append(openIDs, enrollUser.MiniOpenID)
+	}
+	return openIDs
 }

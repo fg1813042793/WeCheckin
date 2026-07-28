@@ -3,7 +3,7 @@ dist/
 unpackage/
 .hbuilderx/
 .cache/
-
+.test
 # OS
 .DS_Store
 Thumbs.db
@@ -25,6 +25,7 @@ backend/logs/
 .env.*.local
 
 # Build
+*.tsbuildinfo
 *.apk
 *.aab
 *.ipa

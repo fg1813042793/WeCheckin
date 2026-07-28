@@ -13,13 +13,17 @@ DELETE FROM enrolls;
 DELETE FROM news;
 DELETE FROM setups;
 DELETE FROM users;
-DELETE FROM admins;
 
--- ==================== admins ====================
+INSERT INTO `roles` (`role_name`, `role_remark`, `role_sort`, `role_status`, `role_allow_admin_login`, `role_data_scope`, `role_add_time`, `role_edit_time`, `role_add_ip`, `role_edit_ip`, `created_at`, `updated_at`)
+SELECT '超级管理员', '系统内置角色', 0, 1, 1, 1, 1780243200000, 1780243200000, '127.0.0.1', '127.0.0.1', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `roles` WHERE `role_name` = '超级管理员');
+SET @super_admin_role_id := (SELECT `id` FROM `roles` WHERE `role_name` = '超级管理员' ORDER BY `id` LIMIT 1);
+
+-- ==================== 后台账号(users) ====================
 -- 密码 admin123 -> MD5: 0192023a7bbd73250516f069df18b500
-INSERT INTO `admins` (`id`, `admin_name`, `admin_password`, `admin_desc`, `admin_pic`, `admin_phone`, `admin_status`, `admin_type`, `admin_token`, `admin_token_time`, `admin_login_cnt`, `admin_login_time`, `admin_add_time`, `admin_edit_time`, `admin_add_ip`, `admin_edit_ip`, `created_at`, `updated_at`) VALUES
-(1, 'admin',    '0192023a7bbd73250516f069df18b500', '超级管理员',  '', '13800000001', 1, 1, '', 0, 5, 1780243200000, 1780243200000, 1780243200000, '127.0.0.1', '127.0.0.1', NOW(), NOW()),
-(2, 'manager',  '0192023a7bbd73250516f069df18b500', '普通管理员',  '', '13800000002', 1, 0, '', 0, 2, 1780243200000, 1780243200000, 1780243200000, '192.168.1.1', '192.168.1.1', NOW(), NOW());
+INSERT INTO `users` (`id`, `user_mini_openid`, `user_account`, `user_password`, `user_admin_desc`, `user_name`, `user_pic`, `user_mobile`, `user_status`, `user_admin_enabled`, `user_admin_type`, `user_role_id`, `user_admin_token`, `user_admin_token_time`, `user_login_cnt`, `user_login_time`, `user_add_time`, `user_add_ip`, `user_edit_time`, `user_edit_ip`, `user_forms`, `user_obj`, `created_at`, `updated_at`) VALUES
+(1, 'admin:1', 'admin', '0192023a7bbd73250516f069df18b500', '超级管理员', '超级管理员', '/static/default-avatar.png', '13800000001', 1, 1, 1, @super_admin_role_id, '', 0, 5, 1780243200000, 1780243200000, '127.0.0.1', 1780243200000, '127.0.0.1', '[]', '{}', NOW(), NOW()),
+(2, 'admin:2', 'manager', '0192023a7bbd73250516f069df18b500', '普通管理员', '普通管理员', '/static/default-avatar.png', '13800000002', 1, 1, 0, 0, '', 0, 2, 1780243200000, 1780243200000, '192.168.1.1', 1780243200000, '192.168.1.1', '[]', '{}', NOW(), NOW());
 
 -- ==================== setups ====================
 INSERT INTO `setups` (`id`, `setup_key`, `setup_value`, `setup_type`, `setup_add_time`, `setup_edit_time`, `created_at`, `updated_at`) VALUES
@@ -29,11 +33,11 @@ INSERT INTO `setups` (`id`, `setup_key`, `setup_value`, `setup_type`, `setup_add
 
 -- ==================== users ====================
 INSERT INTO `users` (`id`, `user_mini_openid`, `user_status`, `user_check_reason`, `user_name`, `user_mobile`, `user_pic`, `user_forms`, `user_obj`, `user_login_cnt`, `user_login_time`, `user_add_time`, `user_add_ip`, `user_edit_time`, `user_edit_ip`, `created_at`, `updated_at`) VALUES
-(1, 'openid_test_001', 1, '', '张三', '13800138001', 'https://example.com/avatar/1.jpg', '', '', 10, 1780243200000, 1780243200000, '10.0.0.1', 1780243200000, '10.0.0.1', NOW(), NOW()),
-(2, 'openid_test_002', 1, '', '李四', '13800138002', 'https://example.com/avatar/2.jpg', '', '', 8, 1780243200000, 1780243200000, '10.0.0.2', 1780243200000, '10.0.0.2', NOW(), NOW()),
-(3, 'openid_test_003', 1, '', '王五', '13800138003', 'https://example.com/avatar/3.jpg', '', '', 5, 1780243200000, 1780243200000, '10.0.0.3', 1780243200000, '10.0.0.3', NOW(), NOW()),
-(4, 'openid_test_004', 0, '未通过审核', '赵六', '13800138004', 'https://example.com/avatar/4.jpg', '', '', 0, 0, 1780243200000, '10.0.0.4', 1780243200000, '10.0.0.4', NOW(), NOW()),
-(5, 'openid_test_005', 1, '', '孙七', '13800138005', 'https://example.com/avatar/5.jpg', '', '', 3, 1780243200000, 1780243200000, '10.0.0.5', 1780243200000, '10.0.0.5', NOW(), NOW());
+(101, 'openid_test_001', 1, '', '张三', '13800138001', 'https://example.com/avatar/1.jpg', '', '', 10, 1780243200000, 1780243200000, '10.0.0.1', 1780243200000, '10.0.0.1', NOW(), NOW()),
+(102, 'openid_test_002', 1, '', '李四', '13800138002', 'https://example.com/avatar/2.jpg', '', '', 8, 1780243200000, 1780243200000, '10.0.0.2', 1780243200000, '10.0.0.2', NOW(), NOW()),
+(103, 'openid_test_003', 1, '', '王五', '13800138003', 'https://example.com/avatar/3.jpg', '', '', 5, 1780243200000, 1780243200000, '10.0.0.3', 1780243200000, '10.0.0.3', NOW(), NOW()),
+(104, 'openid_test_004', 0, '未通过审核', '赵六', '13800138004', 'https://example.com/avatar/4.jpg', '', '', 0, 0, 1780243200000, '10.0.0.4', 1780243200000, '10.0.0.4', NOW(), NOW()),
+(105, 'openid_test_005', 1, '', '孙七', '13800138005', 'https://example.com/avatar/5.jpg', '', '', 3, 1780243200000, 1780243200000, '10.0.0.5', 1780243200000, '10.0.0.5', NOW(), NOW());
 
 -- ==================== news ====================
 INSERT INTO `news` (`id`, `news_title`, `news_desc`, `news_status`, `news_cate_id`, `news_cate_name`, `news_order`, `news_vouch`, `news_content`, `news_qr`, `news_view_cnt`, `news_pic`, `news_forms`, `news_obj`, `news_add_time`, `news_edit_time`, `news_add_ip`, `news_edit_ip`, `created_at`, `updated_at`) VALUES

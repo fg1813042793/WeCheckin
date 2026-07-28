@@ -117,7 +117,6 @@ function callCloud(route, params = {}, options) {
 			},
 			success: function (res) {
 				if (res.result.code == CODE.LOGIC || res.result.code == CODE.DATA) {
-					console.log(res)
 					// 逻辑错误&数据校验错误 
 					if (hint) {
 						wx.showModal({
@@ -161,7 +160,6 @@ function callCloud(route, params = {}, options) {
 			},
 			fail: function (err) {
 				if (hint) {
-					console.log(err)
 					if (err && err.errMsg && err.errMsg.includes('-501000') && err.errMsg.includes('Environment not found')) {
 						wx.showModal({
 							title: '',
@@ -207,7 +205,6 @@ function callCloud(route, params = {}, options) {
 
 async function dataList(that, listName, route, params, options, isReverse = false) {
 
-	console.log('dataList begin');
 
 	if (!helper.isDefined(that.data[listName]) || !that.data[listName]) {
 		let data = {};
@@ -252,7 +249,6 @@ async function dataList(that, listName, route, params, options, isReverse = fals
 
 	// 云函数调用 
 	await callCloud(route, params, options).then(function (res) {
-		console.log('cloud begin');
 
 		let dataList = res.data;
 		let tList = that.data[listName].list;
@@ -273,12 +269,9 @@ async function dataList(that, listName, route, params, options, isReverse = fals
 
 		that.setData(listData);
 
-		console.log('cloud END');
 	}).catch(err => {
-		console.log(err)
 	});
 
-	console.log('dataList END');
 
 }
 

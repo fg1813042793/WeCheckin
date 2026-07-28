@@ -3,14 +3,15 @@ package exam
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
 	examPkg "wecheckin-backend/backend/internal/app/formkit/exam"
+	examservice "wecheckin-backend/backend/internal/app/service/exam"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/logger"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
@@ -38,8 +39,6 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 	}
 	answersJSON, _ := json.Marshal(req.Answers)
 	clientIP := c.ClientIP()
-	db, dbCancel := database.WithContext(ctx)
-	defer dbCancel()
 
 	if req.RecordID > 0 {
 		uid := getUID(c)
@@ -47,22 +46,18 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 			response.Fail(c, "未登录")
 			return
 		}
-		var rec model.ExamRecord
-		if err := db.Where("`exam_r_id` = ? AND `exam_r_user_id` = ?", req.RecordID, uid).First(&rec).Error; err != nil {
-			response.Fail(c, "记录不存在")
+		rec, p, qs, err := h.service().PaperSubmissionContext(ctx, req.RecordID, uid)
+		if err != nil {
+			if errors.Is(err, examservice.ErrExamRecordSubmitted) {
+				response.Fail(c, "已提交")
+				return
+			}
+			if errors.Is(err, examservice.ErrExamRecordNotFound) {
+				response.Fail(c, "记录不存在")
+				return
+			}
+			response.Fail(c, "提交失败: "+err.Error())
 			return
-		}
-		if rec.Status == 2 {
-			response.Fail(c, "已提交")
-			return
-		}
-		var p model.ExamPaper
-		db.Where("`exam_p_id` = ?", rec.PaperID).First(&p)
-		var qids []uint
-		_ = json.Unmarshal([]byte(p.QuestionIDs), &qids)
-		var qs []model.ExamQuestion
-		if len(qids) > 0 {
-			db.Where("`exam_q_id` IN ?", qids).Find(&qs)
 		}
 		exQs := make([]examPkg.Question, 0, len(qs))
 		for _, q := range qs {
@@ -96,7 +91,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 			updates["exam_r_status"] = 2
 			updates["exam_r_pass"] = res.TotalScore >= p.PassScore
 		}
-		if err := db.Model(&rec).Updates(updates).Error; err != nil {
+		if err := h.service().UpdatePaperSubmissionContext(ctx, rec.ID, updates); err != nil {
 			logger.Logger.Printf("[ExamSubmit] PaperID模式提交失败 examId=%d recordId=%d uid=%d err=%s", rec.ExamID, req.RecordID, uid, err.Error())
 			response.Fail(c, "提交失败: "+err.Error())
 			return
@@ -119,8 +114,8 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "会话不存在或已过期")
 		return
 	}
-	var e model.Exam
-	if err := db.Where("`exam_id` = ? AND `exam_status` = 1", req.ExamID).First(&e).Error; err != nil {
+	e, err := h.service().PublishedExamContext(ctx, uint(req.ExamID))
+	if err != nil {
 		logger.Logger.Printf("[ExamSubmit] Schema模式考试不存在或未发布 examId=%d", req.ExamID)
 		response.Fail(c, "考试不存在或未发布")
 		return
@@ -144,7 +139,12 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 	}
 	sessionStart, _ := rd.RDB.Get(redisCtx, redisKey).Int64()
 	clientIP = c.ClientIP()
-	if msg := checkExamLimitContext(ctx, &e, uidStr, req.Device, req.DeviceID, clientIP); msg != "" {
+	msg, err := h.service().CheckLimitContext(ctx, e, uidStr, req.Device, req.DeviceID, clientIP)
+	if err != nil {
+		response.Fail(c, "提交失败: "+err.Error())
+		return
+	}
+	if msg != "" {
 		response.Fail(c, msg)
 		return
 	}
@@ -212,7 +212,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		Session:      req.Session,
 		Result:       string(resultJSON),
 	}
-	if err := db.Create(&rec).Error; err != nil {
+	if err := h.service().CreateSchemaSubmissionContext(ctx, &rec); err != nil {
 		logger.Logger.Printf("[ExamSubmit] Schema模式持久化失败 examId=%d uid=%s err=%s", req.ExamID, uidStr, err.Error())
 		response.Fail(c, "提交失败: "+err.Error())
 		return

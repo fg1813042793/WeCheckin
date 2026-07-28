@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"gorm.io/gorm"
 	"wecheckin-backend/backend/internal/app/support/media"
@@ -97,6 +98,10 @@ func GetMyFavListContext(ctx context.Context, userID string) ([]ListItem, error)
 	if err != nil {
 		return nil, err
 	}
+	enrollByID, err := loadFavoriteEnrollsByID(db, favs)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]ListItem, 0, len(favs))
 	for _, f := range favs {
 		item := ListItem{
@@ -104,28 +109,64 @@ func GetMyFavListContext(ctx context.Context, userID string) ([]ListItem, error)
 			Title:      f.Title,
 			CreateTime: f.AddTime,
 		}
-		if f.OID != "" {
-			var enroll model.Enroll
-			err := db.Where("id = ?", f.OID).First(&enroll).Error
-			if err == nil {
-				joinCount := enroll.UserCnt
-				checkinCount := enroll.JoinCnt
-				item.JoinCount = &joinCount
-				item.CheckinCount = &checkinCount
-				if enroll.Obj != "" {
-					var obj enrollObj
-					if json.Unmarshal([]byte(enroll.Obj), &obj) == nil {
-						if len(obj.Cover) > 0 {
-							item.Img = media.FullURLWithStaticDomain(obj.Cover[0])
-						}
-						item.Desc = obj.Desc
-					}
-				}
-			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, err
-			}
+		if enroll, ok := enrollByID[f.OID]; ok {
+			enrichFavoriteItemWithEnroll(&item, enroll)
 		}
 		result = append(result, item)
 	}
 	return result, nil
+}
+
+func loadFavoriteEnrollsByID(db *gorm.DB, favs []model.Favorite) (map[string]model.Enroll, error) {
+	oids := favoriteOIDs(favs)
+	enrollByID := make(map[string]model.Enroll, len(oids))
+	if len(oids) == 0 {
+		return enrollByID, nil
+	}
+
+	var enrolls []model.Enroll
+	if err := db.Select("id", "enroll_user_cnt", "enroll_join_cnt", "enroll_obj").
+		Where("`id` IN ?", oids).
+		Find(&enrolls).Error; err != nil {
+		return nil, err
+	}
+	for _, enroll := range enrolls {
+		enrollByID[strconv.FormatUint(uint64(enroll.ID), 10)] = enroll
+	}
+	return enrollByID, nil
+}
+
+func favoriteOIDs(favs []model.Favorite) []string {
+	seen := make(map[string]struct{}, len(favs))
+	oids := make([]string, 0, len(favs))
+	for _, fav := range favs {
+		if fav.OID == "" {
+			continue
+		}
+		if _, ok := seen[fav.OID]; ok {
+			continue
+		}
+		seen[fav.OID] = struct{}{}
+		oids = append(oids, fav.OID)
+	}
+	return oids
+}
+
+func enrichFavoriteItemWithEnroll(item *ListItem, enroll model.Enroll) {
+	joinCount := enroll.UserCnt
+	checkinCount := enroll.JoinCnt
+	item.JoinCount = &joinCount
+	item.CheckinCount = &checkinCount
+	if enroll.Obj == "" {
+		return
+	}
+
+	var obj enrollObj
+	if json.Unmarshal([]byte(enroll.Obj), &obj) != nil {
+		return
+	}
+	if len(obj.Cover) > 0 {
+		item.Img = media.FullURLWithStaticDomain(obj.Cover[0])
+	}
+	item.Desc = obj.Desc
 }

@@ -5,8 +5,6 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -23,12 +21,11 @@ func (h *ClientSurveyHandler) MyResponses(ctx context.Context, c *app.RequestCon
 		response.Fail(c, "未登录")
 		return
 	}
-	uidStr := strconv.FormatUint(uint64(uid), 10)
-	var list []model.SurveyResponse
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	db.Where("`survey_resp_user_id` = ? AND `survey_resp_status` = 1", uidStr).
-		Order("`survey_resp_id` DESC").Limit(50).Find(&list)
+	list, err := h.responses.MyResponsesContext(ctx, uid, 50)
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
+	}
 	response.JSON(c, myResponsesResponse{List: list})
 }
 
@@ -39,7 +36,7 @@ func (h *ClientSurveyHandler) MyResponses(ctx context.Context, c *app.RequestCon
 // @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /survey/my_response [get]
-func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.RequestContext) {
+func (h *ClientSurveyHandler) MyResponseDetail(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	uid := getUID(c)
 	if uid == 0 {
@@ -47,7 +44,7 @@ func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.Request
 		return
 	}
 	id, _ := strconv.Atoi(c.Query("id"))
-	resp, err := h.responses.Get(uint(id))
+	resp, err := h.responses.GetContext(ctx, uint(id))
 	if err != nil {
 		response.Fail(c, "答卷不存在")
 		return
@@ -57,9 +54,9 @@ func (h *ClientSurveyHandler) MyResponseDetail(_ context.Context, c *app.Request
 		response.Fail(c, "无权查看")
 		return
 	}
-	sv, _ := h.survey.Get(resp.SurveyID)
+	sv, _ := h.survey.GetContext(ctx, resp.SurveyID)
 	answers := h.responses.ParseAnswers(resp)
-	out := myResponseDetailResponse{Response: resp, Answers: answers}
+	out := myResponseDetailResponse{Response: resp, Answers: answers.Answers}
 	if sv != nil && sv.ShowResult == 1 {
 		out.Survey = sv
 	}

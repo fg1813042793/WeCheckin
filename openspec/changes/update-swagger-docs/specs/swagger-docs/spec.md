@@ -57,6 +57,13 @@ Swagger 文档 SHALL 通过统一的命令重新生成，确保 yaml/json/docs.g
 - **WHEN** 在 backend 目录执行 `swag init`
 - **THEN** `docs/swagger.yaml`、`docs/swagger.json`、`docs/docs.go` 全部更新且与代码注释一致
 
+#### Scenario: API v2 路由出现在 Swagger 文档
+
+- **WHEN** 在 backend 目录执行 `swag init -g cmd/main.go --output docs/swagger`
+- **THEN** Swagger 文档包含 `/api/v2/home`、`/api/v2/auth/login`、`/api/v2/surveys/{id}`、`/api/v2/exams/{id}` 等公开接口
+- **AND** Swagger 文档包含 `/api/v2/admin/users`、`/api/v2/admin/surveys`、`/api/v2/admin/exams`、`/api/v2/admin/survey-question-bank`、`/api/v2/admin/exam-question-bank` 等后台接口
+- **AND** `backend/cmd/routes_v2_structure_test.go` 的 v2 operation 数量检查通过
+
 ## MODIFIED Requirements
 
 ### Requirement: `/passport/my_detail` 接口补充 domain 字段

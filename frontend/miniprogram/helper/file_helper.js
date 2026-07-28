@@ -26,13 +26,11 @@ function openDoc(name, url, ext = '.xlsx') {
 				showMenu: true,
 				filePath: filePath,
 				success: function (res) {
-					console.log('打开文档成功');
 				}
 			})
 		},
 		fail: function (err) {
 			wx.hideLoading();
-			console.log(err);
 			pageHelper.showModal('打开文件失败，请重试或者采取别的下载方式');
 		}
 	})

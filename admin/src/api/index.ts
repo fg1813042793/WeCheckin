@@ -1,502 +1,550 @@
 import request from '../utils/request'
+import type {
+  AdminUser,
+  ExamItem,
+  FormPayload,
+  ID,
+  PageQuery,
+  PageResult,
+  QueryParams,
+  QuestionBankItem,
+  ResourceItem,
+  SurveyItem
+} from './types'
 
 export type TemplatePreset = { label: string; value: string }
 
+const API_V2 = '/api/v2'
+const ADMIN_V2 = `${API_V2}/admin`
+
+const jsonConfig = {
+  transformRequest: [(data: unknown) => (typeof data === 'string' ? data : JSON.stringify(data))],
+  headers: { 'Content-Type': 'application/json' }
+}
+
+function encodePath(value: ID | null | undefined, fallback: ID = '') {
+  return encodeURIComponent(String(value ?? fallback))
+}
+
+function idFrom(data: { id?: ID } | ID | null | undefined, fallback: ID = '') {
+  if (data && typeof data === 'object') return data.id ?? fallback
+  return data ?? fallback
+}
+
+function deleteBody(data: unknown) {
+  return { data }
+}
+
+function vouchValue(data: { vouch?: number | string; status?: number | string; isVouch?: number | string }) {
+  return data.vouch ?? data.isVouch ?? data.status ?? 0
+}
+
 export const adminApi = {
   login(data: { name: string; password: string }) {
-    return request.post('/admin/login', data)
+    return request.post(`${ADMIN_V2}/auth/login`, data)
   },
   home() {
-    return request.get('/admin/home')
+    return request.get(`${ADMIN_V2}/home`)
   },
   clearVouch() {
-    return request.post('/admin/clear_vouch')
+    return request.delete(`${ADMIN_V2}/home/recommendations`)
   },
   // 用户管理
-  userList(params?: any) {
-    return request.get('/admin/user_list', { params })
+  userList(params?: PageQuery) {
+    return request.get<PageResult<AdminUser>>(`${ADMIN_V2}/users`, { params })
   },
-  userDetailById(id: string | number) {
-    return request.get('/admin/user_detail_by_id', { params: { id } })
+  userDetailById(id: ID) {
+    return request.get<AdminUser>(`${ADMIN_V2}/users/${encodePath(id)}`)
   },
-  userAdd(data: any) {
-    return request.post('/admin/user_add', data)
+  userAdd(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/users`, data)
   },
-  userEdit(data: any) {
-    return request.post('/admin/user_edit', data)
+  userEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/users/${encodePath(idFrom(data))}`, data)
   },
-  userStatus(data: any) {
-    return request.post('/admin/user_status', data)
+  userStatus(data: { id: ID; status: number | string; reason?: string }) {
+    return request.patch(`${ADMIN_V2}/users/${encodePath(data.id)}/status`, data)
   },
-  userDel(data: any) {
-    return request.post('/admin/user_del', data)
+  userDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/users/${encodePath(data.id)}`, deleteBody(data))
   },
-  userDels(data: any) {
-    return request.post('/admin/user_dels', data)
+  userDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/users`, deleteBody(data))
   },
-  userResetPwd(data: any) {
-    return request.post('/admin/user_reset_pwd', data)
+  userResetPwd(data: { id: ID }) {
+    return request.patch(`${ADMIN_V2}/users/${encodePath(data.id)}/password`, data)
   },
   userFormFields() {
-    return request.get('/user_form_fields')
+    return request.get(`${API_V2}/user-form-fields`)
   },
-  userFormFieldSave(data: any) {
-    return request.post('/admin/user_form_field_save', data)
+  userFormFieldSave(data: FormPayload) {
+    return request.put(`${ADMIN_V2}/users/form-fields`, data)
   },
   // 打卡管理
-  enrollList(params?: any) {
-    return request.get('/admin/enroll_list', { params })
+  enrollList(params?: PageQuery) {
+    return request.get<PageResult<FormPayload>>(`${ADMIN_V2}/enrollments`, { params })
   },
-  enrollDetail(id: string | number) {
-    return request.get('/admin/enroll_detail', { params: { id } })
+  enrollDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/enrollments/${encodePath(id)}`)
   },
-  enrollInsert(data: any) {
-    return request.post('/admin/enroll_insert', data)
+  enrollInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/enrollments`, data)
   },
-  enrollEdit(data: any) {
-    return request.post('/admin/enroll_edit', data)
+  enrollEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/enrollments/${encodePath(idFrom(data))}`, data)
   },
-  enrollDel(data: any) {
-    return request.post('/admin/enroll_del', data)
+  enrollDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/enrollments/${encodePath(data.id)}`, deleteBody(data))
   },
-  enrollDels(data: any) {
-    return request.post('/admin/enroll_dels', data)
+  enrollDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/enrollments`, deleteBody(data))
   },
-  enrollStatus(data: any) {
-    return request.post('/admin/enroll_status', data)
+  enrollStatus(data: { id: ID; status: number | string }) {
+    return request.patch(`${ADMIN_V2}/enrollments/${encodePath(data.id)}/status`, data)
   },
-  enrollSort(data: any) {
-    return request.post('/admin/enroll_sort', data)
+  enrollSort(data: { id: ID; sort: number | string }) {
+    return request.patch(`${ADMIN_V2}/enrollments/${encodePath(data.id)}/sort`, data)
   },
-  enrollVouch(data: any) {
-    return request.post('/admin/enroll_vouch', data)
+  enrollVouch(data: { id: ID; vouch?: number | string; status?: number | string; isVouch?: number | string }) {
+    return request.patch(`${ADMIN_V2}/enrollments/${encodePath(data.id)}/recommendation`, { ...data, vouch: vouchValue(data) })
   },
-  enrollClear(data: any) {
-    return request.post('/admin/enroll_clear', data)
+  enrollClear(data: { id?: ID } = {}) {
+    return request.post(`${ADMIN_V2}/enrollments/${encodePath(data.id, 0)}/clear`, data)
   },
-  enrollJoinList(params?: any) {
-    return request.get('/admin/enroll_join_list', { params })
+  enrollJoinList(params?: PageQuery & { enrollId?: ID }) {
+    return request.get(`${ADMIN_V2}/enrollments/${encodePath(params?.enrollId, 0)}/joins`, { params })
   },
-  enrollUserList(params?: any) {
-    return request.get('/admin/enroll_user_list', { params })
+  enrollUserList(params?: PageQuery & { enrollId?: ID }) {
+    return request.get(`${ADMIN_V2}/enrollments/${encodePath(params?.enrollId, 0)}/users`, { params })
   },
-  enrollStats(params?: any) {
-    return request.get('/admin/enroll_stats', { params })
+  enrollStats(params?: QueryParams & { enrollId?: ID; id?: ID }) {
+    return request.get(`${ADMIN_V2}/enrollments/${encodePath(params?.enrollId ?? params?.id, 0)}/stats`, { params })
   },
-  enrollRemoveUser(data: any) {
-    return request.post('/admin/enroll_remove_user', data)
+  enrollRemoveUser(data: { id?: ID; userId?: ID; enrollId?: ID }) {
+    return request.delete(`${ADMIN_V2}/enrollments/${encodePath(data.enrollId ?? data.id, 0)}/users/${encodePath(data.userId)}`, deleteBody(data))
   },
-  enrollRemoveUsers(data: any) {
-    return request.post('/admin/enroll_remove_users', data)
+  enrollRemoveUsers(data: { ids?: string; userIds?: string; enrollId?: ID }) {
+    return request.delete(`${ADMIN_V2}/enrollments/${encodePath(data.enrollId, 0)}/users`, deleteBody(data))
   },
-  enrollJoinDel(data: any) {
-    return request.post('/admin/enroll_join_del', data)
+  enrollJoinDel(data: { id?: ID; enrollJoinId?: ID; enrollId?: ID }) {
+    return request.delete(`${ADMIN_V2}/enrollments/${encodePath(data.enrollId, 0)}/joins/${encodePath(data.enrollJoinId ?? data.id)}`, deleteBody(data))
   },
-  enrollJoinDels(data: any) {
-    return request.post('/admin/enroll_join_dels', data)
+  enrollJoinDels(data: { ids: string; enrollId?: ID }) {
+    return request.delete(`${ADMIN_V2}/enrollments/${encodePath(data.enrollId, 0)}/joins`, deleteBody(data))
   },
-  enrollJoinDataExport(params?: any) {
-    return request.get('/admin/enroll_join_data_export', { params })
+  enrollJoinDataExport(params?: QueryParams & { enrollId?: ID }) {
+    return request.post(`${ADMIN_V2}/enrollments/${encodePath(params?.enrollId, 0)}/export`, null, { params })
   },
   // 内容管理
-  newsList(params?: any) {
-    return request.get('/admin/news_list', { params })
+  newsList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/news`, { params })
   },
-  newsDetail(id: string | number) {
-    return request.get('/admin/news_detail', { params: { id } })
+  newsDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/news/${encodePath(id)}`)
   },
-  newsInsert(data: any) {
-    return request.post('/admin/news_insert', data)
+  newsInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/news`, data)
   },
-  newsEdit(data: any) {
-    return request.post('/admin/news_edit', data)
+  newsEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/news/${encodePath(idFrom(data))}`, data)
   },
-  newsDel(data: any) {
-    return request.post('/admin/news_del', data)
+  newsDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/news/${encodePath(data.id)}`, deleteBody(data))
   },
-  newsDels(data: any) {
-    return request.post('/admin/news_dels', data)
+  newsDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/news`, deleteBody(data))
   },
-  newsStatus(data: any) {
-    return request.post('/admin/news_status', data)
+  newsStatus(data: { id: ID; status: number | string }) {
+    return request.patch(`${ADMIN_V2}/news/${encodePath(data.id)}/status`, data)
   },
-  newsVouch(data: any) {
-    return request.post('/admin/news_vouch', data)
+  newsVouch(data: { id: ID; vouch?: number | string; status?: number | string; isVouch?: number | string }) {
+    return request.patch(`${ADMIN_V2}/news/${encodePath(data.id)}/recommendation`, { ...data, vouch: vouchValue(data) })
   },
-  newsSort(data: any) {
-    return request.post('/admin/news_sort', data)
+  newsSort(data: { id: ID; sort: number | string }) {
+    return request.patch(`${ADMIN_V2}/news/${encodePath(data.id)}/sort`, data)
   },
   // 管理员管理
-  mgrList(params?: any) {
-    return request.get('/admin/mgr_list', { params })
+  mgrList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/managers`, { params })
   },
-  mgrDetail(id: string | number) {
-    return request.get('/admin/mgr_detail', { params: { id } })
+  mgrDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/managers/${encodePath(id)}`)
   },
-  mgrInsert(data: any) {
-    return request.post('/admin/mgr_insert', data)
+  mgrInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/managers`, data)
   },
-  mgrEdit(data: any) {
-    return request.post('/admin/mgr_edit', data)
+  mgrEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/managers/${encodePath(idFrom(data))}`, data)
   },
-  mgrDel(data: any) {
-    return request.post('/admin/mgr_del', data)
+  mgrDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/managers/${encodePath(data.id)}`, deleteBody(data))
   },
-  mgrDels(data: any) {
-    return request.post('/admin/mgr_dels', data)
+  mgrDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/managers`, deleteBody(data))
   },
-  mgrStatus(data: any) {
-    return request.post('/admin/mgr_status', data)
+  mgrStatus(data: { id: ID; status: number }) {
+    return request.patch(`${ADMIN_V2}/managers/${encodePath(data.id)}/status`, data)
   },
-  mgrPwd(data: any) {
-    return request.post('/admin/mgr_pwd', data)
+  mgrPwd(data: { id?: ID; password?: string; oldPassword?: string; newPassword?: string }) {
+    if (data.id) {
+      return request.patch(`${ADMIN_V2}/managers/${encodePath(data.id)}/password`, data)
+    }
+    return request.patch(`${ADMIN_V2}/me/password`, data)
   },
   // 操作日志
-  logList(params?: any) {
-    return request.get('/admin/log_list', { params })
+  logList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/logs`, { params })
   },
   logClear() {
-    return request.post('/admin/log_clear')
+    return request.delete(`${ADMIN_V2}/logs`)
   },
   // 设置
-  setupSetContent(data: any) {
-    return request.post('/admin/setup_set_content', data)
+  setupSetContent(data: FormPayload) {
+    return request.put(`${ADMIN_V2}/settings/content`, data)
   },
   // 字典管理
   dictTypes() {
-    return request.get('/admin/dict/types')
+    return request.get(`${ADMIN_V2}/dict/types`)
   },
   dictItems(typeCode: string) {
-    return request.get('/admin/dict/items', { params: { typeCode } })
+    return request.get(`${ADMIN_V2}/dict/items`, { params: { typeCode } })
   },
-  dictAdd(data: any) {
-    return request.post('/admin/dict/add', data)
+  dictAdd(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/dict/items`, data)
   },
-  dictEdit(data: any) {
-    return request.post('/admin/dict/edit', data)
+  dictEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/dict/items/${encodePath(idFrom(data))}`, data)
   },
-  dictDel(data: any) {
-    return request.post('/admin/dict/del', data)
+  dictDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/dict/items/${encodePath(data.id)}`, deleteBody(data))
   },
   dictClear(typeCode: string) {
-    return request.post('/admin/dict/clear', { typeCode })
+    return request.delete(`${ADMIN_V2}/dict/types/${encodePath(typeCode)}/items`, deleteBody({ typeCode }))
   },
-  dictEditTypeName(data: any) {
-    return request.post('/admin/dict/edit_type_name', data)
+  dictEditTypeName(data: { typeCode: string; typeName: string; oldTypeCode?: string }) {
+    return request.patch(`${ADMIN_V2}/dict/types/${encodePath(data.oldTypeCode ?? data.typeCode)}`, data)
   },
   // 部门管理
   deptTree() {
-    return request.get('/admin/dept/tree')
+    return request.get(`${ADMIN_V2}/departments/tree`)
   },
-  deptAdd(data: any) {
-    return request.post('/admin/dept/add', data)
+  deptAdd(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/departments`, data)
   },
-  deptEdit(data: any) {
-    return request.post('/admin/dept/edit', data)
+  deptEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/departments/${encodePath(idFrom(data))}`, data)
   },
-  deptDel(data: any) {
-    return request.post('/admin/dept/del', data)
+  deptDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/departments/${encodePath(data.id)}`, deleteBody(data))
   },
   // 角色管理
-  roleList(params?: any) {
-    return request.get('/admin/role/list', { params })
+  roleList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/roles`, { params })
   },
-  roleAdd(data: any) {
-    return request.post('/admin/role/add', data)
+  roleAdd(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/roles`, data)
   },
-  roleEdit(data: any) {
-    return request.post('/admin/role/edit', data)
+  roleEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/roles/${encodePath(idFrom(data))}`, data)
   },
-  roleDel(data: any) {
-    return request.post('/admin/role/del', data)
+  roleDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/roles/${encodePath(data.id)}`, deleteBody(data))
   },
-  roleDels(data: any) {
-    return request.post('/admin/role/dels', data)
+  roleDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/roles`, deleteBody(data))
   },
-  // 菜单管理
-  menuTree() {
-    return request.get('/admin/menu/tree')
+  appPermissionTree() {
+    return request.get(`${ADMIN_V2}/roles/application-permissions`)
   },
-  menuList() {
-    return request.get('/admin/menu/list')
+  // 权限管理
+  permissionTree(params?: { platform?: string; types?: string }) {
+    return request.get(`${ADMIN_V2}/permissions/tree`, { params })
   },
-  menuAdd(data: any) {
-    return request.post('/admin/menu/add', data)
+  permissionList(params?: { platform?: string; types?: string }) {
+    return request.get(`${ADMIN_V2}/permissions`, { params })
   },
-  menuEdit(data: any) {
-    return request.post('/admin/menu/edit', data)
+  permissionAdd(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/permissions`, data)
   },
-  menuDel(data: any) {
-    return request.post('/admin/menu/del', data)
+  permissionEdit(data: FormPayload & { key?: ID; permissionKey?: ID }) {
+    const key = data.key ?? data.permissionKey
+    return request.put(`${ADMIN_V2}/permissions/${encodePath(key)}`, data)
+  },
+  permissionDel(data: { key?: ID; permissionKey?: ID }) {
+    const key = data.key ?? data.permissionKey
+    return request.delete(`${ADMIN_V2}/permissions/${encodePath(key)}`, deleteBody(data))
   },
   // 赛事活动管理
-  eventList(params?: any) {
-    return request.get('/admin/event_list', { params })
+  eventList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/events`, { params })
   },
-  eventDetail(id: string | number) {
-    return request.get('/admin/event_detail', { params: { id } })
+  eventDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/events/${encodePath(id)}`)
   },
-  eventInsert(data: any) {
-    return request.post('/admin/event_insert', data)
+  eventInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/events`, data)
   },
-  eventEdit(data: any) {
-    return request.post('/admin/event_edit', data)
+  eventEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/events/${encodePath(idFrom(data))}`, data)
   },
-  eventDel(data: any) {
-    return request.post('/admin/event_del', data)
+  eventDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/events/${encodePath(data.id)}`, deleteBody(data))
   },
-  eventDels(data: any) {
-    return request.post('/admin/event_dels', data)
+  eventDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/events`, deleteBody(data))
   },
-  eventStatus(data: any) {
-    return request.post('/admin/event_status', data)
+  eventStatus(data: { id: ID; status: number | string }) {
+    return request.patch(`${ADMIN_V2}/events/${encodePath(data.id)}/status`, data)
   },
-  eventParticipantList(params?: any) {
-    return request.get('/admin/event_participant_list', { params })
+  eventParticipantList(params?: PageQuery & { eventId?: ID }) {
+    return request.get(`${ADMIN_V2}/events/${encodePath(params?.eventId, 0)}/participants`, { params })
   },
-  eventParticipantDel(data: any) {
-    return request.post('/admin/event_participant_del', data)
+  eventParticipantDel(data: { id: ID; eventId?: ID }) {
+    return request.delete(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/participants/${encodePath(data.id)}`, deleteBody(data))
   },
-  eventParticipantDels(data: any) {
-    return request.post('/admin/event_participant_dels', data)
+  eventParticipantDels(data: { ids: string; eventId?: ID }) {
+    return request.delete(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/participants`, deleteBody(data))
   },
-  eventDynamics(params?: any) {
-    return request.get('/admin/event_dynamics', { params })
+  eventDynamics(params?: PageQuery & { eventId?: ID }) {
+    return request.get(`${ADMIN_V2}/events/${encodePath(params?.eventId, 0)}/dynamics`, { params })
   },
-  eventDynamicAdd(data: any) {
-    return request.post('/admin/event_dynamic_add', data)
+  eventDynamicAdd(data: FormPayload & { eventId?: ID }) {
+    return request.post(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/dynamics`, data)
   },
-  eventDynamicEdit(data: any) {
-    return request.post('/admin/event_dynamic_edit', data)
+  eventDynamicEdit(data: FormPayload & { id?: ID; eventId?: ID }) {
+    return request.put(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/dynamics/${encodePath(idFrom(data))}`, data)
   },
-  eventDynamicDel(data: any) {
-    return request.post('/admin/event_dynamic_del', data)
+  eventDynamicDel(data: { id: ID; eventId?: ID }) {
+    return request.delete(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/dynamics/${encodePath(data.id)}`, deleteBody(data))
   },
-  eventDynamicDels(data: any) {
-    return request.post('/admin/event_dynamic_dels', data)
+  eventDynamicDels(data: { ids: string; eventId?: ID }) {
+    return request.delete(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/dynamics`, deleteBody(data))
   },
-  eventScores(params?: any) {
-    return request.get('/admin/event_scores', { params })
+  eventScores(params?: PageQuery & { eventId?: ID }) {
+    return request.get(`${ADMIN_V2}/events/${encodePath(params?.eventId, 0)}/scores`, { params })
   },
-  eventScoreEdit(data: any) {
-    return request.post('/admin/event_score_edit', data)
+  eventScoreEdit(data: FormPayload & { id?: ID; eventId?: ID }) {
+    if (data.id) {
+      return request.put(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/scores/${encodePath(data.id)}`, data)
+    }
+    return request.post(`${ADMIN_V2}/events/${encodePath(data.eventId, 0)}/scores`, data)
   },
-  eventVouch(data: any) {
-    return request.post('/admin/event_vouch', data)
+  eventVouch(data: { id: ID; vouch?: number | string; status?: number | string; isVouch?: number | string }) {
+    return request.patch(`${ADMIN_V2}/events/${encodePath(data.id)}/recommendation`, { ...data, vouch: vouchValue(data) })
   },
-  eventTop(data: any) {
-    return request.post('/admin/event_top', data)
+  eventTop(data: { id: ID; top?: number | string; status?: number | string; isTop?: number | string }) {
+    return request.patch(`${ADMIN_V2}/events/${encodePath(data.id)}/top`, { ...data, top: data.top ?? data.isTop ?? data.status ?? 0 })
   },
-  deptUsers(params?: any) {
-    return request.get('/admin/dept_users', { params })
+  deptUsers(params?: QueryParams) {
+    return request.get(`${ADMIN_V2}/event-dept-users`, { params })
   },
   // 当前管理员的菜单和权限
   adminMenus() {
-    return request.get('/admin/user/menus')
+    return request.get(`${ADMIN_V2}/me/menus`)
   },
   adminPerms() {
-    return request.get('/admin/user/perms')
+    return request.get(`${ADMIN_V2}/me/perms`)
   },
   // 在线用户
   onlineUsers() {
-    return request.get('/admin/user/online')
+    return request.get(`${ADMIN_V2}/user-sessions`)
   },
   onlineAdmins() {
-    return request.get('/admin/admin/online')
+    return request.get(`${ADMIN_V2}/admin-sessions`)
   },
   forceOfflineAdmin(data: { id: string | number, token: string }) {
-    return request.post('/admin/admin/force_offline', data)
+    return request.post(`${ADMIN_V2}/admin-sessions/${encodePath(data.id)}/force-offline`, data)
   },
   forceOfflineUser(data: { id: string | number, token: string }) {
-    return request.post('/admin/user/force_offline', data)
+    return request.post(`${ADMIN_V2}/user-sessions/${encodePath(data.id)}/force-offline`, data)
   },
   batchForceOfflineAdmin(items: { idStr: string | number, token: string }[]) {
-    return request.post('/admin/admin/batch_force_offline', items)
+    return request.post(`${ADMIN_V2}/admin-sessions/batch-force-offline`, items, jsonConfig)
   },
   batchForceOfflineUser(items: { idStr: string | number, token: string }[]) {
-    return request.post('/admin/user/batch_force_offline', items)
+    return request.post(`${ADMIN_V2}/user-sessions/batch-force-offline`, items, jsonConfig)
   },
   adminLogout() {
-    return request.post('/admin/admin/logout')
+    return request.post(`${ADMIN_V2}/auth/logout`)
   },
-  // Formkit (题型元信息 / schema 校验 / 表达式试算) — 已合并到 survey
+  // Formkit (题型元信息 / schema 校验 / 表达式试算) - 已合并到 survey
   formkitTypes() {
-    return request.get('/admin/survey/types')
+    return request.get(`${ADMIN_V2}/survey-types`)
   },
   formkitParseSchema(schema: string) {
-    return request.post('/admin/survey/schema/parse', { schema })
+    return request.post(`${ADMIN_V2}/survey-schema/parse`, { schema }, jsonConfig)
   },
-  formkitEval(data: { expr: string; env: Record<string, any>; asBool?: boolean }) {
-    return request.post('/admin/survey/eval', data)
+  formkitEval(data: { expr: string; env: Record<string, unknown>; asBool?: boolean }) {
+    return request.post(`${ADMIN_V2}/survey-expressions/evaluate`, data, jsonConfig)
   },
-  formkitReportEnroll(enrollId: string | number) {
-    return request.get('/admin/survey/report/enroll', { params: { enrollId } })
+  formkitReportEnroll(enrollId: ID) {
+    return request.get(`${ADMIN_V2}/survey-report/enroll`, { params: { enrollId } })
   },
-  formkitReportEvent(eventId: string | number) {
-    return request.get('/admin/survey/report/event', { params: { eventId } })
+  formkitReportEvent(eventId: ID) {
+    return request.get(`${ADMIN_V2}/survey-report/event`, { params: { eventId } })
   },
-  formkitSaveToBank(data: any) {
-    return request.post('/admin/survey/question_bank_insert', JSON.stringify({ ...data, fromFormkit: true }), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  formkitSaveToBank(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/survey-question-bank`, { ...data, fromFormkit: true }, jsonConfig)
   },
-  // 题库 + 考试 (P7 → 已合并到 survey)
-  examQuestionList(params?: any) {
-    return request.get('/admin/survey/question_bank_list', { params })
+  // 题库 + 考试 (P7 -> 已合并到 survey)
+  examQuestionList(params?: PageQuery & { category?: string; type?: string }) {
+    return request.get(`${ADMIN_V2}/survey-question-bank`, { params })
   },
-  examQuestionInsert(data: any) {
-    return request.post('/admin/survey/question_bank_insert', data)
+  examQuestionInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/survey-question-bank`, data, jsonConfig)
   },
-  examQuestionEdit(data: any) {
-    return request.post('/admin/survey/question_bank_edit', data)
+  examQuestionEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/survey-question-bank/${encodePath(idFrom(data))}`, data, jsonConfig)
   },
   examQuestionDel(data: { id: number }) {
-    return request.post('/admin/survey/question_bank_del', data)
+    return request.delete(`${ADMIN_V2}/survey-question-bank/${encodePath(data.id)}`, deleteBody(data))
   },
-  examPaperList(params?: any) {
-    return request.get('/admin/survey/paper_list', { params })
+  examPaperList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/surveys`, { params })
   },
   examPaperDetail(id: number) {
-    return request.get('/admin/survey/paper_detail', { params: { id } })
+    return request.get(`${ADMIN_V2}/surveys/${encodePath(id)}`)
   },
   // Survey 独立子系统
-  surveyList(params?: any) {
-    return request.get('/admin/survey/survey_list', { params })
+  surveyList(params?: PageQuery) {
+    return request.get<PageResult<SurveyItem>>(`${ADMIN_V2}/surveys`, { params })
   },
   surveyDetail(id: number) {
-    return request.get('/admin/survey/survey_detail', { params: { id } })
+    return request.get<{ survey: SurveyItem; responseCount: number; schema: string }>(`${ADMIN_V2}/surveys/${encodePath(id)}`)
   },
-  surveyInsert(data: any) {
-    return request.post('/admin/survey/survey_insert', data)
+  surveyInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/surveys`, data)
   },
-  surveyEdit(data: any) {
-    return request.post('/admin/survey/survey_edit', data)
+  surveyEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/surveys/${encodePath(idFrom(data))}`, data, jsonConfig)
   },
   surveyDel(data: { id: number }) {
-    return request.post('/admin/survey/survey_del', data)
+    return request.delete(`${ADMIN_V2}/surveys/${encodePath(data.id)}`, deleteBody(data))
   },
   surveyStatus(data: { id: number; status: number }) {
-    return request.post('/admin/survey/survey_status', data)
+    return request.patch(`${ADMIN_V2}/surveys/${encodePath(data.id)}/status`, data)
   },
   surveyCopy(data: { id: number }) {
-    return request.post('/admin/survey/survey_copy', data)
+    return request.post(`${ADMIN_V2}/surveys/${encodePath(data.id)}/copy`, data)
   },
   surveyResponseList(params: { surveyId: number; page?: number; pageSize?: number; keyword?: string }) {
-    return request.get('/admin/survey/response_list', { params })
+    return request.get(`${ADMIN_V2}/surveys/${encodePath(params.surveyId)}/responses`, { params })
   },
   surveyResponseDetail(id: number) {
-    return request.get('/admin/survey/response_detail', { params: { id } })
+    return request.get(`${ADMIN_V2}/survey-responses/${encodePath(id)}`)
   },
   surveyResponseDel(data: { id: number }) {
-    return request.post('/admin/survey/response_del', data)
+    return request.delete(`${ADMIN_V2}/survey-responses/${encodePath(data.id)}`, deleteBody(data))
   },
   surveyResponseBatchDel(data: { ids: string }) {
-    return request.post('/admin/survey/response_batch_del', data)
+    return request.delete(`${ADMIN_V2}/survey-responses`, deleteBody(data))
   },
   surveyStatistic(surveyId: number) {
-    return request.get('/admin/survey/statistic', { params: { surveyId } })
+    return request.get(`${ADMIN_V2}/surveys/${encodePath(surveyId)}/statistics`, { params: { surveyId } })
   },
   surveyChannelList(surveyId: number) {
-    return request.get('/admin/survey/channel_list', { params: { surveyId } })
+    return request.get(`${ADMIN_V2}/surveys/${encodePath(surveyId)}/channels`, { params: { surveyId } })
   },
-  surveyChannelInsert(data: any) {
-    return request.post('/admin/survey/channel_insert', data)
+  surveyChannelInsert(data: FormPayload & { surveyId?: ID }) {
+    return request.post(`${ADMIN_V2}/surveys/${encodePath(data.surveyId, 0)}/channels`, data, jsonConfig)
   },
   surveyChannelDel(data: { id: number }) {
-    return request.post('/admin/survey/channel_del', data)
+    return request.delete(`${ADMIN_V2}/survey-channels/${encodePath(data.id)}`, deleteBody(data))
   },
   surveyResponseExport(surveyId: number) {
-    return request.get('/admin/survey/response_export', { params: { surveyId }, responseType: 'blob' })
+    return request.get(`${ADMIN_V2}/surveys/${encodePath(surveyId)}/responses/export`, { params: { surveyId }, responseType: 'blob' })
   },
   surveyResourceList(params: { surveyId: number; resType?: string }) {
-    return request.get('/admin/survey/resource_list', { params })
+    return request.get<ResourceItem[]>(`${ADMIN_V2}/surveys/${encodePath(params.surveyId)}/resources`, { params })
   },
   surveyResourceDelete(data: { id: number }) {
-    return request.post('/admin/survey/resource_delete', data)
+    return request.delete(`${ADMIN_V2}/survey-resources/${encodePath(data.id)}`, deleteBody(data))
   },
   // ==================== Exam 独立子系统 ====================
-  examList(params?: any) {
-    return request.get('/admin/exam/list', { params })
+  examList(params?: PageQuery) {
+    return request.get<PageResult<ExamItem>>(`${ADMIN_V2}/exams`, { params })
   },
   examDetail(id: number) {
-    return request.get('/admin/exam/detail', { params: { id } })
+    return request.get<{ survey: ExamItem; responseCount: number; schema: string }>(`${ADMIN_V2}/exams/${encodePath(id)}`)
   },
-  examSave(data: any) {
-    return request.post('/admin/exam/save', data, { headers: { 'Content-Type': 'application/json' }, transformRequest: [(d: any) => { if (typeof d === 'string') return d; return JSON.stringify(d) }] })
+  examSave(data: FormPayload & { id?: ID }) {
+    if (data.id) {
+      return request.put(`${ADMIN_V2}/exams/${encodePath(data.id)}`, data, jsonConfig)
+    }
+    return request.post(`${ADMIN_V2}/exams`, data, jsonConfig)
   },
   examDelete(data: { id: number }) {
-    return request.post('/admin/exam/delete', data)
+    return request.delete(`${ADMIN_V2}/exams/${encodePath(data.id)}`, deleteBody(data))
   },
   examStatus(data: { id: number; status: number }) {
-    return request.post('/admin/exam/status', data)
+    return request.patch(`${ADMIN_V2}/exams/${encodePath(data.id)}/status`, data)
   },
-  examRecordList(params?: any) {
-    return request.get('/admin/exam/record/list', { params })
+  examRecordList(params?: PageQuery & { examId?: ID }) {
+    return request.get(`${ADMIN_V2}/exams/${encodePath(params?.examId, 0)}/records`, { params })
   },
   examRecordDetail(id: number) {
-    return request.get('/admin/exam/record/detail', { params: { id } })
+    return request.get(`${ADMIN_V2}/exams/0/records/${encodePath(id)}`, { params: { id } })
   },
-  examRecordDel(data: { id: number }) {
-    return request.post('/admin/exam/record/del', data)
+  examRecordDel(data: { id: number; examId?: ID }) {
+    return request.delete(`${ADMIN_V2}/exams/${encodePath(data.examId, 0)}/records/${encodePath(data.id)}`, deleteBody(data))
   },
-  examRecordBatchDel(data: { ids: string }) {
-    return request.post('/admin/exam/record/batch_del', data)
+  examRecordBatchDel(data: { ids: string; examId?: ID }) {
+    return request.delete(`${ADMIN_V2}/exams/${encodePath(data.examId, 0)}/records`, deleteBody(data))
   },
   examStatistics(examId: number) {
-    return request.get('/admin/exam/statistics', { params: { examId } })
+    return request.get(`${ADMIN_V2}/exams/${encodePath(examId)}/statistics`, { params: { examId } })
   },
   // ==================== Survey Question Bank ====================
-  surveyQuestionBankList(params?: any) {
-    return request.get('/admin/survey/question_bank_list', { params })
+  surveyQuestionBankList(params?: PageQuery & { category?: string; type?: string }) {
+    return request.get<PageResult<QuestionBankItem>>(`${ADMIN_V2}/survey-question-bank`, { params })
   },
-  surveyQuestionBankInsert(data: any) {
-    return request.post('/admin/survey/question_bank_insert', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  surveyQuestionBankInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/survey-question-bank`, data, jsonConfig)
   },
-  surveyQuestionBankEdit(data: any) {
-    return request.post('/admin/survey/question_bank_edit', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  surveyQuestionBankEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/survey-question-bank/${encodePath(idFrom(data))}`, data, jsonConfig)
   },
   surveyQuestionBankDel(data: { id: number }) {
-    return request.post('/admin/survey/question_bank_del', data)
+    return request.delete(`${ADMIN_V2}/survey-question-bank/${encodePath(data.id)}`, deleteBody(data))
   },
   surveyQuestionBankCategories() {
-    return request.get('/admin/survey/question_bank_categories')
+    return request.get<string[]>(`${ADMIN_V2}/survey-question-bank/categories`)
   },
   examResourceList(params: { examId: number; resType?: string }) {
-    return request.get('/admin/exam/resource_list', { params })
+    return request.get<ResourceItem[]>(`${ADMIN_V2}/exams/${encodePath(params.examId)}/resources`, { params })
   },
   examResourceDelete(data: { id: number }) {
-    return request.post('/admin/exam/resource_delete', data)
+    return request.delete(`${ADMIN_V2}/exam-resources/${encodePath(data.id)}`, deleteBody(data))
   },
   // ==================== Exam Question Bank ====================
-  examQuestionBankList(params?: any) {
-    return request.get('/admin/exam/question_bank_list', { params })
+  examQuestionBankList(params?: PageQuery & { category?: string; type?: string }) {
+    return request.get<PageResult<QuestionBankItem>>(`${ADMIN_V2}/exam-question-bank`, { params })
   },
-  examQuestionBankInsert(data: any) {
-    return request.post('/admin/exam/question_bank_insert', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  examQuestionBankInsert(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/exam-question-bank`, data, jsonConfig)
   },
-  examQuestionBankEdit(data: any) {
-    return request.post('/admin/exam/question_bank_edit', JSON.stringify(data), { headers: { 'Content-Type': 'application/json' }, transformRequest: [] })
+  examQuestionBankEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/exam-question-bank/${encodePath(idFrom(data))}`, data, jsonConfig)
   },
   examQuestionBankDel(data: { id: number }) {
-    return request.post('/admin/exam/question_bank_del', data)
+    return request.delete(`${ADMIN_V2}/exam-question-bank/${encodePath(data.id)}`, deleteBody(data))
   },
   examQuestionBankCategories() {
-    return request.get('/admin/exam/question_bank_categories')
+    return request.get<string[]>(`${ADMIN_V2}/exam-question-bank/categories`)
   },
-  surveyNotifyList(params?: any) {
-    return request.get('/admin/survey/notify_list', { params })
+  surveyNotifyList(params?: QueryParams) {
+    return request.get(`${ADMIN_V2}/survey-notifications`, { params })
   },
   surveyNotifyRead(data: { id?: number; all?: boolean; userId?: string }) {
-    return request.post('/admin/survey/notify_read', data)
+    return request.patch(`${ADMIN_V2}/survey-notifications/${encodePath(data.id, 0)}/read`, data, jsonConfig)
   },
   surveyNotifyUnreadCount(params?: { userId?: string }) {
-    return request.get('/admin/survey/notify_unread_count', { params })
+    return request.get(`${ADMIN_V2}/survey-notifications/unread-count`, { params })
   },
   surveyTemplatePresetsGet() {
-    return request.get<TemplatePreset[]>('/admin/survey/template_presets')
+    return request.get<TemplatePreset[]>(`${ADMIN_V2}/survey-template-presets`)
   },
   surveyTemplatePresetsSave(data: { presets: TemplatePreset[] }) {
-    return request.post('/admin/survey/template_presets', data, {
-      transformRequest: [(d: any) => JSON.stringify(d)],
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return request.put(`${ADMIN_V2}/survey-template-presets`, data, jsonConfig)
   }
 }

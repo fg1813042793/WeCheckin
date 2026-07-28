@@ -121,7 +121,7 @@ const loadReport = async () => {
 const downloadCsv = () => {
   if (!id.value) return
   const baseUrl = (import.meta as any).env?.VITE_API_BASE || ''
-  const url = baseUrl + `/admin/survey/export/${type.value}?${type.value}Id=${id.value}`
+  const url = baseUrl + `/api/v2/admin/survey-report/${type.value}/export?${type.value}Id=${id.value}`
   const token = localStorage.getItem('admin_token') || ''
   fetch(url, { headers: { Authorization: token } })
     .then((r) => r.blob())

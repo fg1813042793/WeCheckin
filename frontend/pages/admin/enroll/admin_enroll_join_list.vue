@@ -5,8 +5,7 @@
     </view>
 
     <view class="search-bar">
-      <input v-model="keyword" placeholder="搜索用户名称" class="search-input" @confirm="handleSearch" />
-      <text class="search-btn" @click="handleSearch">搜索</text>
+      <input v-model="keyword" placeholder="搜索用户名称" class="search-input" confirm-type="search" @confirm="handleSearch" />
     </view>
 
     <scroll-view scroll-y class="content" @scrolltolower="loadMore">
@@ -217,30 +216,23 @@ export default {
 .search-bar {
   display: flex;
   align-items: center;
-  padding: 16rpx 20rpx;
+  padding: 20rpx 30rpx;
   background-color: #fff;
   border-bottom: 2rpx solid #f0f0f0;
 }
 
 .search-input {
   flex: 1;
-  height: 60rpx;
+  height: 70rpx;
   background-color: #f5f5f5;
-  border-radius: 30rpx;
+  border-radius: 35rpx;
   padding: 0 24rpx;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: #333;
 }
 
-.search-btn {
-  font-size: 26rpx;
-  color: #fb454c;
-  margin-left: 16rpx;
-  flex-shrink: 0;
-}
-
 .content {
-  height: calc(100vh - 170rpx);
+  height: calc(100vh - 188rpx);
 }
 
 .loading-more {

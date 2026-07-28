@@ -65,8 +65,8 @@ export default {
 </script>
 
 <style scoped>
-.container { min-height: 100vh; background-color: #f5f5f5; }
-.tabs { display: flex; background-color: #fff; padding: 20rpx; }
+.container { min-height: 100vh; background-color: #f5f5f5; padding-top: 92rpx; box-sizing: border-box; }
+.tabs { position: fixed; left: 0; right: 0; top: var(--window-top, 0px); z-index: 20; display: flex; background-color: #fff; padding: 20rpx; box-sizing: border-box; }
 .tab-item { flex: 1; text-align: center; font-size: 26rpx; color: #666; padding-bottom: 12rpx; }
 .tab-item.active { color: #fb454c; font-weight: bold; border-bottom: 3rpx solid #fb454c; }
 .list { padding: 20rpx; }

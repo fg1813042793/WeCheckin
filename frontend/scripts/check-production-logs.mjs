@@ -10,6 +10,7 @@ const scanTargets = [
   resolve(root, 'components'),
   resolve(root, 'utils'),
   resolve(root, 'config'),
+  resolve(root, 'miniprogram'),
 ]
 const sourceExts = new Set(['.vue', '.js', '.ts'])
 const debugConsolePattern = /\bconsole\.(log|debug|info)\s*\(/g
@@ -29,6 +30,7 @@ for (const file of scanTargets.flatMap(collectFiles)) {
   const source = readFileSync(file, 'utf8')
   const lines = source.split(/\r?\n/)
   lines.forEach((line, index) => {
+    if (line.trimStart().startsWith('//')) return
     if (debugConsolePattern.test(line)) {
       violations.push(`${file.replace(root + '/', '')}:${index + 1}: ${line.trim()}`)
     }

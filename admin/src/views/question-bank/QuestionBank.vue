@@ -39,335 +39,91 @@
         <div class="bank-stat"><strong>{{ categories.length }}</strong> 分类</div>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe style="width:100%" empty-text="暂无题目">
-        <el-table-column prop="id" label="ID" width="76" />
-        <el-table-column label="题目" min-width="260" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="bank-question-title">{{ questionTitle(row) }}</div>
-            <div v-if="row.tags || row.category" class="bank-question-meta">
-              <el-tag v-if="row.category" size="small" round>{{ row.category }}</el-tag>
-              <span v-for="tag in tagList(row.tags)" :key="tag" class="bank-tag">{{ tag }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="题型" width="150">
-          <template #default="{ row }">
-            <span class="bank-type-cell">
-              <question-icon :type="row.type" class="bank-type-icon" />
-              <span>{{ typeName(row.type) }}</span>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="来源" width="100">
-          <template #default>{{ activeScope === 'survey' ? '问卷' : '考试' }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag size="small" :type="row.status === 1 ? 'success' : 'info'" round>{{ row.status === 1 ? '启用' : '停用' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="170">
-          <template #default="{ row }">{{ formatTime(row.addTime) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right">
-          <template #default="{ row }">
-            <div class="admin-table-actions">
-              <el-button size="small" @click="openPreview(row)">预览</el-button>
-              <el-button size="small" type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button size="small" type="danger" plain @click="deleteRow(row)">删除</el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="admin-pagination">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :page-sizes="[10,20,50,100]"
-          :total="total"
-          layout="total,sizes,prev,pager,next"
-          @current-change="load"
-          @size-change="handleSizeChange"
-        />
-      </div>
+      <QuestionBankTable
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :list="list"
+        :loading="loading"
+        :active-scope="activeScope"
+        :total="total"
+        :question-title="questionTitle"
+        :tag-list="tagList"
+        :type-name="typeName"
+        :format-time="formatTime"
+        @load="load"
+        @size-change="handleSizeChange"
+        @preview="openPreview"
+        @edit="openEdit"
+        @delete="deleteRow"
+      />
     </el-card>
 
-    <el-dialog v-model="editDialog.visible" :title="editDialog.isEdit ? '编辑题目' : '新增题目'" width="900px" :close-on-click-modal="false" class="question-edit-dialog">
-      <el-form label-position="top" class="question-edit-form">
-        <el-form-item label="题目标题">
-          <div class="bank-rich-editor bank-rich-title">
-            <QuillEditor
-              v-model:content="visualQuestion.title"
-              content-type="html"
-              :options="richTitleEditorOptions"
-              @update:content="syncPlainTitleFromVisual"
-              @ready="(quill: any) => bindCompactRichEditor(quill, 'title')"
-            />
-          </div>
-        </el-form-item>
-        <el-form-item label="题型">
-          <el-select v-model="form.type" placeholder="选择题型" filterable style="width:100%" @change="handleTypeChange">
-            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="form.category" placeholder="选择或输入分类" filterable allow-create clearable style="width:100%">
-            <el-option v-for="item in categories" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="标签">
-          <el-input v-model="form.tags" placeholder="多个标签用逗号分隔" />
-        </el-form-item>
-        <el-form-item label="题目配置">
-          <el-tabs v-model="editorMode" class="schema-tabs" @tab-change="handleEditorModeChange">
-            <el-tab-pane label="可视化编辑" name="visual">
-              <div class="visual-editor">
-                <div class="visual-main">
-                  <div class="visual-section">
-                    <div class="visual-section-title">基础设置</div>
-                    <div class="visual-grid">
-                      <div class="visual-field">
-                        <span>必填</span>
-                        <el-switch v-model="visualQuestion.required" />
-                      </div>
-                      <div class="visual-field">
-                        <span>只读</span>
-                        <el-switch v-model="visualQuestion.readOnly" />
-                      </div>
-                      <div class="visual-field wide">
-                        <span>提示语</span>
-                        <el-input v-model="visualQuestion.placeholder" placeholder="请输入提示语" />
-                      </div>
-                      <div class="visual-field wide">
-                        <span>说明</span>
-                        <el-input v-model="visualQuestion.description" type="textarea" :rows="2" placeholder="请输入题目说明" />
-                      </div>
-                    </div>
-                  </div>
+    <QuestionEditorDialog
+      v-model:visible="editDialog.visible"
+      v-model:editor-mode="editorMode"
+      :is-edit="editDialog.isEdit"
+      :form="form"
+      :visual-question="visualQuestion"
+      :categories="categories"
+      :type-options="typeOptions"
+      :active-scope="activeScope"
+      :saving="saving"
+      :rich-title-editor-options="richTitleEditorOptions"
+      :rich-option-editor-options="richOptionEditorOptions"
+      :rich-full-editor-options="richFullEditorOptions"
+      :rich-edit-dialog="richEditDialog"
+      :rich-edit-title="richEditTitle"
+      :bind-compact-rich-editor="bindCompactRichEditor"
+      :sync-plain-title-from-visual="syncPlainTitleFromVisual"
+      :handle-type-change="handleTypeChange"
+      :handle-editor-mode-change="handleEditorModeChange"
+      :uses-options="usesOptions"
+      :uses-fields="usesFields"
+      :uses-matrix="usesMatrix"
+      :add-visual-option="addVisualOption"
+      :remove-visual-option="removeVisualOption"
+      :add-visual-field="addVisualField"
+      :remove-visual-field="removeVisualField"
+      :add-matrix-row="addMatrixRow"
+      :remove-matrix-row="removeMatrixRow"
+      :add-matrix-column="addMatrixColumn"
+      :remove-matrix-column="removeMatrixColumn"
+      :type-name="typeName"
+      :preview-placeholder="previewPlaceholder"
+      :format-schema="formatSchema"
+      :apply-json-to-visual="applyJsonToVisual"
+      :confirm-rich-full-edit="confirmRichFullEdit"
+      :save="save"
+    />
 
-                  <div v-if="usesOptions(visualQuestion.type)" class="visual-section">
-                    <div class="visual-section-title">选项设置</div>
-                    <div class="visual-option-list">
-                      <div v-for="(opt, idx) in visualQuestion.props.options" :key="idx" class="visual-option-row">
-                        <span class="option-index">{{ idx + 1 }}</span>
-                        <div class="bank-rich-editor bank-rich-option">
-                          <QuillEditor
-                            v-model:content="opt.label"
-                            content-type="html"
-                            :options="richOptionEditorOptions"
-                            @ready="(quill: any) => bindCompactRichEditor(quill, 'option', idx)"
-                          />
-                        </div>
-                        <el-input v-model="opt.value" placeholder="选项值" />
-                        <el-button icon="Delete" circle plain type="danger" @click="removeVisualOption(idx)" />
-                      </div>
-                    </div>
-                    <el-button size="small" @click="addVisualOption">+ 添加选项</el-button>
-                  </div>
-
-                  <div v-if="usesFields(visualQuestion.type)" class="visual-section">
-                    <div class="visual-section-title">字段设置</div>
-                    <div class="visual-option-list">
-                      <div v-for="(field, idx) in visualQuestion.props.fields" :key="idx" class="visual-option-row">
-                        <span class="option-index">{{ idx + 1 }}</span>
-                        <el-input v-model="field.label" placeholder="字段名称" />
-                        <el-input v-model="field.placeholder" placeholder="提示语" />
-                        <el-button icon="Delete" circle plain type="danger" @click="removeVisualField(idx)" />
-                      </div>
-                    </div>
-                    <el-button size="small" @click="addVisualField">+ 添加字段</el-button>
-                  </div>
-
-                  <div v-if="usesMatrix(visualQuestion.type)" class="visual-section">
-                    <div class="visual-section-title">矩阵设置</div>
-                    <div class="matrix-editor-grid">
-                      <div>
-                        <div class="matrix-subtitle">行</div>
-                        <div class="visual-option-list">
-                          <div v-for="(row, idx) in visualQuestion.props.rows" :key="idx" class="visual-option-row compact">
-                            <span class="option-index">{{ idx + 1 }}</span>
-                            <el-input v-model="row.title" placeholder="行标题" />
-                            <el-button icon="Delete" circle plain type="danger" @click="removeMatrixRow(idx)" />
-                          </div>
-                        </div>
-                        <el-button size="small" @click="addMatrixRow">+ 添加行</el-button>
-                      </div>
-                      <div>
-                        <div class="matrix-subtitle">列</div>
-                        <div class="visual-option-list">
-                          <div v-for="(col, idx) in visualQuestion.props.columns" :key="idx" class="visual-option-row compact">
-                            <span class="option-index">{{ idx + 1 }}</span>
-                            <el-input v-model="col.title" placeholder="列标题" />
-                            <el-button icon="Delete" circle plain type="danger" @click="removeMatrixColumn(idx)" />
-                          </div>
-                        </div>
-                        <el-button size="small" @click="addMatrixColumn">+ 添加列</el-button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="visualQuestion.type === 'file'" class="visual-section">
-                    <div class="visual-section-title">上传设置</div>
-                    <div class="visual-grid">
-                      <div class="visual-field wide">
-                        <span>文件类型</span>
-                        <el-select v-model="visualQuestion.fileTypes" multiple clearable style="width:100%">
-                          <el-option label="图片" value="image" />
-                          <el-option label="文档" value="document" />
-                          <el-option label="视频" value="video" />
-                          <el-option label="音频" value="audio" />
-                        </el-select>
-                      </div>
-                      <div class="visual-field">
-                        <span>大小 MB</span>
-                        <el-input-number v-model="visualQuestion.maxFileSize" :min="1" :max="200" controls-position="right" style="width:100%" />
-                      </div>
-                      <div class="visual-field">
-                        <span>数量</span>
-                        <el-input-number v-model="visualQuestion.maxFileCount" :min="1" :max="20" controls-position="right" style="width:100%" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="visualQuestion.type === 'rating' || visualQuestion.type === 'nps'" class="visual-section">
-                    <div class="visual-section-title">评分设置</div>
-                    <div class="visual-grid">
-                      <div class="visual-field">
-                        <span>最大分值</span>
-                        <el-input-number v-model="visualQuestion.props.maxRating" :min="1" :max="20" controls-position="right" style="width:100%" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="activeScope === 'exam'" class="visual-section">
-                    <div class="visual-section-title">考试设置</div>
-                    <div class="visual-grid">
-                      <div class="visual-field">
-                        <span>分值</span>
-                        <el-input-number v-model="visualQuestion.examScore" :min="0" :step="1" controls-position="right" style="width:100%" />
-                      </div>
-                      <div class="visual-field wide">
-                        <span>正确答案</span>
-                        <el-input v-model="visualQuestion.examCorrectAnswer" placeholder="请输入正确答案" />
-                      </div>
-                      <div class="visual-field wide">
-                        <span>解析</span>
-                        <el-input v-model="visualQuestion.examAnalysis" type="textarea" :rows="2" placeholder="请输入答案解析" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="visual-preview">
-                  <div class="visual-preview-title">
-                    <question-icon :type="visualQuestion.type" class="bank-type-icon" />
-                    <span v-html="visualQuestion.title || typeName(visualQuestion.type)"></span>
-                  </div>
-                  <div class="visual-preview-body">
-                    <template v-if="usesOptions(visualQuestion.type)">
-                      <div v-for="(opt, idx) in visualQuestion.props.options" :key="idx" class="preview-option">
-                        <span class="preview-dot" />
-                        <span v-html="opt.label || `选项${idx + 1}`"></span>
-                      </div>
-                    </template>
-                    <template v-else-if="usesFields(visualQuestion.type)">
-                      <div v-for="(field, idx) in visualQuestion.props.fields" :key="idx" class="preview-field">
-                        <span>{{ field.label || `字段${idx + 1}` }}</span>
-                        <el-input :placeholder="field.placeholder || '请输入'" disabled />
-                      </div>
-                    </template>
-                    <template v-else-if="usesMatrix(visualQuestion.type)">
-                      <div class="preview-matrix">
-                        <div class="preview-matrix-row header">
-                          <span>行/列</span>
-                          <span v-for="(col, idx) in visualQuestion.props.columns" :key="idx">{{ col.title || `列${idx + 1}` }}</span>
-                        </div>
-                        <div v-for="(row, idx) in visualQuestion.props.rows" :key="idx" class="preview-matrix-row">
-                          <span>{{ row.title || `行${idx + 1}` }}</span>
-                          <span v-for="(_col, cidx) in visualQuestion.props.columns" :key="cidx">-</span>
-                        </div>
-                      </div>
-                    </template>
-                    <el-input v-else-if="visualQuestion.type === 'textarea'" type="textarea" :placeholder="visualQuestion.placeholder || '请输入'" disabled />
-                    <el-input v-else :placeholder="visualQuestion.placeholder || previewPlaceholder(visualQuestion.type)" disabled />
-                  </div>
-                </div>
-              </div>
-            </el-tab-pane>
-            <el-tab-pane label="高级 JSON" name="json">
-              <div class="schema-editor">
-                <el-input v-model="form.schema" type="textarea" :rows="14" placeholder="题目 schema JSON，可从设计器上传后编辑" />
-                <div class="schema-actions">
-                  <el-button size="small" @click="formatSchema">格式化 JSON</el-button>
-                  <el-button size="small" @click="applyJsonToVisual">同步到可视化</el-button>
-                </div>
-              </div>
-            </el-tab-pane>
-          </el-tabs>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editDialog.visible=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="save">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="richEditDialog.visible"
-      :title="richEditTitle"
-      width="760px"
-      append-to-body
-      :close-on-click-modal="false"
-      class="bank-rich-full-dialog"
-      @closed="richEditDialog.content=''"
-    >
-      <div class="bank-rich-full-editor">
-        <QuillEditor
-          v-model:content="richEditDialog.content"
-          content-type="html"
-          :options="richFullEditorOptions"
-        />
-      </div>
-      <template #footer>
-        <el-button @click="richEditDialog.visible=false">取消</el-button>
-        <el-button type="primary" @click="confirmRichFullEdit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <el-drawer v-model="preview.visible" title="题目预览" size="520px">
-      <div v-if="preview.row" class="preview-panel">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="ID">{{ preview.row.id }}</el-descriptions-item>
-          <el-descriptions-item label="标题">{{ questionTitle(preview.row) }}</el-descriptions-item>
-          <el-descriptions-item label="题型">{{ typeName(preview.row.type) }}</el-descriptions-item>
-          <el-descriptions-item label="分类">{{ preview.row.category || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="标签">{{ preview.row.tags || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatTime(preview.row.addTime) }}</el-descriptions-item>
-        </el-descriptions>
-        <div class="preview-schema-title">题目配置</div>
-        <pre class="preview-schema">{{ prettySchema(preview.row.schema) }}</pre>
-      </div>
-    </el-drawer>
+    <QuestionPreviewDrawer
+      v-model:visible="preview.visible"
+      :row="preview.row"
+      :question-title="questionTitle"
+      :type-name="typeName"
+      :format-time="formatTime"
+      :pretty-schema="prettySchema"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { QuillEditor } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
-import QuestionIcon from '../survey/formkit/QuestionIcon.vue'
-
-type BankScope = 'survey' | 'exam'
-type QuestionPayload = {
-  title: string
-  type: string
-  category: string
-  tags: string
-  schema: string
-}
+import QuestionBankTable from './components/QuestionBankTable.vue'
+import QuestionEditorDialog from './components/QuestionEditorDialog.vue'
+import QuestionPreviewDrawer from './components/QuestionPreviewDrawer.vue'
+import {
+  buildQuestionBankExportPayload,
+  downloadJson,
+  exportFilename,
+  normalizeExportQuestion,
+  normalizeSchemaValue,
+  parseImportQuestions,
+  type BankScope,
+  type QuestionPayload
+} from './utils/importExport'
 type RichEditTarget = 'title' | 'option'
 
 const activeScope = ref<BankScope>('survey')
@@ -929,22 +685,6 @@ async function save() {
   }
 }
 
-function normalizeSchemaValue(value: any) {
-  if (value === undefined || value === null || value === '') return ''
-  if (typeof value === 'string') return value
-  return JSON.stringify(value)
-}
-
-function normalizeExportQuestion(row: any): QuestionPayload {
-  return {
-    title: String(row.title || ''),
-    type: String(row.type || ''),
-    category: String(row.category || ''),
-    tags: String(row.tags || ''),
-    schema: normalizeSchemaValue(row.schema)
-  }
-}
-
 async function fetchExportQuestions(scope: BankScope) {
   const pageSizeForExport = 500
   const first: any = await requestQuestionBankList(scope, buildListParams({ page: 1, pageSize: pageSizeForExport }))
@@ -958,23 +698,6 @@ async function fetchExportQuestions(scope: BankScope) {
   return items.map(normalizeExportQuestion)
 }
 
-function downloadJson(filename: string, data: any) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-function exportFilename(scope: BankScope) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  return `${scope === 'survey' ? 'survey' : 'exam'}-question-bank-${stamp}.json`
-}
-
 async function exportQuestions() {
   const scope = activeScope.value
   exporting.value = true
@@ -984,20 +707,16 @@ async function exportQuestions() {
       ElMessage.warning('暂无可导出的题目')
       return
     }
-    downloadJson(exportFilename(scope), {
-      version: '1.0',
-      module: 'question-bank',
+    downloadJson(exportFilename(scope), buildQuestionBankExportPayload({
       scope,
       scopeName: scopeName(scope),
-      exportedAt: new Date().toISOString(),
       filters: {
         keyword: keyword.value,
         category: category.value,
         type: questionType.value
       },
-      total: items.length,
       items
-    })
+    }))
     ElMessage.success(`已导出 ${items.length} 道题`)
   } catch {
     ElMessage.error('导出失败，请稍后重试')
@@ -1012,37 +731,6 @@ function triggerImport() {
   importFileInput.value?.click()
 }
 
-function extractImportRows(raw: any) {
-  if (Array.isArray(raw)) return raw
-  const candidates = [raw?.items, raw?.list, raw?.questions, raw?.data?.items, raw?.data?.list]
-  const rows = candidates.find(Array.isArray)
-  if (!rows) throw new Error('未找到题目数组，请选择题库导出的 JSON 文件')
-  return rows
-}
-
-function normalizeImportQuestion(row: any, index: number): QuestionPayload {
-  const title = String(row?.title ?? row?.label ?? row?.question ?? row?.name ?? '').trim()
-  const type = String(row?.type ?? row?.qType ?? row?.questionType ?? '').trim()
-  if (!title || !type) throw new Error(`第 ${index + 1} 题缺少标题或题型`)
-  return {
-    title,
-    type,
-    category: String(row?.category || category.value || ''),
-    tags: String(row?.tags || ''),
-    schema: normalizeSchemaValue(row?.schema ?? row)
-  }
-}
-
-function parseImportQuestions(text: string) {
-  let raw: any
-  try {
-    raw = JSON.parse(text)
-  } catch {
-    throw new Error('JSON 文件格式不正确')
-  }
-  return extractImportRows(raw).map((row: any, index: number) => normalizeImportQuestion(row, index))
-}
-
 async function handleImportFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -1050,7 +738,7 @@ async function handleImportFile(event: Event) {
   if (!file) return
   let items: QuestionPayload[] = []
   try {
-    items = parseImportQuestions(await file.text())
+    items = parseImportQuestions(await file.text(), category.value)
   } catch (err: any) {
     ElMessage.error(err?.message || '导入文件解析失败')
     return
@@ -1157,424 +845,10 @@ onMounted(async () => {
   font-size: 17px;
 }
 
-.bank-question-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #1f2937;
-  font-weight: 600;
-}
-
-.bank-question-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 5px;
-  min-width: 0;
-}
-
-.bank-tag {
-  overflow: hidden;
-  max-width: 96px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.bank-type-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.bank-type-icon {
-  width: 16px;
-  height: 16px;
-  color: #94a3b8;
-}
-
-.schema-editor {
-  width: 100%;
-}
-
-.schema-editor :deep(.el-textarea__inner),
-.preview-schema {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.schema-actions {
-  margin-top: 8px;
-}
-
-.schema-tabs {
-  width: 100%;
-}
-
-.bank-rich-editor {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid #dcdfe6;
-  border-radius: 8px;
-  background: #fff;
-  transition: border-color 0.18s, box-shadow 0.18s;
-}
-
-.bank-rich-editor:hover {
-  border-color: #c0c4cc;
-}
-
-.bank-rich-editor:focus-within {
-  border-color: var(--bank-accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-}
-
-.bank-rich-editor :deep(.ql-toolbar) {
-  display: flex;
-  flex-wrap: wrap;
-  box-sizing: border-box;
-  width: 100%;
-  max-height: 0;
-  overflow: hidden;
-  padding: 0 8px;
-  border: 0;
-  border-bottom: 0 solid #eef2f7;
-  background: #fff;
-  opacity: 0;
-  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
-}
-
-.bank-rich-editor:focus-within :deep(.ql-toolbar) {
-  max-height: 74px;
-  padding: 6px 8px;
-  border-bottom-width: 1px;
-  opacity: 1;
-}
-
-.bank-rich-editor :deep(.ql-toolbar .ql-formats) {
-  margin-right: 6px;
-}
-
-.bank-rich-editor :deep(.ql-toolbar button),
-.bank-rich-editor :deep(.ql-toolbar .ql-picker-label) {
-  border-radius: 5px;
-}
-
-.bank-rich-editor :deep(.ql-toolbar .ql-bank-full) {
-  width: 68px;
-  padding: 0 6px;
-  color: var(--bank-accent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.bank-rich-editor :deep(.ql-toolbar button:hover),
-.bank-rich-editor :deep(.ql-toolbar button.ql-active),
-.bank-rich-editor :deep(.ql-toolbar .ql-picker-label:hover) {
-  background: #f1f5f9;
-}
-
-.bank-rich-editor :deep(.ql-container) {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  height: auto;
-  border: 0;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: inherit;
-}
-
-.bank-rich-title :deep(.ql-editor) {
-  min-height: 44px;
-  padding: 10px 12px;
-}
-
-.bank-rich-option :deep(.ql-editor) {
-  min-height: 38px;
-  padding: 8px 10px;
-}
-
-.bank-rich-title :deep(.ql-editor p),
-.bank-rich-option :deep(.ql-editor p) {
-  margin: 0;
-}
-
-.bank-rich-title :deep(.ql-editor.ql-blank::before),
-.bank-rich-option :deep(.ql-editor.ql-blank::before) {
-  left: 12px;
-  color: #a8b0bd;
-  font-style: normal;
-}
-
-:global(.bank-rich-full-dialog .el-dialog__body) {
-  padding-top: 8px;
-}
-
-:global(.bank-rich-full-editor) {
-  display: flex;
-  flex-direction: column;
-  height: min(58vh, 560px);
-  min-height: 420px;
-}
-
-:global(.bank-rich-full-editor .ql-toolbar) {
-  flex-shrink: 0;
-  border-color: #dcdfe6;
-  border-radius: 8px 8px 0 0;
-  background: #fff;
-}
-
-:global(.bank-rich-full-editor .ql-container) {
-  flex: 1;
-  min-height: 0;
-  border-color: #dcdfe6;
-  border-radius: 0 0 8px 8px;
-  font-size: 14px;
-}
-
-:global(.bank-rich-full-editor .ql-editor) {
-  min-height: 100%;
-  padding: 14px 16px;
-}
-
-.question-edit-form :deep(.el-form-item__content) {
-  min-width: 0;
-}
-
-.question-edit-form :deep(.el-form-item) {
-  margin-bottom: 14px;
-}
-
-.question-edit-form :deep(.el-form-item__label) {
-  margin-bottom: 6px;
-  color: #475467;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.visual-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 14px;
-  width: 100%;
-}
-
-.visual-main {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
-.visual-section,
-.visual-preview {
-  border: 1px solid var(--bank-border);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.visual-section {
-  padding: 12px;
-}
-
-.visual-section-title {
-  margin-bottom: 10px;
-  color: #344054;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.visual-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.visual-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.visual-field > span,
-.matrix-subtitle {
-  color: #667085;
-  font-size: 12px;
-}
-
-.visual-field.wide {
-  grid-column: 1 / -1;
-}
-
-.visual-option-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.visual-option-row {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 120px) 34px;
-  gap: 8px;
-  align-items: start;
-}
-
-.visual-option-row.compact {
-  grid-template-columns: 28px minmax(0, 1fr) 34px;
-}
-
-.option-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-top: 7px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.visual-option-row > .el-button {
-  margin-top: 4px;
-}
-
-.matrix-editor-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.matrix-subtitle {
-  margin-bottom: 8px;
-}
-
-.visual-preview {
-  align-self: start;
-  overflow: hidden;
-  background: #f8fafc;
-}
-
-.visual-preview-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid var(--bank-border);
-  color: #1f2937;
-  font-weight: 650;
-}
-
-.visual-preview-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-}
-
-.preview-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 28px;
-  color: #344054;
-  font-size: 13px;
-}
-
-.preview-dot {
-  width: 12px;
-  height: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: #fff;
-}
-
-.preview-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: #344054;
-  font-size: 12px;
-}
-
-.preview-matrix {
-  overflow-x: auto;
-  border: 1px solid var(--bank-border);
-  border-radius: 6px;
-  background: #fff;
-}
-
-.preview-matrix-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(72px, 1fr));
-}
-
-.preview-matrix-row > span {
-  padding: 7px 8px;
-  border-right: 1px solid var(--bank-border);
-  border-bottom: 1px solid var(--bank-border);
-  color: #475467;
-  font-size: 12px;
-}
-
-.preview-matrix-row.header > span {
-  background: #f1f5f9;
-  color: #334155;
-  font-weight: 650;
-}
-
-.preview-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.preview-schema-title {
-  color: #344054;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.preview-schema {
-  overflow: auto;
-  max-height: 420px;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--bank-border);
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #344054;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
 
 @media (max-width: 768px) {
   .bank-tabs {
     width: 100%;
-  }
-
-  .visual-editor,
-  .matrix-editor-grid,
-  .visual-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .visual-option-row,
-  .visual-option-row.compact {
-    grid-template-columns: 24px minmax(0, 1fr) 34px;
-  }
-
-  .visual-option-row:not(.compact) :deep(.el-input:nth-of-type(2)) {
-    grid-column: 2 / 3;
   }
 }
 </style>

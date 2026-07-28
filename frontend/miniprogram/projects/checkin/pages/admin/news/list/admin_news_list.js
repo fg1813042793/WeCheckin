@@ -83,7 +83,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (e) {
-			console.log(e);
 		}
 	},
 
@@ -108,7 +107,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (err) {
-			console.log(err);
 		}
 	},
 
@@ -134,7 +132,6 @@ Page({
 					pageHelper.showSuccToast('删除成功');
 				});
 			} catch (e) {
-				console.log(e);
 			}
 		}
 		pageHelper.showConfirm('确认删除？删除不可恢复', callback);
@@ -233,7 +230,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (e) {
-			console.log(e);
 		}
 	},
 

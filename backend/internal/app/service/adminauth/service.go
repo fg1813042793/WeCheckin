@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"gorm.io/gorm"
+	"wecheckin-backend/backend/internal/app/support/adminaccess"
 	"wecheckin-backend/backend/internal/app/support/media"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/database"
@@ -44,6 +46,7 @@ type LoginResponse struct {
 	ID        uint   `json:"id"`
 	Type      int    `json:"type"`
 	RoleID    uint   `json:"roleId"`
+	RoleName  string `json:"roleName"`
 	DataScope int    `json:"dataScope"`
 	LoginCnt  int    `json:"loginCnt"`
 }
@@ -57,7 +60,7 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	defer cancel()
 
 	var admin model.Admin
-	err := db.Where("`admin_name` = ?", name).First(&admin).Error
+	err := db.Where("`user_mobile` = ? OR `user_name` = ? OR `user_account` = ?", name, name, name).First(&admin).Error
 	if err != nil {
 		return nil, fmt.Errorf("账号或密码错误")
 	}
@@ -69,35 +72,25 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 		if err != nil {
 			return nil, err
 		}
-		db.Model(&admin).Update("admin_password", newHash)
+		db.Model(&admin).Update("user_password", newHash)
 		admin.Password = newHash
 	}
 	if admin.Status != 1 {
 		return nil, fmt.Errorf("账号已禁用")
 	}
+	role, err := adminLoginRole(ctx, db, &admin)
+	if err != nil {
+		return nil, err
+	}
 	token := genRandomString(32)
 	admin.LoginCnt++
 	admin.LoginTime = database.Now()
 	db.Model(&admin).Updates(map[string]interface{}{
-		"admin_login_cnt":  admin.LoginCnt,
-		"admin_login_time": admin.LoginTime,
+		"user_login_cnt":  admin.LoginCnt,
+		"user_login_time": admin.LoginTime,
 	})
-	roleName := ""
-	if admin.RoleID > 0 {
-		var role model.Role
-		if err := db.First(&role, admin.RoleID).Error; err == nil {
-			roleName = role.Name
-		}
-	}
-	storeAdminTokenContext(ctx, &admin, token, addIP, device, roleName)
+	storeAdminTokenContext(ctx, &admin, token, addIP, device, role.Name)
 	InsertLogContext(ctx, 1, "管理员登录", strconv.Itoa(int(admin.ID)), admin.Name, admin.Desc, addIP)
-	var dataScope int
-	if admin.RoleID > 0 {
-		var role model.Role
-		if err := db.First(&role, admin.RoleID).Error; err == nil {
-			dataScope = role.DataScope
-		}
-	}
 	return &LoginResponse{
 		Token:     token,
 		Name:      admin.Name,
@@ -105,9 +98,14 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 		ID:        admin.ID,
 		Type:      admin.Type,
 		RoleID:    admin.RoleID,
-		DataScope: dataScope,
+		RoleName:  role.Name,
+		DataScope: role.DataScope,
 		LoginCnt:  admin.LoginCnt,
 	}, nil
+}
+
+func adminLoginRole(ctx context.Context, db *gorm.DB, admin *model.Admin) (model.Role, error) {
+	return adminaccess.UserAllowsAdminAccessContext(ctx, db, admin.ID, admin.RoleID)
 }
 
 func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) {
@@ -120,8 +118,8 @@ func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addI
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	db.Model(&model.Admin{}).Where("`id` = ?", admin.ID).Updates(map[string]interface{}{
-		"admin_token":      token,
-		"admin_token_time": now,
+		"user_admin_token":      token,
+		"user_admin_token_time": now,
 	})
 	if rd.RDB == nil {
 		return

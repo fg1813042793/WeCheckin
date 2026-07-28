@@ -1,6 +1,7 @@
 package poststat
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -13,8 +14,16 @@ import (
 
 // Process handles postStat rules after a survey response is submitted.
 func Process(surveyID uint, userID uint, nickname string, currentAnswers string) {
+	ProcessContext(context.Background(), surveyID, userID, nickname, currentAnswers)
+}
+
+func ProcessContext(ctx context.Context, surveyID uint, userID uint, nickname string, currentAnswers string) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var sv model.Survey
-	if err := database.DB.Where("`survey_id` = ?", surveyID).First(&sv).Error; err != nil {
+	if err := db.Select("survey_id", "survey_title", "survey_schema", "survey_settings").
+		Where("`survey_id` = ?", surveyID).
+		First(&sv).Error; err != nil {
 		logger.Logger.Printf("[PostStat] survey not found: %d", surveyID)
 		return
 	}
@@ -26,18 +35,35 @@ func Process(surveyID uint, userID uint, nickname string, currentAnswers string)
 		return
 	}
 
-	var allResp []model.SurveyResponse
-	database.DB.Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", surveyID).Find(&allResp)
-
-	items := make([]report.AnswerItem, len(allResp))
-	for i, r := range allResp {
-		items[i] = report.AnswerItem{Forms: r.Answers}
+	var items []report.AnswerItem
+	var totalCount int64
+	if postStatNeedsAggregateResponses(rules) {
+		var answerRows []struct {
+			Answers string `gorm:"column:survey_resp_answers"`
+		}
+		if err := db.Model(&model.SurveyResponse{}).
+			Select("survey_resp_answers").
+			Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", surveyID).
+			Find(&answerRows).Error; err != nil {
+			logger.Logger.Printf("[PostStat] response query error: %v", err)
+			return
+		}
+		totalCount = int64(len(answerRows))
+		items = make([]report.AnswerItem, len(answerRows))
+		for i, row := range answerRows {
+			items[i] = report.AnswerItem{Forms: row.Answers}
+		}
+	} else if err := db.Model(&model.SurveyResponse{}).
+		Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", surveyID).
+		Count(&totalCount).Error; err != nil {
+		logger.Logger.Printf("[PostStat] response count error: %v", err)
+		return
 	}
 
-	submitter := resolveSubmitter(sv.Schema, currentAnswers, nickname, userID)
+	submitter := resolveSubmitterContext(ctx, sv.Schema, currentAnswers, nickname, userID)
 	now := time.Now()
 	dateStr := now.Format("2006-01-02 15:04:05")
-	total := len(allResp)
+	total := int(totalCount)
 
 	for _, rule := range rules {
 		statMode := "value"
@@ -75,7 +101,16 @@ func Process(surveyID uint, userID uint, nickname string, currentAnswers string)
 			}
 		}
 		if rule.NotifyChannel == "internal" || rule.NotifyChannel == "both" {
-			go sendInternalNotification(surveyID, sv.Title, rule.NotifyAdmin, rule.NotifyUserIds, msg)
+			go sendInternalNotificationContext(context.Background(), surveyID, sv.Title, rule.NotifyAdmin, rule.NotifyUserIds, msg)
 		}
 	}
+}
+
+func postStatNeedsAggregateResponses(rules []Rule) bool {
+	for _, rule := range rules {
+		if rule.StatScope != "single" {
+			return true
+		}
+	}
+	return false
 }

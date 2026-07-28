@@ -2,14 +2,12 @@ package exam
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"strconv"
-	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	examservice "wecheckin-backend/backend/internal/app/service/exam"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -31,76 +29,29 @@ func (h *ClientExamHandler) Start(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	deviceId := c.Query("deviceId")
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	var e model.Exam
-	if err := db.Where("`exam_id` = ?", examID).First(&e).Error; err != nil {
-		response.Fail(c, "考试不存在")
-		return
-	}
-	if e.Status != 1 {
-		response.Fail(c, "考试未发布")
-		return
-	}
-	if e.MaxAttempts > 0 {
-		var cnt int64
-		db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_user_id` = ?", examID, uid).Count(&cnt)
-		if int(cnt) >= e.MaxAttempts {
-			response.Fail(c, "已达最大尝试次数")
-			return
-		}
-	}
-	nowMs := time.Now().UnixMilli()
-	if e.StartTime > 0 && nowMs < e.StartTime {
-		response.Fail(c, "考试未开始")
-		return
-	}
-	if e.EndTime > 0 && nowMs > e.EndTime {
-		response.Fail(c, "考试已结束")
-		return
-	}
-	uidStr := strconv.FormatUint(uint64(uid), 10)
-	var rec model.ExamRecord
-	err := db.Where("`exam_r_exam_id` = ? AND `exam_r_user_id` = ? AND `exam_r_status` IN (0,1)", examID, uidStr).Order("`exam_r_id` DESC").First(&rec).Error
+	result, err := h.service().StartContext(ctx, examID, uid, deviceId)
 	if err != nil {
-		var p model.ExamPaper
-		if err := db.Where("`exam_p_id` = ?", e.PaperID).First(&p).Error; err != nil {
+		switch {
+		case errors.Is(err, examservice.ErrExamNotPublished):
+			response.Fail(c, "考试未发布")
+		case errors.Is(err, examservice.ErrExamMaxAttempts):
+			response.Fail(c, "已达最大尝试次数")
+		case errors.Is(err, examservice.ErrExamNotStarted):
+			response.Fail(c, "考试未开始")
+		case errors.Is(err, examservice.ErrExamEnded):
+			response.Fail(c, "考试已结束")
+		case errors.Is(err, examservice.ErrExamPaperNotFound):
 			response.Fail(c, "试卷不存在")
-			return
+		default:
+			response.Fail(c, "考试不存在")
 		}
-		rec = model.ExamRecord{
-			ExamID:     uint(examID),
-			PaperID:    e.PaperID,
-			UserID:     uidStr,
-			TotalScore: p.TotalScore,
-			Status:     0,
-			StartTime:  nowMs,
-			DeviceID:   deviceId,
-		}
-		db.Create(&rec)
+		return
 	}
-	var p model.ExamPaper
-	db.Where("`exam_p_id` = ?", e.PaperID).First(&p)
-	var qids []uint
-	_ = json.Unmarshal([]byte(p.QuestionIDs), &qids)
-	var qs []model.ExamQuestion
-	if len(qids) > 0 {
-		db.Where("`exam_q_id` IN ?", qids).Find(&qs)
-	}
-	safe := make([]map[string]interface{}, 0, len(qs))
-	for _, q := range qs {
-		safe = append(safe, map[string]interface{}{
-			"id":         q.ID,
-			"type":       q.Type,
-			"title":      q.Title,
-			"options":    q.Options,
-			"score":      q.Score,
-			"difficulty": q.Difficulty,
-		})
-	}
-	var prevAnswers map[string]interface{}
-	if rec.Answers != "" {
-		_ = json.Unmarshal([]byte(rec.Answers), &prevAnswers)
-	}
-	response.JSON(c, examStartResponse{Record: rec, Paper: p, Exam: e, Questions: safe, Answers: prevAnswers})
+	response.JSON(c, examStartResponse{
+		Record:    result.Record,
+		Paper:     result.Paper,
+		Exam:      result.Exam,
+		Questions: result.Questions,
+		Answers:   result.Answers,
+	})
 }

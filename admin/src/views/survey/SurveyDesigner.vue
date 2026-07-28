@@ -153,7 +153,7 @@
                       <div class="appearance-overlay"><span>点击应用</span></div>
                       <button class="appearance-remove" @click.stop="removeResource('backgroundImages', item, i)">✕</button>
                     </div>
-                    <el-upload :action="`/admin/survey/resource_upload`" :show-file-list="false" :on-success="handleBgSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ surveyId: form.id, resType: 'bg' }" :before-upload="checkSaved">
+                    <el-upload :action="`/api/v2/admin/survey-resources`" :show-file-list="false" :on-success="handleBgSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ surveyId: form.id, resType: 'bg' }" :before-upload="checkSaved">
                       <div class="appearance-add">+</div>
                     </el-upload>
                   </div>
@@ -166,7 +166,7 @@
                       <div class="appearance-overlay"><span>点击应用</span></div>
                       <button class="appearance-remove" @click.stop="removeResource('headerImages', item, i)">✕</button>
                     </div>
-                    <el-upload :action="`/admin/survey/resource_upload`" :show-file-list="false" :on-success="handleHeaderSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ surveyId: form.id, resType: 'header' }" :before-upload="checkSaved">
+                    <el-upload :action="`/api/v2/admin/survey-resources`" :show-file-list="false" :on-success="handleHeaderSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ surveyId: form.id, resType: 'header' }" :before-upload="checkSaved">
                       <div class="appearance-add">+</div>
                     </el-upload>
                   </div>
@@ -2333,7 +2333,7 @@ const defaultBuiltinPresets: Record<string, string> = {
 const builtinPresets = ref<Record<string, string>>({...defaultBuiltinPresets})
 async function loadBuiltinPresets() {
   try {
-    const res = await request.get<string | { label: string; value: string }[]>('/home/setup_get', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
+    const res = await request.get<string | { label: string; value: string }[]>('/api/v2/home/setup', { params: { key: 'BUILTIN_TEMPLATE_PRESETS' } })
     if (res.code === 0 && res.data) {
       const parsed = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
       if (Array.isArray(parsed) && parsed.length) {

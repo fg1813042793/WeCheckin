@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"wecheckin-backend/backend/pkg/database"
 )
 
 func TestStartupInitializationDoesNotDropLegacyUserFormFields(t *testing.T) {
@@ -39,36 +41,31 @@ func TestBootstrapStartupCodeStaysSplitByResponsibility(t *testing.T) {
 	}
 }
 
-func TestAutoMigrateCanBeDisabledFromEnvironment(t *testing.T) {
-	t.Setenv("WECHECKIN_AUTO_MIGRATE", "false")
-	if autoMigrateEnabled() {
-		t.Fatalf("auto migrate must be disabled when WECHECKIN_AUTO_MIGRATE=false")
-	}
-
-	t.Setenv("WECHECKIN_AUTO_MIGRATE", "0")
-	if autoMigrateEnabled() {
-		t.Fatalf("auto migrate must be disabled when WECHECKIN_AUTO_MIGRATE=0")
-	}
-
-	t.Setenv("WECHECKIN_AUTO_MIGRATE", "true")
-	if !autoMigrateEnabled() {
-		t.Fatalf("auto migrate must stay enabled by default-compatible truthy values")
+func TestStartupNoLongerUsesAutoMigrateEnvironmentSwitch(t *testing.T) {
+	for _, file := range []string{"migrate.go", "maintenance.go"} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		if strings.Contains(string(src), "WECHECKIN_AUTO_MIGRATE") {
+			t.Fatalf("%s must not use WECHECKIN_AUTO_MIGRATE; run backend/init.sh for maintenance tasks", file)
+		}
 	}
 }
 
-func TestBusinessInitializationReturnsStartupErrors(t *testing.T) {
-	src, err := os.ReadFile("database.go")
+func TestMaintenanceInitializationReturnsErrors(t *testing.T) {
+	src, err := os.ReadFile("maintenance.go")
 	if err != nil {
-		t.Fatalf("read database.go: %v", err)
+		t.Fatalf("read maintenance.go: %v", err)
 	}
 
 	text := string(src)
-	if !strings.Contains(text, "func InitBusiness(enableExam bool) error") {
-		t.Fatalf("InitBusiness must return an error so startup can fail on migration problems")
+	if !strings.Contains(text, "func RunMaintenance(options MaintenanceOptions) error") {
+		t.Fatalf("RunMaintenance must return an error so maintenance failures are visible")
 	}
 	for _, snippet := range []string{"Migration warning", "continuing"} {
 		if strings.Contains(text, snippet) {
-			t.Fatalf("InitBusiness must not hide startup migration failures with %q", snippet)
+			t.Fatalf("RunMaintenance must not hide migration failures with %q", snippet)
 		}
 	}
 }
@@ -86,24 +83,51 @@ func TestRawMigrationSQLErrorsAreChecked(t *testing.T) {
 	}
 }
 
-func TestMenuSeedOnlyRunsBeforeFirstInitialization(t *testing.T) {
-	cases := []struct {
-		name          string
-		existingMenus int64
-		markerValue   string
-		want          bool
-	}{
-		{name: "empty database before first startup", existingMenus: 0, markerValue: "", want: true},
-		{name: "menus already exist without marker", existingMenus: 3, markerValue: "", want: false},
-		{name: "marker already set", existingMenus: 0, markerValue: "1", want: false},
-		{name: "truthy marker already set", existingMenus: 0, markerValue: "true", want: false},
+func TestBootstrapDatabaseOperationsUseQueryContext(t *testing.T) {
+	files := []string{"migrate.go", "seed_menu.go", "seed_setup.go"}
+	for _, file := range files {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		if strings.Contains(string(src), "database.DB.") {
+			t.Fatalf("%s startup database operations must use database.WithContext", file)
+		}
+	}
+}
+
+func TestBootstrapDatabaseContextUsesStartupTimeout(t *testing.T) {
+	if startupDatabaseTimeout <= database.DefaultQueryTimeout {
+		t.Fatalf("startup database timeout must exceed request query timeout: got %s, default query %s", startupDatabaseTimeout, database.DefaultQueryTimeout)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := shouldSeedMenus(tc.existingMenus, tc.markerValue); got != tc.want {
-				t.Fatalf("shouldSeedMenus(%d, %q) = %v, want %v", tc.existingMenus, tc.markerValue, got, tc.want)
-			}
-		})
+	files := []string{"migrate.go", "seed_menu.go", "seed_setup.go"}
+	for _, file := range files {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		text := string(src)
+		if strings.Contains(text, "database.WithContext(context.Background())") {
+			t.Fatalf("%s must not use request-level database.WithContext for startup operations", file)
+		}
+		if !strings.Contains(text, "startupDB(context.Background())") {
+			t.Fatalf("%s startup database operations must use startupDB(context.Background())", file)
+		}
+	}
+}
+
+func TestMenuSeedUsesIdempotentPermissionUpserts(t *testing.T) {
+	src, err := os.ReadFile("seed_menu.go")
+	if err != nil {
+		t.Fatalf("read seed_menu.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"permissionsupport.SyncAdminMenuPermissionsContext(context.Background(), db, enableExam)",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("menu seed must be idempotent permission upsert with %s", snippet)
+		}
 	}
 }

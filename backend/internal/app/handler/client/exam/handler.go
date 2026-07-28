@@ -1,10 +1,25 @@
 package exam
 
-import "github.com/cloudwego/hertz/pkg/app"
+import (
+	"github.com/cloudwego/hertz/pkg/app"
 
-type ClientExamHandler struct{}
+	examservice "wecheckin-backend/backend/internal/app/service/exam"
+)
 
-func NewClientExamHandler() *ClientExamHandler { return &ClientExamHandler{} }
+type ClientExamHandler struct {
+	svc *examservice.Service
+}
+
+func NewClientExamHandler() *ClientExamHandler {
+	return &ClientExamHandler{svc: examservice.NewService()}
+}
+
+func (h *ClientExamHandler) service() *examservice.Service {
+	if h.svc == nil {
+		h.svc = examservice.NewService()
+	}
+	return h.svc
+}
 
 func getUID(c *app.RequestContext) uint {
 	uidVal, _ := c.Get("user_id")

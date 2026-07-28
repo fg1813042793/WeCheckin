@@ -6,7 +6,7 @@
     </view>
 
     <view class="search-bar">
-      <input v-model="keyword" placeholder="搜索考试" @confirm="load" />
+      <input v-model="keyword" placeholder="搜索考试" confirm-type="search" @confirm="load" />
     </view>
 
     <view class="exam-list" v-if="list.length > 0">

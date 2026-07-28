@@ -1,7 +1,7 @@
 <template>
   <view class="main-admin">
     <view class="search-bar">
-      <input v-model="search" placeholder="搜索内容，管理员账号，姓名" class="search-input" @confirm="handleSearch" />
+      <input v-model="search" placeholder="搜索内容，管理员账号，姓名" class="search-input" confirm-type="search" @confirm="handleSearch" />
       <button class="btn-clear" @click="clearLogs">清空日志</button>
     </view>
 
@@ -159,30 +159,33 @@ export default {
 }
 .search-bar {
   display: flex;
-  margin-bottom: 20rpx;
-}
-.search-bar .search-input {
-  margin-right: 16rpx;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 30rpx;
+  margin: -20rpx -20rpx 20rpx;
+  background-color: #fff;
 }
 .search-input {
   flex: 1;
-  height: 72rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 0 20rpx;
-  font-size: 26rpx;
+  min-width: 0;
+  height: 70rpx;
+  background: #f5f5f5;
+  border-radius: 35rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
   color: #333;
 }
 .btn-clear {
-  height: 72rpx;
-  line-height: 72rpx;
+  height: 70rpx;
+  line-height: 70rpx;
   background-color: #2499f2;
   color: #fff;
   font-size: 24rpx;
-  padding: 0 24rpx;
-  border-radius: 16rpx;
+  padding: 0 26rpx;
+  border-radius: 35rpx;
   border: none;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .load-info {
   font-size: 24rpx;

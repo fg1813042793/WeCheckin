@@ -19,6 +19,8 @@
 
 登录路径: 个人中心 → 设置 → 后台管理 → 管理员登录
 
+接口路径: `POST /api/v2/admin/auth/login`
+
 ---
 
 ## 测试用户
@@ -32,6 +34,11 @@
 | o1_test_openid_005 | 刘七 | 13800138005 | 未参与 |
 
 登录方式: 用户登录页输入 `openid` 即可登录
+
+接口路径:
+
+- openid/用户标识登录: `POST /api/v2/auth/login`
+- 密码登录: `POST /api/v2/auth/password-login`
 
 ---
 
@@ -76,3 +83,24 @@
 ## 文件位置
 
 测试数据 SQL: `backend/seed.sql`（可随时重新导入）
+
+## 接口验证建议
+
+导入测试数据后，可以先访问：
+
+```text
+GET /api/v2/home
+GET /api/v2/news
+GET /api/v2/enrollments
+GET /api/v2/events
+GET /api/v2/surveys
+GET /api/v2/exams
+```
+
+管理后台接口需要先登录并携带 `Authorization`：
+
+```text
+POST /api/v2/admin/auth/login
+GET /api/v2/admin/home
+GET /api/v2/admin/users
+```

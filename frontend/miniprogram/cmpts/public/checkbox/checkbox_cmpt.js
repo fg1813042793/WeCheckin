@@ -15,7 +15,6 @@ Component({
 			value: [],
 			observer: function (newVal, oldVal) {
 				if (Array.isArray(newVal) && Array.isArray(oldVal) && JSON.stringify(newVal) != JSON.stringify(oldVal)) {
-					console.log('checkbox observer');
 					this._fixDefaultVal();
 				}
 			}

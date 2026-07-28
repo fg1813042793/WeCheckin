@@ -1,6 +1,7 @@
 package poststat
 
 import (
+	"context"
 	"encoding/json"
 
 	"wecheckin-backend/backend/internal/app/formkit/schema"
@@ -9,6 +10,10 @@ import (
 )
 
 func resolveSubmitter(schemaJSON, currentAnswers, nickname string, userID uint) string {
+	return resolveSubmitterContext(context.Background(), schemaJSON, currentAnswers, nickname, userID)
+}
+
+func resolveSubmitterContext(ctx context.Context, schemaJSON, currentAnswers, nickname string, userID uint) string {
 	sch, err := schema.Parse(schemaJSON)
 	if err == nil && currentAnswers != "" {
 		var ans map[string]interface{}
@@ -31,8 +36,10 @@ func resolveSubmitter(schemaJSON, currentAnswers, nickname string, userID uint) 
 		return nickname
 	}
 	if userID > 0 {
+		db, cancel := database.WithContext(ctx)
+		defer cancel()
 		var u model.User
-		if database.DB.Where("`id` = ?", userID).First(&u).Error == nil && u.Name != "" {
+		if db.Where("`id` = ?", userID).First(&u).Error == nil && u.Name != "" {
 			return u.Name
 		}
 	}

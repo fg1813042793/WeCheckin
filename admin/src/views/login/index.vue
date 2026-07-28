@@ -16,11 +16,11 @@
       <el-card class="login-card" shadow="never">
         <div class="login-card__header">
           <h2>登录后台</h2>
-          <p>请输入管理员账号和密码</p>
+          <p>请输入姓名/手机号和密码</p>
         </div>
         <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-          <el-form-item label="账号" prop="name">
-            <el-input v-model="form.name" prefix-icon="User" placeholder="请输入管理员账号" size="large" />
+          <el-form-item label="姓名/手机号" prop="name">
+            <el-input v-model="form.name" prefix-icon="User" placeholder="请输入姓名或手机号" size="large" />
           </el-form-item>
           <el-form-item label="密码" prop="password">
             <el-input
@@ -53,7 +53,7 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 const form = reactive({ name: '', password: '' })
 const rules = {
-  name: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入姓名或手机号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 

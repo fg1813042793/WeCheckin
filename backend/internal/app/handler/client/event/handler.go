@@ -54,7 +54,7 @@ func (h *EventHandler) ViewEvent(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "参数错误")
 		return
 	}
-	event, err := eventservice.ViewEvent(id, userID)
+	event, err := eventservice.ViewEventContext(ctx, id, userID)
 	if err != nil {
 		response.Fail(c, "项目不存在")
 		return
@@ -110,7 +110,7 @@ func (h *EventHandler) GetMyEventList(ctx context.Context, c *app.RequestContext
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	result, err := eventservice.GetMyEventList(userID, typ, status, page, pageSize)
+	result, err := eventservice.GetMyEventListContext(ctx, userID, typ, status, page, pageSize)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -129,7 +129,7 @@ func (h *EventHandler) GetMyEventRoles(ctx context.Context, c *app.RequestContex
 		response.Fail(c, "参数错误")
 		return
 	}
-	data, err := eventservice.GetMyEventRoles(userID)
+	data, err := eventservice.GetMyEventRolesContext(ctx, userID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -164,7 +164,7 @@ func (h *EventHandler) GetMyManagedList(ctx context.Context, c *app.RequestConte
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	result, err := eventservice.GetMyManagedList(userID, typ, status, keyword, page, pageSize)
+	result, err := eventservice.GetMyManagedListContext(ctx, userID, typ, status, keyword, page, pageSize)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -183,7 +183,7 @@ func (h *EventHandler) GetEventParticipantList(ctx context.Context, c *app.Reque
 		response.Fail(c, "参数错误")
 		return
 	}
-	list, err := eventservice.GetEventParticipantList(eventID)
+	list, err := eventservice.GetEventParticipantListContext(ctx, eventID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

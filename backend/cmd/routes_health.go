@@ -15,11 +15,13 @@ func registerHealthRoutes(h *server.Hertz) {
 		c.JSON(consts.StatusOK, utils.H{"status": "ok"})
 	})
 	h.GET("/ready", func(ctx context.Context, c *app.RequestContext) {
-		if database.DB == nil {
+		db, cancel := database.WithContext(ctx)
+		defer cancel()
+		if db == nil {
 			c.JSON(consts.StatusServiceUnavailable, utils.H{"status": "unavailable", "message": "database not initialized"})
 			return
 		}
-		if err := database.DB.Exec("SELECT 1").Error; err != nil {
+		if err := db.Exec("SELECT 1").Error; err != nil {
 			c.JSON(consts.StatusServiceUnavailable, utils.H{"status": "unavailable", "message": err.Error()})
 			return
 		}

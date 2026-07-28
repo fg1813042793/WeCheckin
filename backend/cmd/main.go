@@ -80,7 +80,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/cors"
 	_ "wecheckin-backend/backend/docs/swagger"
-	"wecheckin-backend/backend/internal/bootstrap"
 	"wecheckin-backend/backend/internal/config"
 	"wecheckin-backend/backend/internal/middleware"
 	"wecheckin-backend/backend/pkg/database"
@@ -90,7 +89,7 @@ import (
 
 func main() {
 	env := flag.String("env", "", "运行环境 (dev/prod)")
-	examFlag := flag.Bool("exam", false, "启用在线考试菜单")
+	_ = flag.Bool("exam", false, "兼容旧启动参数；初始化菜单请使用 init.sh -exam")
 	flag.Parse()
 
 	cfg, err := config.LoadConfig(*env)
@@ -99,9 +98,6 @@ func main() {
 	}
 
 	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
-	if err := bootstrap.InitBusiness(*examFlag); err != nil {
-		log.Fatalf("Failed to initialize business data: %v", err)
-	}
 
 	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
 		logger.Logger.Printf("Warning: logger init: %v", err)

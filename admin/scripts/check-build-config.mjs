@@ -20,3 +20,16 @@ for (const snippet of requiredSnippets) {
     throw new Error(`admin Vite build config missing: ${snippet}`)
   }
 }
+
+const requiredProxyPatterns = [
+  {
+    name: 'api v2 dev proxy',
+    pattern: /['"]\/api['"]\s*:\s*\{[\s\S]*?target:\s*['"]http:\/\/localhost:8083['"]/
+  }
+]
+
+for (const { name, pattern } of requiredProxyPatterns) {
+  if (!pattern.test(source)) {
+    throw new Error(`admin Vite dev proxy missing: ${name}`)
+  }
+}

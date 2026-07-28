@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="search-bar">
-      <input v-model="keyword" placeholder="搜索考试" @confirm="load" />
+      <input v-model="keyword" placeholder="搜索考试" confirm-type="search" @confirm="load" />
     </view>
 
     <view v-if="list.length > 0" class="exam-list">

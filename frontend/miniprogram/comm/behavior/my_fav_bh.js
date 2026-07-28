@@ -75,7 +75,6 @@ module.exports = Behavior({
 					});
 					pageHelper.showSuccToast('删除成功');
 				}).catch(err => {
-					console.log(err);
 				 });
 			}
 			pageHelper.showConfirm('您确认删除？', callback);

@@ -32,7 +32,7 @@ function redirectToLogin(authState) {
 
 const request = (options) => {
   return new Promise((resolve, reject) => {
-    const isAdmin = options.url.startsWith('/admin/')
+    const isAdmin = options.url.startsWith('/admin/') || options.url.startsWith('/api/v2/admin/')
     const authState = getAuthState(isAdmin)
     uni.request({
       url: BASE_URL + options.url,
@@ -92,6 +92,10 @@ const put = (url, data = {}) => {
   return request({ url, method: 'PUT', data })
 }
 
+const patch = (url, data = {}) => {
+  return request({ url, method: 'PATCH', data })
+}
+
 const del = (url, data = {}) => {
   return request({ url, method: 'DELETE', data })
 }
@@ -111,6 +115,7 @@ export {
   post,
   postJSON,
   put,
+  patch,
   del,
   BASE_URL
 }

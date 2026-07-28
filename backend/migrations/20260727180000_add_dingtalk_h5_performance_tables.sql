@@ -1,0 +1,90 @@
+-- 钉钉 H5 人员直接复用 `users` 表，角色、岗位、直属上级、HRBP 等绩效元数据写入 `users.user_obj`。
+
+CREATE TABLE IF NOT EXISTS `dingtalk_h5_perf_sessions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '会话ID',
+  `token` varchar(100) NOT NULL COMMENT '登录token',
+  `user_account` varchar(80) DEFAULT '' COMMENT '用户账号',
+  `expires_at` bigint DEFAULT 0 COMMENT '过期时间',
+  `add_ip` varchar(50) DEFAULT '' COMMENT '登录IP',
+  `device` varchar(255) DEFAULT '' COMMENT '设备',
+  `add_time` bigint DEFAULT 0 COMMENT '创建时间',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_dingtalk_h5_perf_sessions_token` (`token`),
+  KEY `idx_dingtalk_h5_perf_sessions_user_account` (`user_account`),
+  KEY `idx_dingtalk_h5_perf_sessions_expires_at` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='钉钉H5绩效会话';
+
+CREATE TABLE IF NOT EXISTS `dingtalk_h5_perf_reviews` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '考评单ID',
+  `review_no` varchar(120) NOT NULL COMMENT '考评单编号',
+  `employee_account` varchar(80) DEFAULT '' COMMENT '员工账号',
+  `manager_account` varchar(80) DEFAULT '' COMMENT '直属上级账号',
+  `hrbp_account` varchar(80) DEFAULT '' COMMENT 'HRBP账号',
+  `hrbp_reviewer_account` varchar(80) DEFAULT '' COMMENT '实际HRBP处理人账号',
+  `department` varchar(200) DEFAULT '' COMMENT '部门全称',
+  `department_level1` varchar(100) DEFAULT '' COMMENT '一级部门',
+  `department_level2` varchar(100) DEFAULT '' COMMENT '二级部门',
+  `department_level3` varchar(100) DEFAULT '' COMMENT '三级部门',
+  `period` varchar(20) DEFAULT '' COMMENT '考评月份',
+  `next_period` varchar(20) DEFAULT '' COMMENT '目标月份',
+  `status` varchar(30) DEFAULT '' COMMENT '流程状态',
+  `objective_source_review_no` varchar(120) DEFAULT '' COMMENT '目标来源考评单',
+  `objective_source_period` varchar(20) DEFAULT '' COMMENT '目标来源月份',
+  `objectives_json` mediumtext COMMENT '本月目标JSON',
+  `next_objectives_json` mediumtext COMMENT '下月目标JSON',
+  `values_json` mediumtext COMMENT '价值观评分JSON',
+  `self_summary` text COMMENT '员工总结',
+  `manager_comment` text COMMENT '上级评价',
+  `manager_grade` varchar(20) DEFAULT '' COMMENT '上级分档',
+  `hrbp_comment` text COMMENT 'HRBP评价',
+  `hrbp_grade` varchar(20) DEFAULT '' COMMENT 'HRBP分档',
+  `employee_confirm_result` varchar(30) DEFAULT '' COMMENT '员工确认结果',
+  `employee_confirm_comment` text COMMENT '确认意见或异议原因',
+  `employee_confirmed_at` bigint DEFAULT 0 COMMENT '确认时间',
+  `final_grade` varchar(20) DEFAULT '' COMMENT '最终分档',
+  `final_note` text COMMENT 'HRBP备注',
+  `add_time` bigint DEFAULT 0 COMMENT '创建时间',
+  `edit_time` bigint DEFAULT 0 COMMENT '修改时间',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_dingtalk_h5_perf_reviews_review_no` (`review_no`),
+  KEY `idx_dt_h5_review_employee_period` (`employee_account`, `period`),
+  KEY `idx_dingtalk_h5_perf_reviews_manager_account` (`manager_account`),
+  KEY `idx_dingtalk_h5_perf_reviews_hrbp_account` (`hrbp_account`),
+  KEY `idx_dingtalk_h5_perf_reviews_period` (`period`),
+  KEY `idx_dingtalk_h5_perf_reviews_next_period` (`next_period`),
+  KEY `idx_dingtalk_h5_perf_reviews_status` (`status`),
+  KEY `idx_dingtalk_h5_perf_reviews_department` (`department`),
+  KEY `idx_dingtalk_h5_perf_reviews_final_grade` (`final_grade`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='钉钉H5绩效考评单';
+
+CREATE TABLE IF NOT EXISTS `dingtalk_h5_perf_histories` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '流转记录ID',
+  `review_id` bigint unsigned DEFAULT 0 COMMENT '考评单ID',
+  `review_no` varchar(120) DEFAULT '' COMMENT '考评单编号',
+  `by_account` varchar(80) DEFAULT '' COMMENT '操作人账号',
+  `by_name` varchar(100) DEFAULT '' COMMENT '操作人姓名',
+  `action` varchar(500) DEFAULT '' COMMENT '操作内容',
+  `add_time` bigint DEFAULT 0 COMMENT '创建时间',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_dingtalk_h5_perf_histories_review_id` (`review_id`),
+  KEY `idx_dingtalk_h5_perf_histories_review_no` (`review_no`),
+  KEY `idx_dingtalk_h5_perf_histories_add_time` (`add_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='钉钉H5绩效流转记录';
+
+CREATE TABLE IF NOT EXISTS `dingtalk_h5_perf_templates` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+  `template_key` varchar(80) NOT NULL COMMENT '模板键',
+  `payload` mediumtext COMMENT '模板JSON',
+  `add_time` bigint DEFAULT 0 COMMENT '创建时间',
+  `edit_time` bigint DEFAULT 0 COMMENT '修改时间',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_dingtalk_h5_perf_templates_template_key` (`template_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='钉钉H5绩效模板';

@@ -7,6 +7,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	eventservice "wecheckin-backend/backend/internal/app/service/event"
+	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -16,12 +17,14 @@ import (
 // @Success 200 {object} response.Resp
 // @Router /admin/event_participant_list [get]
 func (h *AdminEventHandler) GetEventParticipantList(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	eventID := c.Query("eventId")
 	if eventID == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	list, err := eventservice.GetEventParticipantList(eventID)
+	list, err := eventservice.GetEventParticipantListForAdminContext(ctx, eventID, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -35,12 +38,14 @@ func (h *AdminEventHandler) GetEventParticipantList(ctx context.Context, c *app.
 // @Success 200 {object} response.Resp
 // @Router /admin/event_participant_del [post]
 func (h *AdminEventHandler) DelEventParticipant(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := eventservice.DelEventParticipant(id); err != nil {
+	if err := eventservice.DelEventParticipantForAdminContext(ctx, id, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -54,13 +59,15 @@ func (h *AdminEventHandler) DelEventParticipant(ctx context.Context, c *app.Requ
 // @Success 200 {object} response.Resp
 // @Router /admin/event_participant_edit [post]
 func (h *AdminEventHandler) EditEventParticipant(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	forms := c.PostForm("forms")
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := eventservice.EditEventParticipant(id, forms); err != nil {
+	if err := eventservice.EditEventParticipantForAdminContext(ctx, id, forms, admin.ID); err != nil {
 		response.Fail(c, "更新失败")
 		return
 	}
@@ -73,13 +80,15 @@ func (h *AdminEventHandler) EditEventParticipant(ctx context.Context, c *app.Req
 // @Success 200 {object} response.Resp
 // @Router /admin/event_participant_dels [post]
 func (h *AdminEventHandler) DelEventParticipants(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
 	ids := strings.Split(idsStr, ",")
-	if err := eventservice.DelEventParticipants(ids); err != nil {
+	if err := eventservice.DelEventParticipantsForAdminContext(ctx, ids, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -104,7 +113,7 @@ func (h *AdminEventHandler) GetDeptUsers(ctx context.Context, c *app.RequestCont
 			deptIDs = append(deptIDs, uint(id))
 		}
 	}
-	users, err := eventservice.GetDeptUsers(deptIDs)
+	users, err := eventservice.GetDeptUsersContext(ctx, deptIDs)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

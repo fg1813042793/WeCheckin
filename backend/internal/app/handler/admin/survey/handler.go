@@ -3,13 +3,12 @@ package survey
 import (
 	"context"
 	"strconv"
-	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
+	"wecheckin-backend/backend/internal/app/service/formkitadmin"
 	surveyservice "wecheckin-backend/backend/internal/app/service/survey"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
 )
@@ -44,12 +43,14 @@ func (h *AdminSurveyHandler) lazyInit() {
 // @Router /admin/survey/survey_list [get]
 func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	keyword := c.Query("keyword")
 	category := c.Query("category")
 	status, _ := strconv.Atoi(c.Query("status"))
-	list, total, err := h.survey.ListContext(ctx, keyword, category, status, page, pageSize)
+	list, total, err := h.survey.ListForAdminContext(ctx, keyword, category, status, page, pageSize, admin.ID)
 	if err != nil {
 		response.Fail(c, "查询失败: "+err.Error())
 		return
@@ -58,23 +59,10 @@ func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	for _, sv := range list {
 		ids = append(ids, sv.ID)
 	}
-	type RespCount struct {
-		SurveyID uint `gorm:"column:survey_resp_survey_id"`
-		Count    int  `gorm:"column:cnt"`
-	}
-	var counts []RespCount
-	if len(ids) > 0 {
-		db, cancel := database.WithContext(ctx)
-		defer cancel()
-		db.Model(&model.SurveyResponse{}).
-			Select("`survey_resp_survey_id`, COUNT(*) AS cnt").
-			Where("`survey_resp_survey_id` IN ?", ids).
-			Group("`survey_resp_survey_id`").
-			Scan(&counts)
-	}
-	countMap := make(map[uint]int)
-	for _, c := range counts {
-		countMap[c.SurveyID] = c.Count
+	countMap, err := h.survey.ResponseCountsContext(ctx, ids)
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
 	}
 	var out []surveyWithCount
 	for _, sv := range list {
@@ -91,19 +79,15 @@ func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 // @Router /admin/survey/survey_detail [get]
 func (h *AdminSurveyHandler) Detail(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.Query("id"))
-	sv, err := h.survey.GetContext(ctx, uint(id))
+	detail, err := h.survey.DetailForAdminContext(ctx, uint(id), admin.ID)
 	if err != nil {
 		response.Fail(c, "问卷不存在")
 		return
 	}
-	var respCnt int64
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	db.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ?", sv.ID).Count(&respCnt)
-	var rawSchema string
-	db.Model(&model.Survey{}).Select("survey_schema").Where("`survey_id` = ?", id).Scan(&rawSchema)
-	response.JSON(c, surveyDetailResponse{Survey: sv, ResponseCount: respCnt, Schema: rawSchema})
+	response.JSON(c, surveyDetailResponse{Survey: detail.Survey, ResponseCount: detail.ResponseCount, Schema: detail.Schema})
 }
 
 // Insert POST /admin/survey/survey_insert
@@ -122,12 +106,12 @@ func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) 
 	if admin, ok := c.Get("admin"); ok {
 		if a, ok := admin.(*model.Admin); ok {
 			sv.CreateBy = a.ID
-			var adminDept model.AdminDept
-			db, cancel := database.WithContext(ctx)
-			defer cancel()
-			if err := db.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
-				sv.DeptID = adminDept.DeptID
+			deptID, err := formkitadmin.FirstAdminDeptIDContext(ctx, a.ID)
+			if err != nil {
+				response.Fail(c, "获取部门失败: "+err.Error())
+				return
 			}
+			sv.DeptID = deptID
 		}
 	}
 	if err := h.survey.CreateContext(ctx, &sv); err != nil {
@@ -147,21 +131,24 @@ func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) 
 // @Router /admin/survey/survey_edit [post]
 func (h *AdminSurveyHandler) Edit(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	var sv model.Survey
 	if err := c.BindAndValidate(&sv); err != nil {
 		response.Fail(c, "参数错误: "+err.Error())
 		return
 	}
-	old := model.Survey{}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	db.Where("`survey_id` = ?", sv.ID).First(&old)
-	if err := h.survey.UpdateContext(ctx, &sv); err != nil {
+	old, _ := h.survey.GetForAdminContext(ctx, sv.ID, admin.ID)
+	if err := h.survey.UpdateForAdminContext(ctx, &sv, admin.ID); err != nil {
 		logger.Logger.Printf("[AdminSurveyEdit] 更新失败 id=%d err=%s", sv.ID, err.Error())
 		response.Fail(c, "更新失败: "+err.Error())
 		return
 	}
-	logger.Logger.Printf("[AdminSurveyEdit] 更新成功 id=%d title=%s oldMaxResp=%d newMaxResp=%d", sv.ID, sv.Title, old.MaxResponse, sv.MaxResponse)
+	oldMaxResponse := 0
+	if old != nil {
+		oldMaxResponse = old.MaxResponse
+	}
+	logger.Logger.Printf("[AdminSurveyEdit] 更新成功 id=%d title=%s oldMaxResp=%d newMaxResp=%d", sv.ID, sv.Title, oldMaxResponse, sv.MaxResponse)
 	response.JSON(c, nil)
 }
 
@@ -173,8 +160,10 @@ func (h *AdminSurveyHandler) Edit(ctx context.Context, c *app.RequestContext) {
 // @Router /admin/survey/survey_del [post]
 func (h *AdminSurveyHandler) Del(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
-	if err := h.survey.DeleteContext(ctx, uint(id)); err != nil {
+	if err := h.survey.DeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
 		response.Fail(c, "删除失败: "+err.Error())
 		return
 	}
@@ -189,12 +178,12 @@ func (h *AdminSurveyHandler) Del(ctx context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/survey_status [post]
 func (h *AdminSurveyHandler) Status(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	status, _ := strconv.Atoi(c.PostForm("status"))
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := db.Model(&model.Survey{}).Where("`survey_id` = ?", id).
-		Update("survey_status", status).Error; err != nil {
+	if err := h.survey.SetStatusForAdminContext(ctx, uint(id), status, admin.ID); err != nil {
 		response.Fail(c, "更新失败: "+err.Error())
 		return
 	}
@@ -210,32 +199,23 @@ func (h *AdminSurveyHandler) Status(ctx context.Context, c *app.RequestContext) 
 func (h *AdminSurveyHandler) Copy(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	id, _ := strconv.Atoi(c.PostForm("id"))
-	sv, err := h.survey.GetContext(ctx, uint(id))
-	if err != nil {
-		response.Fail(c, "原问卷不存在")
-		return
-	}
-	now := time.Now().UnixMilli()
-	newSv := *sv
-	newSv.ID = 0
-	newSv.Title = sv.Title + " (副本)"
-	newSv.Status = 0
-	newSv.AddTime = now
-	newSv.EditTime = now
+	var createBy uint
+	var deptID uint
+	var adminID uint
 	if admin, ok := c.Get("admin"); ok {
 		if a, ok := admin.(*model.Admin); ok {
-			newSv.CreateBy = a.ID
-			var adminDept model.AdminDept
-			db, cancel := database.WithContext(ctx)
-			defer cancel()
-			if err := db.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
-				newSv.DeptID = adminDept.DeptID
+			createBy = a.ID
+			adminID = a.ID
+			var err error
+			deptID, err = formkitadmin.FirstAdminDeptIDContext(ctx, a.ID)
+			if err != nil {
+				response.Fail(c, "获取部门失败: "+err.Error())
+				return
 			}
 		}
 	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := db.Create(&newSv).Error; err != nil {
+	newSv, err := h.survey.CopyForAdminContext(ctx, uint(id), createBy, deptID, adminID)
+	if err != nil {
 		response.Fail(c, "复制失败: "+err.Error())
 		return
 	}

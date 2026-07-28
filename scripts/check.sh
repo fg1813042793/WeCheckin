@@ -13,7 +13,7 @@ enabled() {
 }
 
 cleanup() {
-  rm -rf "${ROOT_DIR}/.cache"
+  rm -rf "${ROOT_DIR}/.cache" >/dev/null 2>&1 || true
 }
 
 trap cleanup EXIT

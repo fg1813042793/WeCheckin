@@ -28,7 +28,7 @@ func (h *AdminEventHandler) GetAdminEventList(ctx context.Context, c *app.Reques
 	sortStr := c.Query("sort")
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
-	list, total, err := eventservice.GetAdminEventList(keyword, typ, sortStr, page, size, admin.ID)
+	list, total, err := eventservice.GetAdminEventListContext(ctx, keyword, typ, sortStr, page, size, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -42,12 +42,14 @@ func (h *AdminEventHandler) GetAdminEventList(ctx context.Context, c *app.Reques
 // @Success 200 {object} response.Resp
 // @Router /admin/event_detail [get]
 func (h *AdminEventHandler) GetAdminEventDetail(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.Query("id")
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	event, err := eventservice.GetAdminEventDetail(id)
+	event, err := eventservice.GetAdminEventDetailForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "项目不存在")
 		return
@@ -103,7 +105,7 @@ func (h *AdminEventHandler) InsertEvent(ctx context.Context, c *app.RequestConte
 	assistants := parseUserArray(c.PostForm("assistants"))
 	referees := parseUserArray(c.PostForm("referees"))
 
-	err := eventservice.InsertEvent(title, cateID, cateName, forms, scoreFields, qr, addIP, publishDeptIds,
+	err := eventservice.InsertEventContext(ctx, title, cateID, cateName, forms, scoreFields, qr, addIP, publishDeptIds,
 		typ, status, order, regStart, regEnd, eventStart, eventEnd, obj,
 		uint(deptID), admin.ID, organizers, assistants, referees)
 	if err != nil {
@@ -138,6 +140,8 @@ func (h *AdminEventHandler) InsertEvent(ctx context.Context, c *app.RequestConte
 // @Success 200 {object} response.Resp
 // @Router /admin/event_edit [post]
 func (h *AdminEventHandler) EditEvent(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	title := c.PostForm("title")
 	typ, _ := strconv.Atoi(c.PostForm("type"))
@@ -161,9 +165,9 @@ func (h *AdminEventHandler) EditEvent(ctx context.Context, c *app.RequestContext
 	assistants := parseUserArray(c.PostForm("assistants"))
 	referees := parseUserArray(c.PostForm("referees"))
 
-	err := eventservice.EditEvent(id, title, cateID, cateName, forms, scoreFields, qr, addIP, publishDeptIds,
+	err := eventservice.EditEventForAdminContext(ctx, id, title, cateID, cateName, forms, scoreFields, qr, addIP, publishDeptIds,
 		typ, status, order, regStart, regEnd, eventStart, eventEnd, obj,
-		uint(deptID), organizers, assistants, referees)
+		uint(deptID), admin.ID, organizers, assistants, referees)
 	if err != nil {
 		response.Fail(c, "编辑失败")
 		return
@@ -177,12 +181,14 @@ func (h *AdminEventHandler) EditEvent(ctx context.Context, c *app.RequestContext
 // @Success 200 {object} response.Resp
 // @Router /admin/event_del [post]
 func (h *AdminEventHandler) DelEvent(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := eventservice.DelEvent(id); err != nil {
+	if err := eventservice.DelEventForAdminContext(ctx, id, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -195,13 +201,15 @@ func (h *AdminEventHandler) DelEvent(ctx context.Context, c *app.RequestContext)
 // @Success 200 {object} response.Resp
 // @Router /admin/event_dels [post]
 func (h *AdminEventHandler) DelEvents(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
 	ids := strings.Split(idsStr, ",")
-	if err := eventservice.DelEvents(ids); err != nil {
+	if err := eventservice.DelEventsForAdminContext(ctx, ids, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -215,13 +223,15 @@ func (h *AdminEventHandler) DelEvents(ctx context.Context, c *app.RequestContext
 // @Success 200 {object} response.Resp
 // @Router /admin/event_status [post]
 func (h *AdminEventHandler) StatusEvent(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	status, _ := strconv.Atoi(c.PostForm("status"))
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := eventservice.StatusEvent(id, status); err != nil {
+	if err := eventservice.StatusEventForAdminContext(ctx, id, status, admin.ID); err != nil {
 		response.Fail(c, "操作失败")
 		return
 	}
@@ -235,9 +245,11 @@ func (h *AdminEventHandler) StatusEvent(ctx context.Context, c *app.RequestConte
 // @Success 200 {object} response.Resp
 // @Router /admin/event_vouch [post]
 func (h *AdminEventHandler) VouchEvent(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	vouch, _ := strconv.Atoi(c.PostForm("vouch"))
-	err := eventservice.VouchEvent(id, vouch)
+	err := eventservice.VouchEventForAdminContext(ctx, id, vouch, admin.ID)
 	if err != nil {
 		response.Fail(c, "操作失败")
 		return
@@ -252,9 +264,11 @@ func (h *AdminEventHandler) VouchEvent(ctx context.Context, c *app.RequestContex
 // @Success 200 {object} response.Resp
 // @Router /admin/event_top [post]
 func (h *AdminEventHandler) TopEvent(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	top, _ := strconv.Atoi(c.PostForm("top"))
-	err := eventservice.TopEvent(id, top)
+	err := eventservice.TopEventForAdminContext(ctx, id, top, admin.ID)
 	if err != nil {
 		response.Fail(c, "操作失败")
 		return

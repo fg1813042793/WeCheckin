@@ -43,16 +43,16 @@ BACKEND_DIR="$(pwd)"
 
 echo -e "${GREEN}后端目录: ${BACKEND_DIR}${NC}"
 
-# 下载依赖
-echo -e "${YELLOW}正在下载依赖...${NC}"
-go mod tidy
+# 检查依赖
+echo -e "${YELLOW}正在检查依赖...${NC}"
+go mod download
 
 if [ $? -ne 0 ]; then
-    echo -e "${RED}错误: 依赖下载失败${NC}"
+    echo -e "${RED}错误: 依赖检查失败${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ 依赖下载完成${NC}"
+echo -e "${GREEN}✓ 依赖检查完成${NC}"
 
 # 检查配置文件
 if [ ! -f "config/config.yaml" ]; then

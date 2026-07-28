@@ -102,5 +102,16 @@
         "devServer" : {
             "port" : 8081
         }
+    },
+    "app-harmony" : {
+        "distribute" : {
+            "bundleName" : "com.wecheckin.app",
+            "signingConfigs" : {}
+        }
+    },
+    "uniStatistics" : {
+        "version" : "2",
+        "type" : "public",
+        "enable" : false
     }
 }

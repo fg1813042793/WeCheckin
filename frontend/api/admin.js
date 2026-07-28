@@ -1,214 +1,233 @@
-import { get, post } from '../utils/request'
+import { get, post, put, patch, del } from '../utils/request'
+
+const ADMIN_V2 = '/api/v2/admin'
+
+function valueOf(source, keys = ['id'], fallback = '') {
+  if (source === null || source === undefined) return fallback
+  if (typeof source !== 'object') return source
+  for (const key of keys) {
+    const value = source[key]
+    if (value !== undefined && value !== null && value !== '') return value
+  }
+  return fallback
+}
+
+function pathParam(source, keys = ['id'], fallback = '') {
+  return encodeURIComponent(String(valueOf(source, keys, fallback)))
+}
 
 export const dictApi = {
   items(typeCode) {
-    return get('/admin/dict/items', { typeCode })
+    return get(`${ADMIN_V2}/dict/items`, { typeCode })
   }
 }
 
 export const adminApi = {
   home() {
-    return get('/admin/home')
+    return get(`${ADMIN_V2}/home`)
   },
   login(data) {
-    return post('/admin/login', data)
+    return post(`${ADMIN_V2}/auth/login`, data)
   },
   userList(params) {
-    return get('/admin/user_list', params)
+    return get(`${ADMIN_V2}/users`, params)
   },
   userDetail(openid) {
-    return get('/admin/user_detail', { openid })
+    return get(`${ADMIN_V2}/users/by-openid/${pathParam(openid)}`, { openid })
   },
   userDetailById(id) {
-    return get('/admin/user_detail_by_id', { id })
+    return get(`${ADMIN_V2}/users/${pathParam(id)}`)
   },
   userAdd(data) {
-    return post('/admin/user_add', data)
+    return post(`${ADMIN_V2}/users`, data)
   },
   userEdit(data) {
-    return post('/admin/user_edit', data)
+    return put(`${ADMIN_V2}/users/${pathParam(data)}`, data)
   },
   userStatus(data) {
-    return post('/admin/user_status', data)
+    return patch(`${ADMIN_V2}/users/${pathParam(data)}/status`, data)
   },
   userDel(data) {
-    return post('/admin/user_del', data)
+    return del(`${ADMIN_V2}/users/${pathParam(data)}`, data)
   },
   userDataExport(params) {
-    return get('/admin/user_data_export', params)
+    return get(`${ADMIN_V2}/users/data/export`, params)
   },
   userDataGet(params) {
-    return get('/admin/user_data_get', params)
+    return get(`${ADMIN_V2}/users/data`, params)
   },
   userDataDel(params) {
-    return get('/admin/user_data_del', params)
+    return del(`${ADMIN_V2}/users/data/${pathParam(params, ['id'], 'current')}`, params)
   },
   userFormFields() {
-    return get('/user_form_fields')
+    return get(`${ADMIN_V2}/users/form-fields`)
   },
   userFormFieldSave(data) {
-    return post('/admin/user_form_field_save', data)
+    return put(`${ADMIN_V2}/users/form-fields`, data)
   },
   enrollList(params) {
-    return get('/admin/enroll_list', params)
+    return get(`${ADMIN_V2}/enrollments`, params)
   },
   enrollDetail(id) {
-    return get('/admin/enroll_detail', { id })
+    return get(`${ADMIN_V2}/enrollments/${pathParam(id)}`)
   },
   enrollInsert(data) {
-    return post('/admin/enroll_insert', data)
+    return post(`${ADMIN_V2}/enrollments`, data)
   },
   enrollEdit(data) {
-    return post('/admin/enroll_edit', data)
+    return put(`${ADMIN_V2}/enrollments/${pathParam(data)}`, data)
   },
   enrollDel(data) {
-    return post('/admin/enroll_del', data)
+    return del(`${ADMIN_V2}/enrollments/${pathParam(data)}`, data)
   },
   enrollStatus(data) {
-    return post('/admin/enroll_status', data)
+    return patch(`${ADMIN_V2}/enrollments/${pathParam(data)}/status`, data)
   },
   enrollSort(data) {
-    return post('/admin/enroll_sort', data)
+    return patch(`${ADMIN_V2}/enrollments/${pathParam(data)}/sort`, data)
   },
   enrollVouch(data) {
-    return post('/admin/enroll_vouch', data)
+    return patch(`${ADMIN_V2}/enrollments/${pathParam(data)}/recommendation`, data)
   },
   enrollClear(data) {
-    return post('/admin/enroll_clear', data)
+    return post(`${ADMIN_V2}/enrollments/${pathParam(data)}/clear`, data)
   },
   enrollJoinList(params) {
-    return get('/admin/enroll_join_list', params)
+    return get(`${ADMIN_V2}/enrollments/${pathParam(params, ['enrollId', 'id'])}/joins`, params)
   },
   enrollUserList(params) {
-    return get('/admin/enroll_user_list', params)
+    return get(`${ADMIN_V2}/enrollments/${pathParam(params, ['enrollId', 'id'])}/users`, params)
   },
   enrollRemoveUser(data) {
-    return post('/admin/enroll_remove_user', data)
+    return del(`${ADMIN_V2}/enrollments/${pathParam(data, ['enrollId', 'id'])}/users/${pathParam(data, ['userId'])}`, data)
   },
   enrollUserFormsEdit(data) {
-    return post('/admin/enroll_user_forms_edit', data)
+    return put(`${ADMIN_V2}/enrollments/${pathParam(data, ['enrollId', 'id'])}/users/${pathParam(data, ['userId'])}/forms`, data)
   },
   enrollJoinDel(data) {
-    return post('/admin/enroll_join_del', data)
+    return del(`${ADMIN_V2}/enrollments/${pathParam(data, ['enrollId', 'id'], 0)}/joins/${pathParam(data, ['enrollJoinId', 'joinId', 'id'])}`, data)
   },
   enrollJoinDataExport(params) {
-    return get('/admin/enroll_join_data_export', params)
+    return post(`${ADMIN_V2}/enrollments/${pathParam(params, ['enrollId', 'id'])}/export`, params)
   },
   enrollJoinDataGet(params) {
-    return get('/admin/enroll_join_data_get', params)
+    return get(`${ADMIN_V2}/enrollments/${pathParam(params, ['enrollId', 'id'])}/export`, params)
   },
   enrollJoinDataDel(params) {
-    return get('/admin/enroll_join_data_del', params)
+    return del(`${ADMIN_V2}/enrollments/${pathParam(params, ['enrollId', 'id'])}/export`, params)
   },
   newsList(params) {
-    return get('/admin/news_list', params)
+    return get(`${ADMIN_V2}/news`, params)
   },
   newsDetail(id) {
-    return get('/admin/news_detail', { id })
+    return get(`${ADMIN_V2}/news/${pathParam(id)}`)
   },
   newsInsert(data) {
-    return post('/admin/news_insert', data)
+    return post(`${ADMIN_V2}/news`, data)
   },
   newsEdit(data) {
-    return post('/admin/news_edit', data)
+    return put(`${ADMIN_V2}/news/${pathParam(data)}`, data)
   },
   newsDel(data) {
-    return post('/admin/news_del', data)
+    return del(`${ADMIN_V2}/news/${pathParam(data)}`, data)
   },
   newsStatus(data) {
-    return post('/admin/news_status', data)
+    return patch(`${ADMIN_V2}/news/${pathParam(data)}/status`, data)
   },
   newsSort(data) {
-    return post('/admin/news_sort', data)
+    return patch(`${ADMIN_V2}/news/${pathParam(data)}/sort`, data)
   },
   newsVouch(data) {
-    return post('/admin/news_vouch', data)
+    return patch(`${ADMIN_V2}/news/${pathParam(data)}/recommendation`, data)
   },
   mgrList(params) {
-    return get('/admin/mgr_list', params)
+    return get(`${ADMIN_V2}/managers`, params)
   },
   mgrDetail(id) {
-    return get('/admin/mgr_detail', { id })
+    return get(`${ADMIN_V2}/managers/${pathParam(id)}`)
   },
   mgrInsert(data) {
-    return post('/admin/mgr_insert', data)
+    return post(`${ADMIN_V2}/managers`, data)
   },
   mgrEdit(data) {
-    return post('/admin/mgr_edit', data)
+    return put(`${ADMIN_V2}/managers/${pathParam(data)}`, data)
   },
   mgrDel(data) {
-    return post('/admin/mgr_del', data)
+    return del(`${ADMIN_V2}/managers/${pathParam(data)}`, data)
   },
   mgrStatus(data) {
-    return post('/admin/mgr_status', data)
+    return patch(`${ADMIN_V2}/managers/${pathParam(data)}/status`, data)
   },
   mgrPwd(data) {
-    return post('/admin/mgr_pwd', data)
+    return patch(`${ADMIN_V2}/managers/${pathParam(data)}/password`, data)
   },
   logList(params) {
-    return get('/admin/log_list', params)
+    return get(`${ADMIN_V2}/logs`, params)
   },
   logClear(data) {
-    return post('/admin/log_clear', data)
+    return del(`${ADMIN_V2}/logs`, data)
   },
   setupQr(params) {
-    return get('/admin/setup_qr', params)
+    return get(`${ADMIN_V2}/settings/mini-qr`, params)
   },
   setupSet(data) {
-    return post('/admin/setup_set', data)
+    return put(`${ADMIN_V2}/settings`, data)
   },
   setupSetContent(data) {
-    return post('/admin/setup_set_content', data)
+    return put(`${ADMIN_V2}/settings/content`, data)
   },
   clearVouch(data) {
-    return post('/admin/clear_vouch', data)
+    return del(`${ADMIN_V2}/home/recommendations`, data)
   },
   eventList(params) {
-    return get('/admin/event_list', params)
+    return get(`${ADMIN_V2}/events`, params)
   },
   eventDetail(id) {
-    return get('/admin/event_detail', { id })
+    return get(`${ADMIN_V2}/events/${pathParam(id)}`)
   },
   eventInsert(data) {
-    return post('/admin/event_insert', data)
+    return post(`${ADMIN_V2}/events`, data)
   },
   eventEdit(data) {
-    return post('/admin/event_edit', data)
+    return put(`${ADMIN_V2}/events/${pathParam(data)}`, data)
   },
   eventDel(data) {
-    return post('/admin/event_del', data)
+    return del(`${ADMIN_V2}/events/${pathParam(data)}`, data)
   },
   eventStatus(data) {
-    return post('/admin/event_status', data)
+    return patch(`${ADMIN_V2}/events/${pathParam(data)}/status`, data)
   },
   eventVouch(data) {
-    return post('/admin/event_vouch', data)
+    return patch(`${ADMIN_V2}/events/${pathParam(data)}/recommendation`, data)
   },
   eventTop(data) {
-    return post('/admin/event_top', data)
+    return patch(`${ADMIN_V2}/events/${pathParam(data)}/top`, data)
   },
   eventParticipantList(params) {
-    return get('/admin/event_participant_list', params)
+    return get(`${ADMIN_V2}/events/${pathParam(params, ['eventId', 'id'])}/participants`, params)
   },
   eventParticipantDel(data) {
-    return post('/admin/event_participant_del', data)
+    return del(`${ADMIN_V2}/events/${pathParam(data, ['eventId'], 0)}/participants/${pathParam(data)}`, data)
   },
   eventParticipantEdit(data) {
-    return post('/admin/event_participant_edit', data)
+    return put(`${ADMIN_V2}/events/${pathParam(data, ['eventId'], 0)}/participants/${pathParam(data)}`, data)
   },
   deptUsers(params) {
-    return get('/admin/dept_users', params)
+    return get(`${ADMIN_V2}/event-dept-users`, params)
   },
   deptTree() {
-    return get('/admin/dept/tree')
+    return get(`${ADMIN_V2}/departments/tree`)
+  },
+  roleList(params) {
+    return get(`${ADMIN_V2}/roles`, params)
   },
   adminPerms() {
-    return get('/admin/user/perms')
+    return get(`${ADMIN_V2}/me/perms`)
   },
   formkitTypes() {
-    return get('/survey/types')
+    return get(`${ADMIN_V2}/survey-types`)
   },
   formkitParseSchema(data) {
-    return post('/survey/schema/parse', data)
+    return post(`${ADMIN_V2}/survey-schema/parse`, data)
   }
 }

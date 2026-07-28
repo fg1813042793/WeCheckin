@@ -7,6 +7,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	admincontentservice "wecheckin-backend/backend/internal/app/service/admincontent"
+	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -16,9 +17,11 @@ import (
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_user_list [get]
 func (h *AdminEnrollHandler) GetEnrollUserList(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	enrollID := c.Query("enrollId")
 	keyword := c.Query("keyword")
-	list, err := admincontentservice.GetEnrollUserList(enrollID, keyword)
+	list, err := admincontentservice.GetEnrollUserListForAdminContext(ctx, enrollID, keyword, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -27,6 +30,8 @@ func (h *AdminEnrollHandler) GetEnrollUserList(ctx context.Context, c *app.Reque
 }
 
 func (h *AdminEnrollHandler) GetEnrollStats(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	enrollID := c.Query("enrollId")
 	startDay := c.Query("startTime")
 	endDay := c.Query("endTime")
@@ -34,7 +39,7 @@ func (h *AdminEnrollHandler) GetEnrollStats(ctx context.Context, c *app.RequestC
 		response.Fail(c, "参数错误")
 		return
 	}
-	list, err := admincontentservice.GetEnrollStats(enrollID, startDay, endDay)
+	list, err := admincontentservice.GetEnrollStatsForAdminContext(ctx, enrollID, startDay, endDay, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -47,6 +52,8 @@ func (h *AdminEnrollHandler) GetEnrollStats(ctx context.Context, c *app.RequestC
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_join_list [get]
 func (h *AdminEnrollHandler) GetEnrollJoinList(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	enrollID := c.Query("enrollId")
 	keyword := c.Query("keyword")
 	page, _ := strconv.Atoi(c.Query("page"))
@@ -54,7 +61,7 @@ func (h *AdminEnrollHandler) GetEnrollJoinList(ctx context.Context, c *app.Reque
 	if size == 0 {
 		size, _ = strconv.Atoi(c.Query("size"))
 	}
-	list, total, err := admincontentservice.GetEnrollJoinList(enrollID, keyword, page, size)
+	list, total, err := admincontentservice.GetEnrollJoinListForAdminContext(ctx, enrollID, keyword, page, size, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -69,13 +76,15 @@ func (h *AdminEnrollHandler) GetEnrollJoinList(ctx context.Context, c *app.Reque
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_remove_user [post]
 func (h *AdminEnrollHandler) RemoveEnrollUser(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	enrollID := c.PostForm("enrollId")
 	userID := c.PostForm("userId")
 	if enrollID == "" || userID == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	err := admincontentservice.RemoveEnrollUser(enrollID, userID)
+	err := admincontentservice.RemoveEnrollUserForAdminContext(ctx, enrollID, userID, admin.ID)
 	if err != nil {
 		response.Fail(c, "移除失败")
 		return
@@ -84,6 +93,8 @@ func (h *AdminEnrollHandler) RemoveEnrollUser(ctx context.Context, c *app.Reques
 }
 
 func (h *AdminEnrollHandler) RemoveEnrollUsers(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	enrollID := c.PostForm("enrollId")
 	userIDsStr := c.PostForm("userIds")
 	if enrollID == "" || userIDsStr == "" {
@@ -91,7 +102,7 @@ func (h *AdminEnrollHandler) RemoveEnrollUsers(ctx context.Context, c *app.Reque
 		return
 	}
 	userIDs := strings.Split(userIDsStr, ",")
-	if err := admincontentservice.RemoveEnrollUsers(enrollID, userIDs); err != nil {
+	if err := admincontentservice.RemoveEnrollUsersForAdminContext(ctx, enrollID, userIDs, admin.ID); err != nil {
 		response.Fail(c, "移除失败")
 		return
 	}
@@ -99,6 +110,8 @@ func (h *AdminEnrollHandler) RemoveEnrollUsers(ctx context.Context, c *app.Reque
 }
 
 func (h *AdminEnrollHandler) EditEnrollUserForms(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	enrollID := c.PostForm("enrollId")
 	userID := c.PostForm("userId")
 	forms := c.PostForm("forms")
@@ -106,7 +119,7 @@ func (h *AdminEnrollHandler) EditEnrollUserForms(ctx context.Context, c *app.Req
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := admincontentservice.EditEnrollUserForms(enrollID, userID, forms); err != nil {
+	if err := admincontentservice.EditEnrollUserFormsForAdminContext(ctx, enrollID, userID, forms, admin.ID); err != nil {
 		response.Fail(c, "更新失败")
 		return
 	}
@@ -119,11 +132,13 @@ func (h *AdminEnrollHandler) EditEnrollUserForms(ctx context.Context, c *app.Req
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_join_del [post]
 func (h *AdminEnrollHandler) DelEnrollJoin(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("enrollJoinId")
 	if id == "" {
 		id = c.PostForm("id")
 	}
-	err := admincontentservice.DelEnrollJoin(id)
+	err := admincontentservice.DelEnrollJoinForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "删除失败")
 		return
@@ -132,13 +147,15 @@ func (h *AdminEnrollHandler) DelEnrollJoin(ctx context.Context, c *app.RequestCo
 }
 
 func (h *AdminEnrollHandler) DelEnrollJoins(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
 	ids := strings.Split(idsStr, ",")
-	if err := admincontentservice.DelEnrollJoins(ids); err != nil {
+	if err := admincontentservice.DelEnrollJoinsForAdminContext(ctx, ids, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}

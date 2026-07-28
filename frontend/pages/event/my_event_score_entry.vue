@@ -222,8 +222,8 @@ export default {
 .header-actions { display: flex; }
 .action-btn { background-color: #f5f5f5; padding: 8rpx 24rpx; border-radius: 20rpx; font-size: 24rpx; color: #333; margin-left: 16rpx; }
 .action-btn:first-child { margin-left: 0; }
-.search-bar { padding: 0 20rpx 16rpx; }
-.search-input { height: 60rpx; background-color: #fff; border-radius: 30rpx; padding: 0 24rpx; font-size: 26rpx; color: #333; border: 2rpx solid #eee; }
+.search-bar { padding: 20rpx 30rpx; background-color: #fff; }
+.search-input { height: 70rpx; background-color: #f5f5f5; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; color: #333; }
 .list { padding: 0 20rpx; }
 .item { background-color: #fff; border-radius: 12rpx; padding: 20rpx; margin-bottom: 12rpx; display: flex; align-items: center; justify-content: space-between; }
 .item-left { flex: 1; margin-right: 12rpx; }

@@ -7,8 +7,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 
 	examservice "wecheckin-backend/backend/internal/app/service/exam"
+	"wecheckin-backend/backend/internal/app/service/formkitadmin"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -26,26 +26,22 @@ func NewAdminExamHandler() *AdminExamHandler {
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/detail [get]
 func (h *AdminExamHandler) Detail(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id <= 0 {
 		response.Fail(c, "无效的考试ID")
 		return
 	}
-	exam, err := h.svc.GetContext(ctx, uint(id))
+	detail, err := h.svc.DetailForAdminContext(ctx, uint(id), admin.ID)
 	if err != nil {
 		response.Fail(c, "考试不存在")
 		return
 	}
-	var respCnt int64
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ?", id).Count(&respCnt)
-	var rawSchema string
-	db.Model(&model.Exam{}).Select("exam_schema").Where("`exam_id` = ?", id).Scan(&rawSchema)
 	response.JSON(c, examDetailResponse{
-		Survey:        newExamDetailSurveyDTO(exam),
-		ResponseCount: respCnt,
-		Schema:        rawSchema,
+		Survey:        newExamDetailSurveyDTO(detail.Exam),
+		ResponseCount: detail.ResponseCount,
+		Schema:        detail.Schema,
 	})
 }
 
@@ -73,6 +69,8 @@ func (h *AdminExamHandler) Detail(ctx context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/save [post]
 func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	type ExamSaveReq struct {
 		ID          uint   `json:"id" form:"id"`
 		Title       string `json:"title" form:"title"`
@@ -107,16 +105,12 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 	if req.ID == 0 {
 		var deptID uint
 		var createBy uint
-		if admin, ok := c.Get("admin"); ok {
-			if a, ok := admin.(*model.Admin); ok {
-				createBy = a.ID
-				var adminDept model.AdminDept
-				db, cancel := database.WithContext(ctx)
-				defer cancel()
-				if err := db.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
-					deptID = adminDept.DeptID
-				}
-			}
+		createBy = admin.ID
+		var err error
+		deptID, err = formkitadmin.FirstAdminDeptIDContext(ctx, admin.ID)
+		if err != nil {
+			response.Fail(c, "获取部门失败: "+err.Error())
+			return
 		}
 		exam := model.Exam{
 			Title:       req.Title,
@@ -169,7 +163,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 			"exam_show_score":   req.ShowScore,
 			"exam_status":       req.Status,
 		}
-		if err := h.svc.UpdateContext(ctx, req.ID, updates); err != nil {
+		if err := h.svc.UpdateForAdminContext(ctx, req.ID, updates, admin.ID); err != nil {
 			response.Fail(c, "更新失败: "+err.Error())
 			return
 		}
@@ -187,6 +181,8 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/list [get]
 func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	if page < 1 {
@@ -195,7 +191,7 @@ func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	list, total, err := h.svc.ListContext(ctx, c.Query("keyword"), c.Query("category"), c.Query("status"), page, pageSize)
+	list, total, err := h.svc.ListForAdminContext(ctx, c.Query("keyword"), c.Query("category"), c.Query("status"), page, pageSize, admin.ID)
 	if err != nil {
 		response.Fail(c, "查询失败")
 		return
@@ -210,13 +206,15 @@ func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/status [post]
 func (h *AdminExamHandler) Status(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	status, _ := strconv.Atoi(c.PostForm("status"))
 	if id <= 0 {
 		response.Fail(c, "无效的考试ID")
 		return
 	}
-	if err := h.svc.SetStatusContext(ctx, uint(id), status); err != nil {
+	if err := h.svc.SetStatusForAdminContext(ctx, uint(id), status, admin.ID); err != nil {
 		response.Fail(c, "操作失败")
 		return
 	}
@@ -229,8 +227,10 @@ func (h *AdminExamHandler) Status(ctx context.Context, c *app.RequestContext) {
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/delete [post]
 func (h *AdminExamHandler) Delete(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
-	if err := h.svc.DeleteContext(ctx, uint(id)); err != nil {
+	if err := h.svc.DeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
 		response.Fail(c, "删除失败: "+err.Error())
 		return
 	}

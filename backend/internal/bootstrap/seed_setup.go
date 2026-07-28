@@ -1,14 +1,21 @@
 package bootstrap
 
 import (
-	"log"
+	"context"
+	"errors"
 	"time"
 
+	"gorm.io/gorm"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 )
 
-func seedSetups() {
+func seedSetups() error {
+	db, cancel := startupDB(context.Background())
+	defer cancel()
+	if db == nil {
+		return errors.New("database is not initialized")
+	}
+
 	type setupDef struct {
 		Key   string
 		Value string
@@ -24,16 +31,20 @@ func seedSetups() {
 	}
 	for _, d := range defs {
 		var existing model.Setup
-		if err := database.DB.Where("setup_key = ?", d.Key).First(&existing).Error; err != nil {
+		if err := db.Where("setup_key = ?", d.Key).First(&existing).Error; err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
 			setup := model.Setup{
 				Key:     d.Key,
 				Value:   d.Value,
 				Type:    d.Type,
 				AddTime: time.Now().UnixMilli(),
 			}
-			if err := database.DB.Create(&setup).Error; err != nil {
-				log.Printf("seed setup %s error: %v", d.Key, err)
+			if err := db.Create(&setup).Error; err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }

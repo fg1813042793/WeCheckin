@@ -44,7 +44,6 @@ Page({
 			});
 
 		} catch (err) {
-			console.log(err);
 		}
 	},
 
@@ -103,7 +102,6 @@ Page({
 					pageHelper.showSuccToast('操作成功');
 				})
 			} catch (err) {
-				console.log(err);
 			}
 		};
 		pageHelper.showConfirm('您确认清除所有首页推荐？', cb)

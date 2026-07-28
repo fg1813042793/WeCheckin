@@ -12,57 +12,75 @@ import (
 	"wecheckin-backend/backend/pkg/tokenutil"
 )
 
-func GetOnlineUsers() ([]map[string]interface{}, error) {
+func GetOnlineUsers() ([]UserSession, error) {
+	return GetOnlineUsersContext(context.Background())
+}
+
+func GetOnlineUsersContext(ctx context.Context) ([]UserSession, error) {
 	_, prefix := tokenutil.GetTokenConfig("user")
 	if rd.RDB == nil {
-		return []map[string]interface{}{}, nil
+		return []UserSession{}, nil
 	}
 	setPrefix := prefix + "s:"
 	authPrefix := prefix + "a:"
 
-	entries, err := scanSets(setPrefix)
+	entries, err := scanSets(ctx, setPrefix)
 	if err != nil {
 		return nil, err
 	}
-	loadBase := preloadUserBase(entries)
-	return buildRows(entries, authPrefix, loadBase), nil
+	loadBase, err := preloadUserBase(ctx, entries)
+	if err != nil {
+		return nil, err
+	}
+	return buildRows(ctx, entries, authPrefix, loadBase, func(row UserSession, info SessionInfo) UserSession {
+		row.SessionInfo = info
+		return row
+	}), nil
 }
 
-func preloadUserBase(entries []entry) func(uint64) (map[string]interface{}, bool) {
+func preloadUserBase(ctx context.Context, entries []entry) (func(uint64) (UserSession, bool), error) {
 	uids := make([]uint, 0, len(entries))
 	for _, e := range entries {
 		uids = append(uids, uint(e.uid))
 	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var users []model.User
 	if len(uids) > 0 {
-		database.DB.Where("id IN ?", uids).Find(&users)
+		if err := db.Where("id IN ?", uids).Find(&users).Error; err != nil {
+			return nil, err
+		}
 	}
 	userByID := make(map[uint]*model.User, len(users))
 	for i := range users {
 		userByID[users[i].ID] = &users[i]
 	}
 
-	return func(uid uint64) (map[string]interface{}, bool) {
+	return func(uid uint64) (UserSession, bool) {
 		u, ok := userByID[uint(uid)]
 		if !ok {
-			return nil, false
+			return UserSession{}, false
 		}
-		return map[string]interface{}{
-			"id":       u.ID,
-			"name":     u.Name,
-			"mobile":   u.Mobile,
-			"pic":      media.FullURLWithStaticDomain(u.Pic),
-			"loginCnt": u.LoginCnt,
+		return UserSession{
+			ID:       u.ID,
+			Name:     u.Name,
+			Mobile:   u.Mobile,
+			Pic:      media.FullURLWithStaticDomain(u.Pic),
+			LoginCnt: u.LoginCnt,
 		}, true
-	}
+	}, nil
 }
 
 func ForceOfflineUser(idStr, token string) error {
+	return ForceOfflineUserContext(context.Background(), idStr, token)
+}
+
+func ForceOfflineUserContext(ctx context.Context, idStr, token string) error {
 	_, prefix := tokenutil.GetTokenConfig("user")
 	if rd.RDB == nil || token == "" {
 		return nil
 	}
-	redisCtx, cancel := rd.OperationContext(context.Background())
+	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	rd.RDB.Del(redisCtx, prefix+"a:"+token)
 	rd.RDB.SRem(redisCtx, prefix+"s:"+idStr, token)
@@ -76,11 +94,18 @@ func BatchForceOfflineUser(items []struct {
 	IDStr string `json:"idStr"`
 	Token string `json:"token"`
 }) (int, error) {
+	return BatchForceOfflineUserContext(context.Background(), items)
+}
+
+func BatchForceOfflineUserContext(ctx context.Context, items []struct {
+	IDStr string `json:"idStr"`
+	Token string `json:"token"`
+}) (int, error) {
 	_, prefix := tokenutil.GetTokenConfig("user")
 	if rd.RDB == nil || len(items) == 0 {
 		return 0, nil
 	}
-	redisCtx, cancel := rd.OperationContext(context.Background())
+	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	byID := make(map[string][]string, len(items))
 	for _, it := range items {

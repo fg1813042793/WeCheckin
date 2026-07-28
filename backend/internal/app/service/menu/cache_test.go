@@ -39,3 +39,15 @@ func TestAdminPermCacheInvalidationBumpsVersion(t *testing.T) {
 		t.Fatalf("full invalidation should bump cache version, afterRole=%d afterAll=%d", afterRole, afterAll)
 	}
 }
+
+func TestAdminPermCacheKeySeparatesUserOverrides(t *testing.T) {
+	roleOnly := adminPermCacheKeyForRole(7)
+	userA := adminPermCacheKeyForUserRole(11, 7)
+	userB := adminPermCacheKeyForUserRole(12, 7)
+	if roleOnly == userA {
+		t.Fatalf("user override cache key must not reuse role-only key")
+	}
+	if userA == userB {
+		t.Fatalf("different users with the same role must have different permission cache keys")
+	}
+}

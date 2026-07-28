@@ -9,9 +9,7 @@ function getAuth(auth, authName, callback) {
 	auth = 'scope.' + auth;
 	wx.getSetting({
 		success: res => {
-			console.log(res)
 			if (res.authSetting[auth]) {
-				console.log('true');
 				callback && callback();
 			} else if (res.authSetting[auth] === undefined) {
 				// 未做任何授权
@@ -24,11 +22,9 @@ function getAuth(auth, authName, callback) {
 							wx.authorize({
 								scope: auth,
 								success: (res) => {
-									console.log('授权成功', res);
 									callback && callback();
 								},
 								fail: (res) => {
-									console.log('您没有授权 fail=', res);
 									wx.showToast({
 										mask: true,
 										title: '您没有授权，无法' + authName,
@@ -60,7 +56,6 @@ function getAuth(auth, authName, callback) {
 										title: '正在' + authName,
 									});
 									if (res.authSetting[auth]) {
-										console.log('false success res=', res);
 										callback && callback();
 									} else {
 										wx.showToast({
@@ -71,7 +66,6 @@ function getAuth(auth, authName, callback) {
 									}
 								},
 								fail: (res) => {
-									console.log('false file res=', res);
 								}
 							});
 						} else {

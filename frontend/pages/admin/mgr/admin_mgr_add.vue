@@ -18,6 +18,15 @@
         <input class="form-input" v-model="form.phone" placeholder="请输入手机号" type="number" />
       </view>
       <view class="form-item">
+        <text class="form-label">绑定角色</text>
+        <picker :range="roleList" range-key="name" @change="onRoleChange">
+          <view class="form-picker">
+            <text v-if="form.roleName">{{ form.roleName }}</text>
+            <text v-else class="picker-placeholder">请选择角色</text>
+          </view>
+        </picker>
+      </view>
+      <view class="form-item">
         <text class="form-label">密码</text>
         <input class="form-input" v-model="form.password" placeholder="请输入密码" type="password" />
       </view>
@@ -39,15 +48,43 @@ export default {
         name: '',
         desc: '',
         phone: '',
-        password: ''
-      }
+        password: '',
+        roleId: '',
+        roleName: ''
+      },
+      roleList: []
     }
   },
 
+  onLoad() {
+    this.loadRoles()
+  },
+
   methods: {
+    async loadRoles() {
+      try {
+        const res = await adminApi.roleList({ page: 1, pageSize: 9999 })
+        const roles = Array.isArray(res.data?.list) ? res.data.list : (Array.isArray(res.data) ? res.data : [])
+        this.roleList = roles.filter(r => r.status !== 0)
+      } catch (e) {
+        this.roleList = []
+      }
+    },
+
+    onRoleChange(e) {
+      const role = this.roleList[e.detail.value]
+      if (!role) return
+      this.form.roleId = role.id
+      this.form.roleName = role.name
+    },
+
     async submit() {
       if (!this.form.name) {
         uni.showToast({ title: '请输入姓名', icon: 'none' })
+        return
+      }
+      if (!this.form.roleId) {
+        uni.showToast({ title: '请选择角色', icon: 'none' })
         return
       }
       if (!this.form.password) {
@@ -111,6 +148,22 @@ export default {
   font-size: 28rpx;
   color: #333;
   background-color: #fafafa;
+}
+
+.form-picker {
+  min-height: 80rpx;
+  border: 1rpx solid #eee;
+  border-radius: 8rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #333;
+  background-color: #fafafa;
+  display: flex;
+  align-items: center;
+}
+
+.picker-placeholder {
+  color: #999;
 }
 
 .form-actions {

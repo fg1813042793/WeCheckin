@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -309,6 +310,97 @@ func TestClientEventEnrollServicesUseTypedContextResponses(t *testing.T) {
 	}
 }
 
+func TestEventSecondaryServicesUseContextAndTypedResponses(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("event", "my.go"),
+		filepath.Join("event", "dynamic.go"),
+		filepath.Join("event", "score.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		text := string(src)
+		for _, snippet := range []string{
+			") (map[string]interface{}, error)",
+			"return map[string]interface{}{",
+			"database.DB.",
+		} {
+			if strings.Contains(text, snippet) {
+				t.Fatalf("%s must use context-aware queries and typed responses instead of %q", file, snippet)
+			}
+		}
+	}
+}
+
+func TestEventAdminDetailServicesUseRequestContext(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("event", "admin.go"),
+		filepath.Join("event", "detail.go"),
+		filepath.Join("event", "helpers.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		if strings.Contains(string(src), "database.DB.") {
+			t.Fatalf("%s must use database.WithContext or transaction handles instead of direct database.DB calls", file)
+		}
+	}
+}
+
+func TestEventHelpersUseTypedDeptUsers(t *testing.T) {
+	src := readServiceSource(t, filepath.Join("event", "helpers.go"))
+	for _, snippet := range []string{
+		"[]map[string]interface{}",
+		"map[string]interface{}{",
+		".Find(&users)\n",
+		"First(&user)",
+	} {
+		if strings.Contains(src, snippet) {
+			t.Fatalf("event/helpers.go must type dept-user responses and check query errors instead of %q", snippet)
+		}
+	}
+}
+
+func TestExamAdminServiceUsesContextAndTypedResponses(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("exam", "service.go"))
+	if err != nil {
+		t.Fatalf("read exam/service.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"func (s *Service) Statistics(examID int) map[string]interface{}",
+		"return map[string]interface{}{",
+		"database.DB.",
+	} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("exam/service.go must use context-aware queries and typed responses instead of %q", snippet)
+		}
+	}
+
+	for _, fn := range []string{"RecordDelete", "RecordBatchDelete"} {
+		body := functionBody(t, text, fn)
+		if !strings.Contains(body, fn+"Context(") {
+			t.Fatalf("%s must delegate to a context-aware implementation", fn)
+		}
+	}
+}
+
+func TestExamClientServiceUsesTypedQuestionResponses(t *testing.T) {
+	src := readServiceSource(t, filepath.Join("exam", "client.go"))
+	for _, snippet := range []string{
+		"Questions []map[string]interface{}",
+		"func safeExamQuestions(questions []model.ExamQuestion, options PaperQuestionOptions) []map[string]interface{}",
+		"safe := make([]map[string]interface{}",
+		"item := map[string]interface{}",
+	} {
+		if strings.Contains(src, snippet) {
+			t.Fatalf("exam/client.go must type client question responses instead of %q", snippet)
+		}
+	}
+}
+
 func TestUserFavoriteDashboardServicesUseContextAndTypedResponses(t *testing.T) {
 	for _, file := range []string{
 		filepath.Join("favorite", "service.go"),
@@ -329,6 +421,171 @@ func TestUserFavoriteDashboardServicesUseContextAndTypedResponses(t *testing.T) 
 			if strings.Contains(text, snippet) {
 				t.Fatalf("%s must use context-aware queries and typed responses instead of %q", file, snippet)
 			}
+		}
+	}
+}
+
+func TestHomeListServiceUsesContextAndTypedResponses(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("home", "list.go"))
+	if err != nil {
+		t.Fatalf("read home/list.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		") (map[string]interface{}, error)",
+		"[]map[string]interface{}",
+		"map[string]interface{}{",
+		"database.DB.",
+	} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("home/list.go must use context-aware queries and typed responses instead of %q", snippet)
+		}
+	}
+}
+
+func TestSurveySubmitPostStatUseRequestContext(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("survey", "response_submit.go"),
+		filepath.Join("survey", "response_draft.go"),
+		filepath.Join("poststat", "service.go"),
+		filepath.Join("poststat", "submitter.go"),
+		filepath.Join("poststat", "notify.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		if strings.Contains(string(src), "database.DB.") {
+			t.Fatalf("%s must use database.WithContext instead of direct database.DB calls", file)
+		}
+	}
+}
+
+func TestSurveyAnswerServicesUseTypedResults(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("survey", "service.go"),
+		filepath.Join("survey", "response_query.go"),
+	} {
+		src := readServiceSource(t, file)
+		for _, snippet := range []string{
+			") map[string]interface{}",
+			") (map[string]interface{}, error)",
+		} {
+			if strings.Contains(src, snippet) {
+				t.Fatalf("%s must wrap answer maps in typed result DTOs instead of %q", file, snippet)
+			}
+		}
+	}
+}
+
+func TestOnlineServicesUseRequestContext(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("online", "admin.go"),
+		filepath.Join("online", "sessions.go"),
+		filepath.Join("online", "user.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		text := string(src)
+		if strings.Contains(text, "database.DB.") {
+			t.Fatalf("%s must use database.WithContext instead of direct database.DB calls", file)
+		}
+		if strings.Contains(text, "OperationContext(context.Background())") {
+			t.Fatalf("%s must derive redis operation context from caller context", file)
+		}
+		for _, snippet := range []string{
+			"[]map[string]interface{}",
+			"map[string]interface{}{",
+		} {
+			if strings.Contains(text, snippet) {
+				t.Fatalf("%s must use typed online response DTOs instead of %q", file, snippet)
+			}
+		}
+	}
+}
+
+func TestEnrollRecordsUseRequestContext(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("enroll", "records.go"))
+	if err != nil {
+		t.Fatalf("read enroll/records.go: %v", err)
+	}
+	if strings.Contains(string(src), "database.DB.") {
+		t.Fatalf("enroll/records.go must use database.WithContext instead of direct database.DB calls")
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"func GetEnrollJoinByDay(enrollID, day string) ([]map[string]interface{}, error)",
+		"func GetEnrollJoinByDayContext(ctx context.Context, enrollID, day string) ([]map[string]interface{}, error)",
+		"func GetMyDayRecords(userID, day string) ([]map[string]interface{}, error)",
+		"func GetMyDayRecordsContext(ctx context.Context, userID, day string) ([]map[string]interface{}, error)",
+		"func GetMyEnrollJoinList(userID, enrollID string, page, pageSize int) (interface{}, int64, error)",
+		"func GetMyEnrollJoinListContext(ctx context.Context, userID, enrollID string, page, pageSize int) (interface{}, int64, error)",
+		"var allUsers []model.User",
+		"db.Find(&allUsers)",
+		"First(&e)",
+		"First(&enroll)",
+	} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("enroll/records.go must type common record responses instead of %q", snippet)
+		}
+	}
+}
+
+func TestAdminConfigAndEnrollDetailServicesUseRequestContext(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("department", "service.go"),
+		filepath.Join("menu", "service.go"),
+		filepath.Join("adminlog", "service.go"),
+		filepath.Join("enroll", "detail.go"),
+		filepath.Join("enroll", "user_records.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		if strings.Contains(string(src), "database.DB.") {
+			t.Fatalf("%s must use database.WithContext or transaction handles instead of direct database.DB calls", file)
+		}
+	}
+}
+
+func TestAdminContentServicesUseRequestContext(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("admincontent", "enroll.go"),
+		filepath.Join("admincontent", "enroll_records.go"),
+		filepath.Join("admincontent", "export.go"),
+		filepath.Join("admincontent", "news.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		if strings.Contains(string(src), "database.DB.") {
+			t.Fatalf("%s must use database.WithContext or transaction handles instead of direct database.DB calls", file)
+		}
+	}
+}
+
+func TestCriticalDeleteCountersUseTransactions(t *testing.T) {
+	adminEnrollRecords := readServiceSource(t, filepath.Join("admincontent", "enroll_records.go"))
+	for _, fn := range []string{"DelEnrollJoinContext", "RemoveEnrollUserContext"} {
+		body := functionBody(t, adminEnrollRecords, fn)
+		if !strings.Contains(body, ".Transaction(") {
+			t.Fatalf("%s must wrap delete and counter updates in one transaction", fn)
+		}
+	}
+
+	eventAdmin := readServiceSource(t, filepath.Join("event", "admin.go"))
+	delEvent := functionBody(t, eventAdmin, "DelEventContext")
+	if !strings.Contains(delEvent, ".Transaction(") || strings.Contains(delEvent, ".Begin()") {
+		t.Fatalf("DelEventContext must use database transaction helper with checked errors")
+	}
+	delParticipant := functionBody(t, eventAdmin, "DelEventParticipantContext")
+	for _, snippet := range []string{".Transaction(", "event_user_cnt"} {
+		if !strings.Contains(delParticipant, snippet) {
+			t.Fatalf("DelEventParticipantContext must keep participant delete and event_user_cnt update in one transaction")
 		}
 	}
 }
@@ -377,6 +634,34 @@ func countLines(t *testing.T, file string) int {
 		t.Fatal(err)
 	}
 	return strings.Count(string(content), "\n") + 1
+}
+
+func readServiceSource(t *testing.T, file string) string {
+	t.Helper()
+	src, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read %s: %v", file, err)
+	}
+	return string(src)
+}
+
+func functionBody(t *testing.T, src, name string) string {
+	t.Helper()
+	start := strings.Index(src, "func "+name+"(")
+	if start < 0 {
+		methodPattern := regexp.MustCompile(`func\s+\([^)]*\)\s+` + regexp.QuoteMeta(name) + `\s*\(`)
+		if loc := methodPattern.FindStringIndex(src); loc != nil {
+			start = loc[0]
+		}
+	}
+	if start < 0 {
+		t.Fatalf("function %s not found", name)
+	}
+	next := strings.Index(src[start+len("func "):], "\nfunc ")
+	if next < 0 {
+		return src[start:]
+	}
+	return src[start : start+len("func ")+next]
 }
 
 func assertNoRootShim(t *testing.T, file string) {

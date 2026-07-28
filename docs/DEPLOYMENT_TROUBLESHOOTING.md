@@ -36,9 +36,29 @@
    MySQL 8 + Redis 7
 ```
 
-管理后台请求层使用相对路径访问后端，例如 `/admin/login`、`/passport/login`、`/upload`。因此生产环境需要让管理后台静态站点和后端 API 处在同一域名下，或在 Nginx 中把这些路径反向代理到后端。
+管理后台和客户端当前优先使用 `/api/v2` 访问后端，例如 `/api/v2/admin/auth/login`、`/api/v2/home`、`/api/v2/surveys`。因此生产环境需要让前端静态站点和后端 API 处在同一域名下，或在 Nginx 中把 `/api/` 反向代理到后端。
+
+旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等路径仍保留兼容历史页面和小程序旧代码。如果部署环境还承载旧入口，可以同时代理这些路径。
 
 uni-app 客户端使用 `frontend/.env` 中的 `VITE_API_BASE_URL` 作为后端地址。H5 可以使用同域名地址，小程序和 App 需要配置为设备可访问的 HTTPS 域名。
+
+## 单点 MySQL 旧版本升级
+
+已有单机部署使用 MySQL 时，当前版本可以兼容旧接口和历史账号数据，但数据库结构升级需要保守处理。详细流程见 [单点 MySQL 部署兼容升级说明](SINGLE_NODE_MYSQL_UPGRADE.md)。
+
+推荐升级策略：
+
+1. 先备份 MySQL 和上传目录。
+2. 使用新后端连接旧库时，首次启动只验证数据库连接、Redis 连接、`/health`、`/ready` 和 Nginx 路由；服务启动不会执行迁移。
+3. 在备份库、测试库或维护窗口执行 `backend/init.sh`，让新版本补齐表结构、权限和基础配置。
+4. 迁移成功并验证新旧接口后，生产常态运行只启动服务，不再夹带初始化任务。
+
+接口兼容范围：
+
+- 新管理后台、uni-app 客户端和移动端管理页使用 `/api/v2`。
+- 旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等后端路由仍保留。
+- 历史 MD5 密码仍可登录，登录成功后会自动升级为 bcrypt。
+- 初始化/迁移执行记录写入 `schema_migrations`，历史执行过的任务不会重复执行。
 
 ## 后端配置
 
@@ -71,7 +91,6 @@ WECHECKIN_REDIS_PORT=6379 \
 WECHECKIN_REDIS_PASSWORD='change-me' \
 WECHECKIN_REDIS_DB=0 \
 WECHECKIN_CORS_ALLOW_ORIGINS='https://your-domain.example' \
-WECHECKIN_AUTO_MIGRATE=false \
 ./bin/wecheckin
 ```
 
@@ -137,7 +156,7 @@ curl -I http://127.0.0.1:8083/swagger/index.html
 
 `/health` 用于进程存活检查；`/ready` 会检查数据库连接。看到 `HTTP/1.1 200 OK` 或可访问 Swagger 页面，说明后端进程已经对外服务。
 
-默认情况下后端启动会执行 GORM AutoMigrate。生产环境如需把迁移纳入发布流程，可设置 `WECHECKIN_AUTO_MIGRATE=false` 关闭启动迁移。
+后端启动不再执行 GORM AutoMigrate、SQL 迁移或种子数据。首次部署或升级时，请在维护窗口执行 `backend/init.sh`。
 
 密码存储已升级为 bcrypt。历史 MD5 密码仍可兼容登录，登录成功后后端会自动写回 bcrypt 哈希。
 
@@ -160,7 +179,7 @@ admin/dist
 
 1. 将 `admin/dist` 发布到 Nginx 静态目录。
 2. 为管理后台配置 history fallback，未命中静态文件时返回 `index.html`。
-3. 将 `/admin`、`/passport`、`/home`、`/upload`、`/uploads`、`/user_form_fields`、`/survey`、`/exam`、`/dict`、`/geo` 等 API 路径反向代理到后端 `http://127.0.0.1:8083`。
+3. 将 `/api/` 反向代理到后端 `http://127.0.0.1:8083`；如需兼容旧页面，再同时代理 `/admin`、`/passport`、`/home`、`/upload`、`/uploads`、`/user_form_fields`、`/survey`、`/exam`、`/dict`、`/geo` 等旧路径。
 4. 上传文件较大时设置 `client_max_body_size 32m` 或更高。
 
 Nginx 示例：
@@ -177,6 +196,16 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    location /api/ {
+        proxy_pass http://127.0.0.1:8083;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 32m;
+    }
+
+    # 仅历史页面或旧小程序仍需要这些兼容路径。
     location ~ ^/(admin|passport|home|upload|uploads|user_form_fields|survey|exam|dict|geo)(/|$) {
         proxy_pass http://127.0.0.1:8083;
         proxy_set_header Host $host;
@@ -251,9 +280,8 @@ docker-compose up -d
 - `WECHECKIN_DATABASE_PASSWORD`
 - `WECHECKIN_REDIS_PASSWORD`
 - `WECHECKIN_CORS_ALLOW_ORIGINS`
-- `WECHECKIN_AUTO_MIGRATE`
 
-当前 Compose 示例会把后端映射到 `8083:8083`，并通过 Nginx 代理 `/admin`、`/passport`、`/home`、`/upload`、`/survey`、`/exam`、`/health`、`/ready` 等路径。MySQL、Redis、backend 和 Nginx 均配置了 healthcheck，backend 使用 `condition: service_healthy` 等待 MySQL/Redis，Nginx 使用 `condition: service_healthy` 等待 backend。该能力需要 Docker Compose v2。
+当前 Compose 示例会把后端映射到 `8083:8083`，并通过 Nginx 代理 `/api/`、`/health`、`/ready`、`/swagger`，同时保留旧版 `/admin`、`/passport`、`/home`、`/upload`、`/survey`、`/exam` 等兼容路径。MySQL、Redis、backend 和 Nginx 均配置了 healthcheck，backend 使用 `condition: service_healthy` 等待 MySQL/Redis，Nginx 使用 `condition: service_healthy` 等待 backend。该能力需要 Docker Compose v2。
 
 Compose 已为 MySQL、Redis、backend 和 Nginx 配置 Docker `json-file` 日志轮转。默认值来自 `backend/.env.example`：
 
@@ -320,17 +348,15 @@ GOCACHE=$PWD/.cache/go-build go test ./backend/cmd ./backend/pkg/tokenutil ./bac
 单独验证管理后台：
 
 ```bash
+npm --prefix admin run check:all
 npm --prefix admin run build
 ```
 
-单独验证前端配置：
+单独验证 uni-app 客户端：
 
 ```bash
-npm --prefix frontend run check:config
-npm --prefix frontend run check:request
-npm --prefix frontend run check:logs
-npm --prefix frontend run check:auth
-npm --prefix frontend run check:formkit-logic
+npm --prefix frontend run check:all
+npm --prefix frontend run build:h5
 ```
 
 单独验证 Docker 部署配置：
@@ -342,19 +368,21 @@ node scripts/check-deploy-config.mjs
 ## 上线检查清单
 
 - MySQL 数据库和账号已创建，后端配置可连接。
+- 旧版本升级前已阅读 [单点 MySQL 部署兼容升级说明](SINGLE_NODE_MYSQL_UPGRADE.md)，并完成 MySQL 和上传目录备份。
 - Redis 可连接，密码和 DB 与配置一致。
 - `backend/logs`、`backend/uploads` 可写。
 - 生产 CORS 已限制为真实域名。
 - `/health` 和 `/ready` 均返回 200。
 - Docker 部署已从 `backend/.env.example` 复制 `.env` 并修改默认密码。
+- 旧库升级时已在维护窗口执行 `backend/init.sh`，并确认 `schema_migrations` 记录正常。
 - Docker Compose 的 healthcheck 均为 healthy。
 - 上线前已执行 `backend/scripts/docker-backup.sh` 或已有其他备份方案。
 - 管理后台静态文件已发布，并配置 history fallback。
-- 管理后台 API 路径已反向代理到后端。
+- `/api/` API 路径已反向代理到后端；如需兼容旧页面，旧接口路径也已代理。
 - uni-app 的 `VITE_API_BASE_URL` 指向真实可访问域名。
 - 小程序合法域名已在平台侧配置。
 - `bash scripts/check.sh` 通过。
-- 管理后台上线前建议额外跑 `CHECK_ADMIN_BUILD=1 bash scripts/check.sh`。
+- 上线前建议额外跑 `bash scripts/verify-local.sh` 或 `CHECK_BUILDS=1 bash scripts/check.sh`。
 
 ## 常见问题和排障
 
@@ -388,7 +416,9 @@ redis-cli -h 127.0.0.1 -p 6379 -a 'change-me' ping
 
 ### 管理后台接口 404
 
-管理后台生产环境使用相对路径请求 API。确认 Nginx 已代理 `/admin`、`/passport`、`/home`、`/upload`、`/uploads`、`/survey`、`/exam` 等路径到后端。
+管理后台生产环境使用相对路径请求 API。当前接口应走 `/api/v2/admin/*`，确认 Nginx 已代理 `/api/` 到后端。
+
+如果访问的是历史页面或旧小程序入口，还需要确认 `/admin`、`/passport`、`/home`、`/upload`、`/uploads`、`/survey`、`/exam` 等旧路径也已代理到后端。
 
 ### 刷新管理后台页面后 404
 
@@ -425,6 +455,8 @@ client_max_body_size 32m;
 ### 小程序或 App 无法访问接口
 
 确认 `frontend/.env` 中的 `VITE_API_BASE_URL` 是手机可以访问的 HTTPS 地址。微信小程序还需要在微信公众平台配置合法域名，本地 `localhost` 和电脑局域网地址不能用于生产小程序。
+
+当前客户端请求路径为 `/api/v2/*`，如果网关只代理了旧路径，会出现接口 404。
 
 ### CORS 报错
 

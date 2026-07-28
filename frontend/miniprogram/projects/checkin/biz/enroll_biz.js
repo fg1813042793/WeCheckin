@@ -38,7 +38,6 @@ class EnrollBiz extends BaseBiz {
 					pageHelper.showSuccToast('取消成功', 1500, callback);
 				});
 			} catch (err) {
-				console.log(err);
 			}
 		}
 

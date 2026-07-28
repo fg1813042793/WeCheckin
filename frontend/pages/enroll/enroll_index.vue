@@ -1,9 +1,8 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="header-sticky" :style="{ top: fixedTop }">
+  <view class="container">
+    <view class="header-sticky">
       <view class="search-bar">
-        <input v-model="keyword" placeholder="搜索打卡项目" class="search-input" @confirm="handleSearch" />
-        <text class="search-btn" @click="handleSearch">搜索</text>
+        <input v-model="keyword" placeholder="搜索打卡项目" class="search-input" confirm-type="search" @confirm="handleSearch" />
       </view>
 
       <view class="tabs">
@@ -74,9 +73,7 @@ export default {
       keyword: '',
       isAdmin: false,
       hasMore: true,
-      favSet: new Set(),
-      fixedTop: '0px',
-      containerPad: '0px'
+      favSet: new Set()
     }
   },
 
@@ -84,16 +81,6 @@ export default {
     this.checkAdmin()
     // onLoad 中 loadData() 已注释，onShow 已覆盖
     // this.loadData()
-    const sys = uni.getSystemInfoSync()
-    const pxScale = 750 / sys.windowWidth
-    if (sys.platform === 'android') {
-      this.fixedTop = '12rpx'
-      this.containerPad = '192rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = (navOffset + 6) + 'px'
-      this.containerPad = (navOffset + 6 + Math.round(180 / pxScale)) + 'px'
-    }
   },
 
   onShow() {
@@ -269,24 +256,18 @@ export default {
 .container {
   min-height: 100vh;
   background-color: #f5f5f5;
+  padding-top: 192rpx;
+  box-sizing: border-box;
 }
 
 .header-sticky {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 10;
+  top: var(--window-top, 0px);
+  z-index: 20;
   background-color: #fff;
-}
-
-.header-sticky::before {
-  content: '';
-  position: absolute;
-  top: -12rpx;
-  left: 0;
-  right: 0;
-  height: 12rpx;
-  background-color: #f5f5f5;
+  box-sizing: border-box;
 }
 
 .search-bar {
@@ -294,24 +275,15 @@ export default {
   align-items: center;
   padding:20rpx;
 }
-.search-bar .search-input {
-  margin-right: 16rpx;
-}
 
 .search-input {
   flex: 1;
-  height: 64rpx;
+  height: 70rpx;
   background-color: #f5f5f5;
-  border-radius: 32rpx;
+  border-radius: 35rpx;
   padding: 0 24rpx;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: #333;
-}
-
-.search-btn {
-  font-size: 26rpx;
-  color: #fb454c;
-  flex-shrink: 0;
 }
 
 .tabs {

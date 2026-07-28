@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -17,6 +18,8 @@ import (
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/record_list [get]
 func (h *AdminExamHandler) RecordList(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	examId, _ := strconv.Atoi(c.Query("examId"))
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
@@ -26,7 +29,7 @@ func (h *AdminExamHandler) RecordList(ctx context.Context, c *app.RequestContext
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	list, total, err := h.svc.RecordListContext(ctx, examId, c.Query("keyword"), page, pageSize)
+	list, total, err := h.svc.RecordListForAdminContext(ctx, examId, c.Query("keyword"), page, pageSize, admin.ID)
 	if err != nil {
 		response.Fail(c, "查询失败")
 		return
@@ -40,12 +43,14 @@ func (h *AdminExamHandler) RecordList(ctx context.Context, c *app.RequestContext
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/record_detail [get]
 func (h *AdminExamHandler) RecordDetail(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.Query("id"))
 	if id <= 0 {
 		response.Fail(c, "参数错误")
 		return
 	}
-	data, err := h.svc.RecordDetailContext(ctx, uint(id))
+	data, err := h.svc.RecordDetailForAdminContext(ctx, uint(id), admin.ID)
 	if err != nil {
 		response.Fail(c, "记录不存在")
 		return
@@ -58,9 +63,14 @@ func (h *AdminExamHandler) RecordDetail(ctx context.Context, c *app.RequestConte
 // @Param id formData int true "记录ID"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/record_del [post]
-func (h *AdminExamHandler) RecordDel(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) RecordDel(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
-	h.svc.RecordDelete(uint(id))
+	if err := h.svc.RecordDeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
+		response.Fail(c, "删除失败: "+err.Error())
+		return
+	}
 	response.JSON(c, nil)
 }
 
@@ -69,13 +79,18 @@ func (h *AdminExamHandler) RecordDel(_ context.Context, c *app.RequestContext) {
 // @Param ids formData string true "逗号分隔的记录ID"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/record_batch_del [post]
-func (h *AdminExamHandler) RecordBatchDel(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) RecordBatchDel(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	ids := c.PostForm("ids")
 	if ids == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	h.svc.RecordBatchDelete(ids)
+	if err := h.svc.RecordBatchDeleteForAdminContext(ctx, ids, admin.ID); err != nil {
+		response.Fail(c, "删除失败: "+err.Error())
+		return
+	}
 	response.JSON(c, nil)
 }
 
@@ -84,12 +99,18 @@ func (h *AdminExamHandler) RecordBatchDel(_ context.Context, c *app.RequestConte
 // @Param examId query int true "考试ID"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/statistics [get]
-func (h *AdminExamHandler) Statistics(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) Statistics(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	examId, _ := strconv.Atoi(c.Query("examId"))
 	if examId <= 0 {
 		response.Fail(c, "参数错误")
 		return
 	}
-	data := h.svc.Statistics(examId)
+	data, err := h.svc.StatisticsForAdminContext(ctx, examId, admin.ID)
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
+	}
 	response.JSON(c, data)
 }

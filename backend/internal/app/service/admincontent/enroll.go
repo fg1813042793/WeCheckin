@@ -1,8 +1,11 @@
 package admincontent
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
+
+	"gorm.io/gorm"
 
 	"wecheckin-backend/backend/internal/app/support/access"
 	"wecheckin-backend/backend/internal/app/support/media"
@@ -36,15 +39,21 @@ func populateEnrollFields(list []model.Enroll) []model.Enroll {
 }
 
 func GetAdminEnrollList(keyword, sortStr string, page, pageSize int, adminID uint) ([]model.Enroll, int64, error) {
+	return GetAdminEnrollListContext(context.Background(), keyword, sortStr, page, pageSize, adminID)
+}
+
+func GetAdminEnrollListContext(ctx context.Context, keyword, sortStr string, page, pageSize int, adminID uint) ([]model.Enroll, int64, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var admin model.Admin
-	database.DB.First(&admin, adminID)
+	db.First(&admin, adminID)
 	var list []model.Enroll
 	var total int64
-	queryBuilder := database.DB.Model(&model.Enroll{})
+	queryBuilder := db.Model(&model.Enroll{})
 	if keyword != "" {
 		queryBuilder = queryBuilder.Where("`enroll_title` LIKE ?", "%"+keyword+"%")
 	}
-	where, args := access.DataScopeFilter(&admin, "`enroll_dept_id`", "`enroll_create_by`")
+	where, args := access.DataScopeFilterContext(ctx, &admin, "`enroll_dept_id`", "`enroll_create_by`")
 	if where != "" {
 		queryBuilder = queryBuilder.Where(where, args...)
 	}
@@ -66,24 +75,105 @@ func GetAdminEnrollList(keyword, sortStr string, page, pageSize int, adminID uin
 		return nil, 0, err
 	}
 	list = populateEnrollFields(list)
+	userCounts, err := loadEnrollUserCountMapContext(ctx, db, list)
+	if err != nil {
+		return nil, 0, err
+	}
+	joinCounts, err := loadEnrollJoinCountMapContext(ctx, db, list)
+	if err != nil {
+		return nil, 0, err
+	}
 	for i := range list {
-		eid := strconv.Itoa(int(list[i].ID))
-		var userCnt int64
-		database.DB.Raw(
-			"SELECT COUNT(DISTINCT uid) FROM (SELECT `enroll_join_user_id` AS uid FROM `enroll_joins` WHERE `enroll_join_enroll_id` = ? UNION SELECT `enroll_user_mini_openid` AS uid FROM `enroll_users` WHERE `enroll_user_enroll_id` = ?) AS u",
-			eid, eid,
-		).Scan(&userCnt)
-		list[i].UserCnt = int(userCnt)
-		var joinCnt int64
-		database.DB.Model(&model.EnrollJoin{}).Where("`enroll_join_enroll_id` = ?", eid).Count(&joinCnt)
-		list[i].JoinCnt = int(joinCnt)
+		list[i].UserCnt = userCounts[list[i].ID]
+		list[i].JoinCnt = joinCounts[list[i].ID]
 	}
 	return list, total, nil
 }
 
+func scopedEnrollQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
+	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Enroll{}, "`enroll_dept_id`", "`enroll_create_by`")
+}
+
+func loadEnrollUserCountMapContext(ctx context.Context, db *gorm.DB, list []model.Enroll) (map[uint]int, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	ids := enrollIDStrings(list)
+	counts := make(map[uint]int, len(ids))
+	if len(ids) == 0 {
+		return counts, nil
+	}
+	type countRow struct {
+		EnrollID string `gorm:"column:enroll_id"`
+		Count    int    `gorm:"column:cnt"`
+	}
+	var rows []countRow
+	if err := db.Raw(
+		"SELECT enroll_id, COUNT(DISTINCT uid) AS cnt FROM (SELECT `enroll_join_enroll_id` AS enroll_id, `enroll_join_user_id` AS uid FROM `enroll_joins` WHERE `enroll_join_enroll_id` IN ? UNION SELECT `enroll_user_enroll_id` AS enroll_id, `enroll_user_mini_openid` AS uid FROM `enroll_users` WHERE `enroll_user_enroll_id` IN ?) AS u GROUP BY enroll_id",
+		ids, ids,
+	).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		id, err := strconv.Atoi(row.EnrollID)
+		if err == nil && id > 0 {
+			counts[uint(id)] = row.Count
+		}
+	}
+	return counts, nil
+}
+
+func loadEnrollJoinCountMapContext(ctx context.Context, db *gorm.DB, list []model.Enroll) (map[uint]int, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	ids := enrollIDStrings(list)
+	counts := make(map[uint]int, len(ids))
+	if len(ids) == 0 {
+		return counts, nil
+	}
+	type countRow struct {
+		EnrollID string `gorm:"column:enroll_join_enroll_id"`
+		Count    int    `gorm:"column:cnt"`
+	}
+	var rows []countRow
+	if err := db.Model(&model.EnrollJoin{}).
+		Select("`enroll_join_enroll_id`, COUNT(*) AS cnt").
+		Where("`enroll_join_enroll_id` IN ?", ids).
+		Group("`enroll_join_enroll_id`").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		id, err := strconv.Atoi(row.EnrollID)
+		if err == nil && id > 0 {
+			counts[uint(id)] = row.Count
+		}
+	}
+	return counts, nil
+}
+
+func enrollIDStrings(list []model.Enroll) []string {
+	ids := make([]string, 0, len(list))
+	for _, item := range list {
+		ids = append(ids, strconv.Itoa(int(item.ID)))
+	}
+	return ids
+}
+
 func GetEnrollDetail(id string) (*model.Enroll, error) {
+	return GetEnrollDetailContext(context.Background(), id)
+}
+
+func GetEnrollDetailContext(ctx context.Context, id string) (*model.Enroll, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var enroll model.Enroll
-	err := database.DB.Where("`id` = ?", id).First(&enroll).Error
+	err := db.Where("`id` = ?", id).First(&enroll).Error
 	if err != nil {
 		return nil, err
 	}
@@ -95,44 +185,213 @@ func GetEnrollDetail(id string) (*model.Enroll, error) {
 	return &enroll, nil
 }
 
+func GetEnrollDetailForAdminContext(ctx context.Context, id string, adminID uint) (*model.Enroll, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedEnrollQueryContext(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	var enroll model.Enroll
+	if err := queryBuilder.Where("`id` = ?", id).First(&enroll).Error; err != nil {
+		return nil, err
+	}
+	obj := decodeEnrollObj(enroll.Obj)
+	if len(obj.Cover) > 0 {
+		enroll.Img = media.FullURLWithStaticDomain(obj.Cover[0])
+	}
+	enroll.Desc = obj.Desc
+	return &enroll, nil
+}
+
 func UpdateEnrollForms(id, forms string) error {
-	return database.DB.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_forms", forms).Error
+	return UpdateEnrollFormsContext(context.Background(), id, forms)
+}
+
+func UpdateEnrollFormsContext(ctx context.Context, id, forms string) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_forms", forms).Error
+}
+
+func UpdateEnrollFormsForAdminContext(ctx context.Context, id, forms string, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedEnrollQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Update("enroll_forms", forms))
 }
 
 func SortEnroll(id, sortStr string) error {
+	return SortEnrollContext(context.Background(), id, sortStr)
+}
+
+func SortEnrollContext(ctx context.Context, id, sortStr string) error {
 	sortValue, err := strconv.Atoi(sortStr)
 	if err != nil {
 		return err
 	}
-	return database.DB.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_order", sortValue).Error
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_order", sortValue).Error
+}
+
+func SortEnrollForAdminContext(ctx context.Context, id, sortStr string, adminID uint) error {
+	sortValue, err := strconv.Atoi(sortStr)
+	if err != nil {
+		return err
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedEnrollQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Update("enroll_order", sortValue))
 }
 
 func VouchEnroll(id string, vouch int) error {
-	return database.DB.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_vouch", vouch).Error
+	return VouchEnrollContext(context.Background(), id, vouch)
+}
+
+func VouchEnrollContext(ctx context.Context, id string, vouch int) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_vouch", vouch).Error
+}
+
+func VouchEnrollForAdminContext(ctx context.Context, id string, vouch int, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedEnrollQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Update("enroll_vouch", vouch))
 }
 
 func StatusEnroll(id string, status int) error {
-	return database.DB.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_status", status).Error
+	return StatusEnrollContext(context.Background(), id, status)
+}
+
+func StatusEnrollContext(ctx context.Context, id string, status int) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Model(&model.Enroll{}).Where("`id` = ?", id).Update("enroll_status", status).Error
+}
+
+func StatusEnrollForAdminContext(ctx context.Context, id string, status int, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	queryBuilder, err := scopedEnrollQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Update("enroll_status", status))
 }
 
 func ClearEnrollAll(id string) error {
-	database.DB.Where("`enroll_join_enroll_id` = ?", id).Delete(&model.EnrollJoin{})
-	database.DB.Where("`enroll_user_enroll_id` = ?", id).Delete(&model.EnrollUser{})
-	return database.DB.Model(&model.Enroll{}).Where("`id` = ?", id).Updates(map[string]interface{}{
-		"enroll_join_cnt": 0,
-		"enroll_user_cnt": 0,
-	}).Error
+	return ClearEnrollAllContext(context.Background(), id)
+}
+
+func ClearEnrollAllContext(ctx context.Context, id string) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("`enroll_join_enroll_id` = ?", id).Delete(&model.EnrollJoin{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("`enroll_user_enroll_id` = ?", id).Delete(&model.EnrollUser{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Enroll{}).Where("`id` = ?", id).Updates(map[string]interface{}{
+			"enroll_join_cnt": 0,
+			"enroll_user_cnt": 0,
+		}).Error
+	})
+}
+
+func ClearEnrollAllForAdminContext(ctx context.Context, id string, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Transaction(func(tx *gorm.DB) error {
+		queryBuilder, err := scopedEnrollQueryContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := queryBuilder.Where("`id` = ?", id).First(&model.Enroll{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("`enroll_join_enroll_id` = ?", id).Delete(&model.EnrollJoin{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("`enroll_user_enroll_id` = ?", id).Delete(&model.EnrollUser{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Enroll{}).Where("`id` = ?", id).Updates(map[string]interface{}{
+			"enroll_join_cnt": 0,
+			"enroll_user_cnt": 0,
+		}).Error
+	})
 }
 
 func DelEnroll(id string) error {
-	database.DB.Where("`enroll_join_enroll_id` = ?", id).Delete(&model.EnrollJoin{})
-	database.DB.Where("`enroll_user_enroll_id` = ?", id).Delete(&model.EnrollUser{})
-	return database.DB.Where("`id` = ?", id).Delete(&model.Enroll{}).Error
+	return DelEnrollContext(context.Background(), id)
+}
+
+func DelEnrollContext(ctx context.Context, id string) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("`enroll_join_enroll_id` = ?", id).Delete(&model.EnrollJoin{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("`enroll_user_enroll_id` = ?", id).Delete(&model.EnrollUser{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("`id` = ?", id).Delete(&model.Enroll{}).Error
+	})
+}
+
+func DelEnrollForAdminContext(ctx context.Context, id string, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return db.Transaction(func(tx *gorm.DB) error {
+		queryBuilder, err := scopedEnrollQueryContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := queryBuilder.Where("`id` = ?", id).First(&model.Enroll{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("`enroll_join_enroll_id` = ?", id).Delete(&model.EnrollJoin{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("`enroll_user_enroll_id` = ?", id).Delete(&model.EnrollUser{}).Error; err != nil {
+			return err
+		}
+		return access.RequireRowsAffected(tx.Where("`id` = ?", id).Delete(&model.Enroll{}))
+	})
 }
 
 func DelEnrolls(ids []string) error {
+	return DelEnrollsContext(context.Background(), ids)
+}
+
+func DelEnrollsContext(ctx context.Context, ids []string) error {
 	for _, id := range ids {
-		if err := DelEnroll(id); err != nil {
+		if err := DelEnrollContext(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DelEnrollsForAdminContext(ctx context.Context, ids []string, adminID uint) error {
+	for _, id := range ids {
+		if err := DelEnrollForAdminContext(ctx, id, adminID); err != nil {
 			return err
 		}
 	}
@@ -140,6 +399,12 @@ func DelEnrolls(ids []string) error {
 }
 
 func InsertEnroll(title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds string, status, order, dayCnt int, start, end int64, obj string, allowRepeat bool, dailyLimit int, deptID, createBy uint) error {
+	return InsertEnrollContext(context.Background(), title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds, status, order, dayCnt, start, end, obj, allowRepeat, dailyLimit, deptID, createBy)
+}
+
+func InsertEnrollContext(ctx context.Context, title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds string, status, order, dayCnt int, start, end int64, obj string, allowRepeat bool, dailyLimit int, deptID, createBy uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	enroll := model.Enroll{
 		Title:          title,
 		Status:         status,
@@ -161,10 +426,16 @@ func InsertEnroll(title, cateID, cateName, forms, joinForms, qr, addIP, publishD
 		AddTime:        database.Now(),
 		AddIP:          addIP,
 	}
-	return database.DB.Create(&enroll).Error
+	return db.Create(&enroll).Error
 }
 
 func EditEnroll(id, title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds string, status, order, dayCnt int, start, end int64, obj string, allowRepeat bool, dailyLimit int, deptID uint) error {
+	return EditEnrollContext(context.Background(), id, title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds, status, order, dayCnt, start, end, obj, allowRepeat, dailyLimit, deptID)
+}
+
+func EditEnrollContext(ctx context.Context, id, title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds string, status, order, dayCnt int, start, end int64, obj string, allowRepeat bool, dailyLimit int, deptID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	updates := map[string]interface{}{
 		"enroll_title":            title,
 		"enroll_status":           status,
@@ -187,5 +458,37 @@ func EditEnroll(id, title, cateID, cateName, forms, joinForms, qr, addIP, publis
 	if obj != "" {
 		updates["enroll_obj"] = obj
 	}
-	return database.DB.Model(&model.Enroll{}).Where("`id` = ?", id).Updates(updates).Error
+	return db.Model(&model.Enroll{}).Where("`id` = ?", id).Updates(updates).Error
+}
+
+func EditEnrollForAdminContext(ctx context.Context, id, title, cateID, cateName, forms, joinForms, qr, addIP, publishDeptIds string, status, order, dayCnt int, start, end int64, obj string, allowRepeat bool, dailyLimit int, deptID, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	updates := map[string]interface{}{
+		"enroll_title":            title,
+		"enroll_status":           status,
+		"enroll_cate_id":          cateID,
+		"enroll_cate_name":        cateName,
+		"enroll_start":            start,
+		"enroll_end":              end,
+		"enroll_day_cnt":          dayCnt,
+		"enroll_order":            order,
+		"enroll_forms":            forms,
+		"enroll_join_forms":       joinForms,
+		"enroll_repeat":           allowRepeat,
+		"enroll_limit":            dailyLimit,
+		"enroll_dept_id":          deptID,
+		"enroll_publish_dept_ids": publishDeptIds,
+		"enroll_qr":               qr,
+		"enroll_edit_time":        database.Now(),
+		"enroll_edit_ip":          addIP,
+	}
+	if obj != "" {
+		updates["enroll_obj"] = obj
+	}
+	queryBuilder, err := scopedEnrollQueryContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Updates(updates))
 }

@@ -123,7 +123,6 @@ Page({
 
 			});
 		} catch (err) {
-			console.log(err);
 			pageHelper.showNoneToast('导出失败，请重试');
 		}
 
@@ -142,7 +141,6 @@ Page({
 				pageHelper.showSuccToast('删除成功');
 			});
 		} catch (err) {
-			console.log(err);
 			pageHelper.showNoneToast('删除失败，请重试');
 		}
 

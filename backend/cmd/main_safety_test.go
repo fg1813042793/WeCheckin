@@ -34,21 +34,23 @@ func TestMainDelegatesRouteRegistration(t *testing.T) {
 	}
 }
 
-func TestMainUsesBootstrapForStartupInitialization(t *testing.T) {
+func TestMainDoesNotRunDatabaseMaintenanceOnServiceStartup(t *testing.T) {
 	src, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatalf("read main.go: %v", err)
 	}
 
 	text := string(src)
-	if !strings.Contains(text, "bootstrap.InitBusiness") {
-		t.Fatalf("main.go must delegate startup database initialization to bootstrap.InitBusiness")
-	}
-	if !strings.Contains(text, "if err := bootstrap.InitBusiness(*examFlag); err != nil") {
-		t.Fatalf("main.go must handle bootstrap.InitBusiness errors")
-	}
-	if strings.Contains(text, "service.InitBusiness") {
-		t.Fatalf("main.go must not call service.InitBusiness directly")
+	for _, snippet := range []string{
+		"bootstrap.InitBusiness",
+		"bootstrap.RunMaintenance",
+		"autoMigrate",
+		"seedMenus",
+		"seedSetups",
+	} {
+		if strings.Contains(text, snippet) {
+			t.Fatalf("main.go must not run database maintenance during service startup: %s", snippet)
+		}
 	}
 }
 
@@ -93,8 +95,8 @@ func TestBackendPortReferencesUse8083(t *testing.T) {
 			forbidden: []string{`"8080:8080"`},
 		},
 		"../nginx.conf": {
-			required:  []string{"proxy_pass http://backend:8083/;", "location = /health", "location = /ready"},
-			forbidden: []string{"backend:8080", "\n}\n\n# API 服务器配置\nserver"},
+			required:  []string{"location /api/", "proxy_pass http://backend:8083;", "location = /health", "location = /ready"},
+			forbidden: []string{"backend:8080", "proxy_pass http://backend:8083/;", "\n}\n\n# API 服务器配置\nserver"},
 		},
 		"../docs/swagger/docs.go": {
 			required:  []string{"localhost:8083"},
@@ -147,9 +149,12 @@ func TestHealthAndReadinessRoutesAreRegistered(t *testing.T) {
 		t.Fatalf("read routes_health.go: %v", err)
 	}
 	text := string(src)
-	for _, snippet := range []string{`h.GET("/health"`, `h.GET("/ready"`, "database.DB"} {
+	for _, snippet := range []string{`h.GET("/health"`, `h.GET("/ready"`, "database.WithContext"} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("routes_health.go must contain %q", snippet)
 		}
+	}
+	if strings.Contains(text, "database.DB") {
+		t.Fatalf("routes_health.go must use database.WithContext instead of database.DB")
 	}
 }

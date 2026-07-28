@@ -2,6 +2,7 @@ package menu
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,6 +24,10 @@ var adminPermCache = struct {
 
 func adminPermCacheKeyForRole(roleID uint) string {
 	return fmt.Sprintf("role:%d", roleID)
+}
+
+func adminPermCacheKeyForUserRole(userID, roleID uint) string {
+	return fmt.Sprintf("user:%d:role:%d", userID, roleID)
 }
 
 func adminPermCacheKeyForSuperAdmin() string {
@@ -70,6 +75,11 @@ func InvalidateAdminPermCache() {
 func InvalidateAdminPermCacheForRole(roleID uint) {
 	adminPermCache.Lock()
 	delete(adminPermCache.values, adminPermCacheKeyForRole(roleID))
+	for key := range adminPermCache.values {
+		if strings.HasSuffix(key, fmt.Sprintf(":role:%d", roleID)) {
+			delete(adminPermCache.values, key)
+		}
+	}
 	adminPermCache.version++
 	adminPermCache.Unlock()
 }

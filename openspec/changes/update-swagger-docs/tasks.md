@@ -84,3 +84,9 @@
 - [x] 9.1 在 backend 目录执行 `swag init` 重新生成 swagger.yaml、swagger.json、docs.go
 - [x] 9.2 验证生成的文档中新增的 56 个接口已完整列出（共 199 个 paths）
 - [x] 9.3 验证 `/passport/my_detail` 文档已更新
+
+## 10. 同步 API v2 文档
+
+- [x] 10.1 重新生成 Swagger，确认 `/api/v2` 和 `/api/v2/admin` 路由出现在 swagger.yaml、swagger.json、docs.go 中
+- [x] 10.2 新增 `docs/API_V2.md`，说明 v2 接口前缀、调用入口、认证约定、Swagger 更新和验证命令
+- [x] 10.3 更新 README、部署排障、HBuilder 调试、测试数据、维护规范和迁移说明中的接口口径

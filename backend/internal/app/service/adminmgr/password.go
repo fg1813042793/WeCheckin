@@ -18,7 +18,7 @@ func ChangePasswordContext(ctx context.Context, id, oldPassword, newPassword str
 	defer cancel()
 
 	var admin model.Admin
-	err := db.Where("`id` = ?", id).First(&admin).Error
+	err := db.Where("`id` = ?", id).Scopes(adminLoginRoleFilter).First(&admin).Error
 	if err != nil {
 		return fmt.Errorf("管理员不存在")
 	}
@@ -29,5 +29,5 @@ func ChangePasswordContext(ctx context.Context, id, oldPassword, newPassword str
 	if err != nil {
 		return err
 	}
-	return db.Model(&model.Admin{}).Where("`id` = ?", id).Update("admin_password", hash).Error
+	return db.Model(&model.Admin{}).Where("`id` = ?", id).Scopes(adminLoginRoleFilter).Update("user_password", hash).Error
 }

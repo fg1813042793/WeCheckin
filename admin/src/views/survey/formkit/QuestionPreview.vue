@@ -375,8 +375,9 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { Html5Qrcode } from 'html5-qrcode'
 import '../../../utils/quill-image-resize'
+import type { FormKitQuestion } from '../../formkit/shared/types'
 
-const props = defineProps<{ q: any; editing?: boolean }>()
+const props = defineProps<{ q: FormKitQuestion; editing?: boolean }>()
 const emit = defineEmits<{
   'update:title': [v: string]
   'update:description': [v: string]

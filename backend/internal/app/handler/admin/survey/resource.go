@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	formkitadminservice "wecheckin-backend/backend/internal/app/service/formkitadmin"
 	"wecheckin-backend/backend/internal/app/support/media"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -25,7 +25,10 @@ import (
 // @Param resType formData string true "资源类型: bg/header"
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/resource_upload [post]
-func (h *AdminSurveyHandler) ResourceUpload(_ context.Context, c *app.RequestContext) {
+func (h *AdminSurveyHandler) ResourceUpload(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	file, err := c.FormFile("file")
 	if err != nil {
 		response.Fail(c, "上传失败: "+err.Error())
@@ -47,6 +50,10 @@ func (h *AdminSurveyHandler) ResourceUpload(_ context.Context, c *app.RequestCon
 		return
 	}
 	if surveyID <= 0 {
+		response.Fail(c, "无效的问卷ID")
+		return
+	}
+	if _, err := h.survey.GetForAdminContext(ctx, uint(surveyID), admin.ID); err != nil {
 		response.Fail(c, "无效的问卷ID")
 		return
 	}
@@ -84,27 +91,21 @@ func (h *AdminSurveyHandler) ResourceUpload(_ context.Context, c *app.RequestCon
 	relFile := "/uploads/" + relPath
 
 	domain := media.StaticDomain()
-	res := model.SurveyResource{
-		SurveyID: uint(surveyID),
+	data, err := formkitadminservice.CreateSurveyResourceContext(ctx, formkitadminservice.ResourceInput{
+		OwnerID:  uint(surveyID),
 		Type:     resType,
 		URL:      relFile,
 		Filename: filename,
 		Path:     filepath.Join(absUpload, relPath),
 		Domain:   domain,
 		AddTime:  now.UnixMilli(),
-	}
-	if err := database.DB.Create(&res).Error; err != nil {
+	})
+	if err != nil {
+		_ = os.Remove(dst)
 		response.Fail(c, "保存记录失败: "+err.Error())
 		return
 	}
-	response.JSON(c, map[string]any{
-		"id":       res.ID,
-		"url":      relFile,
-		"filename": filename,
-		"path":     filepath.Join(absUpload, relPath),
-		"domain":   domain,
-		"type":     resType,
-	})
+	response.JSON(c, data)
 }
 
 // ResourceList GET /admin/survey/resource_list
@@ -114,19 +115,22 @@ func (h *AdminSurveyHandler) ResourceUpload(_ context.Context, c *app.RequestCon
 // @Param resType query string false "资源类型: bg/header，为空则返回全部"
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/resource_list [get]
-func (h *AdminSurveyHandler) ResourceList(_ context.Context, c *app.RequestContext) {
+func (h *AdminSurveyHandler) ResourceList(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	surveyID, _ := strconv.Atoi(c.Query("surveyId"))
 	resType := c.Query("resType")
 	if surveyID <= 0 {
 		response.Fail(c, "无效的问卷ID")
 		return
 	}
-	query := database.DB.Where("`survey_res_survey_id` = ?", surveyID)
-	if resType != "" {
-		query = query.Where("`survey_res_type` = ?", resType)
+	if _, err := h.survey.GetForAdminContext(ctx, uint(surveyID), admin.ID); err != nil {
+		response.Fail(c, "无效的问卷ID")
+		return
 	}
-	var list []model.SurveyResource
-	if err := query.Order("`survey_res_add_time` DESC").Find(&list).Error; err != nil {
+	list, err := formkitadminservice.ListSurveyResourcesContext(ctx, uint(surveyID), resType)
+	if err != nil {
 		response.Fail(c, "查询失败")
 		return
 	}
@@ -139,23 +143,25 @@ func (h *AdminSurveyHandler) ResourceList(_ context.Context, c *app.RequestConte
 // @Param id formData int true "资源ID"
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/resource_delete [post]
-func (h *AdminSurveyHandler) ResourceDelete(_ context.Context, c *app.RequestContext) {
+func (h *AdminSurveyHandler) ResourceDelete(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(string(c.FormValue("id")))
 	if id <= 0 {
 		response.Fail(c, "无效的资源ID")
 		return
 	}
-	var res model.SurveyResource
-	if err := database.DB.First(&res, id).Error; err != nil {
+	res, err := formkitadminservice.DeleteSurveyResourceForAdminContext(ctx, uint(id), admin.ID)
+	if formkitadminservice.IsNotFound(err) {
 		response.Fail(c, "资源不存在")
 		return
 	}
-	if res.Path != "" {
-		os.Remove(res.Path)
-	}
-	if err := database.DB.Delete(&res).Error; err != nil {
+	if err != nil {
 		response.Fail(c, "删除失败: "+err.Error())
 		return
+	}
+	if res.Path != "" {
+		_ = os.Remove(res.Path)
 	}
 	response.JSON(c, nil)
 }

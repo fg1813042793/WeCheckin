@@ -48,8 +48,10 @@ func (h *AdminUserHandler) GetUserList(ctx context.Context, c *app.RequestContex
 // @Success 200 {object} response.Resp
 // @Router /admin/user_detail [get]
 func (h *AdminUserHandler) GetUserDetail(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	openID := c.Query("openid")
-	data, err := adminuserservice.GetUserByOpenIDContext(ctx, openID)
+	data, err := adminuserservice.GetUserByOpenIDForAdminContext(ctx, openID, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -63,8 +65,10 @@ func (h *AdminUserHandler) GetUserDetail(ctx context.Context, c *app.RequestCont
 // @Success 200 {object} response.Resp
 // @Router /admin/user_detail_by_id [get]
 func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.Query("id")
-	data, err := adminuserservice.GetUserByIDContext(ctx, id)
+	data, err := adminuserservice.GetUserByIDForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -76,6 +80,7 @@ func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContex
 // @Summary 新增用户
 // @Param name formData string true "用户名"
 // @Param mobile formData string false "手机号"
+// @Param positionId formData string false "岗位ID"
 // @Param pic formData string false "头像URL"
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
@@ -83,11 +88,13 @@ func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContex
 func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
+	positionID := parsePositionID(c.PostForm("positionId"))
 	pic := c.PostForm("pic")
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
 	deptIds := param.ParseUintSlice(c.PostForm("deptIds"))
-	err := adminuserservice.AddUserContext(ctx, name, mobile, pic, forms, addIP, deptIds)
+	adminAccess, _ := parseAdminAccess(c)
+	err := adminuserservice.AddUserWithAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, deptIds, adminAccess)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -100,21 +107,31 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 // @Param id formData string true "用户ID"
 // @Param name formData string false "用户名"
 // @Param mobile formData string false "手机号"
+// @Param positionId formData string false "岗位ID"
 // @Param pic formData string false "头像URL"
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
 // @Router /admin/user_edit [post]
 func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
+	positionID := parsePositionID(c.PostForm("positionId"))
 	pic := c.PostForm("pic")
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
 	deptIds := param.ParseUintSlice(c.PostForm("deptIds"))
-	err := adminuserservice.EditUserContext(ctx, id, name, mobile, pic, forms, addIP, deptIds)
+	adminAccess, hasAdminAccess := parseAdminAccess(c)
+	var err error
+	if hasAdminAccess {
+		err = adminuserservice.EditUserWithAdminAccessForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, deptIds, adminAccess, admin.ID)
+	} else {
+		err = adminuserservice.EditUserForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, deptIds, admin.ID)
+	}
 	if err != nil {
-		response.Fail(c, "编辑失败")
+		response.Fail(c, err.Error())
 		return
 	}
 	response.JSON(c, nil)
@@ -126,8 +143,10 @@ func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) 
 // @Success 200 {object} response.Resp
 // @Router /admin/user_del [post]
 func (h *AdminUserHandler) DelUser(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
-	err := adminuserservice.DelUserContext(ctx, id)
+	err := adminuserservice.DelUserForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "删除失败")
 		return
@@ -136,17 +155,65 @@ func (h *AdminUserHandler) DelUser(ctx context.Context, c *app.RequestContext) {
 }
 
 func (h *AdminUserHandler) DelUsers(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
 	ids := strings.Split(idsStr, ",")
-	if err := adminuserservice.DelUsersContext(ctx, ids); err != nil {
+	if err := adminuserservice.DelUsersForAdminContext(ctx, ids, admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
 	response.JSON(c, nil)
+}
+
+func parsePositionID(value string) uint {
+	id, err := strconv.Atoi(value)
+	if err != nil || id <= 0 {
+		return 0
+	}
+	return uint(id)
+}
+
+func parseAdminAccess(c *app.RequestContext) (adminuserservice.AdminAccessInput, bool) {
+	hasPermissionKeys := hasPostForm(c, "allowPermissionKeys") ||
+		hasPostForm(c, "denyPermissionKeys")
+	hasAdminAccess := hasPostForm(c, "password") ||
+		hasPostForm(c, "roleId") ||
+		hasPermissionKeys
+
+	roleID, _ := strconv.Atoi(c.PostForm("roleId"))
+
+	return adminuserservice.AdminAccessInput{
+		Password:              c.PostForm("password"),
+		RoleID:                uint(roleID),
+		AllowPermissionKeys:   parsePermissionKeys(c.PostForm("allowPermissionKeys")),
+		DenyPermissionKeys:    parsePermissionKeys(c.PostForm("denyPermissionKeys")),
+		PermissionKeysTouched: hasPermissionKeys,
+	}, hasAdminAccess
+}
+
+func parsePermissionKeys(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	keys := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			keys = append(keys, part)
+		}
+	}
+	return keys
+}
+
+func hasPostForm(c *app.RequestContext, key string) bool {
+	_, ok := c.GetPostForm(key)
+	return ok
 }
 
 // @Tags PC端-用户管理
@@ -156,10 +223,12 @@ func (h *AdminUserHandler) DelUsers(ctx context.Context, c *app.RequestContext) 
 // @Success 200 {object} response.Resp
 // @Router /admin/user_status [post]
 func (h *AdminUserHandler) StatusUser(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	status, _ := strconv.Atoi(c.PostForm("status"))
 	reason := c.PostForm("reason")
-	err := adminuserservice.StatusUserContext(ctx, id, status, reason)
+	err := adminuserservice.StatusUserForAdminContext(ctx, id, status, reason, admin.ID)
 	if err != nil {
 		response.Fail(c, "操作失败")
 		return
@@ -168,12 +237,14 @@ func (h *AdminUserHandler) StatusUser(ctx context.Context, c *app.RequestContext
 }
 
 func (h *AdminUserHandler) ResetPassword(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := adminuserservice.ResetUserPasswordContext(ctx, id); err != nil {
+	if err := adminuserservice.ResetUserPasswordForAdminContext(ctx, id, admin.ID); err != nil {
 		response.Fail(c, "重置失败")
 		return
 	}

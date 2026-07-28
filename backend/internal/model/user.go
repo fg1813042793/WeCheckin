@@ -3,28 +3,37 @@ package model
 import "time"
 
 type User struct {
-	ID          uint      `json:"id" gorm:"primaryKey;comment:用户ID"`
-	MiniOpenID  string    `json:"miniOpenID" gorm:"uniqueIndex;size:200;column:user_mini_openid;comment:微信小程序openid"`
-	Status      int       `json:"status" gorm:"default:1;column:user_status;comment:状态:1正常 0禁用"`
-	CheckReason string    `json:"checkReason" gorm:"size:500;column:user_check_reason;comment:审核原因"`
-	Name        string    `json:"name" gorm:"size:100;column:user_name;comment:用户昵称"`
-	Mobile      string    `json:"mobile" gorm:"size:20;column:user_mobile;comment:手机号"`
-	Pic         string    `json:"avatar" gorm:"size:500;column:user_pic;comment:头像URL"`
-	Forms       string    `json:"forms" gorm:"type:text;column:user_forms;comment:扩展表单数据JSON"`
-	Obj         string    `json:"obj" gorm:"type:text;column:user_obj;comment:扩展对象数据JSON"`
-	Password    string    `json:"-" gorm:"size:100;column:user_password;comment:密码(md5 hex)"`
-	LoginCnt    int       `json:"loginCnt" gorm:"default:0;column:user_login_cnt;comment:登录次数"`
-	LoginTime   int64     `json:"loginTime" gorm:"column:user_login_time;comment:最后登录时间"`
-	AddTime     int64     `json:"addTime" gorm:"column:user_add_time;comment:创建时间"`
-	AddIP       string    `json:"addIP" gorm:"column:user_add_ip;comment:创建IP"`
-	EditTime    int64     `json:"editTime" gorm:"column:user_edit_time;comment:修改时间"`
-	EditIP      string    `json:"editIP" gorm:"column:user_edit_ip;comment:修改IP"`
-	CreatedAt   time.Time `json:"-"`
-	UpdatedAt   time.Time `json:"-"`
+	ID             uint      `json:"id" gorm:"primaryKey;comment:用户ID"`
+	MiniOpenID     string    `json:"miniOpenID" gorm:"uniqueIndex;size:200;column:user_mini_openid;comment:微信小程序openid"`
+	Status         int       `json:"status" gorm:"default:1;column:user_status;comment:状态:1正常 0禁用"`
+	CheckReason    string    `json:"checkReason" gorm:"size:500;column:user_check_reason;comment:审核原因"`
+	Account        string    `json:"account" gorm:"size:100;index;column:user_account;comment:后台登录账号"`
+	Name           string    `json:"name" gorm:"size:100;column:user_name;comment:用户昵称"`
+	Mobile         string    `json:"mobile" gorm:"size:20;column:user_mobile;comment:手机号"`
+	PositionID     uint      `json:"positionId" gorm:"index;default:0;column:user_position_id;comment:岗位ID"`
+	Pic            string    `json:"avatar" gorm:"size:500;column:user_pic;comment:头像URL"`
+	Forms          string    `json:"forms" gorm:"type:text;column:user_forms;comment:扩展表单数据JSON"`
+	Obj            string    `json:"obj" gorm:"type:text;column:user_obj;comment:扩展对象数据JSON"`
+	Password       string    `json:"-" gorm:"size:100;column:user_password;comment:密码(md5 hex)"`
+	AdminEnabled   int       `json:"adminEnabled" gorm:"default:0;column:user_admin_enabled;comment:是否后台账号"`
+	AdminType      int       `json:"adminType" gorm:"default:0;column:user_admin_type;comment:后台账号类型:1超级管理员"`
+	RoleID         uint      `json:"roleId" gorm:"default:0;column:user_role_id;comment:后台角色ID"`
+	AdminDesc      string    `json:"adminDesc" gorm:"size:200;column:user_admin_desc;comment:管理员描述"`
+	AdminToken     string    `json:"-" gorm:"size:100;column:user_admin_token;comment:后台登录token"`
+	AdminTokenTime int64     `json:"-" gorm:"column:user_admin_token_time;comment:后台token生成时间"`
+	LoginCnt       int       `json:"loginCnt" gorm:"default:0;column:user_login_cnt;comment:登录次数"`
+	LoginTime      int64     `json:"loginTime" gorm:"column:user_login_time;comment:最后登录时间"`
+	AddTime        int64     `json:"addTime" gorm:"column:user_add_time;comment:创建时间"`
+	AddIP          string    `json:"addIP" gorm:"column:user_add_ip;comment:创建IP"`
+	EditTime       int64     `json:"editTime" gorm:"column:user_edit_time;comment:修改时间"`
+	EditIP         string    `json:"editIP" gorm:"column:user_edit_ip;comment:修改IP"`
+	CreatedAt      time.Time `json:"-"`
+	UpdatedAt      time.Time `json:"-"`
 
-	Role        string `json:"role" gorm:"-"`
-	DeptName    string `json:"deptName" gorm:"-"`
-	TopDeptName string `json:"topDeptName" gorm:"-"`
+	Role         string `json:"role" gorm:"-"`
+	DeptName     string `json:"deptName" gorm:"-"`
+	TopDeptName  string `json:"topDeptName" gorm:"-"`
+	PositionName string `json:"positionName" gorm:"-"`
 }
 
 func (u *User) GetRole() string {

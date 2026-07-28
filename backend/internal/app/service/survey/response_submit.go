@@ -1,6 +1,7 @@
 package survey
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"time"
@@ -20,7 +21,11 @@ import (
 //   - 应用显隐逻辑
 //   - 持久化
 func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, startTime int64, answers map[string]interface{}, ip, device string, autoSubmit bool, deviceId string) (*model.SurveyResponse, error) {
-	sv, err := r.Survey.Get(surveyID)
+	return r.SubmitContext(context.Background(), surveyID, userID, nickname, startTime, answers, ip, device, autoSubmit, deviceId)
+}
+
+func (r *ResponseService) SubmitContext(ctx context.Context, surveyID uint, userID uint, nickname string, startTime int64, answers map[string]interface{}, ip, device string, autoSubmit bool, deviceId string) (*model.SurveyResponse, error) {
+	sv, err := r.Survey.GetContext(ctx, surveyID)
 	if err != nil {
 		logger.Logger.Printf("[Submit] 问卷不存在 surveyId=%d", surveyID)
 		return nil, errors.New("问卷不存在")
@@ -38,9 +43,13 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 		logger.Logger.Printf("[Submit] 问卷已结束 surveyId=%d endTime=%d", surveyID, sv.EndTime)
 		return nil, errors.New("问卷已结束")
 	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	if sv.MaxResponse > 0 {
 		var cnt int64
-		database.DB.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", surveyID).Count(&cnt)
+		if err := db.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", surveyID).Count(&cnt).Error; err != nil {
+			return nil, err
+		}
 		if int(cnt) >= sv.MaxResponse {
 			logger.Logger.Printf("[Submit] 已达答卷上限 surveyId=%d max=%d current=%d", surveyID, sv.MaxResponse, cnt)
 			return nil, errors.New("已达答卷上限")
@@ -60,9 +69,11 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 	}
 	if deviceLimit > 0 && deviceId != "" {
 		var devCnt int64
-		database.DB.Model(&model.SurveyResponse{}).
+		if err := db.Model(&model.SurveyResponse{}).
 			Where("`survey_resp_survey_id` = ? AND `survey_resp_device_id` = ? AND `survey_resp_status` = 1", surveyID, deviceId).
-			Count(&devCnt)
+			Count(&devCnt).Error; err != nil {
+			return nil, err
+		}
 		if devCnt >= int64(deviceLimit) {
 			logger.Logger.Printf("[Submit] 设备次数上限 surveyId=%d limit=%d current=%d deviceId=%s", surveyID, deviceLimit, devCnt, deviceId)
 			return nil, errors.New("该设备答题次数已达上限")
@@ -70,9 +81,11 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 	}
 	if ipLimit > 0 && ip != "" {
 		var ipCnt int64
-		database.DB.Model(&model.SurveyResponse{}).
+		if err := db.Model(&model.SurveyResponse{}).
 			Where("`survey_resp_survey_id` = ? AND `survey_resp_ip` = ? AND `survey_resp_status` = 1", surveyID, ip).
-			Count(&ipCnt)
+			Count(&ipCnt).Error; err != nil {
+			return nil, err
+		}
 		if ipCnt >= int64(ipLimit) {
 			logger.Logger.Printf("[Submit] IP次数上限 surveyId=%d limit=%d current=%d ip=%s", surveyID, ipLimit, ipCnt, ip)
 			return nil, errors.New("该IP答题次数已达上限")
@@ -80,7 +93,9 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 	}
 	if sv.AllowMulti == 0 && sv.Anonymous != 1 && userID > 0 {
 		var cnt int64
-		database.DB.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ? AND `survey_resp_user_id` = ?", surveyID, userID).Count(&cnt)
+		if err := db.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ? AND `survey_resp_user_id` = ?", surveyID, userIDToStr(userID, false)).Count(&cnt).Error; err != nil {
+			return nil, err
+		}
 		if cnt > 0 {
 			logger.Logger.Printf("[Submit] 已提交过 surveyId=%d userId=%d", surveyID, userID)
 			return nil, errors.New("已提交过此问卷")
@@ -96,7 +111,7 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 
 	if nickname == "" && userID > 0 && sv.Anonymous != 1 {
 		var u model.User
-		if err := database.DB.Where("`id` = ?", userID).First(&u).Error; err == nil {
+		if err := db.Where("`id` = ?", userID).First(&u).Error; err == nil {
 			nickname = u.Name
 		}
 	}
@@ -149,13 +164,15 @@ func (r *ResponseService) Submit(surveyID uint, userID uint, nickname string, st
 		IsAutoSubmit: autoSubmitVal,
 		AddTime:      now,
 	}
-	if err := database.DB.Create(resp).Error; err != nil {
+	if err := db.Create(resp).Error; err != nil {
 		logger.Logger.Printf("[Submit] 持久化失败 surveyId=%d err=%s", surveyID, err.Error())
 		return nil, err
 	}
-	database.DB.Model(&model.SurveyChannel{}).Where("`survey_ch_survey_id` = ?", surveyID).
-		UpdateColumn("survey_ch_submit_cnt", gorm.Expr("`survey_ch_submit_cnt` + 1"))
+	if err := db.Model(&model.SurveyChannel{}).Where("`survey_ch_survey_id` = ?", surveyID).
+		UpdateColumn("survey_ch_submit_cnt", gorm.Expr("`survey_ch_submit_cnt` + 1")).Error; err != nil {
+		logger.Logger.Printf("[Submit] 渠道计数更新失败 surveyId=%d err=%s", surveyID, err.Error())
+	}
 	logger.Logger.Printf("[Submit] 成功 surveyId=%d userId=%d respId=%d ip=%s device=%s", surveyID, userID, resp.ID, ip, device)
-	go poststatservice.Process(surveyID, userID, nickname, resp.Answers)
+	go poststatservice.ProcessContext(context.Background(), surveyID, userID, nickname, resp.Answers)
 	return resp, nil
 }

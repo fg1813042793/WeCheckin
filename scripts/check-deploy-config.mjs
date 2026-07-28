@@ -31,7 +31,6 @@ for (const snippet of [
   'WECHECKIN_LOG_MAX_SIZE=',
   'WECHECKIN_LOG_MAX_FILE=',
   'WECHECKIN_SERVER_PORT=8083',
-  'WECHECKIN_AUTO_MIGRATE=',
   'WECHECKIN_CORS_ALLOW_ORIGINS='
 ]) {
   requireSnippet(envExample, snippet, 'backend/.env.example')
@@ -53,6 +52,16 @@ for (const snippet of [
   'WECHECKIN_REDIS_PASSWORD=${WECHECKIN_REDIS_PASSWORD'
 ]) {
   requireSnippet(compose, snippet, 'backend/docker-compose.yml')
+}
+forbidSnippet(compose, 'WECHECKIN_AUTO_MIGRATE', 'backend/docker-compose.yml')
+
+const initScript = read('backend/init.sh')
+for (const snippet of [
+  'go run ./cmd/maintenance',
+  'schema_migrations',
+  '-migrations'
+]) {
+  requireSnippet(initScript, snippet, 'backend/init.sh')
 }
 
 const backup = read('backend/scripts/docker-backup.sh')
@@ -80,11 +89,14 @@ for (const snippet of [
   'request_id=$request_id',
   'add_header X-Request-ID $request_id always',
   'proxy_set_header X-Request-ID $request_id',
+  'location /api/',
+  'proxy_pass http://backend:8083;',
   'location = /nginx_status',
   'stub_status'
 ]) {
   requireSnippet(nginx, snippet, 'backend/nginx.conf')
 }
+forbidSnippet(nginx, 'proxy_pass http://backend:8083/;', 'backend/nginx.conf')
 
 const logs = read('backend/scripts/docker-logs.sh')
 for (const snippet of [

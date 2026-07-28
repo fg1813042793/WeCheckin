@@ -1,11 +1,14 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="toolbar" :style="{ top: fixedTop }">
+  <view class="container">
+    <view class="toolbar">
       <view class="search-bar">
-        <input v-model="keyword" placeholder="搜索通知标题" class="search-input" @confirm="handleSearch" />
-        <text class="search-btn" @click="handleSearch">搜索</text>
+        <input v-model="keyword" placeholder="搜索通知标题" class="search-input" confirm-type="search" @confirm="handleSearch" />
       </view>
-      <view class="add-btn" v-if="hasPerm('news:add')" @click="goAdd">+ 添加通知</view>
+      <view class="action-row">
+        <view class="add-btn" v-if="hasPerm('news:add')" aria-label="创建通知" @click="goAdd">
+          <text class="add-text">创建</text>
+        </view>
+      </view>
     </view>
 
     <scroll-view scroll-y class="scroll-area" @scrolltolower="loadMore">
@@ -60,22 +63,7 @@ export default {
       page: 1,
       pageSize: 20,
       loading: false,
-      loadingMore: false,
-      containerPad: '0px',
-      fixedTop: '0px'
-    }
-  },
-
-  onReady() {
-    const sys = uni.getSystemInfoSync()
-    if (sys.platform === 'android') {
-      this.fixedTop = '0px'
-      this.containerPad = '124rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = navOffset + 'px'
-      const pxScale = 750 / sys.windowWidth
-      this.containerPad = (navOffset + Math.round(124 / pxScale)) + 'px'
+      loadingMore: false
     }
   },
 
@@ -195,13 +183,14 @@ export default {
 .container {
   min-height: 100vh;
   padding-bottom: 200rpx;
+  padding-top: 206rpx;
   background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
-.toolbar { position: fixed; left: 0; right: 0; z-index: 10; display: flex; align-items: center; padding: 24rpx 20rpx; background-color: #fff; }
-.toolbar::before { content: ''; position: absolute; left: 0; right: 0; top: -12rpx; height: 12rpx; background-color: #f5f5f5; }
+.toolbar { position: fixed; left: 0; right: 0; top: var(--window-top, 0px); z-index: 20; display: flex; flex-direction: column; align-items: flex-start; gap: 16rpx; padding: 20rpx; background-color: #fff; box-sizing: border-box; }
 
 .scroll-area {
   flex: 1;
@@ -213,10 +202,11 @@ export default {
   max-width: 750rpx;
   margin: 0 auto;
 }
-.search-bar { flex: 1; display: flex; align-items: center; }
-.search-input { flex: 1; height: 64rpx; background-color: #f5f5f5; border-radius: 32rpx; padding: 0 24rpx; font-size: 26rpx; }
-.search-btn { font-size: 26rpx; color: #fb454c; flex-shrink: 0; margin-left: 16rpx; }
-.add-btn { background-color: #fb454c; color: #fff; padding: 14rpx 28rpx; border-radius: 32rpx; font-size: 26rpx; flex-shrink: 0; margin-left: 16rpx; }
+.search-bar { display: flex; align-items: center; width: 100%; min-width: 0; }
+.search-input { flex: 1; height: 70rpx; background-color: #f5f5f5; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; }
+.action-row { display: flex; align-items: center; gap: 12rpx; min-height: 56rpx; }
+.add-btn { height: 56rpx; line-height: 56rpx; display: flex; align-items: center; justify-content: center; background-color: #eaf3ff; color: #1677ff; padding: 0 28rpx; border-radius: 16rpx; box-shadow: none; }
+.add-text { color: #1677ff; font-size: 24rpx; font-weight: 600; line-height: 56rpx; }
 
 .news-item {
   background-color: #fff;

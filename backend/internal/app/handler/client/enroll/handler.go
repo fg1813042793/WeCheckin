@@ -72,7 +72,7 @@ func (h *EnrollHandler) GetEnrollJoinByDay(ctx context.Context, c *app.RequestCo
 	if day == "" {
 		day = time.Now().Format("2006-01-02")
 	}
-	data, err := enrollservice.GetEnrollJoinByDay(enrollID, day)
+	data, err := enrollservice.GetEnrollJoinByDayContext(ctx, enrollID, day)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -158,12 +158,16 @@ func (h *EnrollHandler) GetMyEnrollJoinList(ctx context.Context, c *app.RequestC
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	data, total, err := enrollservice.GetMyEnrollJoinList(userID, enrollID, page, pageSize)
+	data, err := enrollservice.GetMyEnrollJoinListContext(ctx, userID, enrollID, page, pageSize)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
 	}
-	response.JSON(c, pagedListResponse{List: data, Total: total})
+	if enrollID != "" {
+		response.JSON(c, pagedListResponse{List: data.JoinRecords, Total: data.Total})
+		return
+	}
+	response.JSON(c, pagedListResponse{List: data.Enrolls, Total: data.Total})
 }
 
 // @Tags 客户端-打卡
@@ -183,7 +187,7 @@ func (h *EnrollHandler) GetMyJoinRecords(ctx context.Context, c *app.RequestCont
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	list, total, err := enrollservice.GetMyJoinRecords(userID, page, pageSize)
+	list, total, err := enrollservice.GetMyJoinRecordsContext(ctx, userID, page, pageSize)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -200,7 +204,7 @@ func (h *EnrollHandler) GetMyJoinRecords(ctx context.Context, c *app.RequestCont
 func (h *EnrollHandler) GetMyCalendar(ctx context.Context, c *app.RequestContext) {
 	userID := c.Query("user_id")
 	month := c.Query("month")
-	data, err := enrollservice.GetMyCalendarDays(userID, month)
+	data, err := enrollservice.GetMyCalendarDaysContext(ctx, userID, month)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -217,7 +221,7 @@ func (h *EnrollHandler) GetMyCalendar(ctx context.Context, c *app.RequestContext
 func (h *EnrollHandler) GetMyDayRecords(ctx context.Context, c *app.RequestContext) {
 	userID := c.Query("user_id")
 	day := c.Query("day")
-	data, err := enrollservice.GetMyDayRecords(userID, day)
+	data, err := enrollservice.GetMyDayRecordsContext(ctx, userID, day)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

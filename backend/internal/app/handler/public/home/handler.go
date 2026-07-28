@@ -20,7 +20,7 @@ func NewHomeHandler() *HomeHandler { return &HomeHandler{} }
 // @Router /home/setup_get [get]
 func (h *HomeHandler) GetSetup(ctx context.Context, c *app.RequestContext) {
 	key := c.Query("key")
-	setup, err := setupservice.GetSetup(key)
+	setup, err := setupservice.GetSetupContext(ctx, key)
 	if err != nil || setup == nil {
 		response.JSON(c, nil)
 		return
@@ -35,7 +35,7 @@ func (h *HomeHandler) GetSetup(ctx context.Context, c *app.RequestContext) {
 // @Router /home/list [get]
 func (h *HomeHandler) GetHomeList(ctx context.Context, c *app.RequestContext) {
 	userID := c.Query("user_id")
-	data, err := homeservice.GetHomeList(userID)
+	data, err := homeservice.GetHomeListContext(ctx, userID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

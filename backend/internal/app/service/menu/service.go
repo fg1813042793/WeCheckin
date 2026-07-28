@@ -6,193 +6,249 @@ import (
 
 	"gorm.io/gorm"
 
+	"wecheckin-backend/backend/internal/app/support/adminaccess"
+	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/database"
 )
 
-func GetTree() ([]*model.Menu, error) {
-	var list []*model.Menu
-	if err := database.DB.Order("`menu_sort` ASC, `id` ASC").Find(&list).Error; err != nil {
+type AdminMenu struct {
+	ID        string       `json:"id"`
+	Key       string       `json:"key"`
+	Name      string       `json:"name"`
+	ParentKey string       `json:"parentKey"`
+	Path      string       `json:"path"`
+	Perms     string       `json:"perms"`
+	Icon      string       `json:"icon"`
+	Sort      int          `json:"sort"`
+	Status    int          `json:"status"`
+	Type      int          `json:"type"`
+	AddTime   int64        `json:"addTime"`
+	EditTime  int64        `json:"editTime"`
+	Children  []*AdminMenu `json:"children,omitempty"`
+}
+
+func GetTree() ([]*AdminMenu, error) {
+	return GetTreeContext(context.Background())
+}
+
+func GetTreeContext(ctx context.Context) ([]*AdminMenu, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	rows, err := allAdminMenuPermissionsContext(ctx, db)
+	if err != nil {
 		return nil, err
 	}
-	return buildTree(list, 0), nil
+	return permissionsToMenuTree(rows), nil
 }
 
-func GetList() ([]model.Menu, error) {
-	var list []model.Menu
-	return list, database.DB.Order("`menu_sort` ASC, `id` ASC").Find(&list).Error
+func GetList() ([]AdminMenu, error) {
+	return GetListContext(context.Background())
 }
 
-func buildTree(list []*model.Menu, pid uint) []*model.Menu {
-	var tree []*model.Menu
-	for _, item := range list {
-		if item.ParentID == pid {
-			item.Children = buildTree(list, item.ID)
-			tree = append(tree, item)
-		}
+func GetListContext(ctx context.Context) ([]AdminMenu, error) {
+	tree, err := GetTreeContext(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return tree
+	list := make([]AdminMenu, 0)
+	flattenAdminMenus(tree, &list)
+	return list, nil
 }
 
-func Add(name string, parentID uint, path, perms, icon string, sort, mtype int) error {
-	err := database.DB.Table("menus").Create(map[string]interface{}{
-		"menu_name":      name,
-		"menu_parent_id": parentID,
-		"menu_path":      path,
-		"menu_perms":     perms,
-		"menu_icon":      icon,
-		"menu_sort":      sort,
-		"menu_status":    1,
-		"menu_type":      mtype,
-		"menu_add_time":  database.Now(),
-	}).Error
-	if err == nil {
-		InvalidateAdminPermCache()
-	}
-	return err
+func GetAdminMenuTree(admin *model.Admin) ([]*AdminMenu, error) {
+	return GetAdminMenuTreeContext(context.Background(), admin)
 }
 
-func Edit(id uint, name string, parentID uint, path, perms, icon string, sort, status, mtype int) error {
-	updates := map[string]interface{}{
-		"menu_name":      name,
-		"menu_parent_id": parentID,
-		"menu_path":      path,
-		"menu_perms":     perms,
-		"menu_icon":      icon,
-		"menu_sort":      sort,
-		"menu_status":    status,
-		"menu_type":      mtype,
-		"menu_edit_time": database.Now(),
-	}
-	err := database.DB.Model(&model.Menu{}).Where("`id` = ?", id).Updates(updates).Error
-	if err == nil {
-		InvalidateAdminPermCache()
-	}
-	return err
-}
-
-func Delete(id uint) error {
-	database.DB.Where("`role_menu_menu_id` = ?", id).Delete(&model.RoleMenu{})
-	database.DB.Where("`menu_parent_id` = ?", id).Delete(&model.Menu{})
-	err := database.DB.Where("`id` = ?", id).Delete(&model.Menu{}).Error
-	if err == nil {
-		InvalidateAdminPermCache()
-	}
-	return err
-}
-
-func GetRoleMenuIDs(roleID uint) []uint {
-	return GetRoleMenuIDsContext(context.Background(), roleID)
-}
-
-func GetRoleMenuIDsContext(ctx context.Context, roleID uint) []uint {
+func GetAdminMenuTreeContext(ctx context.Context, admin *model.Admin) ([]*AdminMenu, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	var list []model.RoleMenu
-	db.Where("`role_menu_role_id` = ?", roleID).Find(&list)
-	ids := make([]uint, len(list))
-	for i, rm := range list {
-		ids[i] = rm.MenuID
+	if !adminRoleAllowsAdminAccess(ctx, db, admin) {
+		return []*AdminMenu{}, nil
 	}
-	return ids
-}
-
-func SetRoleMenus(roleID uint, menuIDs []uint) {
-	_ = SetRoleMenusContext(context.Background(), roleID, menuIDs)
-}
-
-func SetRoleMenusContext(ctx context.Context, roleID uint, menuIDs []uint) error {
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := SetRoleMenusTx(db, roleID, menuIDs); err != nil {
-		return err
-	}
-	InvalidateAdminPermCacheForRole(roleID)
-	return nil
-}
-
-func SetRoleMenusTx(tx *gorm.DB, roleID uint, menuIDs []uint) error {
-	if err := tx.Where("`role_menu_role_id` = ?", roleID).Delete(&model.RoleMenu{}).Error; err != nil {
-		return err
-	}
-	for _, menuID := range menuIDs {
-		if menuID > 0 {
-			if err := tx.Create(&model.RoleMenu{RoleID: roleID, MenuID: menuID}).Error; err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func GetAdminMenuTree(admin *model.Admin) ([]*model.Menu, error) {
-	if admin.Type == 1 {
-		var list []*model.Menu
-		if err := database.DB.Where("`menu_status` = 1").Order("`menu_sort` ASC, `id` ASC").Find(&list).Error; err != nil {
+	if adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) {
+		rows, err := allAdminMenuPermissionsContext(ctx, db)
+		if err != nil {
 			return nil, err
 		}
-		return buildTree(list, 0), nil
+		return permissionsToMenuTree(rows), nil
 	}
 	if admin.RoleID == 0 {
-		return []*model.Menu{}, nil
+		return []*AdminMenu{}, nil
 	}
-	menuIDs := GetRoleMenuIDs(admin.RoleID)
-	if len(menuIDs) == 0 {
-		return []*model.Menu{}, nil
+	rows, ready, err := permissionsupport.AdminMenuPermissionsContext(ctx, db, admin.ID, admin.RoleID)
+	if err != nil {
+		return nil, err
 	}
-	var list []*model.Menu
-	database.DB.Where("`id` IN ? AND `menu_status` = 1", menuIDs).Order("`menu_sort` ASC, `id` ASC").Find(&list)
-	return buildTree(list, 0), nil
+	if ready {
+		return permissionsToMenuTree(rows), nil
+	}
+	return []*AdminMenu{}, nil
 }
 
 func GetAdminPerms(admin *model.Admin) []string {
 	return GetAdminPermsContext(context.Background(), admin)
 }
 
+func AdminHasReservedSuperAdminRoleContext(ctx context.Context, admin *model.Admin) bool {
+	if admin == nil || admin.RoleID == 0 {
+		return false
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID)
+}
+
 func GetAdminPermsContext(ctx context.Context, admin *model.Admin) []string {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	if admin.Type == 1 {
+	if !adminRoleAllowsAdminAccess(ctx, db, admin) {
+		return nil
+	}
+	if adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) {
 		cacheKey := adminPermCacheKeyForSuperAdmin()
 		if perms, ok := getAdminPermCache(cacheKey); ok {
 			return perms
 		}
-		var all []model.Menu
-		db.Where("`menu_perms` != ''").Find(&all)
-		var perms []string
-		for _, m := range all {
-			for _, p := range strings.Split(m.Perms, ",") {
-				p = strings.TrimSpace(p)
-				if p != "" {
-					perms = append(perms, p)
-				}
-			}
+		rows, err := allAdminPermissionsWithPermCodesContext(ctx, db)
+		if err != nil {
+			return nil
 		}
+		perms := permissionPermCodes(rows)
 		setAdminPermCache(cacheKey, perms)
 		return perms
 	}
 	if admin.RoleID == 0 {
 		return nil
 	}
-	cacheKey := adminPermCacheKeyForRole(admin.RoleID)
+	cacheKey := adminPermCacheKeyForUserRole(admin.ID, admin.RoleID)
 	if perms, ok := getAdminPermCache(cacheKey); ok {
 		return perms
 	}
-	menuIDs := GetRoleMenuIDsContext(ctx, admin.RoleID)
-	if len(menuIDs) == 0 {
-		return nil
+	if perms, ready, err := permissionsupport.AdminPermCodesContext(ctx, db, admin.ID, admin.RoleID); err == nil && ready {
+		setAdminPermCache(cacheKey, perms)
+		return perms
 	}
-	var menus []model.Menu
-	db.Where("`id` IN ? AND `menu_perms` != ''", menuIDs).Find(&menus)
-	var perms []string
-	for _, m := range menus {
-		for _, p := range strings.Split(m.Perms, ",") {
+	return nil
+}
+
+func adminRoleAllowsAdminAccess(ctx context.Context, db *gorm.DB, admin *model.Admin) bool {
+	if admin == nil || admin.RoleID == 0 {
+		return false
+	}
+	_, err := adminaccess.UserAllowsAdminAccessContext(ctx, db, admin.ID, admin.RoleID)
+	return err == nil
+}
+
+func allAdminMenuPermissionsContext(ctx context.Context, db *gorm.DB) ([]model.Permission, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, err
+	}
+	if db == nil || !permissionsupport.TablesReady(db) {
+		return nil, nil
+	}
+	var rows []model.Permission
+	err := db.Where("`permission_platform` = ? AND `permission_type` IN ? AND `permission_status` = 1", permissionsupport.PlatformAdmin, []string{permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton}).
+		Order("`permission_sort` ASC, `id` ASC").
+		Find(&rows).Error
+	return rows, err
+}
+
+func allAdminPermissionsWithPermCodesContext(ctx context.Context, db *gorm.DB) ([]model.Permission, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, err
+	}
+	if db == nil || !permissionsupport.TablesReady(db) {
+		return nil, nil
+	}
+	var rows []model.Permission
+	err := db.Where("`permission_platform` = ? AND `permission_status` = 1 AND `permission_perms` <> ''", permissionsupport.PlatformAdmin).Find(&rows).Error
+	return rows, err
+}
+
+func permissionsToMenuTree(rows []model.Permission) []*AdminMenu {
+	return buildAdminMenuTree(permissionRowsToMenus(rows))
+}
+
+func permissionRowsToMenus(rows []model.Permission) []*AdminMenu {
+	list := make([]*AdminMenu, 0, len(rows))
+	for _, row := range rows {
+		list = append(list, &AdminMenu{
+			ID:        row.Key,
+			Key:       row.Key,
+			Name:      row.Name,
+			ParentKey: row.ParentKey,
+			Path:      row.ResourcePath,
+			Perms:     row.Perms,
+			Icon:      row.Icon,
+			Sort:      row.Sort,
+			Status:    row.Status,
+			Type:      permissionTypeToMenuType(row.Type),
+			AddTime:   row.AddTime,
+			EditTime:  row.EditTime,
+		})
+	}
+	return list
+}
+
+func buildAdminMenuTree(list []*AdminMenu) []*AdminMenu {
+	byKey := make(map[string]*AdminMenu, len(list))
+	for _, item := range list {
+		item.Children = nil
+		byKey[item.Key] = item
+	}
+	tree := make([]*AdminMenu, 0)
+	for _, item := range list {
+		parent := byKey[item.ParentKey]
+		if parent == nil || parent.Key == item.Key {
+			tree = append(tree, item)
+			continue
+		}
+		parent.Children = append(parent.Children, item)
+	}
+	return tree
+}
+
+func flattenAdminMenus(items []*AdminMenu, list *[]AdminMenu) {
+	for _, item := range items {
+		copyItem := *item
+		copyItem.Children = nil
+		*list = append(*list, copyItem)
+		if len(item.Children) > 0 {
+			flattenAdminMenus(item.Children, list)
+		}
+	}
+}
+
+func permissionTypeToMenuType(permissionType string) int {
+	switch permissionType {
+	case permissionsupport.TypeDirectory:
+		return 0
+	case permissionsupport.TypeButton:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func permissionPermCodes(rows []model.Permission) []string {
+	seen := map[string]bool{}
+	perms := make([]string, 0)
+	for _, row := range rows {
+		for _, p := range strings.Split(row.Perms, ",") {
 			p = strings.TrimSpace(p)
-			if p != "" {
+			if p != "" && !seen[p] {
+				seen[p] = true
 				perms = append(perms, p)
 			}
 		}
 	}
-	setAdminPermCache(cacheKey, perms)
 	return perms
+}
+
+func ctxErr(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	return ctx.Err()
 }

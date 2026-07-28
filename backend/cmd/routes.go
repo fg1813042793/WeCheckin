@@ -8,5 +8,6 @@ func registerRoutes(h *server.Hertz) {
 	registerPublicRoutes(h)
 	registerClientRoutes(h)
 	registerAdminRoutes(h)
+	registerV2Routes(h)
 	registerUploadAndStaticRoutes(h)
 }

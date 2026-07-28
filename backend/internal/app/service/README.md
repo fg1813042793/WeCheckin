@@ -8,13 +8,14 @@
 - `service/role`、`service/department`、`service/dict`、`service/menu`、`service/online`：后台角色、部门、字典、菜单权限和在线会话。
 - `service/survey`：问卷、答卷；提交后统计和通知已拆到 `service/poststat`。
 - `service/exam`：考试服务。
+- `service/formkitadmin`：问卷、考试设计器共用的题库、导入导出和 FormKit 管理能力。
 - `service/setup`：系统设置。
 - `service/event`：活动列表、详情、报名、动态、评分和后台管理。
 - `service/enroll`：打卡报名的客户端、详情、记录和提交。
 - `service/passport`：客户端登录、注册、个人资料。
 - `service/news`、`service/favorite`：资讯和收藏。
 - `service/home`：首页聚合逻辑。
-- `backend/internal/app/support`：数据范围、部门、媒体地址、发布范围、排序等跨领域纯逻辑。
+- `backend/internal/app/support`：数据范围、部门、媒体地址、发布范围、查询条件、排序等跨领域纯逻辑。
 
 ## 维护规则
 

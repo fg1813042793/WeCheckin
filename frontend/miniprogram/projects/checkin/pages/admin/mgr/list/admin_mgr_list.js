@@ -76,7 +76,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (e) {
-			console.log(e);
 		}
 	},
 
@@ -103,7 +102,6 @@ Page({
 				});
 
 			} catch (e) {
-				console.log(e);
 			}
 		}
 

@@ -8,9 +8,7 @@
 function getWritePhotosAlbum(callback) {
 	wx.getSetting({
 		success: res => {
-			console.log('res=', res);
 			if (res.authSetting['scope.writePhotosAlbum']) {
-				console.log('true');
 				callback && callback();
 			} else if (res.authSetting['scope.writePhotosAlbum'] === undefined) {
 				wx.showModal({
@@ -22,10 +20,8 @@ function getWritePhotosAlbum(callback) {
 								scope: 'scope.writePhotosAlbum',
 								success: (res) => {
 									callback && callback()
-									console.log('授权下载成功', res);
 								},
 								fail: (res) => {
-									console.log('您没有授权 fail=', res);
 									wx.showToast({
 										title: '您没有授权，无法保存到相册',
 										icon: 'none'
@@ -33,7 +29,6 @@ function getWritePhotosAlbum(callback) {
 								}
 							});
 						} else {
-							console.log('取消了');
 						}
 					}
 				});
@@ -50,7 +45,6 @@ function getWritePhotosAlbum(callback) {
 										title: '正在保存图片',
 									});
 									if (res.authSetting['scope.writePhotosAlbum']) {
-										console.log('false success res=', res);
 										callback && callback();
 									} else {
 										wx.showToast({
@@ -60,7 +54,6 @@ function getWritePhotosAlbum(callback) {
 									}
 								},
 								fail: (res) => {
-									console.log('false file res=', res);
 								}
 							});
 						} else {

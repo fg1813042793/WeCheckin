@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/logger"
 	rd "wecheckin-backend/backend/pkg/redis"
 	"wecheckin-backend/backend/pkg/response"
@@ -35,49 +33,14 @@ func (h *ClientSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	category := c.Query("category")
 	deviceId := c.Query("deviceId")
 	clientIP := c.ClientIP()
-	list, total, err := h.survey.List(keyword, category, 1, page, pageSize)
+	list, total, serviceLimits, err := h.survey.PublishedListWithLimitsContext(ctx, keyword, category, page, pageSize, deviceId, clientIP)
 	if err != nil {
 		response.Fail(c, "查询失败: "+err.Error())
 		return
 	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	limitsMap := make(map[uint]limitInfo)
-	for _, sv := range list {
-		var deviceLimit, ipLimit int
-		if sv.Settings != "" {
-			var sm map[string]interface{}
-			if json.Unmarshal([]byte(sv.Settings), &sm) == nil {
-				if v, ok := sm["deviceLimit"].(float64); ok {
-					deviceLimit = int(v)
-				}
-				if v, ok := sm["ipLimit"].(float64); ok {
-					ipLimit = int(v)
-				}
-			}
-		}
-		li := limitInfo{}
-		if deviceLimit > 0 && deviceId != "" {
-			var cnt int64
-			db.Model(&model.SurveyResponse{}).
-				Where("`survey_resp_survey_id` = ? AND `survey_resp_device_id` = ? AND `survey_resp_status` = 1", sv.ID, deviceId).
-				Count(&cnt)
-			if cnt >= int64(deviceLimit) {
-				li.DeviceFull = true
-			}
-		}
-		if ipLimit > 0 && clientIP != "" {
-			var cnt int64
-			db.Model(&model.SurveyResponse{}).
-				Where("`survey_resp_survey_id` = ? AND `survey_resp_ip` = ? AND `survey_resp_status` = 1", sv.ID, clientIP).
-				Count(&cnt)
-			if cnt >= int64(ipLimit) {
-				li.IPFull = true
-			}
-		}
-		if deviceLimit > 0 || ipLimit > 0 {
-			limitsMap[sv.ID] = li
-		}
+	limitsMap := make(map[uint]limitInfo, len(serviceLimits))
+	for id, limit := range serviceLimits {
+		limitsMap[id] = limitInfo{DeviceFull: limit.DeviceFull, IPFull: limit.IPFull}
 	}
 	response.JSON(c, listResponse{List: list, Total: total, Page: page, Size: pageSize, Limits: limitsMap})
 }
@@ -91,7 +54,7 @@ func (h *ClientSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 func (h *ClientSurveyHandler) Detail(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	id, _ := strconv.Atoi(c.Query("id"))
-	sv, err := h.survey.Get(uint(id))
+	sv, err := h.survey.GetContext(ctx, uint(id))
 	if err != nil {
 		logger.Logger.Printf("[SurveyDetail] 问卷不存在 id=%d", id)
 		response.Fail(c, "问卷不存在")
@@ -129,21 +92,18 @@ func (h *ClientSurveyHandler) Detail(ctx context.Context, c *app.RequestContext)
 			if id, ok := userInfo["id"].(float64); ok {
 				uid = uint(id)
 			}
-			var ud model.UserDept
-			db, cancel := database.WithContext(ctx)
-			defer cancel()
-			db.Where("`user_dept_user_id` = ?", uid).First(&ud)
+			deptID, _ := h.survey.UserDeptIDContext(ctx, uid)
 			deptIds := strings.Split(sv.DeptIDs, ",")
 			allowed := false
 			for _, did := range deptIds {
 				d, _ := strconv.Atoi(strings.TrimSpace(did))
-				if uint(d) == ud.DeptID {
+				if uint(d) == deptID {
 					allowed = true
 					break
 				}
 			}
 			if !allowed {
-				logger.Logger.Printf("[SurveyDetail] 部门无权限 id=%d uid=%d deptId=%d", id, uid, ud.DeptID)
+				logger.Logger.Printf("[SurveyDetail] 部门无权限 id=%d uid=%d deptId=%d", id, uid, deptID)
 				response.Fail(c, "您不在该问卷的可见部门中")
 				return
 			}

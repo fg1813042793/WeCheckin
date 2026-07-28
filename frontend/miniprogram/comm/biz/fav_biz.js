@@ -47,7 +47,6 @@ class FavBiz extends BaseBiz {
 				isFav: result.data.isFav,
 			});
 		} catch (e) {
-			console.log(e);
 		}
 	}
 

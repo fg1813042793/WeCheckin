@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 	"wecheckin-backend/backend/internal/model"
@@ -14,6 +15,10 @@ func GetSetup(key string) (*model.Setup, error) {
 }
 
 func GetSetupContext(ctx context.Context, key string) (*model.Setup, error) {
+	now := time.Now()
+	if setup, ok := getSetupServiceCache(key, now); ok {
+		return setup, nil
+	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var setup model.Setup
@@ -21,6 +26,7 @@ func GetSetupContext(ctx context.Context, key string) (*model.Setup, error) {
 	if err != nil {
 		return nil, err
 	}
+	setSetupServiceCache(setup, now)
 	return &setup, nil
 }
 
@@ -40,16 +46,24 @@ func SetSetupContext(ctx context.Context, key, value, typ, addIP string) error {
 			Type:    typ,
 			AddTime: database.Now(),
 		}
-		return db.Create(&setup).Error
+		err := db.Create(&setup).Error
+		if err == nil {
+			invalidateSetupServiceCache()
+		}
+		return err
 	}
 	if result.Error != nil {
 		return result.Error
 	}
-	return db.Model(&setup).Updates(map[string]interface{}{
+	err := db.Model(&setup).Updates(map[string]interface{}{
 		"setup_value":     value,
 		"setup_type":      typ,
 		"setup_edit_time": database.Now(),
 	}).Error
+	if err == nil {
+		invalidateSetupServiceCache()
+	}
+	return err
 }
 
 func SetContentSetup(key, value, addIP string) error {
@@ -67,10 +81,18 @@ func SetContentSetupContext(ctx context.Context, key, value, addIP string) error
 			Value:   value,
 			AddTime: database.Now(),
 		}
-		return db.Create(&setup).Error
+		err := db.Create(&setup).Error
+		if err == nil {
+			invalidateSetupServiceCache()
+		}
+		return err
 	}
 	if result.Error != nil {
 		return result.Error
 	}
-	return db.Model(&setup).Update("setup_value", value).Error
+	err := db.Model(&setup).Update("setup_value", value).Error
+	if err == nil {
+		invalidateSetupServiceCache()
+	}
+	return err
 }

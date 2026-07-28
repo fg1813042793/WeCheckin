@@ -1,6 +1,10 @@
 package media
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestFullURLKeepsAbsoluteURL(t *testing.T) {
 	if got := FullURL("https://example.com/a.png", "https://cdn.local"); got != "https://example.com/a.png" {
@@ -25,5 +29,15 @@ func TestFullURLHandlesEmptyPath(t *testing.T) {
 func TestStaticDomainUsesDefaultWhenDatabaseUnavailable(t *testing.T) {
 	if got := StaticDomain(); got == "" {
 		t.Fatalf("StaticDomain should return a fallback when database is unavailable")
+	}
+}
+
+func TestStaticDomainUsesQueryContext(t *testing.T) {
+	src, err := os.ReadFile("static.go")
+	if err != nil {
+		t.Fatalf("read static.go: %v", err)
+	}
+	if strings.Contains(string(src), "database.DB.") {
+		t.Fatalf("StaticDomain must use database.WithContext instead of direct database.DB calls")
 	}
 }

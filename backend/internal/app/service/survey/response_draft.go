@@ -1,6 +1,7 @@
 package survey
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -10,7 +11,11 @@ import (
 
 // SaveDraft 暂存草稿
 func (r *ResponseService) SaveDraft(surveyID uint, userID uint, answers map[string]interface{}) (*model.SurveyResponse, error) {
-	sv, err := r.Survey.Get(surveyID)
+	return r.SaveDraftContext(context.Background(), surveyID, userID, answers)
+}
+
+func (r *ResponseService) SaveDraftContext(ctx context.Context, surveyID uint, userID uint, answers map[string]interface{}) (*model.SurveyResponse, error) {
+	sv, err := r.Survey.GetContext(ctx, surveyID)
 	if err != nil {
 		return nil, err
 	}
@@ -23,6 +28,10 @@ func (r *ResponseService) SaveDraft(surveyID uint, userID uint, answers map[stri
 		Status:   0,
 		AddTime:  now,
 	}
-	database.DB.Create(resp)
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	if err := db.Create(resp).Error; err != nil {
+		return nil, err
+	}
 	return resp, nil
 }

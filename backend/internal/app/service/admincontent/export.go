@@ -1,6 +1,7 @@
 package admincontent
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"os"
@@ -22,24 +23,44 @@ func DeleteEnrollJoinDataExcel(enrollID string) error {
 }
 
 func ExportEnrollJoinDataExcel(enrollID, startDay, endDay string) (string, error) {
+	return ExportEnrollJoinDataExcelContext(context.Background(), enrollID, startDay, endDay)
+}
+
+func ExportEnrollJoinDataExcelContext(ctx context.Context, enrollID, startDay, endDay string) (string, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var joins []model.EnrollJoin
-	queryBuilder := database.DB.Where("`enroll_join_enroll_id` = ?", enrollID)
+	queryBuilder := db.Where("`enroll_join_enroll_id` = ?", enrollID)
 	if startDay != "" {
 		queryBuilder = queryBuilder.Where("`enroll_join_day` >= ?", startDay)
 	}
 	if endDay != "" {
 		queryBuilder = queryBuilder.Where("`enroll_join_day` <= ?", endDay)
 	}
-	queryBuilder.Order("`enroll_join_add_time` DESC").Find(&joins)
+	if err := queryBuilder.Order("`enroll_join_add_time` DESC").Find(&joins).Error; err != nil {
+		return "", err
+	}
 
 	var enroll model.Enroll
-	database.DB.Where("`id` = ?", enrollID).First(&enroll)
+	if err := db.Where("`id` = ?", enrollID).First(&enroll).Error; err != nil {
+		return "", err
+	}
 
-	userNames := map[string]string{}
+	userIDs := make([]string, 0, len(joins))
+	for _, join := range joins {
+		userIDs = append(userIDs, join.UserID)
+	}
 	var users []model.User
-	database.DB.Find(&users)
-	for _, u := range users {
-		userNames[u.MiniOpenID] = u.Name
+	if len(userIDs) > 0 {
+		if err := db.Select("user_mini_openid", "user_name").
+			Where("`user_mini_openid` IN ?", uniqueNonEmptyStrings(userIDs)).
+			Find(&users).Error; err != nil {
+			return "", err
+		}
+	}
+	userNames := make(map[string]string, len(users))
+	for _, user := range users {
+		userNames[user.MiniOpenID] = user.Name
 	}
 
 	filename := fmt.Sprintf("export_enroll_%s.csv", enrollID)

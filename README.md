@@ -8,10 +8,12 @@
 WeCheckin/
 ├── backend/                 # Go 后端服务
 │   ├── cmd/main.go          # 服务入口
+│   ├── cmd/maintenance/     # 初始化/迁移维护入口
 │   ├── config/              # 运行配置，默认端口 8083
 │   ├── internal/            # 业务模块、模型、处理器、中间件
 │   ├── docs/swagger/        # Swagger 文档产物
-│   ├── scripts/             # 数据和迁移脚本
+│   ├── migrations/          # 版本化 SQL 迁移
+│   ├── scripts/             # 数据和运维脚本
 │   ├── Dockerfile
 │   └── docker-compose.yml
 ├── admin/                   # PC 管理台，Vue 3 + Vite + Element Plus
@@ -29,6 +31,7 @@ WeCheckin/
 │   └── package.json
 ├── docs/                    # 使用和调试文档
 ├── openspec/                # 规格驱动变更记录
+├── scripts/                 # 本地质量门禁和部署配置检查
 ├── go.mod                   # 后端 Go module
 └── README.md
 ```
@@ -75,9 +78,16 @@ WeCheckin/
 
 默认配置文件位于 `backend/config/config.yaml`，默认监听端口为 `8083`。
 
+首次部署或版本升级需要先执行一次初始化/迁移脚本。脚本会按 `backend/migrations` 文件名顺序执行 SQL，并通过 `schema_migrations` 记录已执行任务，重复执行时会自动跳过历史任务。
+
 ```bash
 cd backend
-go mod tidy
+bash init.sh
+```
+
+```bash
+cd backend
+go mod download
 go run ./cmd
 ```
 
@@ -139,6 +149,7 @@ npm run build:mp-weixin
 - `backend/config/config.example.yaml`：安全示例配置，适合复制为新环境的起点。
 - `frontend/config/index.js`：uni-app 客户端 API 地址、版本和缓存配置。
 - `admin/vite.config.ts`：管理台开发代理配置。
+- `docs/API_V2.md`：当前 `/api/v2` RESTful 接口、调用入口和 Swagger 更新说明。
 
 uni-app 客户端默认读取 `frontend/.env` 中的 `VITE_API_BASE_URL` 作为后端 API 地址。可以复制 `frontend/.env.example` 为 `frontend/.env` 后按环境修改：
 
@@ -171,11 +182,10 @@ go run ./cmd
 - `WECHECKIN_REDIS_PASSWORD`
 - `WECHECKIN_REDIS_DB`
 - `WECHECKIN_CORS_ALLOW_ORIGINS`
-- `WECHECKIN_AUTO_MIGRATE`
 
 `WECHECKIN_CORS_ALLOW_ORIGINS`、`WECHECKIN_CORS_ALLOW_METHODS` 和 `WECHECKIN_CORS_ALLOW_HEADERS` 使用英文逗号分隔多个值。
 
-后端启动时默认会执行 GORM AutoMigrate，并初始化部分系统配置和菜单数据。生产环境如需关闭启动迁移，可设置 `WECHECKIN_AUTO_MIGRATE=false`，再使用单独迁移流程管理数据库结构。
+后端主服务启动不再执行 GORM AutoMigrate、版本化迁移或种子数据。需要补齐表结构、权限菜单或基础配置时，统一在维护窗口执行 `backend/init.sh`。
 
 密码写入已使用 bcrypt。历史 MD5 密码仍可登录，登录成功后会自动升级为 bcrypt 哈希。
 
@@ -188,6 +198,25 @@ http://localhost:8083/ready
 
 用户扩展表单字段通过 `setups` 表中的 `SETUP_USER_FORM_FIELDS` 配置项保存。后端启动不会清理旧 `user_form_fields` 表；如需迁移历史数据，应使用单独迁移脚本处理。
 
+## API v2
+
+当前 PC 管理后台、uni-app 客户端和 uni-app 移动端管理页已迁移到 `/api/v2`：
+
+- 客户端接口：`/api/v2`
+- 后台管理接口：`/api/v2/admin`
+- 前端调用入口：`admin/src/api/index.ts`、`frontend/api/index.js`、`frontend/api/admin.js`
+
+旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等路径仍保留兼容历史页面和小程序旧代码。新增接口和新增页面应使用 v2 路由，并同步更新 Swagger。
+
+详见：[API v2 接口说明](docs/API_V2.md)。
+
+Swagger 重新生成命令：
+
+```bash
+cd backend
+swag init -g cmd/main.go --output docs/swagger
+```
+
 ## 测试
 
 推荐使用项目级检查脚本验证当前关键回归检查：
@@ -199,8 +228,8 @@ bash scripts/check.sh
 该脚本会使用项目内 `.cache/go-build` 作为 Go 构建缓存，并在结束时自动清理 `.cache/`。默认覆盖范围包括：
 
 - 后端启动入口、Token、handler、service、配置和 formkit 测试。
-- uni-app 客户端 API 配置、请求层、登录态、生产日志和 FormRender 逻辑静态检查。
-- 管理后台请求层、导航配置和 Vite 构建分包静态检查。
+- uni-app 客户端 API 配置、v2 接口迁移、请求层、登录态、生产日志和 FormRender 逻辑静态检查。
+- 管理后台 v2 接口迁移、请求层、导航配置、基础 UI 壳、用户列表、图标运行时和 Vite 构建分包静态检查。
 
 如需在同一条命令中追加构建验证，可以使用以下开关：
 
@@ -218,11 +247,22 @@ CHECK_BUILDS=1 bash scripts/check.sh
 GOCACHE=$PWD/.cache/go-build go test ./backend/internal/app/formkit/...
 ```
 
+如需覆盖当前所有稳定检查，建议使用：
+
+```bash
+bash scripts/verify-local.sh
+```
+
 ## 文档
 
 - [中文部署和排障指南](docs/DEPLOYMENT_TROUBLESHOOTING.md)
+- [单点 MySQL 部署兼容升级说明](docs/SINGLE_NODE_MYSQL_UPGRADE.md)
+- [API v2 接口说明](docs/API_V2.md)
 - [HBuilderX Android 调试指南](docs/HBUILDER_DEBUG.md)
 - [测试数据说明](docs/TEST_DATA.md)
+- [项目维护说明](docs/project-maintenance.md)
+- [后端 DTO 与 Context 规范](docs/backend-dto-context-guidelines.md)
+- [后端版本化迁移说明](backend/migrations/README.md)
 - `docs/CC打卡小程序安装使用手册.docx`
 
 ## 部署
@@ -230,6 +270,7 @@ GOCACHE=$PWD/.cache/go-build go test ./backend/internal/app/formkit/...
 完整部署步骤、环境变量清单、Nginx 示例和常见问题请查看：
 
 - [中文部署和排障指南](docs/DEPLOYMENT_TROUBLESHOOTING.md)
+- [单点 MySQL 部署兼容升级说明](docs/SINGLE_NODE_MYSQL_UPGRADE.md)
 
 后端提供 Dockerfile 和 docker-compose 示例，可作为容器化部署起点：
 
@@ -239,7 +280,9 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-Dockerfile、Compose 和 Nginx 示例已统一到后端端口 `8083`。`backend/.env.example` 提供 Docker 部署环境变量样板，复制为 `.env` 后必须修改 MySQL、Redis 密码、域名、CORS 和迁移开关。
+Dockerfile、Compose 和 Nginx 示例已统一到后端端口 `8083`。`backend/.env.example` 提供 Docker 部署环境变量样板，复制为 `.env` 后必须修改 MySQL、Redis 密码、域名和 CORS。
+
+已有 MySQL 单点部署升级时，接口层兼容 `/api/v2` 和旧路径，但数据库结构升级仍建议先备份，并在备份库或维护窗口执行 `backend/init.sh`。迁移完成后，常态运行只启动服务，不再夹带初始化任务。
 
 Docker Compose 中 MySQL、Redis、后端和 Nginx 均配置了 healthcheck，backend 依赖 MySQL/Redis healthy，Nginx 依赖 backend healthy。该配置依赖 Docker Compose v2 的 `condition: service_healthy`。
 

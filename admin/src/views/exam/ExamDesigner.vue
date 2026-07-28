@@ -129,7 +129,7 @@
                       <div class="appearance-overlay"><span>点击应用</span></div>
                       <button class="appearance-remove" @click.stop="removeResource('backgroundImages', item, i)">✕</button>
                     </div>
-                    <el-upload :action="`/admin/exam/resource_upload`" :show-file-list="false" :on-success="handleBgSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ examId: form.id, resType: 'bg' }" :before-upload="checkSaved">
+                    <el-upload :action="`/api/v2/admin/exam-resources`" :show-file-list="false" :on-success="handleBgSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ examId: form.id, resType: 'bg' }" :before-upload="checkSaved">
                       <div class="appearance-add">+</div>
                     </el-upload>
                   </div>
@@ -142,7 +142,7 @@
                       <div class="appearance-overlay"><span>点击应用</span></div>
                       <button class="appearance-remove" @click.stop="removeResource('headerImages', item, i)">✕</button>
                     </div>
-                    <el-upload :action="`/admin/exam/resource_upload`" :show-file-list="false" :on-success="handleHeaderSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ examId: form.id, resType: 'header' }" :before-upload="checkSaved">
+                    <el-upload :action="`/api/v2/admin/exam-resources`" :show-file-list="false" :on-success="handleHeaderSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="uploadHeaders" accept="image/*" :data="{ examId: form.id, resType: 'header' }" :before-upload="checkSaved">
                       <div class="appearance-add">+</div>
                     </el-upload>
                   </div>

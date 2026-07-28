@@ -2200,6 +2200,27 @@ paths:
       summary: 更新通知公告图片
       tags:
       - PC端-通知公告
+  /admin/news_vouch:
+    post:
+      parameters:
+      - description: 通知公告ID
+        in: formData
+        name: id
+        required: true
+        type: string
+      - description: 推荐(1=推荐 0=取消)
+        in: formData
+        name: vouch
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 设置通知公告推荐
+      tags:
+      - PC端-通知公告
   /admin/role/add:
     post:
       parameters:
@@ -2220,9 +2241,13 @@ paths:
         in: formData
         name: dataScope
         type: integer
-      - description: 菜单ID列表(逗号分隔)
+      - description: 后台权限编码列表(逗号分隔)
         in: formData
-        name: menuIds
+        name: adminPermissionKeys
+        type: string
+      - description: 后台接口权限编码列表(逗号分隔)
+        in: formData
+        name: adminApiPermissionKeys
         type: string
       - description: 部门ID列表(逗号分隔)
         in: formData
@@ -2297,9 +2322,13 @@ paths:
         in: formData
         name: dataScope
         type: integer
-      - description: 菜单ID列表(逗号分隔)
+      - description: 后台权限编码列表(逗号分隔)
         in: formData
-        name: menuIds
+        name: adminPermissionKeys
+        type: string
+      - description: 后台接口权限编码列表(逗号分隔)
+        in: formData
+        name: adminApiPermissionKeys
         type: string
       - description: 部门ID列表(逗号分隔)
         in: formData
@@ -2943,6 +2972,10 @@ paths:
         in: formData
         name: mobile
         type: string
+      - description: 岗位ID
+        in: formData
+        name: positionId
+        type: string
       - description: 头像URL
         in: formData
         name: pic
@@ -3053,6 +3086,10 @@ paths:
         in: formData
         name: mobile
         type: string
+      - description: 岗位ID
+        in: formData
+        name: positionId
+        type: string
       - description: 头像URL
         in: formData
         name: pic
@@ -3139,6 +3176,3502 @@ paths:
       summary: 设置用户状态
       tags:
       - PC端-用户管理
+  /api/v2/admin/admin-sessions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/admin-sessions
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/admin-sessions/{id}/force-offline:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/admin-sessions/{id}/force-offline
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/admin-sessions/batch-force-offline:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/admin-sessions/batch-force-offline
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/auth/login:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/admin/auth/login
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/auth/logout:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/auth/logout
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/departments:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/departments
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/departments/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/departments/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/departments/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/departments/tree:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/departments/tree
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/dict/items:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/dict/items
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/dict/items
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/dict/items/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/dict/items/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/dict/items/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/dict/types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/dict/types
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/dict/types/{typeCode}:
+    patch:
+      parameters:
+      - description: typeCode
+        in: path
+        name: typeCode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/dict/types/{typeCode}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/dict/types/{typeCode}/items:
+    delete:
+      parameters:
+      - description: typeCode
+        in: path
+        name: typeCode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/dict/types/{typeCode}/items
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/enrollments
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/enrollments
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/enrollments/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/enrollments/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/clear:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/enrollments/{id}/clear
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/export:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments/{id}/export
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/enrollments/{id}/export
+      tags:
+      - API v2-后台管理
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/enrollments/{id}/export
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/forms:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/enrollments/{id}/forms
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/joins:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments/{id}/joins
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/enrollments/{id}/joins
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/joins/{joinId}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: joinId
+        in: path
+        name: joinId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments/{id}/joins/{joinId}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/recommendation:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/enrollments/{id}/recommendation
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/sort:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/enrollments/{id}/sort
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/stats:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/enrollments/{id}/stats
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/enrollments/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/users:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments/{id}/users
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/enrollments/{id}/users
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/users/{userId}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: userId
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/enrollments/{id}/users/{userId}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/enrollments/{id}/users/{userId}/forms:
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: userId
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/enrollments/{id}/users/{userId}/forms
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/event-dept-users:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/event-dept-users
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/events
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/events
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/events
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/events/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/events/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/events/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/dynamics:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/events/{id}/dynamics
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/events/{id}/dynamics
+      tags:
+      - API v2-后台管理
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/events/{id}/dynamics
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/dynamics/{dynamicId}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: dynamicId
+        in: path
+        name: dynamicId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/events/{id}/dynamics/{dynamicId}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: dynamicId
+        in: path
+        name: dynamicId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/events/{id}/dynamics/{dynamicId}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/participants:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/events/{id}/participants
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/events/{id}/participants
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/participants/{participantId}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: participantId
+        in: path
+        name: participantId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/events/{id}/participants/{participantId}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: participantId
+        in: path
+        name: participantId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/events/{id}/participants/{participantId}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/recommendation:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/events/{id}/recommendation
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/scores:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/events/{id}/scores
+      tags:
+      - API v2-后台管理
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/events/{id}/scores
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/scores/{scoreId}:
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: scoreId
+        in: path
+        name: scoreId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/events/{id}/scores/{scoreId}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/events/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/events/{id}/top:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/events/{id}/top
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exam-question-bank:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exam-question-bank
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/exam-question-bank
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exam-question-bank/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/exam-question-bank/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/exam-question-bank/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exam-question-bank/categories:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exam-question-bank/categories
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exam-resources:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/exam-resources
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exam-resources/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/exam-resources/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exams
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/exams
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/exams/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exams/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/exams/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams/{id}/records:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/exams/{id}/records
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exams/{id}/records
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams/{id}/records/{recordId}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: recordId
+        in: path
+        name: recordId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/exams/{id}/records/{recordId}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: recordId
+        in: path
+        name: recordId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exams/{id}/records/{recordId}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams/{id}/resources:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exams/{id}/resources
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams/{id}/statistics:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/exams/{id}/statistics
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/exams/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/exams/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/home:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/home
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/home/recommendations:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/home/recommendations
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/logs:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/logs
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/logs
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/managers:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/managers
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/managers
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/managers
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/managers/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/managers/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/managers/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/managers/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/managers/{id}/password:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/managers/{id}/password
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/managers/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/managers/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/me/menus:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/me/menus
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/me/password:
+    patch:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/me/password
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/me/perms:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/me/perms
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/news
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/news
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/news
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/news/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/news/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/news/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}/content:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/news/{id}/content
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}/forms:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/news/{id}/forms
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}/picture:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/news/{id}/picture
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}/recommendation:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/news/{id}/recommendation
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}/sort:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/news/{id}/sort
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/news/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/news/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/permissions:
+    get:
+      parameters:
+      - description: 平台
+        in: query
+        name: platform
+        type: string
+      - description: 权限类型，逗号分隔
+        in: query
+        name: types
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/permissions
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/permissions
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/permissions/{key}:
+    delete:
+      parameters:
+      - description: 权限编码
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/permissions/{key}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: 权限编码
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/permissions/{key}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/permissions/tree:
+    get:
+      parameters:
+      - description: 平台
+        in: query
+        name: platform
+        type: string
+      - description: 权限类型，逗号分隔
+        in: query
+        name: types
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/permissions/tree
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/roles:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/roles
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/roles
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/roles
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/roles/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/roles/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/roles/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/roles/application-permissions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 获取应用菜单权限树
+      tags:
+      - PC端-角色管理
+  /api/v2/admin/settings:
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/settings
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/settings/content:
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/settings/content
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/settings/debug-token:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/settings/debug-token
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/settings/mini-qr:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/settings/mini-qr
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-channels/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/survey-channels/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-expressions/evaluate:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/survey-expressions/evaluate
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-notifications:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-notifications
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-notifications/{id}/read:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/survey-notifications/{id}/read
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-notifications/unread-count:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-notifications/unread-count
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-question-bank:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-question-bank
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/survey-question-bank
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-question-bank/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/survey-question-bank/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/survey-question-bank/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-question-bank/categories:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-question-bank/categories
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-report/enroll:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-report/enroll
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-report/enroll/export:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-report/enroll/export
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-report/event:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-report/event
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-report/event/export:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-report/event/export
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-report/survey:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-report/survey
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-report/survey/export:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-report/survey/export
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-resources:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/survey-resources
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-resources/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/survey-resources/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-responses:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/survey-responses
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-responses/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/survey-responses/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-responses/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-schema/parse:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/survey-schema/parse
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-template-presets:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-template-presets
+      tags:
+      - API v2-后台管理
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/survey-template-presets
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/survey-types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/survey-types
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/surveys
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/surveys/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/surveys/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/channels:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys/{id}/channels
+      tags:
+      - API v2-后台管理
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/surveys/{id}/channels
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/copy:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/surveys/{id}/copy
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/resources:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys/{id}/resources
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/responses:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys/{id}/responses
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/responses/export:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys/{id}/responses/export
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/statistics:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/surveys/{id}/statistics
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/surveys/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/surveys/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/user-sessions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/user-sessions
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/user-sessions/{id}/force-offline:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/user-sessions/{id}/force-offline
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/user-sessions/batch-force-offline:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/user-sessions/batch-force-offline
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/users
+      tags:
+      - API v2-后台管理
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/users
+      tags:
+      - API v2-后台管理
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/users
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/users/{id}
+      tags:
+      - API v2-后台管理
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/users/{id}
+      tags:
+      - API v2-后台管理
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/users/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/{id}/password:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/users/{id}/password
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/{id}/status:
+    patch:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 变更 /api/v2/admin/users/{id}/status
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/by-openid/{openid}:
+    get:
+      parameters:
+      - description: openid
+        in: path
+        name: openid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/users/by-openid/{openid}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/data:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/users/data
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/data/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/users/data/{id}
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/data/export:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/users/data/export
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/users/form-fields:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询 /api/v2/admin/users/form-fields
+      tags:
+      - API v2-后台管理
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新 /api/v2/admin/users/form-fields
+      tags:
+      - API v2-后台管理
+  /api/v2/auth/login:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/auth/login
+      tags:
+      - API v2-公开接口
+  /api/v2/auth/password-login:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/auth/password-login
+      tags:
+      - API v2-公开接口
+  /api/v2/auth/register:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/auth/register
+      tags:
+      - API v2-公开接口
+  /api/v2/dict/items:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/dict/items
+      tags:
+      - API v2-公开接口
+  /api/v2/dict/types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/dict/types
+      tags:
+      - API v2-公开接口
+  /api/v2/enrollments:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/enrollments
+      tags:
+      - API v2-客户端
+  /api/v2/enrollments/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/enrollments/{id}
+      tags:
+      - API v2-客户端
+  /api/v2/enrollments/{id}/join-days:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/enrollments/{id}/join-days
+      tags:
+      - API v2-客户端
+  /api/v2/enrollments/{id}/joins:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/enrollments/{id}/joins
+      tags:
+      - API v2-客户端
+  /api/v2/enrollments/{id}/submissions:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/enrollments/{id}/submissions
+      tags:
+      - API v2-客户端
+  /api/v2/events:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/events
+      tags:
+      - API v2-公开接口
+  /api/v2/events/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/events/{id}
+      tags:
+      - API v2-公开接口
+  /api/v2/events/{id}/dynamics:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/events/{id}/dynamics
+      tags:
+      - API v2-客户端
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/events/{id}/dynamics
+      tags:
+      - API v2-客户端
+  /api/v2/events/{id}/participants:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/events/{id}/participants
+      tags:
+      - API v2-客户端
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/events/{id}/participants
+      tags:
+      - API v2-客户端
+  /api/v2/events/{id}/scores:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/events/{id}/scores
+      tags:
+      - API v2-客户端
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/events/{id}/scores
+      tags:
+      - API v2-客户端
+  /api/v2/exam-records/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/exam-records/{id}
+      tags:
+      - API v2-客户端
+  /api/v2/exam-records/{id}/answers:
+    put:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 更新 /api/v2/exam-records/{id}/answers
+      tags:
+      - API v2-客户端
+  /api/v2/exam-results:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/exam-results
+      tags:
+      - API v2-公开接口
+  /api/v2/exams:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/exams
+      tags:
+      - API v2-公开接口
+  /api/v2/exams/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/exams/{id}
+      tags:
+      - API v2-公开接口
+  /api/v2/exams/{id}/start:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/exams/{id}/start
+      tags:
+      - API v2-客户端
+  /api/v2/exams/{id}/submissions:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/exams/{id}/submissions
+      tags:
+      - API v2-公开接口
+  /api/v2/exams/{id}/validation:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/exams/{id}/validation
+      tags:
+      - API v2-公开接口
+  /api/v2/geo/reverse:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/geo/reverse
+      tags:
+      - API v2-公开接口
+  /api/v2/home:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/home
+      tags:
+      - API v2-公开接口
+  /api/v2/home/setup:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/home/setup
+      tags:
+      - API v2-公开接口
+  /api/v2/me:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me
+      tags:
+      - API v2-客户端
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 更新 /api/v2/me
+      tags:
+      - API v2-客户端
+  /api/v2/me/enrollment-calendar:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/enrollment-calendar
+      tags:
+      - API v2-客户端
+  /api/v2/me/enrollment-day-records:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/enrollment-day-records
+      tags:
+      - API v2-客户端
+  /api/v2/me/enrollment-records:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/enrollment-records
+      tags:
+      - API v2-客户端
+  /api/v2/me/enrollment-users:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/enrollment-users
+      tags:
+      - API v2-客户端
+  /api/v2/me/enrollments:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/enrollments
+      tags:
+      - API v2-客户端
+  /api/v2/me/event-roles:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/event-roles
+      tags:
+      - API v2-客户端
+  /api/v2/me/events:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/events
+      tags:
+      - API v2-客户端
+  /api/v2/me/exam-records:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/exam-records
+      tags:
+      - API v2-客户端
+  /api/v2/me/favorites:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/favorites
+      tags:
+      - API v2-客户端
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/me/favorites
+      tags:
+      - API v2-客户端
+  /api/v2/me/favorites/{oid}:
+    delete:
+      parameters:
+      - description: oid
+        in: path
+        name: oid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 删除 /api/v2/me/favorites/{oid}
+      tags:
+      - API v2-客户端
+  /api/v2/me/favorites/check:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/favorites/check
+      tags:
+      - API v2-客户端
+  /api/v2/me/logout:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/me/logout
+      tags:
+      - API v2-客户端
+  /api/v2/me/managed-events:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/managed-events
+      tags:
+      - API v2-客户端
+  /api/v2/me/phone:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 提交 /api/v2/me/phone
+      tags:
+      - API v2-客户端
+  /api/v2/me/survey-responses:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/survey-responses
+      tags:
+      - API v2-客户端
+  /api/v2/me/survey-responses/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/me/survey-responses/{id}
+      tags:
+      - API v2-客户端
+  /api/v2/news:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/news
+      tags:
+      - API v2-客户端
+  /api/v2/news/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/news/{id}
+      tags:
+      - API v2-客户端
+  /api/v2/news/categories:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 /api/v2/news/categories
+      tags:
+      - API v2-客户端
+  /api/v2/survey/apply:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/survey/apply
+      tags:
+      - API v2-公开接口
+  /api/v2/survey/validate:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/survey/validate
+      tags:
+      - API v2-公开接口
+  /api/v2/surveys:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/surveys
+      tags:
+      - API v2-公开接口
+  /api/v2/surveys/{id}:
+    get:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/surveys/{id}
+      tags:
+      - API v2-公开接口
+  /api/v2/surveys/{id}/responses:
+    post:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 提交 /api/v2/surveys/{id}/responses
+      tags:
+      - API v2-公开接口
+  /api/v2/user-form-fields:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      summary: 查询 /api/v2/user-form-fields
+      tags:
+      - API v2-公开接口
   /enroll/enroll_submit:
     post:
       parameters:

@@ -1,5 +1,5 @@
 <template>
-  <view class="survey">
+  <view class="survey" :class="{ 'survey--with-progress': settings.progressBar && !loading && survey }">
     <view v-if="settings.progressBar && !loading && survey" class="survey-progress">
       <view class="survey-progress-inner">
         <view class="survey-progress-track"><view class="survey-progress-fill" :style="{ width: progressPct + '%' }" /></view>
@@ -100,6 +100,18 @@
         <view class="survey-sheet-stat">{{ answeredCount }}/{{ totalQuestions }}</view>
       </view>
     </view>
+
+    <view v-if="backLeaveDialogVisible" class="survey-leave-mask" @click.stop>
+      <view class="survey-leave-dialog" @click.stop>
+        <text class="survey-leave-title">是否提交问卷？</text>
+        <text class="survey-leave-desc">倒计时仍在进行，当前已完成 {{ answeredCount }}/{{ totalQuestions }} 道题。你可以继续填写、立即提交，或放弃本次填写。</text>
+        <view class="survey-leave-actions">
+          <view class="survey-leave-btn" @click="closeBackLeaveDialog">继续填写</view>
+          <view class="survey-leave-btn survey-leave-btn--primary" @click="submitFromBackPrompt">提交问卷</view>
+          <view class="survey-leave-btn survey-leave-btn--danger" @click="abandonTimedSurvey">放弃填写</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -107,8 +119,15 @@
 import { surveyApi } from '../../api/index'
 import QuestionField from '../../components/survey/QuestionField.vue'
 import { evaluateFrontendRules } from '../../utils/logicEngine'
-
-const LAYOUT_TYPES = ['description', 'divider', 'pagination']
+import {
+  LAYOUT_TYPES,
+  formatRemainingTime,
+  getAnswerProgress,
+  getQuestionInitialValue,
+  isQuestionAnswered,
+  parseQuestions,
+  parseSettings
+} from '../../utils/formFill'
 
 export default {
   components: { QuestionField },
@@ -141,14 +160,17 @@ export default {
       swipeStartX: 0,
       swipeStartY: 0,
       isSigOpen: false,
+      backLeaveDialogVisible: false,
+      abandoning: false,
       hiddenIds: [],
       logicRules: []
     }
   },
   computed: {
-    totalQuestions() { return this.realQuestions.length },
-    answeredCount() { return this.realQuestions.filter(q => this.isAnswered(q, this.answers[q.id])).length },
-    progressPct() { return this.totalQuestions ? Math.round(this.answeredCount / this.totalQuestions * 100) : 0 },
+    answerProgress() { return getAnswerProgress(this.questions, this.answers, { hiddenIds: this.hiddenIds }) },
+    totalQuestions() { return this.answerProgress.total },
+    answeredCount() { return this.answerProgress.answered },
+    progressPct() { return this.answerProgress.percent },
     realQuestions() { return (this.questions || []).filter(q => !LAYOUT_TYPES.includes(q.type) && this.hiddenIds.indexOf(q.id) < 0) },
     isLast() { return this.currentQIndex >= this.totalQuestions - 1 },
     currentQuestion() { return this.settings.onePageOneQuestion ? (this.realQuestions[this.currentQIndex] || null) : null },
@@ -168,8 +190,8 @@ export default {
     this.load()
   },
   onUnload() {
-    if (this.timer) { clearInterval(this.timer); this.timer = null }
-    if (this.autoSaveTimer) { clearTimeout(this.autoSaveTimer); this.saveToStorage() }
+    this.stopCountdown()
+    this.stopAutoSave(!this.abandoning)
   },
   onPullDownRefresh() {
     if (this.surveyId) {
@@ -177,6 +199,14 @@ export default {
     } else {
       uni.stopPullDownRefresh()
     }
+  },
+  onBackPress() {
+    if (this.backLeaveDialogVisible) return true
+    if (this.shouldConfirmTimedLeave()) {
+      this.backLeaveDialogVisible = true
+      return true
+    }
+    return false
   },
   methods: {
     async load() {
@@ -186,16 +216,13 @@ export default {
         const res = await surveyApi.getDetail({ id: this.surveyId, session: this.session })
         if (res.code !== 0) { this.error = res.msg || '加载失败'; this.loading = false; return }
         this.survey = res.data
-        const rawSettings = res.data?.settings
-        this.settings = rawSettings ? (typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings) : {}
+        this.settings = parseSettings(res.data?.settings)
         const rawRules = this.settings.logicRules
         if (rawRules) {
           if (typeof rawRules === 'string') { try { this.logicRules = JSON.parse(rawRules) } catch { this.logicRules = [] } }
           else if (Array.isArray(rawRules)) this.logicRules = rawRules
         }
-        const raw = res.data?.schema
-        const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
-        this.questions = sch.questions || []
+        this.questions = parseQuestions(res.data?.schema)
         const init = {}
         this.questions.forEach(q => { init[q.id] = this.getInitVal(q) })
         if (this.settings.autoSave) {
@@ -215,40 +242,28 @@ export default {
       } finally { this.loading = false }
     },
 
+    shouldConfirmTimedLeave() {
+      return !!(
+        this.survey &&
+        !this.loading &&
+        !this.submitted &&
+        !this.submitting &&
+        !this.abandoning &&
+        this.settings?.timeLimit &&
+        this.remaining > 0
+      )
+    },
+
+    closeBackLeaveDialog() {
+      this.backLeaveDialogVisible = false
+    },
+
     getInitVal(q) {
-      const type = q.type
-      if (type === 'checkbox') return []
-      if (type === 'switch') return false
-      if (type === 'rating') return 0
-      if (type === 'nps') return 0
-      if (type === 'dateRange') return ['', '']
-      if (['matrixRadio','matrixCheckbox','matrixFillBlank'].includes(type)) return {}
-      if (type === 'matrixAuto') return []
-      if (['multiInput','hInput'].includes(type)) return (q.props?.fields||[]).map(() => '')
-      if (['user','dept'].includes(type)) return q.multiple ? [] : ''
-      if (['cascade'].includes(type)) return []
-      if (type === 'picker') return ''
-      if (type === 'file') return []
-      return ''
+      return getQuestionInitialValue(q)
     },
 
     isAnswered(q, val) {
-      const type = q.type
-      if (val === undefined || val === null) return false
-      if (type === 'checkbox') return Array.isArray(val) && val.length > 0
-      if (type === 'file') return typeof val === 'string' ? !!val : (Array.isArray(val) && val.length > 0)
-      if (['rating', 'nps'].includes(type)) return val > 0
-      if (['multiInput', 'hInput'].includes(type)) return Array.isArray(val) && val.some(v => !!v)
-      if (type === 'matrixRadio') return Object.keys(val).length > 0
-      if (type === 'matrixCheckbox') return Object.values(val).some(v => Array.isArray(v) && v.length > 0)
-      if (type === 'matrixFillBlank') return Object.values(val).some(v => !!v)
-      if (type === 'matrixAuto') return Array.isArray(val) && val.some(row => row.some(v => !!v))
-      if (type === 'dateRange') return Array.isArray(val) && val.some(v => !!v)
-      if (type === 'switch') return val === true
-      if (type === 'cascade') return Array.isArray(val) && val.length > 0
-      if (['user', 'dept'].includes(type)) return q.multiple ? (Array.isArray(val) && val.length > 0) : !!val
-      if (type === 'picker') return !!val
-      return !!val
+      return isQuestionAnswered(q, val)
     },
 
     reevaluateRules() {
@@ -268,9 +283,16 @@ export default {
       if (!this.settings.autoSave) return
       if (this.autoSaveTimer) { clearTimeout(this.autoSaveTimer); this.autoSaveTimer = null }
       this.autoSaveTimer = setTimeout(() => {
-        this.saveToStorage()
         this.autoSaveTimer = null
+        if (this.abandoning) return
+        this.saveToStorage()
       }, 800)
+    },
+    stopAutoSave(flushPending = false) {
+      if (!this.autoSaveTimer) return
+      clearTimeout(this.autoSaveTimer)
+      this.autoSaveTimer = null
+      if (flushPending && !this.abandoning) this.saveToStorage()
     },
     saveToStorage() {
       try {
@@ -306,9 +328,7 @@ export default {
     },
 
     formatRemaining(ms) {
-      if (ms <= 0) return '已超时'
-      const t = Math.ceil(ms / 1000)
-      return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`
+      return formatRemainingTime(ms)
     },
 
     startCountdown() {
@@ -316,17 +336,25 @@ export default {
       const limit = this.settings.timeLimit
       if (!limit || limit <= 0 || !this.startAt) return
       const tick = () => {
+        if (this.abandoning) {
+          this.stopCountdown()
+          return
+        }
         const left = limit * 60 * 1000 - (Date.now() - this.startAt)
         this.remaining = Math.max(0, left)
         if (left <= 0) {
-          clearInterval(this.timer);
-          this.timer = null
+          this.stopCountdown()
           uni.showToast({ title: '作答时间已到，自动提交', icon: 'none' })
           this.forceSubmit()
         }
       }
       tick()
       this.timer = setInterval(tick, 1000)
+    },
+    stopCountdown() {
+      if (!this.timer) return
+      clearInterval(this.timer)
+      this.timer = null
     },
 
     openSheet() { if (!this.sheetDragging) this.showSheet = true },
@@ -398,11 +426,38 @@ export default {
         }
       })
     },
+    async submitFromBackPrompt() {
+      if (this.submitting) return
+      this.backLeaveDialogVisible = false
+      if (!this.validateRequired()) return
+      this.submitting = true
+      const deviceInfo = this.getDeviceUA()
+      try {
+        const vr = await surveyApi.validate({ surveyId: this.surveyId, answers: this.answers, device: deviceInfo, deviceId: this.getDeviceId() })
+        if (vr.data && !vr.data.valid) {
+          const msgs = (vr.data.errors || []).map(e => e.message).join('; ')
+          uni.showModal({ title: '请检查', content: msgs, showCancel: false })
+          this.submitting = false
+          return
+        }
+      } catch {}
+      await this.doSubmit(deviceInfo, false)
+    },
+    abandonTimedSurvey() {
+      this.abandoning = true
+      this.backLeaveDialogVisible = false
+      this.stopCountdown()
+      this.stopAutoSave(false)
+      this.clearStorage()
+      uni.navigateBack()
+    },
     async forceSubmit() {
+      if (this.abandoning || this.submitting || this.submitted) return
       this.submitting = true
       await this.doSubmit(this.getDeviceUA(), true)
     },
     async doSubmit(deviceInfo, isAuto) {
+      if (this.abandoning) return
       try {
         const res = await surveyApi.submit({ surveyId: this.surveyId, answers: this.answers, session: this.session, device: deviceInfo, autoSubmit: !!isAuto, deviceId: this.getDeviceId() })
         if (res.code !== 0) { uni.showToast({ title: res.msg || '提交失败', icon: 'none' }); this.submitting = false; return }
@@ -451,7 +506,8 @@ export default {
 
 <style scoped>
 .survey { min-height: 100vh; background: #f5f5f5; padding: 24rpx 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-.survey-progress { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: #fff; border-bottom: 1px solid #e8e8e8; padding: 8rpx 24rpx; }
+.survey--with-progress { padding-top: 72rpx; }
+.survey-progress { position: fixed; top: var(--window-top, 0px); left: 0; right: 0; z-index: 1000; background: #fff; border-bottom: 1px solid #e8e8e8; padding: 8rpx 24rpx; }
 .survey-progress-inner { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 12rpx; }
 .survey-progress-track { flex: 1; height: 6px; background: #e8e8e8; border-radius: 3px; overflow: hidden; }
 .survey-progress-fill { height: 100%; background: #3873f6; border-radius: 3px; transition: width .4s ease; }
@@ -506,4 +562,13 @@ export default {
 .survey-sheet-item--done { background: #eef2ff; color: #3873f6; font-weight: 500; }
 .survey-sheet-item--cur { border: 2px solid #3873f6; font-weight: 600; }
 .survey-sheet-stat { text-align: center; font-size: 24rpx; color: #909399; padding-top: 16rpx; margin-top: 16rpx; border-top: 1px solid #f0f0f0; }
+
+.survey-leave-mask { position: fixed; inset: 0; z-index: 1300; display: flex; align-items: center; justify-content: center; padding: 40rpx; background: rgba(0,0,0,.42); }
+.survey-leave-dialog { width: 620rpx; max-width: 100%; border-radius: 20rpx; background: #fff; padding: 36rpx 32rpx 28rpx; box-shadow: 0 16rpx 48rpx rgba(0,0,0,.18); }
+.survey-leave-title { display: block; font-size: 34rpx; font-weight: 600; color: #1f2937; text-align: center; margin-bottom: 18rpx; }
+.survey-leave-desc { display: block; font-size: 28rpx; line-height: 1.6; color: #606266; text-align: center; margin-bottom: 28rpx; }
+.survey-leave-actions { display: flex; gap: 16rpx; }
+.survey-leave-btn { flex: 1; min-width: 0; height: 72rpx; line-height: 72rpx; border-radius: 12rpx; background: #f3f4f6; color: #4b5563; font-size: 26rpx; text-align: center; }
+.survey-leave-btn--primary { background: #3873f6; color: #fff; }
+.survey-leave-btn--danger { background: #fff1f0; color: #f56c6c; }
 </style>

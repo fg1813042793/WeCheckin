@@ -1,9 +1,8 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="header-sticky" :style="{ top: fixedTop }">
+  <view class="container">
+    <view class="header-sticky">
       <view class="search-bar">
-        <input v-model="keyword" placeholder="搜索赛事活动" class="search-input" @confirm="handleSearch" />
-        <text class="search-btn" @click="handleSearch">搜索</text>
+        <input v-model="keyword" placeholder="搜索赛事活动" class="search-input" confirm-type="search" @confirm="handleSearch" />
       </view>
       <view class="tabs">
         <view class="tab-item" :class="{ active: cur === 'all' }" @click="switchTab('all')">全部</view>
@@ -62,23 +61,12 @@ export default {
       pageSize: 10,
       keyword: '',
       hasMore: true,
-      loading: false,
-      fixedTop: '0px',
-      containerPad: '0px'
+      loading: false
     }
   },
   onLoad() {
     // onLoad 中 loadData() 已注释，onShow 已覆盖
     // this.loadData()
-    const sys = uni.getSystemInfoSync()
-    if (sys.platform === 'android') {
-      this.fixedTop = '12rpx'
-      this.containerPad = '192rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = (navOffset + 6) + 'px'
-      this.containerPad = (navOffset + 6 + Math.round(180 / 750 * sys.windowWidth)) + 'px'
-    }
   },
 
   onShow() {
@@ -165,12 +153,10 @@ export default {
 </script>
 
 <style scoped>
-.container { min-height: 100vh; background-color: #f5f5f5; }
-.header-sticky { position: fixed; left: 0; right: 0; z-index: 10; background-color: #fff; }
-.header-sticky::before { content: ''; position: absolute; top: -12rpx; left: 0; right: 0; height: 12rpx; background-color: #f5f5f5; }
+.container { min-height: 100vh; background-color: #f5f5f5; padding-top: 192rpx; box-sizing: border-box; }
+.header-sticky { position: fixed; left: 0; right: 0; top: var(--window-top, 0px); z-index: 20; background-color: #fff; box-sizing: border-box; }
 .search-bar { display: flex; align-items: center; padding: 20rpx; }
-.search-input { flex: 1; height: 64rpx; background-color: #f5f5f5; border-radius: 32rpx; padding: 0 24rpx; font-size: 26rpx; color: #333; }
-.search-btn { font-size: 26rpx; color: #fb454c; flex-shrink: 0; margin-left: 16rpx; }
+.search-input { flex: 1; height: 70rpx; background-color: #f5f5f5; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; color: #333; }
 .tabs { display: flex; background-color: #fff; padding: 0 20rpx 20rpx; }
 .tab-item { flex: 1; text-align: center; padding: 16rpx 0; font-size: 28rpx; color: #666; position: relative; }
 .tab-item.active { color: #fb454c; font-weight: bold; }

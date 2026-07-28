@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	eventservice "wecheckin-backend/backend/internal/app/service/event"
+	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -14,12 +15,14 @@ import (
 // @Success 200 {object} response.Resp
 // @Router /admin/event_scores [get]
 func (h *AdminEventHandler) GetEventScores(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	eventID := c.Query("eventId")
 	if eventID == "" {
 		response.Fail(c, "参数错误")
 		return
 	}
-	list, err := eventservice.GetEventScores(eventID, 1, 100)
+	list, err := eventservice.GetEventScoresForAdminContext(ctx, eventID, 1, 100, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -36,6 +39,8 @@ func (h *AdminEventHandler) GetEventScores(ctx context.Context, c *app.RequestCo
 // @Success 200 {object} response.Resp
 // @Router /admin/event_score_edit [post]
 func (h *AdminEventHandler) EditEventScore(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	score := c.PostForm("score")
 	if id == "" {
@@ -45,12 +50,12 @@ func (h *AdminEventHandler) EditEventScore(ctx context.Context, c *app.RequestCo
 			response.Fail(c, "参数错误")
 			return
 		}
-		if err := eventservice.SaveEventScore(eventID, participantID, score, "admin"); err != nil {
+		if err := eventservice.SaveEventScoreForAdminContext(ctx, eventID, participantID, score, "admin", admin.ID); err != nil {
 			response.Fail(c, "保存失败")
 			return
 		}
 	} else {
-		if err := eventservice.AdminEditEventScore(id, score); err != nil {
+		if err := eventservice.AdminEditEventScoreForAdminContext(ctx, id, score, admin.ID); err != nil {
 			response.Fail(c, "编辑失败")
 			return
 		}

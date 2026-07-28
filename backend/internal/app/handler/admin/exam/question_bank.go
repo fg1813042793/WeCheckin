@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	formkitadminservice "wecheckin-backend/backend/internal/app/service/formkitadmin"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -18,33 +18,24 @@ import (
 // @Param keyword query string false "搜索关键词"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/question_bank_list [get]
-func (h *AdminExamHandler) QuestionBankList(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) QuestionBankList(ctx context.Context, c *app.RequestContext) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
-	keyword := c.Query("keyword")
-	category := c.Query("category")
-	qType := c.Query("type")
-	if page < 1 {
-		page = 1
+	query := formkitadminservice.NormalizeQuestionBankQuery(formkitadminservice.QuestionBankQuery{
+		Page:     page,
+		PageSize: pageSize,
+		Keyword:  c.Query("keyword"),
+		Category: c.Query("category"),
+		Type:     c.Query("type"),
+	})
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	list, total, err := formkitadminservice.ListExamQuestionsForAdminContext(ctx, query, admin.ID)
+	if err != nil {
+		response.Fail(c, "获取失败")
+		return
 	}
-	if pageSize < 1 {
-		pageSize = 50
-	}
-	q := database.DB.Model(&model.ExamQuestion{})
-	if keyword != "" {
-		q = q.Where("`exam_q_title` LIKE ? OR `exam_q_type` LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
-	}
-	if category != "" {
-		q = q.Where("`exam_q_category` = ?", category)
-	}
-	if qType != "" {
-		q = q.Where("`exam_q_type` = ?", qType)
-	}
-	var total int64
-	q.Count(&total)
-	var list []model.ExamQuestion
-	q.Order("`exam_q_add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
-	response.JSON(c, response.PageData{List: list, Total: total, Size: pageSize, Page: page})
+	response.JSON(c, response.PageData{List: list, Total: total, Size: query.PageSize, Page: query.Page})
 }
 
 // QuestionBankInsert POST /admin/exam/question_bank_insert
@@ -57,7 +48,7 @@ func (h *AdminExamHandler) QuestionBankList(_ context.Context, c *app.RequestCon
 // @Param tags body string false "标签"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/question_bank_insert [post]
-func (h *AdminExamHandler) QuestionBankInsert(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) QuestionBankInsert(ctx context.Context, c *app.RequestContext) {
 	type req struct {
 		Title    string `json:"title"`
 		Type     string `json:"type"`
@@ -75,28 +66,20 @@ func (h *AdminExamHandler) QuestionBankInsert(_ context.Context, c *app.RequestC
 		return
 	}
 	createBy := uint(0)
-	deptID := uint(0)
 	if admin, ok := c.Get("admin"); ok {
 		if a, ok := admin.(*model.Admin); ok {
 			createBy = a.ID
-			var adminDept model.AdminDept
-			if err := database.DB.Where("admin_dept_admin_id = ?", a.ID).First(&adminDept).Error; err == nil {
-				deptID = adminDept.DeptID
-			}
 		}
 	}
-	q := model.ExamQuestion{
+	q, err := formkitadminservice.CreateExamQuestionContext(ctx, formkitadminservice.QuestionBankInput{
 		Title:    r.Title,
 		Type:     r.Type,
 		Schema:   r.Schema,
 		Category: r.Category,
 		Tags:     r.Tags,
-		Status:   1,
-		DeptID:   deptID,
-		CreateBy: createBy,
-		AddTime:  database.Now(),
-	}
-	if err := database.DB.Create(&q).Error; err != nil {
+		AdminID:  createBy,
+	})
+	if err != nil {
 		response.Fail(c, "创建失败")
 		return
 	}
@@ -114,7 +97,7 @@ func (h *AdminExamHandler) QuestionBankInsert(_ context.Context, c *app.RequestC
 // @Param tags body string false "标签"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/question_bank_edit [post]
-func (h *AdminExamHandler) QuestionBankEdit(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) QuestionBankEdit(ctx context.Context, c *app.RequestContext) {
 	type req struct {
 		ID       uint   `json:"id"`
 		Title    string `json:"title"`
@@ -128,13 +111,16 @@ func (h *AdminExamHandler) QuestionBankEdit(_ context.Context, c *app.RequestCon
 		response.Fail(c, "参数错误: "+err.Error())
 		return
 	}
-	if err := database.DB.Model(&model.ExamQuestion{}).Where("`exam_q_id` = ?", r.ID).Updates(map[string]interface{}{
-		"exam_q_title":    r.Title,
-		"exam_q_type":     r.Type,
-		"exam_q_schema":   r.Schema,
-		"exam_q_category": r.Category,
-		"exam_q_tags":     r.Tags,
-	}).Error; err != nil {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	if err := formkitadminservice.UpdateExamQuestionForAdminContext(ctx, formkitadminservice.QuestionBankInput{
+		ID:       r.ID,
+		Title:    r.Title,
+		Type:     r.Type,
+		Schema:   r.Schema,
+		Category: r.Category,
+		Tags:     r.Tags,
+	}, admin.ID); err != nil {
 		response.Fail(c, "更新失败")
 		return
 	}
@@ -147,9 +133,11 @@ func (h *AdminExamHandler) QuestionBankEdit(_ context.Context, c *app.RequestCon
 // @Param id formData int true "题目ID"
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/question_bank_del [post]
-func (h *AdminExamHandler) QuestionBankDel(_ context.Context, c *app.RequestContext) {
+func (h *AdminExamHandler) QuestionBankDel(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
-	if err := database.DB.Where("`exam_q_id` = ?", id).Delete(&model.ExamQuestion{}).Error; err != nil {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	if err := formkitadminservice.DeleteExamQuestionForAdminContext(ctx, uint(id), admin.ID); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -161,12 +149,13 @@ func (h *AdminExamHandler) QuestionBankDel(_ context.Context, c *app.RequestCont
 // @Summary 获取考试题库所有分类
 // @Success 200 {object} response.Resp
 // @Router /admin/exam/question_bank_categories [get]
-func (h *AdminExamHandler) QuestionBankCategories(_ context.Context, c *app.RequestContext) {
-	var categories []string
-	database.DB.Model(&model.ExamQuestion{}).
-		Where("`exam_q_category` != '' AND `exam_q_category` IS NOT NULL").
-		Select("DISTINCT `exam_q_category`").
-		Order("`exam_q_category` ASC").
-		Pluck("`exam_q_category`", &categories)
+func (h *AdminExamHandler) QuestionBankCategories(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	categories, err := formkitadminservice.ExamQuestionCategoriesForAdminContext(ctx, admin.ID)
+	if err != nil {
+		response.Fail(c, "获取失败")
+		return
+	}
 	response.JSON(c, categories)
 }

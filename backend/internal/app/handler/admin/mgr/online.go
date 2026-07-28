@@ -14,18 +14,18 @@ func (h *AdminMgrHandler) AdminLogout(ctx context.Context, c *app.RequestContext
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
 	token := string(c.Request.Header.Peek("Authorization"))
-	onlineservice.AdminLogout(admin.ID, token)
+	onlineservice.AdminLogoutContext(ctx, admin.ID, token)
 	response.JSON(c, nil)
 }
 
 func (h *AdminMgrHandler) GetOnlineAdmins(ctx context.Context, c *app.RequestContext) {
-	list, err := onlineservice.GetOnlineAdmins()
+	list, err := onlineservice.GetOnlineAdminsContext(ctx)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
 	}
 	if list == nil {
-		list = []map[string]interface{}{}
+		list = []onlineservice.AdminSession{}
 	}
 	response.JSON(c, list)
 }
@@ -37,7 +37,7 @@ func (h *AdminMgrHandler) ForceOfflineAdmin(ctx context.Context, c *app.RequestC
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := onlineservice.ForceOfflineAdmin(idStr, token); err != nil {
+	if err := onlineservice.ForceOfflineAdminContext(ctx, idStr, token); err != nil {
 		response.Fail(c, "操作失败")
 		return
 	}
@@ -73,7 +73,7 @@ func (h *AdminMgrHandler) BatchForceOfflineAdmin(ctx context.Context, c *app.Req
 		response.Fail(c, "参数错误")
 		return
 	}
-	n, err := onlineservice.BatchForceOfflineAdmin(items)
+	n, err := onlineservice.BatchForceOfflineAdminContext(ctx, items)
 	if err != nil {
 		response.Fail(c, "操作失败")
 		return

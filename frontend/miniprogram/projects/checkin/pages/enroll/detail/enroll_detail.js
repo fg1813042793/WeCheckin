@@ -126,7 +126,6 @@ Page({
 				pageHelper.showSuccToast('打卡成功', 1500, cb);
 			})
 		} catch (err) {
-			console.log(err);
 		};
 	},
 

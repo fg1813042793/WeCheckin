@@ -53,12 +53,9 @@ async function imgCheckCloud(path, opt) {
 		}
 		},
 		success: function (res) { 
-			console.log(res)
-			console.log('succ')
 			return true;
 		},
 		fail: function (res) {
-			console.log(res)
 			return false;
 		},
 		complete: function (res) {
@@ -97,7 +94,6 @@ async function imgCheck(imgData) {
 		else
 			return false;
 	}).catch(err => {
-		console.log(err);
 		return false;
 	});
 

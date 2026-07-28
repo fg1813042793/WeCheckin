@@ -5,7 +5,7 @@
         <image v-if="info.pic" :src="info.pic" mode="aspectFill" class="avatar"></image>
         <text v-else class="avatar-text">{{ (info.name || '?').charAt(0) }}</text>
         <text class="avatar-name">{{ info.name }}</text>
-        <text class="avatar-role" :class="info.type == 1 ? 'super' : ''">{{ info.type == 1 ? '超级管理员' : '普通管理员' }}</text>
+        <text class="avatar-role" :class="isSuperAdminRole(info) ? 'super' : ''">{{ info.roleName || '-' }}</text>
       </view>
 
       <view class="info-list">
@@ -78,6 +78,10 @@ export default {
       } catch (e) {
         console.error('加载管理员详情失败', e)
       }
+    },
+
+    isSuperAdminRole(info) {
+      return info && info.roleName === '超级管理员'
     },
 
     formatTime(ts) {

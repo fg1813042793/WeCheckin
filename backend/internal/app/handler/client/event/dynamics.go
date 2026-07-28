@@ -31,7 +31,7 @@ func (h *EventHandler) PostEventDynamic(ctx context.Context, c *app.RequestConte
 		response.Fail(c, "参数错误")
 		return
 	}
-	err := eventservice.PostEventDynamic(eventID, userID, title, content, images, videos, addIP)
+	err := eventservice.PostEventDynamicContext(ctx, eventID, userID, title, content, images, videos, addIP)
 	if err != nil {
 		response.Fail(c, "发布失败")
 		return
@@ -60,7 +60,7 @@ func (h *EventHandler) GetEventDynamics(ctx context.Context, c *app.RequestConte
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	result, err := eventservice.GetEventDynamics(eventID, page, pageSize)
+	result, err := eventservice.GetEventDynamicsContext(ctx, eventID, page, pageSize)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

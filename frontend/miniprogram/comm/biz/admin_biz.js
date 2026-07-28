@@ -67,7 +67,6 @@ class AdminBiz extends BaseBiz {
 				});
 			});
 		} catch (e) {
-			console.log(e);
 		}
 
 	}

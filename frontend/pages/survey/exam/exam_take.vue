@@ -183,7 +183,8 @@ export default {
           try {
             const res = await examApi.submit({
               recordId: this.record.id,
-              answers: JSON.stringify(this.answers)
+              examId: this.examId,
+              answers: this.answers
             })
             uni.showToast({ title: '已交卷', icon: 'success' })
             setTimeout(() => {

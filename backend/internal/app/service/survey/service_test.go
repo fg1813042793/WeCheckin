@@ -52,3 +52,17 @@ func TestUserIDToStr(t *testing.T) {
 		t.Error("0 should be '0'")
 	}
 }
+
+func TestSurveySubmissionLimitsAcceptsNumericStrings(t *testing.T) {
+	deviceLimit, ipLimit := surveySubmissionLimits(`{"deviceLimit":"2","ipLimit":"3"}`)
+	if deviceLimit != 2 || ipLimit != 3 {
+		t.Fatalf("surveySubmissionLimits numeric strings = (%d,%d), want (2,3)", deviceLimit, ipLimit)
+	}
+}
+
+func TestSurveySubmissionLimitsIgnoresInvalidValues(t *testing.T) {
+	deviceLimit, ipLimit := surveySubmissionLimits(`{"deviceLimit":-1,"ipLimit":"bad"}`)
+	if deviceLimit != 0 || ipLimit != 0 {
+		t.Fatalf("surveySubmissionLimits invalid values = (%d,%d), want (0,0)", deviceLimit, ipLimit)
+	}
+}

@@ -30,7 +30,7 @@ func (h *AdminEnrollHandler) GetAdminEnrollList(ctx context.Context, c *app.Requ
 	size, _ := strconv.Atoi(sizeStr)
 	keyword := c.Query("keyword")
 	sortStr := c.Query("sort")
-	list, total, err := admincontentservice.GetAdminEnrollList(keyword, sortStr, page, size, admin.ID)
+	list, total, err := admincontentservice.GetAdminEnrollListContext(ctx, keyword, sortStr, page, size, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -99,7 +99,7 @@ func (h *AdminEnrollHandler) InsertEnroll(ctx context.Context, c *app.RequestCon
 
 	deptID, _ := strconv.ParseUint(c.PostForm("deptId"), 10, 64)
 	publishDeptIds := c.PostForm("publishDeptIds")
-	err := admincontentservice.InsertEnroll(title, cateID, cateName, enrollForms, joinForms, "", addIP, publishDeptIds, 1, sort, dayCnt, start, end, string(objBytes), allowRepeat == "1" || allowRepeat == "true", dailyLimit, uint(deptID), admin.ID)
+	err := admincontentservice.InsertEnrollContext(ctx, title, cateID, cateName, enrollForms, joinForms, "", addIP, publishDeptIds, 1, sort, dayCnt, start, end, string(objBytes), allowRepeat == "1" || allowRepeat == "true", dailyLimit, uint(deptID), admin.ID)
 	if err != nil {
 		response.Fail(c, "创建失败")
 		return
@@ -113,8 +113,10 @@ func (h *AdminEnrollHandler) InsertEnroll(ctx context.Context, c *app.RequestCon
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_detail [get]
 func (h *AdminEnrollHandler) GetEnrollDetail(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.Query("id")
-	data, err := admincontentservice.GetEnrollDetail(id)
+	data, err := admincontentservice.GetEnrollDetailForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -136,6 +138,8 @@ func (h *AdminEnrollHandler) GetEnrollDetail(ctx context.Context, c *app.Request
 // @Success 200 {object} response.Resp
 // @Router /admin/enroll_edit [post]
 func (h *AdminEnrollHandler) EditEnroll(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id := c.PostForm("id")
 	title := c.PostForm("title")
 	cateID := c.PostForm("cateId")
@@ -191,7 +195,7 @@ func (h *AdminEnrollHandler) EditEnroll(ctx context.Context, c *app.RequestConte
 
 	deptID, _ := strconv.ParseUint(c.PostForm("deptId"), 10, 64)
 	publishDeptIds := c.PostForm("publishDeptIds")
-	err := admincontentservice.EditEnroll(id, title, cateID, cateName, enrollForms, joinForms, "", addIP, publishDeptIds, 1, sort, dayCnt, start, end, string(objBytes), allowRepeat == "1" || allowRepeat == "true", dailyLimit, uint(deptID))
+	err := admincontentservice.EditEnrollForAdminContext(ctx, id, title, cateID, cateName, enrollForms, joinForms, "", addIP, publishDeptIds, 1, sort, dayCnt, start, end, string(objBytes), allowRepeat == "1" || allowRepeat == "true", dailyLimit, uint(deptID), admin.ID)
 	if err != nil {
 		response.Fail(c, "编辑失败")
 		return

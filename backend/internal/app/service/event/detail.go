@@ -1,6 +1,7 @@
 package event
 
 import (
+	"context"
 	"encoding/json"
 
 	"wecheckin-backend/backend/internal/app/support/media"
@@ -9,16 +10,22 @@ import (
 )
 
 func ViewEvent(id, userID string) (*model.Event, error) {
+	return ViewEventContext(context.Background(), id, userID)
+}
+
+func ViewEventContext(ctx context.Context, id, userID string) (*model.Event, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
 	var event model.Event
-	err := database.DB.Where("`id` = ?", id).First(&event).Error
+	err := db.Where("`id` = ?", id).First(&event).Error
 	if err != nil {
 		return nil, err
 	}
-	database.DB.Model(&event).UpdateColumn("event_view_cnt", event.ViewCnt+1)
+	db.Model(&event).UpdateColumn("event_view_cnt", event.ViewCnt+1)
 
 	if userID != "" {
 		var cnt int64
-		database.DB.Model(&model.EventParticipant{}).
+		db.Model(&model.EventParticipant{}).
 			Where("`event_part_event_id` = ? AND `event_part_mini_openid` = ?", id, userID).Count(&cnt)
 		if cnt > 0 {
 			event.IsJoin = true
@@ -26,7 +33,7 @@ func ViewEvent(id, userID string) (*model.Event, error) {
 	}
 
 	populateEventTimeFields(&event)
-	loadEventRoles(&event)
+	loadEventRolesContext(ctx, &event)
 
 	// Parse obj for desc and img
 	if event.Obj != "" {
@@ -51,7 +58,7 @@ func ViewEvent(id, userID string) (*model.Event, error) {
 
 	// Count participants
 	var pCnt int64
-	database.DB.Model(&model.EventParticipant{}).Where("`event_part_event_id` = ?", id).Count(&pCnt)
+	db.Model(&model.EventParticipant{}).Where("`event_part_event_id` = ?", id).Count(&pCnt)
 	event.UserCnt = int(pCnt)
 
 	return &event, nil

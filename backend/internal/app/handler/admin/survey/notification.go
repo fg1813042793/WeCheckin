@@ -5,45 +5,33 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+
+	surveyservice "wecheckin-backend/backend/internal/app/service/survey"
 	"wecheckin-backend/backend/pkg/response"
 )
 
 // NotifyList GET /admin/notify/list
 func (h *AdminSurveyHandler) NotifyList(ctx context.Context, c *app.RequestContext) {
-	sourceType := c.Query("sourceType")
-	sourceID := c.Query("sourceId")
-	userID := c.Query("userId")
+	h.lazyInit()
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
-	if page < 1 {
-		page = 1
+	result, err := h.survey.NotificationListContext(ctx, surveyservice.NotificationQuery{
+		SourceType: c.Query("sourceType"),
+		SourceID:   c.Query("sourceId"),
+		UserID:     c.Query("userId"),
+		Page:       page,
+		PageSize:   pageSize,
+	})
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
 	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	q := db.Model(&model.Notify{})
-	if sourceType != "" {
-		q = q.Where("`notify_source_type` = ?", sourceType)
-	}
-	if sourceID != "" {
-		q = q.Where("`notify_source_id` = ?", sourceID)
-	}
-	if userID != "" {
-		q = q.Where("`notify_user_id` = ? OR `notify_user_id` = ''", userID)
-	}
-	var total int64
-	q.Count(&total)
-	var list []model.Notify
-	q.Order("`notify_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
-	response.JSON(c, surveyNotificationListResponse{List: list, Total: total})
+	response.JSON(c, surveyNotificationListResponse{List: result.List, Total: result.Total})
 }
 
 // NotifyRead POST /admin/notify/read
 func (h *AdminSurveyHandler) NotifyRead(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
 	var req struct {
 		ID     uint   `json:"id"`
 		All    bool   `json:"all"`
@@ -53,30 +41,25 @@ func (h *AdminSurveyHandler) NotifyRead(ctx context.Context, c *app.RequestConte
 		response.Fail(c, "参数错误")
 		return
 	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if req.All {
-		q := db.Model(&model.Notify{}).Where("`notify_is_read` = 0")
-		if req.UserID != "" {
-			q = q.Where("`notify_user_id` = ? OR `notify_user_id` = ''", req.UserID)
-		}
-		q.UpdateColumn("notify_is_read", 1)
-	} else if req.ID > 0 {
-		db.Model(&model.Notify{}).Where("`notify_id` = ?", req.ID).UpdateColumn("notify_is_read", 1)
+	if err := h.survey.MarkNotificationsReadContext(ctx, surveyservice.NotificationReadInput{
+		ID:     req.ID,
+		All:    req.All,
+		UserID: req.UserID,
+	}); err != nil {
+		response.Fail(c, "更新失败: "+err.Error())
+		return
 	}
 	response.JSON(c, nil)
 }
 
 // NotifyUnreadCount GET /admin/notify/unread_count
 func (h *AdminSurveyHandler) NotifyUnreadCount(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
 	userID := c.Query("userId")
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	q := db.Model(&model.Notify{}).Where("`notify_is_read` = 0")
-	if userID != "" {
-		q = q.Where("`notify_user_id` = ? OR `notify_user_id` = ''", userID)
+	count, err := h.survey.NotificationUnreadCountContext(ctx, userID)
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
 	}
-	var cnt int64
-	q.Count(&cnt)
-	response.JSON(c, map[string]int64{"count": cnt})
+	response.JSON(c, map[string]int64{"count": count})
 }

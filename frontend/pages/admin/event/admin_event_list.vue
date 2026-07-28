@@ -1,16 +1,21 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="toolbar" :style="{ top: fixedTop }">
-      <view class="search-bar">
-        <input v-model="keyword" placeholder="搜索赛事活动" class="search-input" @confirm="handleSearch" />
-        <text class="search-btn" @click="handleSearch">搜索</text>
+  <view class="container">
+    <view class="event-header">
+      <view class="toolbar">
+        <view class="search-bar">
+          <input v-model="keyword" placeholder="搜索赛事活动" class="search-input" confirm-type="search" @confirm="handleSearch" />
+        </view>
+        <view class="action-row">
+          <view class="add-btn" v-if="hasPerm('event:add')" aria-label="创建赛事活动" @click="goAdd">
+            <text class="add-text">创建</text>
+          </view>
+        </view>
       </view>
-      <view class="add-btn" v-if="hasPerm('event:add')" @click="goAdd">+ 新增</view>
-    </view>
-    <view class="tabs" :style="{ top: tabsTop }">
-      <view class="tab-item" :class="{ active: type === '' }" @click="switchType('')">全部</view>
-      <view class="tab-item" :class="{ active: type === '1' }" @click="switchType('1')">活动</view>
-      <view class="tab-item" :class="{ active: type === '2' }" @click="switchType('2')">赛事</view>
+      <view class="tabs">
+        <view class="tab-item" :class="{ active: type === '' }" @click="switchType('')">全部</view>
+        <view class="tab-item" :class="{ active: type === '1' }" @click="switchType('1')">活动</view>
+        <view class="tab-item" :class="{ active: type === '2' }" @click="switchType('2')">赛事</view>
+      </view>
     </view>
     <scroll-view scroll-y class="scroll-area" @scrolltolower="loadMore">
       <view class="list" v-if="list.length > 0">
@@ -64,26 +69,7 @@ export default {
       page: 1,
       pageSize: 20,
       hasMore: true,
-      loading: false,
-      containerPad: '0px',
-      fixedTop: '0px',
-      tabsTop: '0px'
-    }
-  },
-  onReady() {
-    const sys = uni.getSystemInfoSync()
-    if (sys.platform === 'android') {
-      this.fixedTop = '0px'
-      this.tabsTop = '112rpx'
-      this.containerPad = '200rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = navOffset + 'px'
-      const pxScale = 750 / sys.windowWidth
-      const toolbarH = Math.round(112 / pxScale)
-      const tabsH = Math.round(88 / pxScale)
-      this.tabsTop = (navOffset + toolbarH) + 'px'
-      this.containerPad = (navOffset + toolbarH + tabsH) + 'px'
+      loading: false
     }
   },
   onLoad() { 
@@ -151,17 +137,19 @@ export default {
 </script>
 
 <style scoped>
-.container { min-height: 100vh; background-color: #f5f5f5; display: flex; flex-direction: column; }
-.toolbar { position: fixed; left: 0; right: 0; z-index: 10; display: flex; align-items: center; padding: 24rpx 20rpx; background-color: #fff; }
-.toolbar::before { content: ''; position: absolute; left: 0; right: 0; top: -12rpx; height: 12rpx; background-color: #f5f5f5; }
+.container { min-height: 100vh; background-color: #f5f5f5; display: flex; flex-direction: column; padding-top: 248rpx; box-sizing: border-box; }
+.event-header { position: fixed; left: 0; right: 0; top: var(--window-top, 0px); z-index: 20; background-color: #fff; box-sizing: border-box; padding: 18rpx 20rpx 0; box-shadow: 0 1rpx 0 rgba(15, 23, 42, 0.06); }
+.toolbar { display: flex; flex-direction: column; align-items: flex-start; gap: 14rpx; background-color: #fff; box-sizing: border-box; }
 .scroll-area { flex: 1; overflow-y: auto; }
-.tabs { position: fixed; left: 0; right: 0; z-index: 9; display: flex; background-color: #fff; padding: 0 20rpx 20rpx; }
-.search-bar { flex: 1; display: flex; align-items: center; }
-.search-input { flex: 1; height: 64rpx; background-color: #f5f5f5; border-radius: 32rpx; padding: 0 24rpx; font-size: 26rpx; }
-.search-btn { font-size: 26rpx; color: #fb454c; flex-shrink: 0; margin-left: 16rpx; }
-.add-btn { background-color: #fb454c; color: #fff; padding: 14rpx 28rpx; border-radius: 32rpx; font-size: 26rpx; flex-shrink: 0; margin-left: 16rpx; }
-.tab-item { flex: 1; text-align: center; font-size: 26rpx; color: #666; padding-bottom: 12rpx; }
-.tab-item.active { color: #fb454c; font-weight: bold; border-bottom: 3rpx solid #fb454c; }
+.tabs { display: flex; width: 100%; height: 70rpx; margin-top: 12rpx; background-color: #fff; box-sizing: border-box; border-top: 1rpx solid #f1f5f9; }
+.search-bar { display: flex; align-items: center; width: 100%; min-width: 0; }
+.search-input { flex: 1; height: 70rpx; background-color: #f5f5f5; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; }
+.action-row { display: flex; align-items: center; gap: 12rpx; min-height: 56rpx; }
+.add-btn { height: 56rpx; line-height: 56rpx; display: flex; align-items: center; justify-content: center; background-color: #eaf3ff; color: #1677ff; padding: 0 28rpx; border-radius: 16rpx; box-shadow: none; }
+.add-text { color: #1677ff; font-size: 24rpx; font-weight: 600; line-height: 56rpx; }
+.tab-item { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; height: 70rpx; font-size: 26rpx; color: #64748b; }
+.tab-item.active { color: #1677ff; font-weight: 600; }
+.tab-item.active::after { content: ''; position: absolute; left: 34rpx; right: 34rpx; bottom: 0; height: 4rpx; border-radius: 999rpx; background-color: #1677ff; }
 .list { padding: 20rpx; }
 .card { background-color: #fff; border-radius: 12rpx; padding: 20rpx; margin-bottom: 16rpx; }
 .card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }

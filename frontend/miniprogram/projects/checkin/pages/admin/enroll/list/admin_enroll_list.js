@@ -116,7 +116,6 @@ Page({
 					pageHelper.showSuccToast('清空完成');
 				});
 			} catch (err) {
-				console.log(err);
 			}
 		}
 		pageHelper.showConfirm('确认清空所有数据？清空后不可恢复', callback);
@@ -222,7 +221,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (err) {
-			console.log(err);
 		}
 	},
 
@@ -247,7 +245,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (err) {
-			console.log(err);
 		}
 	},
 
@@ -273,7 +270,6 @@ Page({
 					pageHelper.showSuccToast('删除成功');
 				});
 			} catch (err) {
-				console.log(err);
 			}
 		}
 		pageHelper.showConfirm('确认删除？删除后用户记录数据将一并删除且不可恢复', callback);
@@ -299,7 +295,6 @@ Page({
 				pageHelper.showSuccToast('设置成功');
 			});
 		} catch (err) {
-			console.log(err);
 		}
 	},
 

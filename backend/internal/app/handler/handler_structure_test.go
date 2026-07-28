@@ -232,6 +232,91 @@ func TestClientCoreResponsesUseTypedDTOs(t *testing.T) {
 	}
 }
 
+func TestAdminHandlersDoNotOwnFormkitPersistence(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("admin", "survey", "resource.go"),
+		filepath.Join("admin", "exam", "resource.go"),
+		filepath.Join("admin", "survey", "question_bank.go"),
+		filepath.Join("admin", "exam", "question_bank.go"),
+		filepath.Join("admin", "survey", "template_presets.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		text := string(src)
+		for _, snippet := range []string{
+			"backend/pkg/database",
+			"database.DB",
+			"database.WithContext",
+		} {
+			if strings.Contains(text, snippet) {
+				t.Fatalf("%s must delegate persistence to service layer instead of using %q", file, snippet)
+			}
+		}
+	}
+}
+
+func TestAdminSurveyExamCoreHandlersDoNotUseDatabase(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("admin", "survey", "handler.go"),
+		filepath.Join("admin", "survey", "responses.go"),
+		filepath.Join("admin", "survey", "channels.go"),
+		filepath.Join("admin", "survey", "notification.go"),
+		filepath.Join("admin", "survey", "statistics.go"),
+		filepath.Join("admin", "survey", "formkit_report_event.go"),
+		filepath.Join("admin", "survey", "formkit_report_enroll.go"),
+		filepath.Join("admin", "survey", "formkit_report_survey.go"),
+		filepath.Join("admin", "exam", "handler.go"),
+		filepath.Join("admin", "exam", "records.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		text := string(src)
+		for _, snippet := range []string{
+			"backend/pkg/database",
+			"database.DB",
+			"database.WithContext",
+		} {
+			if strings.Contains(text, snippet) {
+				t.Fatalf("%s must delegate persistence to service layer instead of using %q", file, snippet)
+			}
+		}
+	}
+}
+
+func TestClientSurveyExamHandlersDoNotUseDatabase(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("client", "survey", "browse.go"),
+		filepath.Join("client", "survey", "responses.go"),
+		filepath.Join("client", "survey", "public_tools.go"),
+		filepath.Join("client", "exam", "browse.go"),
+		filepath.Join("client", "exam", "validate.go"),
+		filepath.Join("client", "exam", "start.go"),
+		filepath.Join("client", "exam", "save_answer.go"),
+		filepath.Join("client", "exam", "submit.go"),
+		filepath.Join("client", "exam", "record.go"),
+		filepath.Join("client", "exam", "limits.go"),
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		text := string(src)
+		for _, snippet := range []string{
+			"backend/pkg/database",
+			"database.DB",
+			"database.WithContext",
+		} {
+			if strings.Contains(text, snippet) {
+				t.Fatalf("%s must delegate persistence to service layer instead of using %q", file, snippet)
+			}
+		}
+	}
+}
+
 func TestAdminSurveyHandlerKeepsFeatureFilesSplit(t *testing.T) {
 	handlerPath := filepath.Join("admin", "survey", "handler.go")
 	src, err := os.ReadFile(handlerPath)

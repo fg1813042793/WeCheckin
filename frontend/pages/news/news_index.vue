@@ -1,8 +1,9 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="search-bar" :style="{ top: fixedTop }">
-      <input class="search-input" v-model="keyword" placeholder="搜索通知标题" @confirm="onSearch" confirm-type="search" />
-      <text class="search-btn" @click="onSearch">搜索</text>
+  <view class="container">
+    <view class="search-shell">
+      <view class="search-bar">
+        <input class="search-input" v-model="keyword" placeholder="搜索通知标题" @confirm="onSearch" confirm-type="search" />
+      </view>
     </view>
 
     <view class="news-list" v-if="list.length > 0">
@@ -43,24 +44,12 @@ export default {
       pageSize: 10,
       hasMore: true,
       keyword: '',
-      loading: false,
-      fixedTop: '0px',
-      containerPad: '0px'
+      loading: false
     }
   },
 
   onLoad() {
     this.loadData()
-    const sys = uni.getSystemInfoSync()
-    const pxScale = 750 / sys.windowWidth
-    if (sys.platform === 'android') {
-      this.fixedTop = '0px'
-      this.containerPad = '112rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = navOffset + 'px'
-      this.containerPad = (navOffset + Math.round(112 / pxScale)) + 'px'
-    }
   },
 
   onPullDownRefresh() {
@@ -149,51 +138,40 @@ export default {
 .container {
   min-height: 100vh;
   background-color: #f5f5f5;
+  padding-top: 110rpx;
+  box-sizing: border-box;
 }
 
-.search-bar {
+.search-shell {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 10;
+  top: var(--window-top, 0px);
+  z-index: 20;
+  padding: 20rpx 30rpx;
+  background-color: #fff;
+  box-sizing: border-box;
+}
+
+.search-bar {
   display: flex;
   align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  height: 70rpx;
+  font-size: 28rpx;
   background-color: #f5f5f5;
-  padding: 20rpx;
-}
-
-.search-input {
-  flex: 1;
-  height: 72rpx;
-  font-size: 28rpx;
-  background-color: #fff;
-  border-radius: 50rpx;
-  padding: 0 20rpx;
-}
-
-.search-btn {
-  font-size: 28rpx;
-  color: #409eff;
-  padding-left: 20rpx;
-  flex-shrink: 0;
-}
-
-.search-input {
-  flex: 1;
-  height: 72rpx;
-  font-size: 28rpx;
-}
-
-.search-btn {
-  font-size: 28rpx;
-  color: #409eff;
-  padding-left: 20rpx;
-  flex-shrink: 0;
+  border-radius: 35rpx;
+  padding: 0 24rpx;
+  color: #333;
 }
 
 .news-list {
   display: flex;
   flex-direction: column;
+  padding: 20rpx 30rpx 24rpx;
 }
 .news-list .news-item {
   margin-bottom: 20rpx;

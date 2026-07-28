@@ -11,7 +11,6 @@
         @confirm="doSearch"
         focus
       />
-      <text class="search-btn" @click="doSearch">搜索</text>
     </view>
 
     <view class="history" v-if="historyList.length > 0 && !keyword">
@@ -182,13 +181,6 @@ export default {
   border-radius: 35rpx;
   padding: 0 30rpx;
   font-size: 28rpx;
-}
-
-.search-btn {
-  color: #fb454c;
-  font-size: 30rpx;
-  margin-left: 20rpx;
-  white-space: nowrap;
 }
 
 .history {

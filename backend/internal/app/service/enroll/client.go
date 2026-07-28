@@ -40,7 +40,9 @@ func GetEnrollListContext(ctx context.Context, page, pageSize int, userID, keywo
 	} else {
 		query = query.Where("(`enroll_publish_dept_ids` = '' OR `enroll_publish_dept_ids` IS NULL)")
 	}
-	query.Count(&total)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
 	err := query.Order("`enroll_order` ASC, `enroll_add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
@@ -50,14 +52,23 @@ func GetEnrollListContext(ctx context.Context, page, pageSize int, userID, keywo
 
 	// Get user's joined enroll IDs (from both EnrollJoin and EnrollUser)
 	joinedIDs := map[string]bool{}
-	if userID != "" {
+	if userID != "" && len(list) > 0 {
+		enrollIDs := enrollListIDs(list)
 		var joins []model.EnrollJoin
-		db.Where("`enroll_join_user_id` = ?", userID).Find(&joins)
+		if err := db.Select("enroll_join_enroll_id").
+			Where("`enroll_join_user_id` = ? AND `enroll_join_enroll_id` IN ?", userID, enrollIDs).
+			Find(&joins).Error; err != nil {
+			return nil, err
+		}
 		for _, j := range joins {
 			joinedIDs[j.EnrollID] = true
 		}
 		var enrollUsers []model.EnrollUser
-		db.Where("`enroll_user_mini_openid` = ?", userID).Find(&enrollUsers)
+		if err := db.Select("enroll_user_enroll_id").
+			Where("`enroll_user_mini_openid` = ? AND `enroll_user_enroll_id` IN ?", userID, enrollIDs).
+			Find(&enrollUsers).Error; err != nil {
+			return nil, err
+		}
 		for _, eu := range enrollUsers {
 			joinedIDs[eu.EnrollID] = true
 		}
@@ -68,4 +79,12 @@ func GetEnrollListContext(ctx context.Context, page, pageSize int, userID, keywo
 	}
 
 	return &ListResponse{List: list, Total: total}, nil
+}
+
+func enrollListIDs(list []model.Enroll) []string {
+	ids := make([]string, 0, len(list))
+	for _, item := range list {
+		ids = append(ids, strconv.Itoa(int(item.ID)))
+	}
+	return ids
 }

@@ -17,8 +17,8 @@ type entry struct {
 	tokens []string
 }
 
-func scanSets(setPrefix string) ([]entry, error) {
-	redisCtx, cancel := rd.OperationContext(context.Background())
+func scanSets(ctx context.Context, setPrefix string) ([]entry, error) {
+	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	var cursor uint64
 	var setKeys []string
@@ -50,8 +50,8 @@ func scanSets(setPrefix string) ([]entry, error) {
 	return entries, nil
 }
 
-func buildRows(entries []entry, authPrefix string, loadBase func(uid uint64) (map[string]interface{}, bool)) []map[string]interface{} {
-	redisCtx, cancel := rd.OperationContext(context.Background())
+func buildRows[T any](ctx context.Context, entries []entry, authPrefix string, loadBase func(uid uint64) (T, bool), attachSession func(T, SessionInfo) T) []T {
+	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	pipe := rd.RDB.Pipeline()
 	type tokenCmd struct {
@@ -73,7 +73,7 @@ func buildRows(entries []entry, authPrefix string, loadBase func(uid uint64) (ma
 		_, _ = pipe.Exec(redisCtx)
 	}
 
-	result := make([]map[string]interface{}, 0)
+	result := make([]T, 0)
 	idx := 0
 	for _, e := range entries {
 		base, ok := loadBase(e.uid)
@@ -90,27 +90,21 @@ func buildRows(entries []entry, authPrefix string, loadBase func(uid uint64) (ma
 				deadTokens = append(deadTokens, t)
 				continue
 			}
-			var info struct {
+			info := SessionInfo{
+				Token: t,
+				TTL:   int(ttl.Seconds()),
+			}
+			var stored struct {
 				LoginIP   string `json:"loginIp"`
 				LoginTime int64  `json:"loginTime"`
 				Device    string `json:"device"`
 			}
-			row := map[string]interface{}{}
-			for k, v := range base {
-				row[k] = v
+			if json.Unmarshal([]byte(jsonStr), &stored) == nil {
+				info.LoginIP = stored.LoginIP
+				info.LoginTime = stored.LoginTime
+				info.Device = stored.Device
 			}
-			row["token"] = t
-			row["ttl"] = int(ttl.Seconds())
-			if json.Unmarshal([]byte(jsonStr), &info) == nil {
-				row["loginIp"] = info.LoginIP
-				row["loginTime"] = info.LoginTime
-				row["device"] = info.Device
-			} else {
-				row["loginIp"] = ""
-				row["loginTime"] = int64(0)
-				row["device"] = ""
-			}
-			result = append(result, row)
+			result = append(result, attachSession(base, info))
 		}
 		if len(deadTokens) > 0 {
 			rd.RDB.SRem(redisCtx, e.setKey, stringSliceToInterface(deadTokens)...)

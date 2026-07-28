@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"wecheckin-backend/backend/internal/app/support/access"
+	"wecheckin-backend/backend/internal/app/support/adminaccess"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/database"
 )
@@ -33,7 +34,7 @@ func AdminHomeContext(ctx context.Context, adminID uint) (AdminHomeResponse, err
 	}
 
 	var userCnt int64
-	if admin.Type == 1 || admin.RoleID == 0 {
+	if adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) || admin.RoleID == 0 {
 		if err := db.Model(&model.User{}).Count(&userCnt).Error; err != nil {
 			return AdminHomeResponse{}, err
 		}
@@ -108,7 +109,8 @@ func AdminHomeContext(ctx context.Context, adminID uint) (AdminHomeResponse, err
 	}
 
 	var mgrCnt int64
-	if err := db.Model(&model.Admin{}).Count(&mgrCnt).Error; err != nil {
+	if err := adminaccess.ApplyUserAdminAccessRoleFilter(db.Model(&model.Admin{})).
+		Count(&mgrCnt).Error; err != nil {
 		return AdminHomeResponse{}, err
 	}
 

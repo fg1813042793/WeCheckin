@@ -26,7 +26,7 @@ func (h *EventHandler) SaveEventScore(ctx context.Context, c *app.RequestContext
 		response.Fail(c, "参数错误")
 		return
 	}
-	err := eventservice.SaveEventScore(eventID, participantID, score, judgeID)
+	err := eventservice.SaveEventScoreContext(ctx, eventID, participantID, score, judgeID)
 	if err != nil {
 		response.Fail(c, "保存失败")
 		return
@@ -55,7 +55,7 @@ func (h *EventHandler) GetEventScores(ctx context.Context, c *app.RequestContext
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	result, err := eventservice.GetEventScores(eventID, page, pageSize)
+	result, err := eventservice.GetEventScoresContext(ctx, eventID, page, pageSize)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

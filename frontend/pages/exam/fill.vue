@@ -172,8 +172,15 @@ import { examApi } from '../../api/index'
 import QuestionField from '../../components/survey/QuestionField.vue'
 import CONFIG from '../../config/index'
 import { getClientToken } from '../../utils/auth'
-
-const LAYOUT_TYPES = ['description', 'divider', 'pagination']
+import {
+  LAYOUT_TYPES,
+  formatRemainingTime,
+  getAnswerProgress,
+  getQuestionInitialValue,
+  isQuestionAnswered,
+  parseQuestions,
+  parseSettings
+} from '../../utils/formFill'
 
 export default {
   components: { QuestionField },
@@ -217,10 +224,11 @@ export default {
   },
   computed: {
     LAYOUT_TYPES() { return LAYOUT_TYPES },
-    totalQuestions() { return this.realQuestions.length },
+    answerProgress() { return getAnswerProgress(this.questions, this.answers) },
+    totalQuestions() { return this.answerProgress.total },
     totalScore() { return (this.questions || []).reduce((s, q) => s + (Number(q.examScore) || 0), 0) },
-    answeredCount() { return this.realQuestions.filter(q => this.isAnswered(q, this.answers[q.id])).length },
-    progressPct() { return this.totalQuestions ? Math.round(this.answeredCount / this.totalQuestions * 100) : 0 },
+    answeredCount() { return this.answerProgress.answered },
+    progressPct() { return this.answerProgress.percent },
     realQuestions() { return (this.questions || []).filter(q => !LAYOUT_TYPES.includes(q.type) && !q.defaultHidden) },
     isLast() { return this.currentQIndex >= this.totalQuestions - 1 },
     currentQuestion() { return this.settings.onePageOneQuestion ? (this.realQuestions[this.currentQIndex] || null) : null },
@@ -313,11 +321,8 @@ export default {
         if (this.exam.endTime > 0 && Date.now() > this.exam.endTime) {
           this.error = '考试已结束'; this.loading = false; return
         }
-        const rawSettings = res.data?.settings
-        this.settings = rawSettings ? (typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings) : {}
-        const raw = res.data?.schema
-        const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
-        this.questions = sch.questions || []
+        this.settings = parseSettings(res.data?.settings)
+        this.questions = parseQuestions(res.data?.schema)
 
         if (this.settings.randomOrder) {
           const layout = this.questions.filter(q => LAYOUT_TYPES.includes(q.type))
@@ -350,7 +355,7 @@ export default {
     async doLogin() {
       this.loginLoading = true
       try {
-        const res = await this.apiPost('/passport/login_pwd', { name: this.loginForm.name, pwd: this.loginForm.password })
+        const res = await this.apiPost('/api/v2/auth/password-login', { name: this.loginForm.name, pwd: this.loginForm.password })
         if (res.code === 0) {
           uni.setStorageSync('token', res.data.token)
           if (res.data.userInfo) uni.setStorageSync('userInfo', res.data.userInfo)
@@ -378,39 +383,11 @@ export default {
     },
 
     getInitVal(q) {
-      const type = q.type
-      if (type === 'checkbox') return []
-      if (type === 'switch') return false
-      if (type === 'rating') return 0
-      if (type === 'nps') return 0
-      if (type === 'dateRange') return ['', '']
-      if (['matrixRadio','matrixCheckbox','matrixFillBlank'].includes(type)) return {}
-      if (type === 'matrixAuto') return []
-      if (['multiInput','hInput'].includes(type)) return (q.props?.fields||[]).map(() => '')
-      if (['user','dept'].includes(type)) return q.multiple ? [] : ''
-      if (['cascade'].includes(type)) return []
-      if (type === 'picker') return ''
-      if (type === 'file') return []
-      return ''
+      return getQuestionInitialValue(q)
     },
 
     isAnswered(q, val) {
-      const type = q.type
-      if (val === undefined || val === null) return false
-      if (type === 'checkbox') return Array.isArray(val) && val.length > 0
-      if (type === 'file') return typeof val === 'string' ? !!val : (Array.isArray(val) && val.length > 0)
-      if (['rating', 'nps'].includes(type)) return val > 0
-      if (['multiInput', 'hInput'].includes(type)) return Array.isArray(val) && val.some(v => !!v)
-      if (type === 'matrixRadio') return Object.keys(val).length > 0
-      if (type === 'matrixCheckbox') return Object.values(val).some(v => Array.isArray(v) && v.length > 0)
-      if (type === 'matrixFillBlank') return Object.values(val).some(v => !!v)
-      if (type === 'matrixAuto') return Array.isArray(val) && val.some(row => row.some(v => !!v))
-      if (type === 'dateRange') return Array.isArray(val) && val.some(v => !!v)
-      if (type === 'switch') return val === true
-      if (type === 'cascade') return Array.isArray(val) && val.length > 0
-      if (['user', 'dept'].includes(type)) return q.multiple ? (Array.isArray(val) && val.length > 0) : !!val
-      if (type === 'picker') return !!val
-      return !!val
+      return isQuestionAnswered(q, val)
     },
 
     setAnswer(qid, val) {
@@ -443,9 +420,7 @@ export default {
     goPrev() { if (this.currentQIndex > 0) this.currentQIndex-- },
 
     formatRemaining(ms) {
-      if (ms <= 0) return '已超时'
-      const t = Math.ceil(ms / 1000)
-      return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`
+      return formatRemainingTime(ms)
     },
 
     startCountdown() {

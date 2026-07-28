@@ -1,6 +1,7 @@
 package tokenutil
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -30,11 +31,13 @@ func getDBSetup(key string) string {
 	}
 	setupCacheMu.RUnlock()
 
-	if database.DB == nil {
+	db, cancel := database.WithContext(context.Background())
+	defer cancel()
+	if db == nil {
 		return ""
 	}
 	var setup model.Setup
-	if err := database.DB.Where("setup_key = ?", key).First(&setup).Error; err != nil {
+	if err := db.Where("setup_key = ?", key).First(&setup).Error; err != nil {
 		return ""
 	}
 

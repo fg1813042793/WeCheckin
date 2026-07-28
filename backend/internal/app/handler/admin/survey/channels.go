@@ -3,11 +3,9 @@ package survey
 import (
 	"context"
 	"strconv"
-	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -18,11 +16,15 @@ import (
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/channel_list [get]
 func (h *AdminSurveyHandler) ChannelList(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	surveyID, _ := strconv.Atoi(c.Query("surveyId"))
-	var list []model.SurveyChannel
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	db.Where("`survey_ch_survey_id` = ?", surveyID).Order("`survey_ch_id` DESC").Find(&list)
+	list, err := h.survey.ChannelListForAdminContext(ctx, uint(surveyID), admin.ID)
+	if err != nil {
+		response.Fail(c, "查询失败: "+err.Error())
+		return
+	}
 	response.JSON(c, surveyChannelListResponse{List: list})
 }
 
@@ -33,15 +35,15 @@ func (h *AdminSurveyHandler) ChannelList(ctx context.Context, c *app.RequestCont
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/channel_insert [post]
 func (h *AdminSurveyHandler) ChannelInsert(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	var ch model.SurveyChannel
 	if err := c.BindAndValidate(&ch); err != nil {
 		response.Fail(c, "参数错误: "+err.Error())
 		return
 	}
-	ch.AddTime = time.Now().UnixMilli()
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := db.Create(&ch).Error; err != nil {
+	if err := h.survey.ChannelCreateForAdminContext(ctx, &ch, admin.ID); err != nil {
 		response.Fail(c, "创建失败: "+err.Error())
 		return
 	}
@@ -55,10 +57,11 @@ func (h *AdminSurveyHandler) ChannelInsert(ctx context.Context, c *app.RequestCo
 // @Success 200 {object} response.Resp
 // @Router /admin/survey/channel_del [post]
 func (h *AdminSurveyHandler) ChannelDel(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := db.Where("`survey_ch_id` = ?", id).Delete(&model.SurveyChannel{}).Error; err != nil {
+	if err := h.survey.ChannelDeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
 		response.Fail(c, "删除失败: "+err.Error())
 		return
 	}

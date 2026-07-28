@@ -187,7 +187,6 @@ Page({
 			pageHelper.showSuccToast('修改成功', 2000, callback);
 
 		} catch (err) {
-			console.log(err);
 		}
 
 	},

@@ -9,8 +9,7 @@
         <view class="right">
           <view class="name">
             <text class="name-text">{{ adminInfo.name }}</text>
-            <text v-if="adminInfo.type == 1" class="tag super">超级管理员</text>
-            <text v-else class="tag normal">一般管理员</text>
+            <text class="tag" :class="isSuperAdminRole() ? 'super' : 'normal'">{{ adminInfo.roleName || '管理员' }}</text>
           </view>
           <text class="desc">共登录{{ adminInfo.loginCnt || 0 }}次</text>
         </view>
@@ -147,8 +146,12 @@ export default {
     },
 
     hasPerm(perm) {
-      if (this.adminInfo && this.adminInfo.type == 1) return true
+      if (this.isSuperAdminRole()) return true
       return this.perms.indexOf(perm) !== -1
+    },
+
+    isSuperAdminRole() {
+      return this.adminInfo && this.adminInfo.roleName === '超级管理员'
     },
 
     async loadPerms() {

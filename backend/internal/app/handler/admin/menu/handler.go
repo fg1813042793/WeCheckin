@@ -3,8 +3,10 @@ package menu
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	adminpermission "wecheckin-backend/backend/internal/app/service/adminpermission"
 	menuservice "wecheckin-backend/backend/internal/app/service/menu"
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/response"
@@ -63,7 +65,22 @@ func (h *AdminMenuHandler) AddMenu(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "菜单名称不能为空")
 		return
 	}
-	if err := menuservice.Add(name, uint(parentID), path, perms, icon, sort, mtype); err != nil {
+	req := adminpermission.SaveRequest{
+		Key:          firstNonEmpty(c.PostForm("key"), legacyPermissionKey(path, perms, name)),
+		Name:         name,
+		Platform:     "admin",
+		Type:         legacyPermissionType(mtype),
+		ParentKey:    c.PostForm("parentKey"),
+		ResourcePath: path,
+		Perms:        perms,
+		Icon:         icon,
+		Sort:         sort,
+		Status:       1,
+	}
+	if parentID > 0 && req.ParentKey == "" {
+		req.ParentKey = "admin:menu:" + strconv.Itoa(parentID)
+	}
+	if err := adminpermission.AddContext(ctx, req); err != nil {
 		response.Fail(c, "添加失败")
 		return
 	}
@@ -97,7 +114,23 @@ func (h *AdminMenuHandler) EditMenu(ctx context.Context, c *app.RequestContext) 
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := menuservice.Edit(uint(id), name, uint(parentID), path, perms, icon, sort, status, mtype); err != nil {
+	key := firstNonEmpty(c.PostForm("key"), c.PostForm("permissionKey"), "admin:menu:"+strconv.Itoa(id))
+	req := adminpermission.SaveRequest{
+		Key:          key,
+		Name:         name,
+		Platform:     "admin",
+		Type:         legacyPermissionType(mtype),
+		ParentKey:    c.PostForm("parentKey"),
+		ResourcePath: path,
+		Perms:        perms,
+		Icon:         icon,
+		Sort:         sort,
+		Status:       status,
+	}
+	if parentID > 0 && req.ParentKey == "" {
+		req.ParentKey = "admin:menu:" + strconv.Itoa(parentID)
+	}
+	if err := adminpermission.EditContext(ctx, key, req); err != nil {
 		response.Fail(c, "编辑失败")
 		return
 	}
@@ -115,7 +148,8 @@ func (h *AdminMenuHandler) DelMenu(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := menuservice.Delete(uint(id)); err != nil {
+	key := firstNonEmpty(c.PostForm("key"), c.PostForm("permissionKey"), "admin:menu:"+strconv.Itoa(id))
+	if err := adminpermission.DeleteContext(ctx, key); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -154,4 +188,40 @@ func (h *AdminMenuHandler) GetAdminPerms(ctx context.Context, c *app.RequestCont
 	admin := adminVal.(*model.Admin)
 	perms := menuservice.GetAdminPerms(admin)
 	response.JSON(c, perms)
+}
+
+func legacyPermissionType(value int) string {
+	switch value {
+	case 0:
+		return "directory"
+	case 2:
+		return "button"
+	default:
+		return "menu"
+	}
+}
+
+func legacyPermissionKey(path, perms, name string) string {
+	source := strings.Trim(strings.TrimSpace(path), "/")
+	if source == "" {
+		source = strings.ReplaceAll(strings.TrimSpace(perms), ":", "-")
+	}
+	if source == "" {
+		source = strings.ReplaceAll(strings.TrimSpace(name), " ", "-")
+	}
+	source = strings.ReplaceAll(source, "/", ":")
+	source = strings.ReplaceAll(source, "_", "-")
+	if source == "" {
+		source = "custom"
+	}
+	return "admin:menu:" + source
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

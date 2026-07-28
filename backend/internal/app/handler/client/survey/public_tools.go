@@ -2,16 +2,12 @@ package survey
 
 import (
 	"context"
-	"encoding/json"
 
 	calcPkg "wecheckin-backend/backend/internal/app/formkit/calc"
 	questionPkg "wecheckin-backend/backend/internal/app/formkit/question"
 	schemaPkg "wecheckin-backend/backend/internal/app/formkit/schema"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -20,6 +16,7 @@ import (
 // @Summary 校验答案格式（通用）
 // @Router /survey/validate [post]
 func (h *ClientSurveyHandler) PublicValidate(ctx context.Context, c *app.RequestContext) {
+	h.lazyInit()
 	var req struct {
 		SurveyID uint                   `json:"surveyId"`
 		Schema   string                 `json:"schema"`
@@ -33,61 +30,16 @@ func (h *ClientSurveyHandler) PublicValidate(ctx context.Context, c *app.Request
 	}
 	schema := req.Schema
 	if req.SurveyID > 0 {
-		db, cancel := database.WithContext(ctx)
-		defer cancel()
-		var sv model.Survey
-		if err := db.Where("`survey_id` = ? AND `survey_status` = 1", req.SurveyID).First(&sv).Error; err != nil {
-			logger.Logger.Printf("[SurveyValidate] 问卷不存在或未发布 surveyId=%d", req.SurveyID)
+		surveySchema, limitMessage, err := h.survey.ValidatePublicSurveyContext(ctx, req.SurveyID, req.DeviceID, c.ClientIP())
+		if err != nil {
 			response.Fail(c, "问卷不存在或未发布")
 			return
 		}
-		if sv.MaxResponse > 0 {
-			var count int64
-			db.Model(&model.SurveyResponse{}).
-				Where("`survey_resp_survey_id` = ? AND `survey_resp_status` = 1", req.SurveyID).
-				Count(&count)
-			if count >= int64(sv.MaxResponse) {
-				logger.Logger.Printf("[SurveyValidate] 回收上限已满 surveyId=%d max=%d current=%d", req.SurveyID, sv.MaxResponse, count)
-				response.JSON(c, publicValidationResponse{Valid: false, Errors: []map[string]string{{"questionId": "", "message": "回收上限已满"}}})
-				return
-			}
+		if limitMessage != "" {
+			response.JSON(c, publicValidationResponse{Valid: false, Errors: []map[string]string{{"questionId": "", "message": limitMessage}}})
+			return
 		}
-		var deviceLimit, ipLimit int
-		if sv.Settings != "" {
-			var settingsMap map[string]interface{}
-			if err := json.Unmarshal([]byte(sv.Settings), &settingsMap); err == nil {
-				if v, ok := settingsMap["deviceLimit"].(float64); ok {
-					deviceLimit = int(v)
-				}
-				if v, ok := settingsMap["ipLimit"].(float64); ok {
-					ipLimit = int(v)
-				}
-			}
-		}
-		clientIP := c.ClientIP()
-		if deviceLimit > 0 && req.DeviceID != "" {
-			var devCount int64
-			db.Model(&model.SurveyResponse{}).
-				Where("`survey_resp_survey_id` = ? AND `survey_resp_device_id` = ? AND `survey_resp_status` = 1", req.SurveyID, req.DeviceID).
-				Count(&devCount)
-			if devCount >= int64(deviceLimit) {
-				logger.Logger.Printf("[SurveyValidate] 设备次数上限 surveyId=%d limit=%d current=%d deviceId=%s", req.SurveyID, deviceLimit, devCount, req.DeviceID)
-				response.JSON(c, publicValidationResponse{Valid: false, Errors: []map[string]string{{"questionId": "", "message": "该设备答题次数已达上限"}}})
-				return
-			}
-		}
-		if ipLimit > 0 && clientIP != "" {
-			var ipCount int64
-			db.Model(&model.SurveyResponse{}).
-				Where("`survey_resp_survey_id` = ? AND `survey_resp_ip` = ? AND `survey_resp_status` = 1", req.SurveyID, clientIP).
-				Count(&ipCount)
-			if ipCount >= int64(ipLimit) {
-				logger.Logger.Printf("[SurveyValidate] IP次数上限 surveyId=%d limit=%d current=%d ip=%s", req.SurveyID, ipLimit, ipCount, clientIP)
-				response.JSON(c, publicValidationResponse{Valid: false, Errors: []map[string]string{{"questionId": "", "message": "该IP答题次数已达上限"}}})
-				return
-			}
-		}
-		schema = sv.Schema
+		schema = surveySchema
 	}
 	s, err := schemaPkg.Parse(schema)
 	if err != nil {

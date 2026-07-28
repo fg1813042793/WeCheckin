@@ -197,7 +197,6 @@ class PassportBiz extends BaseBiz {
 			}
 
 		}).catch(err => {
-			console.log(err);
 			PassportBiz.clearToken();
 			return false;
 		});

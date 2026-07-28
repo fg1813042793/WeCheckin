@@ -23,7 +23,7 @@ export default {
   methods: {
     async loadContent() {
       try {
-        const res = await get('/home/setup_get', { params: { key: 'SETUP_CONTENT_PRIVACY' } })
+        const res = await get('/api/v2/home/setup', { key: 'SETUP_CONTENT_PRIVACY' })
         this.content = res.data || '暂无内容'
       } catch (e) {
         this.content = '加载失败'

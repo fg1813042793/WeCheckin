@@ -1,10 +1,10 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="tabs" :style="{ top: fixedTop }">
+  <view class="container">
+    <view class="tabs">
       <view class="tab" :class="{ active: tab === 'today' }" @click="switchTab('today')">今日活动</view>
       <view class="tab" :class="{ active: tab === 'mine' }" @click="switchTab('mine')">我参与的</view>
     </view>
-    <scroll-view scroll-y class="content" :style="{ height: contentHeight }">
+    <scroll-view scroll-y class="content">
       <view class="event-list" v-if="list.length > 0">
         <view class="event-card" v-for="(item, index) in list" :key="index" @click="goDetail(item)">
           <view v-if="item.img" class="card-img">
@@ -52,25 +52,10 @@ export default {
       page: 1,
       pageSize: 10,
       loading: false,
-      hasMore: true,
-      fixedTop: '0px',
-      containerPad: '0px',
-      contentHeight: '100vh'
+      hasMore: true
     }
   },
   onLoad() {
-    const sys = uni.getSystemInfoSync()
-    const pxScale = 750 / sys.windowWidth
-    if (sys.platform === 'android') {
-      this.fixedTop = '12rpx'
-      this.containerPad = '92rpx'
-      this.contentHeight = (sys.windowHeight - Math.round(80 / pxScale)) + 'px'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = (navOffset + 6) + 'px'
-      this.containerPad = (navOffset + 6 + Math.round(80 / pxScale)) + 'px'
-      this.contentHeight = (sys.windowHeight - Math.round(80 / pxScale)) + 'px'
-    }
     this.loadData()
   },
   onPullDownRefresh() {
@@ -138,7 +123,12 @@ export default {
 
 <style scoped>
 page { background-color: #f5f5f5; }
-.container { min-height: 100vh; background: #f5f5f5; }
+.container {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-top: 92rpx;
+  box-sizing: border-box;
+}
 .tabs {
   display: flex;
   background: #fff;
@@ -146,7 +136,9 @@ page { background-color: #f5f5f5; }
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 10;
+  top: var(--window-top, 0px);
+  z-index: 20;
+  box-sizing: border-box;
 }
 .tab {
   flex: 1;
@@ -171,7 +163,11 @@ page { background-color: #f5f5f5; }
   background: #fb454c;
   border-radius: 2rpx;
 }
-.content { padding: 20rpx; box-sizing: border-box; }
+.content {
+  height: calc(100vh - var(--window-top, 0px) - 92rpx);
+  padding: 20rpx;
+  box-sizing: border-box;
+}
 .event-card {
   background: #fff;
   border-radius: 16rpx;

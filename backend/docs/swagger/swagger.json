@@ -3264,6 +3264,38 @@
                 }
             }
         },
+        "/admin/news_vouch": {
+            "post": {
+                "tags": [
+                    "PC端-通知公告"
+                ],
+                "summary": "设置通知公告推荐",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "通知公告ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "推荐(1=推荐 0=取消)",
+                        "name": "vouch",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/role/add": {
             "post": {
                 "tags": [
@@ -3298,8 +3330,14 @@
                     },
                     {
                         "type": "string",
-                        "description": "菜单ID列表(逗号分隔)",
-                        "name": "menuIds",
+                        "description": "后台权限编码列表(逗号分隔)",
+                        "name": "adminPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台接口权限编码列表(逗号分隔)",
+                        "name": "adminApiPermissionKeys",
                         "in": "formData"
                     },
                     {
@@ -3416,8 +3454,14 @@
                     },
                     {
                         "type": "string",
-                        "description": "菜单ID列表(逗号分隔)",
-                        "name": "menuIds",
+                        "description": "后台权限编码列表(逗号分隔)",
+                        "name": "adminPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台接口权限编码列表(逗号分隔)",
+                        "name": "adminApiPermissionKeys",
                         "in": "formData"
                     },
                     {
@@ -4422,6 +4466,12 @@
                     },
                     {
                         "type": "string",
+                        "description": "岗位ID",
+                        "name": "positionId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
                         "description": "头像URL",
                         "name": "pic",
                         "in": "formData"
@@ -4594,6 +4644,12 @@
                     },
                     {
                         "type": "string",
+                        "description": "岗位ID",
+                        "name": "positionId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
                         "description": "头像URL",
                         "name": "pic",
                         "in": "formData"
@@ -4714,6 +4770,5869 @@
                         "required": true
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/admin-sessions": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/admin-sessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/admin-sessions/batch-force-offline": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/admin-sessions/batch-force-offline",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/admin-sessions/{id}/force-offline": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/admin-sessions/{id}/force-offline",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/auth/login": {
+            "post": {
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/auth/login",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/auth/logout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/departments": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/departments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/departments/tree": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/departments/tree",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/departments/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/departments/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/departments/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dict/items": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/dict/items",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/dict/items",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dict/items/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/dict/items/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/dict/items/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dict/types": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/dict/types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dict/types/{typeCode}": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/dict/types/{typeCode}",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "typeCode",
+                        "name": "typeCode",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dict/types/{typeCode}/items": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/dict/types/{typeCode}/items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "typeCode",
+                        "name": "typeCode",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/enrollments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/enrollments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/enrollments/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/enrollments/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/clear": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/enrollments/{id}/clear",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/enrollments/{id}/export",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/enrollments/{id}/export",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments/{id}/export",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/forms": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/enrollments/{id}/forms",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/joins": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/enrollments/{id}/joins",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments/{id}/joins",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/joins/{joinId}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments/{id}/joins/{joinId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "joinId",
+                        "name": "joinId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/recommendation": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/enrollments/{id}/recommendation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/sort": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/enrollments/{id}/sort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/stats": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/enrollments/{id}/stats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/enrollments/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/users": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/enrollments/{id}/users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments/{id}/users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/users/{userId}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/enrollments/{id}/users/{userId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "userId",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/enrollments/{id}/users/{userId}/forms": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/enrollments/{id}/users/{userId}/forms",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "userId",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/event-dept-users": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/event-dept-users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/events/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/events/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/events/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/dynamics": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/events/{id}/dynamics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/events/{id}/dynamics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/events/{id}/dynamics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/dynamics/{dynamicId}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/events/{id}/dynamics/{dynamicId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "dynamicId",
+                        "name": "dynamicId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/events/{id}/dynamics/{dynamicId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "dynamicId",
+                        "name": "dynamicId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/participants": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/events/{id}/participants",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/events/{id}/participants",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/participants/{participantId}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/events/{id}/participants/{participantId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "participantId",
+                        "name": "participantId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/events/{id}/participants/{participantId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "participantId",
+                        "name": "participantId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/recommendation": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/events/{id}/recommendation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/scores": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/events/{id}/scores",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/events/{id}/scores",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/scores/{scoreId}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/events/{id}/scores/{scoreId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "scoreId",
+                        "name": "scoreId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/events/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/events/{id}/top": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/events/{id}/top",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exam-question-bank": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exam-question-bank",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/exam-question-bank",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exam-question-bank/categories": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exam-question-bank/categories",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exam-question-bank/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/exam-question-bank/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/exam-question-bank/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exam-resources": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/exam-resources",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exam-resources/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/exam-resources/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exams",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/exams",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exams/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/exams/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/exams/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/records": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exams/{id}/records",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/exams/{id}/records",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/records/{recordId}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exams/{id}/records/{recordId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "recordId",
+                        "name": "recordId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/exams/{id}/records/{recordId}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "recordId",
+                        "name": "recordId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/resources": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exams/{id}/resources",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/exams/{id}/statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/exams/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/home": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/home",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/home/recommendations": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/home/recommendations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/logs": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/logs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/logs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/managers": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/managers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/managers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/managers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/managers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/managers/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/managers/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/managers/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/managers/{id}/password": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/managers/{id}/password",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/managers/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/managers/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/me/menus": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/me/menus",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/me/password": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/me/password",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/me/perms": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/me/perms",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/news",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/news",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/news",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/news/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/news/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/news/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}/content": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/news/{id}/content",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}/forms": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/news/{id}/forms",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}/picture": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/news/{id}/picture",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}/recommendation": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/news/{id}/recommendation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}/sort": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/news/{id}/sort",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/news/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/news/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/permissions": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "平台",
+                        "name": "platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限类型，逗号分隔",
+                        "name": "types",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/permissions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/permissions/tree": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/permissions/tree",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "平台",
+                        "name": "platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限类型，逗号分隔",
+                        "name": "types",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/permissions/{key}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/permissions/{key}",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "权限编码",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/permissions/{key}",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "权限编码",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/roles": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/roles/application-permissions": {
+            "get": {
+                "tags": [
+                    "PC端-角色管理"
+                ],
+                "summary": "获取应用菜单权限树",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/roles/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/roles/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/roles/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/settings": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/settings/content": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/settings/content",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/settings/debug-token": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/settings/debug-token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/settings/mini-qr": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/settings/mini-qr",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-channels/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/survey-channels/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-expressions/evaluate": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/survey-expressions/evaluate",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-notifications": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-notifications",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-notifications/unread-count": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-notifications/unread-count",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-notifications/{id}/read": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/survey-notifications/{id}/read",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-question-bank": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-question-bank",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/survey-question-bank",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-question-bank/categories": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-question-bank/categories",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-question-bank/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/survey-question-bank/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/survey-question-bank/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-report/enroll": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-report/enroll",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-report/enroll/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-report/enroll/export",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-report/event": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-report/event",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-report/event/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-report/event/export",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-report/survey": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-report/survey",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-report/survey/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-report/survey/export",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-resources": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/survey-resources",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-resources/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/survey-resources/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-responses": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/survey-responses",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-responses/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-responses/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/survey-responses/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-schema/parse": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/survey-schema/parse",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-template-presets": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-template-presets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/survey-template-presets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-types": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/survey-types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/surveys",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/surveys/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/surveys/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/channels": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys/{id}/channels",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/surveys/{id}/channels",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/copy": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/surveys/{id}/copy",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/resources": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys/{id}/resources",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/responses": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys/{id}/responses",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/responses/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys/{id}/responses/export",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/surveys/{id}/statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/surveys/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/surveys/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/user-sessions": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/user-sessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/user-sessions/batch-force-offline": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/user-sessions/batch-force-offline",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/user-sessions/{id}/force-offline": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/user-sessions/{id}/force-offline",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/by-openid/{openid}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/users/by-openid/{openid}",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "openid",
+                        "name": "openid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/data": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/users/data",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/data/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/users/data/export",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/data/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/users/data/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/form-fields": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/users/form-fields",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/users/form-fields",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "查询 /api/v2/admin/users/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "更新 /api/v2/admin/users/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/users/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/{id}/password": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/users/{id}/password",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "变更 /api/v2/admin/users/{id}/status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/auth/login": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/auth/login",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/auth/password-login": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/auth/password-login",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/auth/register": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/auth/register",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dict/items": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/dict/items",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dict/types": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/dict/types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/enrollments": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/enrollments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/enrollments/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/enrollments/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/enrollments/{id}/join-days": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/enrollments/{id}/join-days",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/enrollments/{id}/joins": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/enrollments/{id}/joins",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/enrollments/{id}/submissions": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/enrollments/{id}/submissions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/events": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/events/{id}": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/events/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/events/{id}/dynamics": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/events/{id}/dynamics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/events/{id}/dynamics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/events/{id}/participants": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/events/{id}/participants",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/events/{id}/participants",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/events/{id}/scores": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/events/{id}/scores",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/events/{id}/scores",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exam-records/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/exam-records/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exam-records/{id}/answers": {
+            "put": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "更新 /api/v2/exam-records/{id}/answers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exam-results": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/exam-results",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exams": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/exams",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exams/{id}": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/exams/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exams/{id}/start": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/exams/{id}/start",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exams/{id}/submissions": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/exams/{id}/submissions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/exams/{id}/validation": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/exams/{id}/validation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/geo/reverse": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/geo/reverse",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/home": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/home",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/home/setup": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/home/setup",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "更新 /api/v2/me",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/enrollment-calendar": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/enrollment-calendar",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/enrollment-day-records": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/enrollment-day-records",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/enrollment-records": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/enrollment-records",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/enrollment-users": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/enrollment-users",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/enrollments": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/enrollments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/event-roles": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/event-roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/events": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/exam-records": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/exam-records",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/favorites": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/favorites",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/me/favorites",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/favorites/check": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/favorites/check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/favorites/{oid}": {
+            "delete": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "删除 /api/v2/me/favorites/{oid}",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "oid",
+                        "name": "oid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/logout": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/me/logout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/managed-events": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/managed-events",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/phone": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "提交 /api/v2/me/phone",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/survey-responses": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/survey-responses",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/survey-responses/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/me/survey-responses/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/news": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/news",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/news/categories": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/news/categories",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/news/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端"
+                ],
+                "summary": "查询 /api/v2/news/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/survey/apply": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/survey/apply",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/survey/validate": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/survey/validate",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/surveys": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/surveys",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/surveys/{id}": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/surveys/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/surveys/{id}/responses": {
+            "post": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "提交 /api/v2/surveys/{id}/responses",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/user-form-fields": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口"
+                ],
+                "summary": "查询 /api/v2/user-form-fields",
                 "responses": {
                     "200": {
                         "description": "OK",

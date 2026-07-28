@@ -36,7 +36,7 @@ export const adminChildRoutes: RouteRecordRaw[] = [
   { path: 'dict', name: 'Dict', component: () => import('../views/dict/index.vue'), meta: { title: '字典管理' } },
   { path: 'department', name: 'Department', component: () => import('../views/department/index.vue'), meta: { title: '部门管理' } },
   { path: 'role', name: 'Role', component: () => import('../views/role/index.vue'), meta: { title: '角色管理' } },
-  { path: 'menu', name: 'Menu', component: () => import('../views/menu/index.vue'), meta: { title: '菜单权限' } },
+  { path: 'menu', name: 'Menu', component: () => import('../views/menu/index.vue'), meta: { title: '权限管理' } },
   { path: 'event', name: 'Event', component: () => import('../views/event/index.vue'), meta: { title: '赛事活动' } },
   { path: 'setup', name: 'Setup', component: () => import('../views/setup/index.vue'), meta: { title: '系统配置' } },
   { path: 'client-setup', name: 'ClientSetup', component: () => import('../views/client-setup/index.vue'), meta: { title: '系统配置' } }
@@ -53,7 +53,7 @@ export const fallbackMenuItems: AdminMenuItem[] = [
   { id: 'dict', name: '字典管理', type: 1, status: 1, path: '/dict', icon: 'Notebook' },
   { id: 'department', name: '部门管理', type: 1, status: 1, path: '/department', icon: 'FolderOpened' },
   { id: 'role', name: '角色管理', type: 1, status: 1, path: '/role', icon: 'UserFilled' },
-  { id: 'menu', name: '菜单权限', type: 1, status: 1, path: '/menu', icon: 'Grid' },
+  { id: 'menu', name: '权限管理', type: 1, status: 1, path: '/menu', icon: 'Key' },
   { id: 'setup', name: '系统配置', type: 1, status: 1, path: '/setup', icon: 'Setting' },
   { id: 'event', name: '赛事活动', type: 1, status: 1, path: '/event', icon: 'TrophyBase' },
   {

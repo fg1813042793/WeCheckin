@@ -18,7 +18,7 @@
         </div>
       </div>
       <el-table :data="list" v-loading="loading" stripe style="width:100%" @selection-change="selected = $event" :row-key="(r:any)=>r.id">
-        <el-table-column type="selection" width="45" :selectable="(r:any)=>r.type!==1" />
+        <el-table-column type="selection" width="45" :selectable="(r:any)=>!isSuperAdminRole(r)" />
         <el-table-column label="头像" width="60">
           <template #default="{ row }">
             <el-avatar :src="row.pic" size="small">{{ row.name?.[0] }}</el-avatar>
@@ -29,7 +29,7 @@
         <el-table-column prop="phone" label="手机号" width="120" />
         <el-table-column label="角色" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.type === 1 ? 'danger' : 'info'" size="small">{{ row.roleName || (row.type === 1 ? '超级管理员' : '-') }}</el-tag>
+            <el-tag :type="isSuperAdminRole(row) ? 'danger' : 'info'" size="small">{{ row.roleName || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="所属部门" min-width="130">
@@ -48,7 +48,7 @@
           <template #default="{ row }">
             <div class="admin-table-actions">
               <el-button v-if="hasPerm('mgr:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <template v-if="row.type !== 1">
+              <template v-if="!isSuperAdminRole(row)">
                 <el-button v-if="row.status === 1 && hasPerm('mgr:edit')" size="small" type="warning" @click="toggleStatus(row, 0)">停用</el-button>
                 <el-button v-else-if="hasPerm('mgr:edit')" size="small" type="success" @click="toggleStatus(row, 1)">启用</el-button>
                 <el-popconfirm v-if="hasPerm('mgr:del')" title="确定删除该管理员？" @confirm="remove(row)">
@@ -91,12 +91,12 @@
         <el-form-item label="手机号">
           <el-input v-model="form.phone" />
         </el-form-item>
-        <el-form-item label="绑定角色" v-if="form.type !== 1">
+        <el-form-item label="绑定角色">
           <el-select v-model="form.roleId" placeholder="选择角色" clearable style="width:100%">
             <el-option v-for="r in roleList" :key="r.id" :label="r.name" :value="r.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="所属部门" v-if="form.type !== 1">
+        <el-form-item label="所属部门">
           <el-popover trigger="click" placement="bottom-start" :width="400">
             <template #reference>
               <el-input readonly :model-value="deptDisplayText" placeholder="请选择部门" suffix-icon="ArrowDown" style="width:100%" />
@@ -166,6 +166,7 @@ const deptTreeRef = ref<any>(null)
 const keyword = ref('')
 const selected = ref<any[]>([])
 const token = localStorage.getItem('admin_token') || ''
+const SUPER_ADMIN_ROLE_NAME = '超级管理员'
 
 function handleAvatarSuccess(res: any) {
   if (res.code === 0) form.pic = res.data?.url || ''
@@ -187,6 +188,9 @@ function deptNames(ids: number[]) {
   const dmap = deptNameMap()
   return ids.map(id => dmap[id] || id).join('、')
 }
+function isSuperAdminRole(row: any) {
+  return row?.roleName === SUPER_ADMIN_ROLE_NAME
+}
 const deptDisplayText = computed(() => {
   if (!form.deptIds || form.deptIds.length === 0) return ''
   return form.deptIds.map((id: number) => deptNameMap()[id] || id).join('、')
@@ -203,7 +207,8 @@ async function load() {
     ])
     list.value = mgrRes.data?.list || []
     total.value = mgrRes.data?.total || 0
-    roleList.value = Array.isArray(roleRes.data?.list) ? roleRes.data.list : (Array.isArray(roleRes.data) ? roleRes.data : [])
+    const roles = Array.isArray(roleRes.data?.list) ? roleRes.data.list : (Array.isArray(roleRes.data) ? roleRes.data : [])
+    roleList.value = roles.filter((r: any) => r.status !== 0)
     deptTreeData.value = Array.isArray(deptRes.data) ? deptRes.data : []
   } catch { list.value = []; total.value = 0; roleList.value = []; deptTreeData.value = [] }
   loading.value = false
@@ -246,6 +251,7 @@ function onDeptCheck() {
 }
 async function saveMgr() {
   if (!form.name) { ElMessage.warning('请输入姓名'); return }
+  if (!form.roleId) { ElMessage.warning('请选择角色'); return }
   if (formDialog.isCreate && !form.password) { ElMessage.warning('请输入密码'); return }
   saving.value = true
   try {
@@ -271,7 +277,7 @@ async function toggleStatus(row: any, status: number) {
   load()
 }
 async function remove(row: any) {
-  if (row.type === 1) { ElMessage.warning('超级管理员不可删除'); return }
+  if (isSuperAdminRole(row)) { ElMessage.warning('超级管理员不可删除'); return }
   await adminApi.mgrDel({ id: row.id })
   ElMessage.success('已删除')
   load()

@@ -2,6 +2,7 @@ package exam
 
 import (
 	examPkg "wecheckin-backend/backend/internal/app/formkit/exam"
+	examservice "wecheckin-backend/backend/internal/app/service/exam"
 	"wecheckin-backend/backend/internal/model"
 )
 
@@ -25,11 +26,11 @@ type examNotStartedData struct {
 }
 
 type examViewPaperResponse struct {
-	Exam      model.Exam               `json:"exam"`
-	Paper     model.ExamPaper          `json:"paper"`
-	Questions []map[string]interface{} `json:"questions"`
-	StartAt   int64                    `json:"startAt"`
-	Session   string                   `json:"session"`
+	Exam      model.Exam                     `json:"exam"`
+	Paper     model.ExamPaper                `json:"paper"`
+	Questions []examservice.SafeExamQuestion `json:"questions"`
+	StartAt   int64                          `json:"startAt"`
+	Session   string                         `json:"session"`
 }
 
 type examViewSchemaResponse struct {
@@ -53,20 +54,20 @@ type examViewSchemaResponse struct {
 }
 
 type examStartResponse struct {
-	Record    model.ExamRecord         `json:"record"`
-	Paper     model.ExamPaper          `json:"paper"`
-	Exam      model.Exam               `json:"exam"`
-	Questions []map[string]interface{} `json:"questions"`
-	Answers   map[string]interface{}   `json:"answers"`
+	Record    model.ExamRecord               `json:"record"`
+	Paper     model.ExamPaper                `json:"paper"`
+	Exam      model.Exam                     `json:"exam"`
+	Questions []examservice.SafeExamQuestion `json:"questions"`
+	Answers   map[string]interface{}         `json:"answers"`
 }
 
 type examRecordResponse struct {
-	Record    model.ExamRecord         `json:"record"`
-	Exam      model.Exam               `json:"exam"`
-	Paper     model.ExamPaper          `json:"paper"`
-	Questions []map[string]interface{} `json:"questions"`
-	Answers   map[string]interface{}   `json:"answers"`
-	Results   []examPkg.Result         `json:"results"`
+	Record    model.ExamRecord               `json:"record"`
+	Exam      model.Exam                     `json:"exam"`
+	Paper     model.ExamPaper                `json:"paper"`
+	Questions []examservice.SafeExamQuestion `json:"questions"`
+	Answers   map[string]interface{}         `json:"answers"`
+	Results   []examPkg.Result               `json:"results"`
 }
 
 type examMyRecordsResponse struct {

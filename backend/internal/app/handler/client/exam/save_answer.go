@@ -2,12 +2,12 @@ package exam
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	examservice "wecheckin-backend/backend/internal/app/service/exam"
 	"wecheckin-backend/backend/pkg/response"
 )
 
@@ -30,18 +30,15 @@ func (h *ClientExamHandler) SaveAnswer(ctx context.Context, c *app.RequestContex
 		response.Fail(c, "recordId 必填")
 		return
 	}
-	var rec model.ExamRecord
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := db.Where("`exam_r_id` = ? AND `exam_r_user_id` = ?", recordID, uid).First(&rec).Error; err != nil {
-		response.Fail(c, "记录不存在")
-		return
-	}
-	if rec.Status == 2 {
-		response.Fail(c, "已提交，不可修改")
-		return
-	}
-	if err := db.Model(&rec).Update("exam_r_answers", answersJSON).Error; err != nil {
+	if err := h.service().SaveAnswerContext(ctx, recordID, uid, answersJSON); err != nil {
+		if errors.Is(err, examservice.ErrExamRecordSubmitted) {
+			response.Fail(c, "已提交，不可修改")
+			return
+		}
+		if errors.Is(err, examservice.ErrExamRecordNotFound) {
+			response.Fail(c, "记录不存在")
+			return
+		}
 		response.Fail(c, "保存失败: "+err.Error())
 		return
 	}

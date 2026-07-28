@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"strconv"
 
 	"wecheckin-backend/backend/internal/app/support/dept"
 	"wecheckin-backend/backend/internal/app/support/publish"
@@ -44,7 +43,9 @@ func GetEventListContext(ctx context.Context, page, pageSize int, userID, keywor
 	} else {
 		query = query.Where("(`event_publish_dept_ids` = '' OR `event_publish_dept_ids` IS NULL)")
 	}
-	query.Count(&total)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
 	err := query.Order("`event_order` ASC, `event_add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
@@ -52,18 +53,30 @@ func GetEventListContext(ctx context.Context, page, pageSize int, userID, keywor
 	}
 	list = populateEventFields(list)
 
-	if userID != "" {
-		participatedIDs := map[string]bool{}
+	if userID != "" && len(list) > 0 {
+		eventIDs := eventListIDs(list)
+		participatedIDs := map[uint]bool{}
 		var parts []model.EventParticipant
-		db.Where("`event_part_mini_openid` = ?", userID).Find(&parts)
+		if err := db.Select("event_part_event_id").
+			Where("`event_part_mini_openid` = ? AND `event_part_event_id` IN ?", userID, eventIDs).
+			Find(&parts).Error; err != nil {
+			return nil, err
+		}
 		for _, p := range parts {
-			participatedIDs[strconv.Itoa(int(p.EventID))] = true
+			participatedIDs[p.EventID] = true
 		}
 		for i := range list {
-			idStr := strconv.Itoa(int(list[i].ID))
-			list[i].IsJoin = participatedIDs[idStr]
+			list[i].IsJoin = participatedIDs[list[i].ID]
 		}
 	}
 
 	return &ListResponse{List: list, Total: total}, nil
+}
+
+func eventListIDs(list []model.Event) []uint {
+	ids := make([]uint, 0, len(list))
+	for _, item := range list {
+		ids = append(ids, item.ID)
+	}
+	return ids
 }

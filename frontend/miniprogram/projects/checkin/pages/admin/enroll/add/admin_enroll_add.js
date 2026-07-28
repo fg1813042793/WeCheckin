@@ -95,7 +95,6 @@ Page({
 			pageHelper.showSuccToast('添加成功', 2000, callback);
 
 		} catch (err) {
-			console.log(err);
 		}
 
 	},

@@ -13,6 +13,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	"wecheckin-backend/backend/internal/app/support/adminrouteperm"
 	"wecheckin-backend/backend/internal/model"
 )
 
@@ -59,12 +60,86 @@ func TestRegisteredAdminRoutesHavePermissionDeclarations(t *testing.T) {
 	routes := registeredAdminRoutes(t)
 	var missing []string
 	for _, route := range routes {
-		if _, ok := routePerms[route]; !ok {
+		if _, ok := adminRoutePermission("GET", route); !ok {
 			missing = append(missing, route)
 		}
 	}
 	if len(missing) > 0 {
 		t.Fatalf("registered admin routes missing permission declarations: %s", strings.Join(missing, ", "))
+	}
+}
+
+func TestRegisteredV2AdminRoutesHavePermissionDeclarations(t *testing.T) {
+	routes := registeredV2AdminRoutes(t)
+	var missing []string
+	for _, route := range routes {
+		if _, ok := adminRoutePermission(route.method, route.path); !ok {
+			missing = append(missing, route.method+" "+route.path)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("registered v2 admin routes missing permission declarations: %s", strings.Join(missing, ", "))
+	}
+}
+
+func TestAdminRoutePermissionCodesHaveCatalogDeclarations(t *testing.T) {
+	declared := map[string]bool{}
+	for _, item := range adminrouteperm.Declarations() {
+		declared[item.Perms] = true
+	}
+
+	required := map[string]bool{}
+	for _, perms := range routePerms {
+		for _, code := range permissionCodes(perms) {
+			required[code] = true
+		}
+	}
+	for _, perms := range routeMethodPerms {
+		for _, code := range permissionCodes(perms) {
+			required[code] = true
+		}
+	}
+	for _, route := range routeMethodPermPatterns {
+		for _, code := range permissionCodes(route.perm) {
+			required[code] = true
+		}
+	}
+
+	var missing []string
+	for code := range required {
+		if !declared[code] {
+			missing = append(missing, code)
+		}
+	}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		t.Fatalf("admin route permission codes missing catalog declarations: %s", strings.Join(missing, ", "))
+	}
+}
+
+func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
+	cases := []struct {
+		method string
+		path   string
+		want   string
+	}{
+		{method: "GET", path: "/api/v2/admin/users/42", want: "user:list"},
+		{method: "PUT", path: "/api/v2/admin/users/42", want: "user:edit"},
+		{method: "DELETE", path: "/api/v2/admin/users/42", want: "user:del"},
+		{method: "PATCH", path: "/api/v2/admin/users/42/status", want: "user:edit"},
+		{method: "GET", path: "/api/v2/admin/surveys/7/responses", want: "response:list"},
+		{method: "DELETE", path: "/api/v2/admin/survey-question-bank/12", want: "question-bank:del"},
+		{method: "PUT", path: "/api/v2/admin/exams/8", want: "exam:edit"},
+		{method: "DELETE", path: "/api/v2/admin/exams/8/records/99", want: "exam:del"},
+	}
+	for _, tc := range cases {
+		got, ok := adminRoutePermission(tc.method, tc.path)
+		if !ok {
+			t.Fatalf("%s %s should be declared", tc.method, tc.path)
+		}
+		if got != tc.want {
+			t.Fatalf("%s %s permission = %q, want %q", tc.method, tc.path, got, tc.want)
+		}
 	}
 }
 
@@ -119,5 +194,31 @@ func registeredAdminRoutes(t *testing.T) []string {
 		out = append(out, route)
 	}
 	sort.Strings(out)
+	return out
+}
+
+type registeredRoute struct {
+	method string
+	path   string
+}
+
+func registeredV2AdminRoutes(t *testing.T) []registeredRoute {
+	t.Helper()
+	file := filepath.Join("..", "..", "cmd", "routes_v2.go")
+	src, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read %s: %v", file, err)
+	}
+	re := regexp.MustCompile(`admin\.(GET|POST|PUT|DELETE|PATCH)\("([^"]+)"`)
+	var out []registeredRoute
+	for _, match := range re.FindAllStringSubmatch(string(src), -1) {
+		out = append(out, registeredRoute{method: match[1], path: "/api/v2/admin" + match[2]})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].path == out[j].path {
+			return out[i].method < out[j].method
+		}
+		return out[i].path < out[j].path
+	})
 	return out
 }

@@ -25,6 +25,25 @@
         </view>
       </view>
 
+      <view class="section-divider">
+        <text>角色权限</text>
+      </view>
+
+      <view class="form-group">
+        <text class="label">绑定角色</text>
+        <picker :range="roleList" range-key="name" @change="onRoleChange">
+          <view class="picker">
+            <text v-if="form.roleName">{{ form.roleName }}</text>
+            <text v-else style="color:#999">请选择角色</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-group">
+        <text class="label">{{ isCreate ? '登录密码' : '新密码' }}</text>
+        <input class="input" v-model="form.password" :placeholder="isCreate ? '绑定角色时必填' : '留空则不修改密码'" password />
+      </view>
+
       <view class="form-group" v-if="form.avatar">
         <text class="label">头像链接</text>
         <input class="input" v-model="form.avatar" placeholder="头像URL" />
@@ -57,7 +76,7 @@
     <!-- 部门选择弹窗 -->
     <view class="modal-mask" v-if="showDeptPicker" @click="showDeptPicker = false">
       <view class="modal-content" @click.stop style="max-height:70vh">
-        <text class="modal-title">选择所属部门</text>
+        <text class="modal-title">{{ deptPickerTitle }}</text>
         <view v-for="(d, i) in visibleDepts" :key="d.id" class="dept-item" :style="{ paddingLeft: (d.depth * 40 + 20) + 'rpx' }">
           <view class="dept-left" @click="toggleDeptExpand(d.id)">
             <text v-if="d.hasChildren" class="dept-arrow">{{ d.expanded ? '▼' : '▶' }}</text>
@@ -89,14 +108,16 @@ export default {
       isCreate: false,
       formFields: [],
       deptTree: [],
-      expandedDeptIds: [],
-      showDeptPicker: false,
-      selectedDeptIds: []
-    }
-  },
+	      roleList: [],
+	      expandedDeptIds: [],
+	      showDeptPicker: false,
+	      deptPickerMode: 'user',
+	      selectedDeptIds: []
+	    }
+	  },
 
-  computed: {
-    visibleDepts() {
+	  computed: {
+	    visibleDepts() {
       const result = []
       const walk = (nodes, depth) => {
         for (const n of nodes) {
@@ -110,6 +131,9 @@ export default {
       }
       walk(this.deptTree, 0)
       return result
+    },
+    deptPickerTitle() {
+      return '选择所属部门'
     }
   },
 
@@ -168,12 +192,14 @@ export default {
 
     async loadUser(id) {
       try {
-        const [userRes, configRes, deptRes] = await Promise.all([
+        const [userRes, configRes, deptRes, roleRes] = await Promise.all([
           adminApi.userDetailById(id),
           adminApi.userFormFields(),
-          adminApi.deptTree()
+          adminApi.deptTree(),
+          adminApi.roleList({ page: 1, pageSize: 9999 })
         ])
         this.deptTree = deptRes.data || []
+        this.roleList = Array.isArray(roleRes.data?.list) ? roleRes.data.list : (Array.isArray(roleRes.data) ? roleRes.data : [])
         this.expandedDeptIds = this.deptTree.map(n => n.id)
 
         const list = Array.isArray(configRes.data) ? configRes.data : []
@@ -194,13 +220,17 @@ export default {
         this.formFields = fieldDefs
 
         const deptIds = Array.isArray(userRes.data.deptIds) ? userRes.data.deptIds : []
+        const role = this.roleList.find(r => Number(r.id) === Number(userRes.data.roleId))
         this.form = {
           name: userRes.data.name || '',
           mobile: userRes.data.mobile || '',
           avatar: userRes.data.avatar || '',
           deptIds: deptIds.join(','),
-          deptNames: deptIds.map(id => this.getDeptName(id)).filter(Boolean).join('、')
-        }
+          deptNames: deptIds.map(id => this.getDeptName(id)).filter(Boolean).join('、'),
+	          password: '',
+	          roleId: userRes.data.roleId || '',
+	          roleName: userRes.data.roleName || (role ? role.name : '')
+	        }
       } catch (e) {
         console.error('加载用户信息失败', e)
         uni.showToast({ title: '加载失败', icon: 'none' })
@@ -208,9 +238,19 @@ export default {
     },
 
     initForm() {
-      this.form = { name: '', mobile: '', avatar: '', deptIds: '', deptNames: '' }
+      this.form = {
+        name: '',
+        mobile: '',
+        avatar: '',
+        deptIds: '',
+        deptNames: '',
+	        password: '',
+	        roleId: '',
+	        roleName: ''
+	      }
       this.loadFormConfig()
       this.loadDeptTree()
+      this.loadRoles()
     },
 
     changeAvatar() {
@@ -259,6 +299,15 @@ export default {
       }
     },
 
+    async loadRoles() {
+      try {
+        const res = await adminApi.roleList({ page: 1, pageSize: 9999 })
+        this.roleList = Array.isArray(res.data?.list) ? res.data.list : (Array.isArray(res.data) ? res.data : [])
+      } catch (e) {
+        this.roleList = []
+      }
+    },
+
     findDeptInTree(nodes, id) {
       for (const n of nodes) {
         if (n.id === id) return n
@@ -295,6 +344,7 @@ export default {
 
     toggleDeptPicker() {
       this.selectedDeptIds = this.form.deptIds ? this.form.deptIds.split(',').map(Number) : []
+      this.deptPickerMode = 'user'
       this.showDeptPicker = true
     },
 
@@ -304,33 +354,48 @@ export default {
       this.showDeptPicker = false
     },
 
-    async save() {
+	    onRoleChange(e) {
+	      const role = this.roleList[e.detail.value]
+	      if (!role) return
+	      this.form.roleId = role.id
+	      this.form.roleName = role.name
+	    },
+
+	    async save() {
       if (!this.form.name) {
         uni.showToast({ title: '请输入用户名', icon: 'none' })
+        return
+      }
+      if (this.form.roleId && this.isCreate && !this.form.password) {
+        uni.showToast({ title: '请输入登录密码', icon: 'none' })
         return
       }
 
       const forms = this.formFields.filter(f => f.value).map(f => ({ label: f.label, value: f.value }))
       const formsStr = forms.length > 0 ? JSON.stringify(forms) : ''
 
-      try {
-        if (this.isCreate) {
-          await adminApi.userAdd({
-            name: this.form.name,
-            mobile: this.form.mobile,
-            pic: this.form.avatar,
-            forms: formsStr,
-            deptIds: this.form.deptIds
-          })
-        } else {
-          await adminApi.userEdit({
+	      try {
+	        if (this.isCreate) {
+	          await adminApi.userAdd({
+	            name: this.form.name,
+	            mobile: this.form.mobile,
+	            pic: this.form.avatar,
+	            forms: formsStr,
+	            deptIds: this.form.deptIds,
+	            password: this.form.password,
+	            roleId: this.form.roleId || 0
+	          })
+	        } else {
+	          await adminApi.userEdit({
             id: this.userId,
             name: this.form.name,
             mobile: this.form.mobile,
             pic: this.form.avatar,
-            forms: formsStr,
-            deptIds: this.form.deptIds
-          })
+	            forms: formsStr,
+	            deptIds: this.form.deptIds,
+	            password: this.form.password,
+	            roleId: this.form.roleId || 0
+	          })
         }
         uni.showToast({ title: '保存成功', icon: 'success' })
         setTimeout(() => {
@@ -390,6 +455,15 @@ export default {
 
 .form-group {
   margin-bottom: 30rpx;
+}
+
+.section-divider {
+  margin: 36rpx 0 24rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid #f0f3f7;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .label {

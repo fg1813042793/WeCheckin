@@ -1,6 +1,6 @@
 <template>
-  <view class="container" :style="{ paddingTop: containerPad }">
-    <view class="tabs" :style="{ top: fixedTop }">
+  <view class="container">
+    <view class="tabs">
       <view class="tab-item" :class="{ active: cur === 'task' }" @click="switchTab('task')">今日任务</view>
       <view class="tab-item" :class="{ active: cur === 'stats' }" @click="switchTab('stats')">打卡统计</view>
     </view>
@@ -101,9 +101,7 @@ export default {
       checkinDays: new Set(),
       selectedDay: '',
       dayRecords: [],
-      weekdays: ['日', '一', '二', '三', '四', '五', '六'],
-      fixedTop: '0px',
-      containerPad: '0px'
+      weekdays: ['日', '一', '二', '三', '四', '五', '六']
     }
   },
 
@@ -135,16 +133,6 @@ export default {
     this.calendarMonth = now.getMonth() + 1
     // onLoad 中 loadData() 已注释，onShow 已覆盖
     // this.loadData()
-    const sys = uni.getSystemInfoSync()
-    const pxScale = 750 / sys.windowWidth
-    if (sys.platform === 'android') {
-      this.fixedTop = '12rpx'
-      this.containerPad = '92rpx'
-    } else {
-      const navOffset = (sys.statusBarHeight || 0) + 44
-      this.fixedTop = (navOffset + 6) + 'px'
-      this.containerPad = (navOffset + 6 + Math.round(80 / pxScale)) + 'px'
-    }
   },
 
   onShow() {
@@ -272,6 +260,8 @@ export default {
   display: flex;
   flex-direction: column;
   background-color: #f5f5f5;
+  padding-top: 92rpx;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -279,20 +269,12 @@ export default {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 10;
+  top: var(--window-top, 0px);
+  z-index: 20;
   display: flex;
   background-color: #fff;
   padding: 20rpx 20rpx 0;
-}
-
-.tabs::before {
-  content: '';
-  position: absolute;
-  top: -12rpx;
-  left: 0;
-  right: 0;
-  height: 12rpx;
-  background-color: #f5f5f5;
+  box-sizing: border-box;
 }
 
 .tab-item {

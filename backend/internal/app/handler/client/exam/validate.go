@@ -8,8 +8,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
 	"wecheckin-backend/backend/pkg/logger"
 	"wecheckin-backend/backend/pkg/response"
 )
@@ -30,10 +28,8 @@ func (h *ClientExamHandler) Validate(ctx context.Context, c *app.RequestContext)
 		response.Fail(c, "参数错误")
 		return
 	}
-	var e model.Exam
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	if err := db.Where("`exam_id` = ? AND `exam_status` = 1", req.ExamID).First(&e).Error; err != nil {
+	e, err := h.service().PublishedExamContext(ctx, uint(req.ExamID))
+	if err != nil {
 		logger.Logger.Printf("[ExamValidate] 考试不存在或未发布 examId=%d", req.ExamID)
 		response.Fail(c, "考试不存在或未发布")
 		return
@@ -44,7 +40,12 @@ func (h *ClientExamHandler) Validate(ctx context.Context, c *app.RequestContext)
 		uidStr = strconv.FormatUint(uint64(uid), 10)
 	}
 	clientIP := c.ClientIP()
-	if msg := checkExamLimitContext(ctx, &e, uidStr, req.Device, req.DeviceID, clientIP); msg != "" {
+	msg, err := h.service().CheckLimitContext(ctx, e, uidStr, req.Device, req.DeviceID, clientIP)
+	if err != nil {
+		response.Fail(c, "校验失败: "+err.Error())
+		return
+	}
+	if msg != "" {
 		response.JSON(c, examValidationResponse{OK: false, Errors: []map[string]string{{"questionId": "", "message": msg}}})
 		return
 	}

@@ -1,6 +1,8 @@
 package tokenutil
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"wecheckin-backend/backend/internal/config"
@@ -22,5 +24,15 @@ func TestTokenRedisKeysUseConfiguredPrefix(t *testing.T) {
 	}
 	if got := TokenSetKey("admin", "42"); got != "custom_admin_token:s:42" {
 		t.Fatalf("admin set key = %q", got)
+	}
+}
+
+func TestTokenConfigReadsSetupWithQueryContext(t *testing.T) {
+	src, err := os.ReadFile("tokenutil.go")
+	if err != nil {
+		t.Fatalf("read tokenutil.go: %v", err)
+	}
+	if strings.Contains(string(src), "database.DB.") {
+		t.Fatalf("tokenutil must use database.WithContext instead of direct database.DB calls")
 	}
 }

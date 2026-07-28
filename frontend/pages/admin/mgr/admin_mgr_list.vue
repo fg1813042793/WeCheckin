@@ -1,18 +1,25 @@
 <template>
   <view class="container">
     <view class="toolbar">
-      <text class="count" v-if="dataList.length">共 {{ dataList.length }} 位管理员</text>
-      <view class="add-btn" @click="goAdd">+ 添加</view>
+      <view class="search-bar">
+        <input v-model="search" placeholder="搜索管理员姓名/手机号" class="search-input" confirm-type="search" @confirm="handleSearch" />
+      </view>
+      <view class="action-row">
+        <view class="add-btn" aria-label="创建管理员" @click="goAdd">
+          <text class="add-text">创建</text>
+        </view>
+      </view>
     </view>
 
     <view class="card-list">
+      <text class="list-summary" v-if="dataList.length">共 {{ dataList.length }} 位管理员</text>
       <view class="card" v-for="(item, idx) in dataList" :key="item.id">
         <view class="card-header">
           <image v-if="item.pic" :src="item.pic" mode="aspectFill" class="avatar"></image>
           <text v-else class="avatar-text">{{ (item.name || '?').charAt(0) }}</text>
           <view class="header-info">
             <text class="card-name">{{ item.name }}</text>
-            <text class="card-role" :class="item.type == 1 ? 'super' : ''">{{ item.type == 1 ? '超级管理员' : '普通管理员' }}</text>
+            <text class="card-role" :class="isSuperAdminRole(item) ? 'super' : ''">{{ item.roleName || '-' }}</text>
           </view>
           <text class="status-badge" :class="item.status == 1 ? 'active' : 'inactive'">{{ item.status == 1 ? '正常' : '停用' }}</text>
         </view>
@@ -35,7 +42,7 @@
         <view class="card-actions">
           <view class="action-btn detail" @click="goDetail(item.id)">查看详情</view>
           <view class="action-btn edit" @click="goEdit(item.id)">编辑</view>
-          <template v-if="item.type != 1">
+          <template v-if="!isSuperAdminRole(item)">
             <view v-if="item.status == 0" class="action-btn enable" @click="toggleStatus(item, 1)">启用</view>
             <view v-else class="action-btn disable" @click="toggleStatus(item, 0)">停用</view>
             <view class="action-btn delete" @click="delItem(item)">删除</view>
@@ -66,6 +73,10 @@ export default {
   },
 
   methods: {
+    handleSearch() {
+      this.loadData()
+    },
+
     async loadData() {
       try {
         const res = await adminApi.mgrList({ search: this.search })
@@ -85,6 +96,10 @@ export default {
 
     goEdit(id) {
       uni.navigateTo({ url: `/pages/admin/mgr/admin_mgr_edit?id=${id}` })
+    },
+
+    isSuperAdminRole(item) {
+      return item && item.roleName === '超级管理员'
     },
 
     async toggleStatus(item, status) {
@@ -122,32 +137,43 @@ export default {
 .container {
   min-height: 100vh;
   background-color: #f5f5f5;
-  padding: 20rpx;
+  padding-top: 206rpx;
+  box-sizing: border-box;
 }
 
 .toolbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--window-top, 0px);
+  z-index: 20;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20rpx;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16rpx;
+  padding: 20rpx;
+  background-color: #fff;
+  box-sizing: border-box;
 }
 
-.count {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.add-btn {
-  background-color: #fb454c;
-  color: #fff;
-  padding: 14rpx 32rpx;
-  border-radius: 36rpx;
-  font-size: 26rpx;
-}
+.search-bar { display: flex; align-items: center; width: 100%; min-width: 0; }
+.search-input { flex: 1; height: 70rpx; background-color: #f5f5f5; border-radius: 35rpx; padding: 0 24rpx; font-size: 28rpx; }
+.action-row { display: flex; align-items: center; gap: 12rpx; min-height: 56rpx; }
+.add-btn { height: 56rpx; line-height: 56rpx; display: flex; align-items: center; justify-content: center; background-color: #eaf3ff; color: #1677ff; padding: 0 28rpx; border-radius: 16rpx; box-shadow: none; }
+.add-text { color: #1677ff; font-size: 24rpx; font-weight: 600; line-height: 56rpx; }
 
 .card-list {
   display: flex;
   flex-direction: column;
+  padding: 20rpx;
+  max-width: 750rpx;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.list-summary {
+  font-size: 24rpx;
+  color: #94a3b8;
+  margin-bottom: 16rpx;
 }
 .card-list > .card {
   margin-bottom: 20rpx;

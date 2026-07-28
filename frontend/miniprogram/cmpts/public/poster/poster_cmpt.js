@@ -139,7 +139,6 @@ Component({
 		},
 
 		onPosterFail: function (e) {
-			console.log(e)
 		},
 
 		bindPosterSuccessListener(e) {
@@ -156,7 +155,6 @@ Component({
 		},
 
 		bindPosterFailListener(e) {
-			console.log(e);
 		},
 
 		bindSaveTap: function (e) {
