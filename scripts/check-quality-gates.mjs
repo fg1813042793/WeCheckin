@@ -21,8 +21,13 @@ function requireScript(pkg, scriptName, requiredSnippet, label) {
 
 const adminPkg = readJson('admin/package.json')
 const frontendPkg = readJson('frontend/package.json')
+const rootPkg = readJson('package.json')
 const verifyLocal = readFileSync(resolve(rootDir, 'scripts/verify-local.sh'), 'utf8')
+const checkScript = readFileSync(resolve(rootDir, 'scripts/check.sh'), 'utf8')
 const maintenanceDoc = readFileSync(resolve(rootDir, 'docs/project-maintenance.md'), 'utf8')
+const performanceReadme = readFileSync(resolve(rootDir, 'docs/performance/README.md'), 'utf8')
+const performanceIndexes = readFileSync(resolve(rootDir, 'docs/performance/mysql-indexes.md'), 'utf8')
+const performanceBaseline = readFileSync(resolve(rootDir, 'docs/performance/api-baseline.md'), 'utf8')
 
 for (const [scriptName, snippet] of [
   ['check:all', 'check:formkit-shared-types'],
@@ -38,14 +43,20 @@ for (const [scriptName, snippet] of [
   ['check:all', 'check:news-search-layout'],
   ['check:all', 'check:fixed-list-headers'],
   ['check:all', 'check:search-input-style'],
+  ['check:all', 'check:list-render-performance'],
   ['check:all', 'check:logs'],
+  ['check:request', 'check-request-dedupe.mjs'],
+  ['check:request-dedupe', 'check-request-dedupe.mjs'],
   ['check:form-fill', 'check-form-fill.mjs'],
   ['check:news-search-layout', 'check-news-search-layout.mjs'],
   ['check:fixed-list-headers', 'check-fixed-list-headers.mjs'],
   ['check:search-input-style', 'check-search-input-style.mjs'],
+  ['check:list-render-performance', 'check-list-render-performance.mjs'],
 ]) {
   requireScript(frontendPkg, scriptName, snippet, 'frontend')
 }
+
+requireScript(rootPkg, 'check:performance', 'check-performance.mjs', 'root')
 
 for (const snippet of [
   'node scripts/check-quality-gates.mjs',
@@ -58,6 +69,15 @@ for (const snippet of [
 }
 
 for (const snippet of [
+  'CHECK_PERFORMANCE',
+  'npm run check:performance',
+]) {
+  if (!checkScript.includes(snippet)) {
+    throw new Error(`scripts/check.sh must include: ${snippet}`)
+  }
+}
+
+for (const snippet of [
   'bash scripts/verify-local.sh',
   '管理后台',
   '客户端',
@@ -65,5 +85,26 @@ for (const snippet of [
 ]) {
   if (!maintenanceDoc.includes(snippet)) {
     throw new Error(`docs/project-maintenance.md must mention: ${snippet}`)
+  }
+}
+
+for (const [name, content] of [
+  ['docs/performance/README.md', performanceReadme],
+  ['docs/performance/mysql-indexes.md', performanceIndexes],
+  ['docs/performance/api-baseline.md', performanceBaseline],
+]) {
+  for (const snippet of ['EXPLAIN', 'npm run check:performance', 'slow query']) {
+    if (!content.includes(snippet)) {
+      throw new Error(`${name} must mention: ${snippet}`)
+    }
+  }
+}
+
+for (const snippet of [
+  'idx_news_status_order_time',
+  '通知列表',
+]) {
+  if (!performanceIndexes.includes(snippet)) {
+    throw new Error(`docs/performance/mysql-indexes.md must record news list index: ${snippet}`)
   }
 }

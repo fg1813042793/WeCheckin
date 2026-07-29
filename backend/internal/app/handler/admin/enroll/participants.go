@@ -66,7 +66,7 @@ func (h *AdminEnrollHandler) GetEnrollJoinList(ctx context.Context, c *app.Reque
 		response.Fail(c, "获取失败")
 		return
 	}
-	response.JSON(c, pagedListResponse{List: list, Total: total})
+	response.JSON(c, enrollJoinListResponse{List: list, Total: total})
 }
 
 // @Tags PC端-打卡管理

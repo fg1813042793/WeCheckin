@@ -81,6 +81,22 @@ func TestUserListDefaultOrderMatchesIndex(t *testing.T) {
 	}
 }
 
+func TestUserListSearchCoversIndexedVisibleFields(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"`user_name` LIKE ?",
+		"`user_mobile` LIKE ?",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("user list keyword search should include indexed field %q", snippet)
+		}
+	}
+}
+
 func TestUserListCachesUnfilteredTotalCount(t *testing.T) {
 	src, err := os.ReadFile("service.go")
 	if err != nil {

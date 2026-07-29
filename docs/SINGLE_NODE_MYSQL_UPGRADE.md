@@ -10,8 +10,9 @@
 
 - 后端数据库驱动为 MySQL，推荐 MySQL 8.0。
 - 新接口统一走 `/api/v2` 和 `/api/v2/admin`。
-- 旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等路径仍在后端保留，可继续兼容历史页面和小程序旧代码。
-- Nginx 需要同时代理 `/api/` 和旧路径；`/api/` 的 `proxy_pass` 不能带结尾斜杠，否则会截掉 `/api/v2` 前缀。
+- 后台管理只使用 `/api/v2/admin/*`；旧版 `/admin/*` 后台路由已不再作为兼容入口。
+- `/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等历史客户端路径如仍存在，仅用于兼容旧页面和小程序旧代码。
+- Nginx 需要代理 `/api/`；如仍承载旧客户端入口，再代理对应旧路径。`/api/` 的 `proxy_pass` 不能带结尾斜杠，否则会截掉 `/api/v2` 前缀。
 - 历史 MD5 密码仍可登录，登录成功后会自动升级为 bcrypt。
 - 后端启动不再执行迁移或种子数据；初始化/迁移统一通过 `backend/init.sh` 手动执行。
 - 迁移执行记录写入 `schema_migrations`，已执行过的 SQL 文件和初始化任务不会重复执行。
@@ -113,7 +114,7 @@ location /api/ {
 如果仍需兼容旧前端或旧小程序，再保留旧路径代理：
 
 ```nginx
-location ~ ^/(admin|passport|home|upload|uploads|user_form_fields|survey|exam|dict|geo|fav|news|enroll|event|swagger|test)(/|$) {
+location ~ ^/(passport|home|upload|uploads|user_form_fields|survey|exam|dict|geo|fav|news|enroll|event|swagger|test)(/|$) {
     proxy_pass http://127.0.0.1:8083;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

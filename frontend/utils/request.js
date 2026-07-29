@@ -10,6 +10,7 @@ const LOGIN_EXPIRED_MESSAGES = new Set([
 ])
 
 let redirectingToLogin = false
+const inflightRequests = new Map()
 
 function getAuthState(isAdmin) {
   return getRequestAuthState(isAdmin)
@@ -30,13 +31,38 @@ function redirectToLogin(authState) {
   })
 }
 
+function normalizeRequestData(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeRequestData(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = normalizeRequestData(value[key])
+      return result
+    }, {})
+  }
+  return value
+}
+
+function buildRequestKey(options, method) {
+  const data = normalizeRequestData(options.data || {})
+  return `${method} ${options.url} ${JSON.stringify(data)}`
+}
+
 const request = (options) => {
-  return new Promise((resolve, reject) => {
+  const method = (options.method || 'GET').toUpperCase()
+  const shouldDedupe = method === 'GET' && options.dedupe !== false
+  const requestKey = shouldDedupe ? buildRequestKey(options, method) : ''
+  if (shouldDedupe && inflightRequests.has(requestKey)) {
+    return inflightRequests.get(requestKey)
+  }
+
+  const promise = new Promise((resolve, reject) => {
     const isAdmin = options.url.startsWith('/admin/') || options.url.startsWith('/api/v2/admin/')
     const authState = getAuthState(isAdmin)
     uni.request({
       url: BASE_URL + options.url,
-      method: (options.method || 'GET').toUpperCase(),
+      method,
       data: options.data || {},
       timeout: options.timeout || 15000,
       header: {
@@ -78,6 +104,14 @@ const request = (options) => {
       }
     })
   })
+  if (shouldDedupe) {
+    inflightRequests.set(requestKey, promise)
+    promise.then(
+      () => inflightRequests.delete(requestKey),
+      () => inflightRequests.delete(requestKey)
+    )
+  }
+  return promise
 }
 
 const get = (url, data = {}) => {

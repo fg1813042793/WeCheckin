@@ -122,3 +122,30 @@ func TestAdminUserMergeSanitizesLegacyZeroTimestamps(t *testing.T) {
 		t.Fatalf("sql admin merge migration must not copy legacy zero timestamps directly")
 	}
 }
+
+func TestAdminUserMergeMigrationUsesCollationSafeStringComparisons(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_merge_admins_into_users.sql"))
+	if err != nil {
+		t.Fatalf("glob admin user merge migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("admin user merge migration is required")
+	}
+	migration, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read admin user merge migration: %v", err)
+	}
+	text := string(migration)
+	required := []string{
+		"CAST(u.`user_mini_openid` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(CONCAT(''admin:'', a.`id`) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(l.`log_admin_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(m.`legacy_admin_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(existing.`user_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+	}
+	for _, snippet := range required {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("admin user merge migration must avoid mixed collations with %s", snippet)
+		}
+	}
+}

@@ -7,6 +7,7 @@ import (
 
 	menuservice "wecheckin-backend/backend/internal/app/service/menu"
 	"wecheckin-backend/backend/internal/app/support/access"
+	"wecheckin-backend/backend/internal/app/support/appapiperm"
 	"wecheckin-backend/backend/internal/app/support/appmenuperm"
 	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
 	"wecheckin-backend/backend/internal/model"
@@ -14,20 +15,22 @@ import (
 )
 
 type ListItem struct {
-	ID                     uint     `json:"id"`
-	Name                   string   `json:"name"`
-	Remark                 string   `json:"remark"`
-	Sort                   int      `json:"sort"`
-	Status                 int      `json:"status"`
-	AllowAdminLogin        int      `json:"allowAdminLogin"`
-	DataScope              int      `json:"dataScope"`
-	AddTime                int64    `json:"addTime"`
-	EditTime               int64    `json:"editTime"`
-	AdminPermissionKeys    []string `json:"adminPermissionKeys"`
-	AdminAPIPermissionKeys []string `json:"adminApiPermissionKeys"`
-	DeptIDs                []uint   `json:"deptIds"`
-	ClientMenuKeys         []string `json:"clientMenuKeys"`
-	DingTalkH5MenuKeys     []string `json:"dingtalkH5MenuKeys"`
+	ID                          uint     `json:"id"`
+	Name                        string   `json:"name"`
+	Remark                      string   `json:"remark"`
+	Sort                        int      `json:"sort"`
+	Status                      int      `json:"status"`
+	AllowAdminLogin             int      `json:"allowAdminLogin"`
+	DataScope                   int      `json:"dataScope"`
+	AddTime                     int64    `json:"addTime"`
+	EditTime                    int64    `json:"editTime"`
+	AdminPermissionKeys         []string `json:"adminPermissionKeys"`
+	AdminAPIPermissionKeys      []string `json:"adminApiPermissionKeys"`
+	DeptIDs                     []uint   `json:"deptIds"`
+	ClientMenuKeys              []string `json:"clientMenuKeys"`
+	DingTalkH5MenuKeys          []string `json:"dingtalkH5MenuKeys"`
+	ClientAPIPermissionKeys     []string `json:"clientApiPermissionKeys"`
+	DingTalkH5APIPermissionKeys []string `json:"dingtalkH5ApiPermissionKeys"`
 }
 
 type ListResponse struct {
@@ -43,8 +46,10 @@ type ApplicationPermissionNode struct {
 }
 
 type ApplicationPermissionTreeResponse struct {
-	Client     []ApplicationPermissionNode `json:"client"`
-	DingTalkH5 []ApplicationPermissionNode `json:"dingtalkH5"`
+	Client        []ApplicationPermissionNode `json:"client"`
+	DingTalkH5    []ApplicationPermissionNode `json:"dingtalkH5"`
+	ClientAPI     []ApplicationPermissionNode `json:"clientApi"`
+	DingTalkH5API []ApplicationPermissionNode `json:"dingtalkH5Api"`
 }
 
 func GetList(adminID uint, keyword string, page, pageSize int) (*ListResponse, error) {
@@ -101,42 +106,45 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 	if err := db.Model(&model.Role{}).Scopes(conditions...).Order("`role_sort` ASC, `id` ASC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, err
 	}
-	adminPermissionKeysByRole, err := loadRoleAdminPermissionKeyMapContext(ctx, db, list)
-	if err != nil {
-		return nil, err
-	}
-	adminAPIPermissionKeysByRole, err := loadRoleAdminAPIPermissionKeyMapContext(ctx, db, list)
-	if err != nil {
-		return nil, err
-	}
-	deptIDsByRole, err := loadRoleDeptIDMapContext(ctx, db, list)
-	if err != nil {
-		return nil, err
-	}
-	clientMenuKeysByRole, dingtalkH5MenuKeysByRole, err := loadRoleApplicationMenuKeyMapContext(ctx, db, list)
+	assignments, err := loadRoleAssignmentMapsContext(ctx, db, list)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]ListItem, len(list))
 	for i, r := range list {
 		result[i] = ListItem{
-			ID:                     r.ID,
-			Name:                   r.Name,
-			Remark:                 r.Remark,
-			Sort:                   r.Sort,
-			Status:                 r.Status,
-			AllowAdminLogin:        normalizeAllowAdminLogin(r.AllowAdminLogin),
-			DataScope:              r.DataScope,
-			AddTime:                r.AddTime,
-			EditTime:               r.EditTime,
-			AdminPermissionKeys:    adminPermissionKeysByRole[r.ID],
-			AdminAPIPermissionKeys: adminAPIPermissionKeysByRole[r.ID],
-			DeptIDs:                deptIDsByRole[r.ID],
-			ClientMenuKeys:         clientMenuKeysByRole[r.ID],
-			DingTalkH5MenuKeys:     dingtalkH5MenuKeysByRole[r.ID],
+			ID:                          r.ID,
+			Name:                        r.Name,
+			Remark:                      r.Remark,
+			Sort:                        r.Sort,
+			Status:                      r.Status,
+			AllowAdminLogin:             normalizeAllowAdminLogin(r.AllowAdminLogin),
+			DataScope:                   r.DataScope,
+			AddTime:                     r.AddTime,
+			EditTime:                    r.EditTime,
+			AdminPermissionKeys:         assignments.AdminPermissionKeys[r.ID],
+			AdminAPIPermissionKeys:      assignments.AdminAPIPermissionKeys[r.ID],
+			DeptIDs:                     assignments.DeptIDs[r.ID],
+			ClientMenuKeys:              assignments.ClientMenuKeys[r.ID],
+			DingTalkH5MenuKeys:          assignments.DingTalkH5MenuKeys[r.ID],
+			ClientAPIPermissionKeys:     assignments.ClientAPIPermissionKeys[r.ID],
+			DingTalkH5APIPermissionKeys: assignments.DingTalkH5APIPermissionKeys[r.ID],
 		}
 	}
 	return &ListResponse{List: result, Total: total}, nil
+}
+
+func loadRoleAssignmentMapsContext(ctx context.Context, db *gorm.DB, list []model.Role) (permissionsupport.RoleAssignmentMaps, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return permissionsupport.RoleAssignmentMaps{}, err
+		}
+	}
+	roleIDs := make([]uint, 0, len(list))
+	for _, item := range list {
+		roleIDs = append(roleIDs, item.ID)
+	}
+	return permissionsupport.RoleAssignmentMapsContext(ctx, db, roleIDs)
 }
 
 func loadRoleAdminPermissionKeyMapContext(ctx context.Context, db *gorm.DB, list []model.Role) (map[uint][]string, error) {
@@ -206,10 +214,25 @@ func loadRoleApplicationMenuKeyMapContext(ctx context.Context, db *gorm.DB, list
 	return permissionsupport.RoleApplicationMenuKeyMapContext(ctx, db, roleIDs)
 }
 
+func loadRoleApplicationAPIKeyMapContext(ctx context.Context, db *gorm.DB, list []model.Role) (map[uint][]string, map[uint][]string, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+	}
+	roleIDs := make([]uint, 0, len(list))
+	for _, item := range list {
+		roleIDs = append(roleIDs, item.ID)
+	}
+	return permissionsupport.RoleApplicationAPIKeyMapContext(ctx, db, roleIDs)
+}
+
 func ApplicationPermissionTree() ApplicationPermissionTreeResponse {
 	return ApplicationPermissionTreeResponse{
-		Client:     applicationPermissionNodes(appmenuperm.ClientMenuDeclarations()),
-		DingTalkH5: applicationPermissionNodes(appmenuperm.DingTalkH5MenuDeclarations()),
+		Client:        applicationPermissionNodes(appmenuperm.ClientMenuDeclarations()),
+		DingTalkH5:    applicationPermissionNodes(appmenuperm.DingTalkH5MenuDeclarations()),
+		ClientAPI:     applicationAPIPermissionNodes(appapiperm.ClientAPICategories(), appapiperm.ClientAPIDeclarations()),
+		DingTalkH5API: applicationAPIPermissionNodes(appapiperm.DingTalkH5APICategories(), appapiperm.DingTalkH5APIDeclarations()),
 	}
 }
 
@@ -243,6 +266,38 @@ func applicationPermissionNodes(declarations []appmenuperm.Declaration) []Applic
 	return result
 }
 
+func applicationAPIPermissionNodes(categories []appapiperm.Category, declarations []appapiperm.Declaration) []ApplicationPermissionNode {
+	nodeByKey := make(map[string]*ApplicationPermissionNode, len(categories)+len(declarations))
+	roots := make([]*ApplicationPermissionNode, 0, len(categories))
+	for _, category := range categories {
+		node := &ApplicationPermissionNode{
+			Key:  category.Key,
+			Name: category.Name,
+		}
+		nodeByKey[category.Key] = node
+		roots = append(roots, node)
+	}
+	for _, declaration := range declarations {
+		node := ApplicationPermissionNode{
+			Key:       declaration.Key,
+			Name:      declaration.Name,
+			ParentKey: declaration.CategoryKey,
+		}
+		if parent, ok := nodeByKey[declaration.CategoryKey]; ok {
+			parent.Children = append(parent.Children, node)
+			continue
+		}
+		orphan := node
+		nodeByKey[declaration.Key] = &orphan
+		roots = append(roots, &orphan)
+	}
+	result := make([]ApplicationPermissionNode, 0, len(roots))
+	for _, root := range roots {
+		result = append(result, *root)
+	}
+	return result
+}
+
 func Add(name, remark, addIP string, sort, dataScope int) (uint, error) {
 	return AddContext(context.Background(), name, remark, addIP, sort, dataScope)
 }
@@ -267,7 +322,7 @@ func AddContext(ctx context.Context, name, remark, addIP string, sort, dataScope
 	return role.ID, nil
 }
 
-func AddWithAssignmentsContext(ctx context.Context, name, remark, addIP string, sort, dataScope, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, deptIDs []uint, clientMenuKeys, dingtalkH5MenuKeys []string) (uint, error) {
+func AddWithAssignmentsContext(ctx context.Context, name, remark, addIP string, sort, dataScope, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, deptIDs []uint, clientMenuKeys, dingtalkH5MenuKeys []string, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys []string) (uint, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 
@@ -288,7 +343,10 @@ func AddWithAssignmentsContext(ctx context.Context, name, remark, addIP string, 
 		if err := permissionsupport.SetRoleAdminPermissionKeysTx(tx, role.ID, normalizeAllowAdminLogin(allowAdminLogin), adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs); err != nil {
 			return err
 		}
-		return permissionsupport.SetRoleApplicationMenuPermissionsTx(tx, role.ID, clientMenuKeys, dingtalkH5MenuKeys)
+		if err := permissionsupport.SetRoleApplicationMenuPermissionsTx(tx, role.ID, clientMenuKeys, dingtalkH5MenuKeys); err != nil {
+			return err
+		}
+		return permissionsupport.SetRoleApplicationAPIPermissionsTx(tx, role.ID, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)
 	})
 	if err != nil {
 		return 0, err
@@ -317,7 +375,7 @@ func EditContext(ctx context.Context, id uint, name, remark, addIP string, sort,
 	return db.Model(&model.Role{}).Where("`id` = ?", id).Updates(updates).Error
 }
 
-func EditWithAssignmentsContext(ctx context.Context, id uint, name, remark, addIP string, sort, status, dataScope, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, deptIDs []uint, clientMenuKeys, dingtalkH5MenuKeys []string) error {
+func EditWithAssignmentsContext(ctx context.Context, id uint, name, remark, addIP string, sort, status, dataScope, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, deptIDs []uint, clientMenuKeys, dingtalkH5MenuKeys []string, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys []string) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 
@@ -347,7 +405,10 @@ func EditWithAssignmentsContext(ctx context.Context, id uint, name, remark, addI
 		if err := permissionsupport.SetRoleAdminPermissionKeysTx(tx, id, normalizeAllowAdminLogin(loginAllowed), adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs); err != nil {
 			return err
 		}
-		return permissionsupport.SetRoleApplicationMenuPermissionsTx(tx, id, clientMenuKeys, dingtalkH5MenuKeys)
+		if err := permissionsupport.SetRoleApplicationMenuPermissionsTx(tx, id, clientMenuKeys, dingtalkH5MenuKeys); err != nil {
+			return err
+		}
+		return permissionsupport.SetRoleApplicationAPIPermissionsTx(tx, id, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)
 	})
 	if err == nil {
 		menuservice.InvalidateAdminPermCacheForRole(id)

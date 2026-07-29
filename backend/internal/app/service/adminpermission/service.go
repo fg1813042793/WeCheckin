@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -50,11 +51,18 @@ func Tree(platform string) ([]*PermissionNode, error) {
 }
 
 func TreeContext(ctx context.Context, platform string, types ...string) ([]*PermissionNode, error) {
-	rows, err := ListContext(ctx, platform, types...)
+	filterTypes := normalizePermissionTypes(types...)
+	now := time.Now()
+	if cached, ok := getPermissionTreeCache(platform, filterTypes, now); ok {
+		return cached, nil
+	}
+	rows, err := ListContext(ctx, platform, filterTypes...)
 	if err != nil {
 		return nil, err
 	}
-	return buildPermissionTree(permissionRowsToNodes(rows)), nil
+	tree := buildPermissionTree(permissionRowsToNodes(rows))
+	setPermissionTreeCache(platform, filterTypes, tree, now)
+	return tree, nil
 }
 
 func List(platform string) ([]model.Permission, error) {
@@ -130,6 +138,7 @@ func AddContext(ctx context.Context, req SaveRequest) error {
 	if err := db.Create(&item).Error; err != nil {
 		return err
 	}
+	invalidatePermissionTreeCache()
 	menuservice.InvalidateAdminPermCache()
 	return nil
 }
@@ -139,15 +148,15 @@ func Edit(key string, req SaveRequest) error {
 }
 
 func EditContext(ctx context.Context, key string, req SaveRequest) error {
-	key = strings.TrimSpace(key)
-	if key == "" {
+	oldKey := strings.TrimSpace(key)
+	if oldKey == "" {
 		return fmt.Errorf("权限编码不能为空")
 	}
-	req.Key = key
 	item, err := normalizePermissionRequest(req)
 	if err != nil {
 		return err
 	}
+	newKey := item.Key
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	if db == nil {
@@ -156,25 +165,47 @@ func EditContext(ctx context.Context, key string, req SaveRequest) error {
 	if err := permissionsupport.EnsurePermissionSchemaContext(ctx, db); err != nil {
 		return err
 	}
-	updates := map[string]interface{}{
-		"permission_name":          item.Name,
-		"permission_platform":      item.Platform,
-		"permission_type":          item.Type,
-		"permission_parent_key":    item.ParentKey,
-		"permission_resource_path": item.ResourcePath,
-		"permission_icon":          item.Icon,
-		"permission_perms":         item.Perms,
-		"permission_sort":          item.Sort,
-		"permission_status":        item.Status,
-		"permission_edit_time":     database.Now(),
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if oldKey != newKey {
+			var count int64
+			if err := tx.Model(&model.Permission{}).Where("`permission_key` = ? AND `permission_key` <> ?", newKey, oldKey).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return fmt.Errorf("权限编码已存在")
+			}
+		}
+		updates := map[string]interface{}{
+			"permission_key":           newKey,
+			"permission_name":          item.Name,
+			"permission_platform":      item.Platform,
+			"permission_type":          item.Type,
+			"permission_parent_key":    item.ParentKey,
+			"permission_resource_path": item.ResourcePath,
+			"permission_icon":          item.Icon,
+			"permission_perms":         item.Perms,
+			"permission_sort":          item.Sort,
+			"permission_status":        item.Status,
+			"permission_edit_time":     database.Now(),
+		}
+		res := tx.Model(&model.Permission{}).Where("`permission_key` = ?", oldKey).Updates(updates)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		if oldKey == newKey {
+			return nil
+		}
+		if err := tx.Model(&model.PermissionGrant{}).Where("`grant_permission_key` = ?", oldKey).Update("grant_permission_key", newKey).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Permission{}).Where("`permission_parent_key` = ?", oldKey).Update("permission_parent_key", newKey).Error
+	}); err != nil {
+		return err
 	}
-	res := db.Model(&model.Permission{}).Where("`permission_key` = ?", key).Updates(updates)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
+	invalidatePermissionTreeCache()
 	menuservice.InvalidateAdminPermCache()
 	return nil
 }
@@ -207,6 +238,7 @@ func DeleteContext(ctx context.Context, key string) error {
 		return tx.Where("`permission_key` IN ?", keys).Delete(&model.Permission{}).Error
 	})
 	if err == nil {
+		invalidatePermissionTreeCache()
 		menuservice.InvalidateAdminPermCache()
 	}
 	return err

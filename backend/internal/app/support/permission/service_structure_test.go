@@ -69,21 +69,25 @@ func TestPermissionServiceSkipsStaleLegacyAdminMenuGrants(t *testing.T) {
 	}
 }
 
-func TestPermissionServiceBackfillsLegacyRoleGrantsEfficiently(t *testing.T) {
+func TestPermissionServiceDoesNotReadLegacyRoleGrantTables(t *testing.T) {
 	src, err := os.ReadFile("service.go")
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
 	text := string(src)
-	for _, snippet := range []string{
-		"setRoleAdminPermissionKeysTx(tx, roleID, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs, true)",
-		"setRoleAdminPermissionKeysTx(db, role.ID, role.AllowAdminLogin, adminPermissionKeys, nil, role.DataScope, deptIDs, false)",
-		"`permission_key` IN ?",
-		"CreateInBatches",
+	for _, forbidden := range []string{
+		"syncLegacyRoleGrants",
+		"legacyAdminAPIPermissionKeysByMenuKeys",
+		"role_menus",
+		"role_depts",
+		"MenuPermissionKey(",
 	} {
-		if !strings.Contains(text, snippet) {
-			t.Fatalf("legacy role grant backfill must use efficient grant sync snippet %s", snippet)
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("permission service must not read old role authorization table snippet %s", forbidden)
 		}
+	}
+	if !strings.Contains(text, "setRoleAdminPermissionKeysTx(tx, roleID, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs, true)") {
+		t.Fatalf("permission service must keep unified role grant writer")
 	}
 }
 
@@ -153,9 +157,14 @@ func TestPermissionServiceSyncsAdminMenusFromDeclarationsOnly(t *testing.T) {
 		}
 	}
 	for _, forbidden := range []string{
+		"syncLegacyMenuTablePermissions",
+		"legacyAdminMenuRow",
+		"legacyMenuType",
 		"var menus []model.Menu",
 		"db.Find(&menus)",
 		"MenuPermissionKey(menu.ID)",
+		`HasTable("menus")`,
+		`db.Table("menus")`,
 		"adminmenuperm.Declarations(true)",
 	} {
 		if strings.Contains(text, forbidden) {

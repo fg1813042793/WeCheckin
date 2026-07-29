@@ -119,7 +119,7 @@ DEALLOCATE PREPARE stmt;
 
 SET @ddl := IF(
   @admins_table_exists > 0,
-  'INSERT INTO `admin_user_merge_maps` (`legacy_admin_id`, `user_id`, `created_at`, `updated_at`) SELECT a.`id`, u.`id`, NOW(3), NOW(3) FROM `admins` a INNER JOIN `users` u ON u.`user_mini_openid` = CONCAT(''admin:'', a.`id`) ON DUPLICATE KEY UPDATE `user_id` = VALUES(`user_id`), `updated_at` = NOW(3)',
+  'INSERT INTO `admin_user_merge_maps` (`legacy_admin_id`, `user_id`, `created_at`, `updated_at`) SELECT a.`id`, u.`id`, NOW(3), NOW(3) FROM `admins` a INNER JOIN `users` u ON CAST(u.`user_mini_openid` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CAST(CONCAT(''admin:'', a.`id`) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci ON DUPLICATE KEY UPDATE `user_id` = VALUES(`user_id`), `updated_at` = NOW(3)',
   'SELECT ''admins table missing'''
 );
 PREPARE stmt FROM @ddl;
@@ -145,7 +145,7 @@ SET @logs_table_exists := (
 );
 SET @ddl := IF(
   @logs_table_exists > 0,
-  'UPDATE `logs` l INNER JOIN `admin_user_merge_maps` m ON l.`log_admin_id` = CAST(m.`legacy_admin_id` AS CHAR) LEFT JOIN `admin_user_merge_maps` existing ON l.`log_admin_id` = CAST(existing.`user_id` AS CHAR) SET l.`log_admin_id` = CAST(m.`user_id` AS CHAR) WHERE existing.`user_id` IS NULL',
+  'UPDATE `logs` l INNER JOIN `admin_user_merge_maps` m ON CAST(l.`log_admin_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CAST(m.`legacy_admin_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci LEFT JOIN `admin_user_merge_maps` existing ON CAST(l.`log_admin_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CAST(existing.`user_id` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci SET l.`log_admin_id` = CAST(m.`user_id` AS CHAR) WHERE existing.`user_id` IS NULL',
   'SELECT ''logs table missing'''
 );
 PREPARE stmt FROM @ddl;

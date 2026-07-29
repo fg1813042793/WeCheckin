@@ -22,6 +22,7 @@ func TestUserListIndexMigrationExists(t *testing.T) {
 	}
 	text := string(src)
 	required := []string{
+		"idx_users_status_role_id",
 		"idx_users_add_time_id",
 		"idx_users_mobile",
 		"idx_users_name",

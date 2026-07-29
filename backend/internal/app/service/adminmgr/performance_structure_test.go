@@ -33,3 +33,22 @@ func TestManagerListAvoidsPerRowRoleAndDeptQueries(t *testing.T) {
 		}
 	}
 }
+
+func TestManagerListUsesUsersTableAndLightweightColumns(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	required := []string{
+		"var adminManagerListColumns = []string{",
+		"db.Model(&model.User{})",
+		"`user_role_id` > 0",
+		"Select(adminManagerListColumns)",
+	}
+	for _, snippet := range required {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("manager list should query users with lightweight columns using %q", snippet)
+		}
+	}
+}

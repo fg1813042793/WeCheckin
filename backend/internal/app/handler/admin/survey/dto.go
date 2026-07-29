@@ -5,16 +5,37 @@ import (
 	"wecheckin-backend/backend/internal/model"
 )
 
-type surveyWithCount struct {
-	model.Survey
-	ResponseCount int `json:"responseCount"`
+type surveyListItem struct {
+	ID            uint   `json:"id"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	Category      string `json:"category"`
+	Tags          string `json:"tags"`
+	Cover         string `json:"cover"`
+	Visibility    int    `json:"visibility"`
+	AllowMulti    int    `json:"allowMulti"`
+	StartTime     int64  `json:"startTime"`
+	EndTime       int64  `json:"endTime"`
+	MaxResponse   int    `json:"maxResponse"`
+	ShowResult    int    `json:"showResult"`
+	Anonymous     int    `json:"anonymous"`
+	DeptIDs       string `json:"deptIds"`
+	QR            string `json:"qr"`
+	Status        int    `json:"status"`
+	Mode          string `json:"mode"`
+	Order         int    `json:"order"`
+	DeptID        uint   `json:"deptId"`
+	CreateBy      uint   `json:"createBy"`
+	AddTime       int64  `json:"addTime"`
+	EditTime      int64  `json:"editTime"`
+	ResponseCount int    `json:"responseCount"`
 }
 
 type surveyListResponse struct {
-	List  []surveyWithCount `json:"list"`
-	Total int64             `json:"total"`
-	Page  int               `json:"page"`
-	Size  int               `json:"size"`
+	List  []surveyListItem `json:"list"`
+	Total int64            `json:"total"`
+	Page  int              `json:"page"`
+	Size  int              `json:"size"`
 }
 
 type surveyDetailResponse struct {
@@ -74,4 +95,32 @@ type surveyStatisticResponse struct {
 	DeviceStat surveyDeviceStat   `json:"deviceStat"`
 	FieldStats []report.FieldStat `json:"fieldStats"`
 	ViewURL    string             `json:"viewUrl"`
+}
+
+func newSurveyListItem(sv model.Survey, responseCount int) surveyListItem {
+	return surveyListItem{
+		ID:            sv.ID,
+		Title:         sv.Title,
+		Description:   sv.Desc,
+		Category:      sv.Category,
+		Tags:          sv.Tags,
+		Cover:         sv.Cover,
+		Visibility:    sv.Visibility,
+		AllowMulti:    sv.AllowMulti,
+		StartTime:     sv.StartTime,
+		EndTime:       sv.EndTime,
+		MaxResponse:   sv.MaxResponse,
+		ShowResult:    sv.ShowResult,
+		Anonymous:     sv.Anonymous,
+		DeptIDs:       sv.DeptIDs,
+		QR:            sv.QR,
+		Status:        sv.Status,
+		Mode:          sv.Mode,
+		Order:         sv.Order,
+		DeptID:        sv.DeptID,
+		CreateBy:      sv.CreateBy,
+		AddTime:       sv.AddTime,
+		EditTime:      sv.EditTime,
+		ResponseCount: responseCount,
+	}
 }

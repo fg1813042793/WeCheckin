@@ -11,7 +11,7 @@ func registerV2DingTalkH5Routes(h *server.Hertz) {
 	group := h.Group("/api/v2/dingtalk/h5")
 	group.POST("/login", handler.Login)
 
-	auth := group.Group("", handler.Auth())
+	auth := group.Group("", handler.Auth(), handler.ApiPerm())
 	auth.POST("/logout", handler.Logout)
 	auth.GET("/bootstrap", handler.Bootstrap)
 	auth.GET("/workbench", handler.Workbench)

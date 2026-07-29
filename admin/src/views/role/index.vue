@@ -41,7 +41,14 @@
           <template #default="{ row }">{{ (row.adminApiPermissionKeys || []).length }}</template>
         </el-table-column>
         <el-table-column label="应用权限" width="90">
-          <template #default="{ row }">{{ ((row.clientMenuKeys || []).length + (row.dingtalkH5MenuKeys || []).length) || 0 }}</template>
+          <template #default="{ row }">
+            {{
+              ((row.clientMenuKeys || []).length +
+                (row.dingtalkH5MenuKeys || []).length +
+                (row.clientApiPermissionKeys || []).length +
+                (row.dingtalkH5ApiPermissionKeys || []).length) || 0
+            }}
+          </template>
         </el-table-column>
         <el-table-column label="状态" width="70">
           <template #default="{ row }">
@@ -74,7 +81,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="dialog.visible" :title="dialog.title" width="720px">
+    <el-dialog v-model="dialog.visible" :title="dialog.title" width="min(920px, 92vw)" class="permission-dialog">
       <el-form ref="formRef" :model="form" label-width="90px">
         <el-form-item label="角色名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入角色名称" />
@@ -115,56 +122,118 @@
           </el-popover>
         </el-form-item>
         <el-divider content-position="left">后台权限</el-divider>
-        <el-form-item label="后台菜单">
-          <el-tree
-            ref="menuTreeRef"
-            :data="menuTreeData"
-            :props="{ label: 'name' }"
-            show-checkbox
-            check-strictly
-            node-key="key"
-            :default-checked-keys="form.adminPermissionKeys"
-            @check="onMenuCheck"
-            class="permission-tree"
-          />
-        </el-form-item>
-        <el-form-item label="接口权限">
-          <el-tree
-            ref="apiTreeRef"
-            :data="apiTreeData"
-            :props="{ label: 'name', children: 'children' }"
-            show-checkbox
-            node-key="key"
-            :default-checked-keys="form.adminApiPermissionKeys"
-            @check="onApiCheck"
-            class="permission-tree"
-          />
+        <el-form-item label="权限配置" class="permission-form-item">
+          <div class="permission-layout">
+            <section class="permission-column permission-column--menu">
+              <div class="permission-column__header">
+                <span>菜单权限</span>
+                <small>控制后台左侧导航与页面入口</small>
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">后台菜单</div>
+                <el-tree
+                  ref="menuTreeRef"
+                  :data="menuTreeData"
+                  :props="{ label: 'name' }"
+                  show-checkbox
+                  check-strictly
+                  node-key="key"
+                  :default-checked-keys="form.adminPermissionKeys"
+                  @check="onMenuCheck"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+            <section class="permission-column permission-column--api">
+              <div class="permission-column__header">
+                <span>接口权限</span>
+                <small>控制接口调用与按钮级操作</small>
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">后台接口</div>
+                <el-tree
+                  ref="apiTreeRef"
+                  :data="apiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="form.adminApiPermissionKeys"
+                  @check="onApiCheck"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+          </div>
         </el-form-item>
         <el-divider content-position="left">应用权限</el-divider>
-        <el-form-item label="客户端权限">
-          <el-tree
-            ref="clientMenuTreeRef"
-            :data="clientMenuTreeData"
-            :props="{ label: 'name', children: 'children' }"
-            show-checkbox
-            check-strictly
-            node-key="key"
-            :default-checked-keys="form.clientMenuKeys"
-            @check="onClientMenuCheck"
-            class="permission-tree"
-          />
-        </el-form-item>
-        <el-form-item label="钉钉 H5 权限">
-          <el-tree
-            ref="dingtalkH5MenuTreeRef"
-            :data="dingtalkH5MenuTreeData"
-            :props="{ label: 'name', children: 'children' }"
-            show-checkbox
-            node-key="key"
-            :default-checked-keys="form.dingtalkH5MenuKeys"
-            @check="onDingTalkH5MenuCheck"
-            class="permission-tree"
-          />
+        <el-form-item label="权限配置" class="permission-form-item">
+          <div class="permission-layout">
+            <section class="permission-column permission-column--menu">
+              <div class="permission-column__header">
+                <span>菜单权限</span>
+                <small>控制客户端与钉钉 H5 可见入口</small>
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">客户端菜单</div>
+                <el-tree
+                  ref="clientMenuTreeRef"
+                  :data="clientMenuTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  check-strictly
+                  node-key="key"
+                  :default-checked-keys="form.clientMenuKeys"
+                  @check="onClientMenuCheck"
+                  class="permission-tree"
+                />
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">钉钉 H5 菜单</div>
+                <el-tree
+                  ref="dingtalkH5MenuTreeRef"
+                  :data="dingtalkH5MenuTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="form.dingtalkH5MenuKeys"
+                  @check="onDingTalkH5MenuCheck"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+            <section class="permission-column permission-column--api">
+              <div class="permission-column__header">
+                <span>接口权限</span>
+                <small>控制客户端与钉钉 H5 接口访问</small>
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">客户端接口</div>
+                <el-tree
+                  ref="clientApiTreeRef"
+                  :data="clientApiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="form.clientApiPermissionKeys"
+                  @check="onClientApiCheck"
+                  class="permission-tree"
+                />
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">钉钉 H5 接口</div>
+                <el-tree
+                  ref="dingtalkH5ApiTreeRef"
+                  :data="dingtalkH5ApiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="form.dingtalkH5ApiPermissionKeys"
+                  @check="onDingTalkH5ApiCheck"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+          </div>
         </el-form-item>
         <el-form-item label="状态" v-if="!dialog.isCreate">
           <el-radio-group v-model="form.status">
@@ -205,6 +274,10 @@ const clientMenuTreeData = ref<any[]>([])
 const clientMenuTreeRef = ref<any>(null)
 const dingtalkH5MenuTreeData = ref<any[]>([])
 const dingtalkH5MenuTreeRef = ref<any>(null)
+const clientApiTreeData = ref<any[]>([])
+const clientApiTreeRef = ref<any>(null)
+const dingtalkH5ApiTreeData = ref<any[]>([])
+const dingtalkH5ApiTreeRef = ref<any>(null)
 
 const dialog = reactive({
   visible: false,
@@ -224,7 +297,9 @@ const form = reactive({
   adminApiPermissionKeys: [] as string[],
   deptIds: [] as number[],
   clientMenuKeys: [] as string[],
-  dingtalkH5MenuKeys: [] as string[]
+  dingtalkH5MenuKeys: [] as string[],
+  clientApiPermissionKeys: [] as string[],
+  dingtalkH5ApiPermissionKeys: [] as string[]
 })
 
 function dataScopeLabel(v: number) {
@@ -289,12 +364,16 @@ async function loadApplicationPermissionTree() {
     const res = await adminApi.appPermissionTree()
     clientMenuTreeData.value = Array.isArray(res.data?.client) ? res.data.client : []
     dingtalkH5MenuTreeData.value = Array.isArray(res.data?.dingtalkH5) ? res.data.dingtalkH5 : []
-    if (clientMenuTreeData.value.length === 0 && dingtalkH5MenuTreeData.value.length === 0) {
+    clientApiTreeData.value = Array.isArray(res.data?.clientApi) ? res.data.clientApi : []
+    dingtalkH5ApiTreeData.value = Array.isArray(res.data?.dingtalkH5Api) ? res.data.dingtalkH5Api : []
+    if (clientMenuTreeData.value.length === 0 && dingtalkH5MenuTreeData.value.length === 0 && clientApiTreeData.value.length === 0 && dingtalkH5ApiTreeData.value.length === 0) {
       ElMessage.warning('应用权限配置为空，请确认后端已启动最新版本')
     }
   } catch {
     clientMenuTreeData.value = []
     dingtalkH5MenuTreeData.value = []
+    clientApiTreeData.value = []
+    dingtalkH5ApiTreeData.value = []
     ElMessage.error('应用权限加载失败')
   }
 }
@@ -314,6 +393,8 @@ function showAdd() {
   form.deptIds = []
   form.clientMenuKeys = []
   form.dingtalkH5MenuKeys = []
+  form.clientApiPermissionKeys = []
+  form.dingtalkH5ApiPermissionKeys = []
   dialog.visible = true
   nextTick(() => {
     menuTreeRef.value?.setCheckedKeys([])
@@ -321,6 +402,8 @@ function showAdd() {
     deptTreeRef.value?.setCheckedKeys([])
     clientMenuTreeRef.value?.setCheckedKeys([])
     dingtalkH5MenuTreeRef.value?.setCheckedKeys([])
+    clientApiTreeRef.value?.setCheckedKeys([])
+    dingtalkH5ApiTreeRef.value?.setCheckedKeys([])
   })
 }
 
@@ -339,6 +422,8 @@ function showEdit(row: any) {
   form.deptIds = row.deptIds || []
   form.clientMenuKeys = row.clientMenuKeys || []
   form.dingtalkH5MenuKeys = row.dingtalkH5MenuKeys || []
+  form.clientApiPermissionKeys = row.clientApiPermissionKeys || []
+  form.dingtalkH5ApiPermissionKeys = row.dingtalkH5ApiPermissionKeys || []
   dialog.visible = true
   nextTick(() => {
     menuTreeRef.value?.setCheckedKeys(form.adminPermissionKeys)
@@ -346,6 +431,8 @@ function showEdit(row: any) {
     deptTreeRef.value?.setCheckedKeys(form.deptIds)
     clientMenuTreeRef.value?.setCheckedKeys(form.clientMenuKeys)
     dingtalkH5MenuTreeRef.value?.setCheckedKeys(form.dingtalkH5MenuKeys)
+    clientApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(form.clientApiPermissionKeys, clientApiTreeData.value))
+    dingtalkH5ApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(form.dingtalkH5ApiPermissionKeys, dingtalkH5ApiTreeData.value))
   })
 }
 
@@ -382,6 +469,34 @@ function onDingTalkH5MenuCheck() {
   })
 }
 
+function onClientApiCheck() {
+  nextTick(() => {
+    const checked = clientApiTreeRef.value?.getCheckedKeys() || []
+    form.clientApiPermissionKeys = checked.filter((key: string) => key.startsWith('client:api:'))
+  })
+}
+
+function onDingTalkH5ApiCheck() {
+  nextTick(() => {
+    const checked = dingtalkH5ApiTreeRef.value?.getCheckedKeys() || []
+    form.dingtalkH5ApiPermissionKeys = checked.filter((key: string) => key.startsWith('dingtalk_h5:api:'))
+  })
+}
+
+function checkableKeysForTree(keys: string[], nodes: any[]) {
+  const parentKeys = new Set<string>()
+  function walk(items: any[]) {
+    for (const item of items || []) {
+      if (Array.isArray(item.children) && item.children.length > 0) {
+        parentKeys.add(String(item.key))
+        walk(item.children)
+      }
+    }
+  }
+  walk(nodes)
+  return keys.filter((key) => !parentKeys.has(key))
+}
+
 async function handleSave() {
   if (!form.name) {
     ElMessage.warning('请输入角色名称')
@@ -400,6 +515,8 @@ async function handleSave() {
     }
     payload.clientMenuKeys = form.clientMenuKeys.join(',')
     payload.dingtalkH5MenuKeys = form.dingtalkH5MenuKeys.join(',')
+    payload.clientApiPermissionKeys = form.clientApiPermissionKeys.join(',')
+    payload.dingtalkH5ApiPermissionKeys = form.dingtalkH5ApiPermissionKeys.join(',')
     if (form.dataScope === 4) {
       payload.deptIds = form.deptIds.join(',')
     }
@@ -459,12 +576,124 @@ onMounted(() => { loadList(); loadMenuTree(); loadApiTree(); loadDeptTree(); loa
 
 <style scoped>
 .permission-tree {
+  box-sizing: border-box;
   width: 100%;
-  max-height: 260px;
-  padding: 10px 12px;
+  max-height: 230px;
+  min-height: 180px;
+  padding: 8px 10px 10px;
   overflow-y: auto;
-  border: 1px solid #e5e6eb;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+.permission-form-item :deep(.el-form-item__content) {
+  min-width: 0;
+}
+.permission-layout {
+  box-sizing: border-box;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.permission-column {
+  box-sizing: border-box;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.permission-column__header {
+  box-sizing: border-box;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+.permission-column__header span {
+  color: #1d2129;
+  font-size: 14px;
+  font-weight: 700;
+}
+.permission-column__header small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8a94a6;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.permission-column--menu .permission-column__header span {
+  color: #2563eb;
+}
+.permission-column--api .permission-column__header span {
+  color: #0f766e;
+}
+.permission-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e5e8ef;
   border-radius: 8px;
-  background: #fbfcff;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(29, 41, 57, 0.04);
+}
+.permission-panel__title {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-bottom: 1px solid #eef1f6;
+  background: #f7f9fc;
+  color: #1d2129;
+  font-size: 13px;
+  font-weight: 600;
+}
+.permission-panel__title::before {
+  width: 4px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: #409eff;
+  content: '';
+}
+.permission-column--api .permission-panel__title::before {
+  background: #14b8a6;
+}
+.permission-tree :deep(.el-tree__empty-block) {
+  min-height: 150px;
+}
+.permission-tree :deep(.el-tree__empty-text) {
+  color: #8a94a6;
+  font-size: 13px;
+}
+.permission-tree :deep(.el-tree-node__content) {
+  min-width: 0;
+  height: 30px;
+  border-radius: 6px;
+}
+.permission-tree :deep(.el-tree-node__label) {
+  overflow: hidden;
+  color: #344054;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.permission-dialog :deep(.el-dialog__body) {
+  max-height: 72vh;
+  overflow-y: auto;
+}
+@media (max-width: 900px) {
+  .permission-layout {
+    grid-template-columns: 1fr;
+  }
+  .permission-column__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
 }
 </style>

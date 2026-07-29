@@ -23,7 +23,7 @@
       <view class="enroll-list" v-if="list.length > 0">
         <view class="enroll-card" v-for="(item, index) in list" :key="index" @click="goDetail(item.id)">
           <view v-if="item.img" class="card-img">
-            <image :src="item.img" mode="aspectFill" class="card-img-inner" />
+            <image :src="item.img" mode="aspectFill" class="card-img-inner" lazy-load />
           </view>
           <view v-else class="card-img-placeholder" :style="{ background: getPlaceholderBg(index) }">
             <text class="placeholder-text">{{ item.title }}</text>
@@ -73,6 +73,7 @@ export default {
       keyword: '',
       isAdmin: false,
       hasMore: true,
+      loading: false,
       favSet: new Set()
     }
   },
@@ -120,6 +121,7 @@ export default {
     },
 
     switchTab(tab) {
+      if (this.cur === tab) return
       this.cur = tab
       this.keyword = ''
       this.page = 1
@@ -166,6 +168,8 @@ export default {
     },
 
     async loadData() {
+      if ((!this.hasMore && this.page > 1) || this.loading) return
+      this.loading = true
       try {
         const uid = this.getUserId()
         const params = { page: this.page, pageSize: this.pageSize, user_id: uid }
@@ -184,19 +188,22 @@ export default {
         } else {
           this.list = [...this.list, ...data]
         }
-        if (this.cur !== 'join' && data.length < this.pageSize) {
-          this.hasMore = false
+        this.hasMore = this.cur === 'join' ? false : data.length >= this.pageSize
+        if (this.page === 1) {
+          this.loadFav()
         }
-        this.loadFav()
       } catch (e) {
         console.error('加载打卡任务失败', e)
+      } finally {
+        this.loading = false
       }
     },
 
     loadMore() {
-      if (!this.hasMore) return
-      this.page++
-      this.loadData()
+      if (this.hasMore && !this.loading) {
+        this.page++
+        this.loadData()
+      }
     },
 
     getPlaceholderBg(index) {

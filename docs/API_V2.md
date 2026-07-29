@@ -10,7 +10,7 @@
 - uni-app 客户端：`frontend/api/index.js`
 - uni-app 内置移动端管理页：`frontend/api/admin.js`
 
-旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等路由仍在后端保留，用于兼容历史页面和小程序旧代码。新增页面和新增接口调用必须优先使用 `/api/v2`。已有单点 MySQL 部署升级时，同时参考 [单点 MySQL 部署兼容升级说明](SINGLE_NODE_MYSQL_UPGRADE.md)。
+后台管理只使用 `/api/v2/admin/*` 路由和统一权限体系；旧版 `/admin/*` 后台路由已不再作为兼容入口。`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等历史客户端路由如仍存在，仅用于兼容旧页面和小程序旧代码。新增页面和新增接口调用必须使用 `/api/v2`。已有单点 MySQL 部署升级时，同时参考 [单点 MySQL 部署兼容升级说明](SINGLE_NODE_MYSQL_UPGRADE.md)。
 
 ## 基础约定
 
@@ -122,7 +122,7 @@
 | 字典 | `/api/v2/admin/dict` |
 | 部门 | `/api/v2/admin/departments` |
 | 角色 | `/api/v2/admin/roles` |
-| 菜单权限 | `/api/v2/admin/menus` |
+| 权限管理 | `/api/v2/admin/permissions` |
 | 当前管理员菜单/权限 | `/api/v2/admin/me` |
 | 问卷 | `/api/v2/admin/surveys` |
 | 问卷答卷 | `/api/v2/admin/survey-responses` |

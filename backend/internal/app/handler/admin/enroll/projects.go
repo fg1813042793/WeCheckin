@@ -35,7 +35,7 @@ func (h *AdminEnrollHandler) GetAdminEnrollList(ctx context.Context, c *app.Requ
 		response.Fail(c, "获取失败")
 		return
 	}
-	response.JSON(c, pagedListResponse{List: list, Total: total})
+	response.JSON(c, pagedListResponse{List: newEnrollListItems(list), Total: total})
 }
 
 // @Tags PC端-打卡管理

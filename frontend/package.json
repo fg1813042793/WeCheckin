@@ -11,7 +11,7 @@
     "build:app": "UNI_INPUT_DIR=. uni build --platform app",
     "build:mp-weixin": "UNI_INPUT_DIR=. uni build --platform mp-weixin",
     "check:config": "node scripts/check-config.mjs",
-    "check:request": "node scripts/check-request.mjs && node scripts/check-client-api-v2.mjs",
+    "check:request": "node scripts/check-request.mjs && node scripts/check-client-api-v2.mjs && node scripts/check-request-dedupe.mjs",
     "check:logs": "node scripts/check-production-logs.mjs",
     "check:auth": "node scripts/check-auth.mjs",
     "check:formkit-logic": "node scripts/check-formkit-logic.mjs",
@@ -19,7 +19,9 @@
     "check:news-search-layout": "node scripts/check-news-search-layout.mjs",
     "check:fixed-list-headers": "node scripts/check-fixed-list-headers.mjs",
     "check:search-input-style": "node scripts/check-search-input-style.mjs",
-    "check:all": "npm run check:config && npm run check:request && npm run check:logs && npm run check:auth && npm run check:formkit-logic && npm run check:form-fill && npm run check:news-search-layout && npm run check:fixed-list-headers && npm run check:search-input-style"
+    "check:request-dedupe": "node scripts/check-request-dedupe.mjs",
+    "check:list-render-performance": "node scripts/check-list-render-performance.mjs",
+    "check:all": "npm run check:config && npm run check:request && npm run check:logs && npm run check:auth && npm run check:formkit-logic && npm run check:form-fill && npm run check:news-search-layout && npm run check:fixed-list-headers && npm run check:search-input-style && npm run check:list-render-performance"
   },
   "dependencies": {
     "vue": "^3.3.0",

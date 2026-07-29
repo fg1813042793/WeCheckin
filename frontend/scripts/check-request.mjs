@@ -12,7 +12,8 @@ const requiredSnippets = [
   'function redirectToLogin',
   'LOGIN_EXPIRED_MESSAGES.has',
   'reject(res.data)',
-  "method: (options.method || 'GET').toUpperCase()",
+  "const method = (options.method || 'GET').toUpperCase()",
+  'method,',
   'timeout: options.timeout || 15000',
   'data,',
 ]

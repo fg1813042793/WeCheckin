@@ -1,0 +1,7 @@
+{
+  "name": "wecheckin",
+  "private": true,
+  "scripts": {
+    "check:performance": "node scripts/check-performance.mjs"
+  }
+}

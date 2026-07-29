@@ -21,6 +21,31 @@ type ClientLimitInfo struct {
 	IPFull     bool `json:"ipFull,omitempty"`
 }
 
+var publishedExamListColumns = []string{
+	"exam_id",
+	"exam_title",
+	"exam_desc",
+	"exam_category",
+	"exam_tags",
+	"exam_visibility",
+	"exam_allow_multi",
+	"exam_anonymous",
+	"exam_show_result",
+	"exam_paper_id",
+	"exam_settings",
+	"exam_start_time",
+	"exam_end_time",
+	"exam_duration",
+	"exam_max_attempts",
+	"exam_show_score",
+	"exam_max_response",
+	"exam_mode",
+	"exam_order",
+	"exam_status",
+	"exam_add_time",
+	"exam_edit_time",
+}
+
 type PaperQuestionOptions struct {
 	IncludeAnswer       bool
 	IncludeAnalysis     bool
@@ -89,7 +114,7 @@ func (s *Service) PublishedListWithLimitsContext(ctx context.Context, keyword st
 		return nil, 0, nil, err
 	}
 	var list []model.Exam
-	if err := q.Order("`exam_order` DESC, `exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := q.Select(publishedExamListColumns).Order("`exam_order` DESC, `exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, 0, nil, err
 	}
 	limitsMap, err := s.loadExamListLimitInfoContext(ctx, db, list, deviceID, clientIP)

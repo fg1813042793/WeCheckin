@@ -19,8 +19,8 @@ func TestRoleServicePersistsApplicationAPIPermissions(t *testing.T) {
 		"`json:\"dingtalkH5ApiPermissionKeys\"`",
 		"ClientAPI",
 		"DingTalkH5API",
-		"loadRoleApplicationAPIKeyMapContext(ctx, db, list)",
-		"permissionsupport.RoleApplicationAPIKeyMapContext(ctx, db, roleIDs)",
+		"loadRoleAssignmentMapsContext(ctx, db, list)",
+		"permissionsupport.RoleAssignmentMapsContext(ctx, db, roleIDs)",
 		"permissionsupport.SetRoleApplicationAPIPermissionsTx(tx, role.ID, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)",
 		"permissionsupport.SetRoleApplicationAPIPermissionsTx(tx, id, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)",
 	} {

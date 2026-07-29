@@ -53,6 +53,21 @@ type DetailResponse struct {
 	DeptIDs  []uint `json:"deptIds"`
 }
 
+var adminManagerListColumns = []string{
+	"id",
+	"user_name",
+	"user_admin_desc",
+	"user_pic",
+	"user_mobile",
+	"user_status",
+	"user_admin_type",
+	"user_role_id",
+	"user_login_cnt",
+	"user_login_time",
+	"user_add_time",
+	"user_edit_time",
+}
+
 func adminLoginRoleFilter(db *gorm.DB) *gorm.DB {
 	return adminaccess.ApplyUserAdminAccessRoleFilter(db)
 }
@@ -103,15 +118,17 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 	if keyword != "" {
 		kw := keyword
 		conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
-			return d.Where("`user_name` LIKE ? OR `user_mobile` LIKE ? OR `user_admin_desc` LIKE ?", "%"+kw+"%", "%"+kw+"%", "%"+kw+"%")
+			likeKeyword := "%" + kw + "%"
+			return d.Where("`user_name` LIKE ? OR `user_mobile` LIKE ? OR `user_admin_desc` LIKE ?", likeKeyword, likeKeyword, likeKeyword)
 		})
 	}
 	var total int64
-	if err := db.Model(&model.Admin{}).Scopes(conditions...).Count(&total).Error; err != nil {
+	queryBuilder := db.Model(&model.User{}).Where("`user_role_id` > 0").Scopes(conditions...)
+	if err := queryBuilder.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	var list []model.Admin
-	if err := db.Model(&model.Admin{}).Scopes(conditions...).Order("`user_add_time` DESC, `id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+	var list []model.User
+	if err := queryBuilder.Select(adminManagerListColumns).Order("`user_add_time` DESC, `id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, err
 	}
 	roleNames, err := loadRoleNameMapContext(ctx, db, list)
@@ -127,11 +144,11 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 		result[i] = ListItem{
 			ID:       a.ID,
 			Name:     a.Name,
-			Desc:     a.Desc,
+			Desc:     a.AdminDesc,
 			Pic:      media.FullURLWithStaticDomain(a.Pic),
-			Phone:    a.Phone,
+			Phone:    a.Mobile,
 			Status:   a.Status,
-			Type:     a.Type,
+			Type:     a.AdminType,
 			RoleID:   a.RoleID,
 			RoleName: roleNames[a.RoleID],
 			LoginCnt: a.LoginCnt,
@@ -143,7 +160,7 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 	return &ListResponse{List: result, Total: total}, nil
 }
 
-func loadRoleNameMapContext(ctx context.Context, db *gorm.DB, list []model.Admin) (map[uint]string, error) {
+func loadRoleNameMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint]string, error) {
 	if ctx != nil {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -175,7 +192,7 @@ func loadRoleNameMapContext(ctx context.Context, db *gorm.DB, list []model.Admin
 	return roleNames, nil
 }
 
-func loadAdminDeptIDMapContext(ctx context.Context, db *gorm.DB, list []model.Admin) (map[uint][]uint, error) {
+func loadAdminDeptIDMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint][]uint, error) {
 	if ctx != nil {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -295,7 +312,7 @@ func GetDetailContext(ctx context.Context, id string) (*DetailResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	roleNames, err := loadRoleNameMapContext(ctx, db, []model.Admin{admin})
+	roleNames, err := loadRoleNameMapContext(ctx, db, []model.User{{ID: admin.ID, RoleID: admin.RoleID}})
 	if err != nil {
 		return nil, err
 	}

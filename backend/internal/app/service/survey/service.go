@@ -27,6 +27,31 @@ type SurveyService struct{}
 // NewSurveyService ...
 func NewSurveyService() *SurveyService { return &SurveyService{} }
 
+var adminSurveyListColumns = []string{
+	"survey_id",
+	"survey_title",
+	"survey_desc",
+	"survey_category",
+	"survey_tags",
+	"survey_cover",
+	"survey_visibility",
+	"survey_allow_multi",
+	"survey_start_time",
+	"survey_end_time",
+	"survey_max_response",
+	"survey_show_result",
+	"survey_anonymous",
+	"survey_dept_ids",
+	"survey_qr",
+	"survey_status",
+	"survey_mode",
+	"survey_order",
+	"survey_dept_id",
+	"survey_create_by",
+	"survey_add_time",
+	"survey_edit_time",
+}
+
 func scopedSurveyQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
 	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Survey{}, "`survey_dept_id`", "`survey_create_by`")
 }
@@ -286,7 +311,7 @@ func (s *SurveyService) ListForAdminContext(ctx context.Context, keyword, catego
 		return nil, 0, err
 	}
 	var list []model.Survey
-	err = q.Order("`survey_order` DESC, `survey_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err = q.Select(adminSurveyListColumns).Order("`survey_order` DESC, `survey_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	return list, total, err
 }
 

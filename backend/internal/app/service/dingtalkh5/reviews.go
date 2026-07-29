@@ -14,7 +14,17 @@ import (
 )
 
 func BootstrapContext(ctx context.Context, user *model.DingTalkH5PerfUser) (*BootstrapResponse, error) {
-	return &BootstrapResponse{User: userDTO(*user), Menus: DingTalkH5MenusForUserContext(ctx, user)}, nil
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	version, err := permissionVersionForUserContext(ctx, db, user)
+	if err != nil {
+		version = permissionVersionFallback(user)
+	}
+	return &BootstrapResponse{
+		User:              userDTO(*user),
+		Menus:             dingTalkH5MenusForUserDB(ctx, db, user),
+		PermissionVersion: version,
+	}, nil
 }
 
 func DingTalkH5MenusForUserContext(ctx context.Context, user *model.DingTalkH5PerfUser) []AppMenuDTO {
@@ -26,10 +36,65 @@ func DingTalkH5MenusForUserContext(ctx context.Context, user *model.DingTalkH5Pe
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	return dingTalkH5MenusForUserDB(ctx, db, user)
+}
+
+func dingTalkH5MenusForUserDB(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser) []AppMenuDTO {
+	if user == nil {
+		return nil
+	}
+	if user.RoleID == 0 || db == nil {
+		return dingTalkH5DefaultMenusByRole(user.Role)
+	}
 	if keys, ready, err := permissionsupport.DingTalkH5MenuPermissionKeysContext(ctx, db, user.ID, user.RoleID); err == nil && ready && len(keys) > 0 {
 		return dingTalkH5MenusByKeys(keys)
 	}
 	return dingTalkH5DefaultMenusByRole(user.Role)
+}
+
+func permissionVersionForUserContext(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser) (int64, error) {
+	if user == nil {
+		return 0, nil
+	}
+	version := permissionVersionFallback(user)
+	if db == nil || (user.ID == 0 && user.RoleID == 0) {
+		return version, nil
+	}
+	var grantVersion int64
+	query := db.Model(&model.PermissionGrant{}).
+		Select("COALESCE(MAX(`grant_edit_time`), 0)").
+		Where("`grant_status` = 1").
+		Where(
+			"(`grant_subject_type` = ? AND `grant_subject_id` = ?) OR (`grant_subject_type` = ? AND `grant_subject_id` = ?)",
+			permissionsupport.SubjectUser,
+			user.ID,
+			permissionsupport.SubjectRole,
+			user.RoleID,
+		)
+	if err := query.Scan(&grantVersion).Error; err != nil {
+		return version, err
+	}
+	if grantVersion > version {
+		version = grantVersion
+	}
+	return version, nil
+}
+
+func permissionVersionFallback(user *model.DingTalkH5PerfUser) int64 {
+	if user == nil {
+		return 0
+	}
+	version := user.EditTime
+	if version == 0 {
+		version = user.AddTime
+	}
+	if int64(user.RoleID) > version {
+		version = int64(user.RoleID)
+	}
+	if int64(user.ID) > version {
+		version = int64(user.ID)
+	}
+	return version
 }
 
 func dingTalkH5MenusByKeys(keys []string) []AppMenuDTO {
@@ -149,11 +214,16 @@ func TemplateContext(ctx context.Context) (TemplateDTO, error) {
 	return LoadTemplateContext(ctx)
 }
 
-func ListReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, filters ReviewFilters) ([]ReviewDTO, error) {
+func ListReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, filters ReviewFilters) (*ReviewListResponse, error) {
+	normalizeReviewPagination(&filters)
+	return listReviewsContext(ctx, user, filters, true)
+}
+
+func listReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, filters ReviewFilters, paginate bool) (*ReviewListResponse, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var reviews []model.DingTalkH5PerfReview
-	query := db.Order("period DESC, id DESC")
+	query := db.Model(&model.DingTalkH5PerfReview{})
 	if filters.Period != "" {
 		query = query.Where("period = ?", filters.Period)
 	}
@@ -175,7 +245,16 @@ func ListReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, fil
 	if filters.Grade != "" {
 		query = query.Where("(final_grade = ? OR (final_grade = '' AND hrbp_grade = ?))", filters.Grade, filters.Grade)
 	}
+	query = applyReviewKeywordQuery(query, filters.Keyword)
 	query = applyReviewVisibilityScope(query, user, filters.Scope)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+	query = query.Order("period DESC, id DESC")
+	if paginate {
+		query = query.Offset((filters.Page - 1) * filters.PageSize).Limit(filters.PageSize)
+	}
 	if err := query.Find(&reviews).Error; err != nil {
 		return nil, err
 	}
@@ -183,19 +262,54 @@ func ListReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, fil
 	if err != nil {
 		return nil, err
 	}
+	historiesByID, err := historiesByReviewIDs(ctx, collectReviewIDs(reviews))
+	if err != nil {
+		return nil, err
+	}
 	result := make([]ReviewDTO, 0, len(reviews))
 	for _, review := range reviews {
 		employee := employees[review.EmployeeAccount]
-		if !canViewReview(user, review, employee) || !matchesKeyword(review, employee, filters.Keyword) {
+		if !canViewReview(user, review, employee) {
 			continue
 		}
-		histories, err := historiesForReview(ctx, review.ID)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, reviewDTO(review, histories))
+		result = append(result, reviewDTO(review, historiesByID[review.ID]))
 	}
-	return result, nil
+	return &ReviewListResponse{List: result, Total: total, Page: filters.Page, PageSize: filters.PageSize}, nil
+}
+
+func normalizeReviewPagination(filters *ReviewFilters) {
+	if filters.Page < 1 {
+		filters.Page = 1
+	}
+	if filters.PageSize < 1 {
+		filters.PageSize = 20
+	}
+	if filters.PageSize > 100 {
+		filters.PageSize = 100
+	}
+}
+
+func applyReviewKeywordQuery(query *gorm.DB, keyword string) *gorm.DB {
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		return query
+	}
+	likeKeyword := "%" + keyword + "%"
+	return query.Where(
+		"`review_no` LIKE ? OR `employee_account` LIKE ? OR `manager_account` LIKE ? OR `hrbp_account` LIKE ? OR `department` LIKE ? OR `period` LIKE ? OR `next_period` LIKE ? OR `status` LIKE ? OR `manager_grade` LIKE ? OR `hrbp_grade` LIKE ? OR `final_grade` LIKE ? OR `employee_account` IN (SELECT `user_mini_openid` FROM `users` WHERE `user_name` LIKE ?)",
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+		likeKeyword,
+	)
 }
 
 func GetReviewContext(ctx context.Context, user *model.DingTalkH5PerfUser, reviewNo string) (*ReviewDTO, error) {

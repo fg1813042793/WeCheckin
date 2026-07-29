@@ -29,6 +29,28 @@ for (const marker of ['async function refreshData', 'async function loadUsers', 
   }
 }
 
+for (const marker of ['permissionVersion: 0', 'state.permissionVersion = Number(res.data.permissionVersion || 0)']) {
+  if (!pageSource.includes(marker)) {
+    throw new Error(`pages/index/index.vue 必须保存 bootstrap 权限版本: ${marker}`)
+  }
+}
+
+const refreshMatch = pageSource.match(/async function refreshData\(\) \{([\s\S]*?)\n\}/)
+if (!refreshMatch) {
+  throw new Error('pages/index/index.vue 必须保留 refreshData 刷新函数')
+}
+const refreshBody = refreshMatch[1]
+for (const snippet of ['loadBootstrap()', 'Promise.all([loadReviews(), loadUsers(), loadTemplate()])']) {
+  if (refreshBody.includes(snippet)) {
+    throw new Error(`refreshData 只能刷新当前视图需要的数据，不能无条件拉取: ${snippet}`)
+  }
+}
+for (const marker of ['async function ensureReferenceData', 'ensureReferenceData()']) {
+  if (!pageSource.includes(marker)) {
+    throw new Error(`pages/index/index.vue 必须缓存用户/模板等引用数据: ${marker}`)
+  }
+}
+
 if (componentSources.includes('ctx.loadBootstrap')) {
   throw new Error('组件刷新按钮不能调用 bootstrap，应改为 ctx.refreshData')
 }

@@ -3,8 +3,11 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 )
 
 const maxAccessLogBodyBytes = 4 * 1024
+const defaultSlowRequestThreshold = 800 * time.Millisecond
 
 func safeParam(v []byte) string {
 	param := maskSensitiveParam(string(v))
@@ -140,11 +144,52 @@ func skipAccessLogBodyReason(contentType string, contentLength int) string {
 	return ""
 }
 
+func slowRequestThreshold() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("WECHECKIN_SLOW_REQUEST_MS"))
+	if raw == "" {
+		return defaultSlowRequestThreshold
+	}
+	ms, err := strconv.Atoi(raw)
+	if err != nil || ms <= 0 {
+		return defaultSlowRequestThreshold
+	}
+	return time.Duration(ms) * time.Millisecond
+}
+
+func shouldLogSlowRequest(latency, threshold time.Duration) bool {
+	return threshold > 0 && latency >= threshold
+}
+
+func slowRequestLogLine(now time.Time, method, path string, statusCode int, latency time.Duration, requestID string) string {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		requestID = "-"
+	}
+	return fmt.Sprintf("[SLOW_REQUEST] %s | %3d | %13v | requestId=%s | %s %s",
+		now.Format("2006/01/02 15:04:05"),
+		statusCode,
+		latency,
+		requestID,
+		method,
+		path,
+	)
+}
+
+func accessLogRequestID(c *app.RequestContext) string {
+	for _, header := range []string{"X-Request-ID", "X-Trace-ID"} {
+		if value := strings.TrimSpace(string(c.GetHeader(header))); value != "" {
+			return value
+		}
+	}
+	return "-"
+}
+
 func AccessLog() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		start := time.Now()
 		path := string(c.Path())
 		method := string(c.Method())
+		requestID := accessLogRequestID(c)
 
 		rawQuery := string(c.Request.URI().QueryString())
 		contentType := string(c.Request.Header.ContentType())
@@ -170,5 +215,8 @@ func AccessLog() app.HandlerFunc {
 			path,
 			detail,
 		)
+		if shouldLogSlowRequest(latency, slowRequestThreshold()) {
+			logger.Logger.Print(slowRequestLogLine(time.Now(), method, path, statusCode, latency, requestID))
+		}
 	}
 }

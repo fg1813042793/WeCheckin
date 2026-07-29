@@ -17,8 +17,8 @@ func TestRoleServicePersistsApplicationMenuPermissions(t *testing.T) {
 		"`json:\"clientMenuKeys\"`",
 		"DingTalkH5MenuKeys",
 		"`json:\"dingtalkH5MenuKeys\"`",
-		"loadRoleApplicationMenuKeyMapContext(ctx, db, list)",
-		"permissionsupport.RoleApplicationMenuKeyMapContext(ctx, db, roleIDs)",
+		"loadRoleAssignmentMapsContext(ctx, db, list)",
+		"permissionsupport.RoleAssignmentMapsContext(ctx, db, roleIDs)",
 		"permissionsupport.SetRoleApplicationMenuPermissionsTx(tx, role.ID, clientMenuKeys, dingtalkH5MenuKeys)",
 		"permissionsupport.SetRoleApplicationMenuPermissionsTx(tx, id, clientMenuKeys, dingtalkH5MenuKeys)",
 	} {

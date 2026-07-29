@@ -85,6 +85,33 @@ func historiesForReview(ctx context.Context, reviewID uint) ([]model.DingTalkH5P
 	return histories, err
 }
 
+func historiesByReviewIDs(ctx context.Context, reviewIDs []uint) (map[uint][]model.DingTalkH5PerfHistory, error) {
+	result := make(map[uint][]model.DingTalkH5PerfHistory, len(reviewIDs))
+	if len(reviewIDs) == 0 {
+		return result, nil
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var histories []model.DingTalkH5PerfHistory
+	if err := db.Where("review_id IN ?", reviewIDs).Order("review_id ASC, add_time ASC, id ASC").Find(&histories).Error; err != nil {
+		return nil, err
+	}
+	for _, history := range histories {
+		result[history.ReviewID] = append(result[history.ReviewID], history)
+	}
+	return result, nil
+}
+
+func collectReviewIDs(reviews []model.DingTalkH5PerfReview) []uint {
+	items := make([]uint, 0, len(reviews))
+	for _, review := range reviews {
+		if review.ID > 0 {
+			items = append(items, review.ID)
+		}
+	}
+	return items
+}
+
 func usersByAccounts(ctx context.Context, accounts []string) (map[string]*model.DingTalkH5PerfUser, error) {
 	result := map[string]*model.DingTalkH5PerfUser{}
 	if len(accounts) == 0 {

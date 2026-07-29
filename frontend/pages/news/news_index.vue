@@ -9,7 +9,7 @@
     <view class="news-list" v-if="list.length > 0">
       <view class="news-item" v-for="(item, index) in list" :key="index" @click="goDetail(item.id)">
         <view v-if="item.img" class="news-img">
-          <image :src="item.img" mode="aspectFill" class="news-img-inner" />
+          <image :src="item.img" mode="aspectFill" class="news-img-inner" lazy-load />
         </view>
         <view v-else class="news-img-placeholder" :style="{ background: getPlaceholderBg(index) }">
           <text class="placeholder-text">{{ item.title }}</text>
@@ -76,6 +76,7 @@ export default {
     },
 
     async loadData() {
+      if ((!this.hasMore && this.page > 1) || this.loading) return
       this.loading = true
       try {
         const params = { page: this.page, pageSize: this.pageSize, user_id: this.getUserId() }
@@ -87,19 +88,19 @@ export default {
         } else {
           this.list = [...this.list, ...data]
         }
-        if (data.length < this.pageSize) {
-          this.hasMore = false
-        }
+        this.hasMore = data.length >= this.pageSize
       } catch (e) {
         console.error('加载通知失败', e)
+      } finally {
+        this.loading = false
       }
-      this.loading = false
     },
 
     loadMore() {
-      if (!this.hasMore) return
-      this.page++
-      this.loadData()
+      if (this.hasMore && !this.loading) {
+        this.page++
+        this.loadData()
+      }
     },
 
     goDetail(id) {

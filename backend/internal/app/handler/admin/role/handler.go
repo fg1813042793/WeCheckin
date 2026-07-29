@@ -71,6 +71,8 @@ func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 	adminAPIPermissionKeys := parsePermissionKeys(c.PostForm("adminApiPermissionKeys"))
 	clientMenuKeys := parsePermissionKeys(c.PostForm("clientMenuKeys"))
 	dingtalkH5MenuKeys := parsePermissionKeys(c.PostForm("dingtalkH5MenuKeys"))
+	clientAPIPermissionKeys := parsePermissionKeys(c.PostForm("clientApiPermissionKeys"))
+	dingtalkH5APIPermissionKeys := parsePermissionKeys(c.PostForm("dingtalkH5ApiPermissionKeys"))
 	if dataScope == 0 {
 		dataScope = 1
 	}
@@ -88,7 +90,7 @@ func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 			}
 		}
 	}
-	if _, err := roleservice.AddWithAssignmentsContext(ctx, name, remark, c.ClientIP(), sort, dataScope, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, deptIDs, clientMenuKeys, dingtalkH5MenuKeys); err != nil {
+	if _, err := roleservice.AddWithAssignmentsContext(ctx, name, remark, c.ClientIP(), sort, dataScope, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, deptIDs, clientMenuKeys, dingtalkH5MenuKeys, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys); err != nil {
 		response.Fail(c, "添加失败")
 		return
 	}
@@ -123,6 +125,8 @@ func (h *AdminRoleHandler) EditRole(ctx context.Context, c *app.RequestContext) 
 	adminAPIPermissionKeys := parsePermissionKeys(c.PostForm("adminApiPermissionKeys"))
 	clientMenuKeys := parsePermissionKeys(c.PostForm("clientMenuKeys"))
 	dingtalkH5MenuKeys := parsePermissionKeys(c.PostForm("dingtalkH5MenuKeys"))
+	clientAPIPermissionKeys := parsePermissionKeys(c.PostForm("clientApiPermissionKeys"))
+	dingtalkH5APIPermissionKeys := parsePermissionKeys(c.PostForm("dingtalkH5ApiPermissionKeys"))
 	if dataScope == 0 {
 		dataScope = 1
 	}
@@ -140,7 +144,7 @@ func (h *AdminRoleHandler) EditRole(ctx context.Context, c *app.RequestContext) 
 			}
 		}
 	}
-	if err := roleservice.EditWithAssignmentsContext(ctx, uint(id), name, remark, c.ClientIP(), sort, status, dataScope, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, deptIDs, clientMenuKeys, dingtalkH5MenuKeys); err != nil {
+	if err := roleservice.EditWithAssignmentsContext(ctx, uint(id), name, remark, c.ClientIP(), sort, status, dataScope, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, deptIDs, clientMenuKeys, dingtalkH5MenuKeys, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys); err != nil {
 		response.Fail(c, "编辑失败")
 		return
 	}

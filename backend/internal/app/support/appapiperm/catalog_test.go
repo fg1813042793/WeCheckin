@@ -23,7 +23,7 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 		t.Fatalf("dingtalk h5 API declarations must not be empty")
 	}
 	required := map[string]bool{
-		"dingtalk_h5:api:workbench:view":      false,
+		"dingtalk_h5:api:workbench:view":     false,
 		"dingtalk_h5:api:review:self_submit": false,
 		"dingtalk_h5:api:review:hrbp_submit": false,
 		"dingtalk_h5:api:review:finalize":    false,

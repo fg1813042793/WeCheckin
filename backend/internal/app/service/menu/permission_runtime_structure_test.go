@@ -28,6 +28,11 @@ func TestMenuRuntimePrefersUnifiedPermissions(t *testing.T) {
 		"`menu_status`",
 		"`menu_sort`",
 		"legacyAdminMenuTreeContext",
+		"func GetTree()",
+		"func GetTreeContext",
+		"func GetList()",
+		"func GetListContext",
+		"flattenAdminMenus",
 	} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("menu runtime must not read legacy menus table snippet %s", forbidden)

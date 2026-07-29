@@ -27,9 +27,11 @@ func TestBootstrapResponseIsLightweight(t *testing.T) {
 
 	for _, snippet := range []string{
 		"type BootstrapResponse struct",
-		"User  UserDTO",
-		"Menus []AppMenuDTO",
-		"DingTalkH5MenusForUserContext(ctx, user)",
+		"UserDTO",
+		"[]AppMenuDTO",
+		"`json:\"permissionVersion\"`",
+		"permissionVersionForUserContext(ctx, db, user)",
+		"dingTalkH5MenusForUserDB(ctx, db, user)",
 		"if user.RoleID == 0",
 		"return dingTalkH5DefaultMenusByRole(user.Role)",
 	} {

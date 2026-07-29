@@ -196,7 +196,11 @@ func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "查询失败")
 		return
 	}
-	response.JSON(c, examListResponse{List: list, Total: total, Page: page, Size: pageSize})
+	out := make([]examListItem, 0, len(list))
+	for _, item := range list {
+		out = append(out, newExamListItem(item))
+	}
+	response.JSON(c, examListResponse{List: out, Total: total, Page: page, Size: pageSize})
 }
 
 // @Tags PC端-考试管理

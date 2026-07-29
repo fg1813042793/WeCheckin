@@ -84,7 +84,7 @@ func registerV2ClientRoutes(h *server.Hertz) {
 	cSurvey := clientsurvey.NewClientSurveyHandler()
 	cExam := clientexam.NewClientExamHandler()
 
-	client := h.Group("/api/v2", middleware.ClientAuth())
+	client := h.Group("/api/v2", middleware.ClientAuth(), middleware.ClientPerm())
 	client.GET("/me", pp.GetMyDetail)
 	client.PUT("/me", pp.EditBase)
 	client.POST("/me/phone", pp.GetPhone)
@@ -283,7 +283,7 @@ func registerV2AdminSystemRoutes(admin *route.RouterGroup) {
 	admin.GET("/permissions/tree", aPermission.GetPermissionTree)
 	admin.GET("/permissions", aPermission.GetPermissionList)
 	admin.POST("/permissions", aPermission.AddPermission)
-	admin.PUT("/permissions/:key", withFormParam("key", "key", aPermission.EditPermission))
+	admin.PUT("/permissions/:key", aPermission.EditPermission)
 	admin.DELETE("/permissions/:key", withFormParam("key", "key", aPermission.DelPermission))
 }
 

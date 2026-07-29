@@ -24,11 +24,11 @@ func TestAdminPermRejectsUnmappedAdminRoute(t *testing.T) {
 		c.Next(ctx)
 	})
 	h.Use(AdminPerm())
-	h.GET("/admin/unmapped_route", func(ctx context.Context, c *app.RequestContext) {
+	h.GET("/api/v2/admin/unmapped-route", func(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusOK, "allowed")
 	})
 
-	resp := ut.PerformRequest(h.Engine, "GET", "/admin/unmapped_route", nil).Result()
+	resp := ut.PerformRequest(h.Engine, "GET", "/api/v2/admin/unmapped-route", nil).Result()
 	body := string(resp.Body())
 	if strings.Contains(body, "allowed") {
 		t.Fatalf("unmapped admin route should be rejected, got body %q", body)
@@ -45,27 +45,14 @@ func TestAdminPermAllowsExplicitlyPublicAdminRoute(t *testing.T) {
 		c.Next(ctx)
 	})
 	h.Use(AdminPerm())
-	h.GET("/admin/user/menus", func(ctx context.Context, c *app.RequestContext) {
+	h.GET("/api/v2/admin/me/menus", func(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusOK, "allowed")
 	})
 
-	resp := ut.PerformRequest(h.Engine, "GET", "/admin/user/menus", nil).Result()
+	resp := ut.PerformRequest(h.Engine, "GET", "/api/v2/admin/me/menus", nil).Result()
 	body := string(resp.Body())
 	if body != "allowed" {
 		t.Fatalf("explicitly public admin route should be allowed, got body %q", body)
-	}
-}
-
-func TestRegisteredAdminRoutesHavePermissionDeclarations(t *testing.T) {
-	routes := registeredAdminRoutes(t)
-	var missing []string
-	for _, route := range routes {
-		if _, ok := adminRoutePermission("GET", route); !ok {
-			missing = append(missing, route)
-		}
-	}
-	if len(missing) > 0 {
-		t.Fatalf("registered admin routes missing permission declarations: %s", strings.Join(missing, ", "))
 	}
 }
 
@@ -89,11 +76,6 @@ func TestAdminRoutePermissionCodesHaveCatalogDeclarations(t *testing.T) {
 	}
 
 	required := map[string]bool{}
-	for _, perms := range routePerms {
-		for _, code := range permissionCodes(perms) {
-			required[code] = true
-		}
-	}
 	for _, perms := range routeMethodPerms {
 		for _, code := range permissionCodes(perms) {
 			required[code] = true
@@ -148,8 +130,71 @@ func TestAdminPermUsesContextAwarePermissionLookup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read admin_permission.go: %v", err)
 	}
-	if !strings.Contains(string(src), "GetAdminPermsContext(ctx, admin)") {
+	text := string(src)
+	if !strings.Contains(text, "database.WithContext(ctx)") {
 		t.Fatalf("AdminPerm must use request context when loading permissions")
+	}
+	if strings.Contains(text, "GetAdminPermsContext(ctx, admin)") {
+		t.Fatalf("AdminPerm must not fall back to menu permission codes for API access")
+	}
+}
+
+func TestAdminPermissionMiddlewareKeepsRouteDeclarationsSeparate(t *testing.T) {
+	middlewareSrc, err := os.ReadFile("admin_permission.go")
+	if err != nil {
+		t.Fatalf("read admin_permission.go: %v", err)
+	}
+	declarationSrc, err := os.ReadFile("admin_route_permissions.go")
+	if err != nil {
+		t.Fatalf("read admin_route_permissions.go: %v", err)
+	}
+	middlewareText := string(middlewareSrc)
+	for _, snippet := range []string{
+		"var routeMethodPerms",
+		"var routeMethodPermPatterns",
+	} {
+		if strings.Contains(middlewareText, snippet) {
+			t.Fatalf("admin permission middleware should not keep route declaration table %s", snippet)
+		}
+	}
+	declarationText := string(declarationSrc)
+	for _, snippet := range []string{
+		"var routeMethodPerms",
+		"var routeMethodPermPatterns",
+	} {
+		if !strings.Contains(declarationText, snippet) {
+			t.Fatalf("admin route declaration file must contain %s", snippet)
+		}
+	}
+}
+
+func TestAdminPermissionRemovesLegacyAdminRouteMap(t *testing.T) {
+	src, err := os.ReadFile("admin_route_permissions.go")
+	if err != nil {
+		t.Fatalf("read admin_route_permissions.go: %v", err)
+	}
+	text := string(src)
+	for _, forbidden := range []string{
+		"var routePerms",
+		`"/admin/`,
+		"routePerms[path]",
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("legacy /admin permission declaration must be removed: %s", forbidden)
+		}
+	}
+	if _, ok := adminRoutePermission("GET", "/admin/user/menus"); ok {
+		t.Fatalf("legacy /admin route must not be declared after v2 migration")
+	}
+}
+
+func TestAdminPermissionMiddlewareRemovesUnusedPermissionMatcher(t *testing.T) {
+	src, err := os.ReadFile("admin_permission.go")
+	if err != nil {
+		t.Fatalf("read admin_permission.go: %v", err)
+	}
+	if strings.Contains(string(src), "func permissionMatches") {
+		t.Fatalf("unused permissionMatches helper should be removed")
 	}
 }
 
@@ -170,31 +215,6 @@ func TestAuditAdminPermissionDeniedToleratesNilLogger(t *testing.T) {
 		}
 	}()
 	auditAdminPermissionDenied(&model.Admin{ID: 1, RoleID: 2}, "/admin/x", "x:list", "test")
-}
-
-func registeredAdminRoutes(t *testing.T) []string {
-	t.Helper()
-	files, err := filepath.Glob(filepath.Join("..", "..", "cmd", "routes_*.go"))
-	if err != nil {
-		t.Fatalf("glob routes: %v", err)
-	}
-	re := regexp.MustCompile(`adminGroup\.(?:GET|POST|PUT|DELETE|PATCH)\("([^"]+)"`)
-	seen := map[string]struct{}{}
-	for _, file := range files {
-		src, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatalf("read %s: %v", file, err)
-		}
-		for _, match := range re.FindAllStringSubmatch(string(src), -1) {
-			seen["/admin"+match[1]] = struct{}{}
-		}
-	}
-	out := make([]string, 0, len(seen))
-	for route := range seen {
-		out = append(out, route)
-	}
-	sort.Strings(out)
-	return out
 }
 
 type registeredRoute struct {

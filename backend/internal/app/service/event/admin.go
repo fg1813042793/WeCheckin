@@ -17,6 +17,32 @@ import (
 
 // ==================== Admin ====================
 
+var adminEventListColumns = []string{
+	"id",
+	"event_title",
+	"event_type",
+	"event_status",
+	"event_dept_id",
+	"event_publish_dept_ids",
+	"event_create_by",
+	"event_cate_id",
+	"event_cate_name",
+	"event_reg_start",
+	"event_reg_end",
+	"event_event_start",
+	"event_event_end",
+	"event_order",
+	"event_vouch",
+	"event_is_top",
+	"event_obj",
+	"event_qr",
+	"event_view_cnt",
+	"event_join_cnt",
+	"event_user_cnt",
+	"event_add_time",
+	"event_edit_time",
+}
+
 func GetAdminEventList(keyword, typ, sortStr string, page, pageSize int, adminID uint) ([]model.Event, int64, error) {
 	return GetAdminEventListContext(context.Background(), keyword, typ, sortStr, page, pageSize, adminID)
 }
@@ -57,7 +83,7 @@ func GetAdminEventListContext(ctx context.Context, keyword, typ, sortStr string,
 	} else {
 		queryBuilder = queryBuilder.Order("`event_add_time` DESC")
 	}
-	err := queryBuilder.Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := queryBuilder.Select(adminEventListColumns).Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, 0, err
 	}

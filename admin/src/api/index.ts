@@ -266,8 +266,8 @@ export const adminApi = {
   permissionAdd(data: FormPayload) {
     return request.post(`${ADMIN_V2}/permissions`, data)
   },
-  permissionEdit(data: FormPayload & { key?: ID; permissionKey?: ID }) {
-    const key = data.key ?? data.permissionKey
+  permissionEdit(data: FormPayload & { key?: ID; permissionKey?: ID; originalKey?: ID }) {
+    const key = data.originalKey ?? data.key ?? data.permissionKey
     return request.put(`${ADMIN_V2}/permissions/${encodePath(key)}`, data)
   },
   permissionDel(data: { key?: ID; permissionKey?: ID }) {

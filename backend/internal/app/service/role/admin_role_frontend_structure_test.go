@@ -20,13 +20,44 @@ func TestAdminRolePageShowsApplicationPermissionTrees(t *testing.T) {
 		"appPermissionTree()",
 		"clientMenuTreeData",
 		"dingtalkH5MenuTreeData",
-		"客户端权限",
-		"钉钉 H5 权限",
+		"clientApiTreeData",
+		"dingtalkH5ApiTreeData",
+		"客户端菜单",
+		"钉钉 H5 菜单",
+		"客户端接口",
+		"钉钉 H5 接口",
 		"payload.clientMenuKeys = form.clientMenuKeys.join(',')",
 		"payload.dingtalkH5MenuKeys = form.dingtalkH5MenuKeys.join(',')",
+		"payload.clientApiPermissionKeys = form.clientApiPermissionKeys.join(',')",
+		"payload.dingtalkH5ApiPermissionKeys = form.dingtalkH5ApiPermissionKeys.join(',')",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("admin role page must expose app permission tree with %s", snippet)
+		}
+	}
+}
+
+func TestAdminRolePageSplitsMenuAndAPIPermissions(t *testing.T) {
+	pageSrc, err := os.ReadFile("../../../../../admin/src/views/role/index.vue")
+	if err != nil {
+		t.Fatalf("read role page: %v", err)
+	}
+	text := string(pageSrc)
+	for _, snippet := range []string{
+		"permission-layout",
+		"permission-column permission-column--menu",
+		"permission-column permission-column--api",
+		"菜单权限",
+		"接口权限",
+		"后台菜单",
+		"后台接口",
+		"客户端菜单",
+		"客户端接口",
+		"钉钉 H5 菜单",
+		"钉钉 H5 接口",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("admin role page must split menu and api permissions with %s", snippet)
 		}
 	}
 }

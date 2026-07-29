@@ -17,12 +17,12 @@ type ExportResult struct {
 }
 
 func ExportReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, filters ReviewFilters) (*ExportResult, error) {
-	reviews, err := ListReviewsContext(ctx, user, filters)
+	reviewList, err := listReviewsContext(ctx, user, filters, false)
 	if err != nil {
 		return nil, err
 	}
 	rows := []string{tableRow([]string{"考评月份", "目标月份", "员工账号", "部门", "直属上级", "HRBP", "状态", "目标得分", "价值观自评总分", "价值观上级总分", "价值观HRBP总分", "上级分档", "HRBP分档", "最终分档", "员工总结", "上级评价", "HRBP评价", "员工确认", "确认意见/异议原因", "确认时间", "HRBP备注"})}
-	for _, review := range reviews {
+	for _, review := range reviewList.List {
 		rows = append(rows, tableRow([]string{
 			review.Period,
 			review.NextPeriod,

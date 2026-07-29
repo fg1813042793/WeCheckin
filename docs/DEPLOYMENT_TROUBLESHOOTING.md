@@ -38,7 +38,7 @@
 
 管理后台和客户端当前优先使用 `/api/v2` 访问后端，例如 `/api/v2/admin/auth/login`、`/api/v2/home`、`/api/v2/surveys`。因此生产环境需要让前端静态站点和后端 API 处在同一域名下，或在 Nginx 中把 `/api/` 反向代理到后端。
 
-旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等路径仍保留兼容历史页面和小程序旧代码。如果部署环境还承载旧入口，可以同时代理这些路径。
+后台管理旧版 `/admin/*` 路由已不再作为兼容入口，生产环境应统一使用 `/api/v2/admin/*`。`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等历史客户端路径如仍存在，仅用于兼容旧页面和小程序旧代码；如果部署环境还承载这些旧入口，可以同时代理对应路径。
 
 uni-app 客户端使用 `frontend/.env` 中的 `VITE_API_BASE_URL` 作为后端地址。H5 可以使用同域名地址，小程序和 App 需要配置为设备可访问的 HTTPS 域名。
 
@@ -56,7 +56,7 @@ uni-app 客户端使用 `frontend/.env` 中的 `VITE_API_BASE_URL` 作为后端�
 接口兼容范围：
 
 - 新管理后台、uni-app 客户端和移动端管理页使用 `/api/v2`。
-- 旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等后端路由仍保留。
+- 后台管理只使用 `/api/v2/admin/*`；历史客户端路径如仍存在，仅用于旧页面或旧小程序兼容。
 - 历史 MD5 密码仍可登录，登录成功后会自动升级为 bcrypt。
 - 初始化/迁移执行记录写入 `schema_migrations`，历史执行过的任务不会重复执行。
 
@@ -160,6 +160,38 @@ curl -I http://127.0.0.1:8083/swagger/index.html
 
 密码存储已升级为 bcrypt。历史 MD5 密码仍可兼容登录，登录成功后后端会自动写回 bcrypt 哈希。
 
+## 性能排查
+
+后端访问日志会输出 `[ACCESS]`。当接口耗时超过阈值时，会额外输出 `[SLOW_REQUEST]`，内容只包含 method、path、status、duration 和 requestId，不记录请求 body，避免泄露密码、token、手机号、富文本或答卷内容。
+
+默认慢请求阈值为 `800ms`，可以通过环境变量调整：
+
+```bash
+WECHECKIN_SLOW_REQUEST_MS=500 ./bin/wecheckin
+```
+
+建议生产环境由 Nginx 透传 `X-Request-ID`，这样可以把 Nginx、后端访问日志和慢请求日志串起来：
+
+```nginx
+proxy_set_header X-Request-ID $request_id;
+```
+
+本地可使用项目根目录的性能基线脚本检查关键接口：
+
+```bash
+WECHECKIN_PERF_BASE_URL=http://127.0.0.1:8083 \
+WECHECKIN_ADMIN_TOKEN='your-admin-token' \
+WECHECKIN_USER_TOKEN='your-user-token' \
+WECHECKIN_DINGTALK_TOKEN='your-dingtalk-token' \
+npm run check:performance
+```
+
+默认模式只输出告警；发布前可以开启严格模式：
+
+```bash
+WECHECKIN_PERF_STRICT=1 npm run check:performance
+```
+
 ## 管理后台部署
 
 安装依赖并构建：
@@ -179,7 +211,7 @@ admin/dist
 
 1. 将 `admin/dist` 发布到 Nginx 静态目录。
 2. 为管理后台配置 history fallback，未命中静态文件时返回 `index.html`。
-3. 将 `/api/` 反向代理到后端 `http://127.0.0.1:8083`；如需兼容旧页面，再同时代理 `/admin`、`/passport`、`/home`、`/upload`、`/uploads`、`/user_form_fields`、`/survey`、`/exam`、`/dict`、`/geo` 等旧路径。
+3. 将 `/api/` 反向代理到后端 `http://127.0.0.1:8083`；如需兼容旧客户端页面，再同时代理 `/passport`、`/home`、`/upload`、`/uploads`、`/user_form_fields`、`/survey`、`/exam`、`/dict`、`/geo` 等旧路径。
 4. 上传文件较大时设置 `client_max_body_size 32m` 或更高。
 
 Nginx 示例：
@@ -206,7 +238,7 @@ server {
     }
 
     # 仅历史页面或旧小程序仍需要这些兼容路径。
-    location ~ ^/(admin|passport|home|upload|uploads|user_form_fields|survey|exam|dict|geo)(/|$) {
+    location ~ ^/(passport|home|upload|uploads|user_form_fields|survey|exam|dict|geo)(/|$) {
         proxy_pass http://127.0.0.1:8083;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -281,7 +313,7 @@ docker-compose up -d
 - `WECHECKIN_REDIS_PASSWORD`
 - `WECHECKIN_CORS_ALLOW_ORIGINS`
 
-当前 Compose 示例会把后端映射到 `8083:8083`，并通过 Nginx 代理 `/api/`、`/health`、`/ready`、`/swagger`，同时保留旧版 `/admin`、`/passport`、`/home`、`/upload`、`/survey`、`/exam` 等兼容路径。MySQL、Redis、backend 和 Nginx 均配置了 healthcheck，backend 使用 `condition: service_healthy` 等待 MySQL/Redis，Nginx 使用 `condition: service_healthy` 等待 backend。该能力需要 Docker Compose v2。
+当前 Compose 示例会把后端映射到 `8083:8083`，并通过 Nginx 代理 `/api/`、`/health`、`/ready`、`/swagger`，必要时可保留旧版 `/passport`、`/home`、`/upload`、`/survey`、`/exam` 等客户端兼容路径。MySQL、Redis、backend 和 Nginx 均配置了 healthcheck，backend 使用 `condition: service_healthy` 等待 MySQL/Redis，Nginx 使用 `condition: service_healthy` 等待 backend。该能力需要 Docker Compose v2。
 
 Compose 已为 MySQL、Redis、backend 和 Nginx 配置 Docker `json-file` 日志轮转。默认值来自 `backend/.env.example`：
 
@@ -418,7 +450,7 @@ redis-cli -h 127.0.0.1 -p 6379 -a 'change-me' ping
 
 管理后台生产环境使用相对路径请求 API。当前接口应走 `/api/v2/admin/*`，确认 Nginx 已代理 `/api/` 到后端。
 
-如果访问的是历史页面或旧小程序入口，还需要确认 `/admin`、`/passport`、`/home`、`/upload`、`/uploads`、`/survey`、`/exam` 等旧路径也已代理到后端。
+如果访问的是历史页面或旧小程序入口，还需要确认 `/passport`、`/home`、`/upload`、`/uploads`、`/survey`、`/exam` 等旧客户端路径也已代理到后端。后台管理入口应统一访问 `/api/v2/admin/*`。
 
 ### 刷新管理后台页面后 404
 

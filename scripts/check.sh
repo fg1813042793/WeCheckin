@@ -58,4 +58,9 @@ if enabled "${CHECK_ADMIN_BUILD:-${CHECK_BUILDS:-0}}"; then
   npm --prefix admin run build
 fi
 
+if enabled "${CHECK_PERFORMANCE:-0}"; then
+  echo "==> Running performance baseline checks"
+  npm run check:performance
+fi
+
 echo "==> Checks passed"

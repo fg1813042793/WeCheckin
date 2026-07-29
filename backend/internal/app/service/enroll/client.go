@@ -15,6 +15,29 @@ type ListResponse struct {
 	Total int64          `json:"total"`
 }
 
+var clientEnrollListColumns = []string{
+	"id",
+	"enroll_title",
+	"enroll_status",
+	"enroll_dept_id",
+	"enroll_publish_dept_ids",
+	"enroll_cate_id",
+	"enroll_cate_name",
+	"enroll_start",
+	"enroll_end",
+	"enroll_day_cnt",
+	"enroll_order",
+	"enroll_vouch",
+	"enroll_repeat",
+	"enroll_limit",
+	"enroll_obj",
+	"enroll_view_cnt",
+	"enroll_join_cnt",
+	"enroll_user_cnt",
+	"enroll_add_time",
+	"enroll_edit_time",
+}
+
 func GetEnrollList(page, pageSize int, userID, keyword string) (*ListResponse, error) {
 	return GetEnrollListContext(context.Background(), page, pageSize, userID, keyword)
 }
@@ -43,7 +66,7 @@ func GetEnrollListContext(ctx context.Context, page, pageSize int, userID, keywo
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	err := query.Order("`enroll_order` ASC, `enroll_add_time` DESC").
+	err := query.Select(clientEnrollListColumns).Order("`enroll_order` ASC, `enroll_add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, err

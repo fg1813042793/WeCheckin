@@ -64,9 +64,9 @@ func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "查询失败: "+err.Error())
 		return
 	}
-	var out []surveyWithCount
+	var out []surveyListItem
 	for _, sv := range list {
-		out = append(out, surveyWithCount{Survey: sv, ResponseCount: countMap[sv.ID]})
+		out = append(out, newSurveyListItem(sv, countMap[sv.ID]))
 	}
 	response.JSON(c, surveyListResponse{List: out, Total: total, Page: page, Size: pageSize})
 }

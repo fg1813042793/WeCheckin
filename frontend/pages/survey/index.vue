@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="search-bar">
-      <input v-model="keyword" placeholder="搜索问卷" confirm-type="search" @confirm="load" />
+      <input v-model="keyword" placeholder="搜索问卷" confirm-type="search" @confirm="handleSearch" />
     </view>
 
     <view v-if="list.length > 0" class="survey-list">
@@ -53,6 +53,9 @@ export default {
     return {
       keyword: '',
       list: [],
+      page: 1,
+      pageSize: 10,
+      hasMore: true,
       myRespMap: {},
       limitsMap: {},
       loading: false
@@ -70,34 +73,62 @@ export default {
     }
   },
   onShow() {
-    this.load()
+    this.refreshList()
   },
   onPullDownRefresh() {
+    this.page = 1
+    this.hasMore = true
     this.load().finally(() => { uni.stopPullDownRefresh() })
   },
+  onReachBottom() {
+    this.loadMore()
+  },
   methods: {
+    handleSearch() {
+      this.refreshList()
+    },
+    refreshList() {
+      this.page = 1
+      this.hasMore = true
+      this.load()
+    },
     async load() {
+      if ((!this.hasMore && this.page > 1) || this.loading) return
       this.loading = true
       try {
-        const params = { page: 1, pageSize: 50, keyword: this.keyword }
+        const params = { page: this.page, pageSize: this.pageSize, keyword: this.keyword }
         if (typeof uni.getStorageSync !== 'undefined') {
           params['deviceId'] = this.getDeviceId()
         }
         const res = await surveyApi.getList(params)
-        this.list = (res.data && res.data.list) || []
-        this.limitsMap = (res.data && res.data.limits) || {}
-        if (this.isLogged) {
+        const data = (res.data && res.data.list) || []
+        if (this.page === 1) {
+          this.list = data
+        } else {
+          this.list = [...this.list, ...data]
+        }
+        this.hasMore = data.length >= this.pageSize
+        const limits = (res.data && res.data.limits) || {}
+        this.limitsMap = this.page === 1 ? limits : { ...this.limitsMap, ...limits }
+        if (this.isLogged && this.page === 1) {
           const myRes = await surveyApi.myResponses()
           const myList = (myRes.data && myRes.data.list) || []
           const map = {}
           myList.forEach(r => { map[r.surveyId] = r })
           this.myRespMap = map
-        } else {
+        }
+        if (!this.isLogged && this.page === 1) {
           this.myRespMap = {}
         }
       } catch (e) {
         console.error(e)
       } finally { this.loading = false }
+    },
+    loadMore() {
+      if (this.hasMore && !this.loading) {
+        this.page++
+        this.load()
+      }
     },
     inDept(s) {
       if (s.visibility !== 2 || !s.deptIds) return true

@@ -52,7 +52,7 @@ GET /api/v2/dingtalk/h5/bootstrap
 GET /api/v2/dingtalk/h5/template
 ```
 
-`bootstrap` 仅返回当前登录用户信息，用于启动态校验；人员列表、考评单和模板分别通过 `/users`、`/reviews`、`/template` 按页面需要加载。
+`bootstrap` 仅返回当前登录用户 `user`、可见菜单/二级 tab `menus`、权限版本 `permissionVersion`，用于启动态校验和前端权限刷新判断；人员列表、考评单和模板分别通过 `/users`、`/reviews`、`/template` 按页面需要加载。
 
 绩效单：
 

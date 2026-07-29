@@ -18,13 +18,52 @@ type ClientLimitInfo struct {
 	IPFull     bool `json:"ipFull"`
 }
 
+var publishedSurveyListColumns = []string{
+	"survey_id",
+	"survey_title",
+	"survey_desc",
+	"survey_category",
+	"survey_tags",
+	"survey_cover",
+	"survey_visibility",
+	"survey_allow_multi",
+	"survey_start_time",
+	"survey_end_time",
+	"survey_max_response",
+	"survey_show_result",
+	"survey_anonymous",
+	"survey_status",
+	"survey_mode",
+	"survey_order",
+	"survey_add_time",
+	"survey_edit_time",
+	"survey_settings",
+}
+
 func (s *SurveyService) PublishedListWithLimitsContext(ctx context.Context, keyword, category string, page, pageSize int, deviceID, clientIP string) ([]model.Survey, int64, map[uint]ClientLimitInfo, error) {
-	list, total, err := s.ListContext(ctx, keyword, category, 1, page, pageSize)
-	if err != nil {
-		return nil, 0, nil, err
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	q := db.Model(&model.Survey{}).Where("`survey_status` = 1")
+	if keyword != "" {
+		q = q.Where("`survey_title` LIKE ?", "%"+keyword+"%")
+	}
+	if category != "" {
+		q = q.Where("`survey_category` = ?", category)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, nil, err
+	}
+	var list []model.Survey
+	if err := q.Select(publishedSurveyListColumns).Order("`survey_order` DESC, `survey_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+		return nil, 0, nil, err
+	}
 	limitsMap, err := s.loadSurveyListLimitInfoContext(ctx, db, list, deviceID, clientIP)
 	if err != nil {
 		return nil, 0, nil, err

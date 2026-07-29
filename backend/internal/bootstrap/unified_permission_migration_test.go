@@ -140,3 +140,30 @@ func TestLegacyRoleAuthorizationCleanupMigrationDropsOldGrantTables(t *testing.T
 		}
 	}
 }
+
+func TestRoleAPIPermissionBackfillMigrationUsesExistingMenuGrants(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_backfill_role_api_grants_from_menu_perms.sql"))
+	if err != nil {
+		t.Fatalf("glob role api permission backfill migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("role api permission backfill migration is required")
+	}
+	src, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read role api permission backfill migration: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"FROM `permission_grants` menu_grant",
+		"JOIN `permissions` menu_perm",
+		"JOIN `permissions` api_perm",
+		"FIND_IN_SET(api_perm.`permission_perms`, REPLACE(menu_perm.`permission_perms`, ' ', ''))",
+		"api_perm.`permission_key`",
+		"ON DUPLICATE KEY UPDATE",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("role api permission backfill migration must include %s", snippet)
+		}
+	}
+}

@@ -2,6 +2,7 @@ package dict
 
 import (
 	"context"
+	"time"
 
 	"wecheckin-backend/backend/internal/model"
 	"wecheckin-backend/backend/pkg/database"
@@ -18,6 +19,10 @@ func GetTypes() ([]TypeSummary, error) {
 }
 
 func GetTypesContext(ctx context.Context) ([]TypeSummary, error) {
+	now := time.Now()
+	if cached, ok := getDictTypesCache(now); ok {
+		return cached, nil
+	}
 	var results []TypeSummary
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
@@ -38,6 +43,7 @@ func GetTypesContext(ctx context.Context) ([]TypeSummary, error) {
 		}
 		results = append(results, TypeSummary{TypeCode: typeCode, TypeName: typeName, ItemCnt: itemCnt})
 	}
+	setDictTypesCache(results, now)
 	return results, nil
 }
 
@@ -46,10 +52,18 @@ func GetByType(typeCode string) ([]model.SysDict, error) {
 }
 
 func GetByTypeContext(ctx context.Context, typeCode string) ([]model.SysDict, error) {
+	now := time.Now()
+	if cached, ok := getDictItemsCache(typeCode, now); ok {
+		return cached, nil
+	}
 	var list []model.SysDict
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return list, db.Where("`dict_type_code` = ?", typeCode).Order("`dict_sort` ASC, `id` ASC").Find(&list).Error
+	if err := db.Where("`dict_type_code` = ?", typeCode).Order("`dict_sort` ASC, `id` ASC").Find(&list).Error; err != nil {
+		return list, err
+	}
+	setDictItemsCache(typeCode, list, now)
+	return list, nil
 }
 
 func AddItem(typeCode, typeName, label, value, remark string, sort int) error {
@@ -71,7 +85,11 @@ func AddItemContext(ctx context.Context, typeCode, typeName, label, value, remar
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return db.Create(&d).Error
+	err := db.Create(&d).Error
+	if err == nil {
+		invalidateDictServiceCache()
+	}
+	return err
 }
 
 func EditItem(id, label, value, remark string, sort int) error {
@@ -81,13 +99,17 @@ func EditItem(id, label, value, remark string, sort int) error {
 func EditItemContext(ctx context.Context, id, label, value, remark string, sort int) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return db.Model(&model.SysDict{}).Where("`id` = ?", id).Updates(map[string]interface{}{
+	err := db.Model(&model.SysDict{}).Where("`id` = ?", id).Updates(map[string]interface{}{
 		"dict_label":     label,
 		"dict_value":     value,
 		"dict_sort":      sort,
 		"dict_remark":    remark,
 		"dict_edit_time": database.Now(),
 	}).Error
+	if err == nil {
+		invalidateDictServiceCache()
+	}
+	return err
 }
 
 func DeleteItem(id string) error {
@@ -97,7 +119,11 @@ func DeleteItem(id string) error {
 func DeleteItemContext(ctx context.Context, id string) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return db.Where("`id` = ?", id).Delete(&model.SysDict{}).Error
+	err := db.Where("`id` = ?", id).Delete(&model.SysDict{}).Error
+	if err == nil {
+		invalidateDictServiceCache()
+	}
+	return err
 }
 
 func DeleteByType(typeCode string) error {
@@ -107,7 +133,11 @@ func DeleteByType(typeCode string) error {
 func DeleteByTypeContext(ctx context.Context, typeCode string) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return db.Where("`dict_type_code` = ?", typeCode).Delete(&model.SysDict{}).Error
+	err := db.Where("`dict_type_code` = ?", typeCode).Delete(&model.SysDict{}).Error
+	if err == nil {
+		invalidateDictServiceCache()
+	}
+	return err
 }
 
 func EditTypeName(oldTypeCode, typeCode, typeName string) error {
@@ -121,5 +151,9 @@ func EditTypeNameContext(ctx context.Context, oldTypeCode, typeCode, typeName st
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return db.Model(&model.SysDict{}).Where("`dict_type_code` = ?", oldTypeCode).Updates(updates).Error
+	err := db.Model(&model.SysDict{}).Where("`dict_type_code` = ?", oldTypeCode).Updates(updates).Error
+	if err == nil {
+		invalidateDictServiceCache()
+	}
+	return err
 }

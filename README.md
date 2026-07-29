@@ -206,7 +206,7 @@ http://localhost:8083/ready
 - 后台管理接口：`/api/v2/admin`
 - 前端调用入口：`admin/src/api/index.ts`、`frontend/api/index.js`、`frontend/api/admin.js`
 
-旧版 `/admin/*`、`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等路径仍保留兼容历史页面和小程序旧代码。新增接口和新增页面应使用 v2 路由，并同步更新 Swagger。
+后台管理只使用 `/api/v2/admin/*` 路由和统一权限体系；旧版 `/admin/*` 后台接口已不再作为兼容入口。`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等历史客户端路径如仍存在，仅用于兼容旧页面和小程序旧代码。新增接口和新增页面应使用 v2 路由，并同步更新 Swagger。
 
 详见：[API v2 接口说明](docs/API_V2.md)。
 
@@ -253,6 +253,33 @@ GOCACHE=$PWD/.cache/go-build go test ./backend/internal/app/formkit/...
 bash scripts/verify-local.sh
 ```
 
+### 性能回归排查
+
+项目根目录提供关键接口性能基线脚本，默认只输出告警，不阻断命令：
+
+```bash
+npm run check:performance
+```
+
+常用环境变量：
+
+- `WECHECKIN_PERF_BASE_URL`：后端地址，默认 `http://127.0.0.1:8083`。
+- `WECHECKIN_ADMIN_TOKEN`：后台接口 token，按项目前端格式传原始 token；脚本会兼容去掉可选的 `Bearer ` 前缀。
+- `WECHECKIN_USER_TOKEN`：客户端接口 token，缺省时仍会尝试访问公开列表；业务返回 `code != 0` 会视为失败。
+- `WECHECKIN_DINGTALK_TOKEN`：钉钉 H5 接口 token，按项目前端格式传原始 token。
+- `WECHECKIN_PERF_STRICT=1`：开启严格模式，接口超阈值或不可访问时退出非 0。
+
+发布前建议在服务热启动后执行：
+
+```bash
+WECHECKIN_PERF_BASE_URL=http://127.0.0.1:8083 \
+WECHECKIN_ADMIN_TOKEN='your-admin-token' \
+WECHECKIN_USER_TOKEN='your-user-token' \
+WECHECKIN_DINGTALK_TOKEN='your-dingtalk-token' \
+WECHECKIN_PERF_STRICT=1 \
+npm run check:performance
+```
+
 ## 文档
 
 - [中文部署和排障指南](docs/DEPLOYMENT_TROUBLESHOOTING.md)
@@ -261,6 +288,7 @@ bash scripts/verify-local.sh
 - [HBuilderX Android 调试指南](docs/HBUILDER_DEBUG.md)
 - [测试数据说明](docs/TEST_DATA.md)
 - [项目维护说明](docs/project-maintenance.md)
+- [性能排查说明](docs/performance/README.md)
 - [后端 DTO 与 Context 规范](docs/backend-dto-context-guidelines.md)
 - [后端版本化迁移说明](backend/migrations/README.md)
 - `docs/CC打卡小程序安装使用手册.docx`
@@ -282,7 +310,7 @@ docker-compose up -d
 
 Dockerfile、Compose 和 Nginx 示例已统一到后端端口 `8083`。`backend/.env.example` 提供 Docker 部署环境变量样板，复制为 `.env` 后必须修改 MySQL、Redis 密码、域名和 CORS。
 
-已有 MySQL 单点部署升级时，接口层兼容 `/api/v2` 和旧路径，但数据库结构升级仍建议先备份，并在备份库或维护窗口执行 `backend/init.sh`。迁移完成后，常态运行只启动服务，不再夹带初始化任务。
+已有 MySQL 单点部署升级时，接口层以 `/api/v2` 为准，数据库结构升级仍建议先备份，并在备份库或维护窗口执行 `backend/init.sh`。迁移完成后，常态运行只启动服务，不再夹带初始化任务。
 
 Docker Compose 中 MySQL、Redis、后端和 Nginx 均配置了 healthcheck，backend 依赖 MySQL/Redis healthy，Nginx 依赖 backend healthy。该配置依赖 Docker Compose v2 的 `condition: service_healthy`。
 

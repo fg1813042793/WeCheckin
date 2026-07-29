@@ -66,10 +66,10 @@ func (h *AdminPermissionHandler) AddPermission(ctx context.Context, c *app.Reque
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/permissions/{key} [put]
 func (h *AdminPermissionHandler) EditPermission(ctx context.Context, c *app.RequestContext) {
-	key := c.PostForm("key")
+	key := firstNonEmpty(c.Param("key"), c.PostForm("originalKey"), c.PostForm("oldKey"), c.PostForm("key"))
 	req := permissionRequestFromForm(c)
 	if err := adminpermission.EditContext(ctx, key, req); err != nil {
-		response.Fail(c, "保存失败")
+		response.Fail(c, err.Error())
 		return
 	}
 	response.JSON(c, nil)

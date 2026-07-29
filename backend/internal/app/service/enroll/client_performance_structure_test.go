@@ -32,3 +32,33 @@ func TestEnrollClientListLimitsJoinLookupToCurrentPage(t *testing.T) {
 		}
 	}
 }
+
+func TestEnrollClientListSelectsLightweightColumns(t *testing.T) {
+	src, err := os.ReadFile("client.go")
+	if err != nil {
+		t.Fatalf("read client.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"var clientEnrollListColumns = []string{",
+		"Select(clientEnrollListColumns)",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("enroll client list should use lightweight columns with %q", snippet)
+		}
+	}
+	start := strings.Index(text, "var clientEnrollListColumns = []string{")
+	if start < 0 {
+		t.Fatalf("clientEnrollListColumns declaration missing")
+	}
+	end := strings.Index(text[start:], "}")
+	if end < 0 {
+		t.Fatalf("clientEnrollListColumns declaration incomplete")
+	}
+	columnsBlock := text[start : start+end]
+	for _, forbidden := range []string{"enroll_forms", "enroll_join_forms", "enroll_user_list"} {
+		if strings.Contains(columnsBlock, forbidden) {
+			t.Fatalf("enroll client list columns should not include heavy field %q", forbidden)
+		}
+	}
+}

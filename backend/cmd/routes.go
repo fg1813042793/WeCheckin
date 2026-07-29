@@ -7,7 +7,6 @@ func registerRoutes(h *server.Hertz) {
 	registerSwaggerRoutes(h)
 	registerPublicRoutes(h)
 	registerClientRoutes(h)
-	registerAdminRoutes(h)
 	registerV2Routes(h)
 	registerUploadAndStaticRoutes(h)
 }

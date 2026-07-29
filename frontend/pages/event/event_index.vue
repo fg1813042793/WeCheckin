@@ -14,7 +14,7 @@
       <view class="event-list" v-if="list.length > 0">
         <view class="event-card" v-for="(item, index) in list" :key="index" @click="goDetail(item)">
           <view v-if="item.img" class="card-img">
-            <image :src="item.img" mode="aspectFill" class="card-img-inner" />
+            <image :src="item.img" mode="aspectFill" class="card-img-inner" lazy-load />
           </view>
           <view v-else class="card-img-placeholder" :style="{ background: getPlaceholderBg(index) }">
             <text class="placeholder-text">{{ item.title }}</text>
@@ -92,7 +92,15 @@ export default {
       return getClientUserId()
     },
     handleSearch() { this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
-    switchTab(tab) { this.cur = tab; this.keyword = ''; this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
+    switchTab(tab) {
+      if (this.cur === tab) return
+      this.cur = tab
+      this.keyword = ''
+      this.page = 1
+      this.list = []
+      this.hasMore = true
+      this.loadData()
+    },
     async loadData() {
       if ((!this.hasMore && this.page > 1) || this.loading) return
       this.loading = true

@@ -31,11 +31,9 @@ func TestRoleListAvoidsPerRowMenuAndDeptQueries(t *testing.T) {
 	}
 
 	required := []string{
-		"loadRoleAdminPermissionKeyMapContext(ctx, db, list)",
-		"loadRoleDeptIDMapContext(ctx, db, list)",
+		"loadRoleAssignmentMapsContext(ctx, db, list)",
 		"access.AdminDeptIDsContext(ctx, admin.ID)",
-		"permissionsupport.RoleAdminPermissionKeyMapContext(ctx, db, roleIDs)",
-		"permissionsupport.RoleCustomDeptIDMapContext(ctx, db, roleIDs)",
+		"permissionsupport.RoleAssignmentMapsContext(ctx, db, roleIDs)",
 		"permissionsupport.RoleCustomDeptIDsContext(ctx, db, admin.RoleID)",
 	}
 	for _, snippet := range required {

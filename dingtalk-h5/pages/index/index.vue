@@ -166,8 +166,12 @@ const state = reactive({
   menus: [],
   users: [],
   reviews: [],
+  reviewListTotal: 0,
+  reviewPage: 1,
+  reviewPageSize: 20,
   workbenchStats: [],
   template: null,
+  permissionVersion: 0,
   view: 'dashboard'
 })
 
@@ -363,6 +367,7 @@ async function loadBootstrap() {
   const res = await dingTalkPerformanceApi.bootstrap()
   state.user = res.data.user
   state.menus = Array.isArray(res.data.menus) ? res.data.menus : []
+  state.permissionVersion = Number(res.data.permissionVersion || 0)
   const topMenus = state.menus.filter((item) => item.key === 'dashboard' || item.key === 'performance')
   if (topMenus.length > 0 && !topMenus.some((item) => item.key === state.view)) {
     state.view = topMenus[0].key
@@ -389,7 +394,18 @@ async function loadUsers() {
 
 async function loadReviews(params = {}) {
   const res = await dingTalkPerformanceApi.reviews({ scope: reviewScopeForContentView(), ...params })
-  state.reviews = res.data || []
+  const payload = res.data || {}
+  if (Array.isArray(payload)) {
+    state.reviews = payload
+    state.reviewListTotal = payload.length
+    state.reviewPage = 1
+    state.reviewPageSize = payload.length || 20
+  } else {
+    state.reviews = Array.isArray(payload.list) ? payload.list : []
+    state.reviewListTotal = Number(payload.total || state.reviews.length)
+    state.reviewPage = Number(payload.page || 1)
+    state.reviewPageSize = Number(payload.pageSize || 20)
+  }
   ensureSelectedReview()
 }
 
@@ -403,6 +419,15 @@ async function loadWorkbenchStats() {
 async function loadTemplate() {
   const res = await dingTalkPerformanceApi.template()
   state.template = res.data
+}
+
+async function ensureReferenceData() {
+  const tasks = []
+  if (!state.users.length) tasks.push(loadUsers())
+  if (!state.template) tasks.push(loadTemplate())
+  if (tasks.length > 0) {
+    await Promise.all(tasks)
+  }
 }
 
 async function refreshData() {
@@ -421,7 +446,8 @@ async function refreshData() {
     await loadTemplate()
     return
   }
-  await Promise.all([loadReviews(), loadUsers(), loadTemplate()])
+  await loadReviews()
+  await ensureReferenceData()
 }
 
 function reviewScopeForContentView() {

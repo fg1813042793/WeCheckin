@@ -65,7 +65,7 @@
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="560px">
       <el-form ref="formRef" :model="form" label-width="96px">
         <el-form-item label="权限编码" prop="permissionKey">
-          <el-input v-model="form.permissionKey" :disabled="!dialog.isCreate" placeholder="如 admin:menu:user 或 user:list" />
+          <el-input v-model="form.permissionKey" placeholder="如 admin:menu:user 或 user:list" />
         </el-form-item>
         <el-form-item label="权限名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入权限名称" />
@@ -143,6 +143,7 @@ const keyword = ref('')
 const permissionScope = ref('admin_menu')
 const allExpanded = ref(false)
 const tableKey = ref(0)
+const originalPermissionKey = ref('')
 const filteredTreeData = computed(() => filterPermissionTree(treeData.value, keyword.value))
 const permissionScopeOptions = [
   { label: '后台管理', value: 'admin_menu', platform: 'admin', types: 'directory,menu,button,login', defaultType: 'menu' },
@@ -202,6 +203,7 @@ function refreshTreeView() {
 }
 
 function resetForm(parentKey: string) {
+  originalPermissionKey.value = ''
   form.permissionKey = ''
   form.name = ''
   form.platform = activePermissionScope.value.platform
@@ -224,7 +226,8 @@ function showAdd(parentKey: string) {
 function showEdit(row: any) {
   dialog.isCreate = false
   dialog.title = '编辑权限'
-  form.permissionKey = row.permissionKey || row.key || ''
+  originalPermissionKey.value = row.permissionKey || row.key || ''
+  form.permissionKey = originalPermissionKey.value
   form.name = row.name || ''
   form.platform = row.platform || 'admin'
   form.type = row.type || 'menu'
@@ -263,9 +266,9 @@ async function handleSave() {
   try {
     if (dialog.isCreate) {
       await adminApi.permissionAdd(payload)
-    ElMessage.success('添加成功')
+      ElMessage.success('添加成功')
     } else {
-      await adminApi.permissionEdit(payload)
+      await adminApi.permissionEdit({ ...payload, originalKey: originalPermissionKey.value })
       ElMessage.success('保存成功')
     }
     dialog.visible = false

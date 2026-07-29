@@ -2,6 +2,7 @@ package dingtalkh5
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -358,5 +359,15 @@ func filtersFromQuery(c *app.RequestContext) dingtalkh5service.ReviewFilters {
 		ManagerID:  strings.TrimSpace(c.Query("managerId")),
 		HRBPID:     strings.TrimSpace(c.Query("hrbpId")),
 		Grade:      strings.TrimSpace(c.Query("grade")),
+		Page:       parsePositiveQueryInt(c, "page", 1),
+		PageSize:   parsePositiveQueryInt(c, "pageSize", 20),
 	}
+}
+
+func parsePositiveQueryInt(c *app.RequestContext, key string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(c.Query(key)))
+	if err != nil || value < 1 {
+		return fallback
+	}
+	return value
 }

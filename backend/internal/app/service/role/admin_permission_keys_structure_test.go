@@ -17,10 +17,8 @@ func TestRoleServiceUsesAdminPermissionKeysInsteadOfMenuIDs(t *testing.T) {
 		"`json:\"adminPermissionKeys\"`",
 		"AdminAPIPermissionKeys",
 		"`json:\"adminApiPermissionKeys\"`",
-		"loadRoleAdminPermissionKeyMapContext",
-		"loadRoleAdminAPIPermissionKeyMapContext",
-		"permissionsupport.RoleAdminPermissionKeyMapContext",
-		"permissionsupport.RoleAdminAPIPermissionKeyMapContext",
+		"loadRoleAssignmentMapsContext",
+		"permissionsupport.RoleAssignmentMapsContext",
 		"permissionsupport.SetRoleAdminPermissionKeysTx",
 		"adminAPIPermissionKeys",
 	} {

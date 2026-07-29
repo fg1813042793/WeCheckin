@@ -33,7 +33,7 @@ func (h *AdminEventHandler) GetAdminEventList(ctx context.Context, c *app.Reques
 		response.Fail(c, "获取失败")
 		return
 	}
-	response.JSON(c, pagedListResponse{List: list, Total: total})
+	response.JSON(c, pagedListResponse{List: newEventListItems(list), Total: total})
 }
 
 // @Tags PC端-赛事活动管理

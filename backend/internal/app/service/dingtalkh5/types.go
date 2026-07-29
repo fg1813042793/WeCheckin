@@ -94,6 +94,13 @@ type ReviewDTO struct {
 	History                 []HistoryDTO    `json:"history"`
 }
 
+type ReviewListResponse struct {
+	List     []ReviewDTO `json:"list"`
+	Total    int64       `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"pageSize"`
+}
+
 type DingTalkH5Review struct {
 	EmployeeID string
 	ManagerID  string
@@ -132,8 +139,9 @@ type LoginResponse struct {
 }
 
 type BootstrapResponse struct {
-	User  UserDTO      `json:"user"`
-	Menus []AppMenuDTO `json:"menus"`
+	User              UserDTO      `json:"user"`
+	Menus             []AppMenuDTO `json:"menus"`
+	PermissionVersion int64        `json:"permissionVersion"`
 }
 
 type WorkbenchStatsDTO struct {
@@ -197,6 +205,8 @@ type ReviewFilters struct {
 	ManagerID  string
 	HRBPID     string
 	Grade      string
+	Page       int
+	PageSize   int
 }
 
 func userDTO(user model.DingTalkH5PerfUser) UserDTO {

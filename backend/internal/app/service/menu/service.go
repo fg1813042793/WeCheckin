@@ -28,34 +28,6 @@ type AdminMenu struct {
 	Children  []*AdminMenu `json:"children,omitempty"`
 }
 
-func GetTree() ([]*AdminMenu, error) {
-	return GetTreeContext(context.Background())
-}
-
-func GetTreeContext(ctx context.Context) ([]*AdminMenu, error) {
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	rows, err := allAdminMenuPermissionsContext(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-	return permissionsToMenuTree(rows), nil
-}
-
-func GetList() ([]AdminMenu, error) {
-	return GetListContext(context.Background())
-}
-
-func GetListContext(ctx context.Context) ([]AdminMenu, error) {
-	tree, err := GetTreeContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	list := make([]AdminMenu, 0)
-	flattenAdminMenus(tree, &list)
-	return list, nil
-}
-
 func GetAdminMenuTree(admin *model.Admin) ([]*AdminMenu, error) {
 	return GetAdminMenuTreeContext(context.Background(), admin)
 }
@@ -207,17 +179,6 @@ func buildAdminMenuTree(list []*AdminMenu) []*AdminMenu {
 		parent.Children = append(parent.Children, item)
 	}
 	return tree
-}
-
-func flattenAdminMenus(items []*AdminMenu, list *[]AdminMenu) {
-	for _, item := range items {
-		copyItem := *item
-		copyItem.Children = nil
-		*list = append(*list, copyItem)
-		if len(item.Children) > 0 {
-			flattenAdminMenus(item.Children, list)
-		}
-	}
 }
 
 func permissionTypeToMenuType(permissionType string) int {

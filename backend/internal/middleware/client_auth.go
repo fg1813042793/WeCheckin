@@ -54,6 +54,7 @@ func ClientAuth() app.HandlerFunc {
 			Mobile     string `json:"mobile"`
 			MiniOpenID string `json:"miniOpenID"`
 			Role       string `json:"role"`
+			RoleID     uint   `json:"roleId"`
 		}
 		if err := json.Unmarshal([]byte(jsonStr), &info); err != nil || info.ID == 0 {
 			c.JSON(consts.StatusOK, utils.H{
@@ -72,6 +73,7 @@ func ClientAuth() app.HandlerFunc {
 			Mobile:     info.Mobile,
 			MiniOpenID: info.MiniOpenID,
 			Role:       info.Role,
+			RoleID:     info.RoleID,
 		}
 		c.Set("user_openid", info.MiniOpenID)
 		c.Set("user_id", info.ID)

@@ -19,6 +19,31 @@ type enrollObj struct {
 	Desc  string   `json:"desc"`
 }
 
+var adminEnrollListColumns = []string{
+	"id",
+	"enroll_title",
+	"enroll_status",
+	"enroll_dept_id",
+	"enroll_publish_dept_ids",
+	"enroll_create_by",
+	"enroll_cate_id",
+	"enroll_cate_name",
+	"enroll_start",
+	"enroll_end",
+	"enroll_day_cnt",
+	"enroll_order",
+	"enroll_vouch",
+	"enroll_repeat",
+	"enroll_limit",
+	"enroll_obj",
+	"enroll_qr",
+	"enroll_view_cnt",
+	"enroll_join_cnt",
+	"enroll_user_cnt",
+	"enroll_add_time",
+	"enroll_edit_time",
+}
+
 func decodeEnrollObj(raw string) enrollObj {
 	var obj enrollObj
 	if raw != "" {
@@ -70,7 +95,7 @@ func GetAdminEnrollListContext(ctx context.Context, keyword, sortStr string, pag
 	if orderClause == "" {
 		orderClause = "`enroll_add_time` DESC"
 	}
-	err := queryBuilder.Order(orderClause).Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	err := queryBuilder.Select(adminEnrollListColumns).Order(orderClause).Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, 0, err
 	}

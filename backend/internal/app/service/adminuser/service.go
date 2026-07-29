@@ -283,7 +283,8 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 	var total int64
 	queryBuilder := db.Model(&model.User{})
 	if keyword != "" {
-		queryBuilder = queryBuilder.Where("`user_name` LIKE ? OR `user_mobile` LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		likeKeyword := "%" + keyword + "%"
+		queryBuilder = queryBuilder.Where("`user_name` LIKE ? OR `user_mobile` LIKE ?", likeKeyword, likeKeyword)
 	}
 	where, args := access.UserDataScopeFilterContext(ctx, &admin)
 	hasDataScopeFilter := where != ""

@@ -20,6 +20,35 @@ type Service struct{}
 // NewService creates an exam service instance.
 func NewService() *Service { return &Service{} }
 
+var adminExamListColumns = []string{
+	"exam_id",
+	"exam_title",
+	"exam_desc",
+	"exam_category",
+	"exam_tags",
+	"exam_visibility",
+	"exam_allow_multi",
+	"exam_anonymous",
+	"exam_show_result",
+	"exam_paper_id",
+	"exam_start_time",
+	"exam_end_time",
+	"exam_duration",
+	"exam_max_attempts",
+	"exam_show_score",
+	"exam_max_response",
+	"exam_dept_ids",
+	"exam_mode",
+	"exam_publish_dept_ids",
+	"exam_qr",
+	"exam_status",
+	"exam_order",
+	"exam_dept_id",
+	"exam_create_by",
+	"exam_add_time",
+	"exam_edit_time",
+}
+
 func scopedExamQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
 	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Exam{}, "`exam_dept_id`", "`exam_create_by`")
 }
@@ -118,7 +147,7 @@ func (s *Service) ListForAdminContext(ctx context.Context, keyword, category, st
 		return nil, 0, err
 	}
 	var list []model.Exam
-	if err := q.Order("`exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := q.Select(adminExamListColumns).Order("`exam_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
