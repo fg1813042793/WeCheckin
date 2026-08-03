@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	eventservice "wecheckin-backend/backend/internal/app/service/event"
-	"wecheckin-backend/backend/pkg/response"
+	eventservice "wecheckin/backend/internal/app/service/event"
+	"wecheckin/backend/pkg/response"
 )
 
 type EventHandler struct{}

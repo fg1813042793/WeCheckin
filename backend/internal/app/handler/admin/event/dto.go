@@ -1,6 +1,6 @@
 package event
 
-import "wecheckin-backend/backend/internal/model"
+import "wecheckin/backend/internal/model"
 
 type listResponse struct {
 	List interface{} `json:"list"`

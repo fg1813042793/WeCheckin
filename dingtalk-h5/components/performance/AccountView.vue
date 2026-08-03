@@ -2,8 +2,8 @@
   <view class="account-page">
     <view class="page-head">
       <view>
-        <text class="page-title">账号设置</text>
-        <text class="page-desc">{{ ctx.state.user.name }} · {{ ctx.roleText(ctx.state.user.role) }}</text>
+        <text class="page-title">{{ ctx.sectionTitle.value }}</text>
+        <text class="page-desc">{{ [ctx.state.user.name, ctx.state.user.position].filter(Boolean).join(' · ') }}</text>
       </view>
     </view>
 

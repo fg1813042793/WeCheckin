@@ -93,6 +93,9 @@ export const passportApi = {
   getMyDetail(params) {
     return get(`${API_V2}/me`, params)
   },
+  bootstrap() {
+    return get(`${API_V2}/me/bootstrap`)
+  },
   editBase(data) {
     return put(`${API_V2}/me`, data)
   },

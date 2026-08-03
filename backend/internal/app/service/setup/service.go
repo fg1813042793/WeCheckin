@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func GetSetup(key string) (*model.Setup, error) {
@@ -22,7 +24,7 @@ func GetSetupContext(ctx context.Context, key string) (*model.Setup, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var setup model.Setup
-	err := db.Where("`setup_key` = ?", key).First(&setup).Error
+	err := db.Where("`setup_key` = ?", key).Take(&setup).Error
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +40,7 @@ func SetSetupContext(ctx context.Context, key, value, typ, addIP string) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var setup model.Setup
-	result := db.Where("`setup_key` = ?", key).First(&setup)
+	result := db.Where("`setup_key` = ?", key).Take(&setup)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		setup = model.Setup{
 			Key:     key,
@@ -48,7 +50,7 @@ func SetSetupContext(ctx context.Context, key, value, typ, addIP string) error {
 		}
 		err := db.Create(&setup).Error
 		if err == nil {
-			invalidateSetupServiceCache()
+			invalidateRelatedSetupCaches(key)
 		}
 		return err
 	}
@@ -61,7 +63,7 @@ func SetSetupContext(ctx context.Context, key, value, typ, addIP string) error {
 		"setup_edit_time": database.Now(),
 	}).Error
 	if err == nil {
-		invalidateSetupServiceCache()
+		invalidateRelatedSetupCaches(key)
 	}
 	return err
 }
@@ -74,7 +76,7 @@ func SetContentSetupContext(ctx context.Context, key, value, addIP string) error
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var setup model.Setup
-	result := db.Where("`setup_key` = ?", key).First(&setup)
+	result := db.Where("`setup_key` = ?", key).Take(&setup)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		setup = model.Setup{
 			Key:     key,
@@ -83,7 +85,7 @@ func SetContentSetupContext(ctx context.Context, key, value, addIP string) error
 		}
 		err := db.Create(&setup).Error
 		if err == nil {
-			invalidateSetupServiceCache()
+			invalidateRelatedSetupCaches(key)
 		}
 		return err
 	}
@@ -92,7 +94,14 @@ func SetContentSetupContext(ctx context.Context, key, value, addIP string) error
 	}
 	err := db.Model(&setup).Update("setup_value", value).Error
 	if err == nil {
-		invalidateSetupServiceCache()
+		invalidateRelatedSetupCaches(key)
 	}
 	return err
+}
+
+func invalidateRelatedSetupCaches(key string) {
+	invalidateSetupServiceCache()
+	if key == "STATIC_DOMAIN" {
+		media.InvalidateStaticDomainCache()
+	}
 }

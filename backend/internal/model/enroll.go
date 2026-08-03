@@ -8,9 +8,11 @@ type Enroll struct {
 	Desc           string                   `json:"desc" gorm:"-"`
 	Img            string                   `json:"img" gorm:"-"`
 	Status         int                      `json:"status" gorm:"default:1;column:enroll_status;comment:状态:1正常 0停用"`
-	DeptID         uint                     `json:"deptId" gorm:"default:0;column:enroll_dept_id;comment:所属部门ID"`
+	DeptID         uint                     `json:"deptId" gorm:"default:0;column:create_dept_id;comment:创建人部门ID"`
 	PublishDeptIds string                   `json:"publishDeptIds" gorm:"size:500;column:enroll_publish_dept_ids;comment:发布部门ID列表,逗号分隔"`
-	CreateBy       uint                     `json:"createBy" gorm:"default:0;column:enroll_create_by;comment:创建管理员ID"`
+	CreateBy       uint                     `json:"createBy" gorm:"default:0;column:create_by;comment:创建人ID"`
+	UpdateBy       uint                     `json:"updateBy" gorm:"default:0;column:update_by;comment:更新人ID"`
+	UpdateDeptID   uint                     `json:"updateDeptId" gorm:"default:0;column:update_dept_id;comment:更新人部门ID"`
 	CateID         string                   `json:"cateId" gorm:"size:50;column:enroll_cate_id;comment:分类ID"`
 	CateName       string                   `json:"cateName" gorm:"size:50;column:enroll_cate_name;comment:分类名称"`
 	Start          int64                    `json:"timeStart" gorm:"column:enroll_start;comment:开始时间"`
@@ -29,8 +31,8 @@ type Enroll struct {
 	UserCnt        int                      `json:"userCnt" gorm:"default:0;column:enroll_user_cnt;comment:参与人数"`
 	UserList       string                   `json:"-" gorm:"type:text;column:enroll_user_list;comment:用户列表JSON"`
 	UserListArr    []map[string]interface{} `json:"userList" gorm:"-"`
-	AddTime        int64                    `json:"_createTime" gorm:"column:enroll_add_time;comment:创建时间"`
-	EditTime       int64                    `json:"editTime" gorm:"column:enroll_edit_time;comment:修改时间"`
+	AddTime        int64                    `json:"_createTime" gorm:"column:add_time;comment:创建时间"`
+	EditTime       int64                    `json:"editTime" gorm:"column:edit_time;comment:修改时间"`
 	AddIP          string                   `json:"ENROLL_ADD_IP" gorm:"size:50;column:enroll_add_ip;comment:创建IP"`
 	EditIP         string                   `json:"ENROLL_EDIT_IP" gorm:"size:50;column:enroll_edit_ip;comment:修改IP"`
 	CreatedAt      time.Time                `json:"-"`

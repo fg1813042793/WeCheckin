@@ -35,66 +35,14 @@ export const adminChildRoutes: RouteRecordRaw[] = [
   { path: 'log', name: 'Log', component: () => import('../views/log/index.vue'), meta: { title: '操作日志' } },
   { path: 'dict', name: 'Dict', component: () => import('../views/dict/index.vue'), meta: { title: '字典管理' } },
   { path: 'department', name: 'Department', component: () => import('../views/department/index.vue'), meta: { title: '部门管理' } },
+  { path: 'position', name: 'Position', component: () => import('../views/position/index.vue'), meta: { title: '岗位管理' } },
   { path: 'role', name: 'Role', component: () => import('../views/role/index.vue'), meta: { title: '角色管理' } },
   { path: 'menu', name: 'Menu', component: () => import('../views/menu/index.vue'), meta: { title: '权限管理' } },
   { path: 'event', name: 'Event', component: () => import('../views/event/index.vue'), meta: { title: '赛事活动' } },
+  { path: 'dingtalk/config', name: 'DingTalkConfig', component: () => import('../views/dingtalk-setup/index.vue'), meta: { title: '钉钉配置' } },
+  { path: 'dingtalk/bindings', name: 'DingTalkBindings', component: () => import('../views/dingtalk-bindings/index.vue'), meta: { title: '钉钉用户绑定' } },
+  { path: 'dingtalk/perf-reviews', name: 'DingTalkPerfReviews', component: () => import('../views/dingtalk-perf-reviews/index.vue'), meta: { title: '绩效考评单' } },
+  { path: 'dingtalk/perf-histories', name: 'DingTalkPerfHistories', component: () => import('../views/dingtalk-perf-histories/index.vue'), meta: { title: '绩效流转记录' } },
   { path: 'setup', name: 'Setup', component: () => import('../views/setup/index.vue'), meta: { title: '系统配置' } },
   { path: 'client-setup', name: 'ClientSetup', component: () => import('../views/client-setup/index.vue'), meta: { title: '系统配置' } }
-]
-
-export const fallbackMenuItems: AdminMenuItem[] = [
-  { id: 'dashboard', name: '控制台', type: 1, status: 1, path: '/dashboard', icon: 'Odometer' },
-  { id: 'user', name: '用户管理', type: 1, status: 1, path: '/user', icon: 'User' },
-  { id: 'online', name: '在线用户', type: 1, status: 1, path: '/online', icon: 'Monitor' },
-  { id: 'enroll', name: '打卡管理', type: 1, status: 1, path: '/enroll', icon: 'List' },
-  { id: 'news', name: '内容管理', type: 1, status: 1, path: '/news', icon: 'Document' },
-  { id: 'mgr', name: '管理员管理', type: 1, status: 1, path: '/mgr', icon: 'Setting' },
-  { id: 'log', name: '操作日志', type: 1, status: 1, path: '/log', icon: 'Clock' },
-  { id: 'dict', name: '字典管理', type: 1, status: 1, path: '/dict', icon: 'Notebook' },
-  { id: 'department', name: '部门管理', type: 1, status: 1, path: '/department', icon: 'FolderOpened' },
-  { id: 'role', name: '角色管理', type: 1, status: 1, path: '/role', icon: 'UserFilled' },
-  { id: 'menu', name: '权限管理', type: 1, status: 1, path: '/menu', icon: 'Key' },
-  { id: 'setup', name: '系统配置', type: 1, status: 1, path: '/setup', icon: 'Setting' },
-  { id: 'event', name: '赛事活动', type: 1, status: 1, path: '/event', icon: 'TrophyBase' },
-  {
-    id: 'question-exam',
-    name: '问卷考试',
-    type: 0,
-    status: 1,
-    path: '/question-exam',
-    icon: 'Collection',
-    children: [
-      { id: 'question-bank', name: '题库管理', type: 1, status: 1, path: '/question-bank', icon: 'Collection' }
-    ]
-  },
-  {
-    id: 'survey',
-    name: '问卷调查',
-    type: 0,
-    status: 1,
-    path: '/survey',
-    icon: 'List',
-    children: [
-      { id: 'survey-list', name: '问卷管理', type: 1, status: 1, path: '/survey' },
-      { id: 'survey-responses', name: '答卷管理', type: 1, status: 1, path: '/survey/responses' },
-      { id: 'survey-statistic', name: '问卷统计', type: 1, status: 1, path: '/survey/statistic' },
-      { id: 'survey-stat-report', name: '统计报表', type: 1, status: 1, path: '/survey/stat-report' },
-      { id: 'survey-notify', name: '站内通知', type: 1, status: 1, path: '/survey/notify' }
-    ]
-  },
-  {
-    id: 'exam',
-    name: '在线考试',
-    type: 0,
-    status: 1,
-    path: '/exam',
-    icon: 'EditPen',
-    children: [
-      { id: 'exam-list', name: '考试管理', type: 1, status: 1, path: '/exam/list' },
-      { id: 'exam-responses', name: '考试记录', type: 1, status: 1, path: '/exam/responses' },
-      { id: 'exam-statistic', name: '考试统计', type: 1, status: 1, path: '/exam/statistic' },
-      { id: 'exam-formkit', name: '考试表单设计器', type: 1, status: 1, path: '/exam/formkit' },
-      { id: 'exam-formkit-report', name: '考试答题报表', type: 1, status: 1, path: '/exam/formkit/report' }
-    ]
-  }
 ]

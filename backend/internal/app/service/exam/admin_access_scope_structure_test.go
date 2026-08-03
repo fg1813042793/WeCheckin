@@ -14,7 +14,7 @@ func TestAdminExamOperationsUseAdminScopedQueries(t *testing.T) {
 	text := string(src)
 	required := []string{
 		"func scopedExamQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error)",
-		"access.ScopedResourceQueryContext(ctx, db, adminID, &model.Exam{}, \"`exam_dept_id`\", \"`exam_create_by`\")",
+		"access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Exam{}, access.ExamAuditFields)",
 		"func (s *Service) ListForAdminContext(",
 		"func (s *Service) DetailForAdminContext(ctx context.Context, id uint, adminID uint)",
 		"func (s *Service) UpdateForAdminContext(ctx context.Context, id uint, updates map[string]interface{}, adminID uint) error",

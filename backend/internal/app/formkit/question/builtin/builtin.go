@@ -4,7 +4,7 @@ package builtin
 // 各题型在自身文件内通过 init() 自动注册。导入 builtin 即可触发。
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/question"
 )
 
 // Registered 列出所有已注册题型（仅供测试 / 文档生成时使用）。

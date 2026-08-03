@@ -3,7 +3,7 @@ package survey
 import (
 	"github.com/cloudwego/hertz/pkg/app"
 
-	surveyservice "wecheckin-backend/backend/internal/app/service/survey"
+	surveyservice "wecheckin/backend/internal/app/service/survey"
 )
 
 type ClientSurveyHandler struct {

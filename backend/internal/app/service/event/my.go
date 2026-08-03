@@ -5,8 +5,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type EventListResponse struct {
@@ -51,7 +51,7 @@ func GetMyEventListContext(ctx context.Context, userID, typ, status string, page
 		return EventListResponse{}, err
 	}
 	var list []model.Event
-	if err := query.Order("`event_add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
 		return EventListResponse{}, err
 	}
 	list = populateEventFields(list)
@@ -128,7 +128,7 @@ func GetMyManagedListContext(ctx context.Context, userID, typ, status, keyword s
 		return EventListResponse{}, err
 	}
 	var list []model.Event
-	if err := query.Order("`event_add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`add_time` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
 		return EventListResponse{}, err
 	}
 	list = populateEventFields(list)

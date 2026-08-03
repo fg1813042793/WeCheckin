@@ -6,10 +6,10 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	passportservice "wecheckin-backend/backend/internal/app/service/passport"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/response"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	passportservice "wecheckin/backend/internal/app/service/passport"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/response"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 type PassportHandler struct{}
@@ -112,6 +112,28 @@ func (h *PassportHandler) GetMyDetail(ctx context.Context, c *app.RequestContext
 	userIDVal, _ := c.Get("user_openid")
 	userID, _ := userIDVal.(string)
 	data, err := passportservice.GetMyDetailContext(ctx, userID)
+	if err != nil {
+		response.Fail(c, "获取失败")
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *PassportHandler) Bootstrap(ctx context.Context, c *app.RequestContext) {
+	if userIDVal, ok := c.Get("user_id"); ok {
+		if userID, ok := userIDVal.(uint); ok && userID > 0 {
+			data, err := passportservice.BootstrapByIDContext(ctx, userID)
+			if err != nil {
+				response.Fail(c, "获取失败")
+				return
+			}
+			response.JSON(c, data)
+			return
+		}
+	}
+	userIDVal, _ := c.Get("user_openid")
+	userID, _ := userIDVal.(string)
+	data, err := passportservice.BootstrapContext(ctx, userID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return

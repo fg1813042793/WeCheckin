@@ -102,12 +102,13 @@ WECHECKIN_CORS_ALLOW_ORIGINS='https://admin.example.com,https://h5.example.com'
 
 ## 后端部署
 
-从仓库根目录构建：
+从后端目录构建：
 
 ```bash
+cd backend
 go mod download
-mkdir -p backend/bin
-go build -o backend/bin/wecheckin ./backend/cmd
+mkdir -p bin
+go build -o bin/wecheckin ./cmd
 ```
 
 准备运行目录：
@@ -374,7 +375,8 @@ CHECK_BUILDS=1 bash scripts/check.sh
 单独验证后端：
 
 ```bash
-GOCACHE=$PWD/.cache/go-build go test ./backend/cmd ./backend/pkg/tokenutil ./backend/internal/app/handler ./backend/internal/app/service ./backend/internal/config ./backend/internal/app/formkit/...
+cd backend
+GOCACHE=$PWD/../.cache/go-build go test ./cmd ./pkg/tokenutil ./internal/app/handler ./internal/app/service ./internal/config ./internal/app/formkit/...
 ```
 
 单独验证管理后台：

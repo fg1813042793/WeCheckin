@@ -19,69 +19,13 @@
 
     <view class="down padding-project">
       <view class="comm-list menu card-project shadow-project">
-
-
-        <view class="item arrow" @click="goMyCheckin">
+        <view class="item arrow" v-for="menu in visiblePrimaryMenus" :key="menu.permissionKey" @click="openPrimaryMenu(menu)">
           <view class="content">
-            <text class="icon-appreciate my-icon-project"></text>
-            <text class="text-black">我的打卡</text>
+            <text :class="[menu.icon, 'my-icon-project']"></text>
+            <text class="text-black">{{ menu.title }}</text>
           </view>
         </view>
-
-        <view class="item arrow" @click="goEvent('activity')">
-          <view class="content">
-            <text class="icon-activity my-icon-project"></text>
-            <text class="text-black">我的活动</text>
-          </view>
-        </view>
-
-        <view class="item arrow" @click="goEvent('competition')">
-          <view class="content">
-            <text class="icon-medal my-icon-project"></text>
-            <text class="text-black">我的赛事</text>
-          </view>
-        </view>
-
-        <view class="item arrow" @click="goEvent('manage')" v-if="hasEventRole">
-          <view class="content">
-            <text class="icon-crown my-icon-project"></text>
-            <text class="text-black">赛事活动管理</text>
-          </view>
-        </view>
-
-        <view class="item arrow" @click="goExam">
-          <view class="content">
-            <text class="icon-write my-icon-project"></text>
-            <text class="text-black">在线考试</text>
-          </view>
-        </view>
-
-        <view class="item arrow" @click="goSurvey">
-          <view class="content">
-            <text class="icon-form my-icon-project"></text>
-            <text class="text-black">问卷中心</text>
-          </view>
-        </view>
-
-        <view class="item arrow" @click="goPage('/pages/my/my_fav')">
-          <view class="content">
-            <text class="icon-favor my-icon-project"></text>
-            <text class="text-black">我的收藏</text>
-          </view>
-        </view>
-
-        <!--<view class="item arrow" @click="goPage('/pages/my/my_foot')">
-          <view class="content">
-            <text class="icon-footprint my-icon-project"></text>
-            <text class="text-black">历史浏览</text>
-          </view>
-        </view>-->
-		<view class="item arrow" @click="goPage('/pages/my/my_edit')" v-if="userInfo">
-		  <view class="content">
-		    <text class="icon-edit my-icon-project"></text>
-		    <text class="text-black">个人资料</text>
-		  </view>
-		</view>
+        <view v-if="visiblePrimaryMenus.length === 0" class="empty-menu-item">暂无可用功能</view>
       </view>
 
       <view class="comm-list menu card-project shadow-project">
@@ -123,6 +67,11 @@ import {
   getClientUserId,
   setClientUserInfo
 } from '../../utils/auth'
+import {
+  ensureClientPermissionSnapshot,
+  hasClientMenuPermission,
+  openClientMenu
+} from '../../utils/clientPermission'
 
 export default {
   data() {
@@ -130,13 +79,35 @@ export default {
       userInfo: null,
       adminInfo: null,
       version: config.VER,
-      hasEventRole: false
+      hasEventRole: false,
+      primaryMenus: [
+        { permissionKey: 'client:menu:my_checkin', title: '我的打卡', url: '/pages/enroll/my_user_list', icon: 'icon-appreciate', requiresLogin: true },
+        { permissionKey: 'client:menu:my_activity', title: '我的活动', url: '/pages/my/my_activity', icon: 'icon-activity', requiresLogin: true },
+        { permissionKey: 'client:menu:my_competition', title: '我的赛事', url: '/pages/my/my_competition', icon: 'icon-medal', requiresLogin: true },
+        { permissionKey: 'client:menu:event_manage', title: '赛事活动管理', url: '/pages/event/my_event_manage', icon: 'icon-crown', requiresLogin: true, requiresEventRole: true },
+        { permissionKey: 'client:menu:exam', title: '在线考试', url: '/pages/exam/index', icon: 'icon-write', requiresLogin: true },
+        { permissionKey: 'client:menu:survey', title: '问卷中心', url: '/pages/survey/index', icon: 'icon-form', requiresLogin: true },
+        { permissionKey: 'client:menu:favorite', title: '我的收藏', url: '/pages/my/my_fav', icon: 'icon-favor', requiresLogin: true },
+        { permissionKey: 'client:menu:profile', title: '个人资料', url: '/pages/my/my_edit', icon: 'icon-edit', requiresLogin: true }
+      ]
     }
   },
 
-  onShow() {
-    this.loadUserInfo()
+  computed: {
+    visiblePrimaryMenus() {
+      return this.primaryMenus.filter((menu) => {
+        if (menu.requiresLogin && !this.userInfo) return false
+        if (!hasClientMenuPermission(menu.permissionKey)) return false
+        if (menu.requiresEventRole && !this.hasEventRole) return false
+        return true
+      })
+    }
+  },
+
+  async onShow() {
+    await this.loadUserInfo()
     this.loadAdminInfo()
+    await this.loadClientPermissions()
     this.loadEventRole()
   },
 
@@ -144,6 +115,15 @@ export default {
     loadAdminInfo() {
       const { token, info } = getAdminAuth()
       this.adminInfo = token && info ? info : null
+    },
+    async loadClientPermissions() {
+      const { token, info } = getClientAuth()
+      if (!token || !info) return
+      try {
+        await ensureClientPermissionSnapshot()
+      } catch (e) {
+        console.error('加载客户端菜单权限失败', e)
+      }
     },
     async loadUserInfo() {
       const { token, info: local } = getClientAuth()
@@ -172,6 +152,7 @@ export default {
       this.hasEventRole = false
       const { token, info: local } = getClientAuth()
       if (!token || !local) return
+      if (!hasClientMenuPermission('client:menu:event_manage')) return
       try {
         const uid = getClientUserId()
         const res = await eventApi.myRoles({ user_id: uid })
@@ -181,6 +162,14 @@ export default {
       } catch (e) {
         console.error('加载角色失败', e)
       }
+    },
+
+    openPrimaryMenu(menu) {
+      if (!this.userInfo) {
+        uni.navigateTo({ url: '/pages/login/login' })
+        return
+      }
+      openClientMenu(menu)
     },
 
     goProfile() {
@@ -394,6 +383,13 @@ page {
 
 .item:last-child {
   border-bottom: none;
+}
+
+.empty-menu-item {
+  padding: 34rpx 30rpx;
+  text-align: center;
+  color: #999;
+  font-size: 26rpx;
 }
 
 .arrow {

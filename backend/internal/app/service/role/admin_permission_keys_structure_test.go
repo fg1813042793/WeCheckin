@@ -37,3 +37,26 @@ func TestRoleServiceUsesAdminPermissionKeysInsteadOfMenuIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestRoleServiceInvalidatesRuntimePermissionCacheWhenDeletingRole(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	body := text
+	if start := strings.Index(body, "func DeleteContext"); start >= 0 {
+		body = body[start:]
+		if end := strings.Index(body, "\n}\n\nfunc "); end >= 0 {
+			body = body[:end+3]
+		}
+	}
+	for _, snippet := range []string{
+		"Delete(&model.PermissionGrant{})",
+		"permissionsupport.InvalidateRuntimePermissionCaches()",
+	} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("role delete must clear runtime permission cache with %s", snippet)
+		}
+	}
+}

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"wecheckin-backend/backend/internal/app/formkit/report"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/formkit/report"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type DailyCount struct {

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"wecheckin-backend/backend/internal/config"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/config"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 const setupCacheTTL = 30 * time.Second
@@ -55,6 +55,7 @@ func InvalidateSetupCache() {
 }
 
 func GetTokenConfig(role string) (expire time.Duration, redisPrefix string) {
+	role = strings.ToLower(strings.TrimSpace(role))
 	roleUpper := strings.ToUpper(role)
 
 	expireStr := getDBSetup("TOKEN_" + roleUpper + "_EXPIRE")
@@ -62,16 +63,22 @@ func GetTokenConfig(role string) (expire time.Duration, redisPrefix string) {
 
 	if config.Cfg != nil {
 		if expireStr == "" {
-			if role == "admin" {
+			switch role {
+			case "admin":
 				expireStr = config.Cfg.Token.Admin.Expire
-			} else {
+			case "dingtalk_h5":
+				expireStr = "168h"
+			default:
 				expireStr = config.Cfg.Token.User.Expire
 			}
 		}
 		if redisPrefix == "" {
-			if role == "admin" {
+			switch role {
+			case "admin":
 				redisPrefix = config.Cfg.Token.Admin.RedisPrefix
-			} else {
+			case "dingtalk_h5":
+				redisPrefix = "dingtalk_h5_token:"
+			default:
 				redisPrefix = config.Cfg.Token.User.RedisPrefix
 			}
 		}
@@ -81,9 +88,12 @@ func GetTokenConfig(role string) (expire time.Duration, redisPrefix string) {
 		expireStr = "24h"
 	}
 	if redisPrefix == "" {
-		if role == "admin" {
+		switch role {
+		case "admin":
 			redisPrefix = "admin_token:"
-		} else {
+		case "dingtalk_h5":
+			redisPrefix = "dingtalk_h5_token:"
+		default:
 			redisPrefix = "user_token:"
 		}
 	}
@@ -112,5 +122,10 @@ func IsAdminSingleLogin() bool {
 
 func IsUserSingleLogin() bool {
 	val := getDBSetup("USER_SINGLE_LOGIN")
+	return val == "1" || val == "true"
+}
+
+func IsDingTalkH5SingleLogin() bool {
+	val := getDBSetup("DINGTALK_H5_SINGLE_LOGIN")
 	return val == "1" || val == "true"
 }

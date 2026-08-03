@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/cloudwego/hertz/pkg/app"
 	"strconv"
-	newsservice "wecheckin-backend/backend/internal/app/service/news"
-	"wecheckin-backend/backend/pkg/response"
+	newsservice "wecheckin/backend/internal/app/service/news"
+	"wecheckin/backend/pkg/response"
 )
 
 type NewsHandler struct{}

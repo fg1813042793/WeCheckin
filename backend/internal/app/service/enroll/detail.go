@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func ViewEnroll(id, userID string) (*model.Enroll, error) {

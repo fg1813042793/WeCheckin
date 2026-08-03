@@ -7,9 +7,11 @@ type News struct {
 	Title          string    `json:"title" gorm:"size:200;column:news_title;comment:新闻标题"`
 	Desc           string    `json:"desc" gorm:"size:500;column:news_desc;comment:新闻简介"`
 	Status         int       `json:"status" gorm:"default:1;column:news_status;comment:状态:1正常 0禁用"`
-	DeptID         uint      `json:"deptId" gorm:"default:0;column:news_dept_id;comment:所属部门ID"`
+	DeptID         uint      `json:"deptId" gorm:"default:0;column:create_dept_id;comment:创建人部门ID"`
 	PublishDeptIds string    `json:"publishDeptIds" gorm:"size:500;column:news_publish_dept_ids;comment:发布部门ID列表,逗号分隔"`
-	CreateBy       uint      `json:"createBy" gorm:"default:0;column:news_create_by;comment:创建管理员ID"`
+	CreateBy       uint      `json:"createBy" gorm:"default:0;column:create_by;comment:创建人ID"`
+	UpdateBy       uint      `json:"updateBy" gorm:"default:0;column:update_by;comment:更新人ID"`
+	UpdateDeptID   uint      `json:"updateDeptId" gorm:"default:0;column:update_dept_id;comment:更新人部门ID"`
 	CateID         string    `json:"cateId" gorm:"size:50;column:news_cate_id;comment:分类ID"`
 	CateName       string    `json:"cateName" gorm:"size:50;column:news_cate_name;comment:分类名称"`
 	Order          int       `json:"order" gorm:"default:9999;column:news_order;comment:排序值"`
@@ -21,8 +23,8 @@ type News struct {
 	Img            string    `json:"img" gorm:"-"`
 	Forms          string    `json:"forms" gorm:"type:text;column:news_forms;comment:扩展表单数据JSON"`
 	Obj            string    `json:"obj" gorm:"type:text;column:news_obj;comment:扩展对象数据JSON"`
-	AddTime        int64     `json:"_createTime" gorm:"column:news_add_time;comment:创建时间"`
-	EditTime       int64     `json:"editTime" gorm:"column:news_edit_time;comment:修改时间"`
+	AddTime        int64     `json:"_createTime" gorm:"column:add_time;comment:创建时间"`
+	EditTime       int64     `json:"editTime" gorm:"column:edit_time;comment:修改时间"`
 	AddIP          string    `json:"NEWS_ADD_IP" gorm:"size:50;column:news_add_ip;comment:创建IP"`
 	EditIP         string    `json:"NEWS_EDIT_IP" gorm:"size:50;column:news_edit_ip;comment:修改IP"`
 	CreatedAt      time.Time `json:"-"`

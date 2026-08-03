@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type migrationStep struct {
@@ -55,6 +55,7 @@ func autoMigrate(enableExam bool) error {
 		&model.Department{},
 		&model.Position{},
 		&model.UserDept{},
+		&model.UserRole{},
 		&model.Permission{},
 		&model.PermissionGrant{},
 		&model.Event{},
@@ -74,7 +75,8 @@ func autoMigrate(enableExam bool) error {
 		&model.SurveyResource{},
 		&model.SurveyQuestion{},
 		&model.Notify{},
-		&model.DingTalkH5PerfSession{},
+		&model.DingTalkH5CorpConfig{},
+		&model.DingTalkH5UserBinding{},
 		&model.DingTalkH5PerfReview{},
 		&model.DingTalkH5PerfHistory{},
 		&model.DingTalkH5PerfTemplate{},
@@ -204,6 +206,18 @@ func mergeAdminsIntoUsers(db *gorm.DB) error {
 		if err != nil {
 			return err
 		}
+		logCreateByExists := false
+		logAdminIDExists := false
+		if logsExists {
+			logCreateByExists, err = databaseColumnExists(tx, "logs", "create_by")
+			if err != nil {
+				return err
+			}
+			logAdminIDExists, err = databaseColumnExists(tx, "logs", "log_admin_id")
+			if err != nil {
+				return err
+			}
+		}
 		for _, item := range legacyAdmins {
 			merged, err := upsertMergedAdminUser(tx, item)
 			if err != nil {
@@ -226,8 +240,17 @@ func mergeAdminsIntoUsers(db *gorm.DB) error {
 			}
 			if mapCount == 0 {
 				if logsExists {
-					if err := tx.Exec("UPDATE `logs` SET `log_admin_id` = ? WHERE `log_admin_id` = ?", fmt.Sprint(merged.ID), fmt.Sprint(item.ID)).Error; err != nil {
-						return err
+					if logCreateByExists {
+						if logAdminIDExists {
+							if err := tx.Exec(
+								"UPDATE `logs` SET `create_by` = ? WHERE `create_by` = ? OR `log_admin_id` = ?",
+								merged.ID, item.ID, fmt.Sprint(item.ID),
+							).Error; err != nil {
+								return err
+							}
+						} else if err := tx.Exec("UPDATE `logs` SET `create_by` = ? WHERE `create_by` = ?", merged.ID, item.ID).Error; err != nil {
+							return err
+						}
 					}
 				}
 			}

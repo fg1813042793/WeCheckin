@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	formkitadminservice "wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	formkitadminservice "wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // TemplatePresetsGet GET /admin/survey/template_presets

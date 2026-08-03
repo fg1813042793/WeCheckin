@@ -45,6 +45,32 @@ func TestUnifiedPermissionMigrationCreatesAndBackfillsTables(t *testing.T) {
 	}
 }
 
+func TestMissingClientFavoriteMenuPermissionPatchMigration(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_add_missing_client_favorite_permission.sql"))
+	if err != nil {
+		t.Fatalf("glob client favorite permission patch migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("client favorite permission patch migration is required")
+	}
+	src, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read client favorite permission patch migration: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"'client:menu:favorite'",
+		"'我的收藏'",
+		"'client'",
+		"'menu'",
+		"ON DUPLICATE KEY UPDATE",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("client favorite permission patch migration must include %s", snippet)
+		}
+	}
+}
+
 func TestAutoMigrateIncludesUnifiedPermissionModelsAndSeedStep(t *testing.T) {
 	src, err := os.ReadFile("migrate.go")
 	if err != nil {
@@ -141,6 +167,83 @@ func TestLegacyRoleAuthorizationCleanupMigrationDropsOldGrantTables(t *testing.T
 	}
 }
 
+func TestPermissionGrantLookupIndexMigrationIsRepeatable(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_add_permission_grant_lookup_indexes.sql"))
+	if err != nil {
+		t.Fatalf("glob permission grant lookup index migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("permission grant lookup index migration is required")
+	}
+	src, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read permission grant lookup index migration: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"idx_permission_grants_subject_effect_status_key",
+		"INFORMATION_SCHEMA.STATISTICS",
+		"ALTER TABLE `permission_grants` ADD INDEX",
+		"`grant_subject_type`, `grant_effect`, `grant_status`, `grant_subject_id`, `grant_permission_key`",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("permission grant lookup index migration must include %s", snippet)
+		}
+	}
+}
+
+func TestPermissionGrantSubjectStatusIndexMigrationIsRepeatable(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_add_permission_grant_subject_status_index.sql"))
+	if err != nil {
+		t.Fatalf("glob permission grant subject status index migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("permission grant subject status index migration is required")
+	}
+	src, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read permission grant subject status index migration: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"idx_permission_grants_subject_status_key",
+		"INFORMATION_SCHEMA.STATISTICS",
+		"ALTER TABLE `permission_grants` ADD INDEX",
+		"`grant_subject_type`, `grant_subject_id`, `grant_status`, `grant_permission_key`, `grant_effect`",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("permission grant subject status index migration must include %s", snippet)
+		}
+	}
+}
+
+func TestSetupKeyLookupIndexMigrationIsRepeatable(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_add_setup_lookup_indexes.sql"))
+	if err != nil {
+		t.Fatalf("glob setup lookup index migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("setup lookup index migration is required")
+	}
+	src, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read setup lookup index migration: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"idx_setups_setup_key",
+		"INFORMATION_SCHEMA.STATISTICS",
+		"TABLE_NAME = 'setups'",
+		"COLUMN_NAME = 'setup_key'",
+		"ALTER TABLE `setups` ADD INDEX",
+		"`setup_key`",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("setup lookup index migration must include %s", snippet)
+		}
+	}
+}
+
 func TestRoleAPIPermissionBackfillMigrationUsesExistingMenuGrants(t *testing.T) {
 	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_backfill_role_api_grants_from_menu_perms.sql"))
 	if err != nil {
@@ -164,6 +267,36 @@ func TestRoleAPIPermissionBackfillMigrationUsesExistingMenuGrants(t *testing.T) 
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("role api permission backfill migration must include %s", snippet)
+		}
+	}
+}
+
+func TestDingTalkH5OrgAPIPermissionBackfillMigrationUsesExistingGrants(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_backfill_dingtalk_h5_org_api_grants.sql"))
+	if err != nil {
+		t.Fatalf("glob dingtalk h5 org api permission backfill migration: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("dingtalk h5 org api permission backfill migration is required")
+	}
+	src, err := os.ReadFile(matches[len(matches)-1])
+	if err != nil {
+		t.Fatalf("read dingtalk h5 org api permission backfill migration: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"FROM `permission_grants` source_grant",
+		"'dingtalk_h5:menu:performance:org'",
+		"'dingtalk_h5:button:user:config'",
+		"'dingtalk_h5:api:user:list'",
+		"'dingtalk_h5:api:user:edit'",
+		"source_grant.`grant_subject_type` IN ('role', 'user')",
+		"`grant_source`, `grant_status`",
+		"'h5-menu-api-backfill'",
+		"ON DUPLICATE KEY UPDATE",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("dingtalk h5 org api permission backfill migration must include %s", snippet)
 		}
 	}
 }

@@ -6,10 +6,10 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
-	"wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	examservice "wecheckin/backend/internal/app/service/exam"
+	"wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminExamHandler struct {
@@ -24,7 +24,6 @@ func NewAdminExamHandler() *AdminExamHandler {
 // @Summary 考试详情
 // @Param id query int true "考试ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/detail [get]
 func (h *AdminExamHandler) Detail(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -67,7 +66,6 @@ func (h *AdminExamHandler) Detail(ctx context.Context, c *app.RequestContext) {
 // @Param mode formData string false "模式"
 // @Param settings formData string false "设置JSON"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/save [post]
 func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -179,7 +177,6 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 // @Param category query string false "分类"
 // @Param status query int false "状态"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/list [get]
 func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -208,7 +205,6 @@ func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
 // @Param id formData int true "考试ID"
 // @Param status formData int true "状态"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/status [post]
 func (h *AdminExamHandler) Status(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -229,7 +225,6 @@ func (h *AdminExamHandler) Status(ctx context.Context, c *app.RequestContext) {
 // @Summary 删除考试
 // @Param id formData int true "考试ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/delete [post]
 func (h *AdminExamHandler) Delete(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 const menuSeedInitializedKey = "SYSTEM_MENU_SEED_INITIALIZED"

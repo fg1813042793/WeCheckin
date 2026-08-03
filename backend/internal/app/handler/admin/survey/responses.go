@@ -9,10 +9,10 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	_ "wecheckin-backend/backend/internal/app/formkit/question/builtin" // 注册 24 个内置题型
-	"wecheckin-backend/backend/internal/app/formkit/report"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	_ "wecheckin/backend/internal/app/formkit/question/builtin" // 注册 24 个内置题型
+	"wecheckin/backend/internal/app/formkit/report"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // ResponseList GET /admin/survey/response_list?surveyId=
@@ -22,7 +22,6 @@ import (
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/response_list [get]
 func (h *AdminSurveyHandler) ResponseList(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -48,7 +47,6 @@ func (h *AdminSurveyHandler) ResponseList(ctx context.Context, c *app.RequestCon
 // @Summary 答卷详情
 // @Param id query int true "答卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/response_detail [get]
 func (h *AdminSurveyHandler) ResponseDetail(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -73,7 +71,6 @@ func (h *AdminSurveyHandler) ResponseDetail(ctx context.Context, c *app.RequestC
 // @Summary 删除答卷
 // @Param id formData int true "答卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/response_del [post]
 func (h *AdminSurveyHandler) ResponseDel(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -90,7 +87,6 @@ func (h *AdminSurveyHandler) ResponseDel(ctx context.Context, c *app.RequestCont
 // @Summary 批量删除答卷
 // @Param ids formData string true "逗号分隔的答卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/response_batch_del [post]
 func (h *AdminSurveyHandler) ResponseBatchDel(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -123,7 +119,6 @@ func (h *AdminSurveyHandler) ResponseBatchDel(ctx context.Context, c *app.Reques
 // @Summary 导出答卷CSV
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {file} string
-// @Router /admin/survey/response_export [get]
 func (h *AdminSurveyHandler) ResponseExport(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")

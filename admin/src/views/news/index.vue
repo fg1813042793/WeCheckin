@@ -9,8 +9,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('news:add')" type="success" @click="showAdd">+ 添加通知</el-button>
-          <el-button v-if="hasPerm('news:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:news:add')" type="success" @click="showAdd">+ 添加通知</el-button>
+          <el-button v-if="hasPerm('admin:menu:news:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
@@ -37,17 +37,17 @@
         <el-table-column label="操作" width="340" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('news:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <el-button v-if="(row.status === '1') && hasPerm('news:edit')" size="small" type="warning" @click="toggleStatus(row, '0')">停用</el-button>
-              <el-button v-else-if="hasPerm('news:edit')" size="small" type="success" @click="toggleStatus(row, '1')">启用</el-button>
-              <el-dropdown v-if="hasPerm('news:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+              <el-button v-if="hasPerm('admin:menu:news:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
+              <el-button v-if="(row.status === '1') && hasPerm('admin:menu:news:edit')" size="small" type="warning" @click="toggleStatus(row, '0')">停用</el-button>
+              <el-button v-else-if="hasPerm('admin:menu:news:edit')" size="small" type="success" @click="toggleStatus(row, '1')">启用</el-button>
+              <el-dropdown v-if="hasPerm('admin:menu:news:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item :command="row.vouch === 1 ? 'unvouch' : 'vouch'">
                       {{ row.vouch === 1 ? '取消推荐' : '推荐首页' }}
                     </el-dropdown-item>
-                    <el-dropdown-item v-if="hasPerm('news:del')" command="del" divided>删除</el-dropdown-item>
+                    <el-dropdown-item v-if="hasPerm('admin:menu:news:del')" command="del" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>

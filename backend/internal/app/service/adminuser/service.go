@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	setupservice "wecheckin-backend/backend/internal/app/service/setup"
-	"wecheckin-backend/backend/internal/app/support/access"
-	deptsupport "wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/media"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/app/support/query"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
+	setupservice "wecheckin/backend/internal/app/service/setup"
+	"wecheckin/backend/internal/app/support/access"
+	deptsupport "wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/media"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/app/support/query"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
 )
 
 func GetUserByOpenID(openID string) (*model.User, error) {
@@ -65,11 +65,15 @@ type UserDetail struct {
 	PositionName        string   `json:"positionName"`
 	RoleID              uint     `json:"roleId"`
 	RoleName            string   `json:"roleName"`
+	RoleIDs             []uint   `json:"roleIds"`
+	RoleNames           []string `json:"roleNames"`
 	DeptIDs             []uint   `json:"deptIds"`
 	DeptNames           []string `json:"deptNames"`
 	TopDeptNames        []string `json:"topDeptNames"`
 	AllowPermissionKeys []string `json:"allowPermissionKeys"`
 	DenyPermissionKeys  []string `json:"denyPermissionKeys"`
+	ExtraDataDeptIDs    []uint   `json:"extraDataDeptIds"`
+	ExtraDataUserIDs    []uint   `json:"extraDataUserIds"`
 }
 
 func GetUserByID(id string) (UserDetail, error) {
@@ -107,15 +111,25 @@ func GetUserByIDContext(ctx context.Context, id string) (UserDetail, error) {
 	if err != nil {
 		return UserDetail{}, err
 	}
-	roleNames, err := loadRoleNameMapContext(ctx, db, []model.User{user})
+	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
 	}
+	roleIDs := roleIDsByUser[user.ID]
+	roleNamesByID, err := loadRoleNameMapByIDsContext(ctx, db, roleIDs)
+	if err != nil {
+		return UserDetail{}, err
+	}
+	roleNames := roleNamesForIDs(roleIDs, roleNamesByID)
 	allowPermissionKeys, denyPermissionKeys, err := permissionsupport.UserApplicationMenuPermissionKeySetsContext(ctx, db, user.ID)
 	if err != nil {
 		return UserDetail{}, err
 	}
-	avatar := media.FullURLWithStaticDomain(user.Pic)
+	dataScopeExtras, err := permissionsupport.UserDataScopeExtrasContext(ctx, db, user.ID)
+	if err != nil {
+		return UserDetail{}, err
+	}
+	avatar := media.FullURLWithStaticDomainContext(ctx, user.Pic)
 	return UserDetail{
 		ID:                  user.ID,
 		Name:                user.Name,
@@ -130,12 +144,16 @@ func GetUserByIDContext(ctx context.Context, id string) (UserDetail, error) {
 		PositionID:          user.PositionID,
 		PositionName:        positionNames[user.PositionID],
 		RoleID:              user.RoleID,
-		RoleName:            roleNames[user.RoleID],
+		RoleName:            roleNamesByID[user.RoleID],
+		RoleIDs:             roleIDs,
+		RoleNames:           roleNames,
 		DeptIDs:             deptIDs,
 		DeptNames:           deptNames,
 		TopDeptNames:        topDeptNames,
 		AllowPermissionKeys: allowPermissionKeys,
 		DenyPermissionKeys:  denyPermissionKeys,
+		ExtraDataDeptIDs:    dataScopeExtras.DeptIDs,
+		ExtraDataUserIDs:    dataScopeExtras.UserIDs,
 	}, nil
 }
 
@@ -173,15 +191,25 @@ func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint) (U
 	if err != nil {
 		return UserDetail{}, err
 	}
-	roleNames, err := loadRoleNameMapContext(ctx, db, []model.User{user})
+	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
 	}
+	roleIDs := roleIDsByUser[user.ID]
+	roleNamesByID, err := loadRoleNameMapByIDsContext(ctx, db, roleIDs)
+	if err != nil {
+		return UserDetail{}, err
+	}
+	roleNames := roleNamesForIDs(roleIDs, roleNamesByID)
 	allowPermissionKeys, denyPermissionKeys, err := permissionsupport.UserApplicationMenuPermissionKeySetsContext(ctx, db, user.ID)
 	if err != nil {
 		return UserDetail{}, err
 	}
-	avatar := media.FullURLWithStaticDomain(user.Pic)
+	dataScopeExtras, err := permissionsupport.UserDataScopeExtrasContext(ctx, db, user.ID)
+	if err != nil {
+		return UserDetail{}, err
+	}
+	avatar := media.FullURLWithStaticDomainContext(ctx, user.Pic)
 	return UserDetail{
 		ID:                  user.ID,
 		Name:                user.Name,
@@ -196,12 +224,16 @@ func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint) (U
 		PositionID:          user.PositionID,
 		PositionName:        positionNames[user.PositionID],
 		RoleID:              user.RoleID,
-		RoleName:            roleNames[user.RoleID],
+		RoleName:            roleNamesByID[user.RoleID],
+		RoleIDs:             roleIDs,
+		RoleNames:           roleNames,
 		DeptIDs:             deptIDs,
 		DeptNames:           deptNames,
 		TopDeptNames:        topDeptNames,
 		AllowPermissionKeys: allowPermissionKeys,
 		DenyPermissionKeys:  denyPermissionKeys,
+		ExtraDataDeptIDs:    dataScopeExtras.DeptIDs,
+		ExtraDataUserIDs:    dataScopeExtras.UserIDs,
 	}, nil
 }
 
@@ -215,31 +247,41 @@ func saveUserDeptsTx(tx *gorm.DB, userID uint, deptIDs []uint) error {
 	if err := tx.Where("`user_dept_user_id` = ?", userID).Delete(&model.UserDept{}).Error; err != nil {
 		return err
 	}
+	rows := make([]model.UserDept, 0, len(deptIDs))
+	seen := make(map[uint]struct{}, len(deptIDs))
 	for _, deptID := range deptIDs {
-		if deptID > 0 {
-			if err := tx.Create(&model.UserDept{UserID: userID, DeptID: deptID}).Error; err != nil {
-				return err
-			}
+		if deptID == 0 {
+			continue
 		}
+		if _, ok := seen[deptID]; ok {
+			continue
+		}
+		seen[deptID] = struct{}{}
+		rows = append(rows, model.UserDept{UserID: userID, DeptID: deptID})
 	}
-	return nil
+	if len(rows) == 0 {
+		return nil
+	}
+	return tx.CreateInBatches(rows, 100).Error
 }
 
 type UserListItem struct {
-	ID           uint   `json:"id"`
-	Name         string `json:"name"`
-	Mobile       string `json:"mobile"`
-	Avatar       string `json:"avatar"`
-	Pic          string `json:"pic"`
-	Status       int    `json:"status"`
-	LoginCnt     int    `json:"loginCnt"`
-	AddTime      int64  `json:"addTime"`
-	LoginTime    int64  `json:"loginTime"`
-	DeptIDs      []uint `json:"deptIds"`
-	PositionID   uint   `json:"positionId"`
-	PositionName string `json:"positionName"`
-	RoleID       uint   `json:"roleId"`
-	RoleName     string `json:"roleName"`
+	ID           uint     `json:"id"`
+	Name         string   `json:"name"`
+	Mobile       string   `json:"mobile"`
+	Avatar       string   `json:"avatar"`
+	Pic          string   `json:"pic"`
+	Status       int      `json:"status"`
+	LoginCnt     int      `json:"loginCnt"`
+	AddTime      int64    `json:"addTime"`
+	LoginTime    int64    `json:"loginTime"`
+	DeptIDs      []uint   `json:"deptIds"`
+	PositionID   uint     `json:"positionId"`
+	PositionName string   `json:"positionName"`
+	RoleID       uint     `json:"roleId"`
+	RoleName     string   `json:"roleName"`
+	RoleIDs      []uint   `json:"roleIds"`
+	RoleNames    []string `json:"roleNames"`
 }
 
 var userListColumns = []string{
@@ -265,7 +307,7 @@ func userVisibleQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*g
 		return nil, err
 	}
 	queryBuilder := db.Model(&model.User{})
-	where, args := access.UserDataScopeFilterContext(ctx, &admin)
+	where, args := access.UserDataScopeFilterWithDBContext(ctx, db, &admin)
 	if where != "" {
 		queryBuilder = queryBuilder.Where(where, args...)
 	}
@@ -286,7 +328,7 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 		likeKeyword := "%" + keyword + "%"
 		queryBuilder = queryBuilder.Where("`user_name` LIKE ? OR `user_mobile` LIKE ?", likeKeyword, likeKeyword)
 	}
-	where, args := access.UserDataScopeFilterContext(ctx, &admin)
+	where, args := access.UserDataScopeFilterWithDBContext(ctx, db, &admin)
 	hasDataScopeFilter := where != ""
 	if hasDataScopeFilter {
 		queryBuilder = queryBuilder.Where(where, args...)
@@ -329,13 +371,18 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 	if err != nil {
 		return nil, 0, err
 	}
-	roleNames, err := loadRoleNameMapContext(ctx, db, list)
+	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, list)
+	if err != nil {
+		return nil, 0, err
+	}
+	roleNamesByID, err := loadRoleNameMapByIDsContext(ctx, db, allRoleIDsFromUserMap(roleIDsByUser))
 	if err != nil {
 		return nil, 0, err
 	}
 	result := make([]UserListItem, len(list))
 	for i, u := range list {
-		avatar := media.FullURLWithStaticDomain(u.Pic)
+		avatar := media.FullURLWithStaticDomainContext(ctx, u.Pic)
+		roleIDs := roleIDsByUser[u.ID]
 		result[i] = UserListItem{
 			ID:           u.ID,
 			Name:         u.Name,
@@ -350,7 +397,9 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 			PositionID:   u.PositionID,
 			PositionName: positionNames[u.PositionID],
 			RoleID:       u.RoleID,
-			RoleName:     roleNames[u.RoleID],
+			RoleName:     roleNamesByID[u.RoleID],
+			RoleIDs:      roleIDs,
+			RoleNames:    roleNamesForIDs(roleIDs, roleNamesByID),
 		}
 	}
 	return result, total, nil
@@ -441,12 +490,126 @@ func loadRoleNameMapContext(ctx context.Context, db *gorm.DB, list []model.User)
 	return roleNames, nil
 }
 
+func loadUserRoleIDMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint][]uint, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	result := make(map[uint][]uint, len(list))
+	userIDs := make([]uint, 0, len(list))
+	primaryByUser := make(map[uint]uint, len(list))
+	for _, item := range list {
+		result[item.ID] = []uint{}
+		userIDs = append(userIDs, item.ID)
+		if item.RoleID > 0 {
+			primaryByUser[item.ID] = item.RoleID
+		}
+	}
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+	if permissionsupport.UserRolesTableReady(db) {
+		var rows []model.UserRole
+		if err := db.Select("user_role_user_id", "user_role_role_id", "user_role_is_primary").
+			Where("`user_role_user_id` IN ? AND `user_role_status` = 1", userIDs).
+			Order("`user_role_is_primary` DESC, `id` ASC").
+			Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		seenByUser := make(map[uint]map[uint]struct{}, len(userIDs))
+		for _, row := range rows {
+			if row.UserID == 0 || row.RoleID == 0 {
+				continue
+			}
+			if seenByUser[row.UserID] == nil {
+				seenByUser[row.UserID] = map[uint]struct{}{}
+			}
+			if _, ok := seenByUser[row.UserID][row.RoleID]; ok {
+				continue
+			}
+			seenByUser[row.UserID][row.RoleID] = struct{}{}
+			result[row.UserID] = append(result[row.UserID], row.RoleID)
+		}
+	}
+	for userID, primaryRoleID := range primaryByUser {
+		if len(result[userID]) == 0 {
+			result[userID] = []uint{primaryRoleID}
+			continue
+		}
+		if result[userID][0] == primaryRoleID {
+			continue
+		}
+		result[userID] = normalizeUserRoleIDs(append([]uint{primaryRoleID}, result[userID]...)...)
+	}
+	return result, nil
+}
+
+func loadRoleNameMapByIDsContext(ctx context.Context, db *gorm.DB, roleIDs []uint) (map[uint]string, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	roleIDs = normalizeUserRoleIDs(roleIDs...)
+	roleNames := make(map[uint]string, len(roleIDs))
+	if len(roleIDs) == 0 {
+		return roleNames, nil
+	}
+	var roles []model.Role
+	if err := db.Select("id", "role_name").Where("`id` IN ?", roleIDs).Find(&roles).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range roles {
+		roleNames[item.ID] = item.Name
+	}
+	return roleNames, nil
+}
+
+func allRoleIDsFromUserMap(roleIDsByUser map[uint][]uint) []uint {
+	roleIDs := make([]uint, 0)
+	for _, ids := range roleIDsByUser {
+		roleIDs = append(roleIDs, ids...)
+	}
+	return normalizeUserRoleIDs(roleIDs...)
+}
+
+func roleNamesForIDs(roleIDs []uint, roleNamesByID map[uint]string) []string {
+	names := make([]string, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		if name := roleNamesByID[roleID]; name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func normalizeUserRoleIDs(values ...uint) []uint {
+	seen := map[uint]struct{}{}
+	result := make([]uint, 0, len(values))
+	for _, value := range values {
+		if value == 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
+}
+
 type AdminAccessInput struct {
-	Password              string
-	RoleID                uint
-	AllowPermissionKeys   []string
-	DenyPermissionKeys    []string
-	PermissionKeysTouched bool
+	Password               string
+	RoleID                 uint
+	RoleIDs                []uint
+	AllowPermissionKeys    []string
+	DenyPermissionKeys     []string
+	PermissionKeysTouched  bool
+	ExtraDataDeptIDs       []uint
+	ExtraDataUserIDs       []uint
+	DataScopeExtrasTouched bool
 }
 
 func AddUser(name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint) error {
@@ -590,7 +753,14 @@ func saveUserAdminAccessTx(tx *gorm.DB, userID uint, adminAccess AdminAccessInpu
 	}
 
 	roleID := adminAccess.RoleID
-	if roleID > 0 && adminAccess.Password == "" && current.Password == "" {
+	roleIDs := normalizeUserRoleIDs(append([]uint{roleID}, adminAccess.RoleIDs...)...)
+	if roleID == 0 && len(roleIDs) > 0 {
+		roleID = roleIDs[0]
+	}
+	if roleID > 0 {
+		roleIDs = normalizeUserRoleIDs(append([]uint{roleID}, roleIDs...)...)
+	}
+	if len(roleIDs) > 0 && adminAccess.Password == "" && current.Password == "" {
 		return fmt.Errorf("请输入登录密码")
 	}
 
@@ -608,12 +778,54 @@ func saveUserAdminAccessTx(tx *gorm.DB, userID uint, adminAccess AdminAccessInpu
 	if err := tx.Model(&model.User{}).Where("`id` = ?", userID).Updates(updates).Error; err != nil {
 		return err
 	}
+	if err := saveUserRolesTx(tx, userID, roleID, roleIDs); err != nil {
+		return err
+	}
 	if adminAccess.PermissionKeysTouched || len(adminAccess.AllowPermissionKeys) > 0 || len(adminAccess.DenyPermissionKeys) > 0 {
 		if err := permissionsupport.SetUserApplicationMenuPermissionOverridesTx(tx, userID, adminAccess.AllowPermissionKeys, adminAccess.DenyPermissionKeys); err != nil {
 			return err
 		}
 	}
+	if adminAccess.DataScopeExtrasTouched {
+		if err := permissionsupport.SetUserDataScopeExtrasTx(tx, userID, adminAccess.ExtraDataDeptIDs, adminAccess.ExtraDataUserIDs); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func saveUserRolesTx(tx *gorm.DB, userID, primaryRoleID uint, roleIDs []uint) error {
+	if !permissionsupport.UserRolesTableReady(tx) {
+		return nil
+	}
+	if err := tx.Where("`user_role_user_id` = ?", userID).Delete(&model.UserRole{}).Error; err != nil {
+		return err
+	}
+	roleIDs = normalizeUserRoleIDs(roleIDs...)
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	now := database.Now()
+	rows := make([]model.UserRole, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		rows = append(rows, model.UserRole{
+			UserID:    userID,
+			RoleID:    roleID,
+			IsPrimary: boolInt(roleID == primaryRoleID),
+			Status:    1,
+			Source:    "form",
+			AddTime:   now,
+			EditTime:  now,
+		})
+	}
+	return tx.CreateInBatches(rows, 100).Error
+}
+
+func boolInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func DelUser(id string) error {

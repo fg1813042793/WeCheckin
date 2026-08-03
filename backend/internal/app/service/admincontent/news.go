@@ -6,11 +6,11 @@ import (
 
 	"gorm.io/gorm"
 
-	newsservice "wecheckin-backend/backend/internal/app/service/news"
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/app/support/query"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	newsservice "wecheckin/backend/internal/app/service/news"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/app/support/query"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func GetAdminNewsList(keyword, sortStr string, page, pageSize int, adminID uint) ([]model.News, int64, error) {
@@ -28,7 +28,7 @@ func GetAdminNewsListContext(ctx context.Context, keyword, sortStr string, page,
 	if keyword != "" {
 		queryBuilder = queryBuilder.Where("`news_title` LIKE ?", "%"+keyword+"%")
 	}
-	where, args := access.DataScopeFilterContext(ctx, &admin, "`news_dept_id`", "`news_create_by`")
+	where, args := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.NewsAuditFields)
 	if where != "" {
 		queryBuilder = queryBuilder.Where(where, args...)
 	}
@@ -39,10 +39,10 @@ func GetAdminNewsListContext(ctx context.Context, keyword, sortStr string, page,
 		"order":   "news_order",
 		"status":  "news_status",
 		"vouch":   "news_vouch",
-		"addTime": "news_add_time",
+		"addTime": "add_time",
 	})
 	if orderClause == "" {
-		orderClause = "`news_add_time` DESC"
+		orderClause = "`add_time` DESC"
 	}
 	err := queryBuilder.Select(newsservice.ListColumns).Order(orderClause).Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
@@ -52,7 +52,7 @@ func GetAdminNewsListContext(ctx context.Context, keyword, sortStr string, page,
 }
 
 func scopedNewsQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
-	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.News{}, "`news_dept_id`", "`news_create_by`")
+	return access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.News{}, access.NewsAuditFields)
 }
 
 func GetNewsDetail(id string) (*model.News, error) {
@@ -215,6 +215,9 @@ func InsertNewsContext(ctx context.Context, title, desc, cateID, cateName, conte
 		PublishDeptIds: publishDeptIds,
 		CreateBy:       createBy,
 		AddTime:        database.Now(),
+		EditTime:       database.Now(),
+		UpdateBy:       createBy,
+		UpdateDeptID:   deptID,
 		AddIP:          addIP,
 	}
 	return db.Create(&news).Error
@@ -236,9 +239,10 @@ func EditNewsContext(ctx context.Context, id, title, desc, cateID, cateName, con
 		"news_order":            order,
 		"news_content":          content,
 		"news_qr":               qr,
-		"news_dept_id":          deptID,
+		"create_dept_id":        deptID,
+		"update_dept_id":        deptID,
 		"news_publish_dept_ids": publishDeptIds,
-		"news_edit_time":        database.Now(),
+		"edit_time":             database.Now(),
 		"news_edit_ip":          addIP,
 	}
 	return db.Model(&model.News{}).Where("`id` = ?", id).Updates(updates).Error
@@ -256,9 +260,11 @@ func EditNewsForAdminContext(ctx context.Context, id, title, desc, cateID, cateN
 		"news_order":            order,
 		"news_content":          content,
 		"news_qr":               qr,
-		"news_dept_id":          deptID,
+		"create_dept_id":        deptID,
+		"update_by":             adminID,
+		"update_dept_id":        deptID,
 		"news_publish_dept_ids": publishDeptIds,
-		"news_edit_time":        database.Now(),
+		"edit_time":             database.Now(),
 		"news_edit_ip":          addIP,
 	}
 	queryBuilder, err := scopedNewsQueryContext(ctx, db, adminID)

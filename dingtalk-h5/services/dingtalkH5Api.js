@@ -4,11 +4,23 @@ const API_V2 = '/api/v2'
 const DINGTALK_H5_API = `${API_V2}/dingtalk/h5`
 
 export const dingTalkAuthApi = {
+  publicConfig() {
+    return get(`${DINGTALK_H5_API}/public-config`)
+  },
   login(data) {
     return post(`${DINGTALK_H5_API}/login`, data)
   },
+  ssoLogin(data) {
+    return post(`${DINGTALK_H5_API}/sso-login`, data)
+  },
+  bindSelf(data) {
+    return post(`${DINGTALK_H5_API}/bind-self`, data)
+  },
   logout() {
     return post(`${DINGTALK_H5_API}/logout`)
+  },
+  updateProfile(data) {
+    return patch(`${DINGTALK_H5_API}/account/profile`, data)
   },
   changePassword(data) {
     return patch(`${DINGTALK_H5_API}/account/password`, data)
@@ -24,6 +36,9 @@ export const dingTalkPerformanceApi = {
   },
   template() {
     return get(`${DINGTALK_H5_API}/template`)
+  },
+  saveTemplate(data) {
+    return put(`${DINGTALK_H5_API}/template`, data)
   },
   reviews(params = {}) {
     return get(`${DINGTALK_H5_API}/reviews`, params)

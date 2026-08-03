@@ -17,7 +17,7 @@ func TestMenuServiceUsesSharedAdminAccessRule(t *testing.T) {
 		"adminaccess.UserAllowsAdminAccessContext",
 		"adminaccess.IsReservedSuperAdminRoleContext",
 		"permissionsupport.AdminMenuPermissionsContext",
-		"permissionsupport.AdminPermCodesContext",
+		"permissionsupport.AdminPermissionKeysContext",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("menu service must use shared admin access rule %q", snippet)

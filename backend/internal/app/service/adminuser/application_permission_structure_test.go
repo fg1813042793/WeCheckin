@@ -16,7 +16,7 @@ func TestUserManagementExposesUserPermissionOverrides(t *testing.T) {
 		"AllowPermissionKeys []string `json:\"allowPermissionKeys\"`",
 		"DenyPermissionKeys  []string `json:\"denyPermissionKeys\"`",
 		"permissionsupport.UserApplicationMenuPermissionKeySetsContext(ctx, db, user.ID)",
-		"PermissionKeysTouched bool",
+		"PermissionKeysTouched",
 		"adminAccess.PermissionKeysTouched",
 		"permissionsupport.SetUserApplicationMenuPermissionOverridesTx",
 	} {

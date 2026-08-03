@@ -8,6 +8,8 @@ type Declaration struct {
 	Perms        string
 	CategoryKey  string
 	CategoryName string
+	Method       string
+	Path         string
 }
 
 type Category struct {
@@ -42,6 +44,15 @@ func Declarations() []Declaration {
 		{"mgr:edit", "管理员编辑接口"},
 		{"mgr:del", "管理员删除接口"},
 		{"setup:edit", "系统设置接口"},
+		{"dingtalk:settings:list", "钉钉配置查看接口"},
+		{"dingtalk:settings:edit", "钉钉配置保存接口"},
+		{"dingtalk:bindings:list", "钉钉用户绑定查看接口"},
+		{"dingtalk:bindings:edit", "钉钉用户绑定维护接口"},
+		{"dingtalk:perf-reviews:list", "绩效考评单查看接口"},
+		{"dingtalk:perf-reviews:detail", "绩效考评单详情接口"},
+		{"dingtalk:perf-reviews:del", "绩效考评单删除接口"},
+		{"dingtalk:perf-histories:list", "绩效流转记录查看接口"},
+		{"dingtalk:perf-histories:del", "绩效流转记录删除接口"},
 		{"dict:list", "字典查看接口"},
 		{"dict:add", "字典创建接口"},
 		{"dict:edit", "字典编辑接口"},
@@ -56,6 +67,10 @@ func Declarations() []Declaration {
 		{"dept:add", "部门创建接口"},
 		{"dept:edit", "部门编辑接口"},
 		{"dept:del", "部门删除接口"},
+		{"position:list", "岗位查看接口"},
+		{"position:add", "岗位创建接口"},
+		{"position:edit", "岗位编辑接口"},
+		{"position:del", "岗位删除接口"},
 		{"role:list", "角色查看接口"},
 		{"role:add", "角色创建接口"},
 		{"role:edit", "角色编辑接口"},
@@ -85,12 +100,15 @@ func Declarations() []Declaration {
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
 		category := categoryForPerms(categories, item.perms)
+		route := primaryRouteForPerms(item.perms)
 		out = append(out, Declaration{
 			Key:          KeyForPerms(item.perms),
 			Name:         item.name,
 			Perms:        item.perms,
 			CategoryKey:  category.Key,
 			CategoryName: category.Name,
+			Method:       route.method,
+			Path:         route.path,
 		})
 	}
 	return out
@@ -102,8 +120,9 @@ func Categories() []Category {
 		{Key: "admin:api-category:user", Name: "用户与在线", Sort: 20},
 		{Key: "admin:api-category:content", Name: "内容运营", Sort: 30},
 		{Key: "admin:api-category:system", Name: "系统权限", Sort: 40},
-		{Key: "admin:api-category:survey", Name: "问卷管理", Sort: 50},
-		{Key: "admin:api-category:exam", Name: "考试管理", Sort: 60},
+		{Key: "admin:api-category:dingtalk", Name: "钉钉应用", Sort: 50},
+		{Key: "admin:api-category:survey", Name: "问卷管理", Sort: 60},
+		{Key: "admin:api-category:exam", Name: "考试管理", Sort: 70},
 	}
 }
 
@@ -121,10 +140,12 @@ func categoryForPerms(categories map[string]Category, perms string) Category {
 	switch module {
 	case "home":
 		key = "admin:api-category:dashboard"
-	case "user", "online":
+	case "user", "online", "position":
 		key = "admin:api-category:user"
 	case "enroll", "event", "news":
 		key = "admin:api-category:content"
+	case "dingtalk":
+		key = "admin:api-category:dingtalk"
 	case "survey", "response", "question-bank":
 		key = "admin:api-category:survey"
 	case "exam":
@@ -142,4 +163,91 @@ func KeyForPerms(perms string) string {
 		return ""
 	}
 	return "admin:api:" + perms
+}
+
+type primaryRoute struct {
+	method string
+	path   string
+}
+
+func primaryRouteForPerms(perms string) primaryRoute {
+	if route, ok := primaryAdminAPIRoutes[strings.TrimSpace(perms)]; ok {
+		return route
+	}
+	return primaryRoute{}
+}
+
+var primaryAdminAPIRoutes = map[string]primaryRoute{
+	"home":                         {method: "DELETE", path: "/api/v2/admin/home/recommendations"},
+	"user:list":                    {method: "GET", path: "/api/v2/admin/users"},
+	"user:add":                     {method: "POST", path: "/api/v2/admin/users"},
+	"user:edit":                    {method: "PUT", path: "/api/v2/admin/users/:id"},
+	"user:del":                     {method: "DELETE", path: "/api/v2/admin/users/:id"},
+	"online:list":                  {method: "GET", path: "/api/v2/admin/admin-sessions"},
+	"online:force_offline":         {method: "POST", path: "/api/v2/admin/admin-sessions/:id/force-offline"},
+	"enroll:list":                  {method: "GET", path: "/api/v2/admin/enrollments"},
+	"enroll:add":                   {method: "POST", path: "/api/v2/admin/enrollments"},
+	"enroll:edit":                  {method: "PUT", path: "/api/v2/admin/enrollments/:id"},
+	"enroll:del":                   {method: "DELETE", path: "/api/v2/admin/enrollments/:id"},
+	"news:list":                    {method: "GET", path: "/api/v2/admin/news"},
+	"news:add":                     {method: "POST", path: "/api/v2/admin/news"},
+	"news:edit":                    {method: "PUT", path: "/api/v2/admin/news/:id"},
+	"news:del":                     {method: "DELETE", path: "/api/v2/admin/news/:id"},
+	"mgr:list":                     {method: "GET", path: "/api/v2/admin/managers"},
+	"mgr:add":                      {method: "POST", path: "/api/v2/admin/managers"},
+	"mgr:edit":                     {method: "PUT", path: "/api/v2/admin/managers/:id"},
+	"mgr:del":                      {method: "DELETE", path: "/api/v2/admin/managers/:id"},
+	"setup:edit":                   {method: "PUT", path: "/api/v2/admin/settings"},
+	"dingtalk:settings:list":       {method: "GET", path: "/api/v2/admin/dingtalk/settings"},
+	"dingtalk:settings:edit":       {method: "PUT", path: "/api/v2/admin/dingtalk/settings"},
+	"dingtalk:bindings:list":       {method: "GET", path: "/api/v2/admin/dingtalk/user-bindings"},
+	"dingtalk:bindings:edit":       {method: "POST", path: "/api/v2/admin/dingtalk/user-bindings"},
+	"dingtalk:perf-reviews:list":   {method: "GET", path: "/api/v2/admin/dingtalk/perf-reviews"},
+	"dingtalk:perf-reviews:detail": {method: "GET", path: "/api/v2/admin/dingtalk/perf-reviews/:id"},
+	"dingtalk:perf-reviews:del":    {method: "DELETE", path: "/api/v2/admin/dingtalk/perf-reviews/:id"},
+	"dingtalk:perf-histories:list": {method: "GET", path: "/api/v2/admin/dingtalk/perf-histories"},
+	"dingtalk:perf-histories:del":  {method: "DELETE", path: "/api/v2/admin/dingtalk/perf-histories/:id"},
+	"dict:list":                    {method: "GET", path: "/api/v2/admin/dict/types"},
+	"dict:add":                     {method: "POST", path: "/api/v2/admin/dict/items"},
+	"dict:edit":                    {method: "PUT", path: "/api/v2/admin/dict/items/:id"},
+	"dict:del":                     {method: "DELETE", path: "/api/v2/admin/dict/items/:id"},
+	"log:list":                     {method: "GET", path: "/api/v2/admin/logs"},
+	"log:del":                      {method: "DELETE", path: "/api/v2/admin/logs"},
+	"event:list":                   {method: "GET", path: "/api/v2/admin/events"},
+	"event:add":                    {method: "POST", path: "/api/v2/admin/events"},
+	"event:edit":                   {method: "PUT", path: "/api/v2/admin/events/:id"},
+	"event:del":                    {method: "DELETE", path: "/api/v2/admin/events/:id"},
+	"dept:list":                    {method: "GET", path: "/api/v2/admin/departments/tree"},
+	"dept:add":                     {method: "POST", path: "/api/v2/admin/departments"},
+	"dept:edit":                    {method: "PUT", path: "/api/v2/admin/departments/:id"},
+	"dept:del":                     {method: "DELETE", path: "/api/v2/admin/departments/:id"},
+	"position:list":                {method: "GET", path: "/api/v2/admin/positions"},
+	"position:add":                 {method: "POST", path: "/api/v2/admin/positions"},
+	"position:edit":                {method: "PUT", path: "/api/v2/admin/positions/:id"},
+	"position:del":                 {method: "DELETE", path: "/api/v2/admin/positions/:id"},
+	"role:list":                    {method: "GET", path: "/api/v2/admin/roles"},
+	"role:add":                     {method: "POST", path: "/api/v2/admin/roles"},
+	"role:edit":                    {method: "PUT", path: "/api/v2/admin/roles/:id"},
+	"role:del":                     {method: "DELETE", path: "/api/v2/admin/roles/:id"},
+	"menu:list":                    {method: "GET", path: "/api/v2/admin/permissions/tree"},
+	"menu:add":                     {method: "POST", path: "/api/v2/admin/permissions"},
+	"menu:edit":                    {method: "PUT", path: "/api/v2/admin/permissions/:key"},
+	"menu:del":                     {method: "DELETE", path: "/api/v2/admin/permissions/:key"},
+	"survey:list":                  {method: "GET", path: "/api/v2/admin/surveys"},
+	"survey:add":                   {method: "POST", path: "/api/v2/admin/surveys"},
+	"survey:edit":                  {method: "PUT", path: "/api/v2/admin/surveys/:id"},
+	"survey:del":                   {method: "DELETE", path: "/api/v2/admin/surveys/:id"},
+	"survey:status":                {method: "PATCH", path: "/api/v2/admin/surveys/:id/status"},
+	"survey:copy":                  {method: "POST", path: "/api/v2/admin/surveys/:id/copy"},
+	"response:list":                {method: "GET", path: "/api/v2/admin/surveys/:id/responses"},
+	"response:del":                 {method: "DELETE", path: "/api/v2/admin/survey-responses/:id"},
+	"response:export":              {method: "GET", path: "/api/v2/admin/surveys/:id/responses/export"},
+	"question-bank:list":           {method: "GET", path: "/api/v2/admin/survey-question-bank"},
+	"question-bank:add":            {method: "POST", path: "/api/v2/admin/survey-question-bank"},
+	"question-bank:edit":           {method: "PUT", path: "/api/v2/admin/survey-question-bank/:id"},
+	"question-bank:del":            {method: "DELETE", path: "/api/v2/admin/survey-question-bank/:id"},
+	"exam:list":                    {method: "GET", path: "/api/v2/admin/exams"},
+	"exam:add":                     {method: "POST", path: "/api/v2/admin/exams"},
+	"exam:edit":                    {method: "PUT", path: "/api/v2/admin/exams/:id"},
+	"exam:del":                     {method: "DELETE", path: "/api/v2/admin/exams/:id"},
 }

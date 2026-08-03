@@ -8,9 +8,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"wecheckin-backend/backend/internal/model"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin/backend/internal/model"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 func AdminAuth() app.HandlerFunc {
@@ -49,12 +49,14 @@ func AdminAuth() app.HandlerFunc {
 		}
 
 		var info struct {
-			ID       uint   `json:"id"`
-			Name     string `json:"name"`
-			Type     int    `json:"type"`
-			RoleID   uint   `json:"roleId"`
-			RoleName string `json:"roleName"`
-			Desc     string `json:"desc"`
+			ID        uint     `json:"id"`
+			Name      string   `json:"name"`
+			Type      int      `json:"type"`
+			RoleID    uint     `json:"roleId"`
+			RoleName  string   `json:"roleName"`
+			RoleIDs   []uint   `json:"roleIds"`
+			RoleNames []string `json:"roleNames"`
+			Desc      string   `json:"desc"`
 		}
 		if err := json.Unmarshal([]byte(jsonStr), &info); err != nil || info.ID == 0 {
 			c.JSON(consts.StatusOK, utils.H{
@@ -70,11 +72,19 @@ func AdminAuth() app.HandlerFunc {
 		rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
 
 		admin := &model.Admin{
-			ID:     info.ID,
-			Name:   info.Name,
-			Type:   info.Type,
-			RoleID: info.RoleID,
-			Desc:   info.Desc,
+			ID:        info.ID,
+			Name:      info.Name,
+			Type:      info.Type,
+			RoleID:    info.RoleID,
+			RoleIDs:   info.RoleIDs,
+			RoleNames: info.RoleNames,
+			Desc:      info.Desc,
+		}
+		if len(admin.RoleIDs) == 0 && admin.RoleID > 0 {
+			admin.RoleIDs = []uint{admin.RoleID}
+		}
+		if len(admin.RoleNames) == 0 && info.RoleName != "" {
+			admin.RoleNames = []string{info.RoleName}
 		}
 		c.Set("admin", admin)
 		c.Next(ctx)

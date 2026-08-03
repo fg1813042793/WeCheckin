@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	formkitadminservice "wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	formkitadminservice "wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // ResourceUpload POST /admin/survey/resource_upload
@@ -24,7 +24,6 @@ import (
 // @Param surveyId formData int true "问卷ID"
 // @Param resType formData string true "资源类型: bg/header"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/resource_upload [post]
 func (h *AdminSurveyHandler) ResourceUpload(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -114,7 +113,6 @@ func (h *AdminSurveyHandler) ResourceUpload(ctx context.Context, c *app.RequestC
 // @Param surveyId query int true "问卷ID"
 // @Param resType query string false "资源类型: bg/header，为空则返回全部"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/resource_list [get]
 func (h *AdminSurveyHandler) ResourceList(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -142,7 +140,6 @@ func (h *AdminSurveyHandler) ResourceList(ctx context.Context, c *app.RequestCon
 // @Summary 删除问卷资源
 // @Param id formData int true "资源ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/resource_delete [post]
 func (h *AdminSurveyHandler) ResourceDelete(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

@@ -70,6 +70,10 @@ export function setClientAuth(data = {}) {
 export function clearClientAuth() {
   removeStorage(CLIENT_TOKEN_KEY)
   removeStorage(CLIENT_INFO_KEY)
+  removeStorage('clientMenuPermissionKeys')
+  removeStorage('clientApiPermissionKeys')
+  removeStorage('clientMenus')
+  removeStorage('clientPermissionSnapshot')
 }
 
 export function hasClientAuth() {

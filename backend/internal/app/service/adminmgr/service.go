@@ -7,13 +7,13 @@ import (
 
 	"gorm.io/gorm"
 
-	onlineservice "wecheckin-backend/backend/internal/app/service/online"
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/app/support/adminaccess"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
+	onlineservice "wecheckin/backend/internal/app/service/online"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
 )
 
 type ListItem struct {
@@ -92,28 +92,10 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 			return adminLoginRoleFilter(d)
 		},
 	}
-	if !adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) && admin.RoleID > 0 {
-		var role model.Role
-		if err := db.First(&role, admin.RoleID).Error; err == nil {
-			if role.DataScope == 2 || role.DataScope == 4 {
-				var deptIDs []uint
-				if role.DataScope == 2 {
-					deptIDs = access.AdminDeptIDsContext(ctx, admin.ID)
-				} else {
-					deptIDs = access.RoleDeptIDsContext(ctx, admin.RoleID)
-				}
-				if len(deptIDs) > 0 {
-					conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
-						return d.Where("`id` IN (SELECT `user_dept_user_id` FROM `user_depts` WHERE `user_dept_dept_id` IN ?)", deptIDs)
-					})
-				}
-			} else if role.DataScope == 3 {
-				id := admin.ID
-				conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
-					return d.Where("`id` = ?", id)
-				})
-			}
-		}
+	if where, args := access.UserIDDataScopeFilterWithDBContext(ctx, db, &admin, access.UserAuditFields.IDField()); where != "" {
+		conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
+			return d.Where(where, args...)
+		})
 	}
 	if keyword != "" {
 		kw := keyword

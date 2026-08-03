@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	onlineservice "wecheckin-backend/backend/internal/app/service/online"
-	"wecheckin-backend/backend/pkg/response"
+	onlineservice "wecheckin/backend/internal/app/service/online"
+	"wecheckin/backend/pkg/response"
 )
 
 func (h *AdminUserHandler) GetOnlineUsers(ctx context.Context, c *app.RequestContext) {
@@ -39,7 +39,6 @@ func (h *AdminUserHandler) ForceOfflineUser(ctx context.Context, c *app.RequestC
 // @Summary 批量强制下线
 // @Param items body []object{idStr,token} true "items: [{idStr,token}, ...]"
 // @Success 200 {object} response.Resp
-// @Router /admin/user/batch_force_offline [post]
 func (h *AdminUserHandler) BatchForceOfflineUser(ctx context.Context, c *app.RequestContext) {
 	var items []struct {
 		IDStr string `json:"idStr"`

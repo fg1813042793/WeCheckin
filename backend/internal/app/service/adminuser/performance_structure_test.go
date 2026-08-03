@@ -116,6 +116,20 @@ func TestUserListCachesUnfilteredTotalCount(t *testing.T) {
 	}
 }
 
+func TestUserListUsesRequestContextForAvatarStaticDomain(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	if !strings.Contains(text, "media.FullURLWithStaticDomainContext(ctx, u.Pic)") {
+		t.Fatalf("user list avatars should use request context and cached static domain")
+	}
+	if strings.Contains(text, "media.FullURLWithStaticDomain(u.Pic)") {
+		t.Fatalf("user list avatars should not call static domain lookup without request context")
+	}
+}
+
 func TestUserPositionFieldsAreReturnedWithoutPerRowQueries(t *testing.T) {
 	src, err := os.ReadFile("service.go")
 	if err != nil {

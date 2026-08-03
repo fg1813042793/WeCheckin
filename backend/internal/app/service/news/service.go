@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 
-	setupservice "wecheckin-backend/backend/internal/app/service/setup"
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/app/support/publish"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	setupservice "wecheckin/backend/internal/app/service/setup"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/app/support/publish"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type ListResponse struct {
@@ -27,17 +27,19 @@ var ListColumns = []string{
 	"news_title",
 	"news_desc",
 	"news_status",
-	"news_dept_id",
+	"create_dept_id",
 	"news_publish_dept_ids",
-	"news_create_by",
+	"create_by",
+	"update_by",
+	"update_dept_id",
 	"news_cate_id",
 	"news_cate_name",
 	"news_order",
 	"news_vouch",
 	"news_view_cnt",
 	"news_pic",
-	"news_add_time",
-	"news_edit_time",
+	"add_time",
+	"edit_time",
 }
 
 func PopulateFields(list []model.News) []model.News {
@@ -79,7 +81,7 @@ func GetNewsListContext(ctx context.Context, page, pageSize int, keyword, userID
 		query = query.Where("(`news_publish_dept_ids` = '' OR `news_publish_dept_ids` IS NULL)")
 	}
 	query.Count(&total)
-	err := query.Select(ListColumns).Order("`news_order` ASC, `news_add_time` DESC").
+	err := query.Select(ListColumns).Order("`news_order` ASC, `add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, err

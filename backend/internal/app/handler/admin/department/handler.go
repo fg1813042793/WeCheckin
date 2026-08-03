@@ -5,9 +5,9 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	departmentservice "wecheckin-backend/backend/internal/app/service/department"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	departmentservice "wecheckin/backend/internal/app/service/department"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminDeptHandler struct{}
@@ -17,7 +17,6 @@ func NewAdminDeptHandler() *AdminDeptHandler { return &AdminDeptHandler{} }
 // @Tags PC端-部门管理
 // @Summary 获取部门树
 // @Success 200 {object} response.Resp
-// @Router /admin/dept/tree [get]
 func (h *AdminDeptHandler) GetDeptTree(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -35,7 +34,6 @@ func (h *AdminDeptHandler) GetDeptTree(ctx context.Context, c *app.RequestContex
 // @Param parentId formData int false "父部门ID"
 // @Param sort formData int false "排序"
 // @Success 200 {object} response.Resp
-// @Router /admin/dept/add [post]
 func (h *AdminDeptHandler) AddDept(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	parentID, _ := strconv.Atoi(c.PostForm("parentId"))
@@ -59,7 +57,6 @@ func (h *AdminDeptHandler) AddDept(ctx context.Context, c *app.RequestContext) {
 // @Param sort formData int false "排序"
 // @Param status formData int false "状态(1=启用 0=禁用)"
 // @Success 200 {object} response.Resp
-// @Router /admin/dept/edit [post]
 func (h *AdminDeptHandler) EditDept(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	name := c.PostForm("name")
@@ -81,7 +78,6 @@ func (h *AdminDeptHandler) EditDept(ctx context.Context, c *app.RequestContext) 
 // @Summary 删除部门
 // @Param id formData string true "部门ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/dept/del [post]
 func (h *AdminDeptHandler) DelDept(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if id == 0 {

@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	eventservice "wecheckin-backend/backend/internal/app/service/event"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	eventservice "wecheckin/backend/internal/app/service/event"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-赛事活动管理
@@ -18,7 +18,6 @@ import (
 // @Param images formData string false "图片列表(JSON)"
 // @Param videos formData string false "视频列表(JSON)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_dynamic_add [post]
 func (h *AdminEventHandler) PostEventDynamic(ctx context.Context, c *app.RequestContext) {
 	eventID := c.PostForm("eventId")
 	title := c.PostForm("title")
@@ -44,7 +43,6 @@ func (h *AdminEventHandler) PostEventDynamic(ctx context.Context, c *app.Request
 // @Summary 获取活动动态列表(管理端)
 // @Param eventId query string true "活动ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_dynamics [get]
 func (h *AdminEventHandler) GetEventDynamics(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -69,7 +67,6 @@ func (h *AdminEventHandler) GetEventDynamics(ctx context.Context, c *app.Request
 // @Param images formData string false "图片列表(JSON)"
 // @Param videos formData string false "视频列表(JSON)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_dynamic_edit [post]
 func (h *AdminEventHandler) EditEventDynamic(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -94,7 +91,6 @@ func (h *AdminEventHandler) EditEventDynamic(ctx context.Context, c *app.Request
 // @Summary 删除活动动态
 // @Param id formData string true "动态ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_dynamic_del [post]
 func (h *AdminEventHandler) DelEventDynamic(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -114,7 +110,6 @@ func (h *AdminEventHandler) DelEventDynamic(ctx context.Context, c *app.RequestC
 // @Summary 批量删除活动动态
 // @Param ids formData string true "动态ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_dynamic_dels [post]
 func (h *AdminEventHandler) DelEventDynamics(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

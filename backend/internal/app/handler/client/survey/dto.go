@@ -1,6 +1,6 @@
 package survey
 
-import "wecheckin-backend/backend/internal/model"
+import "wecheckin/backend/internal/model"
 
 type limitInfo struct {
 	DeviceFull bool `json:"deviceFull"`

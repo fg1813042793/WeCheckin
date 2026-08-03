@@ -3,8 +3,8 @@ package favorite
 import (
 	"context"
 	"github.com/cloudwego/hertz/pkg/app"
-	favoriteservice "wecheckin-backend/backend/internal/app/service/favorite"
-	"wecheckin-backend/backend/pkg/response"
+	favoriteservice "wecheckin/backend/internal/app/service/favorite"
+	"wecheckin/backend/pkg/response"
 )
 
 type FavHandler struct{}

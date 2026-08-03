@@ -1,63 +1,23 @@
 package dingtalkh5
 
-import "wecheckin-backend/backend/internal/model"
-
-var (
-	peopleLeaderRoles = map[string]struct{}{
-		"director":   {},
-		"manager":    {},
-		"supervisor": {},
-	}
-	reviewCreatorRoles = map[string]struct{}{
-		"admin":        {},
-		"hrbp":         {},
-		"hrbp_manager": {},
-	}
-	editableRoles = map[string]struct{}{
-		"director":     {},
-		"manager":      {},
-		"supervisor":   {},
-		"employee":     {},
-		"hrbp":         {},
-		"hrbp_manager": {},
-		"admin":        {},
-	}
-)
-
-func canCreateReview(user *model.DingTalkH5PerfUser) bool {
-	_, ok := reviewCreatorRoles[user.Role]
-	return ok
-}
-
-func isAdmin(user *model.DingTalkH5PerfUser) bool {
-	return user != nil && user.Role == "admin"
-}
+import "wecheckin/backend/internal/model"
 
 func canBeReviewed(user model.DingTalkH5PerfUser) bool {
-	_, ok := editableRoles[user.Role]
-	return ok && user.Status == 1
+	return user.Status == 1
 }
 
 func canViewReview(user *model.DingTalkH5PerfUser, review model.DingTalkH5PerfReview, employee *model.DingTalkH5PerfUser) bool {
 	if user == nil {
 		return false
 	}
-	if user.Role == "admin" || user.Role == "hrbp_manager" {
+	account := NormalizeUserID(user.Account)
+	if review.EmployeeAccount == account ||
+		review.ManagerAccount == account ||
+		review.HRBPAccount == account ||
+		review.HRBPReviewerAccount == account {
 		return true
 	}
-	if user.Role == "hrbp" {
-		return review.EmployeeAccount == user.Account ||
-			review.HRBPAccount == user.Account ||
-			review.HRBPReviewerAccount == user.Account ||
-			reviewResponsibleDepartmentScopeMatches(*user, review)
-	}
-	if _, ok := peopleLeaderRoles[user.Role]; ok {
-		return review.EmployeeAccount == user.Account ||
-			review.ManagerAccount == user.Account ||
-			review.HRBPAccount == user.Account ||
-			departmentScopeMatches(*user, employee)
-	}
-	return review.EmployeeAccount == user.Account || review.ManagerAccount == user.Account || review.HRBPAccount == user.Account
+	return reviewResponsibleDepartmentScopeMatches(*user, review)
 }
 
 func departmentScopeMatches(leader model.DingTalkH5PerfUser, employee *model.DingTalkH5PerfUser) bool {
@@ -81,12 +41,6 @@ func departmentScopeMatches(leader model.DingTalkH5PerfUser, employee *model.Din
 			return false
 		}
 	}
-	if leader.Role == "manager" {
-		return employee.Role == "supervisor" || employee.Role == "employee"
-	}
-	if leader.Role == "supervisor" {
-		return employee.Role == "employee" && employee.ManagerAccount == leader.Account
-	}
 	return true
 }
 
@@ -97,7 +51,7 @@ func isHrbpReviewer(user *model.DingTalkH5PerfUser, review model.DingTalkH5PerfR
 	if review.HRBPReviewerAccount != "" {
 		return review.HRBPReviewerAccount == user.Account
 	}
-	return user.Role == "admin" || user.Role == "hrbp_manager" || (user.Role == "hrbp" && review.HRBPAccount == user.Account)
+	return review.HRBPAccount == user.Account
 }
 
 func canHandleHrbpFinal(user *model.DingTalkH5PerfUser, review model.DingTalkH5PerfReview) bool {
@@ -107,5 +61,5 @@ func canHandleHrbpFinal(user *model.DingTalkH5PerfUser, review model.DingTalkH5P
 	if review.HRBPReviewerAccount != "" {
 		return review.HRBPReviewerAccount == user.Account
 	}
-	return review.HRBPAccount == user.Account || user.Role == "admin" || user.Role == "hrbp_manager"
+	return review.HRBPAccount == user.Account
 }

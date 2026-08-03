@@ -5,8 +5,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	questionPkg "wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/pkg/response"
+	questionPkg "wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/pkg/response"
 )
 
 // TypeMeta 题型元信息
@@ -21,7 +21,6 @@ type TypeMeta struct {
 // @Tags PC端-表单工具
 // @Summary 获取题型列表
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/types [get]
 func (h *AdminSurveyHandler) ListTypes(_ context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	all := questionPkg.All()

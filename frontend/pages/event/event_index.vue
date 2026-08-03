@@ -52,6 +52,7 @@
 <script>
 import { eventApi } from '../../api/index'
 import { getClientUserId } from '../../utils/auth'
+import { guardClientMenuPage } from '../../utils/clientPermission'
 export default {
   data() {
     return {
@@ -69,7 +70,8 @@ export default {
     // this.loadData()
   },
 
-  onShow() {
+  async onShow() {
+    if (!(await guardClientMenuPage('client:menu:event'))) return
     const typeFilter = uni.getStorageSync('eventTypeFilter')
     if (typeFilter) {
       this.cur = typeFilter

@@ -1,8 +1,8 @@
 package builtin
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // DividerQuestion 分隔线（type=divider），仅展示无答案

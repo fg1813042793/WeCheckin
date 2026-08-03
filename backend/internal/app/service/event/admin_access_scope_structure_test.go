@@ -15,7 +15,7 @@ func TestAdminEventOperationsUseAdminScopedQueries(t *testing.T) {
 			file: "admin.go",
 			required: []string{
 				"func scopedEventQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error)",
-				"access.ScopedResourceQueryContext(ctx, db, adminID, &model.Event{}, \"`event_dept_id`\", \"`event_create_by`\")",
+				"access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Event{}, access.EventAuditFields)",
 				"func ensureEventVisibleContext(ctx context.Context, db *gorm.DB, eventID string, adminID uint) error",
 				"func GetAdminEventDetailForAdminContext(ctx context.Context, id string, adminID uint)",
 				"func EditEventForAdminContext(",

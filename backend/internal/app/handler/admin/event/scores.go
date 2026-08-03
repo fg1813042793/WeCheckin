@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	eventservice "wecheckin-backend/backend/internal/app/service/event"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	eventservice "wecheckin/backend/internal/app/service/event"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-赛事活动管理
 // @Summary 获取活动评分列表(管理端)
 // @Param eventId query string true "活动ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_scores [get]
 func (h *AdminEventHandler) GetEventScores(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -37,7 +36,6 @@ func (h *AdminEventHandler) GetEventScores(ctx context.Context, c *app.RequestCo
 // @Param eventId formData string false "活动ID(新增时必填)"
 // @Param participantId formData string false "参赛者ID(新增时必填)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_score_edit [post]
 func (h *AdminEventHandler) EditEventScore(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

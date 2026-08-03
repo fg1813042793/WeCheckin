@@ -19,7 +19,7 @@
           <div class="admin-toolbar">
             <div class="admin-toolbar__left">
               <el-button
-                v-if="hasPerm('online:force_offline')"
+                v-if="hasPerm('admin:menu:online:force-offline')"
                 type="danger"
                 :disabled="userSelection.length === 0"
                 @click="confirmBatchUsers"
@@ -46,6 +46,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="name" label="用户名" width="120" />
+            <el-table-column prop="source" label="来源" width="100" />
             <el-table-column prop="mobile" label="手机号" width="130" />
             <el-table-column prop="loginIp" label="登录IP" width="140" />
             <el-table-column label="登录时间" width="170">
@@ -61,7 +62,7 @@
                 <div class="admin-table-actions">
                   <el-popconfirm title="确定强制该用户下线？" @confirm="forceOfflineUser(row.id, row.token)">
                     <template #reference>
-                      <el-button v-if="hasPerm('online:force_offline')" size="small" type="danger">强制下线</el-button>
+                      <el-button v-if="hasPerm('admin:menu:online:force-offline')" size="small" type="danger">强制下线</el-button>
                     </template>
                   </el-popconfirm>
                 </div>
@@ -93,7 +94,7 @@
           <div class="admin-toolbar">
             <div class="admin-toolbar__left">
               <el-button
-                v-if="hasPerm('online:force_offline')"
+                v-if="hasPerm('admin:menu:online:force-offline')"
                 type="danger"
                 :disabled="adminSelection.length === 0"
                 @click="confirmBatchAdmins"
@@ -135,7 +136,7 @@
                 <div class="admin-table-actions">
                   <el-popconfirm title="确定强制该管理员下线？" @confirm="forceOfflineAdmin(row.id, row.token)">
                     <template #reference>
-                      <el-button v-if="hasPerm('online:force_offline')" size="small" type="danger">强制下线</el-button>
+                      <el-button v-if="hasPerm('admin:menu:online:force-offline')" size="small" type="danger">强制下线</el-button>
                     </template>
                   </el-popconfirm>
                 </div>
@@ -171,7 +172,7 @@ const adminSelection = ref<any[]>([])
 const userKeyword = ref('')
 const adminKeyword = ref('')
 
-const filteredUsers = computed(() => filterList(userList.value, userKeyword.value, ['name', 'mobile', 'device', 'loginIp']))
+const filteredUsers = computed(() => filterList(userList.value, userKeyword.value, ['name', 'mobile', 'source', 'device', 'loginIp']))
 const filteredAdmins = computed(() => filterList(adminList.value, adminKeyword.value, ['name', 'desc', 'roleName', 'device', 'loginIp']))
 
 function filterList(list: any[], kw: string, fields: string[]) {

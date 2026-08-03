@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // ChannelList GET /admin/survey/channel_list?surveyId=
@@ -14,7 +14,6 @@ import (
 // @Summary 渠道列表
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/channel_list [get]
 func (h *AdminSurveyHandler) ChannelList(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -33,7 +32,6 @@ func (h *AdminSurveyHandler) ChannelList(ctx context.Context, c *app.RequestCont
 // @Summary 创建渠道
 // @Param channel body model.SurveyChannel true "渠道数据"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/channel_insert [post]
 func (h *AdminSurveyHandler) ChannelInsert(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -55,7 +53,6 @@ func (h *AdminSurveyHandler) ChannelInsert(ctx context.Context, c *app.RequestCo
 // @Summary 删除渠道
 // @Param id formData int true "渠道ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/channel_del [post]
 func (h *AdminSurveyHandler) ChannelDel(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")

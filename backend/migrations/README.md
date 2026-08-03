@@ -13,7 +13,7 @@
 - `backend/init.sh` 会调用 `go run ./cmd/maintenance`。
 - 维护命令先执行一次 GORM 模型建表与兼容迁移，再执行基础配置、权限菜单种子。
 - 本目录中的 SQL 文件按文件名顺序执行，执行结果写入 `schema_migrations`。
-- `schema_migrations.migration_version` 已存在时会跳过该文件；同版本 checksum 变化会报错，避免历史迁移被悄悄改写。
+- `schema_migrations.migration_version` 已存在时会跳过该文件；同版本 checksum 变化默认会报错，避免历史迁移被悄悄改写。极少数已执行且确认幂等的历史索引迁移，可在维护执行器中登记“版本 + 当前 checksum”进行一次受控校准。
 - 已有 MySQL 单点部署升级时，先参考 [单点 MySQL 部署兼容升级说明](../../docs/SINGLE_NODE_MYSQL_UPGRADE.md) 完成备份、维护窗口迁移和回滚预案。
 - 如果迁移涉及 `/api/v2` 响应字段、索引或权限数据，需要同步更新 [API v2 接口说明](../../docs/API_V2.md)、Swagger 文档和相关测试。
 

@@ -8,9 +8,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	"wecheckin-backend/backend/internal/model"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin/backend/internal/model"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 func ClientAuth() app.HandlerFunc {
@@ -55,6 +55,7 @@ func ClientAuth() app.HandlerFunc {
 			MiniOpenID string `json:"miniOpenID"`
 			Role       string `json:"role"`
 			RoleID     uint   `json:"roleId"`
+			RoleIDs    []uint `json:"roleIds"`
 		}
 		if err := json.Unmarshal([]byte(jsonStr), &info); err != nil || info.ID == 0 {
 			c.JSON(consts.StatusOK, utils.H{
@@ -74,6 +75,10 @@ func ClientAuth() app.HandlerFunc {
 			MiniOpenID: info.MiniOpenID,
 			Role:       info.Role,
 			RoleID:     info.RoleID,
+			RoleIDs:    info.RoleIDs,
+		}
+		if len(user.RoleIDs) == 0 && user.RoleID > 0 {
+			user.RoleIDs = []uint{user.RoleID}
 		}
 		c.Set("user_openid", info.MiniOpenID)
 		c.Set("user_id", info.ID)

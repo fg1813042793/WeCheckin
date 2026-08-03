@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/pkg/response"
 )
 
 type GeoHandler struct{}

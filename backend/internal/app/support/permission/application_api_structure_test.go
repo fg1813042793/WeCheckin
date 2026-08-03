@@ -13,7 +13,7 @@ func TestPermissionServiceSyncsApplicationAPIPermissions(t *testing.T) {
 	}
 	text := string(src)
 	for _, snippet := range []string{
-		`"wecheckin-backend/backend/internal/app/support/appapiperm"`,
+		`"wecheckin/backend/internal/app/support/appapiperm"`,
 		"syncClientAPIPermissions(db)",
 		"syncDingTalkH5APIPermissions(db)",
 		"appapiperm.ClientAPICategories",
@@ -27,6 +27,15 @@ func TestPermissionServiceSyncsApplicationAPIPermissions(t *testing.T) {
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("permission service must sync application API permissions with %s", snippet)
+		}
+	}
+	body := testFunctionBody(t, text, "SetRoleApplicationAPIPermissionsTx")
+	for _, forbidden := range []string{
+		"syncClientAPIPermissions(tx)",
+		"syncDingTalkH5APIPermissions(tx)",
+	} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("role app API grant save must not run slow catalog sync snippet %s", forbidden)
 		}
 	}
 }

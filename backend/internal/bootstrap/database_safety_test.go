@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/pkg/database"
 )
 
 func TestStartupInitializationDoesNotDropLegacyUserFormFields(t *testing.T) {

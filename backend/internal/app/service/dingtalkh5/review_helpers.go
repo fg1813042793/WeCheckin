@@ -10,8 +10,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func nextStatusAfterSelfSubmit(review DingTalkH5Review) string {
@@ -21,15 +21,24 @@ func nextStatusAfterSelfSubmit(review DingTalkH5Review) string {
 	return ReviewStatusManagerReview
 }
 
+func notDeletedReviewQuery(db *gorm.DB) *gorm.DB {
+	if db == nil {
+		return db
+	}
+	return db.Where("`deleted_at` = 0")
+}
+
 func findVisibleReview(ctx context.Context, user *model.DingTalkH5PerfUser, reviewNo string) (*model.DingTalkH5PerfReview, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var review model.DingTalkH5PerfReview
-	if err := db.Where("review_no = ?", strings.TrimSpace(reviewNo)).First(&review).Error; err != nil {
-		return nil, fmt.Errorf("没有找到这张考评单")
+	query := notDeletedReviewQuery(db).Where("review_no = ?", strings.TrimSpace(reviewNo))
+	var err error
+	query, err = applyReviewVisibilityScopeContext(ctx, db, query, user, reviewScopeSummary)
+	if err != nil {
+		return nil, err
 	}
-	employee, _ := currentUserByAccount(ctx, review.EmployeeAccount)
-	if !canViewReview(user, review, employee) {
+	if err := query.First(&review).Error; err != nil {
 		return nil, fmt.Errorf("没有找到这张考评单")
 	}
 	return &review, nil
@@ -40,14 +49,20 @@ func mutateReview(ctx context.Context, user *model.DingTalkH5PerfUser, reviewNo 
 	defer cancel()
 	var output model.DingTalkH5PerfReview
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("review_no = ?", strings.TrimSpace(reviewNo)).First(&output).Error; err != nil {
+		if err := notDeletedReviewQuery(tx).Where("review_no = ?", strings.TrimSpace(reviewNo)).First(&output).Error; err != nil {
 			return fmt.Errorf("没有找到这张考评单")
 		}
-		employee, _ := loadPerfUserByAccountDB(tx, output.EmployeeAccount)
-		if !canViewReview(user, output, employee) {
+		visible, err := reviewInDataScopeContext(ctx, tx, user, output)
+		if err != nil {
+			return err
+		}
+		if !visible {
 			return fmt.Errorf("没有找到这张考评单")
 		}
-		return action(tx, &output)
+		if err := action(tx, &output); err != nil {
+			return err
+		}
+		return touchReviewUpdateAudit(ctx, tx, user, &output)
 	})
 	if err != nil {
 		return nil, err
@@ -57,6 +72,7 @@ func mutateReview(ctx context.Context, user *model.DingTalkH5PerfUser, reviewNo 
 		return nil, err
 	}
 	dto := reviewDTO(output, histories)
+	hydrateReviewDTOValues(&dto, loadReviewValueTemplatesContext(ctx))
 	return &dto, nil
 }
 
@@ -67,14 +83,36 @@ func addHistoryWithDB(db *gorm.DB, review *model.DingTalkH5PerfReview, user *mod
 		byAccount = user.Account
 		byName = user.Name
 	}
-	return db.Create(&model.DingTalkH5PerfHistory{
+	now := database.Now()
+	history := model.DingTalkH5PerfHistory{
 		ReviewID:  review.ID,
 		ReviewNo:  review.ReviewNo,
 		ByAccount: byAccount,
 		ByName:    byName,
 		Action:    action,
-		AddTime:   database.Now(),
-	}).Error
+		AddTime:   now,
+		EditTime:  now,
+	}
+	applyDingTalkH5CreateAudit(&history.DingTalkH5AuditFields, dingtalkH5AuditMetaForUserContext(dingtalkH5DBContext(db), db, user, now))
+	return db.Create(&history).Error
+}
+
+func touchReviewUpdateAudit(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser, review *model.DingTalkH5PerfReview) error {
+	if db == nil || review == nil || review.ID == 0 {
+		return nil
+	}
+	audit := dingtalkH5AuditMetaForUserContext(ctx, db, user, database.Now())
+	applyDingTalkH5UpdateAudit(&review.DingTalkH5AuditFields, audit)
+	review.EditTime = audit.CurrentMilli
+	updates := dingtalkH5AuditUpdateValues(audit)
+	if review.CreateBy == 0 {
+		for key, value := range dingtalkH5CreateAuditValues(audit) {
+			updates[key] = value
+		}
+	}
+	return db.Model(&model.DingTalkH5PerfReview{}).
+		Where("`id` = ? AND `deleted_at` = 0", review.ID).
+		Updates(updates).Error
 }
 
 func historiesForReview(ctx context.Context, reviewID uint) ([]model.DingTalkH5PerfHistory, error) {
@@ -120,13 +158,16 @@ func usersByAccounts(ctx context.Context, accounts []string) (map[string]*model.
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var users []model.DingTalkH5PerfUser
-	if err := db.Where("`user_mini_openid` IN ?", accounts).Find(&users).Error; err != nil {
+	if err := db.Select("`user_mini_openid`, `user_name`").Where("`user_mini_openid` IN ?", accounts).Find(&users).Error; err != nil {
 		return nil, err
 	}
 	for i := range users {
-		item := users[i]
-		hydratePerfUser(&item)
-		result[item.Account] = &item
+		account := NormalizeUserID(users[i].Account)
+		if account == "" {
+			continue
+		}
+		users[i].Account = account
+		result[account] = &users[i]
 	}
 	return result, nil
 }
@@ -135,16 +176,33 @@ func collectEmployeeAccounts(reviews []model.DingTalkH5PerfReview) []string {
 	items := make([]string, 0, len(reviews))
 	seen := map[string]struct{}{}
 	for _, review := range reviews {
-		if review.EmployeeAccount == "" {
-			continue
-		}
-		if _, ok := seen[review.EmployeeAccount]; ok {
-			continue
-		}
-		seen[review.EmployeeAccount] = struct{}{}
-		items = append(items, review.EmployeeAccount)
+		appendUniqueAccount(&items, seen, review.EmployeeAccount)
 	}
 	return items
+}
+
+func collectReviewParticipantAccounts(reviews []model.DingTalkH5PerfReview) []string {
+	items := make([]string, 0, len(reviews)*4)
+	seen := map[string]struct{}{}
+	for _, review := range reviews {
+		appendUniqueAccount(&items, seen, review.EmployeeAccount)
+		appendUniqueAccount(&items, seen, review.ManagerAccount)
+		appendUniqueAccount(&items, seen, review.HRBPAccount)
+		appendUniqueAccount(&items, seen, review.HRBPReviewerAccount)
+	}
+	return items
+}
+
+func appendUniqueAccount(items *[]string, seen map[string]struct{}, account string) {
+	account = strings.TrimSpace(account)
+	if account == "" {
+		return
+	}
+	if _, ok := seen[account]; ok {
+		return
+	}
+	seen[account] = struct{}{}
+	*items = append(*items, account)
 }
 
 func matchesKeyword(review model.DingTalkH5PerfReview, employee *model.DingTalkH5PerfUser, keyword string) bool {
@@ -179,6 +237,39 @@ func defaultObjectives(items []NextObjective, reviewNo string) []Objective {
 	return result
 }
 
+type reviewObjectiveSource struct {
+	reviewNo string
+	period   string
+}
+
+func currentObjectivesForNewReview(reviewNo string, templateDefaults []NextObjective, previous *model.DingTalkH5PerfReview) ([]Objective, reviewObjectiveSource) {
+	if previous != nil {
+		objectives := objectivesFromNextObjectivesForCurrentReview(decodeNextObjectives(previous.NextObjectivesJSON), reviewNo)
+		if len(objectives) > 0 {
+			return objectives, reviewObjectiveSource{
+				reviewNo: strings.TrimSpace(previous.ReviewNo),
+				period:   strings.TrimSpace(previous.Period),
+			}
+		}
+	}
+	return defaultObjectives(templateDefaults, reviewNo), reviewObjectiveSource{}
+}
+
+func objectivesFromNextObjectivesForCurrentReview(items []NextObjective, reviewNo string) []Objective {
+	items = sanitizeNextObjectives(items)
+	result := make([]Objective, 0, len(items))
+	for index, item := range items {
+		result = append(result, Objective{
+			ID:         fmt.Sprintf("%s-obj-%d", reviewNo, index+1),
+			Target:     item.Target,
+			Weight:     item.Weight,
+			Completion: "",
+			Result:     "",
+		})
+	}
+	return result
+}
+
 func defaultNextObjectives(items []NextObjective, reviewNo string) []NextObjective {
 	result := make([]NextObjective, 0, len(items))
 	for index, item := range items {
@@ -190,7 +281,7 @@ func defaultNextObjectives(items []NextObjective, reviewNo string) []NextObjecti
 func defaultValues(items []ValueTemplate) []ValueScore {
 	result := make([]ValueScore, 0, len(items))
 	for _, item := range items {
-		result = append(result, ValueScore{ID: item.ID, Self: "", Manager: "", HRBP: "", HR: ""})
+		result = append(result, valueScoreFromTemplate(item))
 	}
 	return result
 }
@@ -201,6 +292,40 @@ func copySelfFields(review *model.DingTalkH5PerfReview, payload ReviewPayload) {
 	review.SelfSummary = strings.TrimSpace(payload.SelfSummary)
 	values := mergeValues(decodeValues(review.ValuesJSON), sanitizeValues(payload.Values), "self")
 	review.ValuesJSON = encodeJSON(values)
+}
+
+func validateSelfSubmitPayload(payload ReviewPayload) error {
+	missing := []string{}
+	if !selfObjectivesFilled(sanitizeObjectives(payload.Objectives)) {
+		missing = append(missing, "本月目标")
+	}
+	if strings.TrimSpace(payload.SelfSummary) == "" {
+		missing = append(missing, "思考总结")
+	}
+	if !allStageScoresFilled(sanitizeValues(payload.Values), "self") {
+		missing = append(missing, "价值观自评")
+	}
+	if len(sanitizeNextObjectives(payload.NextObjectives)) == 0 {
+		missing = append(missing, "下月目标")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("请完善：%s", strings.Join(missing, "、"))
+	}
+	return nil
+}
+
+func selfObjectivesFilled(items []Objective) bool {
+	if len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.Target) == "" ||
+			strings.TrimSpace(toString(item.Completion)) == "" ||
+			strings.TrimSpace(item.Result) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func copyManagerFields(review *model.DingTalkH5PerfReview, payload ReviewPayload) {
@@ -269,11 +394,14 @@ func sanitizeValues(items []ValueScore) []ValueScore {
 			continue
 		}
 		result = append(result, ValueScore{
-			ID:      id,
-			Self:    normalizeScore(item.Self, 0, 50),
-			Manager: normalizeScore(item.Manager, 0, 50),
-			HRBP:    normalizeScore(item.HRBP, 0, 50),
-			HR:      normalizeScore(item.HR, 0, 50),
+			ID:         id,
+			Name:       strings.TrimSpace(item.Name),
+			Definition: strings.TrimSpace(item.Definition),
+			Rubric:     sanitizeValueRubric(item.Rubric),
+			Self:       normalizeScore(item.Self, 0, 50),
+			Manager:    normalizeScore(item.Manager, 0, 50),
+			HRBP:       normalizeScore(item.HRBP, 0, 50),
+			HR:         normalizeScore(item.HR, 0, 50),
 		})
 	}
 	return result
@@ -302,9 +430,89 @@ func mergeValues(existing []ValueScore, incoming []ValueScore, field string) []V
 		case "hr":
 			item.HR = next.HR
 		}
+		item = mergeValueScoreMeta(item, next)
 		existing[idx] = item
 	}
 	return existing
+}
+
+func valueScoreFromTemplate(item ValueTemplate) ValueScore {
+	return ValueScore{
+		ID:         strings.TrimSpace(item.ID),
+		Name:       strings.TrimSpace(item.Name),
+		Definition: strings.TrimSpace(item.Definition),
+		Rubric:     cloneValueRubric(item.Rubric),
+		Self:       "",
+		Manager:    "",
+		HRBP:       "",
+		HR:         "",
+	}
+}
+
+func mergeValueScoreMeta(existing ValueScore, incoming ValueScore) ValueScore {
+	if strings.TrimSpace(existing.Name) == "" {
+		existing.Name = strings.TrimSpace(incoming.Name)
+	}
+	if strings.TrimSpace(existing.Definition) == "" {
+		existing.Definition = strings.TrimSpace(incoming.Definition)
+	}
+	if len(existing.Rubric) == 0 {
+		existing.Rubric = cloneValueRubric(incoming.Rubric)
+	}
+	return existing
+}
+
+func enrichValueScoresWithTemplate(values []ValueScore, templates []ValueTemplate) []ValueScore {
+	if len(values) == 0 {
+		return values
+	}
+	templateByID := make(map[string]ValueTemplate, len(templates))
+	for _, item := range templates {
+		id := strings.TrimSpace(item.ID)
+		if id != "" {
+			templateByID[id] = item
+		}
+	}
+	result := make([]ValueScore, 0, len(values))
+	for _, item := range values {
+		if tpl, ok := templateByID[strings.TrimSpace(item.ID)]; ok {
+			if strings.TrimSpace(tpl.Name) != "" {
+				item.Name = strings.TrimSpace(tpl.Name)
+			}
+			if strings.TrimSpace(tpl.Definition) != "" {
+				item.Definition = strings.TrimSpace(tpl.Definition)
+			}
+			if len(tpl.Rubric) > 0 {
+				item.Rubric = cloneValueRubric(tpl.Rubric)
+			}
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func hydrateReviewDTOValues(dto *ReviewDTO, templates []ValueTemplate) {
+	if dto == nil {
+		return
+	}
+	dto.Values = enrichValueScoresWithTemplate(dto.Values, templates)
+}
+
+func loadReviewValueTemplatesContext(ctx context.Context) []ValueTemplate {
+	tpl, err := LoadTemplateContext(ctx)
+	if err != nil {
+		return nil
+	}
+	return tpl.Values
+}
+
+func cloneValueRubric(items []ValueRubric) []ValueRubric {
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]ValueRubric, len(items))
+	copy(result, items)
+	return result
 }
 
 func normalizeScore(value interface{}, min, max float64) interface{} {
@@ -375,12 +583,20 @@ func allStageScoresFilled(values []ValueScore, field string) bool {
 	return true
 }
 
-func shouldSkipHrbpStage(ctx context.Context, review model.DingTalkH5PerfReview) bool {
-	employee, err := currentUserByAccount(ctx, review.EmployeeAccount)
-	if err != nil {
-		return false
+func managerReviewStarted(review model.DingTalkH5PerfReview) bool {
+	if strings.TrimSpace(review.ManagerGrade) != "" || strings.TrimSpace(review.ManagerComment) != "" {
+		return true
 	}
-	return employee.Role == "hrbp" && review.ManagerAccount == review.HRBPAccount
+	for _, item := range decodeValues(review.ValuesJSON) {
+		if strings.TrimSpace(toString(item.Manager)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldSkipHrbpStage(ctx context.Context, review model.DingTalkH5PerfReview) bool {
+	return review.ManagerAccount != "" && review.ManagerAccount == review.HRBPAccount
 }
 
 func returnReview(ctx context.Context, user *model.DingTalkH5PerfUser, reviewNo, fromStatus, toStatus, action string) (*ReviewDTO, error) {
@@ -401,9 +617,18 @@ func returnReview(ctx context.Context, user *model.DingTalkH5PerfUser, reviewNo,
 }
 
 func returnReason(payload ReviewPayload) string {
-	reason := strings.TrimSpace(payload.ReturnReason)
+	reason := normalizeReviewReason(payload.ReturnReason)
 	if reason == "" {
 		return "未填写原因"
+	}
+	return reason
+}
+
+func normalizeReviewReason(reason string) string {
+	reason = strings.TrimSpace(reason)
+	runes := []rune(reason)
+	if len(runes) > 200 {
+		return string(runes[:200])
 	}
 	return reason
 }

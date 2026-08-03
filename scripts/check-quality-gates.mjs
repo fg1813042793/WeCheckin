@@ -60,7 +60,8 @@ requireScript(rootPkg, 'check:performance', 'check-performance.mjs', 'root')
 
 for (const snippet of [
   'node scripts/check-quality-gates.mjs',
-  'go test ./backend/...',
+  'cd "$ROOT_DIR/backend"',
+  'go test ./...',
   'npm run check:all',
 ]) {
   if (!verifyLocal.includes(snippet)) {

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func GetEnrollJoinDataURL(enrollID string) (string, error) {

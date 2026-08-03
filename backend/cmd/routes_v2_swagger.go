@@ -1,6 +1,6 @@
 package main
 
-import "wecheckin-backend/backend/pkg/response"
+import "wecheckin/backend/pkg/response"
 
 var _ response.Resp
 
@@ -135,6 +135,13 @@ func swaggerV2ExamsIdValidationPost19() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/exam-results [get]
 func swaggerV2ExamResultsGet20() {}
+
+// @Tags API v2-客户端
+// @Summary 查询 /api/v2/me/bootstrap
+// @Security ClientToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/me/bootstrap [get]
+func swaggerV2MeBootstrapGet201() {}
 
 // @Tags API v2-客户端
 // @Summary 查询 /api/v2/me
@@ -555,6 +562,80 @@ func swaggerV2AdminSettingsMiniQrGet76() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/settings/debug-token [get]
 func swaggerV2AdminSettingsDebugTokenGet77() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/dingtalk/settings
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/settings [get]
+func swaggerV2AdminDingTalkSettingsGet() {}
+
+// @Tags API v2-后台管理
+// @Summary 更新 /api/v2/admin/dingtalk/settings
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/settings [put]
+func swaggerV2AdminDingTalkSettingsPut() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/dingtalk/user-bindings
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/user-bindings [get]
+func swaggerV2AdminDingTalkUserBindingsGet() {}
+
+// @Tags API v2-后台管理
+// @Summary 提交 /api/v2/admin/dingtalk/user-bindings
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/user-bindings [post]
+func swaggerV2AdminDingTalkUserBindingsPost() {}
+
+// @Tags API v2-后台管理
+// @Summary 更新 /api/v2/admin/dingtalk/user-bindings/{id}/status
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/user-bindings/{id}/status [patch]
+func swaggerV2AdminDingTalkUserBindingsIDStatusPatch() {}
+
+// @Tags API v2-后台管理
+// @Summary 删除 /api/v2/admin/dingtalk/user-bindings/{id}
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/user-bindings/{id} [delete]
+func swaggerV2AdminDingTalkUserBindingsIDDelete() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/dingtalk/perf-reviews
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-reviews [get]
+func swaggerV2AdminDingTalkPerfReviewsGet() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/dingtalk/perf-reviews/{id}
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-reviews/{id} [get]
+func swaggerV2AdminDingTalkPerfReviewsIDGet() {}
+
+// @Tags API v2-后台管理
+// @Summary 删除 /api/v2/admin/dingtalk/perf-reviews/{id}
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-reviews/{id} [delete]
+func swaggerV2AdminDingTalkPerfReviewsIDDelete() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/dingtalk/perf-histories
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-histories [get]
+func swaggerV2AdminDingTalkPerfHistoriesGet() {}
 
 // @Tags API v2-后台管理
 // @Summary 查询 /api/v2/admin/users
@@ -1213,6 +1294,36 @@ func swaggerV2AdminDepartmentsIdPut157() {}
 func swaggerV2AdminDepartmentsIdDelete158() {}
 
 // @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/positions
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/positions [get]
+func swaggerV2AdminPositionsGet() {}
+
+// @Tags API v2-后台管理
+// @Summary 提交 /api/v2/admin/positions
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/positions [post]
+func swaggerV2AdminPositionsPost() {}
+
+// @Tags API v2-后台管理
+// @Summary 更新 /api/v2/admin/positions/{id}
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/positions/{id} [put]
+func swaggerV2AdminPositionsIdPut() {}
+
+// @Tags API v2-后台管理
+// @Summary 删除 /api/v2/admin/positions/{id}
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/positions/{id} [delete]
+func swaggerV2AdminPositionsIdDelete() {}
+
+// @Tags API v2-后台管理
 // @Summary 查询 /api/v2/admin/roles
 // @Security AdminToken
 // @Success 200 {object} response.Resp
@@ -1248,6 +1359,50 @@ func swaggerV2AdminRolesIdDelete162() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/roles [delete]
 func swaggerV2AdminRolesDelete163() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/roles/application-permissions
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/roles/application-permissions [get]
+func swaggerV2AdminRolesApplicationPermissionsGet164() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/permissions/tree
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/permissions/tree [get]
+func swaggerV2AdminPermissionsTreeGet165() {}
+
+// @Tags API v2-后台管理
+// @Summary 查询 /api/v2/admin/permissions
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/permissions [get]
+func swaggerV2AdminPermissionsGet166() {}
+
+// @Tags API v2-后台管理
+// @Summary 提交 /api/v2/admin/permissions
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/permissions [post]
+func swaggerV2AdminPermissionsPost167() {}
+
+// @Tags API v2-后台管理
+// @Summary 更新 /api/v2/admin/permissions/{key}
+// @Security AdminToken
+// @Param key path string true "权限编码"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/permissions/{key} [put]
+func swaggerV2AdminPermissionsKeyPut168() {}
+
+// @Tags API v2-后台管理
+// @Summary 删除 /api/v2/admin/permissions/{key}
+// @Security AdminToken
+// @Param key path string true "权限编码"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/permissions/{key} [delete]
+func swaggerV2AdminPermissionsKeyDelete169() {}
 
 // @Tags API v2-后台管理
 // @Summary 查询 /api/v2/admin/me/menus

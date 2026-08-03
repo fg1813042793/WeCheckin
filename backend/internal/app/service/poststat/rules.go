@@ -3,7 +3,7 @@ package poststat
 import (
 	"encoding/json"
 
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/pkg/logger"
 )
 
 type Rule struct {

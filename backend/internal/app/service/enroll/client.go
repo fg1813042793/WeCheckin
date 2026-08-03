@@ -4,10 +4,10 @@ import (
 	"context"
 	"strconv"
 
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/publish"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/publish"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type ListResponse struct {
@@ -19,7 +19,7 @@ var clientEnrollListColumns = []string{
 	"id",
 	"enroll_title",
 	"enroll_status",
-	"enroll_dept_id",
+	"create_dept_id",
 	"enroll_publish_dept_ids",
 	"enroll_cate_id",
 	"enroll_cate_name",
@@ -34,8 +34,8 @@ var clientEnrollListColumns = []string{
 	"enroll_view_cnt",
 	"enroll_join_cnt",
 	"enroll_user_cnt",
-	"enroll_add_time",
-	"enroll_edit_time",
+	"add_time",
+	"edit_time",
 }
 
 func GetEnrollList(page, pageSize int, userID, keyword string) (*ListResponse, error) {
@@ -66,7 +66,7 @@ func GetEnrollListContext(ctx context.Context, page, pageSize int, userID, keywo
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	err := query.Select(clientEnrollListColumns).Order("`enroll_order` ASC, `enroll_add_time` DESC").
+	err := query.Select(clientEnrollListColumns).Order("`enroll_order` ASC, `add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, err

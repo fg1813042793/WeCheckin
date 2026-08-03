@@ -14,7 +14,7 @@ func TestUserManagementSingleRecordOperationsUseAdminScope(t *testing.T) {
 	text := string(src)
 	required := []string{
 		"func userVisibleQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error)",
-		"access.UserDataScopeFilterContext(ctx, &admin)",
+		"access.UserDataScopeFilterWithDBContext(ctx, db, &admin)",
 		"func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint)",
 		"func EditUserForAdminContext(",
 		"func DelUserForAdminContext(ctx context.Context, id string, adminID uint) error",

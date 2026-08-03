@@ -6,7 +6,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 
-	"wecheckin-backend/backend/internal/config"
+	"wecheckin/backend/internal/config"
 )
 
 var RDB *goredis.Client

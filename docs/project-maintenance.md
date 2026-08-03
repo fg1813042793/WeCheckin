@@ -27,7 +27,7 @@
 
 后续做功能或 UI 调整时，建议按影响范围执行下面的检查：
 
-- 后端：在项目根目录执行 `GOCACHE=$PWD/.cache/go-build go test ./backend/...`
+- 后端：在 `backend` 目录执行 `GOCACHE=$PWD/../.cache/go-build go test ./...`
 - 管理后台：在 `admin` 目录执行 `npm run check:all`
 - 客户端：在 `frontend` 目录执行 `npm run check:all`
 - 全量本地复核：在项目根目录执行 `bash scripts/verify-local.sh`
@@ -46,6 +46,6 @@
 ## API 文档维护
 
 - 当前新增接口必须走 `/api/v2` 或 `/api/v2/admin`，详见 [API v2 接口说明](API_V2.md)。
-- 修改 `backend/cmd/routes_v2.go` 或 handler Swagger 注释后，需要在 `backend` 目录执行 `swag init -g cmd/main.go --output docs/swagger`。
-- 更新 Swagger 后至少运行 `GOCACHE=$PWD/.cache/go-build go test ./backend/cmd ./backend/internal/middleware`，确认 v2 route operation 数量和权限声明没有漂移。
+- 修改 `backend/cmd/routes_v2.go` 或 `backend/cmd/routes_v2_swagger.go` 后，需要在 `backend` 目录执行 `swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger`。
+- 更新 Swagger 后至少在 `backend` 目录运行 `GOCACHE=$PWD/../.cache/go-build go test ./cmd ./internal/middleware`，确认 v2 route operation 数量和权限声明没有漂移。
 - 前端新增接口调用后运行 `npm --prefix admin run check:request` 或 `npm --prefix frontend run check:request`，确认没有重新引入旧路径。

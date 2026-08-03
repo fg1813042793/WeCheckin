@@ -12,11 +12,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
-	"wecheckin-backend/backend/pkg/logger"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/response"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	examservice "wecheckin/backend/internal/app/service/exam"
+	"wecheckin/backend/pkg/logger"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/response"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 // List GET /exam/list

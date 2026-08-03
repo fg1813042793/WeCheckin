@@ -5,46 +5,15 @@
     </view>
     <view class="down">
       <view class="menu card-project">
-        <view class="item" @click="goEnrollCate(1)">
+        <view class="item" v-for="menu in visibleHomeMenus" :key="menu.permissionKey" @click="openMenu(menu)">
           <view class="item-inner">
-            <view class="img img1">
-              <image src="/static/images/menu/1.png" mode="aspectFit" />
+            <view class="img" :class="menu.iconClass">
+              <image :src="menu.icon" mode="aspectFit" />
             </view>
-            <view class="title">问卷</view>
+            <view class="title">{{ menu.title }}</view>
           </view>
         </view>
-        <view class="item" @click="goEnrollCate(2)">
-          <view class="item-inner">
-            <view class="img img2">
-              <image src="/static/images/menu/2.png" mode="aspectFit" />
-            </view>
-            <view class="title">打卡</view>
-          </view>
-        </view>
-        <view class="item" @click="goEnrollCate(3)">
-          <view class="item-inner">
-            <view class="img img3">
-              <image src="/static/images/menu/3.png" mode="aspectFit" />
-            </view>
-            <view class="title">活动</view>
-          </view>
-        </view>
-        <view class="item" @click="goEnrollCate(4)">
-          <view class="item-inner">
-            <view class="img img4">
-              <image src="/static/images/menu/4.png" mode="aspectFit" />
-            </view>
-            <view class="title">比赛</view>
-          </view>
-        </view>
-        <view class="item" @click="goEnrollCate(5)">
-          <view class="item-inner">
-            <view class="img img5">
-              <image src="/static/images/menu/5.png" mode="aspectFit" />
-            </view>
-            <view class="title">工作</view>
-          </view>
-        </view>
+        <view v-if="visibleHomeMenus.length === 0" class="menu-empty">暂无可用功能</view>
       </view>
 
       <view class="tab-line">
@@ -154,6 +123,12 @@
 <script>
 import { homeApi } from '../../api/index'
 import { getClientUserInfo } from '../../utils/auth'
+import {
+  ensureClientPermissionSnapshot,
+  filterClientMenus,
+  guardClientMenuPage,
+  openClientMenu
+} from '../../utils/clientPermission'
 
 export default {
   data() {
@@ -161,7 +136,20 @@ export default {
       cur: 'hot',
       vouchList: null,
       hotList: [],
-      newList: []
+      newList: [],
+      homeMenus: [
+        { permissionKey: 'client:menu:news', title: '通知', url: '/pages/news/news_index', icon: '/static/images/menu/1.png', iconClass: 'img1' },
+        { permissionKey: 'client:menu:enroll', title: '打卡', url: '/pages/enroll/enroll_index', icon: '/static/images/menu/2.png', iconClass: 'img2' },
+        { permissionKey: 'client:menu:survey', title: '问卷', url: '/pages/survey/index', icon: '/static/images/menu/3.png', iconClass: 'img3' },
+        { permissionKey: 'client:menu:exam', title: '考试', url: '/pages/exam/index', icon: '/static/images/menu/4.png', iconClass: 'img4' },
+        { permissionKey: 'client:menu:event', title: '活动赛事', url: '/pages/event/event_index', icon: '/static/images/menu/5.png', iconClass: 'img5' }
+      ]
+    }
+  },
+
+  computed: {
+    visibleHomeMenus() {
+      return filterClientMenus(this.homeMenus)
     }
   },
 
@@ -170,7 +158,8 @@ export default {
   //   this.loadData()
   // },
 
-  onShow() {
+  async onShow() {
+    if (!(await guardClientMenuPage('client:menu:home'))) return
     this.loadData()
   },
 
@@ -200,25 +189,18 @@ export default {
       this.cur = tab
     },
 
-    goEnrollCate(id) {
-	  switch (id){
-		    case 1:
-				uni.navigateTo({ url: '/pages/survey/index' })
-				break
-		    case 2:
-				uni.switchTab({ url: '/pages/enroll/enroll_index' })
-				break
-		    case 3:
-				uni.switchTab({ url: '/pages/event/event_index' })
-				break
-			case 4:
-				uni.switchTab({ url: '/pages/event/event_index' })
-				break
-			case 5:
-				uni.switchTab({ url: '/pages/enroll/enroll_index' })
-				break
-	  }
-      
+    async loadClientPermissions() {
+      try {
+        await ensureClientPermissionSnapshot()
+        return true
+      } catch (e) {
+        console.error('加载客户端菜单权限失败', e)
+        return false
+      }
+    },
+
+    openMenu(menu) {
+      openClientMenu(menu)
     },
 
     goEnrollAll() {
@@ -314,6 +296,16 @@ page {
   align-items: center;
   justify-content: center;
   height: 180rpx;
+}
+
+.menu-empty {
+  width: 100%;
+  min-height: 120rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 26rpx;
 }
 
 .menu .item .item-inner {

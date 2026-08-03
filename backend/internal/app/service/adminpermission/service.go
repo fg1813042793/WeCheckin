@@ -8,10 +8,10 @@ import (
 
 	"gorm.io/gorm"
 
-	menuservice "wecheckin-backend/backend/internal/app/service/menu"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	menuservice "wecheckin/backend/internal/app/service/menu"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type PermissionNode struct {
@@ -75,12 +75,17 @@ func ListContext(ctx context.Context, platform string, types ...string) ([]model
 	if db == nil {
 		return nil, fmt.Errorf("数据库连接异常")
 	}
-	query := db.Model(&model.Permission{})
 	platform = strings.TrimSpace(platform)
+	filterTypes := normalizePermissionTypes(types...)
+	if shouldEnsureApplicationPermissionCatalog(platform, filterTypes) {
+		if err := permissionsupport.EnsureApplicationPermissionCatalogContext(ctx, db, platform, filterTypes); err != nil {
+			return nil, err
+		}
+	}
+	query := db.Model(&model.Permission{})
 	if platform != "" {
 		query = query.Where("`permission_platform` = ?", platform)
 	}
-	filterTypes := normalizePermissionTypes(types...)
 	if len(filterTypes) > 0 {
 		query = query.Where("`permission_type` IN ?", filterTypes)
 	}
@@ -106,6 +111,39 @@ func normalizePermissionTypes(values ...string) []string {
 		}
 	}
 	return result
+}
+
+func shouldEnsureApplicationPermissionCatalog(platform string, types []string) bool {
+	platform = strings.TrimSpace(platform)
+	if platform == permissionsupport.PlatformAdmin {
+		return permissionTypesIncludeAny(types, permissionsupport.TypeAPICategory, permissionsupport.TypeAPI)
+	}
+	if platform != "" && platform != permissionsupport.PlatformClient && platform != permissionsupport.PlatformDingTalkH5 {
+		return false
+	}
+	return permissionTypesIncludeAny(types,
+		permissionsupport.TypeDirectory,
+		permissionsupport.TypeMenu,
+		permissionsupport.TypeButton,
+		permissionsupport.TypeAPICategory,
+		permissionsupport.TypeAPI,
+	)
+}
+
+func permissionTypesIncludeAny(types []string, values ...string) bool {
+	if len(types) == 0 {
+		return true
+	}
+	typeSet := make(map[string]bool, len(types))
+	for _, item := range types {
+		typeSet[strings.TrimSpace(item)] = true
+	}
+	for _, value := range values {
+		if typeSet[value] {
+			return true
+		}
+	}
+	return false
 }
 
 func Add(req SaveRequest) error {
@@ -140,6 +178,7 @@ func AddContext(ctx context.Context, req SaveRequest) error {
 	}
 	invalidatePermissionTreeCache()
 	menuservice.InvalidateAdminPermCache()
+	permissionsupport.InvalidateRuntimePermissionCaches()
 	return nil
 }
 
@@ -240,6 +279,7 @@ func DeleteContext(ctx context.Context, key string) error {
 	if err == nil {
 		invalidatePermissionTreeCache()
 		menuservice.InvalidateAdminPermCache()
+		permissionsupport.InvalidateRuntimePermissionCaches()
 	}
 	return err
 }

@@ -5,10 +5,10 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	calcPkg "wecheckin-backend/backend/internal/app/formkit/calc"
-	questionPkg "wecheckin-backend/backend/internal/app/formkit/question"
-	schemaPkg "wecheckin-backend/backend/internal/app/formkit/schema"
-	"wecheckin-backend/backend/pkg/response"
+	calcPkg "wecheckin/backend/internal/app/formkit/calc"
+	questionPkg "wecheckin/backend/internal/app/formkit/question"
+	schemaPkg "wecheckin/backend/internal/app/formkit/schema"
+	"wecheckin/backend/pkg/response"
 )
 
 // ParseSchema POST /admin/survey/schema/parse
@@ -16,7 +16,6 @@ import (
 // @Summary 解析 Schema
 // @Param schema formData string true "Schema JSON"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/schema/parse [post]
 func (h *AdminSurveyHandler) ParseSchema(_ context.Context, c *app.RequestContext) {
 	var req struct {
 		Schema string `json:"schema"`
@@ -44,7 +43,6 @@ func (h *AdminSurveyHandler) ParseSchema(_ context.Context, c *app.RequestContex
 // @Param env formData string false "环境变量JSON"
 // @Param asBool formData bool false "是否返回布尔值"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/eval [post]
 func (h *AdminSurveyHandler) EvalExpr(_ context.Context, c *app.RequestContext) {
 	var req struct {
 		Expr   string                 `json:"expr"`

@@ -8,11 +8,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	menuservice "wecheckin-backend/backend/internal/app/service/menu"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 )
 
 func AdminPerm() app.HandlerFunc {
@@ -20,14 +20,32 @@ func AdminPerm() app.HandlerFunc {
 		adminVal, _ := c.Get("admin")
 		admin := adminVal.(*model.Admin)
 
+		db, cancel := database.WithContext(ctx)
+		defer cancel()
+		roleIDs := admin.RoleIDs
+		if len(roleIDs) == 0 {
+			var err error
+			roleIDs, err = permissionsupport.ActiveRoleIDsForUserContext(ctx, db, admin.ID, admin.RoleID)
+			if err != nil {
+				auditAdminPermissionDenied(admin, string(c.Path()), "", "role_lookup_failed")
+				c.JSON(consts.StatusOK, utils.H{
+					"code": 1,
+					"msg":  "权限校验失败",
+				})
+				c.Abort()
+				return
+			}
+			admin.RoleIDs = roleIDs
+		}
+
 		// The reserved super admin role bypasses route permission checks.
-		if menuservice.AdminHasReservedSuperAdminRoleContext(ctx, admin) {
+		if adminaccess.HasReservedSuperAdminRoleWithRoleIDsContext(ctx, db, roleIDs) {
 			c.Next(ctx)
 			return
 		}
 
 		// No role assigned - no access
-		if admin.RoleID == 0 {
+		if len(roleIDs) == 0 {
 			auditAdminPermissionDenied(admin, string(c.Path()), "", "role_missing")
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
@@ -59,15 +77,13 @@ func AdminPerm() app.HandlerFunc {
 			return
 		}
 
-		db, cancel := database.WithContext(ctx)
-		defer cancel()
 		requiredCodes := permissionCodes(required)
 		for _, code := range requiredCodes {
 			apiKey := permissionsupport.AdminAPIPermissionKey(code)
 			if effect, ok, err := permissionsupport.SubjectPermissionEffectContext(ctx, db, permissionsupport.SubjectUser, admin.ID, apiKey); err == nil && ok && effect == permissionsupport.EffectDeny {
 				continue
 			}
-			if ok, err := permissionsupport.SubjectHasPermissionContext(ctx, db, admin.ID, admin.RoleID, apiKey); err == nil && ok {
+			if ok, err := permissionsupport.SubjectHasPermissionWithRoleIDsContext(ctx, db, admin.ID, roleIDs, apiKey); err == nil && ok {
 				c.Next(ctx)
 				return
 			}

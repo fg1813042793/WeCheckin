@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
-import { clearPerms } from './permission'
+import { clearAdminSession } from './adminSession'
 
 export interface ApiResponse<T = any> {
   code: number
@@ -24,12 +24,6 @@ const LOGIN_EXPIRED_MESSAGES = new Set([
 ])
 
 let redirectingToLogin = false
-
-function clearAdminSession() {
-  localStorage.removeItem('admin_token')
-  localStorage.removeItem('admin_info')
-  clearPerms()
-}
 
 function redirectToLogin() {
   if (redirectingToLogin || window.location.pathname === '/login') return

@@ -3,9 +3,9 @@ package formkitadmin
 import (
 	"context"
 
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type QuestionBankQuery struct {
@@ -55,7 +55,7 @@ func ListSurveyQuestionsContext(ctx context.Context, input QuestionBankQuery) ([
 		return nil, 0, err
 	}
 	var list []model.SurveyQuestion
-	if err := query.Order("`survey_q_add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -65,7 +65,7 @@ func ListSurveyQuestionsForAdminContext(ctx context.Context, input QuestionBankQ
 	input = NormalizeQuestionBankQuery(input)
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.SurveyQuestion{}, "`survey_q_dept_id`", "`survey_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.SurveyQuestion{}, access.SurveyQuestionAuditFields)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -83,7 +83,7 @@ func ListSurveyQuestionsForAdminContext(ctx context.Context, input QuestionBankQ
 		return nil, 0, err
 	}
 	var list []model.SurveyQuestion
-	if err := query.Order("`survey_q_add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -96,16 +96,20 @@ func CreateSurveyQuestionContext(ctx context.Context, input QuestionBankInput) (
 	if err != nil {
 		return model.SurveyQuestion{}, err
 	}
+	now := database.Now()
 	q := model.SurveyQuestion{
-		Title:    input.Title,
-		Type:     input.Type,
-		Schema:   input.Schema,
-		Category: input.Category,
-		Tags:     input.Tags,
-		Status:   1,
-		DeptID:   deptID,
-		CreateBy: input.AdminID,
-		AddTime:  database.Now(),
+		Title:        input.Title,
+		Type:         input.Type,
+		Schema:       input.Schema,
+		Category:     input.Category,
+		Tags:         input.Tags,
+		Status:       1,
+		DeptID:       deptID,
+		CreateBy:     input.AdminID,
+		UpdateBy:     input.AdminID,
+		UpdateDeptID: deptID,
+		AddTime:      now,
+		EditTime:     now,
 	}
 	if err := db.Create(&q).Error; err != nil {
 		return model.SurveyQuestion{}, err
@@ -122,13 +126,18 @@ func UpdateSurveyQuestionContext(ctx context.Context, input QuestionBankInput) e
 		"survey_q_schema":   input.Schema,
 		"survey_q_category": input.Category,
 		"survey_q_tags":     input.Tags,
+		"edit_time":         database.Now(),
 	}).Error
 }
 
 func UpdateSurveyQuestionForAdminContext(ctx context.Context, input QuestionBankInput, adminID uint) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.SurveyQuestion{}, "`survey_q_dept_id`", "`survey_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.SurveyQuestion{}, access.SurveyQuestionAuditFields)
+	if err != nil {
+		return err
+	}
+	deptID, err := firstAdminDeptID(db, adminID)
 	if err != nil {
 		return err
 	}
@@ -138,6 +147,9 @@ func UpdateSurveyQuestionForAdminContext(ctx context.Context, input QuestionBank
 		"survey_q_schema":   input.Schema,
 		"survey_q_category": input.Category,
 		"survey_q_tags":     input.Tags,
+		"update_by":         adminID,
+		"update_dept_id":    deptID,
+		"edit_time":         database.Now(),
 	}))
 }
 
@@ -150,7 +162,7 @@ func DeleteSurveyQuestionContext(ctx context.Context, id uint) error {
 func DeleteSurveyQuestionForAdminContext(ctx context.Context, id uint, adminID uint) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.SurveyQuestion{}, "`survey_q_dept_id`", "`survey_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.SurveyQuestion{}, access.SurveyQuestionAuditFields)
 	if err != nil {
 		return err
 	}
@@ -172,7 +184,7 @@ func SurveyQuestionCategoriesContext(ctx context.Context) ([]string, error) {
 func SurveyQuestionCategoriesForAdminContext(ctx context.Context, adminID uint) ([]string, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.SurveyQuestion{}, "`survey_q_dept_id`", "`survey_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.SurveyQuestion{}, access.SurveyQuestionAuditFields)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +215,7 @@ func ListExamQuestionsContext(ctx context.Context, input QuestionBankQuery) ([]m
 		return nil, 0, err
 	}
 	var list []model.ExamQuestion
-	if err := query.Order("`exam_q_add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -213,7 +225,7 @@ func ListExamQuestionsForAdminContext(ctx context.Context, input QuestionBankQue
 	input = NormalizeQuestionBankQuery(input)
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.ExamQuestion{}, "`exam_q_dept_id`", "`exam_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.ExamQuestion{}, access.ExamQuestionAuditFields)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -231,7 +243,7 @@ func ListExamQuestionsForAdminContext(ctx context.Context, input QuestionBankQue
 		return nil, 0, err
 	}
 	var list []model.ExamQuestion
-	if err := query.Order("`exam_q_add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`add_time` DESC").Offset((input.Page - 1) * input.PageSize).Limit(input.PageSize).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -244,16 +256,20 @@ func CreateExamQuestionContext(ctx context.Context, input QuestionBankInput) (mo
 	if err != nil {
 		return model.ExamQuestion{}, err
 	}
+	now := database.Now()
 	q := model.ExamQuestion{
-		Title:    input.Title,
-		Type:     input.Type,
-		Schema:   input.Schema,
-		Category: input.Category,
-		Tags:     input.Tags,
-		Status:   1,
-		DeptID:   deptID,
-		CreateBy: input.AdminID,
-		AddTime:  database.Now(),
+		Title:        input.Title,
+		Type:         input.Type,
+		Schema:       input.Schema,
+		Category:     input.Category,
+		Tags:         input.Tags,
+		Status:       1,
+		DeptID:       deptID,
+		CreateBy:     input.AdminID,
+		UpdateBy:     input.AdminID,
+		UpdateDeptID: deptID,
+		AddTime:      now,
+		EditTime:     now,
 	}
 	if err := db.Create(&q).Error; err != nil {
 		return model.ExamQuestion{}, err
@@ -270,13 +286,18 @@ func UpdateExamQuestionContext(ctx context.Context, input QuestionBankInput) err
 		"exam_q_schema":   input.Schema,
 		"exam_q_category": input.Category,
 		"exam_q_tags":     input.Tags,
+		"edit_time":       database.Now(),
 	}).Error
 }
 
 func UpdateExamQuestionForAdminContext(ctx context.Context, input QuestionBankInput, adminID uint) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.ExamQuestion{}, "`exam_q_dept_id`", "`exam_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.ExamQuestion{}, access.ExamQuestionAuditFields)
+	if err != nil {
+		return err
+	}
+	deptID, err := firstAdminDeptID(db, adminID)
 	if err != nil {
 		return err
 	}
@@ -286,6 +307,9 @@ func UpdateExamQuestionForAdminContext(ctx context.Context, input QuestionBankIn
 		"exam_q_schema":   input.Schema,
 		"exam_q_category": input.Category,
 		"exam_q_tags":     input.Tags,
+		"update_by":       adminID,
+		"update_dept_id":  deptID,
+		"edit_time":       database.Now(),
 	}))
 }
 
@@ -298,7 +322,7 @@ func DeleteExamQuestionContext(ctx context.Context, id uint) error {
 func DeleteExamQuestionForAdminContext(ctx context.Context, id uint, adminID uint) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.ExamQuestion{}, "`exam_q_dept_id`", "`exam_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.ExamQuestion{}, access.ExamQuestionAuditFields)
 	if err != nil {
 		return err
 	}
@@ -320,7 +344,7 @@ func ExamQuestionCategoriesContext(ctx context.Context) ([]string, error) {
 func ExamQuestionCategoriesForAdminContext(ctx context.Context, adminID uint) ([]string, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query, err := access.ScopedResourceQueryContext(ctx, db, adminID, &model.ExamQuestion{}, "`exam_q_dept_id`", "`exam_q_create_by`")
+	query, err := access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.ExamQuestion{}, access.ExamQuestionAuditFields)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ type SessionInfo struct {
 	LoginIP   string `json:"loginIp"`
 	LoginTime int64  `json:"loginTime"`
 	Device    string `json:"device"`
+	Source    string `json:"source"`
 }
 
 type AdminSession struct {
@@ -26,4 +27,17 @@ type UserSession struct {
 	Pic      string `json:"pic"`
 	LoginCnt int    `json:"loginCnt"`
 	SessionInfo
+}
+
+type storedUserSessionPayload struct {
+	ID         uint   `json:"id"`
+	Name       string `json:"name"`
+	Mobile     string `json:"mobile"`
+	MiniOpenID string `json:"miniOpenID"`
+	Role       string `json:"role"`
+	RoleID     uint   `json:"roleId"`
+	Pic        string `json:"pic"`
+	LoginIP    string `json:"loginIp"`
+	LoginTime  int64  `json:"loginTime"`
+	Device     string `json:"device"`
 }

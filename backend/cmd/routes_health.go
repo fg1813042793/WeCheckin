@@ -7,7 +7,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/pkg/database"
 )
 
 func registerHealthRoutes(h *server.Hertz) {

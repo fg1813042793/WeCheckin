@@ -9,7 +9,7 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('dept:add')" type="success" @click="showAdd(0)">+ 新增顶级部门</el-button>
+          <el-button v-if="hasPerm('admin:menu:department:add')" type="success" @click="showAdd(0)">+ 新增顶级部门</el-button>
           <el-button @click="toggleExpand">{{ allExpanded ? '折叠全部' : '展开全部' }}</el-button>
         </div>
         <div class="admin-toolbar__right">
@@ -27,9 +27,9 @@
         <el-table-column label="操作" width="260">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('dept:add')" size="small" type="primary" @click="showAdd(row.id)">添加子部门</el-button>
-              <el-button v-if="hasPerm('dept:edit')" size="small" @click="showEdit(row)">编辑</el-button>
-              <el-popconfirm v-if="hasPerm('dept:del')" title="确定删除该部门及其子部门？" @confirm="handleDel(row)">
+              <el-button v-if="hasPerm('admin:menu:department:add')" size="small" type="primary" @click="showAdd(row.id)">添加子部门</el-button>
+              <el-button v-if="hasPerm('admin:menu:department:edit')" size="small" @click="showEdit(row)">编辑</el-button>
+              <el-popconfirm v-if="hasPerm('admin:menu:department:del')" title="确定删除该部门及其子部门？" @confirm="handleDel(row)">
                 <template #reference>
                   <el-button size="small" type="danger">删除</el-button>
                 </template>

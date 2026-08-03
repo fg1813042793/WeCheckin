@@ -23,7 +23,7 @@ func TestAdminRolePageShowsApplicationPermissionTrees(t *testing.T) {
 		"clientApiTreeData",
 		"dingtalkH5ApiTreeData",
 		"客户端菜单",
-		"钉钉 H5 菜单",
+		"钉钉 H5 菜单/按钮",
 		"客户端接口",
 		"钉钉 H5 接口",
 		"payload.clientMenuKeys = form.clientMenuKeys.join(',')",
@@ -53,7 +53,7 @@ func TestAdminRolePageSplitsMenuAndAPIPermissions(t *testing.T) {
 		"后台接口",
 		"客户端菜单",
 		"客户端接口",
-		"钉钉 H5 菜单",
+		"钉钉 H5 菜单/按钮",
 		"钉钉 H5 接口",
 	} {
 		if !strings.Contains(text, snippet) {

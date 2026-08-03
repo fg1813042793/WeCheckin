@@ -51,10 +51,10 @@ forbidSnippet(login, 'login-container', 'admin login page')
 
 const routes = read('router/adminRoutes.ts')
 for (const snippet of [
-  "path: '/exam/responses'",
-  "path: '/exam/statistic'",
-  "path: '/exam/formkit'",
-  "path: '/exam/formkit/report'",
+  "path: 'exam/responses'",
+  "path: 'exam/statistic'",
+  "path: 'exam/formkit'",
+  "path: 'exam/formkit/report'",
 ]) {
-  requireSnippet(routes, snippet, 'admin fallback menu')
+  requireSnippet(routes, snippet, 'admin route config')
 }

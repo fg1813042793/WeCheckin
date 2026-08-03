@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/publish"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/publish"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func EnrollJoin(enrollID, userID, day, forms, addIP string, status int) error {

@@ -1,8 +1,8 @@
 package builtin
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // FileQuestion 文件/图片上传（type=file）

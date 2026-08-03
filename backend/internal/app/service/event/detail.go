@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func ViewEvent(id, userID string) (*model.Event, error) {

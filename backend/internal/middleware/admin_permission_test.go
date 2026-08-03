@@ -13,8 +13,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"wecheckin-backend/backend/internal/app/support/adminrouteperm"
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/app/support/adminrouteperm"
+	"wecheckin/backend/internal/model"
 )
 
 func TestAdminPermRejectsUnmappedAdminRoute(t *testing.T) {

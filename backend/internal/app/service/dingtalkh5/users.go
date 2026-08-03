@@ -8,25 +8,29 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
 )
 
 func ListUsersContext(ctx context.Context, current *model.DingTalkH5PerfUser) ([]UserDTO, error) {
-	if err := EnsureSeedContext(ctx); err != nil {
-		return nil, err
+	if current == nil {
+		return nil, fmt.Errorf("未登录")
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	users, err := listPerfUsersDB(db)
+	scope, err := permissionsupport.DataScopeContext(ctx, db, current.ID, current.RoleID)
 	if err != nil {
 		return nil, err
 	}
-	users = visiblePerfUsers(current, users)
+	users, err := listPerfUsersByDataScopeContext(ctx, db, current, scope)
+	if err != nil {
+		return nil, err
+	}
 	sort.SliceStable(users, func(i, j int) bool {
-		left := []string{users[i].DepartmentLevel1, users[i].DepartmentLevel2, users[i].Role, users[i].Name, users[i].Account}
-		right := []string{users[j].DepartmentLevel1, users[j].DepartmentLevel2, users[j].Role, users[j].Name, users[j].Account}
+		left := []string{users[i].DepartmentLevel1, users[i].DepartmentLevel2, users[i].Name, users[i].Account}
+		right := []string{users[j].DepartmentLevel1, users[j].DepartmentLevel2, users[j].Name, users[j].Account}
 		return strings.Join(left, "\x00") < strings.Join(right, "\x00")
 	})
 	result := make([]UserDTO, 0, len(users))
@@ -36,11 +40,28 @@ func ListUsersContext(ctx context.Context, current *model.DingTalkH5PerfUser) ([
 	return result, nil
 }
 
-func visiblePerfUsers(current *model.DingTalkH5PerfUser, users []model.DingTalkH5PerfUser) []model.DingTalkH5PerfUser {
+func listPerfUsersByDataScopeContext(ctx context.Context, db *gorm.DB, current *model.DingTalkH5PerfUser, scope permissionsupport.DataScope) ([]model.DingTalkH5PerfUser, error) {
+	allowed, all, err := dataScopeUserAccountsContext(ctx, db, current, scope)
+	if err != nil {
+		return nil, err
+	}
+	if !all && len(allowed) == 0 {
+		return nil, nil
+	}
+	if all {
+		return listPerfUsersDB(db)
+	}
+	return listPerfUsersByAccountsDB(db, allowed)
+}
+
+func visiblePerfUsers(current *model.DingTalkH5PerfUser, users []model.DingTalkH5PerfUser, scope permissionsupport.DataScope) []model.DingTalkH5PerfUser {
 	if current == nil {
 		return nil
 	}
-	if current.Role == "admin" || current.Role == "hrbp_manager" {
+	if !scope.Ready {
+		return nil
+	}
+	if scope.Mode == 1 {
 		return users
 	}
 	allowed := map[string]struct{}{}
@@ -51,6 +72,9 @@ func visiblePerfUsers(current *model.DingTalkH5PerfUser, users []model.DingTalkH
 		}
 	}
 	addAccount(current.Account)
+	if scope.Mode == 3 {
+		return allowedPerfUsers(users, allowed)
+	}
 	addAccount(current.ManagerAccount)
 	addAccount(current.HRBPAccount)
 	for _, user := range users {
@@ -61,37 +85,57 @@ func visiblePerfUsers(current *model.DingTalkH5PerfUser, users []model.DingTalkH
 		addAccount(user.ManagerAccount)
 		addAccount(user.HRBPAccount)
 	}
+	return allowedPerfUsers(users, allowed)
+}
+
+func allowedPerfUsers(users []model.DingTalkH5PerfUser, allowed map[string]struct{}) []model.DingTalkH5PerfUser {
 	result := make([]model.DingTalkH5PerfUser, 0, len(allowed))
 	for _, user := range users {
-		if _, ok := allowed[user.Account]; ok {
+		if _, ok := allowed[NormalizeUserID(user.Account)]; ok {
 			result = append(result, user)
 		}
 	}
 	return result
 }
 
+func canAccessPerfUserAccountContext(ctx context.Context, db *gorm.DB, current *model.DingTalkH5PerfUser, account string) (bool, error) {
+	account = NormalizeUserID(account)
+	if current == nil || account == "" {
+		return false, nil
+	}
+	if account == NormalizeUserID(current.Account) {
+		return true, nil
+	}
+	scope, err := permissionsupport.DataScopeContext(ctx, db, current.ID, current.RoleID)
+	if err != nil {
+		return false, err
+	}
+	allowed, all, err := dataScopeUserAccountsContext(ctx, db, current, scope)
+	if err != nil {
+		return false, err
+	}
+	if all {
+		return true, nil
+	}
+	_, ok := allowed[account]
+	return ok, nil
+}
+
 func canViewPerfUser(current *model.DingTalkH5PerfUser, target model.DingTalkH5PerfUser) bool {
 	if current == nil {
 		return false
 	}
-	if current.Role == "admin" || current.Role == "hrbp_manager" {
-		return true
-	}
 	if target.Account == current.Account || target.Account == current.ManagerAccount || target.Account == current.HRBPAccount {
 		return true
 	}
-	if current.Role == "hrbp" {
-		return target.HRBPAccount == current.Account || perfUserResponsibleDepartmentScopeMatches(*current, target)
-	}
-	if _, ok := peopleLeaderRoles[current.Role]; ok {
-		return target.ManagerAccount == current.Account || departmentScopeMatches(*current, &target)
-	}
-	return false
+	return target.ManagerAccount == current.Account ||
+		target.HRBPAccount == current.Account ||
+		perfUserDepartmentScopeMatches(*current, target)
 }
 
 func CreateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, payload UserPayload) (*UserDTO, []UserDTO, error) {
-	if !isAdmin(current) {
-		return nil, nil, fmt.Errorf("当前账号不能调整组织架构")
+	if current == nil {
+		return nil, nil, fmt.Errorf("未登录")
 	}
 	user, err := sanitizeUserPayload(payload, nil)
 	if err != nil {
@@ -106,6 +150,7 @@ func CreateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, p
 		MiniOpenID: user.Account,
 		Name:       user.Name,
 		Password:   user.Password,
+		Pic:        user.Pic,
 		Status:     user.Status,
 		Obj:        encodePerfUserObj("", user),
 		AddTime:    user.AddTime,
@@ -124,14 +169,21 @@ func CreateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, p
 }
 
 func UpdateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, account string, payload UserPayload) (*UserDTO, []UserDTO, error) {
-	if !isAdmin(current) {
-		return nil, nil, fmt.Errorf("当前账号不能调整组织架构")
+	if current == nil {
+		return nil, nil, fmt.Errorf("未登录")
 	}
 	account = NormalizeUserID(account)
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	existing, err := loadPerfUserByAccountDB(db, account)
 	if err != nil {
+		return nil, nil, fmt.Errorf("没有找到该账号")
+	}
+	allowed, err := canAccessPerfUserAccountContext(ctx, db, current, existing.Account)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !allowed {
 		return nil, nil, fmt.Errorf("没有找到该账号")
 	}
 	next, err := sanitizeUserPayload(payload, existing)
@@ -146,10 +198,13 @@ func UpdateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, a
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{
 			"user_name":      next.Name,
-			"user_password":  next.Password,
+			"user_pic":       next.Pic,
 			"user_status":    next.Status,
 			"user_obj":       encodePerfUserObj(existing.Obj, next),
 			"user_edit_time": next.EditTime,
+		}
+		if strings.TrimSpace(payload.Password) != "" {
+			updates["user_password"] = next.Password
 		}
 		if err := tx.Model(&model.User{}).Where("`user_mini_openid` = ?", next.Account).Updates(updates).Error; err != nil {
 			return err
@@ -158,17 +213,13 @@ func UpdateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, a
 	}); err != nil {
 		return nil, nil, err
 	}
-	users, err := ListUsersContext(ctx, current)
-	if err != nil {
-		return nil, nil, err
-	}
 	dto := userDTO(next)
-	return &dto, users, nil
+	return &dto, nil, nil
 }
 
 func DeleteUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, account string) ([]UserDTO, error) {
-	if !isAdmin(current) {
-		return nil, fmt.Errorf("当前账号不能调整组织架构")
+	if current == nil {
+		return nil, fmt.Errorf("未登录")
 	}
 	account = NormalizeUserID(account)
 	if account == current.Account {
@@ -180,10 +231,22 @@ func DeleteUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, a
 	if err != nil {
 		return nil, fmt.Errorf("没有找到该账号")
 	}
-	if userHasReferences(db, target.Account) {
-		return nil, fmt.Errorf("该账号已有组织关系或绩效记录，不能直接删除")
+	if target.Status != 1 {
+		return nil, fmt.Errorf("没有找到该账号")
 	}
-	if err := db.Where("`user_mini_openid` = ?", target.Account).Delete(&model.User{}).Error; err != nil {
+	allowed, err := canAccessPerfUserAccountContext(ctx, db, current, target.Account)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, fmt.Errorf("没有找到该账号")
+	}
+	now := database.Now()
+	updates := map[string]interface{}{
+		"user_status":    0,
+		"user_edit_time": now,
+	}
+	if err := db.Model(&model.User{}).Where("`user_mini_openid` = ?", target.Account).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 	return ListUsersContext(ctx, current)
@@ -204,15 +267,16 @@ func sanitizeUserPayload(payload UserPayload, existing *model.DingTalkH5PerfUser
 	if name == "" {
 		return model.DingTalkH5PerfUser{}, fmt.Errorf("请填写姓名")
 	}
-	role := strings.TrimSpace(payload.Role)
-	if role == "" && existing != nil {
-		role = existing.Role
+	avatar := strings.TrimSpace(payload.Avatar)
+	if avatar == "" && existing != nil {
+		avatar = existing.Pic
 	}
-	if role == "" {
-		role = "employee"
+	avatar, err := sanitizeAvatarURL(avatar)
+	if err != nil {
+		return model.DingTalkH5PerfUser{}, err
 	}
-	position := strings.TrimSpace(payload.Position)
-	if position == "" && existing != nil {
+	position := ""
+	if existing != nil {
 		position = existing.Position
 	}
 	dept1 := strings.TrimSpace(payload.DepartmentLevel1)
@@ -256,11 +320,13 @@ func sanitizeUserPayload(payload UserPayload, existing *model.DingTalkH5PerfUser
 		addTime = existing.AddTime
 		status = existing.Status
 	}
+	responsibleDepartments := existingResponsibleDepartments(payload.ResponsibleDepartments, existing)
 	return model.DingTalkH5PerfUser{
 		Account:                account,
 		Name:                   name,
 		Password:               passwordHash,
-		Role:                   role,
+		Pic:                    avatar,
+		Role:                   "",
 		Position:               position,
 		Department:             department,
 		DepartmentLevel1:       dept1,
@@ -268,19 +334,23 @@ func sanitizeUserPayload(payload UserPayload, existing *model.DingTalkH5PerfUser
 		DepartmentLevel3:       dept3,
 		ManagerAccount:         NormalizeUserID(payload.ManagerID),
 		HRBPAccount:            NormalizeUserID(payload.HRBPID),
-		ResponsibleDepartments: encodeJSON(normalizeList(payload.ResponsibleDepartments)),
+		ResponsibleDepartments: responsibleDepartments,
 		Status:                 status,
 		AddTime:                addTime,
 		EditTime:               now,
 	}, nil
 }
 
+func existingResponsibleDepartments(value interface{}, existing *model.DingTalkH5PerfUser) string {
+	if value == nil && existing != nil {
+		return existing.ResponsibleDepartments
+	}
+	return encodeJSON(normalizeList(value))
+}
+
 func validateUserPayload(db *gorm.DB, payload model.DingTalkH5PerfUser, existingAccount string) error {
 	if payload.Account == "" || payload.Name == "" {
 		return fmt.Errorf("请填写账号和姓名")
-	}
-	if _, ok := editableRoles[payload.Role]; !ok {
-		return fmt.Errorf("请选择有效角色")
 	}
 	var duplicate model.User
 	err := db.Where("(`user_mini_openid` = ? OR LOWER(`user_name`) = ?) AND `user_mini_openid` <> ?", payload.Account, strings.ToLower(payload.Name), existingAccount).First(&duplicate).Error
@@ -291,12 +361,8 @@ func validateUserPayload(db *gorm.DB, payload model.DingTalkH5PerfUser, existing
 		return err
 	}
 	if payload.ManagerAccount != "" {
-		manager, err := loadPerfUserByAccountDB(db, payload.ManagerAccount)
-		if err != nil {
+		if _, err := loadPerfUserByAccountDB(db, payload.ManagerAccount); err != nil {
 			return fmt.Errorf("直属上级不存在")
-		}
-		if _, ok := peopleLeaderRoles[manager.Role]; !ok && manager.Role != "admin" && manager.Role != "hrbp_manager" {
-			return fmt.Errorf("直属上级需选择总监、经理、主管或管理员")
 		}
 		if payload.ManagerAccount == payload.Account {
 			return fmt.Errorf("直属上级不能选择自己")
@@ -320,14 +386,14 @@ func syncOpenReviewsForUser(db *gorm.DB, target model.DingTalkH5PerfUser) error 
 		"department_level3": target.DepartmentLevel3,
 		"edit_time":         database.Now(),
 	}
-	return db.Model(&model.DingTalkH5PerfReview{}).
+	return notDeletedReviewQuery(db.Model(&model.DingTalkH5PerfReview{})).
 		Where("employee_account = ? AND status <> ?", target.Account, ReviewStatusCompleted).
 		Updates(updates).Error
 }
 
 func userHasReferences(db *gorm.DB, account string) bool {
 	var reviewCount int64
-	db.Model(&model.DingTalkH5PerfReview{}).
+	notDeletedReviewQuery(db.Model(&model.DingTalkH5PerfReview{})).
 		Where("employee_account = ? OR manager_account = ? OR hrbp_account = ?", account, account, account).
 		Count(&reviewCount)
 	if reviewCount > 0 {

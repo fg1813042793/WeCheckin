@@ -35,6 +35,15 @@ type schemaMigration struct {
 
 func (schemaMigration) TableName() string { return "schema_migrations" }
 
+var appliedMigrationChecksumRepairAllowlist = map[string]string{
+	"20260731162000_add_dingtalk_h5_review_scope_indexes": "2385c26de9616e0fb26ebeb7d617f827711d285e8a466a5658895765261f51ec",
+}
+
+func isAppliedMigrationChecksumRepairAllowed(version, checksum string) bool {
+	expected, ok := appliedMigrationChecksumRepairAllowlist[strings.TrimSpace(version)]
+	return ok && strings.EqualFold(expected, strings.TrimSpace(checksum))
+}
+
 func RunMaintenance(options MaintenanceOptions) error {
 	if strings.TrimSpace(options.MigrationsDir) == "" {
 		options.MigrationsDir = "migrations"
@@ -96,6 +105,12 @@ func runOnce(db *gorm.DB, version, name, checksum string, run func() error) erro
 	err := db.Where("migration_version = ?", version).First(&existing).Error
 	if err == nil {
 		if checksum != "" && existing.Checksum != "" && existing.Checksum != checksum {
+			if isAppliedMigrationChecksumRepairAllowed(version, checksum) {
+				if err := repairAppliedMigrationChecksum(db, existing.ID, checksum); err != nil {
+					return fmt.Errorf("migration %s checksum repair: %w", version, err)
+				}
+				return nil
+			}
 			return fmt.Errorf("migration %s checksum changed", version)
 		}
 		return nil
@@ -117,6 +132,13 @@ func runOnce(db *gorm.DB, version, name, checksum string, run func() error) erro
 		ExecutedAt: now,
 		CreatedAt:  now,
 		UpdatedAt:  now,
+	}).Error
+}
+
+func repairAppliedMigrationChecksum(db *gorm.DB, id uint, checksum string) error {
+	return db.Model(&schemaMigration{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"migration_checksum": checksum,
+		"updated_at":         time.Now(),
 	}).Error
 }
 

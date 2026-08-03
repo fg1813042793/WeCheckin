@@ -41,7 +41,36 @@ VITE_DINGTALK_CORP_ID=
 
 - `VITE_API_BASE_URL`：后端 API 地址。留空时保持 `/api/v2/...` 同源路径，推荐用于 H5 本地开发和单点部署；独立 API 域名部署时填写完整地址。
 - `VITE_DEV_PROXY_TARGET`：Vite 本地代理目标，默认后端地址为 `http://localhost:8083`。
-- `VITE_DINGTALK_CORP_ID`：钉钉企业 CorpId，用于免登授权码。
+- `VITE_DINGTALK_CORP_ID`：默认钉钉企业 CorpId，用于免登授权码。多企业部署时，URL 查询参数 `corpId` 优先级更高。
+
+## 钉钉免登流程
+
+钉钉内打开 H5 时，前端先通过 `/api/v2/dingtalk/h5/public-config` 读取后台配置的默认企业 `corpId` 和页面品牌信息，再确定当前 `corpId`：URL 查询参数 `?corpId=xxx` 优先，其次使用后台默认企业，最后使用 `VITE_DINGTALK_CORP_ID`。随后前端通过 `requestAuthCode(corpId)` 获取一次性免登授权码，然后调用 `/api/v2/dingtalk/h5/sso-login`，请求体包含 `corpId` 和 `authCode`。
+
+后端按 `corpId` 查询 `dingtalk_h5_corp_configs`，使用该企业对应的 AppKey/AppSecret 换取钉钉用户身份。拿到 DingTalk UserID 后，后端通过 `dingtalk_h5_user_bindings.corp_id + dingtalk_user_id` 找到本地 `users.id`。映射成功后后端签发系统自己的 `dingtalk_h5` Redis token，并返回用户、菜单、按钮权限、接口权限和权限版本。
+
+如果钉钉身份未绑定本地用户，且管理后台开启 `DINGTALK_H5_SELF_BIND_ENABLED`，`/sso-login` 会返回 `code=10020` 和一次性 `bindTicket`。前端展示“绑定系统账号”页，用户输入本地系统账号和密码后调用 `/api/v2/dingtalk/h5/bind-self`。后端校验钉钉票据、账号密码、用户状态和绑定唯一性后写入 `dingtalk_h5_user_bindings`，再签发正常登录 token。绑定成功后，下次免登会直接使用已有绑定。
+
+免登只替代密码校验，不替代权限校验。用户仍必须在管理后台存在、状态启用，并配置角色权限或用户额外授权。
+
+管理后台“钉钉应用管理 / 配置选项”维护企业应用列表和登录态配置。企业应用列表写入 `dingtalk_h5_corp_configs`；第一条配置会同步到以下旧 setup 键，供单企业旧部署和兼容逻辑读取：
+
+- `DINGTALK_H5_CORP_ID`
+- `DINGTALK_H5_APP_KEY`
+- `DINGTALK_H5_APP_SECRET`
+- `TOKEN_DINGTALK_H5_EXPIRE`
+- `TOKEN_DINGTALK_H5_REDIS_PREFIX`
+- `DINGTALK_H5_SINGLE_LOGIN`
+- `DINGTALK_H5_SELF_BIND_ENABLED`
+
+迁移脚本 `backend/migrations/20260731123000_add_dingtalk_h5_multi_corp.sql` 会把旧 setup 单企业配置回填到 `dingtalk_h5_corp_configs`，并将旧 `users.user_mini_openid` 回填为该企业的 `dingtalk_h5_user_bindings.dingtalk_user_id`。若历史账号不是 DingTalk UserID，可以由管理员在绑定表中补齐关系，也可以开启首次自助绑定后由用户在钉钉内输入系统账号密码完成绑定。
+
+多 CorpId 部署时，每个企业在钉钉工作台配置自己的 H5 地址，例如：
+
+```text
+https://oa.example.com/dingtalk-h5/?corpId=ding123
+https://oa.example.com/dingtalk-h5/?corpId=ding456
+```
 
 ## 已内置能力
 
@@ -60,6 +89,23 @@ VITE_DINGTALK_CORP_ID=
 - `/api/v2/dingtalk/h5` 接口常量：`services/dingtalkH5Api.js`
 - 脚手架完整性检查：`npm run check:scaffold`
 
+## 菜单图标
+
+钉钉 H5 菜单由登录或 bootstrap 返回的 `menus` 渲染，菜单名称和图标分别来自后端统一权限表的 `permissions.permission_name`、`permissions.permission_icon`。管理后台可在“权限管理 / 钉钉 H5”里编辑目录和菜单图标。
+
+当前 H5 内置图标键为：
+
+```text
+dashboard, performance, mine, history, manager, hrbp, summary, org, template, account
+```
+
+实际 SVG 路径维护在 `components/performance/AppShell.vue` 的 `navIconMap` 中。新增图标键时，需要同步后台可选项、后端菜单默认声明和 `navIconMap`。
+
+## 开发规范
+
+- 所有删除按钮都必须增加二次确认弹窗。用户确认后才可以执行删除接口或修改本地删除状态；用户取消时不能发起删除请求，也不能改变页面数据。
+- 所有钉钉 H5 删除接口都必须走软删除，禁止物理删除业务数据。考评单使用 `deleted_at/delete_by/delete_dept_id` 标记删除并在列表、详情、统计、导出中统一过滤；共享 `users` 表的人员删除只允许停用 `user_status=0`。
+
 ## 后端接口
 
 接口统一使用当前项目后端新增的独立模块：
@@ -70,4 +116,4 @@ VITE_DINGTALK_CORP_ID=
 
 登录接口开放，其余接口使用该模块签发的 token，通过 `Authorization` 请求头传递。导出接口为了浏览器直接下载，也支持 `token` 查询参数。
 
-后续接入钉钉开放平台免登时，可以复用当前登录返回结构，在 `/api/v2/dingtalk/h5/login` 中增加 `authCode` 换 token 逻辑。
+钉钉免登使用独立开放接口 `/api/v2/dingtalk/h5/sso-login`，首次自助绑定使用 `/api/v2/dingtalk/h5/bind-self`，账号密码登录仍使用 `/api/v2/dingtalk/h5/login` 作为非钉钉环境或免登失败时的兜底入口。

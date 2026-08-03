@@ -9,8 +9,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('mgr:add')" type="success" @click="showAdd">+ 添加管理员</el-button>
-          <el-button v-if="hasPerm('mgr:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:mgr:add')" type="success" @click="showAdd">+ 添加管理员</el-button>
+          <el-button v-if="hasPerm('admin:menu:mgr:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
@@ -47,11 +47,11 @@
         <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('mgr:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
+              <el-button v-if="hasPerm('admin:menu:mgr:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
               <template v-if="!isSuperAdminRole(row)">
-                <el-button v-if="row.status === 1 && hasPerm('mgr:edit')" size="small" type="warning" @click="toggleStatus(row, 0)">停用</el-button>
-                <el-button v-else-if="hasPerm('mgr:edit')" size="small" type="success" @click="toggleStatus(row, 1)">启用</el-button>
-                <el-popconfirm v-if="hasPerm('mgr:del')" title="确定删除该管理员？" @confirm="remove(row)">
+                <el-button v-if="row.status === 1 && hasPerm('admin:menu:mgr:edit')" size="small" type="warning" @click="toggleStatus(row, 0)">停用</el-button>
+                <el-button v-else-if="hasPerm('admin:menu:mgr:edit')" size="small" type="success" @click="toggleStatus(row, 1)">启用</el-button>
+                <el-popconfirm v-if="hasPerm('admin:menu:mgr:del')" title="确定删除该管理员？" @confirm="remove(row)">
                   <template #reference>
                     <el-button size="small" type="danger">删除</el-button>
                   </template>

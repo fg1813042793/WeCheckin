@@ -29,13 +29,19 @@ for (const marker of ['async function refreshData', 'async function loadUsers', 
   }
 }
 
-for (const marker of ['permissionVersion: 0', 'state.permissionVersion = Number(res.data.permissionVersion || 0)']) {
+for (const marker of ['permissionVersion: 0', 'apiPermissionKeys: []', 'apiPermissionReady: false', 'applySessionAuthPayload(res.data || {})']) {
   if (!pageSource.includes(marker)) {
-    throw new Error(`pages/index/index.vue 必须保存 bootstrap 权限版本: ${marker}`)
+    throw new Error(`pages/index/index.vue 必须保存登录后权限状态: ${marker}`)
   }
 }
 
-const refreshMatch = pageSource.match(/async function refreshData\(\) \{([\s\S]*?)\n\}/)
+for (const marker of ['applySessionAuthPayload(payload)', 'payloadHasSessionPermissions(payload)', 'await loadBootstrap()']) {
+  if (!pageSource.includes(marker)) {
+    throw new Error(`login 必须优先使用登录响应权限并仅在缺失时兜底 bootstrap: ${marker}`)
+  }
+}
+
+const refreshMatch = pageSource.match(/async function refreshData\([^)]*\) \{([\s\S]*?)\n\}/)
 if (!refreshMatch) {
   throw new Error('pages/index/index.vue 必须保留 refreshData 刷新函数')
 }
@@ -45,7 +51,7 @@ for (const snippet of ['loadBootstrap()', 'Promise.all([loadReviews(), loadUsers
     throw new Error(`refreshData 只能刷新当前视图需要的数据，不能无条件拉取: ${snippet}`)
   }
 }
-for (const marker of ['async function ensureReferenceData', 'ensureReferenceData()']) {
+for (const marker of ['async function ensureReferenceData', 'ensureReferenceData(']) {
   if (!pageSource.includes(marker)) {
     throw new Error(`pages/index/index.vue 必须缓存用户/模板等引用数据: ${marker}`)
   }

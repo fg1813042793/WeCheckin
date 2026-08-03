@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/cloudwego/hertz/pkg/route"
-	adminexam "wecheckin-backend/backend/internal/app/handler/admin/exam"
-	adminsurvey "wecheckin-backend/backend/internal/app/handler/admin/survey"
+	adminexam "wecheckin/backend/internal/app/handler/admin/exam"
+	adminsurvey "wecheckin/backend/internal/app/handler/admin/survey"
 )
 
 func registerAdminSurveyRoutes(adminGroup *route.RouterGroup) {

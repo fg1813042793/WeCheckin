@@ -51,6 +51,72 @@ func TestReviewListSupportsPaginationAndBatchHistories(t *testing.T) {
 	}
 }
 
+func TestReviewListDefaultsToSkippingHistories(t *testing.T) {
+	handlerSrc, err := os.ReadFile("../../handler/client/dingtalkh5/handler.go")
+	if err != nil {
+		t.Fatalf("read handler.go: %v", err)
+	}
+	text := string(handlerSrc)
+	if !strings.Contains(text, `SkipHistory:     parseBoolQuery(c, "skipHistory", true)`) {
+		t.Fatalf("review list should skip histories by default")
+	}
+	if !strings.Contains(text, `!parseBoolQuery(c, "includeHistory", false)`) {
+		t.Fatalf("review list should load histories only when includeHistory is explicitly enabled")
+	}
+}
+
+func TestReviewListHydratesParticipantNamesForFrontend(t *testing.T) {
+	typesSrc, err := os.ReadFile("types.go")
+	if err != nil {
+		t.Fatalf("read types.go: %v", err)
+	}
+	reviewsSrc, err := os.ReadFile("reviews.go")
+	if err != nil {
+		t.Fatalf("read reviews.go: %v", err)
+	}
+	helpersSrc, err := os.ReadFile("review_helpers.go")
+	if err != nil {
+		t.Fatalf("read review_helpers.go: %v", err)
+	}
+	combined := string(typesSrc) + string(reviewsSrc) + string(helpersSrc)
+	for _, snippet := range []string{
+		"EmployeeName",
+		"`json:\"employeeName\"`",
+		"ManagerName",
+		"`json:\"managerName\"`",
+		"HRBPName",
+		"`json:\"hrbpName\"`",
+		"HRBPReviewerName",
+		"`json:\"hrbpReviewerName\"`",
+		"func collectReviewParticipantAccounts(reviews []model.DingTalkH5PerfReview) []string",
+		"participants, err := usersByAccounts(ctx, collectReviewParticipantAccounts(reviews))",
+		"reviewDTOWithUsers(review, historiesByID[review.ID], participants)",
+		"func reviewDTOWithUsers(review model.DingTalkH5PerfReview, histories []model.DingTalkH5PerfHistory, users map[string]*model.DingTalkH5PerfUser) ReviewDTO",
+		"result.EmployeeName = reviewUserName(users, review.EmployeeAccount)",
+		"result.ManagerName = reviewUserName(users, review.ManagerAccount)",
+		"result.HRBPName = reviewUserName(users, review.HRBPAccount)",
+		"result.HRBPReviewerName = reviewUserName(users, review.HRBPReviewerAccount)",
+	} {
+		if !strings.Contains(combined, snippet) {
+			t.Fatalf("review list should hydrate participant names for frontend with %q", snippet)
+		}
+	}
+}
+
+func TestReviewParticipantNameLookupDoesNotHydrateDepartmentsOrPositions(t *testing.T) {
+	src, err := os.ReadFile("review_helpers.go")
+	if err != nil {
+		t.Fatalf("read review_helpers.go: %v", err)
+	}
+	body := functionBody(string(src), "func usersByAccounts")
+	if strings.Contains(body, "hydratePerfUsersWithUserDeptsDB") {
+		t.Fatalf("review participant name lookup should not hydrate departments or positions")
+	}
+	if !strings.Contains(body, "Select(\"`user_mini_openid`, `user_name`\")") {
+		t.Fatalf("review participant name lookup should select only account and name")
+	}
+}
+
 func TestDingTalkH5WorkbenchUsesAggregateCounts(t *testing.T) {
 	src, err := os.ReadFile("workbench.go")
 	if err != nil {
@@ -80,12 +146,17 @@ func TestBootstrapIncludesPermissionVersionWithoutFullData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reviews.go: %v", err)
 	}
-	combined := string(typesSrc) + string(reviewsSrc)
+	snapshotSrc, err := os.ReadFile("permission_snapshot.go")
+	if err != nil {
+		t.Fatalf("read permission_snapshot.go: %v", err)
+	}
+	combined := string(typesSrc) + string(reviewsSrc) + string(snapshotSrc)
 	for _, snippet := range []string{
 		"PermissionVersion",
 		"`json:\"permissionVersion\"`",
-		"permissionVersionForUserContext(ctx, db, user)",
-		"MAX(`grant_edit_time`)",
+		"snapshot.version",
+		"permissionVersionFallback(user)",
+		"`grant_edit_time`",
 		"`grant_subject_type`",
 	} {
 		if !strings.Contains(combined, snippet) {

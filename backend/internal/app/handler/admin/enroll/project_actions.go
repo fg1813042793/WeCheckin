@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	admincontentservice "wecheckin-backend/backend/internal/app/service/admincontent"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	admincontentservice "wecheckin/backend/internal/app/service/admincontent"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-打卡管理
@@ -16,7 +16,6 @@ import (
 // @Param id formData string true "项目ID"
 // @Param forms formData string false "表单数据"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_update_forms [post]
 func (h *AdminEnrollHandler) UpdateEnrollForms(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -34,7 +33,6 @@ func (h *AdminEnrollHandler) UpdateEnrollForms(ctx context.Context, c *app.Reque
 // @Summary 清除打卡全部数据
 // @Param id formData string true "项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_clear [post]
 func (h *AdminEnrollHandler) ClearEnrollAll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -51,7 +49,6 @@ func (h *AdminEnrollHandler) ClearEnrollAll(ctx context.Context, c *app.RequestC
 // @Summary 删除打卡项目
 // @Param id formData string true "项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_del [post]
 func (h *AdminEnrollHandler) DelEnroll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -85,7 +82,6 @@ func (h *AdminEnrollHandler) DelEnrolls(ctx context.Context, c *app.RequestConte
 // @Param id formData string true "项目ID"
 // @Param sort formData string true "排序值"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_sort [post]
 func (h *AdminEnrollHandler) SortEnroll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -104,7 +100,6 @@ func (h *AdminEnrollHandler) SortEnroll(ctx context.Context, c *app.RequestConte
 // @Param id formData string true "项目ID"
 // @Param vouch formData string true "推荐值"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_vouch [post]
 func (h *AdminEnrollHandler) VouchEnroll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -123,7 +118,6 @@ func (h *AdminEnrollHandler) VouchEnroll(ctx context.Context, c *app.RequestCont
 // @Param id formData string true "项目ID"
 // @Param status formData string true "状态"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_status [post]
 func (h *AdminEnrollHandler) StatusEnroll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

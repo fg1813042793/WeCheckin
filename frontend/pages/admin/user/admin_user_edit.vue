@@ -57,9 +57,23 @@
             <input v-if="f.type === '文本' || !f.type" class="input" v-model="f.value" :placeholder="'请输入' + f.label" />
             <input v-else-if="f.type === '数字'" class="input" type="number" v-model="f.value" :placeholder="'请输入' + f.label" />
             <textarea v-else-if="f.type === '多行文本'" class="field-textarea" v-model="f.value" :placeholder="'请输入' + f.label" />
-            <picker v-else-if="f.type === '选择'" :range="f.optionsArr || []" @change="(e) => { f.value = (f.optionsArr || [])[e.detail.value] }">
+            <picker v-else-if="f.type === '选择'" class="field-picker" :range="f.optionsArr || []" @change="(e) => { f.value = (f.optionsArr || [])[e.detail.value] }">
               <view class="input" :class="{ 'input-placeholder': !f.value }">{{ f.value || '请选择' + f.label }}</view>
             </picker>
+            <picker v-else-if="f.type === '日期'" class="field-picker" mode="date" :value="datePart(f.value)" @change="setFieldValue(f, $event)">
+              <view class="input" :class="{ 'input-placeholder': !f.value }">{{ f.value || '请选择日期' }}</view>
+            </picker>
+            <picker v-else-if="f.type === '时间'" class="field-picker" mode="time" :value="timePart(f.value)" @change="setFieldValue(f, $event)">
+              <view class="input" :class="{ 'input-placeholder': !f.value }">{{ f.value || '请选择时间' }}</view>
+            </picker>
+            <view v-else-if="f.type === '日期时间'" class="datetime-field">
+              <picker class="datetime-picker" mode="date" :value="datePart(f.value)" @change="setDateTimeDate(f, $event)">
+                <view class="input datetime-input" :class="{ 'input-placeholder': !datePart(f.value) }">{{ datePart(f.value) || '选择日期' }}</view>
+              </picker>
+              <picker class="datetime-picker" mode="time" :value="timePart(f.value)" @change="setDateTimeTime(f, $event)">
+                <view class="input datetime-input" :class="{ 'input-placeholder': !timePart(f.value) }">{{ timePart(f.value) || '选择时间' }}</view>
+              </picker>
+            </view>
           </view>
         </view>
       </view>
@@ -170,6 +184,32 @@ export default {
       } catch (e) {
         return {}
       }
+    },
+
+    datePart(value) {
+      const match = String(value || '').match(/\d{4}-\d{2}-\d{2}/)
+      return match ? match[0] : ''
+    },
+
+    timePart(value) {
+      const match = String(value || '').match(/\d{2}:\d{2}/)
+      return match ? match[0] : ''
+    },
+
+    setFieldValue(field, e) {
+      field.value = e.detail.value || ''
+    },
+
+    setDateTimeDate(field, e) {
+      field.value = this.joinDateTime(e.detail.value || '', this.timePart(field.value))
+    },
+
+    setDateTimeTime(field, e) {
+      field.value = this.joinDateTime(this.datePart(field.value), e.detail.value || '')
+    },
+
+    joinDateTime(date, time) {
+      return [date, time].filter(Boolean).join(' ')
     },
 
     async loadFormConfig() {
@@ -526,6 +566,28 @@ export default {
 }
 .input-placeholder {
   color: #bbb;
+}
+
+.field-picker {
+  display: block;
+  width: 100%;
+}
+
+.datetime-field {
+  display: flex;
+  gap: 16rpx;
+  width: 100%;
+}
+
+.datetime-picker {
+  flex: 1;
+  min-width: 0;
+}
+
+.datetime-input {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .loading {

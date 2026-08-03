@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // Engine 扩展：Logic + CalcValue 专用 API

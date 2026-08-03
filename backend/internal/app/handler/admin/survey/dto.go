@@ -1,8 +1,8 @@
 package survey
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/report"
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/app/formkit/report"
+	"wecheckin/backend/internal/model"
 )
 
 type surveyListItem struct {

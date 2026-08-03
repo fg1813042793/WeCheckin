@@ -3,7 +3,7 @@ package calc
 import (
 	"testing"
 
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 func TestEvalLogic(t *testing.T) {

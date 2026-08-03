@@ -8,8 +8,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/pkg/logger"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/pkg/logger"
+	"wecheckin/backend/pkg/response"
 )
 
 // Validate POST /exam/validate

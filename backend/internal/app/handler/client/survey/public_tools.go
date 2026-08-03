@@ -3,12 +3,12 @@ package survey
 import (
 	"context"
 
-	calcPkg "wecheckin-backend/backend/internal/app/formkit/calc"
-	questionPkg "wecheckin-backend/backend/internal/app/formkit/question"
-	schemaPkg "wecheckin-backend/backend/internal/app/formkit/schema"
+	calcPkg "wecheckin/backend/internal/app/formkit/calc"
+	questionPkg "wecheckin/backend/internal/app/formkit/question"
+	schemaPkg "wecheckin/backend/internal/app/formkit/schema"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/pkg/response"
 )
 
 // PublicValidate POST /survey/validate

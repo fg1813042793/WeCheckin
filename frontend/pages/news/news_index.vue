@@ -35,6 +35,7 @@
 <script>
 import { newsApi } from '../../api/index'
 import { getClientUserId } from '../../utils/auth'
+import { guardClientMenuPage } from '../../utils/clientPermission'
 
 export default {
   data() {
@@ -48,7 +49,8 @@ export default {
     }
   },
 
-  onLoad() {
+  async onLoad() {
+    if (!(await guardClientMenuPage('client:menu:news'))) return
     this.loadData()
   },
 

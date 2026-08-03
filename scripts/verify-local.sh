@@ -5,7 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$ROOT_DIR"
 node scripts/check-quality-gates.mjs
-GOCACHE="$ROOT_DIR/.cache/go-build" go test ./backend/...
+
+cd "$ROOT_DIR/backend"
+GOCACHE="$ROOT_DIR/.cache/go-build" go test ./...
 
 cd "$ROOT_DIR/admin"
 npm run check:all

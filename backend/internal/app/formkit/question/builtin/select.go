@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // SelectQuestion 单选下拉/单选按钮（type 通用 select）

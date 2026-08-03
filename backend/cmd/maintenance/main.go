@@ -4,9 +4,9 @@ import (
 	"flag"
 	"log"
 
-	"wecheckin-backend/backend/internal/bootstrap"
-	"wecheckin-backend/backend/internal/config"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/bootstrap"
+	"wecheckin/backend/internal/config"
+	"wecheckin/backend/pkg/database"
 )
 
 func main() {

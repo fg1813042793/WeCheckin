@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"wecheckin-backend/backend/internal/app/formkit/report"
+	"wecheckin/backend/internal/app/formkit/report"
 )
 
 func buildResultText(stats []report.FieldStat, statMode string) string {

@@ -1,6 +1,6 @@
 package exam
 
-import "wecheckin-backend/backend/internal/model"
+import "wecheckin/backend/internal/model"
 
 type examDetailSurveyDTO struct {
 	ID          uint   `json:"id"`

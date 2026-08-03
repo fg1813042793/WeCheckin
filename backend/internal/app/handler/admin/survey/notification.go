@@ -6,8 +6,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	surveyservice "wecheckin-backend/backend/internal/app/service/survey"
-	"wecheckin-backend/backend/pkg/response"
+	surveyservice "wecheckin/backend/internal/app/service/survey"
+	"wecheckin/backend/pkg/response"
 )
 
 // NotifyList GET /admin/notify/list

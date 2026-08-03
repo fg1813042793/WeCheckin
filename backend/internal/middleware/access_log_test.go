@@ -12,7 +12,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/pkg/logger"
 )
 
 func TestSafeParamMasksSensitiveFormFields(t *testing.T) {

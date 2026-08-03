@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"wecheckin-backend/backend/internal/app/formkit/schema"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func resolveSubmitter(schemaJSON, currentAnswers, nickname string, userID uint) string {

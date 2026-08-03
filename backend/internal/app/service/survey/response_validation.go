@@ -3,9 +3,9 @@ package survey
 import (
 	"strconv"
 
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/model"
 )
 
 // userIDToStr 转字符串，匿名时为空

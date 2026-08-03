@@ -20,50 +20,6 @@
           <el-button type="primary" @click="saveContent(tab.key)" :loading="savingKey === tab.key">保存</el-button>
         </el-tab-pane>
 
-        <el-tab-pane label="用户表单配置" name="SETUP_USER_FORM_FIELDS">
-          <el-button type="primary" size="small" @click="addField" style="margin-bottom: 12px;">新增字段</el-button>
-          <el-table :data="formFields" border stripe size="small" style="margin-bottom: 16px;">
-            <el-table-column label="排序" width="100">
-              <template #default="{ row, $index }">
-                <el-input-number v-model="row.sort" :min="0" size="small" controls-position="right" style="width: 80px;" />
-              </template>
-            </el-table-column>
-            <el-table-column label="字段名称" min-width="120">
-              <template #default="{ row }">
-                <el-input v-model="row.label" size="small" placeholder="字段名称" />
-              </template>
-            </el-table-column>
-            <el-table-column label="字段类型" width="120">
-              <template #default="{ row }">
-                <el-select v-model="row.type" size="small" style="width: 100%;">
-                  <el-option label="文本" value="文本" />
-                  <el-option label="数字" value="数字" />
-                  <el-option label="多行文本" value="多行文本" />
-                  <el-option label="选择" value="选择" />
-                  <el-option label="图片" value="图片" />
-                  <el-option label="定位" value="定位" />
-                </el-select>
-              </template>
-            </el-table-column>
-            <el-table-column label="必填" width="60">
-              <template #default="{ row }">
-                <el-checkbox v-model="row.required" :true-value="1" :false-value="0" />
-              </template>
-            </el-table-column>
-            <el-table-column label="选项(逗号分隔)" min-width="150">
-              <template #default="{ row }">
-                <el-input v-model="row.options" size="small" placeholder="选择类型时填写" v-if="row.type === '选择'" />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="80">
-              <template #default="{ $index }">
-                <el-button type="danger" size="small" link @click="delField($index)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-button type="primary" @click="saveFormFields" :loading="savingForm">保存表单配置</el-button>
-        </el-tab-pane>
-
         <el-tab-pane label="首页配置" name="HOME_PAGE_CONFIG">
           <el-form label-width="120px" style="max-width: 400px;">
             <el-form-item label="推荐条数">
@@ -127,8 +83,6 @@ export default {
     const activeTab = ref('SETUP_CONTENT_AGREEMENT')
     const savingKey = ref('')
     const contents = reactive({})
-    const formFields = ref([])
-    const savingForm = ref(false)
     const homeConfig = reactive({ vouch_limit: 10, new_limit: 10, hot_limit: 10 })
     const savingHome = ref(false)
     const staticDomain = ref('')
@@ -282,35 +236,6 @@ export default {
       }
     }
 
-    const loadFormFields = async () => {
-      try {
-        const res = await request.get('/api/v2/user-form-fields')
-        formFields.value = res.data || []
-      } catch (e) {
-        formFields.value = []
-      }
-    }
-
-    const addField = () => {
-      formFields.value.push({ label: '', type: '文本', required: 0, options: '', sort: formFields.value.length })
-    }
-
-    const delField = (index) => {
-      formFields.value.splice(index, 1)
-    }
-
-    const saveFormFields = async () => {
-      savingForm.value = true
-      try {
-        await request.put('/api/v2/admin/settings/content', { key: 'SETUP_USER_FORM_FIELDS', value: JSON.stringify(formFields.value) })
-        ElMessage.success('保存成功')
-      } catch (e) {
-        console.error(e)
-      } finally {
-        savingForm.value = false
-      }
-    }
-
     const loadHomeConfig = async () => {
       try {
         const res = await request.get('/api/v2/home/setup', { params: { key: 'HOME_PAGE_CONFIG' } })
@@ -415,7 +340,6 @@ export default {
 
     onMounted(() => {
       textTabs.forEach(tab => loadContent(tab.key))
-      loadFormFields()
       loadHomeConfig()
       loadStaticDomain()
       loadTokenConfig()
@@ -423,7 +347,7 @@ export default {
       loadCustomPresets()
     })
 
-    return { activeTab, textTabs, contents, savingKey, formFields, savingForm, homeConfig, savingHome, saveContent, addField, delField, saveFormFields, loadHomeConfig, saveHomeConfig, staticDomain, savingDomain, loadStaticDomain, saveStaticDomain, tokenConfig, savingToken, saveTokenConfig, builtinPresets, savingBuiltin, delBuiltinPreset, saveBuiltinPresets, customPresets, presetTab, savingCustom, delCustomPreset, saveCustomPresets, presetDialogVisible, presetDialogTitle, presetForm, openAdd, openEdit, confirmPresetDialog }
+    return { activeTab, textTabs, contents, savingKey, homeConfig, savingHome, saveContent, loadHomeConfig, saveHomeConfig, staticDomain, savingDomain, loadStaticDomain, saveStaticDomain, tokenConfig, savingToken, saveTokenConfig, builtinPresets, savingBuiltin, delBuiltinPreset, saveBuiltinPresets, customPresets, presetTab, savingCustom, delCustomPreset, saveCustomPresets, presetDialogVisible, presetDialogTitle, presetForm, openAdd, openEdit, confirmPresetDialog }
   }
 }
 </script>

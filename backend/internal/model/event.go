@@ -9,9 +9,11 @@ type Event struct {
 	Img            string    `json:"img" gorm:"-"`
 	Type           int       `json:"type" gorm:"default:1;column:event_type;comment:类型:1活动 2赛事"`
 	Status         int       `json:"status" gorm:"default:1;column:event_status;comment:状态:1正常 0停用"`
-	DeptID         uint      `json:"deptId" gorm:"default:0;column:event_dept_id;comment:所属部门ID"`
+	DeptID         uint      `json:"deptId" gorm:"default:0;column:create_dept_id;comment:创建人部门ID"`
 	PublishDeptIds string    `json:"publishDeptIds" gorm:"size:500;column:event_publish_dept_ids;comment:发布部门ID列表,逗号分隔"`
-	CreateBy       uint      `json:"createBy" gorm:"default:0;column:event_create_by;comment:创建管理员ID"`
+	CreateBy       uint      `json:"createBy" gorm:"default:0;column:create_by;comment:创建人ID"`
+	UpdateBy       uint      `json:"updateBy" gorm:"default:0;column:update_by;comment:更新人ID"`
+	UpdateDeptID   uint      `json:"updateDeptId" gorm:"default:0;column:update_dept_id;comment:更新人部门ID"`
 	CateID         string    `json:"cateId" gorm:"size:50;column:event_cate_id;comment:分类ID"`
 	CateName       string    `json:"cateName" gorm:"size:50;column:event_cate_name;comment:分类名称"`
 	RegStart       int64     `json:"regStart" gorm:"column:event_reg_start;comment:报名开始时间"`
@@ -27,8 +29,8 @@ type Event struct {
 	ViewCnt        int       `json:"viewCnt" gorm:"default:0;column:event_view_cnt;comment:浏览次数"`
 	JoinCnt        int       `json:"joinCount" gorm:"default:0;column:event_join_cnt;comment:参与人次"`
 	UserCnt        int       `json:"userCnt" gorm:"default:0;column:event_user_cnt;comment:参与人数"`
-	AddTime        int64     `json:"_createTime" gorm:"column:event_add_time;comment:创建时间"`
-	EditTime       int64     `json:"editTime" gorm:"column:event_edit_time;comment:修改时间"`
+	AddTime        int64     `json:"_createTime" gorm:"column:add_time;comment:创建时间"`
+	EditTime       int64     `json:"editTime" gorm:"column:edit_time;comment:修改时间"`
 	AddIP          string    `json:"EVENT_ADD_IP" gorm:"size:50;column:event_add_ip;comment:创建IP"`
 	EditIP         string    `json:"EVENT_EDIT_IP" gorm:"size:50;column:event_edit_ip;comment:修改IP"`
 	ScoreFields    string    `json:"scoreFields" gorm:"type:text;column:event_score_fields;comment:评分项定义JSON"`

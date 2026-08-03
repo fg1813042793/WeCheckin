@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/pkg/logger"
 )
 
 const maxAccessLogBodyBytes = 4 * 1024

@@ -5,16 +5,15 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	admincontentservice "wecheckin-backend/backend/internal/app/service/admincontent"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	admincontentservice "wecheckin/backend/internal/app/service/admincontent"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-打卡管理
 // @Summary 获取打卡数据导出链接
 // @Param enrollId query string true "项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_join_data_get [get]
 func (h *AdminEnrollHandler) EnrollJoinDataGet(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -35,7 +34,6 @@ func (h *AdminEnrollHandler) EnrollJoinDataGet(ctx context.Context, c *app.Reque
 // @Summary 导出打卡数据
 // @Param enrollId query string true "项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_join_data_export [get]
 func (h *AdminEnrollHandler) EnrollJoinDataExport(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -59,7 +57,6 @@ func (h *AdminEnrollHandler) EnrollJoinDataExport(ctx context.Context, c *app.Re
 // @Summary 删除打卡导出数据
 // @Param enrollId formData string true "项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_join_data_del [post]
 func (h *AdminEnrollHandler) EnrollJoinDataDel(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

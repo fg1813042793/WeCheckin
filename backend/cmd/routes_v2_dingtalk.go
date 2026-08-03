@@ -3,19 +3,25 @@ package main
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 
-	dingtalkh5 "wecheckin-backend/backend/internal/app/handler/client/dingtalkh5"
+	dingtalkh5 "wecheckin/backend/internal/app/handler/client/dingtalkh5"
 )
 
 func registerV2DingTalkH5Routes(h *server.Hertz) {
 	handler := dingtalkh5.NewHandler()
 	group := h.Group("/api/v2/dingtalk/h5")
+	group.GET("/public-config", handler.PublicConfig)
 	group.POST("/login", handler.Login)
+	group.POST("/sso-login", handler.SSOLogin)
+	group.POST("/bind-self", handler.BindSelf)
+
+	authed := group.Group("", handler.Auth())
+	authed.POST("/logout", handler.Logout)
+	authed.PATCH("/account/profile", handler.UpdateProfile)
+	authed.PATCH("/account/password", handler.ChangePassword)
 
 	auth := group.Group("", handler.Auth(), handler.ApiPerm())
-	auth.POST("/logout", handler.Logout)
 	auth.GET("/bootstrap", handler.Bootstrap)
 	auth.GET("/workbench", handler.Workbench)
-	auth.PATCH("/account/password", handler.ChangePassword)
 	auth.GET("/reviews", handler.ListReviews)
 	auth.POST("/reviews", handler.CreateReview)
 	auth.GET("/reviews/export", handler.ExportReviews)
@@ -37,4 +43,5 @@ func registerV2DingTalkH5Routes(h *server.Hertz) {
 	auth.PUT("/users/:id", withBodyOrFormParam("id", "id", handler.UpdateUser))
 	auth.DELETE("/users/:id", handler.DeleteUser)
 	auth.GET("/template", handler.Template)
+	auth.PUT("/template", handler.SaveTemplate)
 }

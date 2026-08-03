@@ -1,11 +1,12 @@
 package dingtalkh5
 
 import (
+	"context"
 	"strings"
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 const (
@@ -21,12 +22,26 @@ type reviewWhereClause struct {
 	args []interface{}
 }
 
-func applyReviewVisibilityScope(query *gorm.DB, user *model.DingTalkH5PerfUser, scope string) *gorm.DB {
+func applyReviewVisibilityScopeContext(ctx context.Context, db *gorm.DB, query *gorm.DB, user *model.DingTalkH5PerfUser, scope string) (*gorm.DB, error) {
+	normalizedScope := normalizeReviewScope(scope)
 	where, args := reviewVisibilityWhere(user, scope)
-	if where == "" {
-		return query
+	if normalizedScope == reviewScopeMine || normalizedScope == reviewScopeDashboard {
+		if where == "" {
+			return query, nil
+		}
+		return query.Where(where, args...), nil
 	}
-	return query.Where(where, args...)
+	dataScope, err := reviewDataScopeWhereContext(ctx, db, user)
+	if err != nil {
+		return nil, err
+	}
+	if dataScope.sql != "" {
+		query = query.Where(dataScope.sql, dataScope.args...)
+	}
+	if where == "" {
+		return query, nil
+	}
+	return query.Where(where, args...), nil
 }
 
 func reviewVisibilityWhere(user *model.DingTalkH5PerfUser, scope string) (string, []interface{}) {
@@ -42,7 +57,7 @@ func reviewVisibilityWhere(user *model.DingTalkH5PerfUser, scope string) (string
 	case reviewScopeHRBP:
 		return hrbpReviewVisibilityWhere(user, account)
 	case reviewScopeSummary:
-		return summaryReviewVisibilityWhere(user, account)
+		return "", nil
 	default:
 		return personalReviewVisibilityWhere(account)
 	}
@@ -63,27 +78,9 @@ func personalReviewVisibilityWhere(account string) (string, []interface{}) {
 }
 
 func hrbpReviewVisibilityWhere(user *model.DingTalkH5PerfUser, account string) (string, []interface{}) {
-	if user.Role == "admin" || user.Role == "hrbp_manager" {
-		return "", nil
-	}
 	return orReviewWhere([]reviewWhereClause{
 		{sql: "(hrbp_account = ? OR hrbp_reviewer_account = ?)", args: []interface{}{account, account}},
 		reviewResponsibleDepartmentScopeWhere(*user),
-	})
-}
-
-func summaryReviewVisibilityWhere(user *model.DingTalkH5PerfUser, account string) (string, []interface{}) {
-	if user.Role == "admin" || user.Role == "hrbp_manager" {
-		return "", nil
-	}
-	departmentScope := reviewDepartmentScopeWhere(*user)
-	if user.Role == "hrbp" {
-		departmentScope = reviewResponsibleDepartmentScopeWhere(*user)
-	}
-	personalWhere, personalArgs := personalReviewVisibilityWhere(account)
-	return orReviewWhere([]reviewWhereClause{
-		{sql: personalWhere, args: personalArgs},
-		departmentScope,
 	})
 }
 

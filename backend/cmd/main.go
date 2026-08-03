@@ -69,7 +69,7 @@
 //	@name						Authorization
 //	@description				用户 Token，格式: "Bearer {token}"
 
-//go:generate sh -c "cd .. && swag init -g cmd/main.go --output docs/swagger"
+//go:generate sh -c "cd .. && swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger"
 package main
 
 import (
@@ -79,12 +79,12 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/cors"
-	_ "wecheckin-backend/backend/docs/swagger"
-	"wecheckin-backend/backend/internal/config"
-	"wecheckin-backend/backend/internal/middleware"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
-	rd "wecheckin-backend/backend/pkg/redis"
+	_ "wecheckin/backend/docs/swagger"
+	"wecheckin/backend/internal/config"
+	"wecheckin/backend/internal/middleware"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
+	rd "wecheckin/backend/pkg/redis"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"wecheckin-backend/backend/internal/app/formkit/report"
+	"wecheckin/backend/internal/app/formkit/report"
 )
 
 func TestParseRulesKeepsOnlyPostStatRules(t *testing.T) {

@@ -9,8 +9,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('enroll:add')" type="success" @click="showAdd">+ 新增打卡</el-button>
-          <el-button v-if="hasPerm('enroll:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:enroll:add')" type="success" @click="showAdd">+ 新增打卡</el-button>
+          <el-button v-if="hasPerm('admin:menu:enroll:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
@@ -35,18 +35,18 @@
         <el-table-column label="操作" width="400" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('enroll:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <el-button v-if="hasPerm('enroll:list')" size="small" @click="showJoins(row)">打卡记录</el-button>
-              <el-button v-if="hasPerm('enroll:list')" size="small" @click="showUsers(row)">参与用户</el-button>
-              <el-button v-if="hasPerm('enroll:list')" size="small" @click="showStats(row)">统计</el-button>
-              <el-dropdown v-if="hasPerm('enroll:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+              <el-button v-if="hasPerm('admin:menu:enroll:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
+              <el-button v-if="hasPerm('admin:menu:enroll:list')" size="small" @click="showJoins(row)">打卡记录</el-button>
+              <el-button v-if="hasPerm('admin:menu:enroll:list')" size="small" @click="showUsers(row)">参与用户</el-button>
+              <el-button v-if="hasPerm('admin:menu:enroll:list')" size="small" @click="showStats(row)">统计</el-button>
+              <el-dropdown v-if="hasPerm('admin:menu:enroll:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                   <el-dropdown-item command="enable" :disabled="row.status===1">启用</el-dropdown-item>
                   <el-dropdown-item command="disable" :disabled="row.status===0">停用</el-dropdown-item>
                     <el-dropdown-item :command="row.vouch ? 'unvouch' : 'vouch'">{{ row.vouch ? '取消推荐' : '推荐首页' }}</el-dropdown-item>
-                    <el-dropdown-item v-if="hasPerm('enroll:del')" command="del" divided>删除</el-dropdown-item>
+                    <el-dropdown-item v-if="hasPerm('admin:menu:enroll:del')" command="del" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>

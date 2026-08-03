@@ -3,7 +3,7 @@ package exam
 import (
 	"testing"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 func TestNormalizeExamForCreateAppliesDefaults(t *testing.T) {

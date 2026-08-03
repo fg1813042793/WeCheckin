@@ -2,16 +2,18 @@ package role
 
 import (
 	"context"
+	"strings"
 
 	"gorm.io/gorm"
 
-	menuservice "wecheckin-backend/backend/internal/app/service/menu"
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/app/support/appapiperm"
-	"wecheckin-backend/backend/internal/app/support/appmenuperm"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	menuservice "wecheckin/backend/internal/app/service/menu"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	"wecheckin/backend/internal/app/support/appapiperm"
+	"wecheckin/backend/internal/app/support/appmenuperm"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type ListItem struct {
@@ -64,32 +66,25 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 	db.First(&admin, adminID)
 
 	var conditions []func(*gorm.DB) *gorm.DB
-	if admin.Type != 1 && admin.RoleID > 0 {
-		var role model.Role
-		if err := db.First(&role, admin.RoleID).Error; err == nil {
-			if role.DataScope == 2 || role.DataScope == 4 {
-				var deptIDs []uint
-				if role.DataScope == 2 {
-					deptIDs = access.AdminDeptIDsContext(ctx, admin.ID)
-				} else {
-					deptIDs, _ = permissionsupport.RoleCustomDeptIDsContext(ctx, db, admin.RoleID)
-				}
-				if len(deptIDs) > 0 {
-					roleIDs, _ := permissionsupport.RoleIDsByCustomDeptIDsContext(ctx, db, deptIDs)
-					rid := admin.RoleID
-					conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
-						if len(roleIDs) == 0 {
-							return d.Where("`id` = ?", rid)
-						}
-						return d.Where("`id` IN ? OR `id` = ?", roleIDs, rid)
-					})
-				}
-			} else if role.DataScope == 3 {
-				rid := admin.RoleID
-				conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
+	if !adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) {
+		scope, err := permissionsupport.DataScopeContext(ctx, db, admin.ID, admin.RoleID)
+		if err == nil && scope.Ready && scope.Mode == 1 {
+			// 全部数据权限可查看全部角色。
+		} else if err == nil && scope.Ready && (scope.Mode == 2 || scope.Mode == 4) {
+			deptIDs := access.VisibleDeptIDsWithDBContext(ctx, db, &admin)
+			roleIDs, _ := permissionsupport.RoleIDsByCustomDeptIDsContext(ctx, db, deptIDs)
+			rid := admin.RoleID
+			conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
+				if len(roleIDs) == 0 {
 					return d.Where("`id` = ?", rid)
-				})
-			}
+				}
+				return d.Where("`id` IN ? OR `id` = ?", roleIDs, rid)
+			})
+		} else {
+			rid := admin.RoleID
+			conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
+				return d.Where("`id` = ?", rid)
+			})
 		}
 	}
 	if keyword != "" {
@@ -228,51 +223,89 @@ func loadRoleApplicationAPIKeyMapContext(ctx context.Context, db *gorm.DB, list 
 }
 
 func ApplicationPermissionTree() ApplicationPermissionTreeResponse {
+	return applicationPermissionTreeWithLabels(nil, nil, nil, nil)
+}
+
+func ApplicationPermissionTreeContext(ctx context.Context) ApplicationPermissionTreeResponse {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	if db == nil {
+		return ApplicationPermissionTree()
+	}
+	clientMenuLabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformClient, permissionsupport.TypeMenu)
+	dingtalkH5MenuLabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton)
+	clientAPILabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformClient, permissionsupport.TypeAPI, permissionsupport.TypeAPICategory)
+	dingtalkH5APILabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeAPI, permissionsupport.TypeAPICategory)
+	return applicationPermissionTreeWithLabels(clientMenuLabels, dingtalkH5MenuLabels, clientAPILabels, dingtalkH5APILabels)
+}
+
+func applicationPermissionTreeWithLabels(clientMenuLabels, dingtalkH5MenuLabels, clientAPILabels, dingtalkH5APILabels map[string]string) ApplicationPermissionTreeResponse {
 	return ApplicationPermissionTreeResponse{
-		Client:        applicationPermissionNodes(appmenuperm.ClientMenuDeclarations()),
-		DingTalkH5:    applicationPermissionNodes(appmenuperm.DingTalkH5MenuDeclarations()),
-		ClientAPI:     applicationAPIPermissionNodes(appapiperm.ClientAPICategories(), appapiperm.ClientAPIDeclarations()),
-		DingTalkH5API: applicationAPIPermissionNodes(appapiperm.DingTalkH5APICategories(), appapiperm.DingTalkH5APIDeclarations()),
+		Client:        applicationPermissionNodesWithLabels(appmenuperm.ClientMenuDeclarations(), clientMenuLabels),
+		DingTalkH5:    applicationPermissionNodesWithLabels(appmenuperm.DingTalkH5PermissionDeclarations(), dingtalkH5MenuLabels),
+		ClientAPI:     applicationAPIPermissionNodesWithLabels(appapiperm.ClientAPICategories(), appapiperm.ClientAPIDeclarations(), clientAPILabels),
+		DingTalkH5API: applicationAPIPermissionNodesWithLabels(appapiperm.DingTalkH5APICategories(), appapiperm.DingTalkH5APIDeclarations(), dingtalkH5APILabels),
 	}
 }
 
 func applicationPermissionNodes(declarations []appmenuperm.Declaration) []ApplicationPermissionNode {
-	nodeByKey := make(map[string]*ApplicationPermissionNode, len(declarations))
-	roots := make([]*ApplicationPermissionNode, 0, len(declarations))
+	return applicationPermissionNodesWithLabels(declarations, nil)
+}
+
+func applicationPermissionNodesWithLabels(declarations []appmenuperm.Declaration, labels map[string]string) []ApplicationPermissionNode {
+	declarationByKey := make(map[string]appmenuperm.Declaration, len(declarations))
 	for _, declaration := range declarations {
-		nodeByKey[declaration.Key] = &ApplicationPermissionNode{
-			Key:       declaration.Key,
-			Name:      declaration.Name,
-			ParentKey: declaration.ParentKey,
-		}
+		declarationByKey[declaration.Key] = declaration
 	}
+	childrenByParent := make(map[string][]appmenuperm.Declaration, len(declarations))
+	roots := make([]appmenuperm.Declaration, 0, len(declarations))
 	for _, declaration := range declarations {
-		node := nodeByKey[declaration.Key]
 		if declaration.ParentKey == "" {
-			roots = append(roots, node)
+			roots = append(roots, declaration)
 			continue
 		}
-		parent, ok := nodeByKey[declaration.ParentKey]
-		if !ok {
-			roots = append(roots, node)
+		if _, ok := declarationByKey[declaration.ParentKey]; !ok {
+			roots = append(roots, declaration)
 			continue
 		}
-		parent.Children = append(parent.Children, *node)
+		childrenByParent[declaration.ParentKey] = append(childrenByParent[declaration.ParentKey], declaration)
 	}
 	result := make([]ApplicationPermissionNode, 0, len(roots))
 	for _, root := range roots {
-		result = append(result, *root)
+		result = append(result, applicationPermissionNodeFromDeclaration(root, childrenByParent, labels))
 	}
 	return result
 }
 
+func applicationPermissionNodeFromDeclaration(declaration appmenuperm.Declaration, childrenByParent map[string][]appmenuperm.Declaration, labels map[string]string) ApplicationPermissionNode {
+	node := ApplicationPermissionNode{
+		Key:       declaration.Key,
+		Name:      applicationPermissionLabel(declaration.Key, declaration.Name, labels),
+		ParentKey: declaration.ParentKey,
+	}
+	if children := childrenByParent[declaration.Key]; len(children) > 0 {
+		node.Children = make([]ApplicationPermissionNode, 0, len(children))
+		for _, child := range children {
+			node.Children = append(node.Children, applicationPermissionNodeFromDeclaration(child, childrenByParent, labels))
+		}
+	}
+	return node
+}
+
 func applicationAPIPermissionNodes(categories []appapiperm.Category, declarations []appapiperm.Declaration) []ApplicationPermissionNode {
+	return applicationAPIPermissionNodesWithLabels(categories, declarations, nil)
+}
+
+func applicationAPIPermissionNodesWithLabels(categories []appapiperm.Category, declarations []appapiperm.Declaration, labels map[string]string) []ApplicationPermissionNode {
 	nodeByKey := make(map[string]*ApplicationPermissionNode, len(categories)+len(declarations))
 	roots := make([]*ApplicationPermissionNode, 0, len(categories))
 	for _, category := range categories {
 		node := &ApplicationPermissionNode{
 			Key:  category.Key,
-			Name: category.Name,
+			Name: applicationPermissionLabel(category.Key, category.Name, labels),
 		}
 		nodeByKey[category.Key] = node
 		roots = append(roots, node)
@@ -280,7 +313,7 @@ func applicationAPIPermissionNodes(categories []appapiperm.Category, declaration
 	for _, declaration := range declarations {
 		node := ApplicationPermissionNode{
 			Key:       declaration.Key,
-			Name:      declaration.Name,
+			Name:      applicationPermissionLabel(declaration.Key, declaration.Name, labels),
 			ParentKey: declaration.CategoryKey,
 		}
 		if parent, ok := nodeByKey[declaration.CategoryKey]; ok {
@@ -296,6 +329,41 @@ func applicationAPIPermissionNodes(categories []appapiperm.Category, declaration
 		result = append(result, *root)
 	}
 	return result
+}
+
+func applicationPermissionLabelsContext(ctx context.Context, db *gorm.DB, platform string, types ...string) map[string]string {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil
+	}
+	if db == nil || strings.TrimSpace(platform) == "" || len(types) == 0 {
+		return nil
+	}
+	var rows []model.Permission
+	if err := db.WithContext(ctx).
+		Select("`permission_key`, `permission_name`").
+		Where("`permission_platform` = ? AND `permission_type` IN ? AND `permission_status` = 1", platform, types).
+		Find(&rows).Error; err != nil {
+		return nil
+	}
+	labels := make(map[string]string, len(rows))
+	for _, row := range rows {
+		key := strings.TrimSpace(row.Key)
+		name := strings.TrimSpace(row.Name)
+		if key != "" && name != "" {
+			labels[key] = name
+		}
+	}
+	return labels
+}
+
+func applicationPermissionLabel(key, fallback string, labels map[string]string) string {
+	if label := strings.TrimSpace(labels[key]); label != "" {
+		return label
+	}
+	return fallback
 }
 
 func Add(name, remark, addIP string, sort, dataScope int) (uint, error) {
@@ -372,7 +440,11 @@ func EditContext(ctx context.Context, id uint, name, remark, addIP string, sort,
 		"role_edit_time":  database.Now(),
 		"role_edit_ip":    addIP,
 	}
-	return db.Model(&model.Role{}).Where("`id` = ?", id).Updates(updates).Error
+	err := db.Model(&model.Role{}).Where("`id` = ?", id).Updates(updates).Error
+	if err == nil {
+		adminaccess.InvalidateAdminAccessCacheForRole(id)
+	}
+	return err
 }
 
 func EditWithAssignmentsContext(ctx context.Context, id uint, name, remark, addIP string, sort, status, dataScope, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, deptIDs []uint, clientMenuKeys, dingtalkH5MenuKeys []string, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys []string) error {
@@ -412,6 +484,8 @@ func EditWithAssignmentsContext(ctx context.Context, id uint, name, remark, addI
 	})
 	if err == nil {
 		menuservice.InvalidateAdminPermCacheForRole(id)
+		adminaccess.InvalidateAdminAccessCacheForRole(id)
+		permissionsupport.InvalidateRuntimePermissionCaches()
 	}
 	return err
 }
@@ -439,6 +513,8 @@ func DeleteContext(ctx context.Context, id uint) error {
 	})
 	if err == nil {
 		menuservice.InvalidateAdminPermCacheForRole(id)
+		adminaccess.InvalidateAdminAccessCacheForRole(id)
+		permissionsupport.InvalidateRuntimePermissionCaches()
 	}
 	return err
 }

@@ -6,7 +6,7 @@
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div>
-        <el-button v-if="hasPerm('log:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+        <el-button v-if="hasPerm('admin:menu:log:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
       </div>
       <div>
         <el-button circle icon="Refresh" title="刷新" @click="load" />
@@ -98,7 +98,9 @@ async function delSelected() {
   if (selected.value.length === 0) return
   try {
     await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 条日志？`, '提示')
-    for (const row of selected.value) {}
+    const ids = selected.value.map(row => row.id).filter(Boolean).join(',')
+    if (!ids) return
+    await adminApi.logDels({ ids })
     ElMessage.success('已删除')
     selected.value = []
     load()

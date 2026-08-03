@@ -7,14 +7,15 @@ import (
 	"strconv"
 
 	"gorm.io/gorm"
-	"wecheckin-backend/backend/internal/app/support/adminaccess"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
-	"wecheckin-backend/backend/pkg/randutil"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	"wecheckin/backend/internal/app/support/media"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
+	"wecheckin/backend/pkg/randutil"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 func genRandomString(length int) string {
@@ -28,27 +29,33 @@ func InsertLog(logType int, content, adminID, adminName, adminDesc, addIP string
 func InsertLogContext(ctx context.Context, logType int, content, adminID, adminName, adminDesc, addIP string) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	adminIDUint, _ := strconv.ParseUint(adminID, 10, 64)
+	now := database.Now()
 	db.Create(&model.Log{
 		Type:      logType,
 		Content:   content,
-		AdminID:   adminID,
+		AdminID:   uint(adminIDUint),
+		UpdateBy:  uint(adminIDUint),
 		AdminName: adminName,
 		AdminDesc: adminDesc,
-		AddTime:   database.Now(),
+		AddTime:   now,
+		EditTime:  now,
 		AddIP:     addIP,
 	})
 }
 
 type LoginResponse struct {
-	Token     string `json:"token"`
-	Name      string `json:"name"`
-	Pic       string `json:"pic"`
-	ID        uint   `json:"id"`
-	Type      int    `json:"type"`
-	RoleID    uint   `json:"roleId"`
-	RoleName  string `json:"roleName"`
-	DataScope int    `json:"dataScope"`
-	LoginCnt  int    `json:"loginCnt"`
+	Token     string   `json:"token"`
+	Name      string   `json:"name"`
+	Pic       string   `json:"pic"`
+	ID        uint     `json:"id"`
+	Type      int      `json:"type"`
+	RoleID    uint     `json:"roleId"`
+	RoleName  string   `json:"roleName"`
+	RoleIDs   []uint   `json:"roleIds"`
+	RoleNames []string `json:"roleNames"`
+	DataScope int      `json:"dataScope"`
+	LoginCnt  int      `json:"loginCnt"`
 }
 
 func Login(name, password, addIP, device string) (*LoginResponse, error) {
@@ -78,10 +85,12 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	if admin.Status != 1 {
 		return nil, fmt.Errorf("账号已禁用")
 	}
-	role, err := adminLoginRole(ctx, db, &admin)
+	role, roleIDs, roleNames, err := adminLoginAccess(ctx, db, &admin)
 	if err != nil {
 		return nil, err
 	}
+	admin.RoleIDs = roleIDs
+	admin.RoleNames = roleNames
 	token := genRandomString(32)
 	admin.LoginCnt++
 	admin.LoginTime = database.Now()
@@ -89,7 +98,7 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 		"user_login_cnt":  admin.LoginCnt,
 		"user_login_time": admin.LoginTime,
 	})
-	storeAdminTokenContext(ctx, &admin, token, addIP, device, role.Name)
+	storeAdminTokenContext(ctx, &admin, token, addIP, device, role.Name, roleIDs, roleNames)
 	InsertLogContext(ctx, 1, "管理员登录", strconv.Itoa(int(admin.ID)), admin.Name, admin.Desc, addIP)
 	return &LoginResponse{
 		Token:     token,
@@ -99,6 +108,8 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 		Type:      admin.Type,
 		RoleID:    admin.RoleID,
 		RoleName:  role.Name,
+		RoleIDs:   roleIDs,
+		RoleNames: roleNames,
 		DataScope: role.DataScope,
 		LoginCnt:  admin.LoginCnt,
 	}, nil
@@ -108,11 +119,48 @@ func adminLoginRole(ctx context.Context, db *gorm.DB, admin *model.Admin) (model
 	return adminaccess.UserAllowsAdminAccessContext(ctx, db, admin.ID, admin.RoleID)
 }
 
-func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) {
-	storeAdminTokenContext(context.Background(), admin, token, addIP, device, roleName)
+func adminLoginAccess(ctx context.Context, db *gorm.DB, admin *model.Admin) (model.Role, []uint, []string, error) {
+	roleIDs, err := permissionsupport.ActiveRoleIDsForUserContext(ctx, db, admin.ID, admin.RoleID)
+	if err != nil {
+		return model.Role{}, nil, nil, err
+	}
+	role, err := adminaccess.UserAllowsAdminAccessWithRoleIDsContext(ctx, db, admin.ID, roleIDs)
+	if err != nil {
+		return model.Role{}, nil, nil, err
+	}
+	roleNames, err := roleNamesByIDsContext(ctx, db, roleIDs)
+	if err != nil {
+		return model.Role{}, nil, nil, err
+	}
+	return role, roleIDs, roleNames, nil
 }
 
-func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addIP, device, roleName string) {
+func roleNamesByIDsContext(ctx context.Context, db *gorm.DB, roleIDs []uint) ([]string, error) {
+	if len(roleIDs) == 0 {
+		return nil, nil
+	}
+	var rows []model.Role
+	if err := db.WithContext(ctx).Select("id", "role_name").Where("`id` IN ?", roleIDs).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	namesByID := make(map[uint]string, len(rows))
+	for _, row := range rows {
+		namesByID[row.ID] = row.Name
+	}
+	names := make([]string, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		if name := namesByID[roleID]; name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, nil
+}
+
+func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) {
+	storeAdminTokenContext(context.Background(), admin, token, addIP, device, roleName, []uint{admin.RoleID}, admin.RoleNames)
+}
+
+func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addIP, device, roleName string, roleIDs []uint, roleNames []string) {
 	expire, prefix := tokenutil.GetTokenConfig("admin")
 	now := database.Now()
 	db, cancel := database.WithContext(ctx)
@@ -147,6 +195,8 @@ func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addI
 		"type":      admin.Type,
 		"roleId":    admin.RoleID,
 		"roleName":  roleName,
+		"roleIds":   roleIDs,
+		"roleNames": roleNames,
 		"desc":      admin.Desc,
 		"loginIp":   addIP,
 		"loginTime": now,

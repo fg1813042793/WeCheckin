@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"wecheckin-backend/backend/internal/app/formkit/report"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/internal/app/formkit/report"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 )
 
 // Process handles postStat rules after a survey response is submitted.

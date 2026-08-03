@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
-	"wecheckin-backend/backend/pkg/response"
+	examservice "wecheckin/backend/internal/app/service/exam"
+	"wecheckin/backend/pkg/response"
 )
 
 // Start GET /exam/start?examId=

@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"wecheckin-backend/backend/internal/app/formkit/calc"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
-	poststatservice "wecheckin-backend/backend/internal/app/service/poststat"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/internal/app/formkit/calc"
+	"wecheckin/backend/internal/app/formkit/schema"
+	poststatservice "wecheckin/backend/internal/app/service/poststat"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 )
 
 // Submit 提交答卷（核心）

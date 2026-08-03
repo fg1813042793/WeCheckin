@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func GetEnrollUserRank(enrollID string) ([]model.EnrollUser, error) {

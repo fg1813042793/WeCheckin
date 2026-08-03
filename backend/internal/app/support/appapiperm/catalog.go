@@ -39,6 +39,7 @@ func ClientAPICategories() []Category {
 
 func ClientAPIDeclarations() []Declaration {
 	return []Declaration{
+		clientAPI("client:api:bootstrap:view", "应用启动接口", "bootstrap:view", "client:api-category:user", "GET", "/api/v2/me/bootstrap", 5),
 		clientAPI("client:api:user:view", "用户资料查看接口", "user:view", "client:api-category:user", "GET", "/api/v2/me", 10),
 		clientAPI("client:api:user:edit", "用户资料编辑接口", "user:edit", "client:api-category:user", "PUT", "/api/v2/me", 20),
 		clientAPI("client:api:user:phone", "手机号授权接口", "user:phone", "client:api-category:user", "POST", "/api/v2/me/phone", 30),
@@ -63,6 +64,7 @@ func ClientAPIDeclarations() []Declaration {
 
 func ClientRouteDeclarations() []RouteDeclaration {
 	return []RouteDeclaration{
+		{Method: "GET", Path: "/api/v2/me/bootstrap", PermissionKey: "client:api:bootstrap:view"},
 		{Method: "GET", Path: "/api/v2/me", PermissionKey: "client:api:user:view"},
 		{Method: "PUT", Path: "/api/v2/me", PermissionKey: "client:api:user:edit"},
 		{Method: "POST", Path: "/api/v2/me/phone", PermissionKey: "client:api:user:phone"},
@@ -99,6 +101,42 @@ func ClientRouteDeclarations() []RouteDeclaration {
 		{Method: "POST", Path: "/api/v2/exams/:id/start", PermissionKey: "client:api:exam:start"},
 		{Method: "GET", Path: "/api/v2/exam-records/:id", PermissionKey: "client:api:exam:view"},
 		{Method: "PUT", Path: "/api/v2/exam-records/:id/answers", PermissionKey: "client:api:exam:answer"},
+		{Method: "GET", Path: "/passport/my_detail", PermissionKey: "client:api:user:view"},
+		{Method: "POST", Path: "/passport/edit_base", PermissionKey: "client:api:user:edit"},
+		{Method: "POST", Path: "/passport/phone", PermissionKey: "client:api:user:phone"},
+		{Method: "POST", Path: "/passport/logout", PermissionKey: "client:api:user:logout"},
+		{Method: "GET", Path: "/fav/my_list", PermissionKey: "client:api:favorite:view"},
+		{Method: "GET", Path: "/fav/is_fav", PermissionKey: "client:api:favorite:view"},
+		{Method: "POST", Path: "/fav/update", PermissionKey: "client:api:favorite:edit"},
+		{Method: "POST", Path: "/fav/del", PermissionKey: "client:api:favorite:edit"},
+		{Method: "GET", Path: "/news/list", PermissionKey: "client:api:news:view"},
+		{Method: "GET", Path: "/news/view", PermissionKey: "client:api:news:view"},
+		{Method: "GET", Path: "/news/cate_list", PermissionKey: "client:api:news:view"},
+		{Method: "GET", Path: "/enroll/list", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/view", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/join_day", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/my_join_list", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/my_user_list", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/my_records", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/my_calendar", PermissionKey: "client:api:enroll:view"},
+		{Method: "GET", Path: "/enroll/my_day_records", PermissionKey: "client:api:enroll:view"},
+		{Method: "POST", Path: "/enroll/join", PermissionKey: "client:api:enroll:join"},
+		{Method: "POST", Path: "/enroll/enroll_submit", PermissionKey: "client:api:enroll:submit"},
+		{Method: "GET", Path: "/event/my_list", PermissionKey: "client:api:event:view"},
+		{Method: "GET", Path: "/event/my_roles", PermissionKey: "client:api:event:view"},
+		{Method: "GET", Path: "/event/my_managed", PermissionKey: "client:api:event:view"},
+		{Method: "GET", Path: "/event/participant_list", PermissionKey: "client:api:event:view"},
+		{Method: "POST", Path: "/event/participate", PermissionKey: "client:api:event:join"},
+		{Method: "GET", Path: "/event/dynamics", PermissionKey: "client:api:event:dynamic"},
+		{Method: "POST", Path: "/event/dynamic_post", PermissionKey: "client:api:event:dynamic"},
+		{Method: "GET", Path: "/event/scores", PermissionKey: "client:api:event:score"},
+		{Method: "POST", Path: "/event/score_save", PermissionKey: "client:api:event:score"},
+		{Method: "GET", Path: "/survey/my_responses", PermissionKey: "client:api:survey:view"},
+		{Method: "GET", Path: "/survey/my_response", PermissionKey: "client:api:survey:response"},
+		{Method: "GET", Path: "/exam/my_records", PermissionKey: "client:api:exam:view"},
+		{Method: "GET", Path: "/exam/record", PermissionKey: "client:api:exam:view"},
+		{Method: "GET", Path: "/exam/start", PermissionKey: "client:api:exam:start"},
+		{Method: "POST", Path: "/exam/save_answer", PermissionKey: "client:api:exam:answer"},
 	}
 }
 
@@ -140,6 +178,7 @@ func DingTalkH5APIDeclarations() []Declaration {
 		dingtalkAPI("dingtalk_h5:api:user:edit", "人员编辑接口", "user:edit", "dingtalk_h5:api-category:user", "PUT", "/api/v2/dingtalk/h5/users/:id", 30),
 		dingtalkAPI("dingtalk_h5:api:user:delete", "人员删除接口", "user:delete", "dingtalk_h5:api-category:user", "DELETE", "/api/v2/dingtalk/h5/users/:id", 40),
 		dingtalkAPI("dingtalk_h5:api:template:view", "绩效模版查看接口", "template:view", "dingtalk_h5:api-category:template", "GET", "/api/v2/dingtalk/h5/template", 10),
+		dingtalkAPI("dingtalk_h5:api:template:save", "绩效模版保存接口", "template:save", "dingtalk_h5:api-category:template", "PUT", "/api/v2/dingtalk/h5/template", 20),
 	}
 }
 

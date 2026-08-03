@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	dictservice "wecheckin-backend/backend/internal/app/service/dict"
-	"wecheckin-backend/backend/pkg/response"
+	dictservice "wecheckin/backend/internal/app/service/dict"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminDictHandler struct{}
@@ -16,7 +16,6 @@ func NewAdminDictHandler() *AdminDictHandler { return &AdminDictHandler{} }
 // @Tags PC端-字典管理
 // @Summary 获取字典类型列表
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/types [get]
 func (h *AdminDictHandler) GetDictTypes(ctx context.Context, c *app.RequestContext) {
 	data, err := dictservice.GetTypesContext(ctx)
 	if err != nil {
@@ -30,7 +29,6 @@ func (h *AdminDictHandler) GetDictTypes(ctx context.Context, c *app.RequestConte
 // @Summary 根据类型获取字典项
 // @Param typeCode query string true "类型编码"
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/items [get]
 func (h *AdminDictHandler) GetDictByType(ctx context.Context, c *app.RequestContext) {
 	typeCode := c.Query("typeCode")
 	data, err := dictservice.GetByTypeContext(ctx, typeCode)
@@ -50,7 +48,6 @@ func (h *AdminDictHandler) GetDictByType(ctx context.Context, c *app.RequestCont
 // @Param remark formData string false "备注"
 // @Param sort formData int false "排序"
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/add [post]
 func (h *AdminDictHandler) AddDictItem(ctx context.Context, c *app.RequestContext) {
 	typeCode := c.PostForm("typeCode")
 	typeName := c.PostForm("typeName")
@@ -78,7 +75,6 @@ func (h *AdminDictHandler) AddDictItem(ctx context.Context, c *app.RequestContex
 // @Param remark formData string false "备注"
 // @Param sort formData int false "排序"
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/edit [post]
 func (h *AdminDictHandler) EditDictItem(ctx context.Context, c *app.RequestContext) {
 	id := c.PostForm("id")
 	label := c.PostForm("label")
@@ -97,7 +93,6 @@ func (h *AdminDictHandler) EditDictItem(ctx context.Context, c *app.RequestConte
 // @Summary 删除字典项
 // @Param id formData string true "字典项ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/del [post]
 func (h *AdminDictHandler) DelDictItem(ctx context.Context, c *app.RequestContext) {
 	id := c.PostForm("id")
 	if err := dictservice.DeleteItemContext(ctx, id); err != nil {
@@ -111,7 +106,6 @@ func (h *AdminDictHandler) DelDictItem(ctx context.Context, c *app.RequestContex
 // @Summary 清空指定类型的字典项
 // @Param typeCode formData string true "类型编码"
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/clear [post]
 func (h *AdminDictHandler) DelDictByType(ctx context.Context, c *app.RequestContext) {
 	typeCode := c.PostForm("typeCode")
 	if err := dictservice.DeleteByTypeContext(ctx, typeCode); err != nil {
@@ -127,7 +121,6 @@ func (h *AdminDictHandler) DelDictByType(ctx context.Context, c *app.RequestCont
 // @Param typeCode formData string true "新类型编码"
 // @Param typeName formData string true "类型名称"
 // @Success 200 {object} response.Resp
-// @Router /admin/dict/edit_type_name [post]
 func (h *AdminDictHandler) EditDictTypeName(ctx context.Context, c *app.RequestContext) {
 	oldTypeCode := c.PostForm("oldTypeCode")
 	typeCode := c.PostForm("typeCode")

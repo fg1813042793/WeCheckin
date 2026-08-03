@@ -3,7 +3,7 @@ package news
 import (
 	"testing"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 func TestPopulateFieldsUsesFirstImageFromJSONList(t *testing.T) {

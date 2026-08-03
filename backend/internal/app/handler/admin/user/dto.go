@@ -1,6 +1,6 @@
 package user
 
-import adminuserservice "wecheckin-backend/backend/internal/app/service/adminuser"
+import adminuserservice "wecheckin/backend/internal/app/service/adminuser"
 
 type userListResponse struct {
 	List  []adminuserservice.UserListItem `json:"list"`

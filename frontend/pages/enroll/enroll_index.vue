@@ -62,6 +62,7 @@
 <script>
 import { enrollApi, favApi } from '../../api/index'
 import { getClientUserId, getClientUserInfo } from '../../utils/auth'
+import { guardClientMenuPage } from '../../utils/clientPermission'
 
 export default {
   data() {
@@ -84,7 +85,8 @@ export default {
     // this.loadData()
   },
 
-  onShow() {
+  async onShow() {
+    if (!(await guardClientMenuPage('client:menu:enroll'))) return
     const tab = uni.getStorageSync('enrollTab')
     if (tab === 'all') {
       this.cur = 'all'

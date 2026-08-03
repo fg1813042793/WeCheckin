@@ -25,14 +25,14 @@ func (Permission) TableName() string { return "permissions" }
 
 type PermissionGrant struct {
 	ID            uint      `json:"id" gorm:"primaryKey;comment:授权ID"`
-	SubjectType   string    `json:"subjectType" gorm:"uniqueIndex:idx_permission_grants_subject_permission,priority:1;index;size:20;column:grant_subject_type;comment:授权主体类型"`
-	SubjectID     uint      `json:"subjectId" gorm:"uniqueIndex:idx_permission_grants_subject_permission,priority:2;index;column:grant_subject_id;comment:授权主体ID"`
-	PermissionKey string    `json:"permissionKey" gorm:"uniqueIndex:idx_permission_grants_subject_permission,priority:3;index;size:160;column:grant_permission_key;comment:权限编码"`
+	SubjectType   string    `json:"subjectType" gorm:"uniqueIndex:idx_permission_grants_subject_permission,priority:1;index;index:idx_permission_grants_subject_effect_status_key,priority:1;index:idx_permission_grants_subject_status_key,priority:1;size:20;column:grant_subject_type;comment:授权主体类型"`
+	SubjectID     uint      `json:"subjectId" gorm:"uniqueIndex:idx_permission_grants_subject_permission,priority:2;index;index:idx_permission_grants_subject_effect_status_key,priority:4;index:idx_permission_grants_subject_status_key,priority:2;column:grant_subject_id;comment:授权主体ID"`
+	PermissionKey string    `json:"permissionKey" gorm:"uniqueIndex:idx_permission_grants_subject_permission,priority:3;index;index:idx_permission_grants_subject_effect_status_key,priority:5;index:idx_permission_grants_subject_status_key,priority:4;size:160;column:grant_permission_key;comment:权限编码"`
 	PermissionID  uint      `json:"permissionId" gorm:"index;column:grant_permission_id;comment:权限ID"`
-	Effect        string    `json:"effect" gorm:"size:20;default:allow;column:grant_effect;comment:授权效果"`
+	Effect        string    `json:"effect" gorm:"index:idx_permission_grants_subject_effect_status_key,priority:2;index:idx_permission_grants_subject_status_key,priority:5;size:20;default:allow;column:grant_effect;comment:授权效果"`
 	ScopeValue    string    `json:"scopeValue" gorm:"type:text;column:grant_scope_value;comment:范围JSON"`
 	Source        string    `json:"source" gorm:"size:40;column:grant_source;comment:授权来源"`
-	Status        int       `json:"status" gorm:"default:1;column:grant_status;comment:状态:1启用 0停用"`
+	Status        int       `json:"status" gorm:"index:idx_permission_grants_subject_effect_status_key,priority:3;index:idx_permission_grants_subject_status_key,priority:3;default:1;column:grant_status;comment:状态:1启用 0停用"`
 	AddTime       int64     `json:"addTime" gorm:"column:grant_add_time;comment:创建时间"`
 	EditTime      int64     `json:"editTime" gorm:"column:grant_edit_time;comment:修改时间"`
 	CreatedAt     time.Time `json:"-"`

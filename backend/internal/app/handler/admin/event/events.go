@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	eventservice "wecheckin-backend/backend/internal/app/service/event"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	eventservice "wecheckin/backend/internal/app/service/event"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-赛事活动管理
@@ -19,7 +19,6 @@ import (
 // @Param pageSize query int false "每页条数"
 // @Param sort query string false "排序"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_list [get]
 func (h *AdminEventHandler) GetAdminEventList(ctx context.Context, c *app.RequestContext) {
 	keyword := c.Query("keyword")
 	typ := c.Query("type")
@@ -40,7 +39,6 @@ func (h *AdminEventHandler) GetAdminEventList(ctx context.Context, c *app.Reques
 // @Summary 获取活动详情(管理端)
 // @Param id query string true "活动ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_detail [get]
 func (h *AdminEventHandler) GetAdminEventDetail(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -79,7 +77,6 @@ func (h *AdminEventHandler) GetAdminEventDetail(ctx context.Context, c *app.Requ
 // @Param assistants formData string false "协助者列表(JSON或逗号分隔)"
 // @Param referees formData string false "裁判列表(JSON或逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_insert [post]
 func (h *AdminEventHandler) InsertEvent(ctx context.Context, c *app.RequestContext) {
 	title := c.PostForm("title")
 	typ, _ := strconv.Atoi(c.PostForm("type"))
@@ -138,7 +135,6 @@ func (h *AdminEventHandler) InsertEvent(ctx context.Context, c *app.RequestConte
 // @Param assistants formData string false "协助者列表(JSON或逗号分隔)"
 // @Param referees formData string false "裁判列表(JSON或逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_edit [post]
 func (h *AdminEventHandler) EditEvent(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -179,7 +175,6 @@ func (h *AdminEventHandler) EditEvent(ctx context.Context, c *app.RequestContext
 // @Summary 删除活动
 // @Param id formData string true "活动ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_del [post]
 func (h *AdminEventHandler) DelEvent(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -199,7 +194,6 @@ func (h *AdminEventHandler) DelEvent(ctx context.Context, c *app.RequestContext)
 // @Summary 批量删除活动
 // @Param ids formData string true "活动ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_dels [post]
 func (h *AdminEventHandler) DelEvents(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -221,7 +215,6 @@ func (h *AdminEventHandler) DelEvents(ctx context.Context, c *app.RequestContext
 // @Param id formData string true "活动ID"
 // @Param status formData int true "状态(1=启用 0=禁用)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_status [post]
 func (h *AdminEventHandler) StatusEvent(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -243,7 +236,6 @@ func (h *AdminEventHandler) StatusEvent(ctx context.Context, c *app.RequestConte
 // @Param id formData string true "活动ID"
 // @Param vouch formData int true "推荐(1=推荐 0=取消)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_vouch [post]
 func (h *AdminEventHandler) VouchEvent(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -262,7 +254,6 @@ func (h *AdminEventHandler) VouchEvent(ctx context.Context, c *app.RequestContex
 // @Param id formData string true "活动ID"
 // @Param top formData int true "置顶(1=置顶 0=取消)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_top [post]
 func (h *AdminEventHandler) TopEvent(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

@@ -2,17 +2,17 @@
 
 ## 背景
 
-当前权限分散在 `menus`、`role_menus`、`roles.role_data_scope`、`role_depts`、`user_depts` 以及少量历史后台字段中。这个模型可以支撑后台菜单和按钮，但继续扩展客户端菜单、钉钉 H5 菜单、用户单独授权时会不断新增关系表，授权判断也会变得分散。
+历史权限曾分散在 `menus`、`role_menus`、`roles.role_data_scope`、`role_depts`、`user_depts` 以及少量历史后台字段中。这个模型可以支撑后台菜单和按钮，但继续扩展客户端菜单、钉钉 H5 菜单、用户单独授权时会不断新增关系表，授权判断也会变得分散。
 
-本设计引入统一权限定义表 `permissions` 和统一授权表 `permission_grants`。第一阶段会先迁移旧授权数据，再清理旧角色授权关系表；业务读取统一表，避免后续继续扩散 `role_menus`、`role_depts` 这类分散授权表。
+本设计引入统一权限定义表 `permissions` 和统一授权表 `permission_grants`。当前运行时只读取统一权限表；旧授权表仅作为历史库维护脚本的一次性迁移和清理对象，避免后续继续扩散 `role_menus`、`role_depts` 这类分散授权表。
 
 ## 目标
 
 - 用 `permissions` 统一保存后台菜单、后台按钮/API、后台 API 权限点、客户端菜单、钉钉 H5 菜单、数据权限类型。
 - 用 `permission_grants` 统一保存授权关系，支持 `subject_type = role/user`。
 - 后台登录准入改为检查 `admin:login` 权限，不再依赖 `user_admin_enabled`、`role_allow_admin_login` 等旧字段。
-- 后台菜单、按钮权限读取走统一授权表；旧 `role_menus` 只作为一次性迁移来源。
-- 数据权限用 `data:all`、`data:dept`、`data:self`、`data:custom` 表达；自定义部门范围保存在授权记录的 `scope_value` JSON 中。
+- 后台菜单、按钮权限读取走统一授权表；旧 `role_menus` 只作为维护脚本的一次性迁移来源。
+- 数据权限用 `data:all`、`data:dept`、`data:self`、`data:custom`、`data:extra` 表达；自定义部门范围保存在授权记录的 `scope_value` JSON 中，用户级额外可见部门/用户通过 `data:extra` 追加。
 - 用户仍绑定角色，同时允许用户独立补充或拒绝权限。
 
 ## 表设计
@@ -25,8 +25,8 @@
 - `permission_name`：中文名称。
 - `permission_platform`：平台，取值建议为 `admin`、`client`、`dingtalk_h5`、`data`。
 - `permission_type`：类型，取值建议为 `login`、`menu`、`button`、`api`、`data`。
-- `permission_parent_key`：树形父节点 key，后台菜单从 `menus.menu_parent_id` 迁移得到。
-- `permission_resource_id`：旧资源 ID，后台菜单第一阶段保存 `menus.id`。
+- `permission_parent_key`：树形父节点 key，后台菜单由权限声明或维护脚本回填得到。
+- `permission_resource_id`：历史兼容字段，运行时不依赖旧资源 ID。
 - `permission_resource_path`：菜单路径或资源路径。
 - `permission_perms`：兼容现有前端按钮权限码，例如 `user:add`。
 - `permission_status`、`permission_sort`：状态和排序。
@@ -40,16 +40,16 @@
 - `grant_permission_key`：权限 key。
 - `grant_permission_id`：权限 ID，用于查询优化。
 - `grant_effect`：授权效果，`allow` 或 `deny`。用户级 `deny` 可以覆盖角色授权。
-- `grant_scope_value`：范围配置 JSON。`data:custom` 使用 `{"deptIds":[1,2,3]}`。
+- `grant_scope_value`：范围配置 JSON。`data:custom` 使用 `{"deptIds":[1,2,3]}`；`data:extra` 使用 `{"deptIds":[1,2],"userIds":[3,4]}`。
 - `grant_source`：来源，`legacy`、`form`、`system` 等。
 - `grant_status`：状态。
 
 ## 迁移规则
 
-第一阶段自动迁移旧数据：
+维护脚本对历史库执行一次性迁移和清理：
 
-1. 创建内置权限：`admin:login`、`data:all`、`data:dept`、`data:self`、`data:custom`。
-2. 将 `menus` 迁移为 `permissions`，权限 key 使用 `admin:menu:<menus.id>`。
+1. 创建内置权限：`admin:login`、`data:all`、`data:dept`、`data:self`、`data:custom`、`data:extra`。
+2. 将历史 `menus` 数据迁移为 `permissions`，权限 key 尽量映射到当前声明的稳定 key。
 3. 将后台 API 动作码同步为 `admin:api:*` 权限点。
 4. 将客户端和钉钉 H5 菜单同步为 `client:menu:*`、`dingtalk_h5:menu:*` 权限点。
 5. 将 `role_menus` 迁移为角色的 `permission_grants`。
@@ -57,7 +57,7 @@
 7. 将 `roles.role_data_scope` 迁移为对应数据权限授权。
 8. 将 `role_depts` 合并进 `data:custom` 授权的 `scope_value`。
 
-迁移完成后清理旧授权关系表：`menus` 仍用于后台菜单管理和菜单树展示，`role_menus`、`role_depts` 在回填到 `permission_grants` 后删除。
+迁移完成后清理旧授权关系表：`menus`、`role_menus`、`role_depts` 不再作为后台菜单和权限运行时来源。
 
 ## 读取优先级
 
@@ -90,20 +90,21 @@
 3. `data:dept` 使用用户所在部门及子部门。
 4. `data:self` 使用本人创建/本人所属范围。
 5. `data:custom` 使用授权记录中的 `scope_value.deptIds`。
-6. 如统一授权不存在，回退到 `roles.role_data_scope`；自定义部门范围只从 `permission_grants.grant_scope_value` 读取。
-7. 后台列表、详情、编辑、删除、批量删除、导出等高风险接口应叠加数据范围过滤，不能只依赖菜单/API 入口权限。
-8. 部门或自定义部门范围为空时按“无可见数据”处理，不退化成全部数据。
+6. 用户级 `data:extra` 在基础范围之外追加 `scope_value.deptIds` 或 `scope_value.userIds`。
+7. 如统一授权不存在，按无可见数据处理；不再回退 `roles.role_data_scope` 或旧授权关系表。
+8. 后台列表、详情、编辑、删除、批量删除、导出等高风险接口应叠加数据范围过滤，不能只依赖菜单/API 入口权限。
+9. 部门或自定义部门范围为空时按“无可见数据”处理，不退化成全部数据。
 
 客户端与钉钉 H5 菜单：
 
 1. 客户端菜单权限编码形如 `client:menu:home`、`client:menu:survey`、`client:menu:event_manage`。
 2. 钉钉 H5 菜单权限编码形如 `dingtalk_h5:menu:dashboard`、`dingtalk_h5:menu:summary`、`dingtalk_h5:menu:template`。
-3. 钉钉 H5 `bootstrap` 返回当前用户可见菜单；没有配置统一授权时，继续按历史角色菜单兜底，保证单点部署兼容。
+3. 钉钉 H5 `bootstrap` 返回当前用户可见菜单；没有配置统一授权时返回空菜单或无权限状态，不再按历史角色菜单兜底。
 4. 客户端菜单已经进入统一权限目录，后续客户端首页/个人中心可逐步改为读取后端授权菜单。
 
 ## 表单策略
 
-角色表单第一阶段仍保留菜单树选择，但“后台登录”展示改为“后台入口权限”，保存时写入 `admin:login` 授权，同时兼容写旧字段。
+角色表单保留菜单树选择，但“后台登录”展示改为“后台入口权限”，保存时写入 `admin:login` 授权，不再把旧授权表作为写入目标。
 
 用户表单保留角色、密码、部门、岗位，并新增“独立权限覆盖”的后端能力。UI 可以先轻量展示为可选面板：允许补充后台入口权限、拒绝后台入口权限、数据范围覆盖。后续再扩展完整菜单级用户授权面板。
 
@@ -112,7 +113,7 @@
 - 迁移顺序必须保证先回填 `permission_grants`，再删除 `role_menus`、`role_depts`。
 - 写入只写统一授权表，避免旧授权表被重新创建或继续漂移。
 - 如果统一权限迁移异常，启动迁移返回错误，不静默忽略。
-- 回滚到旧版本前需要先从 `permission_grants` 导出角色菜单和自定义部门范围，重建旧授权表。
+- 如果必须回滚到旧版本，需要先从 `permission_grants` 导出角色菜单和自定义部门范围，再手动重建旧授权表。
 
 ## 验收标准
 

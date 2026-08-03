@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"gorm.io/gorm"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/media"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type DetailResponse struct {
@@ -30,6 +32,7 @@ func GetMyDetailContext(ctx context.Context, userID string) (*DetailResponse, er
 		return nil, err
 	}
 	setUserRole(&user)
+	fillUserRoleIDsContext(ctx, db, &user)
 	var ud model.UserDept
 	db.Where("`user_dept_user_id` = ?", user.ID).First(&ud)
 	if ud.DeptID > 0 {
@@ -47,6 +50,19 @@ func setUserRole(u *model.User) {
 		u.Role = "admin"
 	} else {
 		u.Role = "user"
+	}
+}
+
+func fillUserRoleIDsContext(ctx context.Context, db *gorm.DB, user *model.User) {
+	if user == nil {
+		return
+	}
+	roleIDs, err := permissionsupport.ActiveRoleIDsForUserContext(ctx, db, user.ID, user.RoleID)
+	if err == nil {
+		user.RoleIDs = roleIDs
+	}
+	if len(user.RoleIDs) == 0 && user.RoleID > 0 {
+		user.RoleIDs = []uint{user.RoleID}
 	}
 }
 

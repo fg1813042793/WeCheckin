@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	_ "wecheckin-backend/backend/internal/app/formkit/question/builtin" // 注册 24 个内置题型
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	_ "wecheckin/backend/internal/app/formkit/question/builtin" // 注册 24 个内置题型
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // Row 单条答题的渲染结果：一行字段值，按 schema 顺序

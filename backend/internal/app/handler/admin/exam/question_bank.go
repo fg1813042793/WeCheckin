@@ -5,9 +5,9 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	formkitadminservice "wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	formkitadminservice "wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // QuestionBankList GET /admin/exam/question_bank_list
@@ -17,7 +17,6 @@ import (
 // @Param pageSize query int false "每页数量"
 // @Param keyword query string false "搜索关键词"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/question_bank_list [get]
 func (h *AdminExamHandler) QuestionBankList(ctx context.Context, c *app.RequestContext) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
@@ -47,7 +46,6 @@ func (h *AdminExamHandler) QuestionBankList(ctx context.Context, c *app.RequestC
 // @Param category body string false "分类"
 // @Param tags body string false "标签"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/question_bank_insert [post]
 func (h *AdminExamHandler) QuestionBankInsert(ctx context.Context, c *app.RequestContext) {
 	type req struct {
 		Title    string `json:"title"`
@@ -96,7 +94,6 @@ func (h *AdminExamHandler) QuestionBankInsert(ctx context.Context, c *app.Reques
 // @Param category body string false "分类"
 // @Param tags body string false "标签"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/question_bank_edit [post]
 func (h *AdminExamHandler) QuestionBankEdit(ctx context.Context, c *app.RequestContext) {
 	type req struct {
 		ID       uint   `json:"id"`
@@ -132,7 +129,6 @@ func (h *AdminExamHandler) QuestionBankEdit(ctx context.Context, c *app.RequestC
 // @Summary 删除题库题目
 // @Param id formData int true "题目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/question_bank_del [post]
 func (h *AdminExamHandler) QuestionBankDel(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	adminVal, _ := c.Get("admin")
@@ -148,7 +144,6 @@ func (h *AdminExamHandler) QuestionBankDel(ctx context.Context, c *app.RequestCo
 // @Tags PC端-考试管理
 // @Summary 获取考试题库所有分类
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/question_bank_categories [get]
 func (h *AdminExamHandler) QuestionBankCategories(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

@@ -14,10 +14,11 @@ func TestMenuRuntimePrefersUnifiedPermissions(t *testing.T) {
 	text := string(src)
 	for _, snippet := range []string{
 		"permissionsupport.AdminMenuPermissionsContext",
+		"permissionsupport.AdminPermissionKeysContext",
 		"permissionsToMenuTree",
 		"permissionRowsToMenus",
-		"permission_perms",
 		"type AdminMenu struct",
+		"permissionKeys(rows)",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("menu runtime must use unified permissions with %s", snippet)
@@ -33,6 +34,10 @@ func TestMenuRuntimePrefersUnifiedPermissions(t *testing.T) {
 		"func GetList()",
 		"func GetListContext",
 		"flattenAdminMenus",
+		"permissionsupport.AdminPermCodesContext",
+		"allAdminPermissionsWithPermCodesContext",
+		"permissionPermCodes",
+		"`permission_perms` <> ''",
 	} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("menu runtime must not read legacy menus table snippet %s", forbidden)

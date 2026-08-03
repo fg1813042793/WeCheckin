@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // MultiInputQuestion 多项填空

@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"strconv"
 
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
-	"wecheckin-backend/backend/pkg/randutil"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
+	"wecheckin/backend/pkg/randutil"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 type LoginResponse struct {
@@ -48,6 +48,7 @@ func LoginUserContext(ctx context.Context, userID, addIP, device string) (*Login
 	db.Model(&user).Update("user_login_time", database.Now())
 	db.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)
 	setUserRole(&user)
+	fillUserRoleIDsContext(ctx, db, &user)
 	token := randutil.HexString(32)
 	storeUserTokenContext(ctx, &user, token, addIP, device)
 	deptID := dept.UserDeptID(user.ID)
@@ -93,6 +94,7 @@ func LoginByPwdContext(ctx context.Context, name, password, addIP, device string
 	db.Model(&user).Update("user_login_time", database.Now())
 	db.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)
 	setUserRole(&user)
+	fillUserRoleIDsContext(ctx, db, &user)
 	token := randutil.HexString(32)
 	storeUserTokenContext(ctx, &user, token, addIP, device)
 	deptID := dept.UserDeptID(user.ID)
@@ -154,6 +156,7 @@ func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, 
 		"miniOpenID": user.MiniOpenID,
 		"role":       user.Role,
 		"roleId":     user.RoleID,
+		"roleIds":    user.RoleIDs,
 		"pic":        user.Pic,
 		"loginIp":    addIP,
 		"loginTime":  now,

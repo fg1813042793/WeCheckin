@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
-const setupServiceCacheTTL = 30 * time.Second
+const setupServiceCacheTTL = 5 * time.Minute
 
 type setupServiceCacheEntry struct {
 	setup     model.Setup

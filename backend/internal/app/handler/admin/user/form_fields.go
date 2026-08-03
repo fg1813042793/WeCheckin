@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	adminuserservice "wecheckin-backend/backend/internal/app/service/adminuser"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	adminuserservice "wecheckin/backend/internal/app/service/adminuser"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-用户管理
 // @Summary 获取用户表单字段列表
 // @Success 200 {object} response.Resp
-// @Router /admin/user_form_fields [get]
 func (h *AdminUserHandler) GetUserFormFields(ctx context.Context, c *app.RequestContext) {
 	list, err := adminuserservice.GetUserFormFieldsContext(ctx)
 	if err != nil {
@@ -30,7 +29,6 @@ func (h *AdminUserHandler) GetUserFormFields(ctx context.Context, c *app.Request
 // @Summary 保存用户表单字段配置(全量替换)
 // @Param fields formData string true "字段JSON数组"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_form_field_save [post]
 func (h *AdminUserHandler) SaveUserFormFields(ctx context.Context, c *app.RequestContext) {
 	fieldsJSON := c.PostForm("fields")
 	var fields []model.UserFormField

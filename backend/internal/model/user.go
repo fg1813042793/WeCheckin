@@ -30,10 +30,12 @@ type User struct {
 	CreatedAt      time.Time `json:"-"`
 	UpdatedAt      time.Time `json:"-"`
 
-	Role         string `json:"role" gorm:"-"`
-	DeptName     string `json:"deptName" gorm:"-"`
-	TopDeptName  string `json:"topDeptName" gorm:"-"`
-	PositionName string `json:"positionName" gorm:"-"`
+	Role         string   `json:"role" gorm:"-"`
+	RoleIDs      []uint   `json:"roleIds" gorm:"-"`
+	RoleNames    []string `json:"roleNames" gorm:"-"`
+	DeptName     string   `json:"deptName" gorm:"-"`
+	TopDeptName  string   `json:"topDeptName" gorm:"-"`
+	PositionName string   `json:"positionName" gorm:"-"`
 }
 
 func (u *User) GetRole() string {
@@ -57,6 +59,21 @@ type UserDept struct {
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }
+
+type UserRole struct {
+	ID        uint      `json:"id" gorm:"primaryKey;comment:关联ID"`
+	UserID    uint      `json:"userId" gorm:"uniqueIndex:uk_user_roles_user_role,priority:1;index;column:user_role_user_id;comment:用户ID"`
+	RoleID    uint      `json:"roleId" gorm:"uniqueIndex:uk_user_roles_user_role,priority:2;index;column:user_role_role_id;comment:角色ID"`
+	IsPrimary int       `json:"isPrimary" gorm:"default:0;index;column:user_role_is_primary;comment:是否主角色"`
+	Status    int       `json:"status" gorm:"default:1;index;column:user_role_status;comment:状态:1启用 0停用"`
+	Source    string    `json:"source" gorm:"size:40;column:user_role_source;comment:来源"`
+	AddTime   int64     `json:"addTime" gorm:"column:user_role_add_time;comment:创建时间"`
+	EditTime  int64     `json:"editTime" gorm:"column:user_role_edit_time;comment:修改时间"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+}
+
+func (UserRole) TableName() string { return "user_roles" }
 
 type UserFormField struct {
 	ID        uint      `json:"id" gorm:"primaryKey;comment:字段ID"`

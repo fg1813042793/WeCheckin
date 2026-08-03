@@ -14,9 +14,9 @@ func TestDingTalkH5MenuPermissionUsesShortTTLCache(t *testing.T) {
 	text := string(src)
 	for _, snippet := range []string{
 		"dingtalkH5MenuPermissionCacheTTL",
-		"dingtalkH5MenuPermissionCacheKey(userID, roleID)",
-		"getDingTalkH5MenuPermissionCache(userID, roleID)",
-		"setDingTalkH5MenuPermissionCache(userID, roleID, keys, ready)",
+		"dingtalkH5MenuPermissionCacheKey(userID, roleIDs)",
+		"getDingTalkH5MenuPermissionCache(userID, roleIDs)",
+		"setDingTalkH5MenuPermissionCache(userID, roleIDs, keys, ready)",
 		"invalidateDingTalkH5MenuPermissionCache()",
 	} {
 		if !strings.Contains(text, snippet) {

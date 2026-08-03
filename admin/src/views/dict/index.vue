@@ -9,8 +9,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('dict:add')" type="success" @click="showTypeAdd">+ 新增字典类型</el-button>
-          <el-button v-if="hasPerm('dict:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:dict:add')" type="success" @click="showTypeAdd">+ 新增字典类型</el-button>
+          <el-button v-if="hasPerm('admin:menu:dict:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="loadTypes" />
@@ -25,9 +25,9 @@
         <el-table-column label="操作" width="320">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('dict:list')" size="small" type="primary" @click="showItems(row)">管理数据</el-button>
-              <el-button v-if="hasPerm('dict:edit')" size="small" @click="showTypeEdit(row)">编辑</el-button>
-              <el-button v-if="hasPerm('dict:del')" size="small" type="danger" @click="clearType(row)">清空</el-button>
+              <el-button v-if="hasPerm('admin:menu:dict:list')" size="small" type="primary" @click="showItems(row)">管理数据</el-button>
+              <el-button v-if="hasPerm('admin:menu:dict:edit')" size="small" @click="showTypeEdit(row)">编辑</el-button>
+              <el-button v-if="hasPerm('admin:menu:dict:del')" size="small" type="danger" @click="clearType(row)">清空</el-button>
             </div>
           </template>
         </el-table-column>
@@ -53,7 +53,7 @@
     <!-- 字典数据管理 -->
     <el-dialog v-model="itemDialog.visible" :title="'字典数据 - ' + currentTypeName" width="700px">
       <div style="margin-bottom:12px">
-        <el-button v-if="hasPerm('dict:add')" type="success" @click="showItemAdd">+ 新增数据</el-button>
+        <el-button v-if="hasPerm('admin:menu:dict:add')" type="success" @click="showItemAdd">+ 新增数据</el-button>
       </div>
       <el-table :data="items" stripe style="width:100%">
         <el-table-column prop="value" label="值" width="120" />
@@ -68,8 +68,8 @@
         <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('dict:edit')" size="small" @click="showItemEdit(row)">编辑</el-button>
-              <el-popconfirm v-if="hasPerm('dict:del')" title="确定删除？" @confirm="delItem(row)">
+              <el-button v-if="hasPerm('admin:menu:dict:edit')" size="small" @click="showItemEdit(row)">编辑</el-button>
+              <el-popconfirm v-if="hasPerm('admin:menu:dict:del')" title="确定删除？" @confirm="delItem(row)">
                 <template #reference>
                   <el-button size="small" type="danger">删除</el-button>
                 </template>

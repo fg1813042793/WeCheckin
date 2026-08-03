@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	enrollservice "wecheckin-backend/backend/internal/app/service/enroll"
-	"wecheckin-backend/backend/pkg/response"
+	enrollservice "wecheckin/backend/internal/app/service/enroll"
+	"wecheckin/backend/pkg/response"
 )
 
 type EnrollHandler struct{}

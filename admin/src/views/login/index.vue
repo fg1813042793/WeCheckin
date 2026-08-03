@@ -46,6 +46,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminApi } from '../../api'
 import { setPerms } from '../../utils/permission'
+import { clearAdminSession } from '../../utils/adminSession'
 import type { FormInstance } from 'element-plus'
 
 const router = useRouter()
@@ -62,6 +63,7 @@ async function login() {
   if (!valid) return
   loading.value = true
   try {
+    clearAdminSession()
     const res = await adminApi.login({ name: form.name, password: form.password })
     const d = res.data || {}
     localStorage.setItem('admin_token', d.token || '')

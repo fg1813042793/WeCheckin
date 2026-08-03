@@ -47,6 +47,7 @@
 <script>
 import { surveyApi } from '../../api/index'
 import { getClientUserInfo, hasClientAuth } from '../../utils/auth'
+import { guardClientMenuPage } from '../../utils/clientPermission'
 
 export default {
   data() {
@@ -72,7 +73,8 @@ export default {
       } catch (e) { return 0 }
     }
   },
-  onShow() {
+  async onShow() {
+    if (!(await guardClientMenuPage('client:menu:survey'))) return
     this.refreshList()
   },
   onPullDownRefresh() {

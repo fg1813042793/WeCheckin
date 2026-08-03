@@ -7,6 +7,12 @@ const LOGIN_EXPIRED_MESSAGES = new Set([
   '账号异常'
 ])
 
+const PERMISSION_DENIED_MESSAGES = new Set([
+  '无权限访问'
+])
+
+export const AUTH_EXPIRED_EVENT = 'dingtalk-h5-auth-expired'
+
 function trimRightSlash(value) {
   return String(value || '').replace(/\/+$/, '')
 }
@@ -34,9 +40,27 @@ export function authToken() {
   return getAuthToken()
 }
 
+export function isAuthExpiredError(error) {
+  return LOGIN_EXPIRED_MESSAGES.has(error?.msg)
+}
+
+export function isPermissionDeniedError(error) {
+  return PERMISSION_DENIED_MESSAGES.has(error?.msg)
+}
+
+export function isBindRequiredError(error) {
+  return Number(error?.code) === 10020
+}
+
 function handleBusinessError(data, reject) {
-  if (LOGIN_EXPIRED_MESSAGES.has(data?.msg)) {
+  if (isAuthExpiredError(data)) {
     uni.removeStorageSync(CONFIG.TOKEN_KEY)
+    uni.$emit(AUTH_EXPIRED_EVENT, data)
+  }
+
+  if (isBindRequiredError(data)) {
+    reject(data)
+    return
   }
 
   uni.showToast({

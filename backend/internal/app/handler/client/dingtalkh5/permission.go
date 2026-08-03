@@ -5,11 +5,13 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/app/support/appapiperm"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/support/appapiperm"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/response"
 )
 
 func (h *Handler) ApiPerm() app.HandlerFunc {
@@ -30,7 +32,8 @@ func (h *Handler) ApiPerm() app.HandlerFunc {
 		db, cancel := database.WithContext(ctx)
 		defer cancel()
 		if !permissionsupport.TablesReady(db) {
-			c.Next(ctx)
+			response.Fail(c, "无权限访问")
+			c.Abort()
 			return
 		}
 		if effect, hit, err := permissionsupport.SubjectPermissionEffectContext(ctx, db, permissionsupport.SubjectUser, user.ID, required); err == nil && hit && effect == permissionsupport.EffectDeny {
@@ -38,17 +41,24 @@ func (h *Handler) ApiPerm() app.HandlerFunc {
 			c.Abort()
 			return
 		}
-		ready, err := permissionsupport.SubjectAPIPermissionReadyContext(ctx, db, user.ID, user.RoleID, permissionsupport.PlatformDingTalkH5)
+		roleIDs, err := ensureDingTalkH5RoleIDs(ctx, db, user)
+		if err != nil {
+			response.Fail(c, "权限校验失败")
+			c.Abort()
+			return
+		}
+		ready, err := permissionsupport.SubjectAPIPermissionReadyWithRoleIDsContext(ctx, db, user.ID, roleIDs, permissionsupport.PlatformDingTalkH5)
 		if err != nil {
 			response.Fail(c, "权限校验失败")
 			c.Abort()
 			return
 		}
 		if !ready {
-			c.Next(ctx)
+			response.Fail(c, "无权限访问")
+			c.Abort()
 			return
 		}
-		allowed, err := permissionsupport.SubjectHasPermissionContext(ctx, db, user.ID, user.RoleID, required)
+		allowed, err := permissionsupport.SubjectHasPermissionWithRoleIDsContext(ctx, db, user.ID, roleIDs, required)
 		if err != nil || !allowed {
 			response.Fail(c, "无权限访问")
 			c.Abort()
@@ -66,6 +76,21 @@ func dingTalkH5RoutePermission(method, path string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func ensureDingTalkH5RoleIDs(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser) ([]uint, error) {
+	if user == nil {
+		return nil, nil
+	}
+	if len(user.RoleIDs) > 0 {
+		return user.RoleIDs, nil
+	}
+	roleIDs, err := permissionsupport.ActiveRoleIDsForUserContext(ctx, db, user.ID, user.RoleID)
+	if err != nil {
+		return nil, err
+	}
+	user.RoleIDs = roleIDs
+	return roleIDs, nil
 }
 
 func h5RequestPath(c *app.RequestContext) string {

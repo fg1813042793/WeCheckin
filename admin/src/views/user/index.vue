@@ -9,8 +9,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('user:add')" type="success" @click="showAdd">+ 新增用户</el-button>
-          <el-button v-if="hasPerm('user:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:user:add')" type="success" @click="showAdd">+ 新增用户</el-button>
+          <el-button v-if="hasPerm('admin:menu:user:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
@@ -22,10 +22,20 @@
             <el-table-column type="selection" width="45" />
             <el-table-column label="头像" width="70">
               <template #default="{ row }">
-                <el-avatar :src="row.avatar || row.pic" size="small">{{ row.name?.[0] }}</el-avatar>
+                <span class="user-avatar" :class="{ 'user-avatar--image': avatarImageReady(row) }">
+                  <span v-if="!avatarImageReady(row)" class="user-avatar__initial">{{ avatarInitial(row) }}</span>
+                  <img
+                    v-if="preferredAvatarUrl(row)"
+                    :class="{ 'is-loaded': avatarImageReady(row) }"
+                    :src="preferredAvatarUrl(row)"
+                    :alt="`${row.name || '用户'}头像`"
+                    @load="onAvatarLoad(row)"
+                    @error="onAvatarError(row)"
+                  />
+                </span>
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="用户名" width="120" />
+            <el-table-column prop="name" label="用户名" width="120" show-overflow-tooltip class-name="user-name-column" />
             <el-table-column prop="mobile" label="手机号" width="130" />
             <el-table-column label="状态" width="100">
               <template #default="{ row }">
@@ -33,15 +43,44 @@
               </template>
             </el-table-column>
             <el-table-column prop="loginCnt" label="登录次数" width="80" />
-            <el-table-column label="所属部门" min-width="150">
+            <el-table-column label="所属部门" min-width="260">
               <template #default="{ row }">
-                <span v-if="!row.deptNames">-</span>
-                <span v-else>{{ row.deptNames }}</span>
+                <div v-if="row.deptPathItems?.length" class="dept-path-list">
+                  <el-tooltip
+                    v-for="item in row.deptPathItems"
+                    :key="item.key"
+                    :content="item.text"
+                    placement="top"
+                    :show-after="300"
+                  >
+                    <span class="dept-path-pill">
+                      <template v-for="(segment, index) in item.segments" :key="`${item.key}-${index}`">
+                        <span :class="['dept-path-segment', index === item.segments.length - 1 ? 'leaf' : 'parent']">
+                          {{ segment }}
+                        </span>
+                        <span v-if="index < item.segments.length - 1" class="dept-path-separator">/</span>
+                      </template>
+                    </span>
+                  </el-tooltip>
+                </div>
+                <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column label="绑定角色" width="150">
+            <el-table-column label="岗位" width="140">
+              <template #default="{ row }">{{ row.positionName || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="绑定角色" width="260">
               <template #default="{ row }">
-                <el-tag v-if="row.roleId" type="primary" size="small">{{ row.roleName || '已绑定' }}</el-tag>
+                <div v-if="row.roleIds?.length || row.roleId" class="role-tag-list">
+                  <el-tag
+                    v-for="name in displayRoleNames(row)"
+                    :key="name"
+                    type="primary"
+                    size="small"
+                  >
+                    {{ name }}
+                  </el-tag>
+                </div>
                 <span v-else style="color:#999">未绑定</span>
               </template>
             </el-table-column>
@@ -51,19 +90,19 @@
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
                 <div class="admin-table-actions">
-                  <el-button v-if="hasPerm('user:list')" size="small" @click="showDetail(row)">详情</el-button>
-                  <el-button v-if="hasPerm('user:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
+                  <el-button v-if="hasPerm('admin:menu:user:list')" size="small" @click="showDetail(row)">详情</el-button>
+                  <el-button v-if="hasPerm('admin:menu:user:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
                   <el-dropdown v-if="hasRowMoreActions(row)" trigger="click" @command="(cmd:string) => handleRowCommand(cmd, row)">
                     <el-button size="small">
                       更多<el-icon><ArrowDown /></el-icon>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item v-if="hasPerm('user:edit') && row.status === 0" command="approve">审核通过</el-dropdown-item>
-                        <el-dropdown-item v-if="hasPerm('user:edit') && row.status === 1" command="disable">禁用</el-dropdown-item>
-                        <el-dropdown-item v-if="hasPerm('user:edit') && row.status === 2" command="enable">恢复正常</el-dropdown-item>
-                        <el-dropdown-item v-if="hasPerm('user:edit')" command="resetPwd" divided>重置密码</el-dropdown-item>
-                        <el-dropdown-item v-if="hasPerm('user:del')" command="delete" divided>删除</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('admin:menu:user:edit') && row.status === 0" command="approve">审核通过</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('admin:menu:user:edit') && row.status === 1" command="disable">禁用</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('admin:menu:user:edit') && row.status === 2" command="enable">恢复正常</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('admin:menu:user:edit')" command="resetPwd" divided>重置密码</el-dropdown-item>
+                        <el-dropdown-item v-if="hasPerm('admin:menu:user:del')" command="delete" divided>删除</el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -100,6 +139,16 @@
         <el-form-item label="手机号">
           <el-input v-model="form.mobile" placeholder="手机号" />
         </el-form-item>
+        <el-form-item label="岗位">
+          <el-select v-model="form.positionId" placeholder="请选择岗位" clearable style="width:100%">
+            <el-option v-for="item in positionOptions" :key="item.id" :label="item.name" :value="item.id">
+              <div class="role-option">
+                <span>{{ item.name }}</span>
+                <el-tag v-if="item.status === 0" size="small" type="info">已停用</el-tag>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
         <el-form-item label="所属部门">
           <div style="width:100%;position:relative">
             <el-popover trigger="click" placement="bottom-start" :width="420" popper-style="margin-top:4px">
@@ -123,10 +172,42 @@
         <el-form-item :label="dialog.isCreate ? '登录密码' : '新密码'">
           <el-input v-model="form.password" type="password" show-password :placeholder="dialog.isCreate ? '绑定角色时必填' : '留空则不修改密码'" />
         </el-form-item>
+        <el-divider content-position="left">额外信息</el-divider>
+        <el-form-item v-for="f in formFields" :key="f._key" :label="f.label">
+          <el-input v-if="f.type === '文本'" v-model="form.formsData[f._key]" />
+          <el-input-number v-else-if="f.type === '数字'" v-model="form.formsData[f._key]" :min="0" />
+          <el-input v-else-if="f.type === '多行文本'" v-model="form.formsData[f._key]" type="textarea" />
+          <el-select v-else-if="f.type === '选择'" v-model="form.formsData[f._key]" style="width:100%">
+            <el-option v-for="opt in (f.options||'').split(',').filter(Boolean)" :key="opt" :label="opt" :value="opt" />
+          </el-select>
+          <el-date-picker
+            v-else-if="f.type === '日期'"
+            v-model="form.formsData[f._key]"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="选择日期"
+            style="width:100%"
+          />
+          <el-time-picker
+            v-else-if="f.type === '时间'"
+            v-model="form.formsData[f._key]"
+            value-format="HH:mm"
+            placeholder="选择时间"
+            style="width:100%"
+          />
+          <el-date-picker
+            v-else-if="f.type === '日期时间'"
+            v-model="form.formsData[f._key]"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm"
+            placeholder="选择日期时间"
+            style="width:100%"
+          />
+        </el-form-item>
         <el-divider content-position="left">角色权限</el-divider>
         <el-form-item label="绑定角色">
           <div class="access-role-field">
-            <el-select v-model="form.roleId" placeholder="请选择角色" clearable style="width:100%">
+            <el-select v-model="form.roleIds" placeholder="请选择角色" clearable multiple collapse-tags collapse-tags-tooltip style="width:100%">
               <el-option v-for="r in roleList" :key="r.id" :label="r.name" :value="r.id">
                 <div class="role-option">
                   <span>{{ r.name }}</span>
@@ -136,130 +217,200 @@
             </el-select>
           </div>
         </el-form-item>
+        <el-divider content-position="left">用户额外数据权限</el-divider>
+        <el-form-item label="可见部门">
+          <div style="width:100%;position:relative">
+            <el-popover trigger="click" placement="bottom-start" :width="420" popper-style="margin-top:4px">
+              <template #reference>
+                <el-input readonly :model-value="extraDataDeptDisplayText" placeholder="请选择额外可见部门" suffix-icon="ArrowDown" style="width:100%" />
+              </template>
+              <el-tree
+                ref="extraDataDeptTreeRef"
+                :data="deptTreeData"
+                :props="{ label: 'name' }"
+                show-checkbox
+                check-strictly
+                node-key="id"
+                :default-checked-keys="form.extraDataDeptIds"
+                @check="onExtraDataDeptCheck"
+                style="max-height:300px;overflow-y:auto"
+              />
+            </el-popover>
+          </div>
+        </el-form-item>
+        <el-form-item label="可见用户">
+          <div style="width:100%;position:relative">
+            <el-popover trigger="click" placement="bottom-start" :width="520" popper-class="extra-data-user-popover" popper-style="margin-top:4px">
+              <template #reference>
+                <el-input readonly :model-value="extraDataUserDisplayText" placeholder="请选择额外可见用户" suffix-icon="ArrowDown" style="width:100%" />
+              </template>
+              <div class="extra-data-user-tree-wrap">
+                <el-tree
+                  ref="extraDataUserTreeRef"
+                  :data="extraDataUserTreeData"
+                  :props="{ label: 'label', children: 'children' }"
+                  show-checkbox
+                  check-on-click-node
+                  node-key="key"
+                  :default-checked-keys="extraDataUserCheckedNodeKeys"
+                  @check="onExtraDataUserCheck"
+                  class="extra-data-user-tree"
+                >
+                  <template #default="{ node, data }">
+                    <span :class="['extra-data-user-node', data.type === 'user' ? 'is-user' : 'is-dept']">
+                      <span class="extra-data-user-node__label">{{ node.label }}</span>
+                      <span v-if="data.type === 'user' && data.mobile" class="extra-data-user-node__meta">{{ data.mobile }}</span>
+                    </span>
+                  </template>
+                </el-tree>
+              </div>
+            </el-popover>
+          </div>
+        </el-form-item>
 
-        <el-divider content-position="left">用户应用权限</el-divider>
-        <el-form-item label="额外授权">
-          <div class="permission-grid">
-            <div class="permission-panel">
-              <div class="permission-panel__title">客户端菜单</div>
-              <el-tree
-                ref="allowClientMenuTreeRef"
-                :data="clientMenuTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                check-strictly
-                node-key="key"
-                :default-checked-keys="allowClientMenuKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
-            <div class="permission-panel">
-              <div class="permission-panel__title">钉钉 H5 菜单</div>
-              <el-tree
-                ref="allowDingTalkH5MenuTreeRef"
-                :data="dingtalkH5MenuTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                node-key="key"
-                :default-checked-keys="allowDingTalkH5MenuKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
-            <div class="permission-panel">
-              <div class="permission-panel__title">客户端接口</div>
-              <el-tree
-                ref="allowClientApiTreeRef"
-                :data="clientApiTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                node-key="key"
-                :default-checked-keys="allowClientApiKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
-            <div class="permission-panel">
-              <div class="permission-panel__title">钉钉 H5 接口</div>
-              <el-tree
-                ref="allowDingTalkH5ApiTreeRef"
-                :data="dingtalkH5ApiTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                node-key="key"
-                :default-checked-keys="allowDingTalkH5ApiKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
+        <el-divider content-position="left" class="collapsible-divider">
+          <div class="collapsible-divider__content">
+            <span>用户扩展应用权限</span>
+            <i class="collapsible-divider__line" aria-hidden="true"></i>
+            <el-button
+              link
+              type="primary"
+              size="small"
+              :icon="userApplicationPermissionExpanded ? 'ArrowUp' : 'ArrowDown'"
+              @click.stop="userApplicationPermissionExpanded = !userApplicationPermissionExpanded"
+            >
+              {{ userApplicationPermissionExpanded ? '收起' : '展开' }}
+            </el-button>
           </div>
-        </el-form-item>
-        <el-form-item label="禁止权限">
-          <div class="permission-grid">
-            <div class="permission-panel">
-              <div class="permission-panel__title">客户端菜单</div>
-              <el-tree
-                ref="denyClientMenuTreeRef"
-                :data="clientMenuTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                check-strictly
-                node-key="key"
-                :default-checked-keys="denyClientMenuKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
+        </el-divider>
+        <el-form-item v-show="userApplicationPermissionExpanded" label="权限设置" class="permission-form-item">
+          <div class="permission-layout">
+            <section class="permission-column permission-column--menu">
+              <div class="permission-column__header">
+                <span>菜单权限</span>
+                <small>控制客户端与钉钉 H5 可见入口</small>
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">额外授权 - 客户端菜单</div>
+                <el-tree
+                  ref="allowClientMenuTreeRef"
+                  :data="clientMenuTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  check-strictly
+                  node-key="key"
+                  :default-checked-keys="allowClientMenuCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('allow')"
+                  class="permission-tree"
+                />
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">额外授权 - 钉钉 H5 菜单/按钮</div>
+                <el-tree
+                  ref="allowDingTalkH5MenuTreeRef"
+                  :data="dingtalkH5MenuTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="allowDingTalkH5MenuCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('allow')"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+            <section class="permission-column permission-column--api">
+              <div class="permission-column__header">
+                <span>接口权限</span>
+                <small>控制客户端与钉钉 H5 接口访问</small>
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">额外授权 - 客户端接口</div>
+                <el-tree
+                  ref="allowClientApiTreeRef"
+                  :data="clientApiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="allowClientApiCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('allow')"
+                  class="permission-tree"
+                />
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">额外授权 - 钉钉 H5 接口</div>
+                <el-tree
+                  ref="allowDingTalkH5ApiTreeRef"
+                  :data="dingtalkH5ApiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="allowDingTalkH5ApiCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('allow')"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+            <div class="permission-section-divider">
+              <span>禁止权限</span>
             </div>
-            <div class="permission-panel">
-              <div class="permission-panel__title">钉钉 H5 菜单</div>
-              <el-tree
-                ref="denyDingTalkH5MenuTreeRef"
-                :data="dingtalkH5MenuTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                check-strictly
-                node-key="key"
-                :default-checked-keys="denyDingTalkH5MenuKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
-            <div class="permission-panel">
-              <div class="permission-panel__title">客户端接口</div>
-              <el-tree
-                ref="denyClientApiTreeRef"
-                :data="clientApiTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                node-key="key"
-                :default-checked-keys="denyClientApiKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
-            <div class="permission-panel">
-              <div class="permission-panel__title">钉钉 H5 接口</div>
-              <el-tree
-                ref="denyDingTalkH5ApiTreeRef"
-                :data="dingtalkH5ApiTreeData"
-                :props="{ label: 'name', children: 'children' }"
-                show-checkbox
-                node-key="key"
-                :default-checked-keys="denyDingTalkH5ApiKeys"
-                @check="onUserApplicationPermissionCheck"
-                class="permission-tree"
-              />
-            </div>
+            <section class="permission-column permission-column--menu">
+              <div class="permission-panel">
+                <div class="permission-panel__title">禁止权限 - 客户端菜单</div>
+                <el-tree
+                  ref="denyClientMenuTreeRef"
+                  :data="clientMenuTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  check-strictly
+                  node-key="key"
+                  :default-checked-keys="denyClientMenuCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('deny')"
+                  class="permission-tree"
+                />
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">禁止权限 - 钉钉 H5 菜单/按钮</div>
+                <el-tree
+                  ref="denyDingTalkH5MenuTreeRef"
+                  :data="dingtalkH5MenuTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="denyDingTalkH5MenuCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('deny')"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
+            <section class="permission-column permission-column--api">
+              <div class="permission-panel">
+                <div class="permission-panel__title">禁止权限 - 客户端接口</div>
+                <el-tree
+                  ref="denyClientApiTreeRef"
+                  :data="clientApiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="denyClientApiCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('deny')"
+                  class="permission-tree"
+                />
+              </div>
+              <div class="permission-panel">
+                <div class="permission-panel__title">禁止权限 - 钉钉 H5 接口</div>
+                <el-tree
+                  ref="denyDingTalkH5ApiTreeRef"
+                  :data="dingtalkH5ApiTreeData"
+                  :props="{ label: 'name', children: 'children' }"
+                  show-checkbox
+                  node-key="key"
+                  :default-checked-keys="denyDingTalkH5ApiCheckedKeys"
+                  @check="onUserApplicationPermissionCheck('deny')"
+                  class="permission-tree"
+                />
+              </div>
+            </section>
           </div>
-        </el-form-item>
-        <el-form-item v-for="f in formFields" :key="f._key" :label="f.label">
-          <el-input v-if="f.type === '文本'" v-model="form.formsData[f._key]" />
-          <el-input-number v-else-if="f.type === '数字'" v-model="form.formsData[f._key]" :min="0" />
-          <el-input v-else-if="f.type === '多行文本'" v-model="form.formsData[f._key]" type="textarea" />
-          <el-select v-else-if="f.type === '选择'" v-model="form.formsData[f._key]" style="width:100%">
-            <el-option v-for="opt in (f.options||'').split(',').filter(Boolean)" :key="opt" :label="opt" :value="opt" />
-          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -279,7 +430,17 @@
     <el-dialog v-model="detailDialog.visible" title="用户详情" width="500px">
       <div v-if="detailDialog.detail">
         <div style="text-align:center;margin-bottom:16px">
-          <el-avatar :src="detailDialog.detail.avatar || detailDialog.detail.pic" size="large">{{ detailDialog.detail.name?.[0] }}</el-avatar>
+          <span class="user-avatar user-avatar--large" :class="{ 'user-avatar--image': avatarImageReady(detailDialog.detail) }">
+            <span v-if="!avatarImageReady(detailDialog.detail)" class="user-avatar__initial">{{ avatarInitial(detailDialog.detail) }}</span>
+            <img
+              v-if="preferredAvatarUrl(detailDialog.detail)"
+              :class="{ 'is-loaded': avatarImageReady(detailDialog.detail) }"
+              :src="preferredAvatarUrl(detailDialog.detail)"
+              :alt="`${detailDialog.detail.name || '用户'}头像`"
+              @load="onAvatarLoad(detailDialog.detail)"
+              @error="onAvatarError(detailDialog.detail)"
+            />
+          </span>
           <div style="margin-top:8px;font-size:18px;font-weight:600">{{ detailDialog.detail.name }}</div>
           <el-tag :type="statusType(detailDialog.detail.status)" size="small">{{ statusLabel(detailDialog.detail.status) }}</el-tag>
         </div>
@@ -288,8 +449,9 @@
           <el-descriptions-item label="所属部门">
             {{ deptNameStr(detailDialog.detail.deptIds) }}
           </el-descriptions-item>
+          <el-descriptions-item label="岗位">{{ detailDialog.detail.positionName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="绑定角色">
-            {{ detailDialog.detail.roleName || '-' }}
+            {{ (detailDialog.detail.roleNames || []).join('、') || detailDialog.detail.roleName || '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="注册时间">{{ fmtTime(detailDialog.detail.addTime) }}</el-descriptions-item>
           <el-descriptions-item label="最后登录">{{ fmtTime(detailDialog.detail.loginTime) }}</el-descriptions-item>
@@ -319,6 +481,7 @@ const keyword = ref('')
 const selected = ref<any[]>([])
 const token = localStorage.getItem('admin_token') || ''
 const sortRules = ref<{field:string;order:string}[]>([])
+const userApplicationPermissionExpanded = ref(false)
 const sortColumns = [
   { label: '用户名', field: 'name' },
   { label: '手机号', field: 'mobile' },
@@ -330,7 +493,11 @@ const sortColumns = [
 const formFields = ref<any[]>([])
 const deptTreeData = ref<any[]>([])
 const deptTreeRef = ref<any>(null)
+const extraDataDeptTreeRef = ref<any>(null)
+const extraDataUserTreeRef = ref<any>(null)
 const roleList = ref<any[]>([])
+const positionOptions = ref<any[]>([])
+const dataScopeUserOptions = ref<any[]>([])
 const clientMenuTreeData = ref<any[]>([])
 const dingtalkH5MenuTreeData = ref<any[]>([])
 const clientApiTreeData = ref<any[]>([])
@@ -347,14 +514,34 @@ const deptDisplayText = computed(() => {
   if (!form.deptIds || form.deptIds.length === 0) return ''
   return form.deptIds.map((id: number) => deptTagName(id)).join('、')
 })
+const extraDataDeptDisplayText = computed(() => {
+  if (!form.extraDataDeptIds || form.extraDataDeptIds.length === 0) return ''
+  return form.extraDataDeptIds.map((id: number) => deptTagName(id)).join('、')
+})
+const extraDataUserTreeData = computed(() => buildExtraDataUserTree(deptTreeData.value, dataScopeUserOptions.value))
+const extraDataUserDisplayText = computed(() => {
+  if (!form.extraDataUserIds || form.extraDataUserIds.length === 0) return ''
+  const names = form.extraDataUserIds.map((id: number) => dataScopeUserName(id)).filter(Boolean)
+  return names.join('、')
+})
+const extraDataUserCheckedNodeKeys = computed(() => checkedExtraDataUserNodeKeys(form.extraDataUserIds, extraDataUserTreeData.value))
+const dingtalkH5MenuButtonPrefixes = ['dingtalk_h5:menu:', 'dingtalk_h5:button:']
 const allowClientMenuKeys = computed(() => applicationKeysByPrefix(form.allowPermissionKeys, 'client:menu:'))
-const allowDingTalkH5MenuKeys = computed(() => applicationKeysByPrefix(form.allowPermissionKeys, 'dingtalk_h5:menu:'))
+const allowDingTalkH5MenuKeys = computed(() => applicationKeysByPrefixes(form.allowPermissionKeys, dingtalkH5MenuButtonPrefixes))
 const allowClientApiKeys = computed(() => applicationKeysByPrefix(form.allowPermissionKeys, 'client:api:'))
 const allowDingTalkH5ApiKeys = computed(() => applicationKeysByPrefix(form.allowPermissionKeys, 'dingtalk_h5:api:'))
 const denyClientMenuKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'client:menu:'))
-const denyDingTalkH5MenuKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'dingtalk_h5:menu:'))
+const denyDingTalkH5MenuKeys = computed(() => applicationKeysByPrefixes(form.denyPermissionKeys, dingtalkH5MenuButtonPrefixes))
 const denyClientApiKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'client:api:'))
 const denyDingTalkH5ApiKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'dingtalk_h5:api:'))
+const allowClientMenuCheckedKeys = computed(() => checkableKeysForTree(allowClientMenuKeys.value, clientMenuTreeData.value))
+const allowDingTalkH5MenuCheckedKeys = computed(() => checkableKeysForTree(allowDingTalkH5MenuKeys.value, dingtalkH5MenuTreeData.value))
+const allowClientApiCheckedKeys = computed(() => checkableKeysForTree(allowClientApiKeys.value, clientApiTreeData.value))
+const allowDingTalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(allowDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
+const denyClientMenuCheckedKeys = computed(() => checkableKeysForTree(denyClientMenuKeys.value, clientMenuTreeData.value))
+const denyDingTalkH5MenuCheckedKeys = computed(() => checkableKeysForTree(denyDingTalkH5MenuKeys.value, dingtalkH5MenuTreeData.value))
+const denyClientApiCheckedKeys = computed(() => checkableKeysForTree(denyClientApiKeys.value, clientApiTreeData.value))
+const denyDingTalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(denyDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
 
 function fmtTime(ts: number) {
   if (!ts) return '-'
@@ -381,6 +568,54 @@ function deptNameMap() {
   return m
 }
 
+type DeptPathInfo = {
+  path: string[]
+}
+
+type DeptPathItem = {
+  key: string
+  text: string
+  segments: string[]
+}
+
+function deptPathInfoMap() {
+  const m: Record<number, DeptPathInfo> = {}
+  function walk(nodes: any[], parentPath: string[] = []) {
+    for (const n of nodes || []) {
+      const id = Number(n.id)
+      if (!id) continue
+      const name = String(n.name || id)
+      const path = [...parentPath, name]
+      m[id] = { path }
+      if (Array.isArray(n.children) && n.children.length > 0) {
+        walk(n.children, path)
+      }
+    }
+  }
+  walk(deptTreeData.value)
+  return m
+}
+
+function deptPathItems(deptIds: number[]): DeptPathItem[] {
+  if (!deptIds || deptIds.length === 0) return []
+  const pathMap = deptPathInfoMap()
+  const ids = Array.from(new Set((deptIds || []).map((id) => Number(id)).filter(Boolean)))
+  return ids.map((id) => {
+    const path = pathMap[id]?.path
+    const segments = path?.length ? path : [String(id)]
+    return {
+      key: String(id),
+      text: segments.join('|'),
+      segments
+    }
+  }).filter((item) => item.segments.length > 0)
+}
+
+function deptPathText(deptIds: number[]) {
+  const names = deptPathItems(deptIds).map((item) => item.text)
+  return names.filter(Boolean).join('、') || '-'
+}
+
 function deptTagName(id: number) {
   return deptNameMap()[id] || id
 }
@@ -391,43 +626,190 @@ function onDeptCheck() {
   })
 }
 
+function onExtraDataDeptCheck() {
+  nextTick(() => {
+    form.extraDataDeptIds = extraDataDeptTreeRef.value?.getCheckedKeys() || []
+  })
+}
+
+function normalizeNumberIDs(ids: any[]) {
+  return Array.from(new Set((ids || []).map((id: any) => Number(id)).filter(Boolean)))
+}
+
+function dataScopeUserName(id: number) {
+  const item = dataScopeUserOptions.value.find((user: any) => Number(user.id) === Number(id))
+  return item?.name || String(id)
+}
+
+function extraDataUserNodeKey(userID: number, scopeKey: string) {
+  return `user:${scopeKey}:${userID}`
+}
+
+function extraDataUserIDFromNodeKey(key: string) {
+  if (!key.startsWith('user:')) return 0
+  const parts = key.split(':')
+  return Number(parts[parts.length - 1]) || 0
+}
+
+function extraDataUserNode(user: any, scopeKey: string) {
+  const userID = Number(user.id)
+  return {
+    key: extraDataUserNodeKey(userID, scopeKey),
+    type: 'user',
+    id: userID,
+    label: user.name || String(userID),
+    mobile: user.mobile || user.phone || '',
+    pathText: deptPathText(user.deptIds || [])
+  }
+}
+
+function buildExtraDataUserTree(depts: any[], users: any[]) {
+  const usersByDept: Record<number, any[]> = {}
+  const usersWithoutDept: any[] = []
+  for (const user of users || []) {
+    const deptIDs = normalizeNumberIDs(user.deptIds || [])
+    if (deptIDs.length === 0) {
+      usersWithoutDept.push(user)
+      continue
+    }
+    for (const deptID of deptIDs) {
+      if (!usersByDept[deptID]) usersByDept[deptID] = []
+      usersByDept[deptID].push(user)
+    }
+  }
+
+  function buildDeptNode(dept: any): any | null {
+    const deptID = Number(dept.id)
+    if (!deptID) return null
+    const childDeptNodes = (dept.children || []).map((item: any) => buildDeptNode(item)).filter(Boolean)
+    const userNodes = (usersByDept[deptID] || []).map((user: any) => extraDataUserNode(user, `dept-${deptID}`))
+    const children = [...childDeptNodes, ...userNodes]
+    if (children.length === 0) return null
+    return {
+      key: `dept-${deptID}`,
+      type: 'dept',
+      id: deptID,
+      label: dept.name || String(deptID),
+      children
+    }
+  }
+
+  const tree = (depts || []).map((dept: any) => buildDeptNode(dept)).filter(Boolean)
+  if (usersWithoutDept.length > 0) {
+    tree.push({
+      key: 'dept-unassigned',
+      type: 'dept',
+      label: '未分配部门',
+      children: usersWithoutDept.map((user: any) => extraDataUserNode(user, 'unassigned'))
+    })
+  }
+  const visibleUserIDs = new Set<number>()
+  function collectUserIDs(items: any[]) {
+    for (const item of items || []) {
+      if (item.type === 'user') visibleUserIDs.add(Number(item.id))
+      if (Array.isArray(item.children) && item.children.length > 0) collectUserIDs(item.children)
+    }
+  }
+  collectUserIDs(tree)
+  const unmatchedUsers = (users || []).filter((user: any) => !visibleUserIDs.has(Number(user.id)))
+  if (unmatchedUsers.length > 0) {
+    tree.push({
+      key: 'dept-unmatched',
+      type: 'dept',
+      label: '未匹配部门',
+      children: unmatchedUsers.map((user: any) => extraDataUserNode(user, 'unmatched'))
+    })
+  }
+  return tree
+}
+
+function checkedExtraDataUserNodeKeys(userIDs: number[], nodes: any[]) {
+  const selected = new Set(normalizeNumberIDs(userIDs || []))
+  const keys: string[] = []
+  function walk(items: any[]) {
+    for (const item of items || []) {
+      if (item.type === 'user' && selected.has(Number(item.id))) {
+        keys.push(item.key)
+      }
+      if (Array.isArray(item.children) && item.children.length > 0) {
+        walk(item.children)
+      }
+    }
+  }
+  walk(nodes)
+  return keys
+}
+
+function extraDataUserIDsFromCheckedKeys(keys: string[]) {
+  const ids = (keys || []).map((key) => extraDataUserIDFromNodeKey(String(key))).filter(Boolean)
+  return normalizeNumberIDs(ids)
+}
+
+function setExtraDataUserTreeKeys() {
+  extraDataUserTreeRef.value?.setCheckedKeys(extraDataUserCheckedNodeKeys.value)
+}
+
+function onExtraDataUserCheck() {
+  nextTick(() => {
+    const checkedKeys = extraDataUserTreeRef.value?.getCheckedKeys?.() || []
+    form.extraDataUserIds = extraDataUserIDsFromCheckedKeys(checkedKeys)
+    nextTick(() => setExtraDataUserTreeKeys())
+  })
+}
+
 function applicationKeysByPrefix(keys: string[], prefix: string) {
   return (keys || []).filter((key: string) => key.startsWith(prefix))
 }
 
-function checkedKeys(treeRef: any, includeHalfChecked = false) {
-  const checked = treeRef.value?.getCheckedKeys?.() || []
-  if (!includeHalfChecked) return checked
-  const halfChecked = treeRef.value?.getHalfCheckedKeys?.() || []
-  return Array.from(new Set([...checked, ...halfChecked]))
+function applicationKeysByPrefixes(keys: string[], prefixes: string[]) {
+  return (keys || []).filter((key: string) => prefixes.some((prefix) => key.startsWith(prefix)))
 }
 
-function onUserApplicationPermissionCheck() {
+function checkedKeys(treeRef: any, options: { includeHalfChecked?: boolean; prefix?: string; prefixes?: string[] } = {}) {
+  const checked = treeRef.value?.getCheckedKeys?.() || []
+  const halfChecked = options.includeHalfChecked ? (treeRef.value?.getHalfCheckedKeys?.() || []) : []
+  const keys = Array.from(new Set([...checked, ...halfChecked])) as string[]
+  const prefixes = options.prefixes || (options.prefix ? [options.prefix] : [])
+  if (prefixes.length === 0) return keys
+  return keys.filter((key) => prefixes.some((prefix) => key.startsWith(prefix)))
+}
+
+function onUserApplicationPermissionCheck(source: 'allow' | 'deny') {
   nextTick(() => {
-    form.allowPermissionKeys = Array.from(new Set([
-      ...checkedKeys(allowClientMenuTreeRef),
-      ...checkedKeys(allowDingTalkH5MenuTreeRef, true),
-      ...checkedKeys(allowClientApiTreeRef),
-      ...checkedKeys(allowDingTalkH5ApiTreeRef)
+    const allowKeys = Array.from(new Set([
+      ...checkedKeys(allowClientMenuTreeRef, { prefix: 'client:menu:' }),
+      ...checkedKeys(allowDingTalkH5MenuTreeRef, { includeHalfChecked: true, prefixes: dingtalkH5MenuButtonPrefixes }),
+      ...checkedKeys(allowClientApiTreeRef, { prefix: 'client:api:' }),
+      ...checkedKeys(allowDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
     ])) as string[]
-    form.denyPermissionKeys = Array.from(new Set([
-      ...checkedKeys(denyClientMenuTreeRef),
-      ...checkedKeys(denyDingTalkH5MenuTreeRef),
-      ...checkedKeys(denyClientApiTreeRef),
-      ...checkedKeys(denyDingTalkH5ApiTreeRef)
+    const denyKeys = Array.from(new Set([
+      ...checkedKeys(denyClientMenuTreeRef, { prefix: 'client:menu:' }),
+      ...checkedKeys(denyDingTalkH5MenuTreeRef, { includeHalfChecked: true, prefixes: dingtalkH5MenuButtonPrefixes }),
+      ...checkedKeys(denyClientApiTreeRef, { prefix: 'client:api:' }),
+      ...checkedKeys(denyDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
     ])) as string[]
+    const allowSet = new Set(allowKeys)
+    const denySet = new Set(denyKeys)
+    if (source === 'deny') {
+      form.allowPermissionKeys = allowKeys.filter((key) => !denySet.has(key))
+      form.denyPermissionKeys = denyKeys
+    } else {
+      form.allowPermissionKeys = allowKeys
+      form.denyPermissionKeys = denyKeys.filter((key) => !allowSet.has(key))
+    }
+    nextTick(() => setUserApplicationPermissionTreeKeys())
   })
 }
 
 function setUserApplicationPermissionTreeKeys() {
-  allowClientMenuTreeRef.value?.setCheckedKeys(allowClientMenuKeys.value)
-  allowDingTalkH5MenuTreeRef.value?.setCheckedKeys(checkableKeysForTree(allowDingTalkH5MenuKeys.value, dingtalkH5MenuTreeData.value))
-  allowClientApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(allowClientApiKeys.value, clientApiTreeData.value))
-  allowDingTalkH5ApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(allowDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
-  denyClientMenuTreeRef.value?.setCheckedKeys(denyClientMenuKeys.value)
-  denyDingTalkH5MenuTreeRef.value?.setCheckedKeys(denyDingTalkH5MenuKeys.value)
-  denyClientApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(denyClientApiKeys.value, clientApiTreeData.value))
-  denyDingTalkH5ApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(denyDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
+  allowClientMenuTreeRef.value?.setCheckedKeys(allowClientMenuCheckedKeys.value)
+  allowDingTalkH5MenuTreeRef.value?.setCheckedKeys(allowDingTalkH5MenuCheckedKeys.value)
+  allowClientApiTreeRef.value?.setCheckedKeys(allowClientApiCheckedKeys.value)
+  allowDingTalkH5ApiTreeRef.value?.setCheckedKeys(allowDingTalkH5ApiCheckedKeys.value)
+  denyClientMenuTreeRef.value?.setCheckedKeys(denyClientMenuCheckedKeys.value)
+  denyDingTalkH5MenuTreeRef.value?.setCheckedKeys(denyDingTalkH5MenuCheckedKeys.value)
+  denyClientApiTreeRef.value?.setCheckedKeys(denyClientApiCheckedKeys.value)
+  denyDingTalkH5ApiTreeRef.value?.setCheckedKeys(denyDingTalkH5ApiCheckedKeys.value)
 }
 
 function checkableKeysForTree(keys: string[], nodes: any[]) {
@@ -444,6 +826,43 @@ function checkableKeysForTree(keys: string[], nodes: any[]) {
   return keys.filter((key) => !parentKeys.has(key))
 }
 
+function normalizeAvatarUrl(value: any) {
+  const url = String(value ?? '').trim()
+  if (!url || url === '-') return ''
+  const lower = url.toLowerCase()
+  if (lower === 'null' || lower === 'undefined') return ''
+  const path = lower.split('?')[0]
+  if (path === 'static/default-avatar.png' || path.endsWith('/static/default-avatar.png')) return ''
+  return url
+}
+
+function preferredAvatarUrl(row: any) {
+  if (!row || row.avatarLoadFailed) return ''
+  return normalizeAvatarUrl(row.avatar) || normalizeAvatarUrl(row.pic)
+}
+
+function avatarImageReady(row: any) {
+  return !!preferredAvatarUrl(row) && row?.avatarLoaded === true
+}
+
+function avatarInitial(row: any) {
+  const text = String(row?.name || row?.realName || row?.mobile || row?.id || '用').trim()
+  return Array.from(text)[0] || '用'
+}
+
+function onAvatarLoad(row: any) {
+  if (!row) return
+  row.avatarLoaded = true
+}
+
+function onAvatarError(row: any) {
+  if (!row) return
+  row.avatarLoadFailed = true
+  row.avatarLoaded = false
+  row.avatar = ''
+  row.pic = ''
+}
+
 async function loadDepts() {
   try {
     const res = await adminApi.deptTree()
@@ -458,6 +877,22 @@ async function loadRoles() {
   } catch { roleList.value = [] }
 }
 
+async function loadPositions() {
+  try {
+    const res = await adminApi.positionList({ page: 1, pageSize: 9999 })
+    positionOptions.value = Array.isArray(res.data?.list) ? res.data.list : []
+  } catch { positionOptions.value = [] }
+}
+
+async function loadDataScopeUserOptions() {
+  try {
+    const res = await adminApi.userList({ page: 1, pageSize: 9999 })
+    dataScopeUserOptions.value = Array.isArray(res.data?.list) ? res.data.list : []
+    await nextTick()
+    if (dialog.visible) setExtraDataUserTreeKeys()
+  } catch { dataScopeUserOptions.value = [] }
+}
+
 async function loadApplicationPermissionTree() {
   try {
     const res = await adminApi.appPermissionTree()
@@ -468,6 +903,8 @@ async function loadApplicationPermissionTree() {
     if (clientMenuTreeData.value.length === 0 && dingtalkH5MenuTreeData.value.length === 0 && clientApiTreeData.value.length === 0 && dingtalkH5ApiTreeData.value.length === 0) {
       ElMessage.warning('应用权限配置为空，请确认后端已启动最新版本')
     }
+    await nextTick()
+    if (dialog.visible) setUserApplicationPermissionTreeKeys()
   } catch {
     clientMenuTreeData.value = []
     dingtalkH5MenuTreeData.value = []
@@ -485,10 +922,14 @@ async function load() {
     const res = await adminApi.userList(params)
     const rawList = res.data?.list || []
     total.value = res.data?.total || 0
-    const dmap = deptNameMap()
     list.value = rawList.map((u: any) => ({
       ...u,
-      deptNames: (u.deptIds || []).map((id: number) => dmap[id] || id).filter(Boolean).join('、') || '-'
+      avatar: normalizeAvatarUrl(u.avatar || u.pic),
+      pic: normalizeAvatarUrl(u.pic || u.avatar),
+      avatarLoadFailed: false,
+      avatarLoaded: false,
+      deptNames: deptPathText(u.deptIds || []),
+      deptPathItems: deptPathItems(u.deptIds || [])
     }))
   } catch { list.value = []; total.value = 0 }
   loading.value = false
@@ -522,7 +963,7 @@ async function changeStatus(row: any, status: string, reason?: string) {
 }
 
 function hasRowMoreActions(_row: any) {
-  return hasPerm('user:edit') || hasPerm('user:del')
+  return hasPerm('admin:menu:user:edit') || hasPerm('admin:menu:user:del')
 }
 
 async function handleRowCommand(cmd: string, row: any) {
@@ -590,9 +1031,13 @@ const form = reactive({
   pic: '',
 	  deptIds: [] as number[],
 	  password: '',
+	  positionId: null as any,
 	  roleId: null as any,
+	  roleIds: [] as number[],
 	  allowPermissionKeys: [] as string[],
 	  denyPermissionKeys: [] as string[],
+	  extraDataDeptIds: [] as number[],
+	  extraDataUserIds: [] as number[],
 	  formsData: {} as any
 	})
 function resetForm() {
@@ -603,9 +1048,13 @@ function resetForm() {
   form.pic = ''
 	  form.deptIds = []
 	  form.password = ''
+	  form.positionId = null
 	  form.roleId = null
+	  form.roleIds = []
 	  form.allowPermissionKeys = []
 	  form.denyPermissionKeys = []
+	  form.extraDataDeptIds = []
+	  form.extraDataUserIds = []
 	  form.formsData = {}
 	}
 
@@ -616,6 +1065,8 @@ function showAdd() {
   dialog.visible = true
   nextTick(() => {
     deptTreeRef.value?.setCheckedKeys([])
+    extraDataDeptTreeRef.value?.setCheckedKeys([])
+    extraDataUserTreeRef.value?.setCheckedKeys([])
     setUserApplicationPermissionTreeKeys()
   })
 }
@@ -627,23 +1078,31 @@ async function showEdit(row: any) {
   form.id = row.id
   form.name = row.name
   form.mobile = row.mobile
-  form.pic = row.avatar || row.pic
-  form.avatar = row.avatar || ''
+  form.positionId = row.positionId || null
+  form.pic = preferredAvatarUrl(row)
+  form.avatar = normalizeAvatarUrl(row.avatar)
   form.deptIds = row.deptIds || []
   form.roleId = row.roleId || null
+  form.roleIds = row.roleIds?.length ? row.roleIds : (row.roleId ? [row.roleId] : [])
   try {
     const res = await adminApi.userDetailById(row.id)
     const d = res.data || {}
     form.deptIds = d.deptIds || []
+    form.positionId = d.positionId || null
     form.roleId = d.roleId || null
+    form.roleIds = d.roleIds?.length ? d.roleIds : (d.roleId ? [d.roleId] : [])
     form.allowPermissionKeys = d.allowPermissionKeys || []
     form.denyPermissionKeys = d.denyPermissionKeys || []
+    form.extraDataDeptIds = d.extraDataDeptIds || []
+    form.extraDataUserIds = d.extraDataUserIds || []
     if (d.forms) {
       try { form.formsData = JSON.parse(d.forms) } catch { form.formsData = {} }
     }
   } catch {}
   nextTick(() => {
     deptTreeRef.value?.setCheckedKeys(form.deptIds)
+    extraDataDeptTreeRef.value?.setCheckedKeys(form.extraDataDeptIds)
+    setExtraDataUserTreeKeys()
     setUserApplicationPermissionTreeKeys()
   })
 }
@@ -654,7 +1113,9 @@ function handleAvatarSuccess(res: any) {
 
 async function saveUser() {
   if (!form.name) { ElMessage.warning('请输入用户名'); return }
-  if (form.roleId && dialog.isCreate && !form.password) {
+  const roleIds = normalizeRoleIds(form.roleIds)
+  const primaryRoleId = roleIds[0] || 0
+  if (roleIds.length > 0 && dialog.isCreate && !form.password) {
     ElMessage.warning('请输入登录密码')
     return
   }
@@ -664,11 +1125,15 @@ async function saveUser() {
       name: form.name,
       mobile: form.mobile,
 	      pic: form.pic,
+	      positionId: form.positionId || 0,
 	      password: form.password,
-	      roleId: form.roleId || 0
+	      roleId: primaryRoleId,
+	      roleIds: roleIds.join(',')
 	    }
     payload.allowPermissionKeys = form.allowPermissionKeys.join(',')
     payload.denyPermissionKeys = form.denyPermissionKeys.join(',')
+    payload.extraDataDeptIds = form.extraDataDeptIds.join(',')
+    payload.extraDataUserIds = form.extraDataUserIds.join(',')
 	    if (form.deptIds.length > 0) payload.deptIds = form.deptIds.join(',')
     const hasAny = Object.values(form.formsData).some(v => v !== undefined && v !== null && v !== '')
     if (hasAny) payload.forms = JSON.stringify(form.formsData)
@@ -689,7 +1154,9 @@ const detailDialog: { visible: boolean; detail: any } = reactive({ visible: fals
 async function showDetail(row: any) {
   try {
     const res = await adminApi.userDetailById(row.id)
-    detailDialog.detail = res.data || {}
+    const detail = res.data || {}
+    const avatar = normalizeAvatarUrl(detail.avatar || detail.pic)
+    detailDialog.detail = { ...detail, avatar, pic: avatar, avatarLoadFailed: false, avatarLoaded: false }
     detailDialog.visible = true
   } catch {}
 }
@@ -697,6 +1164,24 @@ function deptNameStr(deptIds: number[]) {
   if (!deptIds || deptIds.length === 0) return '-'
   const dmap = deptNameMap()
   return deptIds.map(id => dmap[id] || id).join('、')
+}
+function normalizeRoleIds(values: any[]) {
+  const result: number[] = []
+  const seen = new Set<number>()
+  ;(values || []).forEach(value => {
+    const id = Number(value)
+    if (!id || seen.has(id)) return
+    seen.add(id)
+    result.push(id)
+  })
+  return result
+}
+function displayRoleNames(row: any) {
+  const names = Array.isArray(row.roleNames) ? row.roleNames.filter(Boolean) : []
+  if (names.length > 0) return names
+  if (row.roleName) return [row.roleName]
+  if (row.roleId) return ['已绑定']
+  return []
 }
 function parsedForms(f: any) {
   const d: any = detailDialog.detail
@@ -715,12 +1200,53 @@ async function loadFormFields() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadFormFields(), loadDepts(), loadRoles(), loadApplicationPermissionTree()])
+  await Promise.all([loadFormFields(), loadDepts(), loadRoles(), loadPositions(), loadDataScopeUserOptions(), loadApplicationPermissionTree()])
   load()
 })
 </script>
 
 <style scoped>
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  vertical-align: middle;
+  background: #eef2f7;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.user-avatar__initial {
+  position: relative;
+  z-index: 1;
+}
+.user-avatar--large {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+.user-avatar--image {
+  background: #f8fafc;
+}
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  display: block;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.user-avatar img.is-loaded {
+  opacity: 1;
+}
 .avatar-upload {
   cursor: pointer;
   display: inline-block;
@@ -762,23 +1288,210 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 12px;
 }
-.permission-grid {
+.role-tag-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+:deep(.user-name-column .cell) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dept-path-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+.dept-path-pill {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  background: #f8fbff;
+  color: #344054;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.dept-path-segment {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dept-path-segment.parent {
+  flex: 0 1 auto;
+  color: #667085;
+}
+.dept-path-segment.leaf {
+  flex: 1 1 auto;
+  color: #1d2129;
+  font-weight: 700;
+}
+.dept-path-separator {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  color: #98a2b3;
+}
+.extra-data-user-tree-wrap {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px 4px;
+}
+.extra-data-user-tree {
+  min-width: 420px;
+}
+.extra-data-user-tree :deep(.el-tree-node__content) {
+  min-width: 0;
+  height: 32px;
+  border-radius: 6px;
+}
+.extra-data-user-tree :deep(.el-tree-node__content:hover) {
+  background: #f5f8ff;
+}
+.extra-data-user-tree :deep(.el-tree-node__label) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.extra-data-user-node {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 8px;
+}
+.extra-data-user-node.is-dept {
+  color: #1d2129;
+  font-weight: 600;
+}
+.extra-data-user-node.is-user {
+  color: #344054;
+  font-weight: 400;
+}
+.extra-data-user-node__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.extra-data-user-node__meta {
+  flex: 0 0 auto;
+  color: #8a94a6;
+  font-size: 12px;
+}
+.collapsible-divider :deep(.el-divider__text) {
+  min-width: min(420px, calc(100vw - 96px));
+}
+.collapsible-divider__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+.collapsible-divider__content span {
+  color: #1d2129;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.collapsible-divider__line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: #dcdfe6;
+}
+.permission-form-item :deep(.el-form-item__content) {
+  min-width: 0;
+}
+.permission-layout {
   box-sizing: border-box;
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.permission-column {
+  box-sizing: border-box;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+}
+.permission-column__header {
+  box-sizing: border-box;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+.permission-column__header span {
+  color: #1d2129;
+  font-size: 14px;
+  font-weight: 700;
+}
+.permission-column__header small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8a94a6;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.permission-column--menu .permission-column__header span {
+  color: #2563eb;
+}
+.permission-column--api .permission-column__header span {
+  color: #0f766e;
 }
 .permission-panel {
   box-sizing: border-box;
   min-width: 0;
+  height: 270px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid #e5e8ef;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 20px rgba(29, 41, 57, 0.04);
+  box-shadow: 0 6px 16px rgba(29, 41, 57, 0.04);
+}
+.permission-section-divider {
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+.permission-section-divider::before,
+.permission-section-divider::after {
+  flex: 1 1 auto;
+  height: 1px;
+  background: #e5e8ef;
+  content: '';
+}
+.permission-section-divider span {
+  flex: 0 0 auto;
 }
 .permission-panel__title {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   min-height: 38px;
@@ -789,11 +1502,22 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 600;
 }
+.permission-panel__title::before {
+  width: 4px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: #409eff;
+  content: '';
+}
+.permission-column--api .permission-panel__title::before {
+  background: #14b8a6;
+}
 .permission-tree {
   box-sizing: border-box;
   width: 100%;
-  max-height: 220px;
-  min-height: 180px;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 8px 10px 10px;
   overflow-y: auto;
   border: 0;
@@ -823,9 +1547,14 @@ onMounted(async () => {
   max-height: 72vh;
   overflow-y: auto;
 }
-@media (max-width: 760px) {
-  .permission-grid {
+@media (max-width: 900px) {
+  .permission-layout {
     grid-template-columns: 1fr;
+  }
+  .permission-column__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
   }
 }
 </style>

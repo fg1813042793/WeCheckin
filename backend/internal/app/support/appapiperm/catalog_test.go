@@ -29,6 +29,7 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 		"dingtalk_h5:api:review:finalize":    false,
 		"dingtalk_h5:api:user:edit":          false,
 		"dingtalk_h5:api:template:view":      false,
+		"dingtalk_h5:api:template:save":      false,
 	}
 	for _, declaration := range declarations {
 		if !strings.HasPrefix(declaration.Key, "dingtalk_h5:api:") {
@@ -66,6 +67,7 @@ func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 		t.Fatalf("client API declarations must not be empty")
 	}
 	required := map[string]bool{
+		"client:api:bootstrap:view":  false,
 		"client:api:user:view":       false,
 		"client:api:news:view":       false,
 		"client:api:enroll:submit":   false,
@@ -88,5 +90,16 @@ func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing client API permission %s", key)
 		}
+	}
+
+	foundBootstrapRoute := false
+	for _, route := range ClientRouteDeclarations() {
+		if route.Method == "GET" && route.Path == "/api/v2/me/bootstrap" && route.PermissionKey == "client:api:bootstrap:view" {
+			foundBootstrapRoute = true
+			break
+		}
+	}
+	if !foundBootstrapRoute {
+		t.Fatalf("client bootstrap route must be protected by client:api:bootstrap:view")
 	}
 }

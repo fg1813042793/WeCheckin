@@ -18,6 +18,7 @@ func TestRoleServicePersistsAdminLoginControl(t *testing.T) {
 		"role_allow_admin_login",
 		"normalizeAllowAdminLogin",
 		"permissionsupport.SetRoleAdminPermissionKeysTx",
+		"adminaccess.InvalidateAdminAccessCacheForRole",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("role service must persist admin login control with %s", snippet)

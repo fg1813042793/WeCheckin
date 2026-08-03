@@ -5,8 +5,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/pkg/response"
 )
 
 // ReportEnrollSchema GET /admin/survey/report/enroll?enrollId=xx
@@ -14,7 +14,6 @@ import (
 // @Summary 打卡报表
 // @Param enrollId query string true "打卡项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/report/enroll [get]
 func (h *AdminSurveyHandler) ReportEnrollSchema(ctx context.Context, c *app.RequestContext) {
 	enrollID := c.Query("enrollId")
 	if enrollID == "" {
@@ -34,7 +33,6 @@ func (h *AdminSurveyHandler) ReportEnrollSchema(ctx context.Context, c *app.Requ
 // @Summary 导出打卡CSV
 // @Param enrollId query string true "打卡项目ID"
 // @Success 200 {file} string
-// @Router /admin/survey/export/enroll [get]
 func (h *AdminSurveyHandler) ExportEnrollSchemaCSV(ctx context.Context, c *app.RequestContext) {
 	enrollID := c.Query("enrollId")
 	if enrollID == "" {

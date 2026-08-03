@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 type ExportResult struct {

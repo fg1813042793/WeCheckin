@@ -1,8 +1,8 @@
 package builtin
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 type InputQuestion struct{ question.BaseQuestion }

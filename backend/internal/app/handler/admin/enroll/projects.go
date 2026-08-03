@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	admincontentservice "wecheckin-backend/backend/internal/app/service/admincontent"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	admincontentservice "wecheckin/backend/internal/app/service/admincontent"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-打卡管理
@@ -18,7 +18,6 @@ import (
 // @Param size query string false "每页数量"
 // @Param keyword query string false "关键词"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_list [get]
 func (h *AdminEnrollHandler) GetAdminEnrollList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -41,7 +40,6 @@ func (h *AdminEnrollHandler) GetAdminEnrollList(ctx context.Context, c *app.Requ
 // @Tags PC端-打卡管理
 // @Summary 新增打卡项目
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_insert [post]
 func (h *AdminEnrollHandler) InsertEnroll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -111,7 +109,6 @@ func (h *AdminEnrollHandler) InsertEnroll(ctx context.Context, c *app.RequestCon
 // @Summary 获取打卡项目详情
 // @Param id query string true "项目ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_detail [get]
 func (h *AdminEnrollHandler) GetEnrollDetail(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -136,7 +133,6 @@ func (h *AdminEnrollHandler) GetEnrollDetail(ctx context.Context, c *app.Request
 // @Param cover formData string false "封面图URL"
 // @Param desc formData string false "描述"
 // @Success 200 {object} response.Resp
-// @Router /admin/enroll_edit [post]
 func (h *AdminEnrollHandler) EditEnroll(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

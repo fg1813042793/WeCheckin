@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/app/support/adminaccess"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type AdminHomeResponse struct {
@@ -34,36 +34,18 @@ func AdminHomeContext(ctx context.Context, adminID uint) (AdminHomeResponse, err
 	}
 
 	var userCnt int64
-	if adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) || admin.RoleID == 0 {
-		if err := db.Model(&model.User{}).Count(&userCnt).Error; err != nil {
-			return AdminHomeResponse{}, err
-		}
-	} else {
-		q := db.Model(&model.User{})
-		var role model.Role
-		if err := db.First(&role, admin.RoleID).Error; err == nil {
-			if role.DataScope == 2 || role.DataScope == 4 {
-				var deptIDs []uint
-				if role.DataScope == 2 {
-					deptIDs = access.AdminDeptIDsContext(ctx, admin.ID)
-				} else {
-					deptIDs = access.RoleDeptIDsContext(ctx, admin.RoleID)
-				}
-				if len(deptIDs) > 0 {
-					q = q.Where("`id` IN (SELECT `user_dept_user_id` FROM `user_depts` WHERE `user_dept_dept_id` IN ?)", deptIDs)
-				}
-			} else if role.DataScope == 3 {
-				q = q.Where("1 = 0")
-			}
-		}
-		if err := q.Count(&userCnt).Error; err != nil {
-			return AdminHomeResponse{}, err
-		}
+	userQuery := db.Model(&model.User{})
+	userWhere, userArgs := access.UserDataScopeFilterWithDBContext(ctx, db, &admin)
+	if userWhere != "" {
+		userQuery = userQuery.Where(userWhere, userArgs...)
+	}
+	if err := userQuery.Count(&userCnt).Error; err != nil {
+		return AdminHomeResponse{}, err
 	}
 
 	var enrollCnt int64
 	q := db.Model(&model.Enroll{})
-	where, args := access.DataScopeFilterContext(ctx, &admin, "`enroll_dept_id`", "`enroll_create_by`")
+	where, args := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.EnrollAuditFields)
 	if where != "" {
 		q = q.Where(where, args...)
 	}
@@ -73,7 +55,7 @@ func AdminHomeContext(ctx context.Context, adminID uint) (AdminHomeResponse, err
 
 	var newsCnt int64
 	q2 := db.Model(&model.News{})
-	where2, args2 := access.DataScopeFilterContext(ctx, &admin, "`news_dept_id`", "`news_create_by`")
+	where2, args2 := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.NewsAuditFields)
 	if where2 != "" {
 		q2 = q2.Where(where2, args2...)
 	}
@@ -95,7 +77,7 @@ func AdminHomeContext(ctx context.Context, adminID uint) (AdminHomeResponse, err
 
 	var eventCnt int64
 	q4 := db.Model(&model.Event{})
-	where4, args4 := access.DataScopeFilterContext(ctx, &admin, "`event_dept_id`", "`event_create_by`")
+	where4, args4 := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.EventAuditFields)
 	if where4 != "" {
 		q4 = q4.Where(where4, args4...)
 	}

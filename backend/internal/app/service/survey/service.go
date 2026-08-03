@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"time"
 
-	"wecheckin-backend/backend/internal/app/formkit/calc"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/formkit/calc"
+	"wecheckin/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 
 	"gorm.io/gorm"
 )
@@ -46,14 +46,16 @@ var adminSurveyListColumns = []string{
 	"survey_status",
 	"survey_mode",
 	"survey_order",
-	"survey_dept_id",
-	"survey_create_by",
-	"survey_add_time",
-	"survey_edit_time",
+	"create_dept_id",
+	"create_by",
+	"update_by",
+	"update_dept_id",
+	"add_time",
+	"edit_time",
 }
 
 func scopedSurveyQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
-	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Survey{}, "`survey_dept_id`", "`survey_create_by`")
+	return access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Survey{}, access.SurveyAuditFields)
 }
 
 func ensureSurveyVisibleContext(ctx context.Context, db *gorm.DB, surveyID uint, adminID uint) error {
@@ -93,6 +95,12 @@ func (s *SurveyService) CreateContext(ctx context.Context, sv *model.Survey) err
 	now := time.Now().UnixMilli()
 	sv.AddTime = now
 	sv.EditTime = now
+	if sv.UpdateBy == 0 {
+		sv.UpdateBy = sv.CreateBy
+	}
+	if sv.UpdateDeptID == 0 {
+		sv.UpdateDeptID = sv.DeptID
+	}
 	if sv.Status == 0 {
 		sv.Status = 1
 	}
@@ -133,7 +141,9 @@ func (s *SurveyService) UpdateContext(ctx context.Context, sv *model.Survey) err
 		"survey_mode":         sv.Mode,
 		"survey_settings":     sv.Settings,
 		"survey_order":        sv.Order,
-		"survey_edit_time":    sv.EditTime,
+		"create_dept_id":      sv.DeptID,
+		"update_dept_id":      sv.DeptID,
+		"edit_time":           sv.EditTime,
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
@@ -167,7 +177,10 @@ func (s *SurveyService) UpdateForAdminContext(ctx context.Context, sv *model.Sur
 		"survey_mode":         sv.Mode,
 		"survey_settings":     sv.Settings,
 		"survey_order":        sv.Order,
-		"survey_edit_time":    sv.EditTime,
+		"create_dept_id":      sv.DeptID,
+		"update_by":           adminID,
+		"update_dept_id":      sv.DeptID,
+		"edit_time":           sv.EditTime,
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()

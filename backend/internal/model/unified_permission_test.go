@@ -42,13 +42,16 @@ func TestPermissionModelHasStableColumns(t *testing.T) {
 
 func TestPermissionGrantModelSupportsRoleAndUserSubjects(t *testing.T) {
 	typ := reflect.TypeOf(PermissionGrant{})
+	lookupIndex := "idx_permission_grants_subject_effect_status_key"
+	subjectStatusIndex := "idx_permission_grants_subject_status_key"
 	checks := map[string][]string{
-		"SubjectType":   {`json:"subjectType"`, "column:grant_subject_type", "idx_permission_grants_subject_permission"},
-		"SubjectID":     {`json:"subjectId"`, "column:grant_subject_id", "idx_permission_grants_subject_permission"},
-		"PermissionKey": {`json:"permissionKey"`, "column:grant_permission_key", "idx_permission_grants_subject_permission"},
+		"SubjectType":   {`json:"subjectType"`, "column:grant_subject_type", "idx_permission_grants_subject_permission", lookupIndex, subjectStatusIndex},
+		"SubjectID":     {`json:"subjectId"`, "column:grant_subject_id", "idx_permission_grants_subject_permission", lookupIndex, subjectStatusIndex},
+		"PermissionKey": {`json:"permissionKey"`, "column:grant_permission_key", "idx_permission_grants_subject_permission", lookupIndex, subjectStatusIndex},
 		"PermissionID":  {`json:"permissionId"`, "column:grant_permission_id"},
-		"Effect":        {`json:"effect"`, "column:grant_effect"},
+		"Effect":        {`json:"effect"`, "column:grant_effect", lookupIndex, subjectStatusIndex},
 		"ScopeValue":    {`json:"scopeValue"`, "column:grant_scope_value"},
+		"Status":        {`json:"status"`, "column:grant_status", lookupIndex, subjectStatusIndex},
 	}
 	for name, snippets := range checks {
 		field, ok := typ.FieldByName(name)

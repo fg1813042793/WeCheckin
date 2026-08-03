@@ -9,30 +9,32 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/route"
-	admindept "wecheckin-backend/backend/internal/app/handler/admin/department"
-	admindict "wecheckin-backend/backend/internal/app/handler/admin/dict"
-	adminenroll "wecheckin-backend/backend/internal/app/handler/admin/enroll"
-	adminevent "wecheckin-backend/backend/internal/app/handler/admin/event"
-	adminexam "wecheckin-backend/backend/internal/app/handler/admin/exam"
-	adminhome "wecheckin-backend/backend/internal/app/handler/admin/home"
-	adminmenu "wecheckin-backend/backend/internal/app/handler/admin/menu"
-	adminmgr "wecheckin-backend/backend/internal/app/handler/admin/mgr"
-	adminnews "wecheckin-backend/backend/internal/app/handler/admin/news"
-	adminpermission "wecheckin-backend/backend/internal/app/handler/admin/permission"
-	adminrole "wecheckin-backend/backend/internal/app/handler/admin/role"
-	adminsetup "wecheckin-backend/backend/internal/app/handler/admin/setup"
-	adminsurvey "wecheckin-backend/backend/internal/app/handler/admin/survey"
-	adminuser "wecheckin-backend/backend/internal/app/handler/admin/user"
-	clientenroll "wecheckin-backend/backend/internal/app/handler/client/enroll"
-	clientevent "wecheckin-backend/backend/internal/app/handler/client/event"
-	clientexam "wecheckin-backend/backend/internal/app/handler/client/exam"
-	clientfavorite "wecheckin-backend/backend/internal/app/handler/client/favorite"
-	clientnews "wecheckin-backend/backend/internal/app/handler/client/news"
-	clientpassport "wecheckin-backend/backend/internal/app/handler/client/passport"
-	clientsurvey "wecheckin-backend/backend/internal/app/handler/client/survey"
-	publicgeo "wecheckin-backend/backend/internal/app/handler/public/geo"
-	publichome "wecheckin-backend/backend/internal/app/handler/public/home"
-	"wecheckin-backend/backend/internal/middleware"
+	admindept "wecheckin/backend/internal/app/handler/admin/department"
+	admindict "wecheckin/backend/internal/app/handler/admin/dict"
+	admindingtalk "wecheckin/backend/internal/app/handler/admin/dingtalk"
+	adminenroll "wecheckin/backend/internal/app/handler/admin/enroll"
+	adminevent "wecheckin/backend/internal/app/handler/admin/event"
+	adminexam "wecheckin/backend/internal/app/handler/admin/exam"
+	adminhome "wecheckin/backend/internal/app/handler/admin/home"
+	adminmenu "wecheckin/backend/internal/app/handler/admin/menu"
+	adminmgr "wecheckin/backend/internal/app/handler/admin/mgr"
+	adminnews "wecheckin/backend/internal/app/handler/admin/news"
+	adminpermission "wecheckin/backend/internal/app/handler/admin/permission"
+	adminposition "wecheckin/backend/internal/app/handler/admin/position"
+	adminrole "wecheckin/backend/internal/app/handler/admin/role"
+	adminsetup "wecheckin/backend/internal/app/handler/admin/setup"
+	adminsurvey "wecheckin/backend/internal/app/handler/admin/survey"
+	adminuser "wecheckin/backend/internal/app/handler/admin/user"
+	clientenroll "wecheckin/backend/internal/app/handler/client/enroll"
+	clientevent "wecheckin/backend/internal/app/handler/client/event"
+	clientexam "wecheckin/backend/internal/app/handler/client/exam"
+	clientfavorite "wecheckin/backend/internal/app/handler/client/favorite"
+	clientnews "wecheckin/backend/internal/app/handler/client/news"
+	clientpassport "wecheckin/backend/internal/app/handler/client/passport"
+	clientsurvey "wecheckin/backend/internal/app/handler/client/survey"
+	publicgeo "wecheckin/backend/internal/app/handler/public/geo"
+	publichome "wecheckin/backend/internal/app/handler/public/home"
+	"wecheckin/backend/internal/middleware"
 )
 
 func registerV2Routes(h *server.Hertz) {
@@ -85,6 +87,7 @@ func registerV2ClientRoutes(h *server.Hertz) {
 	cExam := clientexam.NewClientExamHandler()
 
 	client := h.Group("/api/v2", middleware.ClientAuth(), middleware.ClientPerm())
+	client.GET("/me/bootstrap", pp.Bootstrap)
 	client.GET("/me", pp.GetMyDetail)
 	client.PUT("/me", pp.EditBase)
 	client.POST("/me/phone", pp.GetPhone)
@@ -140,6 +143,7 @@ func registerV2AdminBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgr
 	aHome := adminhome.NewAdminHomeHandler()
 	aSetup := adminsetup.NewAdminSetupHandler()
 	aUser := adminuser.NewAdminUserHandler()
+	aDingTalk := admindingtalk.NewAdminDingTalkHandler()
 
 	admin.GET("/home", aHome.AdminHome)
 	admin.DELETE("/home/recommendations", aHome.ClearVouchData)
@@ -165,6 +169,19 @@ func registerV2AdminBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgr
 	admin.PUT("/settings/content", aSetup.SetContentSetup)
 	admin.GET("/settings/mini-qr", aSetup.GenMiniQr)
 	admin.GET("/settings/debug-token", aSetup.DebugTokenConfig)
+	admin.GET("/dingtalk/settings", aDingTalk.GetSettings)
+	admin.PUT("/dingtalk/settings", aDingTalk.SaveSettings)
+	admin.GET("/dingtalk/user-bindings", aDingTalk.GetUserBindings)
+	admin.POST("/dingtalk/user-bindings", aDingTalk.SaveUserBinding)
+	admin.PATCH("/dingtalk/user-bindings/:id/status", withFormID(aDingTalk.StatusUserBinding))
+	admin.DELETE("/dingtalk/user-bindings/:id", withFormID(aDingTalk.DeleteUserBinding))
+	admin.GET("/dingtalk/perf-reviews", aDingTalk.GetPerfReviews)
+	admin.DELETE("/dingtalk/perf-reviews", aDingTalk.DeletePerfReviews)
+	admin.GET("/dingtalk/perf-reviews/:id", withQueryID(aDingTalk.GetPerfReviewDetail))
+	admin.DELETE("/dingtalk/perf-reviews/:id", withFormID(aDingTalk.DeletePerfReview))
+	admin.GET("/dingtalk/perf-histories", aDingTalk.GetPerfHistories)
+	admin.DELETE("/dingtalk/perf-histories", aDingTalk.DeletePerfHistories)
+	admin.DELETE("/dingtalk/perf-histories/:id", withFormID(aDingTalk.DeletePerfHistory))
 
 	admin.GET("/users", aUser.GetUserList)
 	admin.POST("/users", aUser.AddUser)
@@ -253,6 +270,7 @@ func registerV2AdminContentRoutes(admin *route.RouterGroup) {
 func registerV2AdminSystemRoutes(admin *route.RouterGroup) {
 	aDict := admindict.NewAdminDictHandler()
 	aDept := admindept.NewAdminDeptHandler()
+	aPosition := adminposition.NewAdminPositionHandler()
 	aRole := adminrole.NewAdminRoleHandler()
 	aMenu := adminmenu.NewAdminMenuHandler()
 	aPermission := adminpermission.NewAdminPermissionHandler()
@@ -269,6 +287,11 @@ func registerV2AdminSystemRoutes(admin *route.RouterGroup) {
 	admin.POST("/departments", aDept.AddDept)
 	admin.PUT("/departments/:id", withFormID(aDept.EditDept))
 	admin.DELETE("/departments/:id", withFormID(aDept.DelDept))
+
+	admin.GET("/positions", aPosition.GetPositionList)
+	admin.POST("/positions", aPosition.AddPosition)
+	admin.PUT("/positions/:id", withFormID(aPosition.EditPosition))
+	admin.DELETE("/positions/:id", withFormID(aPosition.DelPosition))
 
 	admin.GET("/roles/application-permissions", aRole.GetApplicationPermissionTree)
 	admin.GET("/roles", aRole.GetRoleList)

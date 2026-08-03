@@ -6,12 +6,12 @@ import (
 	"sort"
 
 	"gorm.io/gorm"
-	setupservice "wecheckin-backend/backend/internal/app/service/setup"
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/app/support/publish"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	setupservice "wecheckin/backend/internal/app/service/setup"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/app/support/publish"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func enrollBaseQuery(db *gorm.DB, deptWhere string) *gorm.DB {
@@ -109,13 +109,13 @@ func GetHomeListContext(ctx context.Context, userID string) (ListResponse, error
 	}
 
 	var enrollVouch []model.Enroll
-	if err := enrollBaseQuery(db, deptWhere).Where("`enroll_vouch` = 1").Order("`enroll_order` ASC, `enroll_add_time` DESC").Limit(cfg.VouchLimit).Find(&enrollVouch).Error; err != nil {
+	if err := enrollBaseQuery(db, deptWhere).Where("`enroll_vouch` = 1").Order("`enroll_order` ASC, `add_time` DESC").Limit(cfg.VouchLimit).Find(&enrollVouch).Error; err != nil {
 		return ListResponse{}, err
 	}
 	enrollVouch = populateEnrollFields(enrollVouch)
 
 	var eventVouch []model.Event
-	if err := eventBaseQuery(db, eventDeptWhere).Where("`event_vouch` = 1").Order("`event_order` ASC, `event_add_time` DESC").Limit(cfg.VouchLimit).Find(&eventVouch).Error; err != nil {
+	if err := eventBaseQuery(db, eventDeptWhere).Where("`event_vouch` = 1").Order("`event_order` ASC, `add_time` DESC").Limit(cfg.VouchLimit).Find(&eventVouch).Error; err != nil {
 		return ListResponse{}, err
 	}
 	eventVouch = populateEventFields(eventVouch)
@@ -129,13 +129,13 @@ func GetHomeListContext(ctx context.Context, userID string) (ListResponse, error
 	}
 
 	var enrollNew []model.Enroll
-	if err := enrollBaseQuery(db, deptWhere).Order("`enroll_add_time` DESC").Limit(cfg.NewLimit).Find(&enrollNew).Error; err != nil {
+	if err := enrollBaseQuery(db, deptWhere).Order("`add_time` DESC").Limit(cfg.NewLimit).Find(&enrollNew).Error; err != nil {
 		return ListResponse{}, err
 	}
 	enrollNew = populateEnrollFields(enrollNew)
 
 	var eventNew []model.Event
-	if err := eventBaseQuery(db, eventDeptWhere).Order("`event_add_time` DESC").Limit(cfg.NewLimit).Find(&eventNew).Error; err != nil {
+	if err := eventBaseQuery(db, eventDeptWhere).Order("`add_time` DESC").Limit(cfg.NewLimit).Find(&eventNew).Error; err != nil {
 		return ListResponse{}, err
 	}
 	eventNew = populateEventFields(eventNew)
@@ -162,13 +162,13 @@ func GetHomeListContext(ctx context.Context, userID string) (ListResponse, error
 	}
 
 	var enrollHot []model.Enroll
-	if err := enrollBaseQuery(db, deptWhere).Order("`enroll_join_cnt` DESC, `enroll_add_time` DESC").Limit(cfg.HotLimit).Find(&enrollHot).Error; err != nil {
+	if err := enrollBaseQuery(db, deptWhere).Order("`enroll_join_cnt` DESC, `add_time` DESC").Limit(cfg.HotLimit).Find(&enrollHot).Error; err != nil {
 		return ListResponse{}, err
 	}
 	enrollHot = populateEnrollFields(enrollHot)
 
 	var eventHot []model.Event
-	if err := eventBaseQuery(db, eventDeptWhere).Order("`event_user_cnt` DESC, `event_add_time` DESC").Limit(cfg.HotLimit).Find(&eventHot).Error; err != nil {
+	if err := eventBaseQuery(db, eventDeptWhere).Order("`event_user_cnt` DESC, `add_time` DESC").Limit(cfg.HotLimit).Find(&eventHot).Error; err != nil {
 		return ListResponse{}, err
 	}
 	eventHot = populateEventFields(eventHot)

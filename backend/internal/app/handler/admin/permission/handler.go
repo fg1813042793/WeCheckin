@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	adminpermission "wecheckin-backend/backend/internal/app/service/adminpermission"
-	"wecheckin-backend/backend/pkg/response"
+	adminpermission "wecheckin/backend/internal/app/service/adminpermission"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminPermissionHandler struct{}
@@ -19,7 +19,6 @@ func NewAdminPermissionHandler() *AdminPermissionHandler { return &AdminPermissi
 // @Param platform query string false "平台"
 // @Param types query string false "权限类型，逗号分隔"
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/permissions/tree [get]
 func (h *AdminPermissionHandler) GetPermissionTree(ctx context.Context, c *app.RequestContext) {
 	data, err := adminpermission.TreeContext(ctx, c.Query("platform"), c.Query("types"))
 	if err != nil {
@@ -35,7 +34,6 @@ func (h *AdminPermissionHandler) GetPermissionTree(ctx context.Context, c *app.R
 // @Param platform query string false "平台"
 // @Param types query string false "权限类型，逗号分隔"
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/permissions [get]
 func (h *AdminPermissionHandler) GetPermissionList(ctx context.Context, c *app.RequestContext) {
 	data, err := adminpermission.ListContext(ctx, c.Query("platform"), c.Query("types"))
 	if err != nil {
@@ -49,7 +47,6 @@ func (h *AdminPermissionHandler) GetPermissionList(ctx context.Context, c *app.R
 // @Summary 提交 /api/v2/admin/permissions
 // @Security AdminToken
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/permissions [post]
 func (h *AdminPermissionHandler) AddPermission(ctx context.Context, c *app.RequestContext) {
 	req := permissionRequestFromForm(c)
 	if err := adminpermission.AddContext(ctx, req); err != nil {
@@ -64,7 +61,6 @@ func (h *AdminPermissionHandler) AddPermission(ctx context.Context, c *app.Reque
 // @Security AdminToken
 // @Param key path string true "权限编码"
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/permissions/{key} [put]
 func (h *AdminPermissionHandler) EditPermission(ctx context.Context, c *app.RequestContext) {
 	key := firstNonEmpty(c.Param("key"), c.PostForm("originalKey"), c.PostForm("oldKey"), c.PostForm("key"))
 	req := permissionRequestFromForm(c)
@@ -80,7 +76,6 @@ func (h *AdminPermissionHandler) EditPermission(ctx context.Context, c *app.Requ
 // @Security AdminToken
 // @Param key path string true "权限编码"
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/permissions/{key} [delete]
 func (h *AdminPermissionHandler) DelPermission(ctx context.Context, c *app.RequestContext) {
 	if err := adminpermission.DeleteContext(ctx, c.PostForm("key")); err != nil {
 		response.Fail(c, "删除失败")

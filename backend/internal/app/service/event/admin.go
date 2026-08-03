@@ -8,11 +8,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/app/support/query"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/app/support/query"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 // ==================== Admin ====================
@@ -22,9 +22,11 @@ var adminEventListColumns = []string{
 	"event_title",
 	"event_type",
 	"event_status",
-	"event_dept_id",
+	"create_dept_id",
 	"event_publish_dept_ids",
-	"event_create_by",
+	"create_by",
+	"update_by",
+	"update_dept_id",
 	"event_cate_id",
 	"event_cate_name",
 	"event_reg_start",
@@ -39,8 +41,8 @@ var adminEventListColumns = []string{
 	"event_view_cnt",
 	"event_join_cnt",
 	"event_user_cnt",
-	"event_add_time",
-	"event_edit_time",
+	"add_time",
+	"edit_time",
 }
 
 func GetAdminEventList(keyword, typ, sortStr string, page, pageSize int, adminID uint) ([]model.Event, int64, error) {
@@ -61,7 +63,7 @@ func GetAdminEventListContext(ctx context.Context, keyword, typ, sortStr string,
 	if typ != "" {
 		queryBuilder = queryBuilder.Where("`event_type` = ?", typ)
 	}
-	where, args := access.DataScopeFilterContext(ctx, &admin, "`event_dept_id`", "`event_create_by`")
+	where, args := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.EventAuditFields)
 	if where != "" {
 		queryBuilder = queryBuilder.Where(where, args...)
 	}
@@ -76,12 +78,12 @@ func GetAdminEventListContext(ctx context.Context, keyword, typ, sortStr string,
 		"regEnd":     "event_reg_end",
 		"eventStart": "event_event_start",
 		"eventEnd":   "event_event_end",
-		"addTime":    "event_add_time",
+		"addTime":    "add_time",
 	})
 	if orderClause != "" {
 		queryBuilder = queryBuilder.Order(orderClause)
 	} else {
-		queryBuilder = queryBuilder.Order("`event_add_time` DESC")
+		queryBuilder = queryBuilder.Order("`add_time` DESC")
 	}
 	err := queryBuilder.Select(adminEventListColumns).Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
@@ -92,7 +94,7 @@ func GetAdminEventListContext(ctx context.Context, keyword, typ, sortStr string,
 }
 
 func scopedEventQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
-	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Event{}, "`event_dept_id`", "`event_create_by`")
+	return access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Event{}, access.EventAuditFields)
 }
 
 func ensureEventVisibleContext(ctx context.Context, db *gorm.DB, eventID string, adminID uint) error {
@@ -197,6 +199,9 @@ func InsertEventContext(ctx context.Context, title, cateID, cateName, forms, sco
 		PublishDeptIds: publishDeptIds,
 		CreateBy:       createBy,
 		AddTime:        database.Now(),
+		EditTime:       database.Now(),
+		UpdateBy:       createBy,
+		UpdateDeptID:   deptID,
 		AddIP:          addIP,
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
@@ -227,10 +232,11 @@ func EditEventContext(ctx context.Context, id, title, cateID, cateName, forms, s
 		"event_order":            order,
 		"event_forms":            forms,
 		"event_score_fields":     scoreFields,
-		"event_dept_id":          deptID,
+		"create_dept_id":         deptID,
+		"update_dept_id":         deptID,
 		"event_publish_dept_ids": publishDeptIds,
 		"event_qr":               qr,
-		"event_edit_time":        database.Now(),
+		"edit_time":              database.Now(),
 		"event_edit_ip":          addIP,
 	}
 	if obj != "" {
@@ -261,10 +267,12 @@ func EditEventForAdminContext(ctx context.Context, id, title, cateID, cateName, 
 		"event_order":            order,
 		"event_forms":            forms,
 		"event_score_fields":     scoreFields,
-		"event_dept_id":          deptID,
+		"create_dept_id":         deptID,
+		"update_by":              adminID,
+		"update_dept_id":         deptID,
 		"event_publish_dept_ids": publishDeptIds,
 		"event_qr":               qr,
-		"event_edit_time":        database.Now(),
+		"edit_time":              database.Now(),
 		"event_edit_ip":          addIP,
 	}
 	if obj != "" {

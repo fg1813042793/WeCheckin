@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 
 	"gorm.io/gorm"
 )
@@ -43,14 +43,16 @@ var adminExamListColumns = []string{
 	"exam_qr",
 	"exam_status",
 	"exam_order",
-	"exam_dept_id",
-	"exam_create_by",
-	"exam_add_time",
-	"exam_edit_time",
+	"create_dept_id",
+	"create_by",
+	"update_by",
+	"update_dept_id",
+	"add_time",
+	"edit_time",
 }
 
 func scopedExamQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
-	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Exam{}, "`exam_dept_id`", "`exam_create_by`")
+	return access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Exam{}, access.ExamAuditFields)
 }
 
 func ensureExamVisibleContext(ctx context.Context, db *gorm.DB, examID uint, adminID uint) error {
@@ -240,7 +242,15 @@ func (s *Service) CreateContext(ctx context.Context, req model.Exam) (*model.Exa
 }
 
 func normalizeExamForCreate(req model.Exam) model.Exam {
-	req.AddTime = time.Now().UnixMilli()
+	now := time.Now().UnixMilli()
+	req.AddTime = now
+	req.EditTime = now
+	if req.UpdateBy == 0 {
+		req.UpdateBy = req.CreateBy
+	}
+	if req.UpdateDeptID == 0 {
+		req.UpdateDeptID = req.DeptID
+	}
 	if req.Mode == "" {
 		req.Mode = "exam"
 	}
@@ -258,14 +268,21 @@ func (s *Service) Update(id uint, updates map[string]interface{}) error {
 }
 
 func (s *Service) UpdateContext(ctx context.Context, id uint, updates map[string]interface{}) error {
-	updates["exam_edit_time"] = time.Now().UnixMilli()
+	if updates == nil {
+		updates = map[string]interface{}{}
+	}
+	updates["edit_time"] = time.Now().UnixMilli()
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	return db.Model(&model.Exam{}).Where("`exam_id` = ?", id).Updates(updates).Error
 }
 
 func (s *Service) UpdateForAdminContext(ctx context.Context, id uint, updates map[string]interface{}, adminID uint) error {
-	updates["exam_edit_time"] = time.Now().UnixMilli()
+	if updates == nil {
+		updates = map[string]interface{}{}
+	}
+	updates["update_by"] = adminID
+	updates["edit_time"] = time.Now().UnixMilli()
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	queryBuilder, err := scopedExamQueryContext(ctx, db, adminID)

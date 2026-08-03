@@ -5,8 +5,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/pkg/response"
 )
 
 // ReportEventSchema GET /admin/survey/report/event?eventId=xx
@@ -14,7 +14,6 @@ import (
 // @Summary 活动报表
 // @Param eventId query string true "活动ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/report/event [get]
 func (h *AdminSurveyHandler) ReportEventSchema(ctx context.Context, c *app.RequestContext) {
 	eventID := c.Query("eventId")
 	if eventID == "" {
@@ -34,7 +33,6 @@ func (h *AdminSurveyHandler) ReportEventSchema(ctx context.Context, c *app.Reque
 // @Summary 导出活动CSV
 // @Param eventId query string true "活动ID"
 // @Success 200 {file} string
-// @Router /admin/survey/export/event [get]
 func (h *AdminSurveyHandler) ExportEventSchemaCSV(ctx context.Context, c *app.RequestContext) {
 	eventID := c.Query("eventId")
 	if eventID == "" {

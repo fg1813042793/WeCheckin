@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/pkg/logger"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/response"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin/backend/pkg/logger"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/response"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 // List GET /survey/list

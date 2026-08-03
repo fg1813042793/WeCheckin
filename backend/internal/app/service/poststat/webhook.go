@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/pkg/logger"
 )
 
 func sendWebhook(webhookType, webhookURL, title, msg string) {

@@ -3,8 +3,8 @@ package exam
 import (
 	"context"
 
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
-	"wecheckin-backend/backend/internal/model"
+	examservice "wecheckin/backend/internal/app/service/exam"
+	"wecheckin/backend/internal/model"
 )
 
 func checkExamLimit(e *model.Exam, uidStr string, device string, deviceId string, ip string) string {

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/pkg/database"
 )
 
 const startupDatabaseTimeout = 2 * time.Minute

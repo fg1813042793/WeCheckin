@@ -1,6 +1,6 @@
 package enroll
 
-import "wecheckin-backend/backend/internal/model"
+import "wecheckin/backend/internal/model"
 
 type enrollListItem struct {
 	ID             uint   `json:"id"`

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	examPkg "wecheckin-backend/backend/internal/app/formkit/exam"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
+	examPkg "wecheckin/backend/internal/app/formkit/exam"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 
 	"gorm.io/gorm"
 )
@@ -42,8 +42,8 @@ var publishedExamListColumns = []string{
 	"exam_mode",
 	"exam_order",
 	"exam_status",
-	"exam_add_time",
-	"exam_edit_time",
+	"add_time",
+	"edit_time",
 }
 
 type PaperQuestionOptions struct {

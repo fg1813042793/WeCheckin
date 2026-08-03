@@ -23,3 +23,50 @@ func TestAdminRoutePermissionCatalogProvidesCategories(t *testing.T) {
 		t.Fatalf("admin route permission categories must expose key and name")
 	}
 }
+
+func TestAdminRoutePermissionCatalogIncludesPositionPermissions(t *testing.T) {
+	want := map[string]bool{
+		"position:list": false,
+		"position:add":  false,
+		"position:edit": false,
+		"position:del":  false,
+	}
+	for _, item := range Declarations() {
+		if _, ok := want[item.Perms]; ok {
+			want[item.Perms] = true
+			if item.CategoryKey != "admin:api-category:user" {
+				t.Fatalf("position api permission %s should be grouped under user category, got %s", item.Perms, item.CategoryKey)
+			}
+		}
+	}
+	for perms, ok := range want {
+		if !ok {
+			t.Fatalf("admin route permission catalog missing %s", perms)
+		}
+	}
+}
+
+func TestAdminRoutePermissionCatalogSplitsDingTalkPermissions(t *testing.T) {
+	want := map[string]bool{
+		"dingtalk:settings:list":  false,
+		"dingtalk:settings:edit":  false,
+		"dingtalk:bindings:list":  false,
+		"dingtalk:bindings:edit":  false,
+	}
+	for _, item := range Declarations() {
+		if _, ok := want[item.Perms]; ok {
+			want[item.Perms] = true
+			if item.CategoryKey != "admin:api-category:dingtalk" {
+				t.Fatalf("dingtalk api permission %s should be grouped under dingtalk category, got %s", item.Perms, item.CategoryKey)
+			}
+		}
+		if item.Perms == "dingtalk:config" {
+			t.Fatalf("dingtalk admin api permissions should use split settings/bindings permissions")
+		}
+	}
+	for perms, ok := range want {
+		if !ok {
+			t.Fatalf("admin route permission catalog missing %s", perms)
+		}
+	}
+}

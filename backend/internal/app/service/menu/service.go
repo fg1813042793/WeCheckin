@@ -2,14 +2,13 @@ package menu
 
 import (
 	"context"
-	"strings"
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/app/support/adminaccess"
-	permissionsupport "wecheckin-backend/backend/internal/app/support/permission"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	permissionsupport "wecheckin/backend/internal/app/support/permission"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type AdminMenu struct {
@@ -82,11 +81,11 @@ func GetAdminPermsContext(ctx context.Context, admin *model.Admin) []string {
 		if perms, ok := getAdminPermCache(cacheKey); ok {
 			return perms
 		}
-		rows, err := allAdminPermissionsWithPermCodesContext(ctx, db)
+		rows, err := allAdminPermissionsContext(ctx, db)
 		if err != nil {
 			return nil
 		}
-		perms := permissionPermCodes(rows)
+		perms := permissionKeys(rows)
 		setAdminPermCache(cacheKey, perms)
 		return perms
 	}
@@ -97,7 +96,7 @@ func GetAdminPermsContext(ctx context.Context, admin *model.Admin) []string {
 	if perms, ok := getAdminPermCache(cacheKey); ok {
 		return perms
 	}
-	if perms, ready, err := permissionsupport.AdminPermCodesContext(ctx, db, admin.ID, admin.RoleID); err == nil && ready {
+	if perms, ready, err := permissionsupport.AdminPermissionKeysContext(ctx, db, admin.ID, admin.RoleID); err == nil && ready {
 		setAdminPermCache(cacheKey, perms)
 		return perms
 	}
@@ -126,7 +125,7 @@ func allAdminMenuPermissionsContext(ctx context.Context, db *gorm.DB) ([]model.P
 	return rows, err
 }
 
-func allAdminPermissionsWithPermCodesContext(ctx context.Context, db *gorm.DB) ([]model.Permission, error) {
+func allAdminPermissionsContext(ctx context.Context, db *gorm.DB) ([]model.Permission, error) {
 	if err := ctxErr(ctx); err != nil {
 		return nil, err
 	}
@@ -134,7 +133,9 @@ func allAdminPermissionsWithPermCodesContext(ctx context.Context, db *gorm.DB) (
 		return nil, nil
 	}
 	var rows []model.Permission
-	err := db.Where("`permission_platform` = ? AND `permission_status` = 1 AND `permission_perms` <> ''", permissionsupport.PlatformAdmin).Find(&rows).Error
+	err := db.Select("`permission_key`").
+		Where("`permission_platform` = ? AND `permission_status` = 1", permissionsupport.PlatformAdmin).
+		Find(&rows).Error
 	return rows, err
 }
 
@@ -192,16 +193,13 @@ func permissionTypeToMenuType(permissionType string) int {
 	}
 }
 
-func permissionPermCodes(rows []model.Permission) []string {
+func permissionKeys(rows []model.Permission) []string {
 	seen := map[string]bool{}
 	perms := make([]string, 0)
 	for _, row := range rows {
-		for _, p := range strings.Split(row.Perms, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" && !seen[p] {
-				seen[p] = true
-				perms = append(perms, p)
-			}
+		if row.Key != "" && !seen[row.Key] {
+			seen[row.Key] = true
+			perms = append(perms, row.Key)
 		}
 	}
 	return perms

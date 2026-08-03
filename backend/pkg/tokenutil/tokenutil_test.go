@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"wecheckin-backend/backend/internal/config"
+	"wecheckin/backend/internal/config"
 )
 
 func TestTokenRedisKeysUseConfiguredPrefix(t *testing.T) {

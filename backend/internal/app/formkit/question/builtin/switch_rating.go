@@ -3,8 +3,8 @@ package builtin
 import (
 	"strconv"
 
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // SwitchQuestion 开关题（type=switch），值 "1" 或 "0"

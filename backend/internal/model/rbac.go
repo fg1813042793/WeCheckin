@@ -25,7 +25,7 @@ type Role struct {
 	Sort            int       `json:"sort" gorm:"default:0;column:role_sort;comment:排序"`
 	Status          int       `json:"status" gorm:"default:1;column:role_status;comment:状态:1正常 0禁用"`
 	AllowAdminLogin int       `json:"allowAdminLogin" gorm:"default:1;column:role_allow_admin_login;comment:是否允许后台登录"`
-	DataScope       int       `json:"dataScope" gorm:"default:1;column:role_data_scope;comment:数据范围:1全部 2本部门 3本人"`
+	DataScope       int       `json:"dataScope" gorm:"default:1;column:role_data_scope;comment:数据范围:1全部 2本部门及子部门 3本人 4自定义部门"`
 	AddTime         int64     `json:"addTime" gorm:"column:role_add_time;comment:创建时间"`
 	EditTime        int64     `json:"editTime" gorm:"column:role_edit_time;comment:修改时间"`
 	AddIP           string    `json:"addIp" gorm:"size:50;column:role_add_ip;comment:创建IP"`

@@ -8,9 +8,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examPkg "wecheckin-backend/backend/internal/app/formkit/exam"
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
-	"wecheckin-backend/backend/pkg/response"
+	examPkg "wecheckin/backend/internal/app/formkit/exam"
+	examservice "wecheckin/backend/internal/app/service/exam"
+	"wecheckin/backend/pkg/response"
 )
 
 // Record GET /exam/record?id=

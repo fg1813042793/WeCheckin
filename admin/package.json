@@ -11,13 +11,16 @@
     "check:build-config": "node scripts/check-build-config.mjs",
     "check:navigation": "node scripts/check-navigation.mjs",
     "check:ui-shell": "node scripts/check-ui-shell.mjs",
+    "check:route-tabs": "node scripts/check-admin-route-tabs.mjs",
+    "check:admin-new-permissions": "node scripts/check-admin-new-permissions.mjs",
     "check:user-list-ui": "node scripts/check-user-list-ui.mjs",
     "check:p2-ui": "node scripts/check-p2-ui.mjs",
     "check:icon-runtime": "node scripts/check-icon-runtime.mjs",
+    "check:position-management": "node scripts/check-position-management.mjs",
     "check:question-bank-components": "node scripts/check-question-bank-components.mjs",
     "check:formkit-shared-types": "node scripts/check-formkit-shared-types.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
-    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:user-list-ui && npm run check:p2-ui && npm run check:icon-runtime && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
+    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

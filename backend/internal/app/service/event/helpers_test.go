@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 func TestDecodeEventObjKeepsCoverDescriptionAndRules(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/app/handler/internal/param"
-	adminuserservice "wecheckin-backend/backend/internal/app/service/adminuser"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/handler/internal/param"
+	adminuserservice "wecheckin/backend/internal/app/service/adminuser"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminUserHandler struct{}
@@ -22,7 +22,6 @@ func NewAdminUserHandler() *AdminUserHandler { return &AdminUserHandler{} }
 // @Param size query string false "每页数量"
 // @Param keyword query string false "关键词"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_list [get]
 func (h *AdminUserHandler) GetUserList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -46,7 +45,6 @@ func (h *AdminUserHandler) GetUserList(ctx context.Context, c *app.RequestContex
 // @Summary 获取用户详情
 // @Param openid query string true "用户OpenID"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_detail [get]
 func (h *AdminUserHandler) GetUserDetail(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -63,7 +61,6 @@ func (h *AdminUserHandler) GetUserDetail(ctx context.Context, c *app.RequestCont
 // @Summary 根据ID获取用户详情
 // @Param id query string true "用户ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_detail_by_id [get]
 func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -84,7 +81,6 @@ func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContex
 // @Param pic formData string false "头像URL"
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_add [post]
 func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
@@ -111,7 +107,6 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 // @Param pic formData string false "头像URL"
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_edit [post]
 func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -141,7 +136,6 @@ func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) 
 // @Summary 删除用户
 // @Param id formData string true "用户ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_del [post]
 func (h *AdminUserHandler) DelUser(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -181,18 +175,27 @@ func parsePositionID(value string) uint {
 func parseAdminAccess(c *app.RequestContext) (adminuserservice.AdminAccessInput, bool) {
 	hasPermissionKeys := hasPostForm(c, "allowPermissionKeys") ||
 		hasPostForm(c, "denyPermissionKeys")
+	hasDataScopeExtras := hasPostForm(c, "extraDataDeptIds") ||
+		hasPostForm(c, "extraDataUserIds")
 	hasAdminAccess := hasPostForm(c, "password") ||
 		hasPostForm(c, "roleId") ||
-		hasPermissionKeys
+		hasPostForm(c, "roleIds") ||
+		hasPermissionKeys ||
+		hasDataScopeExtras
 
 	roleID, _ := strconv.Atoi(c.PostForm("roleId"))
+	roleIDs := param.ParseUintSlice(c.PostForm("roleIds"))
 
 	return adminuserservice.AdminAccessInput{
-		Password:              c.PostForm("password"),
-		RoleID:                uint(roleID),
-		AllowPermissionKeys:   parsePermissionKeys(c.PostForm("allowPermissionKeys")),
-		DenyPermissionKeys:    parsePermissionKeys(c.PostForm("denyPermissionKeys")),
-		PermissionKeysTouched: hasPermissionKeys,
+		Password:               c.PostForm("password"),
+		RoleID:                 uint(roleID),
+		RoleIDs:                roleIDs,
+		AllowPermissionKeys:    parsePermissionKeys(c.PostForm("allowPermissionKeys")),
+		DenyPermissionKeys:     parsePermissionKeys(c.PostForm("denyPermissionKeys")),
+		PermissionKeysTouched:  hasPermissionKeys,
+		ExtraDataDeptIDs:       param.ParseUintSlice(c.PostForm("extraDataDeptIds")),
+		ExtraDataUserIDs:       param.ParseUintSlice(c.PostForm("extraDataUserIds")),
+		DataScopeExtrasTouched: hasDataScopeExtras,
 	}, hasAdminAccess
 }
 
@@ -221,7 +224,6 @@ func hasPostForm(c *app.RequestContext, key string) bool {
 // @Param id formData string true "用户ID"
 // @Param status formData string true "状态"
 // @Success 200 {object} response.Resp
-// @Router /admin/user_status [post]
 func (h *AdminUserHandler) StatusUser(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

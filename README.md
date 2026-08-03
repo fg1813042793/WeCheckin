@@ -44,7 +44,7 @@ WeCheckin/
 - 赛事活动、参与用户、动态和成绩管理
 - 问卷系统、答卷、统计报表、题库和资源管理
 - 在线考试、考试记录、题库和资源管理
-- PC 管理台的用户、部门、角色、菜单和权限管理
+- PC 管理台的用户、部门、岗位、角色和统一权限管理
 
 ## 技术栈
 
@@ -145,7 +145,7 @@ npm run build:mp-weixin
 ## 配置说明
 
 - `backend/config/config.yaml`：后端默认配置。
-- `backend/config/config.dev.yaml`：开发环境覆盖配置，可通过 `go run ./cmd -env dev` 合并读取。
+- `backend/config/config.dev.yaml`：开发环境覆盖配置，可在 `backend` 目录通过 `go run ./cmd -env dev` 合并读取。
 - `backend/config/config.example.yaml`：安全示例配置，适合复制为新环境的起点。
 - `frontend/config/index.js`：uni-app 客户端 API 地址、版本和缓存配置。
 - `admin/vite.config.ts`：管理台开发代理配置。
@@ -214,7 +214,7 @@ Swagger 重新生成命令：
 
 ```bash
 cd backend
-swag init -g cmd/main.go --output docs/swagger
+swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger
 ```
 
 ## 测试
@@ -244,7 +244,8 @@ CHECK_BUILDS=1 bash scripts/check.sh
 如需单独运行 formkit 测试，也可以执行：
 
 ```bash
-GOCACHE=$PWD/.cache/go-build go test ./backend/internal/app/formkit/...
+cd backend
+GOCACHE=$PWD/../.cache/go-build go test ./internal/app/formkit/...
 ```
 
 如需覆盖当前所有稳定检查，建议使用：

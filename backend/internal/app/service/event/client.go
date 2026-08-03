@@ -3,10 +3,10 @@ package event
 import (
 	"context"
 
-	"wecheckin-backend/backend/internal/app/support/dept"
-	"wecheckin-backend/backend/internal/app/support/publish"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/dept"
+	"wecheckin/backend/internal/app/support/publish"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 // ==================== Client ====================
@@ -21,7 +21,7 @@ var clientEventListColumns = []string{
 	"event_title",
 	"event_type",
 	"event_status",
-	"event_dept_id",
+	"create_dept_id",
 	"event_publish_dept_ids",
 	"event_cate_id",
 	"event_cate_name",
@@ -36,8 +36,8 @@ var clientEventListColumns = []string{
 	"event_view_cnt",
 	"event_join_cnt",
 	"event_user_cnt",
-	"event_add_time",
-	"event_edit_time",
+	"add_time",
+	"edit_time",
 }
 
 func GetEventList(page, pageSize int, userID, keyword, typ string) (*ListResponse, error) {
@@ -70,7 +70,7 @@ func GetEventListContext(ctx context.Context, page, pageSize int, userID, keywor
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	err := query.Select(clientEventListColumns).Order("`event_order` ASC, `event_add_time` DESC").
+	err := query.Select(clientEventListColumns).Order("`event_order` ASC, `add_time` DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
 		return nil, err

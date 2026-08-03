@@ -9,13 +9,13 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examPkg "wecheckin-backend/backend/internal/app/formkit/exam"
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/logger"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/response"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	examPkg "wecheckin/backend/internal/app/formkit/exam"
+	examservice "wecheckin/backend/internal/app/service/exam"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/logger"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/response"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 // Submit POST /exam/submit

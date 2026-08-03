@@ -1,6 +1,6 @@
 # API v2 接口说明
 
-最后更新：2026-07-21
+最后更新：2026-07-29
 
 ## 当前状态
 
@@ -121,6 +121,7 @@
 | 赛事活动 | `/api/v2/admin/events` |
 | 字典 | `/api/v2/admin/dict` |
 | 部门 | `/api/v2/admin/departments` |
+| 岗位 | `/api/v2/admin/positions` |
 | 角色 | `/api/v2/admin/roles` |
 | 权限管理 | `/api/v2/admin/permissions` |
 | 当前管理员菜单/权限 | `/api/v2/admin/me` |
@@ -151,10 +152,10 @@
 
 ## Swagger 更新
 
-修改 v2 路由或 Swagger 注释后，在 `backend` 目录执行：
+修改 v2 路由后，请同步 `backend/cmd/routes_v2_swagger.go`，然后在 `backend` 目录执行：
 
 ```bash
-swag init -g cmd/main.go --output docs/swagger
+swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger
 ```
 
 生成文件包括：
@@ -170,7 +171,8 @@ swag init -g cmd/main.go --output docs/swagger
 ```bash
 npm --prefix admin run check:request
 npm --prefix frontend run check:request
-GOCACHE=$PWD/.cache/go-build go test ./backend/cmd ./backend/internal/middleware
+cd backend
+GOCACHE=$PWD/../.cache/go-build go test ./cmd ./internal/middleware
 ```
 
 全量本地复核：

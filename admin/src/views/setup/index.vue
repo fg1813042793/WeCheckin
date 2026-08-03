@@ -14,6 +14,53 @@
           </el-form>
         </el-tab-pane>
 
+        <el-tab-pane label="用户表单配置" name="SETUP_USER_FORM_FIELDS">
+          <el-button type="primary" size="small" @click="addField" style="margin-bottom: 12px;">新增字段</el-button>
+          <el-table :data="formFields" border stripe size="small" style="margin-bottom: 16px;">
+            <el-table-column label="排序" width="100">
+              <template #default="{ row }">
+                <el-input-number v-model="row.sort" :min="0" size="small" controls-position="right" style="width: 80px;" />
+              </template>
+            </el-table-column>
+            <el-table-column label="字段名称" min-width="120">
+              <template #default="{ row }">
+                <el-input v-model="row.label" size="small" placeholder="字段名称" />
+              </template>
+            </el-table-column>
+            <el-table-column label="字段类型" width="120">
+              <template #default="{ row }">
+                <el-select v-model="row.type" size="small" style="width: 100%;">
+                  <el-option label="文本" value="文本" />
+                  <el-option label="数字" value="数字" />
+                  <el-option label="多行文本" value="多行文本" />
+                  <el-option label="选择" value="选择" />
+                  <el-option label="日期" value="日期" />
+                  <el-option label="时间" value="时间" />
+                  <el-option label="日期时间" value="日期时间" />
+                  <el-option label="图片" value="图片" />
+                  <el-option label="定位" value="定位" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="必填" width="60">
+              <template #default="{ row }">
+                <el-checkbox v-model="row.required" :true-value="1" :false-value="0" />
+              </template>
+            </el-table-column>
+            <el-table-column label="选项(逗号分隔)" min-width="150">
+              <template #default="{ row }">
+                <el-input v-if="row.type === '选择'" v-model="row.options" size="small" placeholder="选择类型时填写" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="80">
+              <template #default="{ $index }">
+                <el-button type="danger" size="small" link @click="delField($index)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-button type="primary" @click="saveFormFields" :loading="savingForm">保存表单配置</el-button>
+        </el-tab-pane>
+
         <el-tab-pane label="登录配置" name="LOGIN_CONFIG">
           <el-form label-width="180px" style="max-width: 500px;">
             <el-divider content-position="left">管理员</el-divider>

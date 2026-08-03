@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"wecheckin-backend/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/question"
 )
 
 // Question 题目（来自题库）

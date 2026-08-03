@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	onlineservice "wecheckin-backend/backend/internal/app/service/online"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	onlineservice "wecheckin/backend/internal/app/service/online"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 func (h *AdminMgrHandler) AdminLogout(ctx context.Context, c *app.RequestContext) {
@@ -48,7 +48,6 @@ func (h *AdminMgrHandler) ForceOfflineAdmin(ctx context.Context, c *app.RequestC
 // @Summary 批量强制下线
 // @Param items body []object{idStr,token} true "items: [{idStr,token}, ...]"
 // @Success 200 {object} response.Resp
-// @Router /admin/admin/batch_force_offline [post]
 func (h *AdminMgrHandler) BatchForceOfflineAdmin(ctx context.Context, c *app.RequestContext) {
 	var items []struct {
 		IDStr string `json:"idStr"`

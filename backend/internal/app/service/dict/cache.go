@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 const dictServiceCacheTTL = 30 * time.Second

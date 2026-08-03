@@ -13,9 +13,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/utils"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/pkg/logger"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/pkg/logger"
+	"wecheckin/backend/pkg/response"
 )
 
 func registerUploadAndStaticRoutes(h *server.Hertz) {

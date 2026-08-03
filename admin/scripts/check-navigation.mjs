@@ -18,11 +18,9 @@ const layoutSource = readFileSync(layoutPath, 'utf8')
 
 const requiredRouteSnippets = [
   'export const adminChildRoutes',
-  'export const fallbackMenuItems',
   "path: 'online'",
   "path: 'event'",
-  "path: '/online'",
-  "path: '/event'",
+  "path: 'position'",
 ]
 
 for (const snippet of requiredRouteSnippets) {
@@ -43,17 +41,22 @@ for (const snippet of requiredRouterSnippets) {
 }
 
 const requiredLayoutSnippets = [
-  "import { fallbackMenuItems",
   'const displayMenuTree = computed',
   'v-for="item in displayMenuTree"',
 ]
 
 for (const snippet of requiredLayoutSnippets) {
   if (!layoutSource.includes(snippet)) {
-    throw new Error(`admin layout is not using centralized fallback menu: ${snippet}`)
+    throw new Error(`admin layout is not using permission menu tree: ${snippet}`)
   }
 }
 
-if (layoutSource.includes('<el-menu-item index="/dashboard">')) {
-  throw new Error('admin layout still contains hardcoded fallback menu items')
+for (const forbidden of [
+  'fallbackMenuItems',
+  '已使用默认菜单',
+  '<el-menu-item index="/dashboard">',
+]) {
+  if (routesSource.includes(forbidden) || layoutSource.includes(forbidden)) {
+    throw new Error(`admin navigation still uses legacy fallback menu: ${forbidden}`)
+  }
 }

@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BACKEND_DIR="${ROOT_DIR}/backend"
 GOCACHE_DIR="${ROOT_DIR}/.cache/go-build"
 
 enabled() {
@@ -24,13 +25,16 @@ echo "==> Running deployment config checks"
 node scripts/check-deploy-config.mjs
 
 echo "==> Running backend checks"
+cd "${BACKEND_DIR}"
 GOCACHE="${GOCACHE_DIR}" go test \
-  ./backend/cmd \
-  ./backend/pkg/tokenutil \
-  ./backend/internal/app/handler \
-  ./backend/internal/app/service \
-  ./backend/internal/config \
-  ./backend/internal/app/formkit/...
+  ./cmd \
+  ./pkg/tokenutil \
+  ./internal/app/handler \
+  ./internal/app/service \
+  ./internal/config \
+  ./internal/app/formkit/...
+
+cd "${ROOT_DIR}"
 
 echo "==> Running frontend config checks"
 npm --prefix frontend run check:config

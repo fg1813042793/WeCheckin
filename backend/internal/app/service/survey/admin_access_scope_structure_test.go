@@ -15,7 +15,7 @@ func TestAdminSurveyOperationsUseAdminScopedQueries(t *testing.T) {
 			file: "service.go",
 			required: []string{
 				"func scopedSurveyQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error)",
-				"access.ScopedResourceQueryContext(ctx, db, adminID, &model.Survey{}, \"`survey_dept_id`\", \"`survey_create_by`\")",
+				"access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Survey{}, access.SurveyAuditFields)",
 				"func (s *SurveyService) ListForAdminContext(",
 				"func (s *SurveyService) DetailForAdminContext(ctx context.Context, id uint, adminID uint)",
 				"func (s *SurveyService) UpdateForAdminContext(ctx context.Context, sv *model.Survey, adminID uint) error",

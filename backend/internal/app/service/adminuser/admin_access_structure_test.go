@@ -16,8 +16,11 @@ func TestUserManagementExposesAdminAccessFields(t *testing.T) {
 	required := []string{
 		"RoleID",
 		"RoleName",
+		"RoleIDs",
+		"RoleNames",
 		"user_role_id",
-		"loadRoleNameMapContext(ctx, db, list)",
+		"loadUserRoleIDMapContext(ctx, db, list)",
+		"loadRoleNameMapByIDsContext(ctx, db, allRoleIDsFromUserMap(roleIDsByUser))",
 	}
 	for _, snippet := range required {
 		if !strings.Contains(text, snippet) {
@@ -52,10 +55,12 @@ func TestUserManagementSavesAdminAccessInSameTransaction(t *testing.T) {
 		"type AdminAccessInput struct",
 		"Password",
 		"RoleID",
+		"RoleIDs",
 		"AllowPermissionKeys []string",
 		"DenyPermissionKeys  []string",
 		"saveUserAdminAccessTx(tx, user.ID, adminAccess)",
 		"saveUserAdminAccessTx(tx, uint(uid), adminAccess)",
+		"saveUserRolesTx(tx, userID, roleID, roleIDs)",
 		"permissionsupport.SetUserApplicationMenuPermissionOverridesTx",
 		"saveUserDeptsTx(tx, user.ID, deptIDs)",
 	}
@@ -73,4 +78,37 @@ func TestUserManagementSavesAdminAccessInSameTransaction(t *testing.T) {
 			t.Fatalf("user admin access must be controlled by role, found old field %q", snippet)
 		}
 	}
+}
+
+func TestUserManagementBatchesUserDeptWrites(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	body := testFunctionBody(t, text, "saveUserDeptsTx")
+	for _, snippet := range []string{
+		"rows := make([]model.UserDept, 0, len(deptIDs))",
+		"tx.CreateInBatches(rows, 100)",
+	} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("saveUserDeptsTx must batch user dept writes with %q", snippet)
+		}
+	}
+	if strings.Contains(body, "tx.Create(&model.UserDept") {
+		t.Fatalf("saveUserDeptsTx must not insert user depts one row at a time")
+	}
+}
+
+func testFunctionBody(t *testing.T, text, name string) string {
+	t.Helper()
+	start := strings.Index(text, "func "+name)
+	if start < 0 {
+		t.Fatalf("missing function %s", name)
+	}
+	next := strings.Index(text[start+1:], "\nfunc ")
+	if next < 0 {
+		return text[start:]
+	}
+	return text[start : start+1+next]
 }

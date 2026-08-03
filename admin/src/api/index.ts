@@ -195,6 +195,9 @@ export const adminApi = {
   logList(params?: PageQuery) {
     return request.get(`${ADMIN_V2}/logs`, { params })
   },
+  logDels(data: { ids: string }) {
+    return request.delete(`${ADMIN_V2}/logs`, deleteBody(data))
+  },
   logClear() {
     return request.delete(`${ADMIN_V2}/logs`)
   },
@@ -236,6 +239,19 @@ export const adminApi = {
   },
   deptDel(data: { id: ID }) {
     return request.delete(`${ADMIN_V2}/departments/${encodePath(data.id)}`, deleteBody(data))
+  },
+  // 岗位管理
+  positionList(params?: PageQuery) {
+    return request.get(`${ADMIN_V2}/positions`, { params })
+  },
+  positionAdd(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/positions`, data)
+  },
+  positionEdit(data: FormPayload & { id?: ID }) {
+    return request.put(`${ADMIN_V2}/positions/${encodePath(idFrom(data))}`, data)
+  },
+  positionDel(data: { id: ID }) {
+    return request.delete(`${ADMIN_V2}/positions/${encodePath(data.id)}`, deleteBody(data))
   },
   // 角色管理
   roleList(params?: PageQuery) {

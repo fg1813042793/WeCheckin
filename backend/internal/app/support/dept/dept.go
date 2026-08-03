@@ -3,8 +3,8 @@ package dept
 import (
 	"context"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 // UserDeptID returns the first department associated with a user.

@@ -8,7 +8,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	rd "wecheckin-backend/backend/pkg/redis"
+	rd "wecheckin/backend/pkg/redis"
 )
 
 type entry struct {

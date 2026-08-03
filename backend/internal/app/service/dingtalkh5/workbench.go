@@ -5,8 +5,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 func WorkbenchStatsContext(ctx context.Context, user *model.DingTalkH5PerfUser) (*WorkbenchStatsDTO, error) {
@@ -36,8 +36,11 @@ func workbenchStatusCountsContext(ctx context.Context, db *gorm.DB, user *model.
 		}
 	}
 	var rows []workbenchStatusCountRow
-	query := db.Model(&model.DingTalkH5PerfReview{}).Select("status, COUNT(*) AS cnt")
-	query = applyReviewVisibilityScope(query, user, reviewScopeDashboard)
+	query := notDeletedReviewQuery(db.Model(&model.DingTalkH5PerfReview{})).Select("status, COUNT(*) AS cnt")
+	query, err := applyReviewVisibilityScopeContext(ctx, db, query, user, reviewScopeDashboard)
+	if err != nil {
+		return nil, 0, err
+	}
 	if err := query.Group("status").Scan(&rows).Error; err != nil {
 		return nil, 0, err
 	}
@@ -59,8 +62,11 @@ func workbenchQueueCountContext(ctx context.Context, db *gorm.DB, user *model.Di
 	}
 	where, args := workbenchQueueWhere(user)
 	var total int64
-	query := db.Model(&model.DingTalkH5PerfReview{})
-	query = applyReviewVisibilityScope(query, user, reviewScopeDashboard)
+	query := notDeletedReviewQuery(db.Model(&model.DingTalkH5PerfReview{}))
+	query, err := applyReviewVisibilityScopeContext(ctx, db, query, user, reviewScopeDashboard)
+	if err != nil {
+		return 0, err
+	}
 	if err := query.Where(where, args...).Count(&total).Error; err != nil {
 		return 0, err
 	}
@@ -77,17 +83,10 @@ func workbenchQueueWhere(user *model.DingTalkH5PerfUser) (string, []interface{})
 		{sql: "status = ? AND manager_account = ?", args: []interface{}{ReviewStatusManagerReview, account}},
 		{sql: "status = ? AND employee_account = ?", args: []interface{}{ReviewStatusEmployeeConfirm, account}},
 	}
-	if user.Role == "admin" || user.Role == "hrbp_manager" {
-		clauses = append(clauses,
-			reviewWhereClause{sql: "status = ? AND (hrbp_reviewer_account = ? OR hrbp_reviewer_account = '')", args: []interface{}{ReviewStatusHRBPReview, account}},
-			reviewWhereClause{sql: "status = ? AND (hrbp_reviewer_account = ? OR hrbp_reviewer_account = '' OR hrbp_account = ?)", args: []interface{}{ReviewStatusHRFinal, account, account}},
-		)
-	} else {
-		clauses = append(clauses,
-			reviewWhereClause{sql: "status = ? AND (hrbp_reviewer_account = ? OR (hrbp_reviewer_account = '' AND hrbp_account = ?))", args: []interface{}{ReviewStatusHRBPReview, account, account}},
-			reviewWhereClause{sql: "status = ? AND (hrbp_reviewer_account = ? OR hrbp_account = ?)", args: []interface{}{ReviewStatusHRFinal, account, account}},
-		)
-	}
+	clauses = append(clauses,
+		reviewWhereClause{sql: "status = ? AND (hrbp_reviewer_account = ? OR (hrbp_reviewer_account = '' AND hrbp_account = ?))", args: []interface{}{ReviewStatusHRBPReview, account, account}},
+		reviewWhereClause{sql: "status = ? AND (hrbp_reviewer_account = ? OR hrbp_account = ?)", args: []interface{}{ReviewStatusHRFinal, account, account}},
+	)
 	return orReviewWhere(clauses)
 }
 

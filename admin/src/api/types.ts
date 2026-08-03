@@ -35,8 +35,12 @@ export interface AdminUser {
   adminType?: number
   roleId?: number
   roleName?: string
+  roleIds?: number[]
+  roleNames?: string[]
   allowPermissionKeys?: string[]
   denyPermissionKeys?: string[]
+  extraDataDeptIds?: number[]
+  extraDataUserIds?: number[]
   adminDeptIds?: number[]
   positionId?: number
   positionName?: string

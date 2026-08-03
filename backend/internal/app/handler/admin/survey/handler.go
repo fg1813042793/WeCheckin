@@ -6,11 +6,11 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/app/service/formkitadmin"
-	surveyservice "wecheckin-backend/backend/internal/app/service/survey"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/logger"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/service/formkitadmin"
+	surveyservice "wecheckin/backend/internal/app/service/survey"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/logger"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminSurveyHandler struct {
@@ -40,7 +40,6 @@ func (h *AdminSurveyHandler) lazyInit() {
 // @Param category query string false "分类"
 // @Param status query int false "状态(0草稿 1发布)"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_list [get]
 func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -76,7 +75,6 @@ func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 // @Summary 问卷详情
 // @Param id query int true "问卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_detail [get]
 func (h *AdminSurveyHandler) Detail(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -95,7 +93,6 @@ func (h *AdminSurveyHandler) Detail(ctx context.Context, c *app.RequestContext) 
 // @Summary 创建问卷
 // @Param survey body model.Survey true "问卷数据"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_insert [post]
 func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	var sv model.Survey
@@ -128,7 +125,6 @@ func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) 
 // @Summary 编辑问卷
 // @Param survey body model.Survey true "问卷数据（需包含ID）"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_edit [post]
 func (h *AdminSurveyHandler) Edit(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -157,7 +153,6 @@ func (h *AdminSurveyHandler) Edit(ctx context.Context, c *app.RequestContext) {
 // @Summary 删除问卷
 // @Param id formData int true "问卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_del [post]
 func (h *AdminSurveyHandler) Del(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -176,7 +171,6 @@ func (h *AdminSurveyHandler) Del(ctx context.Context, c *app.RequestContext) {
 // @Param id formData int true "问卷ID"
 // @Param status formData int true "状态(0草稿 1发布)"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_status [post]
 func (h *AdminSurveyHandler) Status(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	adminVal, _ := c.Get("admin")
@@ -195,7 +189,6 @@ func (h *AdminSurveyHandler) Status(ctx context.Context, c *app.RequestContext) 
 // @Summary 复制问卷
 // @Param id formData int true "问卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/survey_copy [post]
 func (h *AdminSurveyHandler) Copy(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	id, _ := strconv.Atoi(c.PostForm("id"))

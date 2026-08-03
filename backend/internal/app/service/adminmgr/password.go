@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
 )
 
 func ChangePassword(id, oldPassword, newPassword string) error {

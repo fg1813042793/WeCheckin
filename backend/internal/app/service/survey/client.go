@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 
 	"gorm.io/gorm"
 )
@@ -35,8 +35,8 @@ var publishedSurveyListColumns = []string{
 	"survey_status",
 	"survey_mode",
 	"survey_order",
-	"survey_add_time",
-	"survey_edit_time",
+	"add_time",
+	"edit_time",
 	"survey_settings",
 }
 

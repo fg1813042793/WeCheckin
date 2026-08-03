@@ -2,19 +2,21 @@ package dingtalkh5
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"math"
 	"strings"
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
 )
 
 type defaultUser struct {
 	Account                string
 	Name                   string
-	Role                   string
 	Position               string
 	DepartmentLevel1       string
 	DepartmentLevel2       string
@@ -59,32 +61,32 @@ func defaultTemplate() TemplateDTO {
 
 func defaultValueRubric() []ValueRubric {
 	return []ValueRubric{
-		{Label: "卓越", Score: 50},
-		{Label: "优秀", Score: 40},
-		{Label: "良好", Score: 30},
-		{Label: "及格", Score: 20},
-		{Label: "较差", Score: 10},
+		{Label: "卓越", Score: 50, Description: "持续超出要求，对团队或业务产生明显正向影响"},
+		{Label: "优秀", Score: 40, Description: "高质量完成要求，表现稳定且有主动贡献"},
+		{Label: "良好", Score: 30, Description: "符合岗位要求，能够稳定完成相关表现"},
+		{Label: "及格", Score: 20, Description: "基本达到要求，但仍有明显提升空间"},
+		{Label: "较差", Score: 10, Description: "未达到要求，需要重点改进"},
 	}
 }
 
 func defaultUsers() []defaultUser {
 	return []defaultUser{
-		{Account: "lip", Name: "Lip", Role: "employee", Position: "Java 工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "Java开发一组", ManagerID: "cube", HRBPID: "lucky"},
-		{Account: "arthur", Name: "Arthur", Role: "employee", Position: "Android 工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "安卓开发一组", ManagerID: "neil", HRBPID: "nick"},
-		{Account: "foster", Name: "Foster", Role: "employee", Position: "运维工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "运维组", ManagerID: "david", HRBPID: "hrbp"},
-		{Account: "rock", Name: "Rock", Role: "employee", Position: "Java 工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "Java开发一组", ManagerID: "paul", HRBPID: "nick"},
-		{Account: "cube", Name: "Cube", Role: "supervisor", Position: "产品主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "产品部", DepartmentLevel3: "国内组", HRBPID: "hrbp"},
-		{Account: "sherif", Name: "Sherif", Role: "supervisor", Position: "Android 主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "安卓开发二组", ManagerID: "david", HRBPID: "nick"},
-		{Account: "paul", Name: "Paul", Role: "supervisor", Position: "Java 主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "Java开发一组", ManagerID: "david", HRBPID: "nick"},
-		{Account: "neil", Name: "Neil", Role: "supervisor", Position: "Android 主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "安卓开发一组", ManagerID: "david", HRBPID: "nick"},
-		{Account: "david", Name: "David", Role: "manager", Position: "研发经理", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", HRBPID: "nick"},
-		{Account: "hrbp", Name: "HRBP", Role: "hrbp", Position: "HRBP", DepartmentLevel1: "M/H业务", ResponsibleDepartments: []string{"研发部", "产品部"}},
-		{Account: "nick", Name: "Nick", Role: "admin", Position: "HRBP 管理员", DepartmentLevel1: "M/H业务", ResponsibleDepartments: []string{"研发部", "综合部"}},
-		{Account: "monica", Name: "Monica", Role: "hrbp", Position: "HRBP", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部", ManagerID: "nick", HRBPID: "nick", ResponsibleDepartments: []string{"产品部"}},
-		{Account: "lucky", Name: "Lucky", Role: "hrbp", Position: "HRBP", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部", ManagerID: "nick", HRBPID: "nick", ResponsibleDepartments: []string{"产品部"}},
-		{Account: "betty", Name: "Betty", Role: "employee", Position: "员工", DepartmentLevel1: "M/H业务线", DepartmentLevel2: "综合部"},
-		{Account: "cherry", Name: "Cherry", Role: "admin", Position: "管理员", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部"},
-		{Account: "amy", Name: "Amy", Role: "supervisor", Position: "主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部"},
+		{Account: "lip", Name: "Lip", Position: "Java 工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "Java开发一组", ManagerID: "cube", HRBPID: "lucky"},
+		{Account: "arthur", Name: "Arthur", Position: "Android 工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "安卓开发一组", ManagerID: "neil", HRBPID: "nick"},
+		{Account: "foster", Name: "Foster", Position: "运维工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "运维组", ManagerID: "david", HRBPID: "hrbp"},
+		{Account: "rock", Name: "Rock", Position: "Java 工程师", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "Java开发一组", ManagerID: "paul", HRBPID: "nick"},
+		{Account: "cube", Name: "Cube", Position: "产品主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "产品部", DepartmentLevel3: "国内组", HRBPID: "hrbp"},
+		{Account: "sherif", Name: "Sherif", Position: "Android 主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "安卓开发二组", ManagerID: "david", HRBPID: "nick"},
+		{Account: "paul", Name: "Paul", Position: "Java 主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "Java开发一组", ManagerID: "david", HRBPID: "nick"},
+		{Account: "neil", Name: "Neil", Position: "Android 主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", DepartmentLevel3: "安卓开发一组", ManagerID: "david", HRBPID: "nick"},
+		{Account: "david", Name: "David", Position: "研发经理", DepartmentLevel1: "M/H业务", DepartmentLevel2: "研发部", HRBPID: "nick"},
+		{Account: "hrbp", Name: "HRBP", Position: "HRBP", DepartmentLevel1: "M/H业务", ResponsibleDepartments: []string{"研发部", "产品部"}},
+		{Account: "nick", Name: "Nick", Position: "HRBP 管理员", DepartmentLevel1: "M/H业务", ResponsibleDepartments: []string{"研发部", "综合部"}},
+		{Account: "monica", Name: "Monica", Position: "HRBP", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部", ManagerID: "nick", HRBPID: "nick", ResponsibleDepartments: []string{"产品部"}},
+		{Account: "lucky", Name: "Lucky", Position: "HRBP", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部", ManagerID: "nick", HRBPID: "nick", ResponsibleDepartments: []string{"产品部"}},
+		{Account: "betty", Name: "Betty", Position: "员工", DepartmentLevel1: "M/H业务线", DepartmentLevel2: "综合部"},
+		{Account: "cherry", Name: "Cherry", Position: "管理员", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部"},
+		{Account: "amy", Name: "Amy", Position: "主管", DepartmentLevel1: "M/H业务", DepartmentLevel2: "综合部"},
 	}
 }
 
@@ -95,22 +97,10 @@ func EnsureSeedContext(ctx context.Context) error {
 		return nil
 	}
 
-	var templateCount int64
-	if err := db.Model(&model.DingTalkH5PerfTemplate{}).Count(&templateCount).Error; err != nil {
+	if err := ensureDefaultTemplateDB(db); err != nil {
 		return err
 	}
 	now := database.Now()
-	if templateCount == 0 {
-		tpl := model.DingTalkH5PerfTemplate{
-			Key:      TemplateKeyDefault,
-			Payload:  encodeJSON(defaultTemplate()),
-			AddTime:  now,
-			EditTime: now,
-		}
-		if err := db.Create(&tpl).Error; err != nil {
-			return err
-		}
-	}
 
 	hash, err := passwordutil.Hash("123456")
 	if err != nil {
@@ -129,7 +119,6 @@ func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, n
 		Account:                item.Account,
 		Name:                   item.Name,
 		Password:               passwordHash,
-		Role:                   item.Role,
 		Position:               item.Position,
 		Department:             departmentText(item.DepartmentLevel1, item.DepartmentLevel2, item.DepartmentLevel3),
 		DepartmentLevel1:       item.DepartmentLevel1,
@@ -155,7 +144,7 @@ func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, n
 		}
 		return db.Model(&model.User{}).Where("`id` = ?", existing.ID).Updates(updates).Error
 	}
-	if err != gorm.ErrRecordNotFound {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	baseUser := model.User{
@@ -174,8 +163,37 @@ func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, n
 	return db.Create(&baseUser).Error
 }
 
+func ensureDefaultTemplateContext(ctx context.Context) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	return ensureDefaultTemplateDB(db)
+}
+
+func ensureDefaultTemplateDB(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+	var tpl model.DingTalkH5PerfTemplate
+	err := db.Where("template_key = ?", TemplateKeyDefault).First(&tpl).Error
+	if err == nil {
+		return nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return err
+	}
+	now := database.Now()
+	tpl = model.DingTalkH5PerfTemplate{
+		Key:      TemplateKeyDefault,
+		Payload:  encodeJSON(defaultTemplate()),
+		AddTime:  now,
+		EditTime: now,
+	}
+	applyDingTalkH5CreateAudit(&tpl.DingTalkH5AuditFields, dingtalkH5AuditMetaForUserContext(context.Background(), db, nil, now))
+	return db.Create(&tpl).Error
+}
+
 func LoadTemplateContext(ctx context.Context) (TemplateDTO, error) {
-	if err := EnsureSeedContext(ctx); err != nil {
+	if err := ensureDefaultTemplateContext(ctx); err != nil {
 		return TemplateDTO{}, err
 	}
 	db, cancel := database.WithContext(ctx)
@@ -189,6 +207,144 @@ func LoadTemplateContext(ctx context.Context) (TemplateDTO, error) {
 		return TemplateDTO{}, err
 	}
 	return result, nil
+}
+
+func SaveTemplateContext(ctx context.Context, user *model.DingTalkH5PerfUser, payload TemplateDTO) (TemplateDTO, error) {
+	result, err := sanitizeTemplate(payload)
+	if err != nil {
+		return TemplateDTO{}, err
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	now := database.Now()
+	audit := dingtalkH5AuditMetaForUserContext(ctx, db, user, now)
+	raw := encodeJSON(result)
+	var tpl model.DingTalkH5PerfTemplate
+	err = db.Where("template_key = ?", TemplateKeyDefault).First(&tpl).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		tpl = model.DingTalkH5PerfTemplate{
+			Key:      TemplateKeyDefault,
+			Payload:  raw,
+			AddTime:  now,
+			EditTime: now,
+		}
+		applyDingTalkH5CreateAudit(&tpl.DingTalkH5AuditFields, audit)
+		return result, db.Create(&tpl).Error
+	}
+	if err != nil {
+		return TemplateDTO{}, err
+	}
+	applyDingTalkH5UpdateAudit(&tpl.DingTalkH5AuditFields, audit)
+	updates := dingtalkH5AuditUpdateValues(audit)
+	updates["payload"] = raw
+	updates["template_key"] = TemplateKeyDefault
+	if tpl.CreateBy == 0 {
+		for key, value := range dingtalkH5CreateAuditValues(audit) {
+			updates[key] = value
+		}
+	}
+	if err := db.Model(&tpl).Updates(updates).Error; err != nil {
+		return TemplateDTO{}, err
+	}
+	return result, nil
+}
+
+func sanitizeTemplate(input TemplateDTO) (TemplateDTO, error) {
+	result := TemplateDTO{
+		ObjectiveDefaults:     sanitizeTemplateObjectives(input.ObjectiveDefaults, "objective"),
+		NextObjectiveDefaults: sanitizeTemplateObjectives(input.NextObjectiveDefaults, "next"),
+		GradeLevels:           sanitizeGradeLevels(input.GradeLevels),
+		Values:                sanitizeValueTemplates(input.Values),
+	}
+	if len(result.ObjectiveDefaults) == 0 && len(result.NextObjectiveDefaults) == 0 && len(result.GradeLevels) == 0 && len(result.Values) == 0 {
+		return TemplateDTO{}, errors.New("模板内容不能为空")
+	}
+	return result, nil
+}
+
+func sanitizeTemplateObjectives(items []NextObjective, prefix string) []NextObjective {
+	result := make([]NextObjective, 0, len(items))
+	for _, item := range items {
+		target := strings.TrimSpace(item.Target)
+		if target == "" {
+			continue
+		}
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			id = fmt.Sprintf("%s-%d", prefix, len(result)+1)
+		}
+		result = append(result, NextObjective{
+			ID:     id,
+			Target: target,
+			Weight: clampTemplateNumber(item.Weight, 0, 100),
+		})
+	}
+	return result
+}
+
+func sanitizeGradeLevels(items []GradeLevel) []GradeLevel {
+	result := make([]GradeLevel, 0, len(items))
+	for _, item := range items {
+		label := strings.TrimSpace(item.Label)
+		grade := strings.TrimSpace(item.Grade)
+		if label == "" && grade == "" {
+			continue
+		}
+		result = append(result, GradeLevel{
+			Label:       label,
+			Grade:       grade,
+			Coefficient: clampTemplateNumber(item.Coefficient, 0, 10),
+		})
+	}
+	return result
+}
+
+func sanitizeValueTemplates(items []ValueTemplate) []ValueTemplate {
+	result := make([]ValueTemplate, 0, len(items))
+	for _, item := range items {
+		name := strings.TrimSpace(item.Name)
+		definition := strings.TrimSpace(item.Definition)
+		if name == "" && definition == "" {
+			continue
+		}
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			id = fmt.Sprintf("value-%d", len(result)+1)
+		}
+		result = append(result, ValueTemplate{
+			ID:         id,
+			Name:       name,
+			Definition: definition,
+			Rubric:     sanitizeValueRubric(item.Rubric),
+		})
+	}
+	return result
+}
+
+func sanitizeValueRubric(items []ValueRubric) []ValueRubric {
+	result := make([]ValueRubric, 0, len(items))
+	for _, item := range items {
+		label := strings.TrimSpace(item.Label)
+		if label == "" {
+			continue
+		}
+		result = append(result, ValueRubric{
+			Label:       label,
+			Score:       clampTemplateNumber(item.Score, 0, 100),
+			Description: strings.TrimSpace(item.Description),
+		})
+	}
+	return result
+}
+
+func clampTemplateNumber(value, min, max float64) float64 {
+	if value < min {
+		value = min
+	}
+	if value > max {
+		value = max
+	}
+	return math.Round(value*10) / 10
 }
 
 func departmentText(parts ...string) string {

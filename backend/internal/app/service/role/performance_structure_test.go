@@ -32,9 +32,9 @@ func TestRoleListAvoidsPerRowMenuAndDeptQueries(t *testing.T) {
 
 	required := []string{
 		"loadRoleAssignmentMapsContext(ctx, db, list)",
-		"access.AdminDeptIDsContext(ctx, admin.ID)",
+		"permissionsupport.DataScopeContext(ctx, db, admin.ID, admin.RoleID)",
+		"access.VisibleDeptIDsWithDBContext(ctx, db, &admin)",
 		"permissionsupport.RoleAssignmentMapsContext(ctx, db, roleIDs)",
-		"permissionsupport.RoleCustomDeptIDsContext(ctx, db, admin.RoleID)",
 	}
 	for _, snippet := range required {
 		if !strings.Contains(text, snippet) {

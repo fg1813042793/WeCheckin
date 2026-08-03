@@ -25,3 +25,10 @@ func TestDingTalkH5RoutePermissionMapsFlowActions(t *testing.T) {
 		}
 	}
 }
+
+func TestDingTalkH5RoutePermissionMapsTemplateSave(t *testing.T) {
+	key, ok := dingTalkH5RoutePermission("PUT", "/api/v2/dingtalk/h5/template")
+	if !ok || key != "dingtalk_h5:api:template:save" {
+		t.Fatalf("template save route mapped to %q ok=%v", key, ok)
+	}
+}

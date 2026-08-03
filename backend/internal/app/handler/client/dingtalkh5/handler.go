@@ -9,9 +9,9 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
-	dingtalkh5service "wecheckin-backend/backend/internal/app/service/dingtalkh5"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	dingtalkh5service "wecheckin/backend/internal/app/service/dingtalkh5"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type Handler struct{}
@@ -52,6 +52,15 @@ func currentToken(c *app.RequestContext) string {
 	return token
 }
 
+func (h *Handler) PublicConfig(ctx context.Context, c *app.RequestContext) {
+	data, err := dingtalkh5service.PublicConfigContext(ctx)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
 func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
 	var req struct {
 		Name     string `json:"name"`
@@ -73,8 +82,64 @@ func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
+func (h *Handler) SSOLogin(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		CorpID   string `json:"corpId"`
+		AuthCode string `json:"authCode"`
+	}
+	_ = c.BindAndValidate(&req)
+	if req.CorpID == "" {
+		req.CorpID = c.PostForm("corpId")
+	}
+	if req.CorpID == "" {
+		req.CorpID = c.Query("corpId")
+	}
+	if req.AuthCode == "" {
+		req.AuthCode = c.PostForm("authCode")
+	}
+	data, err := dingtalkh5service.LoginByAuthCodeContext(ctx, req.CorpID, req.AuthCode, c.ClientIP(), string(c.UserAgent()))
+	if err != nil {
+		if bindData, ok := dingtalkh5service.DingTalkH5BindRequiredData(err); ok {
+			c.JSON(consts.StatusOK, response.Resp{
+				Code: dingtalkh5service.DingTalkH5BindRequiredCode,
+				Msg:  err.Error(),
+				Data: bindData,
+			})
+			return
+		}
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *Handler) BindSelf(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		BindTicket string `json:"bindTicket"`
+		Account    string `json:"account"`
+		Password   string `json:"password"`
+	}
+	_ = c.BindAndValidate(&req)
+	if req.BindTicket == "" {
+		req.BindTicket = c.PostForm("bindTicket")
+	}
+	if req.Account == "" {
+		req.Account = c.PostForm("account")
+	}
+	if req.Password == "" {
+		req.Password = c.PostForm("password")
+	}
+	data, err := dingtalkh5service.BindSelfContext(ctx, req.BindTicket, req.Account, req.Password, c.ClientIP(), string(c.UserAgent()))
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
 func (h *Handler) Logout(ctx context.Context, c *app.RequestContext) {
-	if err := dingtalkh5service.LogoutContext(ctx, currentToken(c)); err != nil {
+	user, _ := currentUser(c)
+	if err := dingtalkh5service.LogoutContext(ctx, user, currentToken(c)); err != nil {
 		response.Fail(c, "退出失败")
 		return
 	}
@@ -97,6 +162,25 @@ func (h *Handler) Bootstrap(ctx context.Context, c *app.RequestContext) {
 
 func (h *Handler) Template(ctx context.Context, c *app.RequestContext) {
 	data, err := dingtalkh5service.TemplateContext(ctx)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *Handler) SaveTemplate(ctx context.Context, c *app.RequestContext) {
+	user, ok := currentUser(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
+	var req dingtalkh5service.TemplateDTO
+	if err := c.BindAndValidate(&req); err != nil {
+		response.Fail(c, "参数错误")
+		return
+	}
+	data, err := dingtalkh5service.SaveTemplateContext(ctx, user, req)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -140,6 +224,25 @@ func (h *Handler) ChangePassword(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
+func (h *Handler) UpdateProfile(ctx context.Context, c *app.RequestContext) {
+	user, ok := currentUser(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
+	var req dingtalkh5service.AccountProfilePayload
+	if err := c.BindAndValidate(&req); err != nil {
+		response.Fail(c, "参数错误")
+		return
+	}
+	data, err := dingtalkh5service.UpdateAccountProfileContext(ctx, user, currentToken(c), req)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
 func (h *Handler) ListReviews(ctx context.Context, c *app.RequestContext) {
 	user, ok := currentUser(c)
 	if !ok {
@@ -171,6 +274,15 @@ func (h *Handler) ReviewDetail(ctx context.Context, c *app.RequestContext) {
 func (h *Handler) CreateReview(ctx context.Context, c *app.RequestContext) {
 	user, payload, ok := reviewRequest(c)
 	if !ok {
+		return
+	}
+	if len(payload.EmployeeIDs) > 0 {
+		data, err := dingtalkh5service.CreateReviewsContext(ctx, user, payload)
+		if err != nil {
+			response.Fail(c, err.Error())
+			return
+		}
+		response.JSON(c, data)
 		return
 	}
 	data, err := dingtalkh5service.CreateReviewContext(ctx, user, payload)
@@ -222,17 +334,7 @@ func (h *Handler) ReturnHRBP(ctx context.Context, c *app.RequestContext) {
 }
 
 func (h *Handler) Withdraw(ctx context.Context, c *app.RequestContext) {
-	user, ok := currentUser(c)
-	if !ok {
-		response.Fail(c, "未登录")
-		return
-	}
-	data, err := dingtalkh5service.WithdrawContext(ctx, user, c.Param("id"))
-	if err != nil {
-		response.Fail(c, err.Error())
-		return
-	}
-	response.JSON(c, data)
+	h.reviewAction(ctx, c, dingtalkh5service.WithdrawContext)
 }
 
 func (h *Handler) DeleteReview(ctx context.Context, c *app.RequestContext) {
@@ -350,18 +452,39 @@ func (h *Handler) DeleteUser(ctx context.Context, c *app.RequestContext) {
 
 func filtersFromQuery(c *app.RequestContext) dingtalkh5service.ReviewFilters {
 	return dingtalkh5service.ReviewFilters{
-		Keyword:    strings.TrimSpace(c.Query("keyword")),
-		Scope:      strings.TrimSpace(c.Query("scope")),
-		Department: strings.TrimSpace(c.Query("department")),
-		Period:     strings.TrimSpace(c.Query("period")),
-		NextPeriod: strings.TrimSpace(c.Query("nextPeriod")),
-		Status:     strings.TrimSpace(c.Query("status")),
-		ManagerID:  strings.TrimSpace(c.Query("managerId")),
-		HRBPID:     strings.TrimSpace(c.Query("hrbpId")),
-		Grade:      strings.TrimSpace(c.Query("grade")),
-		Page:       parsePositiveQueryInt(c, "page", 1),
-		PageSize:   parsePositiveQueryInt(c, "pageSize", 20),
+		Keyword:         strings.TrimSpace(c.Query("keyword")),
+		Scope:           strings.TrimSpace(c.Query("scope")),
+		EmployeeName:    strings.TrimSpace(c.Query("employeeName")),
+		Department:      strings.TrimSpace(c.Query("department")),
+		DepartmentName:  strings.TrimSpace(c.Query("departmentName")),
+		DepartmentNames: splitQueryList(c.Query("departmentNames")),
+		Period:          strings.TrimSpace(c.Query("period")),
+		NotPeriod:       strings.TrimSpace(c.Query("notPeriod")),
+		NextPeriod:      strings.TrimSpace(c.Query("nextPeriod")),
+		Status:          strings.TrimSpace(c.Query("status")),
+		Statuses:        splitQueryList(c.Query("statuses")),
+		ManagerID:       strings.TrimSpace(c.Query("managerId")),
+		HRBPID:          strings.TrimSpace(c.Query("hrbpId")),
+		Grade:           strings.TrimSpace(c.Query("grade")),
+		Page:            parsePositiveQueryInt(c, "page", 1),
+		PageSize:        parsePositiveQueryInt(c, "pageSize", 20),
+		SkipHistory:     parseBoolQuery(c, "skipHistory", true) && !parseBoolQuery(c, "includeHistory", false),
 	}
+}
+
+func splitQueryList(value string) []string {
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item == "" || seen[item] {
+			continue
+		}
+		seen[item] = true
+		items = append(items, item)
+	}
+	return items
 }
 
 func parsePositiveQueryInt(c *app.RequestContext, key string, fallback int) int {
@@ -370,4 +493,19 @@ func parsePositiveQueryInt(c *app.RequestContext, key string, fallback int) int 
 		return fallback
 	}
 	return value
+}
+
+func parseBoolQuery(c *app.RequestContext, key string, fallback bool) bool {
+	value := strings.TrimSpace(strings.ToLower(c.Query(key)))
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }

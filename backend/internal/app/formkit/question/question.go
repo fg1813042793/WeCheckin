@@ -3,7 +3,7 @@ package question
 import (
 	"sync"
 
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // ValidationError 单个字段校验失败详情

@@ -3,7 +3,7 @@ package exam
 import (
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examservice "wecheckin-backend/backend/internal/app/service/exam"
+	examservice "wecheckin/backend/internal/app/service/exam"
 )
 
 type ClientExamHandler struct {

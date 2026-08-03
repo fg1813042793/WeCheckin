@@ -13,8 +13,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('event:add')" type="success" @click="showAdd">+ 新增</el-button>
-          <el-button v-if="hasPerm('event:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:event:add')" type="success" @click="showAdd">+ 新增</el-button>
+          <el-button v-if="hasPerm('admin:menu:event:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
@@ -51,10 +51,10 @@
         <el-table-column label="操作" width="350" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('event:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <el-button v-if="hasPerm('event:list')" size="small" @click="showParticipants(row)">参与者</el-button>
-              <el-button v-if="hasPerm('event:list')" size="small" @click="showDynamics(row)">动态</el-button>
-              <el-dropdown v-if="hasPerm('event:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+              <el-button v-if="hasPerm('admin:menu:event:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
+              <el-button v-if="hasPerm('admin:menu:event:list')" size="small" @click="showParticipants(row)">参与者</el-button>
+              <el-button v-if="hasPerm('admin:menu:event:list')" size="small" @click="showDynamics(row)">动态</el-button>
+              <el-dropdown v-if="hasPerm('admin:menu:event:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                     <el-dropdown-menu>
@@ -62,8 +62,8 @@
                       <el-dropdown-item command="disable" :disabled="row.status===0">停用</el-dropdown-item>
                       <el-dropdown-item :command="row.vouch ? 'unvouch' : 'vouch'">{{ row.vouch ? '取消推荐' : '推荐首页' }}</el-dropdown-item>
                       <el-dropdown-item :command="row.isTop ? 'untop' : 'top'">{{ row.isTop ? '取消置顶' : '置顶' }}</el-dropdown-item>
-                      <el-dropdown-item command="scores" v-if="row.type===2 && hasPerm('event:list')">成绩</el-dropdown-item>
-                      <el-dropdown-item v-if="hasPerm('event:del')" command="del" divided>删除</el-dropdown-item>
+                      <el-dropdown-item command="scores" v-if="row.type===2 && hasPerm('admin:menu:event:list')">成绩</el-dropdown-item>
+                      <el-dropdown-item v-if="hasPerm('admin:menu:event:del')" command="del" divided>删除</el-dropdown-item>
                     </el-dropdown-menu>
                 </template>
               </el-dropdown>

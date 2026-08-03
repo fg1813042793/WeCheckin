@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-考试管理
@@ -16,7 +16,6 @@ import (
 // @Param pageSize query int false "每页条数"
 // @Param keyword query string false "关键词"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/record_list [get]
 func (h *AdminExamHandler) RecordList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -41,7 +40,6 @@ func (h *AdminExamHandler) RecordList(ctx context.Context, c *app.RequestContext
 // @Summary 考试记录详情
 // @Param id query int true "记录ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/record_detail [get]
 func (h *AdminExamHandler) RecordDetail(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -62,7 +60,6 @@ func (h *AdminExamHandler) RecordDetail(ctx context.Context, c *app.RequestConte
 // @Summary 删除考试记录
 // @Param id formData int true "记录ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/record_del [post]
 func (h *AdminExamHandler) RecordDel(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -78,7 +75,6 @@ func (h *AdminExamHandler) RecordDel(ctx context.Context, c *app.RequestContext)
 // @Summary 批量删除考试记录
 // @Param ids formData string true "逗号分隔的记录ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/record_batch_del [post]
 func (h *AdminExamHandler) RecordBatchDel(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -98,7 +94,6 @@ func (h *AdminExamHandler) RecordBatchDel(ctx context.Context, c *app.RequestCon
 // @Summary 考试统计
 // @Param examId query int true "考试ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/exam/statistics [get]
 func (h *AdminExamHandler) Statistics(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)

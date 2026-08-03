@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
-	"wecheckin-backend/backend/internal/app/support/adminmenuperm"
-	"wecheckin-backend/backend/internal/app/support/adminrouteperm"
-	"wecheckin-backend/backend/internal/app/support/appapiperm"
-	"wecheckin-backend/backend/internal/app/support/appmenuperm"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/adminmenuperm"
+	"wecheckin/backend/internal/app/support/adminrouteperm"
+	"wecheckin/backend/internal/app/support/appapiperm"
+	"wecheckin/backend/internal/app/support/appmenuperm"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 const (
@@ -46,9 +47,18 @@ const (
 	DataDeptPermissionKey   = "data:dept"
 	DataSelfPermissionKey   = "data:self"
 	DataCustomPermissionKey = "data:custom"
+	DataExtraPermissionKey  = "data:extra"
 )
 
-const dingtalkH5MenuPermissionCacheTTL = 30 * time.Second
+const (
+	dingtalkH5MenuPermissionCacheTTL           = 30 * time.Second
+	subjectPermissionSetCacheTTL               = 30 * time.Second
+	permissionTablesReadyNegativeCacheTTL      = 5 * time.Second
+	userRolesTableReadyNegativeCacheTTL        = 5 * time.Second
+	permissionGrantRoleAssignmentSelectColumns = "`grant_subject_id`, `grant_permission_key`, `grant_scope_value`"
+	permissionGrantKeySelectColumns            = "`grant_subject_id`, `grant_permission_key`, `grant_effect`"
+	permissionGrantScopeSelectColumns          = "`grant_subject_id`, `grant_scope_value`"
+)
 
 type dingtalkH5MenuPermissionCacheEntry struct {
 	keys      []string
@@ -63,10 +73,49 @@ var dingtalkH5MenuPermissionCache = struct {
 	items: map[string]dingtalkH5MenuPermissionCacheEntry{},
 }
 
+type subjectPermissionSetCacheEntry struct {
+	allowed   map[string]bool
+	denied    map[string]bool
+	expiresAt time.Time
+}
+
+var subjectPermissionSetCache = struct {
+	sync.RWMutex
+	items map[string]subjectPermissionSetCacheEntry
+}{
+	items: map[string]subjectPermissionSetCacheEntry{},
+}
+
+var permissionTablesReadyCache = struct {
+	sync.RWMutex
+	checked     bool
+	ready       bool
+	schemaReady bool
+	checkedAt   time.Time
+}{}
+
+var userRolesTableReadyCache = struct {
+	sync.RWMutex
+	checked   bool
+	ready     bool
+	checkedAt time.Time
+}{}
+
 type DataScope struct {
 	Mode    int
 	DeptIDs []uint
 	Ready   bool
+}
+
+type DataScopeExtras struct {
+	DeptIDs []uint
+	UserIDs []uint
+	Ready   bool
+}
+
+type permissionSubjectRef struct {
+	subjectType string
+	subjectID   uint
 }
 
 type RoleAssignmentMaps struct {
@@ -98,6 +147,9 @@ func EnsureUnifiedPermissionsContext(ctx context.Context, db *gorm.DB, enableExa
 	if err := syncDingTalkH5MenuPermissions(db); err != nil {
 		return err
 	}
+	if err := syncDingTalkH5ButtonPermissions(db); err != nil {
+		return err
+	}
 	if err := syncClientAPIPermissions(db); err != nil {
 		return err
 	}
@@ -107,6 +159,78 @@ func EnsureUnifiedPermissionsContext(ctx context.Context, db *gorm.DB, enableExa
 	return ctxErr(ctx)
 }
 
+func EnsureApplicationPermissionCatalogContext(ctx context.Context, db *gorm.DB, platform string, types []string) error {
+	if err := ctxErr(ctx); err != nil {
+		return err
+	}
+	if db == nil {
+		return fmt.Errorf("数据库连接异常")
+	}
+	platform = strings.TrimSpace(platform)
+	typeSet := permissionTypeSet(types)
+	shouldInclude := func(values ...string) bool {
+		if len(typeSet) == 0 {
+			return true
+		}
+		for _, value := range values {
+			if typeSet[value] {
+				return true
+			}
+		}
+		return false
+	}
+	if platform == "" || platform == PlatformAdmin {
+		if shouldInclude(TypeAPICategory, TypeAPI) {
+			if err := ensureMissingAdminAPIPermissionsContext(ctx, db); err != nil {
+				return err
+			}
+		}
+	}
+	if platform == "" || platform == PlatformClient {
+		if shouldInclude(TypeDirectory, TypeMenu, TypeButton) {
+			if err := ensureMissingApplicationMenuPermissionsContext(ctx, db, appmenuperm.ClientMenuDeclarations()); err != nil {
+				return err
+			}
+		}
+		if shouldInclude(TypeAPICategory, TypeAPI) {
+			if err := ensureMissingApplicationAPIPermissionsContext(ctx, db, appapiperm.ClientAPICategories(), appapiperm.ClientAPIDeclarations()); err != nil {
+				return err
+			}
+		}
+	}
+	if platform == "" || platform == PlatformDingTalkH5 {
+		if shouldInclude(TypeDirectory, TypeMenu) {
+			if err := ensureMissingApplicationMenuPermissionsContext(ctx, db, appmenuperm.DingTalkH5MenuDeclarations()); err != nil {
+				return err
+			}
+		}
+		if shouldInclude(TypeButton) {
+			if err := ensureMissingApplicationButtonPermissionsContext(ctx, db, appmenuperm.DingTalkH5ButtonDeclarations()); err != nil {
+				return err
+			}
+		}
+		if shouldInclude(TypeAPICategory, TypeAPI) {
+			if err := ensureMissingApplicationAPIPermissionsContext(ctx, db, appapiperm.DingTalkH5APICategories(), appapiperm.DingTalkH5APIDeclarations()); err != nil {
+				return err
+			}
+		}
+	}
+	return ctxErr(ctx)
+}
+
+func permissionTypeSet(types []string) map[string]bool {
+	result := map[string]bool{}
+	for _, value := range types {
+		for _, part := range strings.Split(value, ",") {
+			item := strings.TrimSpace(part)
+			if item != "" {
+				result[item] = true
+			}
+		}
+	}
+	return result
+}
+
 func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error {
 	if err := ctxErr(ctx); err != nil {
 		return err
@@ -114,29 +238,50 @@ func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("数据库连接异常")
 	}
+	if permissionTablesReadyCached() {
+		return nil
+	}
 	if !db.Migrator().HasTable(&model.Permission{}) {
+		markPermissionTablesReady(false)
 		return ctxErr(ctx)
 	}
 	if !db.Migrator().HasColumn(&model.Permission{}, "Icon") {
 		if err := db.Migrator().AddColumn(&model.Permission{}, "Icon"); err != nil {
+			markPermissionTablesReady(false)
 			return err
 		}
 	}
+	markPermissionSchemaReady(db.Migrator().HasTable(&model.PermissionGrant{}))
 	return ctxErr(ctx)
 }
 
 func SubjectHasPermissionContext(ctx context.Context, db *gorm.DB, userID, roleID uint, key string) (bool, error) {
+	return SubjectHasPermissionWithRoleIDsContext(ctx, db, userID, []uint{roleID}, key)
+}
+
+func SubjectHasPermissionWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint, key string) (bool, error) {
 	if err := ctxErr(ctx); err != nil {
 		return false, err
 	}
 	if db == nil {
 		return false, fmt.Errorf("数据库连接异常")
 	}
+	roleIDs = normalizeRoleIDs(roleIDs...)
 	if !TablesReady(db) {
-		if key == AdminLoginPermissionKey && roleID > 0 {
+		if key == AdminLoginPermissionKey && len(roleIDs) > 0 {
 			return false, nil
 		}
 		return false, nil
+	}
+	if prefixes := permissionLookupPrefixesForKey(key); len(prefixes) > 0 {
+		allowed, denied, err := subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, roleIDs, prefixes)
+		if err != nil {
+			return false, err
+		}
+		if denied[key] {
+			return false, nil
+		}
+		return allowed[key], nil
 	}
 	if userID > 0 {
 		effect, ok, err := grantEffect(ctx, db, SubjectUser, userID, key)
@@ -147,14 +292,25 @@ func SubjectHasPermissionContext(ctx context.Context, db *gorm.DB, userID, roleI
 			return effect == EffectAllow, nil
 		}
 	}
-	if roleID == 0 {
+	if len(roleIDs) == 0 {
 		return false, nil
 	}
-	effect, ok, err := grantEffect(ctx, db, SubjectRole, roleID, key)
-	if err != nil || !ok {
+	var grants []model.PermissionGrant
+	if err := db.Select(permissionGrantKeySelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_permission_key` = ? AND `grant_status` = 1", SubjectRole, roleIDs, key).
+		Find(&grants).Error; err != nil {
 		return false, err
 	}
-	return effect == EffectAllow, nil
+	allowed := false
+	for _, grant := range grants {
+		if grant.Effect == EffectDeny {
+			return false, nil
+		}
+		if grant.Effect == EffectAllow {
+			allowed = true
+		}
+	}
+	return allowed, nil
 }
 
 func RoleHasPermissionContext(ctx context.Context, db *gorm.DB, roleID uint, key string) (bool, error) {
@@ -162,7 +318,56 @@ func RoleHasPermissionContext(ctx context.Context, db *gorm.DB, roleID uint, key
 }
 
 func SubjectPermissionEffectContext(ctx context.Context, db *gorm.DB, subjectType string, subjectID uint, key string) (string, bool, error) {
+	if prefixes := permissionLookupPrefixesForKey(key); len(prefixes) > 0 && db != nil && TablesReady(db) {
+		var userID uint
+		var roleIDs []uint
+		switch subjectType {
+		case SubjectUser:
+			userID = subjectID
+		case SubjectRole:
+			roleIDs = []uint{subjectID}
+		}
+		if userID > 0 || len(roleIDs) > 0 {
+			allowed, denied, err := subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, roleIDs, prefixes)
+			if err != nil {
+				return "", false, err
+			}
+			if denied[key] {
+				return EffectDeny, true, nil
+			}
+			if allowed[key] {
+				return EffectAllow, true, nil
+			}
+			return "", false, nil
+		}
+	}
 	return grantEffect(ctx, db, subjectType, subjectID, key)
+}
+
+func permissionLookupPrefixesForKey(key string) []string {
+	key = strings.TrimSpace(key)
+	switch {
+	case key == AdminLoginPermissionKey:
+		return []string{AdminLoginPermissionKey}
+	case strings.HasPrefix(key, "admin:menu:"):
+		return []string{"admin:menu:%"}
+	case strings.HasPrefix(key, "admin:api:"):
+		return []string{"admin:api:%"}
+	case strings.HasPrefix(key, "client:menu:"):
+		return []string{"client:menu:%"}
+	case strings.HasPrefix(key, "client:api:"):
+		return []string{"client:api:%"}
+	case strings.HasPrefix(key, "dingtalk_h5:menu:"):
+		return []string{"dingtalk_h5:menu:%"}
+	case strings.HasPrefix(key, "dingtalk_h5:button:"):
+		return []string{"dingtalk_h5:button:%"}
+	case strings.HasPrefix(key, "dingtalk_h5:api:"):
+		return []string{"dingtalk_h5:api:%"}
+	case strings.HasPrefix(key, "data:"):
+		return []string{"data:%"}
+	default:
+		return nil
+	}
 }
 
 func UserPermissionKeySetsContext(ctx context.Context, db *gorm.DB, userID uint) ([]string, []string, error) {
@@ -267,7 +472,8 @@ func RoleApplicationAPIKeyMapContext(ctx context.Context, db *gorm.DB, roleIDs [
 	}
 	var grants []model.PermissionGrant
 	where, args := likeAnyClause("`grant_permission_key`", ApplicationAPIPermissionPrefixes())
-	if err := db.Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, EffectAllow).
+	if err := db.Select(permissionGrantKeySelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, EffectAllow).
 		Where(where, args...).
 		Find(&grants).Error; err != nil {
 		return nil, nil, err
@@ -308,7 +514,8 @@ func RoleAssignmentMapsContext(ctx context.Context, db *gorm.DB, roleIDs []uint)
 	args = append(args, DataCustomPermissionKey)
 
 	var grants []model.PermissionGrant
-	if err := db.Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, EffectAllow).
+	if err := db.Select(permissionGrantRoleAssignmentSelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, EffectAllow).
 		Where("("+where+") OR `grant_permission_key` = ?", args...).
 		Order("`id` ASC").
 		Find(&grants).Error; err != nil {
@@ -336,7 +543,7 @@ func RoleAssignmentMapsContext(ctx context.Context, db *gorm.DB, roleIDs []uint)
 			result.DeptIDs[grant.SubjectID] = decodeDeptScope(grant.ScopeValue)
 		case strings.HasPrefix(grant.PermissionKey, "client:menu:"):
 			clientMenuSets[grant.SubjectID][grant.PermissionKey] = true
-		case strings.HasPrefix(grant.PermissionKey, "dingtalk_h5:menu:"):
+		case strings.HasPrefix(grant.PermissionKey, "dingtalk_h5:menu:"), strings.HasPrefix(grant.PermissionKey, "dingtalk_h5:button:"):
 			dingTalkH5MenuSets[grant.SubjectID][grant.PermissionKey] = true
 		case strings.HasPrefix(grant.PermissionKey, "client:api:"):
 			clientAPISets[grant.SubjectID][grant.PermissionKey] = true
@@ -347,7 +554,7 @@ func RoleAssignmentMapsContext(ctx context.Context, db *gorm.DB, roleIDs []uint)
 
 	for _, roleID := range roleIDs {
 		result.ClientMenuKeys[roleID] = orderedApplicationMenuKeys(clientMenuSets[roleID], appmenuperm.ClientMenuDeclarations())
-		result.DingTalkH5MenuKeys[roleID] = orderedApplicationMenuKeys(dingTalkH5MenuSets[roleID], appmenuperm.DingTalkH5MenuDeclarations())
+		result.DingTalkH5MenuKeys[roleID] = orderedApplicationMenuKeys(dingTalkH5MenuSets[roleID], appmenuperm.DingTalkH5PermissionDeclarations())
 		result.ClientAPIPermissionKeys[roleID] = orderedApplicationAPIKeys(clientAPISets[roleID], appapiperm.ClientAPIDeclarations())
 		result.DingTalkH5APIPermissionKeys[roleID] = orderedApplicationAPIKeys(dingTalkH5APISets[roleID], appapiperm.DingTalkH5APIDeclarations())
 	}
@@ -388,7 +595,8 @@ func rolePermissionKeyMapContext(ctx context.Context, db *gorm.DB, roleIDs []uin
 		return result, nil
 	}
 	var grants []model.PermissionGrant
-	if err := db.Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_permission_key` LIKE ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, like, EffectAllow).
+	if err := db.Select(permissionGrantKeySelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_permission_key` LIKE ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, like, EffectAllow).
 		Order("`id` ASC").
 		Find(&grants).Error; err != nil {
 		return nil, err
@@ -411,7 +619,8 @@ func RoleCustomDeptIDMapContext(ctx context.Context, db *gorm.DB, roleIDs []uint
 		return result, nil
 	}
 	var grants []model.PermissionGrant
-	if err := db.Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_permission_key` = ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, DataCustomPermissionKey, EffectAllow).Find(&grants).Error; err != nil {
+	if err := db.Select(permissionGrantScopeSelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_permission_key` = ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, DataCustomPermissionKey, EffectAllow).Find(&grants).Error; err != nil {
 		return nil, err
 	}
 	for _, grant := range grants {
@@ -428,27 +637,95 @@ func RoleCustomDeptIDsContext(ctx context.Context, db *gorm.DB, roleID uint) ([]
 	return deptIDsByRole[roleID], nil
 }
 
+func ActiveRoleIDsForUserContext(ctx context.Context, db *gorm.DB, userID, primaryRoleID uint) ([]uint, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, err
+	}
+	if db == nil || userID == 0 || !UserRolesTableReady(db) {
+		return normalizeRoleIDs(primaryRoleID), nil
+	}
+	roleIDs := []uint{}
+	var rows []model.UserRole
+	if err := db.Table("user_roles AS ur").
+		Select("ur.user_role_role_id AS user_role_role_id").
+		Joins("JOIN roles r ON r.id = ur.user_role_role_id AND r.role_status = 1").
+		Where("ur.user_role_user_id = ? AND ur.user_role_status = 1", userID).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		roleIDs = append(roleIDs, row.RoleID)
+	}
+	if len(roleIDs) == 0 && primaryRoleID > 0 {
+		var count int64
+		if err := db.Model(&model.Role{}).Where("`id` = ? AND `role_status` = 1", primaryRoleID).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			roleIDs = append(roleIDs, primaryRoleID)
+		}
+	}
+	return normalizeRoleIDs(roleIDs...), ctxErr(ctx)
+}
+
 func ClientMenuPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, roleID uint) ([]string, bool, error) {
 	return SubjectMenuPermissionKeysContext(ctx, db, userID, roleID, PlatformClient)
 }
 
 func DingTalkH5MenuPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, roleID uint) ([]string, bool, error) {
-	if keys, ready, ok := getDingTalkH5MenuPermissionCache(userID, roleID); ok {
+	return DingTalkH5MenuPermissionKeysWithRoleIDsContext(ctx, db, userID, []uint{roleID})
+}
+
+func DingTalkH5MenuPermissionKeysWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) ([]string, bool, error) {
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	if keys, ready, ok := getDingTalkH5MenuPermissionCache(userID, roleIDs); ok {
 		return keys, ready, nil
 	}
-	keys, ready, err := SubjectMenuPermissionKeysContext(ctx, db, userID, roleID, PlatformDingTalkH5)
+	keys, ready, err := SubjectMenuPermissionKeysWithRoleIDsContext(ctx, db, userID, roleIDs, PlatformDingTalkH5)
 	if err == nil {
-		setDingTalkH5MenuPermissionCache(userID, roleID, keys, ready)
+		setDingTalkH5MenuPermissionCache(userID, roleIDs, keys, ready)
 	}
 	return keys, ready, err
 }
 
-func dingtalkH5MenuPermissionCacheKey(userID, roleID uint) string {
-	return strconv.FormatUint(uint64(userID), 10) + ":" + strconv.FormatUint(uint64(roleID), 10)
+func DingTalkH5ButtonPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, roleID uint) ([]string, bool, error) {
+	return DingTalkH5ButtonPermissionKeysWithRoleIDsContext(ctx, db, userID, []uint{roleID})
 }
 
-func getDingTalkH5MenuPermissionCache(userID, roleID uint) ([]string, bool, bool) {
-	key := dingtalkH5MenuPermissionCacheKey(userID, roleID)
+func DingTalkH5ButtonPermissionKeysWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) ([]string, bool, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, false, err
+	}
+	if db == nil {
+		return nil, false, fmt.Errorf("数据库连接异常")
+	}
+	if !TablesReady(db) {
+		return nil, false, nil
+	}
+	allowed, denied, err := subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, roleIDs, []string{"dingtalk_h5:button:%"})
+	if err != nil {
+		return nil, true, err
+	}
+	selected := make(map[string]bool, len(allowed))
+	for key := range allowed {
+		if !denied[key] {
+			selected[key] = true
+		}
+	}
+	return orderedApplicationMenuKeys(selected, appmenuperm.DingTalkH5ButtonDeclarations()), true, nil
+}
+
+func dingtalkH5MenuPermissionCacheKey(userID uint, roleIDs []uint) string {
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	roleParts := make([]string, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		roleParts = append(roleParts, strconv.FormatUint(uint64(roleID), 10))
+	}
+	return strconv.FormatUint(uint64(userID), 10) + ":" + strings.Join(roleParts, ",")
+}
+
+func getDingTalkH5MenuPermissionCache(userID uint, roleIDs []uint) ([]string, bool, bool) {
+	key := dingtalkH5MenuPermissionCacheKey(userID, roleIDs)
 	now := time.Now()
 	dingtalkH5MenuPermissionCache.RLock()
 	entry, ok := dingtalkH5MenuPermissionCache.items[key]
@@ -459,8 +736,8 @@ func getDingTalkH5MenuPermissionCache(userID, roleID uint) ([]string, bool, bool
 	return append([]string(nil), entry.keys...), entry.ready, true
 }
 
-func setDingTalkH5MenuPermissionCache(userID, roleID uint, keys []string, ready bool) {
-	key := dingtalkH5MenuPermissionCacheKey(userID, roleID)
+func setDingTalkH5MenuPermissionCache(userID uint, roleIDs []uint, keys []string, ready bool) {
+	key := dingtalkH5MenuPermissionCacheKey(userID, roleIDs)
 	dingtalkH5MenuPermissionCache.Lock()
 	dingtalkH5MenuPermissionCache.items[key] = dingtalkH5MenuPermissionCacheEntry{
 		keys:      append([]string(nil), keys...),
@@ -476,7 +753,69 @@ func invalidateDingTalkH5MenuPermissionCache() {
 	dingtalkH5MenuPermissionCache.Unlock()
 }
 
+func InvalidateRuntimePermissionCaches() {
+	invalidateSubjectPermissionSetCache()
+	invalidateDingTalkH5MenuPermissionCache()
+}
+
+func subjectPermissionSetCacheKey(userID uint, roleIDs []uint, prefixes []string) string {
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	roleParts := make([]string, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		roleParts = append(roleParts, strconv.FormatUint(uint64(roleID), 10))
+	}
+	normalized := normalizePermissionKeys(prefixes)
+	sort.Strings(normalized)
+	return strconv.FormatUint(uint64(userID), 10) + ":" +
+		strings.Join(roleParts, ",") + ":" +
+		strings.Join(normalized, "\x1f")
+}
+
+func getSubjectPermissionSetCache(userID uint, roleIDs []uint, prefixes []string) (map[string]bool, map[string]bool, bool) {
+	key := subjectPermissionSetCacheKey(userID, roleIDs, prefixes)
+	now := time.Now()
+	subjectPermissionSetCache.RLock()
+	entry, ok := subjectPermissionSetCache.items[key]
+	subjectPermissionSetCache.RUnlock()
+	if !ok || now.After(entry.expiresAt) {
+		return nil, nil, false
+	}
+	return copyBoolMap(entry.allowed), copyBoolMap(entry.denied), true
+}
+
+func setSubjectPermissionSetCache(userID uint, roleIDs []uint, prefixes []string, allowed, denied map[string]bool) {
+	key := subjectPermissionSetCacheKey(userID, roleIDs, prefixes)
+	subjectPermissionSetCache.Lock()
+	subjectPermissionSetCache.items[key] = subjectPermissionSetCacheEntry{
+		allowed:   copyBoolMap(allowed),
+		denied:    copyBoolMap(denied),
+		expiresAt: time.Now().Add(subjectPermissionSetCacheTTL),
+	}
+	subjectPermissionSetCache.Unlock()
+}
+
+func invalidateSubjectPermissionSetCache() {
+	subjectPermissionSetCache.Lock()
+	subjectPermissionSetCache.items = map[string]subjectPermissionSetCacheEntry{}
+	subjectPermissionSetCache.Unlock()
+}
+
+func copyBoolMap(source map[string]bool) map[string]bool {
+	if len(source) == 0 {
+		return map[string]bool{}
+	}
+	copied := make(map[string]bool, len(source))
+	for key, value := range source {
+		copied[key] = value
+	}
+	return copied
+}
+
 func SubjectMenuPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, roleID uint, platform string) ([]string, bool, error) {
+	return SubjectMenuPermissionKeysWithRoleIDsContext(ctx, db, userID, []uint{roleID}, platform)
+}
+
+func SubjectMenuPermissionKeysWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint, platform string) ([]string, bool, error) {
 	if err := ctxErr(ctx); err != nil {
 		return nil, false, err
 	}
@@ -487,7 +826,7 @@ func SubjectMenuPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, 
 		return nil, false, nil
 	}
 	prefix := platform + ":menu:%"
-	allowed, denied, err := subjectPermissionSetsByPrefixes(ctx, db, userID, roleID, []string{prefix})
+	allowed, denied, err := subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, roleIDs, []string{prefix})
 	if err != nil {
 		return nil, true, err
 	}
@@ -501,6 +840,10 @@ func SubjectMenuPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, 
 }
 
 func SubjectAPIPermissionReadyContext(ctx context.Context, db *gorm.DB, userID, roleID uint, platform string) (bool, error) {
+	return SubjectAPIPermissionReadyWithRoleIDsContext(ctx, db, userID, []uint{roleID}, platform)
+}
+
+func SubjectAPIPermissionReadyWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint, platform string) (bool, error) {
 	if err := ctxErr(ctx); err != nil {
 		return false, err
 	}
@@ -514,23 +857,58 @@ func SubjectAPIPermissionReadyContext(ctx context.Context, db *gorm.DB, userID, 
 	if prefix == ":api:%" {
 		return false, nil
 	}
-	query := db.Model(&model.PermissionGrant{}).
-		Where("`grant_permission_key` LIKE ? AND `grant_effect` = ? AND `grant_status` = 1", prefix, EffectAllow)
-	switch {
-	case userID > 0 && roleID > 0:
-		query = query.Where("(`grant_subject_type` = ? AND `grant_subject_id` = ?) OR (`grant_subject_type` = ? AND `grant_subject_id` = ?)", SubjectUser, userID, SubjectRole, roleID)
-	case userID > 0:
-		query = query.Where("`grant_subject_type` = ? AND `grant_subject_id` = ?", SubjectUser, userID)
-	case roleID > 0:
-		query = query.Where("`grant_subject_type` = ? AND `grant_subject_id` = ?", SubjectRole, roleID)
-	default:
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	if userID == 0 && len(roleIDs) == 0 {
 		return false, nil
 	}
-	var count int64
-	if err := query.Count(&count).Error; err != nil {
+	allowed, denied, err := subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, roleIDs, []string{prefix})
+	if err != nil {
 		return false, err
 	}
-	return count > 0, ctxErr(ctx)
+	return len(allowed) > 0 || len(denied) > 0, ctxErr(ctx)
+}
+
+func SubjectAPIPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, roleID uint, platform string) ([]string, bool, error) {
+	return SubjectAPIPermissionKeysWithRoleIDsContext(ctx, db, userID, []uint{roleID}, platform)
+}
+
+func SubjectAPIPermissionKeysWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint, platform string) ([]string, bool, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, false, err
+	}
+	if db == nil {
+		return nil, false, fmt.Errorf("数据库连接异常")
+	}
+	if !TablesReady(db) {
+		return nil, false, nil
+	}
+	platform = strings.TrimSpace(platform)
+	if platform == "" {
+		return nil, false, nil
+	}
+	allowed, denied, err := subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, roleIDs, []string{platform + ":api:%"})
+	if err != nil {
+		return nil, true, err
+	}
+	selected := make(map[string]bool, len(allowed))
+	for key := range allowed {
+		if !denied[key] {
+			selected[key] = true
+		}
+	}
+	switch platform {
+	case PlatformClient:
+		return orderedApplicationAPIKeys(selected, appapiperm.ClientAPIDeclarations()), true, nil
+	case PlatformDingTalkH5:
+		return orderedApplicationAPIKeys(selected, appapiperm.DingTalkH5APIDeclarations()), true, nil
+	default:
+		keys := make([]string, 0, len(selected))
+		for key := range selected {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		return keys, true, nil
+	}
 }
 
 func RoleApplicationMenuKeyMapContext(ctx context.Context, db *gorm.DB, roleIDs []uint) (map[uint][]string, map[uint][]string, error) {
@@ -548,7 +926,8 @@ func RoleApplicationMenuKeyMapContext(ctx context.Context, db *gorm.DB, roleIDs 
 	}
 	var grants []model.PermissionGrant
 	where, args := likeAnyClause("`grant_permission_key`", ApplicationMenuPermissionPrefixes())
-	if err := db.Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, EffectAllow).
+	if err := db.Select(permissionGrantKeySelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, roleIDs, EffectAllow).
 		Where(where, args...).
 		Find(&grants).Error; err != nil {
 		return nil, nil, err
@@ -563,13 +942,13 @@ func RoleApplicationMenuKeyMapContext(ctx context.Context, db *gorm.DB, roleIDs 
 		if strings.HasPrefix(grant.PermissionKey, "client:menu:") {
 			clientSets[grant.SubjectID][grant.PermissionKey] = true
 		}
-		if strings.HasPrefix(grant.PermissionKey, "dingtalk_h5:menu:") {
+		if strings.HasPrefix(grant.PermissionKey, "dingtalk_h5:menu:") || strings.HasPrefix(grant.PermissionKey, "dingtalk_h5:button:") {
 			dingTalkH5Sets[grant.SubjectID][grant.PermissionKey] = true
 		}
 	}
 	for _, roleID := range roleIDs {
 		clientKeysByRole[roleID] = orderedApplicationMenuKeys(clientSets[roleID], appmenuperm.ClientMenuDeclarations())
-		dingTalkH5KeysByRole[roleID] = orderedApplicationMenuKeys(dingTalkH5Sets[roleID], appmenuperm.DingTalkH5MenuDeclarations())
+		dingTalkH5KeysByRole[roleID] = orderedApplicationMenuKeys(dingTalkH5Sets[roleID], appmenuperm.DingTalkH5PermissionDeclarations())
 	}
 	return clientKeysByRole, dingTalkH5KeysByRole, ctxErr(ctx)
 }
@@ -583,7 +962,8 @@ func RoleIDsByCustomDeptIDsContext(ctx context.Context, db *gorm.DB, deptIDs []u
 	}
 	deptSet := uintSet(deptIDs)
 	var grants []model.PermissionGrant
-	if err := db.Where("`grant_subject_type` = ? AND `grant_permission_key` = ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, DataCustomPermissionKey, EffectAllow).Find(&grants).Error; err != nil {
+	if err := db.Select(permissionGrantScopeSelectColumns).
+		Where("`grant_subject_type` = ? AND `grant_permission_key` = ? AND `grant_effect` = ? AND `grant_status` = 1", SubjectRole, DataCustomPermissionKey, EffectAllow).Find(&grants).Error; err != nil {
 		return nil, err
 	}
 	seen := map[uint]bool{}
@@ -598,7 +978,7 @@ func RoleIDsByCustomDeptIDsContext(ctx context.Context, db *gorm.DB, deptIDs []u
 	return roleIDs, nil
 }
 
-func AdminPermCodesContext(ctx context.Context, db *gorm.DB, userID, roleID uint) ([]string, bool, error) {
+func AdminPermissionKeysContext(ctx context.Context, db *gorm.DB, userID, roleID uint) ([]string, bool, error) {
 	if err := ctxErr(ctx); err != nil {
 		return nil, false, err
 	}
@@ -622,50 +1002,113 @@ func AdminPermCodesContext(ctx context.Context, db *gorm.DB, userID, roleID uint
 		return nil, true, nil
 	}
 	var rows []model.Permission
-	if err := db.Where("`permission_key` IN ? AND `permission_status` = 1 AND `permission_perms` <> ''", keys).Find(&rows).Error; err != nil {
+	if err := db.Select("`permission_key`").
+		Where("`permission_key` IN ? AND `permission_status` = 1", keys).
+		Find(&rows).Error; err != nil {
 		return nil, true, err
 	}
 	seen := map[string]bool{}
 	var result []string
 	for _, row := range rows {
-		for _, p := range strings.Split(row.Perms, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" && !seen[p] {
-				seen[p] = true
-				result = append(result, p)
-			}
+		key := strings.TrimSpace(row.Key)
+		if key != "" && !seen[key] {
+			seen[key] = true
+			result = append(result, key)
 		}
 	}
 	return result, true, nil
 }
 
 func DataScopeContext(ctx context.Context, db *gorm.DB, userID, roleID uint) (DataScope, error) {
+	roleIDs, err := ActiveRoleIDsForUserContext(ctx, db, userID, roleID)
+	if err != nil {
+		return DataScope{}, err
+	}
+	return DataScopeWithRoleIDsContext(ctx, db, userID, roleIDs)
+}
+
+func DataScopeWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) (DataScope, error) {
 	if err := ctxErr(ctx); err != nil {
 		return DataScope{}, err
 	}
 	if db == nil || !TablesReady(db) {
 		return DataScope{}, nil
 	}
+	roleIDs = normalizeRoleIDs(roleIDs...)
 	keys := []string{DataAllPermissionKey, DataDeptPermissionKey, DataSelfPermissionKey, DataCustomPermissionKey}
-	userGrants, err := grantsBySubjectAndKeys(ctx, db, SubjectUser, userID, keys)
+	subjects := make([]permissionSubjectRef, 0, len(roleIDs)+1)
+	subjects = append(subjects, permissionSubjectRef{subjectType: SubjectUser, subjectID: userID})
+	for _, roleID := range roleIDs {
+		subjects = append(subjects, permissionSubjectRef{subjectType: SubjectRole, subjectID: roleID})
+	}
+	grants, err := grantsBySubjectsAndKeys(ctx, db, keys, subjects...)
 	if err != nil {
 		return DataScope{}, err
 	}
-	roleGrants, err := grantsBySubjectAndKeys(ctx, db, SubjectRole, roleID, keys)
-	if err != nil {
-		return DataScope{}, err
+	userGrants := make([]model.PermissionGrant, 0)
+	roleGrants := make([]model.PermissionGrant, 0)
+	roleIDSet := uintSet(roleIDs)
+	for _, grant := range grants {
+		switch {
+		case grant.SubjectType == SubjectUser && grant.SubjectID == userID:
+			userGrants = append(userGrants, grant)
+		case grant.SubjectType == SubjectRole && roleIDSet[grant.SubjectID]:
+			roleGrants = append(roleGrants, grant)
+		}
 	}
-	if scope, ok := firstDataScope(userGrants); ok {
+	if scope, ok := mergedDataScope(userGrants); ok {
 		return scope, nil
 	}
-	if scope, ok := firstDataScope(roleGrants); ok {
+	if scope, ok := mergedDataScope(roleGrants); ok {
 		return scope, nil
 	}
 	return DataScope{}, nil
 }
 
+func DataScopeExtrasContext(ctx context.Context, db *gorm.DB, userID, roleID uint) (DataScopeExtras, error) {
+	roleIDs, err := ActiveRoleIDsForUserContext(ctx, db, userID, roleID)
+	if err != nil {
+		return DataScopeExtras{}, err
+	}
+	return DataScopeExtrasWithRoleIDsContext(ctx, db, userID, roleIDs)
+}
+
+func DataScopeExtrasWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) (DataScopeExtras, error) {
+	if err := ctxErr(ctx); err != nil {
+		return DataScopeExtras{}, err
+	}
+	if db == nil || !TablesReady(db) {
+		return DataScopeExtras{}, nil
+	}
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	subjects := make([]permissionSubjectRef, 0, len(roleIDs)+1)
+	subjects = append(subjects, permissionSubjectRef{subjectType: SubjectUser, subjectID: userID})
+	for _, roleID := range roleIDs {
+		subjects = append(subjects, permissionSubjectRef{subjectType: SubjectRole, subjectID: roleID})
+	}
+	grants, err := grantsBySubjectsAndKeys(ctx, db, []string{DataExtraPermissionKey}, subjects...)
+	if err != nil {
+		return DataScopeExtras{}, err
+	}
+	return mergeDataScopeExtras(grants), nil
+}
+
+func UserDataScopeExtrasContext(ctx context.Context, db *gorm.DB, userID uint) (DataScopeExtras, error) {
+	if err := ctxErr(ctx); err != nil {
+		return DataScopeExtras{}, err
+	}
+	if db == nil || !TablesReady(db) || userID == 0 {
+		return DataScopeExtras{}, nil
+	}
+	grants, err := grantsBySubjectAndKeys(ctx, db, SubjectUser, userID, []string{DataExtraPermissionKey})
+	if err != nil {
+		return DataScopeExtras{}, err
+	}
+	return mergeDataScopeExtras(grants), nil
+}
+
 func SetRoleAdminPermissionKeysTx(tx *gorm.DB, roleID uint, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, dataScope int, deptIDs []uint) error {
-	return setRoleAdminPermissionKeysTx(tx, roleID, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs, true)
+	return setRoleAdminPermissionKeysTx(tx, roleID, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs, false)
 }
 
 func SetRoleApplicationMenuPermissionsTx(tx *gorm.DB, roleID uint, clientMenuKeys, dingtalkH5MenuKeys []string) error {
@@ -675,16 +1118,14 @@ func SetRoleApplicationMenuPermissionsTx(tx *gorm.DB, roleID uint, clientMenuKey
 	if !TablesReady(tx) {
 		return nil
 	}
-	if err := syncClientMenuPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncDingTalkH5MenuPermissions(tx); err != nil {
-		return err
-	}
 	keys := normalizeRoleApplicationMenuKeys(clientMenuKeys, dingtalkH5MenuKeys)
+	if err := ensureApplicationPermissionCatalogForKeysTx(tx, keys); err != nil {
+		return err
+	}
 	if err := replaceSubjectGrantsTx(tx, SubjectRole, roleID, ApplicationMenuPermissionPrefixes(), keys, EffectAllow, nil, "form"); err != nil {
 		return err
 	}
+	invalidateSubjectPermissionSetCache()
 	invalidateDingTalkH5MenuPermissionCache()
 	return nil
 }
@@ -696,14 +1137,15 @@ func SetRoleApplicationAPIPermissionsTx(tx *gorm.DB, roleID uint, clientAPIPermi
 	if !TablesReady(tx) {
 		return nil
 	}
-	if err := syncClientAPIPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncDingTalkH5APIPermissions(tx); err != nil {
-		return err
-	}
 	keys := normalizeRoleApplicationAPIKeys(clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)
-	return replaceSubjectGrantsTx(tx, SubjectRole, roleID, ApplicationAPIPermissionPrefixes(), keys, EffectAllow, nil, "form")
+	if err := ensureApplicationPermissionCatalogForKeysTx(tx, keys); err != nil {
+		return err
+	}
+	if err := replaceSubjectGrantsTx(tx, SubjectRole, roleID, ApplicationAPIPermissionPrefixes(), keys, EffectAllow, nil, "form"); err != nil {
+		return err
+	}
+	invalidateSubjectPermissionSetCache()
+	return nil
 }
 
 func setRoleAdminPermissionKeysTx(tx *gorm.DB, roleID uint, allowAdminLogin int, adminPermissionKeys, adminAPIPermissionKeys []string, dataScope int, deptIDs []uint, ensureCatalog bool) error {
@@ -742,6 +1184,7 @@ func setRoleAdminPermissionKeysTx(tx *gorm.DB, roleID uint, allowAdminLogin int,
 	if err := replaceSubjectGrantsTx(tx, SubjectRole, roleID, roleManagedPrefixes(), keys, EffectAllow, scopeValueByKey(dataKey, scopeValue), "form"); err != nil {
 		return err
 	}
+	invalidateSubjectPermissionSetCache()
 	return nil
 }
 
@@ -752,31 +1195,10 @@ func SetUserAdminPermissionOverridesTx(tx *gorm.DB, userID uint, allowKeys, deny
 	if !TablesReady(tx) {
 		return nil
 	}
-	if err := ensureBuiltinPermissions(tx); err != nil {
+	if err := replaceSubjectGrantsByEffectsTx(tx, SubjectUser, userID, UserPermissionPrefixes(), normalizePermissionKeys(allowKeys), normalizePermissionKeys(denyKeys), "form"); err != nil {
 		return err
 	}
-	if err := syncAdminAPIPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncClientMenuPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncDingTalkH5MenuPermissions(tx); err != nil {
-		return err
-	}
-	if err := deleteSubjectGrantsByPrefixesTx(tx, SubjectUser, userID, UserPermissionPrefixes()); err != nil {
-		return err
-	}
-	for _, key := range normalizePermissionKeys(allowKeys) {
-		if err := createGrantTx(tx, SubjectUser, userID, key, EffectAllow, "", "form"); err != nil {
-			return err
-		}
-	}
-	for _, key := range normalizePermissionKeys(denyKeys) {
-		if err := createGrantTx(tx, SubjectUser, userID, key, EffectDeny, "", "form"); err != nil {
-			return err
-		}
-	}
+	invalidateSubjectPermissionSetCache()
 	invalidateDingTalkH5MenuPermissionCache()
 	return nil
 }
@@ -786,35 +1208,45 @@ func SetUserApplicationMenuPermissionOverridesTx(tx *gorm.DB, userID uint, allow
 		return nil
 	}
 	if !TablesReady(tx) {
-		return nil
-	}
-	if err := syncClientMenuPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncDingTalkH5MenuPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncClientAPIPermissions(tx); err != nil {
-		return err
-	}
-	if err := syncDingTalkH5APIPermissions(tx); err != nil {
-		return err
+		return fmt.Errorf("权限表未初始化")
 	}
 	prefixes := append(ApplicationMenuPermissionPrefixes(), ApplicationAPIPermissionPrefixes()...)
-	if err := deleteSubjectGrantsByPrefixesTx(tx, SubjectUser, userID, prefixes); err != nil {
+	normalizedAllowKeys, normalizedDenyKeys := normalizeUserApplicationPermissionKeySets(allowKeys, denyKeys)
+	applicationKeys := append(append([]string{}, normalizedAllowKeys...), normalizedDenyKeys...)
+	if err := ensureApplicationPermissionCatalogForKeysTx(tx, applicationKeys); err != nil {
 		return err
 	}
-	for _, key := range normalizePermissionKeys(allowKeys) {
-		if err := createGrantTx(tx, SubjectUser, userID, key, EffectAllow, "", "form"); err != nil {
-			return err
-		}
+	if err := replaceSubjectGrantsByEffectsTx(tx, SubjectUser, userID, prefixes, normalizedAllowKeys, normalizedDenyKeys, "form"); err != nil {
+		return err
 	}
-	for _, key := range normalizePermissionKeys(denyKeys) {
-		if err := createGrantTx(tx, SubjectUser, userID, key, EffectDeny, "", "form"); err != nil {
-			return err
-		}
-	}
+	invalidateSubjectPermissionSetCache()
 	invalidateDingTalkH5MenuPermissionCache()
+	return nil
+}
+
+func SetUserDataScopeExtrasTx(tx *gorm.DB, userID uint, deptIDs, userIDs []uint) error {
+	if userID == 0 {
+		return nil
+	}
+	if !TablesReady(tx) {
+		return fmt.Errorf("权限表未初始化")
+	}
+	if err := ensureBuiltinPermissions(tx); err != nil {
+		return err
+	}
+	deptIDs = normalizeUintIDs(deptIDs)
+	userIDs = normalizeUintIDs(userIDs)
+	scopeValue := ""
+	keys := []string{}
+	if len(deptIDs) > 0 || len(userIDs) > 0 {
+		raw, _ := json.Marshal(map[string][]uint{"deptIds": deptIDs, "userIds": userIDs})
+		scopeValue = string(raw)
+		keys = append(keys, DataExtraPermissionKey)
+	}
+	if err := replaceSubjectGrantsTx(tx, SubjectUser, userID, []string{DataExtraPermissionKey}, keys, EffectAllow, scopeValueByKey(DataExtraPermissionKey, scopeValue), "form"); err != nil {
+		return err
+	}
+	invalidateSubjectPermissionSetCache()
 	return nil
 }
 
@@ -823,11 +1255,11 @@ func AdminAPIPermissionKey(perms string) string {
 }
 
 func AdminPermissionPrefixes() []string {
-	return []string{"admin:menu:%", "admin:api:%", "data:%"}
+	return []string{AdminLoginPermissionKey, "admin:menu:%", "admin:api:%", "data:%"}
 }
 
 func ApplicationMenuPermissionPrefixes() []string {
-	return []string{"client:menu:%", "dingtalk_h5:menu:%"}
+	return []string{"client:menu:%", "dingtalk_h5:menu:%", "dingtalk_h5:button:%"}
 }
 
 func ApplicationAPIPermissionPrefixes() []string {
@@ -837,6 +1269,66 @@ func ApplicationAPIPermissionPrefixes() []string {
 func ApplicationPermissionPrefixes() []string {
 	prefixes := append(ApplicationMenuPermissionPrefixes(), ApplicationAPIPermissionPrefixes()...)
 	return prefixes
+}
+
+func ensureApplicationPermissionCatalogForKeysTx(tx *gorm.DB, keys []string) error {
+	keys = normalizePermissionKeys(keys)
+	if len(keys) == 0 {
+		return nil
+	}
+	ctx := txContext(tx)
+	needsClientMenu := false
+	needsDingTalkH5Menu := false
+	needsDingTalkH5Button := false
+	needsClientAPI := false
+	needsDingTalkH5API := false
+	for _, key := range keys {
+		switch {
+		case strings.HasPrefix(key, "client:menu:"):
+			needsClientMenu = true
+		case strings.HasPrefix(key, "dingtalk_h5:menu:"):
+			needsDingTalkH5Menu = true
+		case strings.HasPrefix(key, "dingtalk_h5:button:"):
+			needsDingTalkH5Button = true
+		case strings.HasPrefix(key, "client:api:"):
+			needsClientAPI = true
+		case strings.HasPrefix(key, "dingtalk_h5:api:"):
+			needsDingTalkH5API = true
+		}
+	}
+	if needsClientMenu {
+		if err := ensureMissingApplicationMenuPermissionsContext(ctx, tx, appmenuperm.ClientMenuDeclarations()); err != nil {
+			return err
+		}
+	}
+	if needsDingTalkH5Menu {
+		if err := ensureMissingApplicationMenuPermissionsContext(ctx, tx, appmenuperm.DingTalkH5MenuDeclarations()); err != nil {
+			return err
+		}
+	}
+	if needsDingTalkH5Button {
+		if err := ensureMissingApplicationButtonPermissionsContext(ctx, tx, appmenuperm.DingTalkH5ButtonDeclarations()); err != nil {
+			return err
+		}
+	}
+	if needsClientAPI {
+		if err := ensureMissingApplicationAPIPermissionsContext(ctx, tx, appapiperm.ClientAPICategories(), appapiperm.ClientAPIDeclarations()); err != nil {
+			return err
+		}
+	}
+	if needsDingTalkH5API {
+		if err := ensureMissingApplicationAPIPermissionsContext(ctx, tx, appapiperm.DingTalkH5APICategories(), appapiperm.DingTalkH5APIDeclarations()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func txContext(tx *gorm.DB) context.Context {
+	if tx != nil && tx.Statement != nil && tx.Statement.Context != nil {
+		return tx.Statement.Context
+	}
+	return context.Background()
 }
 
 func UserPermissionPrefixes() []string {
@@ -859,6 +1351,7 @@ func ensureBuiltinPermissions(db *gorm.DB) error {
 		{Key: DataDeptPermissionKey, Name: "本部门数据", Platform: PlatformData, Type: TypeData, Status: 1, Sort: 2, AddTime: now, EditTime: now},
 		{Key: DataSelfPermissionKey, Name: "本人数据", Platform: PlatformData, Type: TypeData, Status: 1, Sort: 3, AddTime: now, EditTime: now},
 		{Key: DataCustomPermissionKey, Name: "自定义部门数据", Platform: PlatformData, Type: TypeData, Status: 1, Sort: 4, AddTime: now, EditTime: now},
+		{Key: DataExtraPermissionKey, Name: "用户额外数据", Platform: PlatformData, Type: TypeData, Status: 1, Sort: 5, AddTime: now, EditTime: now},
 	}
 	for _, item := range items {
 		if err := upsertPermission(db, item); err != nil {
@@ -950,16 +1443,17 @@ func syncAdminAPIPermissions(db *gorm.DB) error {
 	}
 	for index, declaration := range adminrouteperm.Declarations() {
 		item := model.Permission{
-			Key:       declaration.Key,
-			Name:      declaration.Name,
-			Platform:  PlatformAdmin,
-			Type:      TypeAPI,
-			ParentKey: declaration.CategoryKey,
-			Perms:     declaration.Perms,
-			Sort:      (index + 1) * 10,
-			Status:    1,
-			AddTime:   now,
-			EditTime:  now,
+			Key:          declaration.Key,
+			Name:         declaration.Name,
+			Platform:     PlatformAdmin,
+			Type:         TypeAPI,
+			ParentKey:    declaration.CategoryKey,
+			ResourcePath: declaration.Path,
+			Perms:        declaration.Perms,
+			Sort:         (index + 1) * 10,
+			Status:       1,
+			AddTime:      now,
+			EditTime:     now,
 		}
 		if err := upsertPermission(db, item); err != nil {
 			return err
@@ -976,6 +1470,10 @@ func syncDingTalkH5MenuPermissions(db *gorm.DB) error {
 	return syncApplicationMenuPermissions(db, appmenuperm.DingTalkH5MenuDeclarations())
 }
 
+func syncDingTalkH5ButtonPermissions(db *gorm.DB) error {
+	return syncApplicationButtonPermissions(db, appmenuperm.DingTalkH5ButtonDeclarations())
+}
+
 func syncClientAPIPermissions(db *gorm.DB) error {
 	return syncApplicationAPIPermissions(db, appapiperm.ClientAPICategories(), appapiperm.ClientAPIDeclarations())
 }
@@ -990,11 +1488,41 @@ func syncApplicationMenuPermissions(db *gorm.DB, declarations []appmenuperm.Decl
 	}
 	now := database.Now()
 	for _, declaration := range declarations {
+		permissionType := declaration.Type
+		if permissionType == "" {
+			permissionType = TypeMenu
+		}
 		item := model.Permission{
 			Key:          declaration.Key,
 			Name:         declaration.Name,
 			Platform:     declaration.Platform,
-			Type:         TypeMenu,
+			Type:         permissionType,
+			ParentKey:    declaration.ParentKey,
+			ResourcePath: declaration.Path,
+			Icon:         declaration.Icon,
+			Sort:         declaration.Sort,
+			Status:       1,
+			AddTime:      now,
+			EditTime:     now,
+		}
+		if err := upsertPermission(db, item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func syncApplicationButtonPermissions(db *gorm.DB, declarations []appmenuperm.Declaration) error {
+	if err := EnsurePermissionSchemaContext(context.Background(), db); err != nil {
+		return err
+	}
+	now := database.Now()
+	for _, declaration := range declarations {
+		item := model.Permission{
+			Key:          declaration.Key,
+			Name:         declaration.Name,
+			Platform:     declaration.Platform,
+			Type:         TypeButton,
 			ParentKey:    declaration.ParentKey,
 			ResourcePath: declaration.Path,
 			Sort:         declaration.Sort,
@@ -1050,6 +1578,155 @@ func syncApplicationAPIPermissions(db *gorm.DB, categories []appapiperm.Category
 	return nil
 }
 
+func ensureMissingApplicationMenuPermissionsContext(ctx context.Context, db *gorm.DB, declarations []appmenuperm.Declaration) error {
+	items := make([]model.Permission, 0, len(declarations))
+	for _, declaration := range declarations {
+		permissionType := declaration.Type
+		if permissionType == "" {
+			permissionType = TypeMenu
+		}
+		items = append(items, model.Permission{
+			Key:          declaration.Key,
+			Name:         declaration.Name,
+			Platform:     declaration.Platform,
+			Type:         permissionType,
+			ParentKey:    declaration.ParentKey,
+			ResourcePath: declaration.Path,
+			Icon:         declaration.Icon,
+			Sort:         declaration.Sort,
+			Status:       1,
+		})
+	}
+	return createMissingPermissionsContext(ctx, db, items)
+}
+
+func ensureMissingApplicationButtonPermissionsContext(ctx context.Context, db *gorm.DB, declarations []appmenuperm.Declaration) error {
+	items := make([]model.Permission, 0, len(declarations))
+	for _, declaration := range declarations {
+		items = append(items, model.Permission{
+			Key:          declaration.Key,
+			Name:         declaration.Name,
+			Platform:     declaration.Platform,
+			Type:         TypeButton,
+			ParentKey:    declaration.ParentKey,
+			ResourcePath: declaration.Path,
+			Sort:         declaration.Sort,
+			Status:       1,
+		})
+	}
+	return createMissingPermissionsContext(ctx, db, items)
+}
+
+func ensureMissingAdminAPIPermissionsContext(ctx context.Context, db *gorm.DB) error {
+	now := database.Now()
+	categories := adminrouteperm.Categories()
+	declarations := adminrouteperm.Declarations()
+	items := make([]model.Permission, 0, len(categories)+len(declarations))
+	for _, category := range categories {
+		items = append(items, model.Permission{
+			Key:      category.Key,
+			Name:     category.Name,
+			Platform: PlatformAdmin,
+			Type:     TypeAPICategory,
+			Sort:     category.Sort,
+			Status:   1,
+			AddTime:  now,
+			EditTime: now,
+		})
+	}
+	for index, declaration := range declarations {
+		items = append(items, model.Permission{
+			Key:          declaration.Key,
+			Name:         declaration.Name,
+			Platform:     PlatformAdmin,
+			Type:         TypeAPI,
+			ParentKey:    declaration.CategoryKey,
+			ResourcePath: declaration.Path,
+			Perms:        declaration.Perms,
+			Sort:         (index + 1) * 10,
+			Status:       1,
+			AddTime:      now,
+			EditTime:     now,
+		})
+	}
+	return createMissingPermissionsContext(ctx, db, items)
+}
+
+func ensureMissingApplicationAPIPermissionsContext(ctx context.Context, db *gorm.DB, categories []appapiperm.Category, declarations []appapiperm.Declaration) error {
+	items := make([]model.Permission, 0, len(categories)+len(declarations))
+	for _, category := range categories {
+		items = append(items, model.Permission{
+			Key:      category.Key,
+			Name:     category.Name,
+			Platform: category.Platform,
+			Type:     TypeAPICategory,
+			Sort:     category.Sort,
+			Status:   1,
+		})
+	}
+	for _, declaration := range declarations {
+		items = append(items, model.Permission{
+			Key:          declaration.Key,
+			Name:         declaration.Name,
+			Platform:     declaration.Platform,
+			Type:         TypeAPI,
+			ParentKey:    declaration.CategoryKey,
+			ResourcePath: declaration.Path,
+			Perms:        declaration.Perms,
+			Sort:         declaration.Sort,
+			Status:       1,
+		})
+	}
+	return createMissingPermissionsContext(ctx, db, items)
+}
+
+func createMissingPermissionsContext(ctx context.Context, db *gorm.DB, items []model.Permission) error {
+	if err := ctxErr(ctx); err != nil {
+		return err
+	}
+	keys := make([]string, 0, len(items))
+	byKey := make(map[string]model.Permission, len(items))
+	for _, item := range items {
+		key := strings.TrimSpace(item.Key)
+		if key == "" {
+			continue
+		}
+		item.Key = key
+		keys = append(keys, key)
+		byKey[key] = item
+	}
+	keys = normalizePermissionKeys(keys)
+	if len(keys) == 0 {
+		return nil
+	}
+	var existingKeys []string
+	if err := db.Model(&model.Permission{}).Where("`permission_key` IN ?", keys).Pluck("permission_key", &existingKeys).Error; err != nil {
+		return err
+	}
+	existing := make(map[string]bool, len(existingKeys))
+	for _, key := range existingKeys {
+		existing[key] = true
+	}
+	now := database.Now()
+	createItems := make([]model.Permission, 0)
+	for _, key := range keys {
+		if existing[key] {
+			continue
+		}
+		item := byKey[key]
+		item.AddTime = now
+		item.EditTime = now
+		createItems = append(createItems, item)
+	}
+	if len(createItems) == 0 {
+		return ctxErr(ctx)
+	}
+	if err := db.CreateInBatches(createItems, 100).Error; err != nil {
+		return err
+	}
+	return ctxErr(ctx)
+}
+
 func upsertPermission(db *gorm.DB, item model.Permission) error {
 	var current model.Permission
 	err := db.Where("`permission_key` = ?", item.Key).First(&current).Error
@@ -1059,6 +1736,10 @@ func upsertPermission(db *gorm.DB, item model.Permission) error {
 	if err != nil {
 		return err
 	}
+	icon := strings.TrimSpace(item.Icon)
+	if currentIcon := strings.TrimSpace(current.Icon); currentIcon != "" {
+		icon = currentIcon
+	}
 	return db.Model(&current).Updates(map[string]interface{}{
 		"permission_name":          item.Name,
 		"permission_platform":      item.Platform,
@@ -1066,7 +1747,7 @@ func upsertPermission(db *gorm.DB, item model.Permission) error {
 		"permission_parent_key":    item.ParentKey,
 		"permission_resource_id":   item.ResourceID,
 		"permission_resource_path": item.ResourcePath,
-		"permission_icon":          item.Icon,
+		"permission_icon":          icon,
 		"permission_perms":         item.Perms,
 		"permission_sort":          item.Sort,
 		"permission_status":        item.Status,
@@ -1085,7 +1766,43 @@ func replaceSubjectGrantsTx(tx *gorm.DB, subjectType string, subjectID uint, lik
 	if len(grants) == 0 {
 		return nil
 	}
-	return tx.CreateInBatches(grants, 100).Error
+	return createGrantBatchTx(tx, grants)
+}
+
+func replaceSubjectGrantsByEffectsTx(tx *gorm.DB, subjectType string, subjectID uint, likePrefixes []string, allowKeys, denyKeys []string, source string) error {
+	if err := deleteSubjectGrantsByPrefixesTx(tx, subjectType, subjectID, likePrefixes); err != nil {
+		return err
+	}
+	grants, err := buildSubjectGrantsByEffectsTx(tx, subjectType, subjectID, allowKeys, denyKeys, source)
+	if err != nil {
+		return err
+	}
+	if len(grants) == 0 {
+		return nil
+	}
+	return createGrantBatchTx(tx, grants)
+}
+
+func createGrantBatchTx(tx *gorm.DB, grants []model.PermissionGrant) error {
+	if len(grants) == 0 {
+		return nil
+	}
+	return tx.Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "grant_subject_type"},
+			{Name: "grant_subject_id"},
+			{Name: "grant_permission_key"},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"grant_permission_id",
+			"grant_effect",
+			"grant_scope_value",
+			"grant_source",
+			"grant_status",
+			"grant_edit_time",
+			"updated_at",
+		}),
+	}).CreateInBatches(grants, 100).Error
 }
 
 func deleteSubjectGrantsByPrefixesTx(tx *gorm.DB, subjectType string, subjectID uint, likePrefixes []string) error {
@@ -1115,6 +1832,47 @@ func createGrantTx(tx *gorm.DB, subjectType string, subjectID uint, key, effect,
 	return tx.Create(&grants[0]).Error
 }
 
+func buildSubjectGrantsByEffectsTx(tx *gorm.DB, subjectType string, subjectID uint, allowKeys, denyKeys []string, source string) ([]model.PermissionGrant, error) {
+	keys := normalizePermissionKeys(append(append([]string{}, allowKeys...), denyKeys...))
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	var perms []model.Permission
+	if err := tx.Select("`id`, `permission_key`").Where("`permission_key` IN ?", keys).Find(&perms).Error; err != nil {
+		return nil, err
+	}
+	permissionByKey := make(map[string]model.Permission, len(perms))
+	for _, perm := range perms {
+		permissionByKey[perm.Key] = perm
+	}
+	now := database.Now()
+	allowSet := make(map[string]struct{}, len(allowKeys))
+	grants := make([]model.PermissionGrant, 0, len(keys))
+	for _, key := range normalizePermissionKeys(allowKeys) {
+		allowSet[key] = struct{}{}
+		grant, ok, err := buildSubjectGrantFromPermission(subjectType, subjectID, key, EffectAllow, "", source, now, permissionByKey)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			grants = append(grants, grant)
+		}
+	}
+	for _, key := range normalizePermissionKeys(denyKeys) {
+		if _, ok := allowSet[key]; ok {
+			continue
+		}
+		grant, ok, err := buildSubjectGrantFromPermission(subjectType, subjectID, key, EffectDeny, "", source, now, permissionByKey)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			grants = append(grants, grant)
+		}
+	}
+	return grants, nil
+}
+
 func buildSubjectGrantsTx(tx *gorm.DB, subjectType string, subjectID uint, keys []string, effect string, scopeValues map[string]string, source string) ([]model.PermissionGrant, error) {
 	if len(keys) == 0 {
 		return nil, nil
@@ -1130,27 +1888,37 @@ func buildSubjectGrantsTx(tx *gorm.DB, subjectType string, subjectID uint, keys 
 	now := database.Now()
 	grants := make([]model.PermissionGrant, 0, len(keys))
 	for _, key := range keys {
-		perm, ok := permissionByKey[key]
-		if !ok {
-			if strings.HasPrefix(key, "admin:menu:") {
-				continue
-			}
-			return nil, fmt.Errorf("%w: %s", gorm.ErrRecordNotFound, key)
+		grant, ok, err := buildSubjectGrantFromPermission(subjectType, subjectID, key, effect, scopeValues[key], source, now, permissionByKey)
+		if err != nil {
+			return nil, err
 		}
-		grants = append(grants, model.PermissionGrant{
-			SubjectType:   subjectType,
-			SubjectID:     subjectID,
-			PermissionKey: key,
-			PermissionID:  perm.ID,
-			Effect:        effect,
-			ScopeValue:    scopeValues[key],
-			Source:        source,
-			Status:        1,
-			AddTime:       now,
-			EditTime:      now,
-		})
+		if ok {
+			grants = append(grants, grant)
+		}
 	}
 	return grants, nil
+}
+
+func buildSubjectGrantFromPermission(subjectType string, subjectID uint, key, effect, scopeValue, source string, now int64, permissionByKey map[string]model.Permission) (model.PermissionGrant, bool, error) {
+	perm, ok := permissionByKey[key]
+	if !ok {
+		if strings.HasPrefix(key, "admin:menu:") {
+			return model.PermissionGrant{}, false, nil
+		}
+		return model.PermissionGrant{}, false, fmt.Errorf("%w: %s", gorm.ErrRecordNotFound, key)
+	}
+	return model.PermissionGrant{
+		SubjectType:   subjectType,
+		SubjectID:     subjectID,
+		PermissionKey: key,
+		PermissionID:  perm.ID,
+		Effect:        effect,
+		ScopeValue:    scopeValue,
+		Source:        source,
+		Status:        1,
+		AddTime:       now,
+		EditTime:      now,
+	}, true, nil
 }
 
 func dataScopeGrant(dataScope int, deptIDs []uint) (string, string) {
@@ -1185,12 +1953,15 @@ func normalizeRoleApplicationMenuKeys(clientMenuKeys, dingtalkH5MenuKeys []strin
 		if strings.HasPrefix(key, "dingtalk_h5:menu:") {
 			selected[key] = true
 		}
+		if strings.HasPrefix(key, "dingtalk_h5:button:") {
+			selected[key] = true
+		}
 		if strings.HasPrefix(key, "dingtalk_h5:menu:performance:") {
 			selected["dingtalk_h5:menu:performance"] = true
 		}
 	}
 	keys := orderedApplicationMenuKeys(selected, appmenuperm.ClientMenuDeclarations())
-	keys = append(keys, orderedApplicationMenuKeys(selected, appmenuperm.DingTalkH5MenuDeclarations())...)
+	keys = append(keys, orderedApplicationMenuKeys(selected, appmenuperm.DingTalkH5PermissionDeclarations())...)
 	return keys
 }
 
@@ -1219,6 +1990,44 @@ func normalizeRoleApplicationAPIKeys(clientAPIPermissionKeys, dingtalkH5APIPermi
 	keys := orderedApplicationAPIKeys(selected, appapiperm.ClientAPIDeclarations())
 	keys = append(keys, orderedApplicationAPIKeys(selected, appapiperm.DingTalkH5APIDeclarations())...)
 	return keys
+}
+
+func normalizeUserApplicationPermissionKeys(keys []string) []string {
+	clientMenuKeys := make([]string, 0)
+	dingtalkH5MenuKeys := make([]string, 0)
+	clientAPIKeys := make([]string, 0)
+	dingtalkH5APIKeys := make([]string, 0)
+	for _, key := range normalizePermissionKeys(keys) {
+		switch {
+		case strings.HasPrefix(key, "client:menu:"):
+			clientMenuKeys = append(clientMenuKeys, key)
+		case strings.HasPrefix(key, "dingtalk_h5:menu:"), strings.HasPrefix(key, "dingtalk_h5:button:"):
+			dingtalkH5MenuKeys = append(dingtalkH5MenuKeys, key)
+		case strings.HasPrefix(key, "client:api:"):
+			clientAPIKeys = append(clientAPIKeys, key)
+		case strings.HasPrefix(key, "dingtalk_h5:api:"):
+			dingtalkH5APIKeys = append(dingtalkH5APIKeys, key)
+		}
+	}
+	result := normalizeRoleApplicationMenuKeys(clientMenuKeys, dingtalkH5MenuKeys)
+	result = append(result, normalizeRoleApplicationAPIKeys(clientAPIKeys, dingtalkH5APIKeys)...)
+	return result
+}
+
+func normalizeUserApplicationPermissionKeySets(allowKeys, denyKeys []string) ([]string, []string) {
+	allow := normalizeUserApplicationPermissionKeys(allowKeys)
+	deny := normalizeUserApplicationPermissionKeys(denyKeys)
+	allowed := make(map[string]bool, len(allow))
+	for _, key := range allow {
+		allowed[key] = true
+	}
+	filteredDeny := make([]string, 0, len(deny))
+	for _, key := range deny {
+		if !allowed[key] {
+			filteredDeny = append(filteredDeny, key)
+		}
+	}
+	return allow, filteredDeny
 }
 
 func orderedApplicationAPIKeys(selected map[string]bool, declarations []appapiperm.Declaration) []string {
@@ -1276,7 +2085,38 @@ func grantsBySubjectAndKeys(ctx context.Context, db *gorm.DB, subjectType string
 	return grants, err
 }
 
+func grantsBySubjectsAndKeys(ctx context.Context, db *gorm.DB, keys []string, subjects ...permissionSubjectRef) ([]model.PermissionGrant, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, err
+	}
+	clauses := make([]string, 0, len(subjects))
+	args := make([]interface{}, 0, len(subjects)*2)
+	for _, subject := range subjects {
+		if subject.subjectID == 0 || strings.TrimSpace(subject.subjectType) == "" {
+			continue
+		}
+		clauses = append(clauses, "(`grant_subject_type` = ? AND `grant_subject_id` = ?)")
+		args = append(args, subject.subjectType, subject.subjectID)
+	}
+	if len(clauses) == 0 {
+		return nil, nil
+	}
+	var grants []model.PermissionGrant
+	err := db.Where("`grant_permission_key` IN ? AND `grant_status` = 1", keys).
+		Where(strings.Join(clauses, " OR "), args...).
+		Order("`id` DESC").
+		Find(&grants).Error
+	return grants, err
+}
+
 func firstDataScope(grants []model.PermissionGrant) (DataScope, bool) {
+	return mergedDataScope(grants)
+}
+
+func mergedDataScope(grants []model.PermissionGrant) (DataScope, bool) {
+	hasSelf := false
+	hasCustom := false
+	customDeptIDs := []uint{}
 	for _, grant := range grants {
 		if grant.Effect == EffectDeny {
 			continue
@@ -1287,12 +2127,42 @@ func firstDataScope(grants []model.PermissionGrant) (DataScope, bool) {
 		case DataDeptPermissionKey:
 			return DataScope{Mode: 2, Ready: true}, true
 		case DataSelfPermissionKey:
-			return DataScope{Mode: 3, Ready: true}, true
+			hasSelf = true
 		case DataCustomPermissionKey:
-			return DataScope{Mode: 4, DeptIDs: decodeDeptScope(grant.ScopeValue), Ready: true}, true
+			hasCustom = true
+			customDeptIDs = append(customDeptIDs, decodeDeptScope(grant.ScopeValue)...)
 		}
 	}
+	if hasCustom {
+		return DataScope{Mode: 4, DeptIDs: normalizeUintIDs(customDeptIDs), Ready: true}, true
+	}
+	if hasSelf {
+		return DataScope{Mode: 3, Ready: true}, true
+	}
 	return DataScope{}, false
+}
+
+func mergeDataScopeExtras(grants []model.PermissionGrant) DataScopeExtras {
+	deptIDs := []uint{}
+	userIDs := []uint{}
+	ready := false
+	for _, grant := range grants {
+		if grant.Effect == EffectDeny || grant.PermissionKey != DataExtraPermissionKey {
+			continue
+		}
+		extras := decodeDataScopeExtras(grant.ScopeValue)
+		if len(extras.DeptIDs) == 0 && len(extras.UserIDs) == 0 {
+			continue
+		}
+		ready = true
+		deptIDs = append(deptIDs, extras.DeptIDs...)
+		userIDs = append(userIDs, extras.UserIDs...)
+	}
+	return DataScopeExtras{
+		DeptIDs: normalizeUintIDs(deptIDs),
+		UserIDs: normalizeUintIDs(userIDs),
+		Ready:   ready,
+	}
 }
 
 func decodeDeptScope(raw string) []uint {
@@ -1303,6 +2173,53 @@ func decodeDeptScope(raw string) []uint {
 		return nil
 	}
 	return payload.DeptIDs
+}
+
+func decodeDataScopeExtras(raw string) DataScopeExtras {
+	var payload struct {
+		DeptIDs []uint `json:"deptIds"`
+		UserIDs []uint `json:"userIds"`
+	}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return DataScopeExtras{}
+	}
+	return DataScopeExtras{
+		DeptIDs: normalizeUintIDs(payload.DeptIDs),
+		UserIDs: normalizeUintIDs(payload.UserIDs),
+	}
+}
+
+func normalizeUintIDs(values []uint) []uint {
+	seen := map[uint]struct{}{}
+	result := make([]uint, 0, len(values))
+	for _, value := range values {
+		if value == 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
+}
+
+func normalizeRoleIDs(values ...uint) []uint {
+	seen := map[uint]struct{}{}
+	result := make([]uint, 0, len(values))
+	for _, value := range values {
+		if value == 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	return result
 }
 
 func uintSet(values []uint) map[uint]bool {
@@ -1329,11 +2246,23 @@ func subjectAdminPermissionSets(ctx context.Context, db *gorm.DB, userID, roleID
 }
 
 func subjectPermissionSetsByPrefixes(ctx context.Context, db *gorm.DB, userID, roleID uint, prefixes []string) (map[string]bool, map[string]bool, error) {
+	return subjectPermissionSetsByRoleIDsAndPrefixes(ctx, db, userID, []uint{roleID}, prefixes)
+}
+
+func subjectPermissionSetsByRoleIDsAndPrefixes(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint, prefixes []string) (map[string]bool, map[string]bool, error) {
+	if err := ctxErr(ctx); err != nil {
+		return nil, nil, err
+	}
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	if cachedAllowed, cachedDenied, ok := getSubjectPermissionSetCache(userID, roleIDs, prefixes); ok {
+		return cachedAllowed, cachedDenied, nil
+	}
 	allowed := map[string]bool{}
 	denied := map[string]bool{}
-	if roleID > 0 {
+	if len(roleIDs) > 0 {
 		var grants []model.PermissionGrant
-		query := db.Where("`grant_subject_type` = ? AND `grant_subject_id` = ? AND `grant_status` = 1", SubjectRole, roleID)
+		query := db.Select(permissionGrantKeySelectColumns).
+			Where("`grant_subject_type` = ? AND `grant_subject_id` IN ? AND `grant_status` = 1", SubjectRole, roleIDs)
 		if len(prefixes) > 0 {
 			where, args := likeAnyClause("`grant_permission_key`", prefixes)
 			query = query.Where(where, args...)
@@ -1342,14 +2271,17 @@ func subjectPermissionSetsByPrefixes(ctx context.Context, db *gorm.DB, userID, r
 			return nil, nil, err
 		}
 		for _, grant := range grants {
-			if grant.Effect == EffectAllow {
+			if grant.Effect == EffectDeny {
+				denied[grant.PermissionKey] = true
+			} else if grant.Effect == EffectAllow {
 				allowed[grant.PermissionKey] = true
 			}
 		}
 	}
 	if userID > 0 {
 		var grants []model.PermissionGrant
-		query := db.Where("`grant_subject_type` = ? AND `grant_subject_id` = ? AND `grant_status` = 1", SubjectUser, userID)
+		query := db.Select(permissionGrantKeySelectColumns).
+			Where("`grant_subject_type` = ? AND `grant_subject_id` = ? AND `grant_status` = 1", SubjectUser, userID)
 		if len(prefixes) > 0 {
 			where, args := likeAnyClause("`grant_permission_key`", prefixes)
 			query = query.Where(where, args...)
@@ -1365,6 +2297,7 @@ func subjectPermissionSetsByPrefixes(ctx context.Context, db *gorm.DB, userID, r
 			}
 		}
 	}
+	setSubjectPermissionSetCache(userID, roleIDs, prefixes, allowed, denied)
 	return allowed, denied, ctxErr(ctx)
 }
 
@@ -1378,8 +2311,103 @@ func likeAnyClause(column string, prefixes []string) (string, []interface{}) {
 	return strings.Join(clauses, " OR "), args
 }
 
+func ResetPermissionTablesReadyCache() {
+	permissionTablesReadyCache.Lock()
+	permissionTablesReadyCache.checked = false
+	permissionTablesReadyCache.ready = false
+	permissionTablesReadyCache.schemaReady = false
+	permissionTablesReadyCache.checkedAt = time.Time{}
+	permissionTablesReadyCache.Unlock()
+	userRolesTableReadyCache.Lock()
+	userRolesTableReadyCache.checked = false
+	userRolesTableReadyCache.ready = false
+	userRolesTableReadyCache.checkedAt = time.Time{}
+	userRolesTableReadyCache.Unlock()
+}
+
+func markPermissionTablesReady(ready bool) {
+	permissionTablesReadyCache.Lock()
+	permissionTablesReadyCache.checked = true
+	permissionTablesReadyCache.ready = ready
+	if !ready {
+		permissionTablesReadyCache.schemaReady = false
+	}
+	permissionTablesReadyCache.checkedAt = time.Now()
+	permissionTablesReadyCache.Unlock()
+}
+
+func permissionTablesReadyCached() bool {
+	permissionTablesReadyCache.RLock()
+	ready := permissionTablesReadyCache.checked && permissionTablesReadyCache.ready && permissionTablesReadyCache.schemaReady
+	permissionTablesReadyCache.RUnlock()
+	return ready
+}
+
+func markPermissionSchemaReady(ready bool) {
+	permissionTablesReadyCache.Lock()
+	permissionTablesReadyCache.checked = true
+	permissionTablesReadyCache.ready = ready
+	permissionTablesReadyCache.schemaReady = ready
+	permissionTablesReadyCache.checkedAt = time.Now()
+	permissionTablesReadyCache.Unlock()
+}
+
 func TablesReady(db *gorm.DB) bool {
-	return db != nil && db.Migrator().HasTable(&model.Permission{}) && db.Migrator().HasTable(&model.PermissionGrant{})
+	if db == nil {
+		return false
+	}
+	permissionTablesReadyCache.RLock()
+	if permissionTablesReadyCache.checked {
+		ready := permissionTablesReadyCache.ready
+		checkedAt := permissionTablesReadyCache.checkedAt
+		permissionTablesReadyCache.RUnlock()
+		if ready || time.Since(checkedAt) < permissionTablesReadyNegativeCacheTTL {
+			return ready
+		}
+	} else {
+		permissionTablesReadyCache.RUnlock()
+	}
+
+	permissionTablesReadyCache.Lock()
+	defer permissionTablesReadyCache.Unlock()
+	if permissionTablesReadyCache.checked {
+		if permissionTablesReadyCache.ready || time.Since(permissionTablesReadyCache.checkedAt) < permissionTablesReadyNegativeCacheTTL {
+			return permissionTablesReadyCache.ready
+		}
+	}
+	permissionTablesReadyCache.checked = true
+	permissionTablesReadyCache.ready = db.Migrator().HasTable(&model.Permission{}) && db.Migrator().HasTable(&model.PermissionGrant{})
+	permissionTablesReadyCache.checkedAt = time.Now()
+	return permissionTablesReadyCache.ready
+}
+
+func UserRolesTableReady(db *gorm.DB) bool {
+	if db == nil {
+		return false
+	}
+	userRolesTableReadyCache.RLock()
+	if userRolesTableReadyCache.checked {
+		ready := userRolesTableReadyCache.ready
+		checkedAt := userRolesTableReadyCache.checkedAt
+		userRolesTableReadyCache.RUnlock()
+		if ready || time.Since(checkedAt) < userRolesTableReadyNegativeCacheTTL {
+			return ready
+		}
+	} else {
+		userRolesTableReadyCache.RUnlock()
+	}
+
+	userRolesTableReadyCache.Lock()
+	defer userRolesTableReadyCache.Unlock()
+	if userRolesTableReadyCache.checked {
+		if userRolesTableReadyCache.ready || time.Since(userRolesTableReadyCache.checkedAt) < userRolesTableReadyNegativeCacheTTL {
+			return userRolesTableReadyCache.ready
+		}
+	}
+	userRolesTableReadyCache.checked = true
+	userRolesTableReadyCache.ready = db.Migrator().HasTable(&model.UserRole{})
+	userRolesTableReadyCache.checkedAt = time.Now()
+	return userRolesTableReadyCache.ready
 }
 
 func ctxErr(ctx context.Context) error {

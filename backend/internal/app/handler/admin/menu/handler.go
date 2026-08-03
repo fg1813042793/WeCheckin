@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	menuservice "wecheckin-backend/backend/internal/app/service/menu"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	menuservice "wecheckin/backend/internal/app/service/menu"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminMenuHandler struct{}
@@ -16,7 +16,6 @@ func NewAdminMenuHandler() *AdminMenuHandler { return &AdminMenuHandler{} }
 // @Tags PC端-菜单管理
 // @Summary 获取当前管理员的菜单树
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/me/menus [get]
 func (h *AdminMenuHandler) GetAdminMenus(ctx context.Context, c *app.RequestContext) {
 	adminVal, exists := c.Get("admin")
 	if !exists {
@@ -35,7 +34,6 @@ func (h *AdminMenuHandler) GetAdminMenus(ctx context.Context, c *app.RequestCont
 // @Tags PC端-菜单管理
 // @Summary 获取当前管理员的权限标识
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/me/perms [get]
 func (h *AdminMenuHandler) GetAdminPerms(ctx context.Context, c *app.RequestContext) {
 	adminVal, exists := c.Get("admin")
 	if !exists {

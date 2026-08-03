@@ -3,7 +3,7 @@ package dingtalkh5
 import (
 	"testing"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 func cardValue(cards []WorkbenchStatCardDTO, key string) int {
@@ -16,7 +16,7 @@ func cardValue(cards []WorkbenchStatCardDTO, key string) int {
 }
 
 func TestWorkbenchStatsFromReviewsReturnsCardsOnly(t *testing.T) {
-	user := &model.DingTalkH5PerfUser{Account: "lip", Role: "employee"}
+	user := &model.DingTalkH5PerfUser{Account: "lip"}
 	stats := workbenchStatsFromReviews(user, []model.DingTalkH5PerfReview{
 		{EmployeeAccount: "lip", Status: ReviewStatusDraft},
 		{EmployeeAccount: "lip", Status: ReviewStatusCompleted},

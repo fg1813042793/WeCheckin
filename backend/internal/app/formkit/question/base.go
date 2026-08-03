@@ -1,7 +1,7 @@
 package question
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // BaseQuestion 提供 Question 接口的空实现，子类型只需覆盖需要的方法。

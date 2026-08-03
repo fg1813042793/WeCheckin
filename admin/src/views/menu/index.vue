@@ -1,17 +1,21 @@
 <template>
   <div class="admin-page permission-page">
     <el-card class="admin-card" shadow="never">
-      <div class="admin-page__title">权限管理</div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-select v-model="permissionScope" style="width: 150px" @change="loadTree">
+          <el-select v-model="permissionScope" style="width: 220px" @change="loadTree">
             <el-option v-for="item in permissionScopeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-input v-model="keyword" placeholder="搜索权限名称/编码/路径" clearable style="width:320px" @keyup.enter="refreshTreeView" />
+          <el-button type="primary" @click="refreshTreeView">搜索</el-button>
+        </div>
+      </div>
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <el-button v-if="hasPerm('admin:menu:permission:add')" type="success" @click="showAdd('')">新增权限</el-button>
+          <el-button @click="toggleExpand">{{ allExpanded ? '折叠全部' : '展开全部' }}</el-button>
         </div>
         <div class="admin-toolbar__right">
-          <el-button v-if="hasPerm('menu:add')" type="primary" @click="showAdd('')">新增权限</el-button>
-          <el-button @click="toggleExpand">{{ allExpanded ? '折叠全部' : '展开全部' }}</el-button>
           <el-button circle icon="Refresh" title="刷新" @click="loadTree" />
         </div>
       </div>
@@ -22,6 +26,7 @@
         v-loading="loading"
         row-key="key"
         stripe
+        style="width:100%"
         :default-expand-all="allExpanded"
         :tree-props="{ children: 'children' }"
       >
@@ -32,11 +37,15 @@
           </template>
         </el-table-column>
         <el-table-column prop="key" label="权限编码" min-width="220" />
-        <el-table-column prop="resourcePath" label="路径" min-width="160" />
-        <el-table-column prop="perms" label="兼容标识" min-width="180" />
+        <el-table-column prop="resourcePath" :label="resourcePathColumnLabel" min-width="180" show-overflow-tooltip />
         <el-table-column label="图标" width="80">
           <template #default="{ row }">
-            <el-icon v-if="resolveAdminIcon(row.icon)" :size="18"><component :is="resolveAdminIcon(row.icon)" /></el-icon>
+            <span v-if="isDingTalkH5PermissionIcon(row)" class="permission-h5-icon-table" :title="dingtalkH5IconLabel(row.icon)">
+              <svg class="permission-h5-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path v-for="path in dingtalkH5IconPaths(row.icon)" :key="path" :d="path" />
+              </svg>
+            </span>
+            <el-icon v-else-if="resolveAdminIcon(row.icon)" :size="18"><component :is="resolveAdminIcon(row.icon)" /></el-icon>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -49,9 +58,9 @@
         <el-table-column label="操作" width="290" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('menu:add')" size="small" type="primary" @click="showAdd(row.key)">添加子项</el-button>
-              <el-button v-if="hasPerm('menu:edit')" size="small" @click="showEdit(row)">编辑</el-button>
-              <el-popconfirm v-if="hasPerm('menu:del')" title="确定删除该权限及其子权限？" @confirm="handleDel(row)">
+              <el-button v-if="hasPerm('admin:menu:permission:add')" size="small" type="primary" @click="showAdd(row.key)">添加子项</el-button>
+              <el-button v-if="hasPerm('admin:menu:permission:edit')" size="small" @click="showEdit(row)">编辑</el-button>
+              <el-popconfirm v-if="hasPerm('admin:menu:permission:del')" title="确定删除该权限及其子权限？" @confirm="handleDel(row)">
                 <template #reference>
                   <el-button size="small" type="danger">删除</el-button>
                 </template>
@@ -71,22 +80,13 @@
           <el-input v-model="form.name" placeholder="请输入权限名称" />
         </el-form-item>
         <el-form-item label="所属平台">
-          <el-select v-model="form.platform" style="width:100%">
-            <el-option label="后台管理" value="admin" />
-            <el-option label="客户端" value="client" />
-            <el-option label="钉钉 H5" value="dingtalk_h5" />
-            <el-option label="数据权限" value="data" />
+          <el-select v-model="form.platform" style="width:100%" @change="normalizePermissionTypeForForm">
+            <el-option v-for="item in availablePermissionPlatformOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="权限类型">
           <el-select v-model="form.type" style="width:100%">
-            <el-option label="目录" value="directory" />
-            <el-option label="菜单" value="menu" />
-            <el-option label="按钮" value="button" />
-            <el-option label="接口类别" value="api_category" />
-            <el-option label="接口" value="api" />
-            <el-option label="登录入口" value="login" />
-            <el-option label="数据权限" value="data" />
+            <el-option v-for="item in availablePermissionTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="上级权限">
@@ -101,14 +101,37 @@
             style="width:100%"
           />
         </el-form-item>
-        <el-form-item label="路径">
-          <el-input v-model="form.resourcePath" placeholder="菜单路由或资源路径" />
+        <el-form-item :label="resourcePathFormLabel">
+          <el-input v-model="form.resourcePath" :placeholder="resourcePathPlaceholder" />
         </el-form-item>
-        <el-form-item label="兼容标识">
-          <el-input v-model="form.perms" placeholder="旧权限码，多个用英文逗号分隔" />
-        </el-form-item>
-        <el-form-item label="图标" v-if="form.platform === 'admin' && (form.type === 'menu' || form.type === 'directory')">
-          <IconPicker v-model="form.icon" />
+        <el-form-item label="图标" v-if="showIconPicker">
+          <el-popover v-if="isDingTalkH5MenuIcon" placement="bottom-start" :width="280" trigger="click">
+            <template #reference>
+              <el-input :model-value="form.icon" placeholder="选择图标" readonly clearable @clear="form.icon = ''">
+                <template #prefix>
+                  <svg v-if="form.icon" class="permission-h5-icon permission-h5-icon--prefix" viewBox="0 0 24 24" aria-hidden="true">
+                    <path v-for="path in dingtalkH5IconPaths(form.icon)" :key="path" :d="path" />
+                  </svg>
+                </template>
+              </el-input>
+            </template>
+            <div class="permission-h5-icon-grid">
+              <button
+                v-for="item in dingtalkH5IconOptions"
+                :key="item.value"
+                type="button"
+                class="permission-h5-icon-cell"
+                :class="{ active: form.icon === item.value }"
+                :title="`${item.label} ${item.value}`"
+                @click="form.icon = item.value"
+              >
+                <svg class="permission-h5-icon permission-h5-icon--grid" viewBox="0 0 24 24" aria-hidden="true">
+                  <path v-for="path in dingtalkH5IconPaths(item.value)" :key="path" :d="path" />
+                </svg>
+              </button>
+            </div>
+          </el-popover>
+          <IconPicker v-else v-model="form.icon" />
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
@@ -146,13 +169,105 @@ const tableKey = ref(0)
 const originalPermissionKey = ref('')
 const filteredTreeData = computed(() => filterPermissionTree(treeData.value, keyword.value))
 const permissionScopeOptions = [
-  { label: '后台管理', value: 'admin_menu', platform: 'admin', types: 'directory,menu,button,login', defaultType: 'menu' },
-  { label: '接口类别', value: 'admin_api', platform: 'admin', types: 'api_category,api', defaultType: 'api_category' },
-  { label: '客户端', value: 'client', platform: 'client', types: '', defaultType: 'menu' },
-  { label: '钉钉 H5', value: 'dingtalk_h5', platform: 'dingtalk_h5', types: '', defaultType: 'menu' },
-  { label: '数据权限', value: 'data', platform: 'data', types: '', defaultType: 'data' }
+  { label: '菜单权限/后台管理', value: 'admin_menu', platform: 'admin', types: 'directory,menu,button,login', defaultType: 'menu', defaultPlatform: 'admin' },
+  { label: '菜单权限/客户端', value: 'client', platform: 'client', types: 'menu', defaultType: 'menu', defaultPlatform: 'client' },
+  { label: '菜单权限/钉钉H5', value: 'dingtalk_h5', platform: 'dingtalk_h5', types: 'directory,menu,button', defaultType: 'menu', defaultPlatform: 'dingtalk_h5' },
+  { label: '接口权限', value: 'admin_api', platform: '', types: 'api_category,api', defaultType: 'api_category', defaultPlatform: 'admin' },
+  { label: '数据权限', value: 'data', platform: 'data', types: '', defaultType: 'data', defaultPlatform: 'data' }
 ]
+const permissionPlatformOptions = [
+  { label: '后台管理', value: 'admin' },
+  { label: '客户端', value: 'client' },
+  { label: '钉钉 H5', value: 'dingtalk_h5' },
+  { label: '数据权限', value: 'data' }
+]
+const permissionTypeOptions = [
+  { label: '目录', value: 'directory' },
+  { label: '菜单', value: 'menu' },
+  { label: '按钮', value: 'button' },
+  { label: '接口分组', value: 'api_category' },
+  { label: '接口权限点', value: 'api' },
+  { label: '登录入口', value: 'login' },
+  { label: '数据权限', value: 'data' }
+]
+const dingtalkH5IconOptions = [
+  { label: '工作台', value: 'dashboard' },
+  { label: '绩效管理', value: 'performance' },
+  { label: '我的绩效', value: 'mine' },
+  { label: '历史绩效', value: 'history' },
+  { label: '上级评价', value: 'manager' },
+  { label: 'HRBP评价', value: 'hrbp' },
+  { label: 'HRBP汇总', value: 'summary' },
+  { label: '流程执行', value: 'org' },
+  { label: '绩效模版', value: 'template' },
+  { label: '用户账号', value: 'account' }
+]
+const dingtalkH5IconLabels = dingtalkH5IconOptions.reduce((result, item) => {
+  result[item.value] = item.label
+  return result
+}, {} as Record<string, string>)
+const dingtalkH5IconMap: Record<string, string[]> = {
+  dashboard: [
+    'M4 10.5 12 4l8 6.5',
+    'M6 9.5V20h5v-6h2v6h5V9.5'
+  ],
+  mine: [
+    'M5 12.5 9.2 17 19 7',
+    'M4 5h16v14H4V5Z'
+  ],
+  history: [
+    'M12 6v6l4 2',
+    'M4 12a8 8 0 1 0 2.3-5.7',
+    'M4 4v5h5'
+  ],
+  manager: [
+    'M8 4h8l1 3H7l1-3Z',
+    'M6 7h12v13H6V7Z',
+    'M9 12h6',
+    'M9 16h4'
+  ],
+  hrbp: [
+    'M12 4l2.3 4.7 5.2.8-3.8 3.7.9 5.2L12 16l-4.6 2.4.9-5.2-3.8-3.7 5.2-.8L12 4Z'
+  ],
+  summary: [
+    'M5 19V9',
+    'M12 19V5',
+    'M19 19v-7',
+    'M4 19h16'
+  ],
+  org: [
+    'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+    'M3.5 20a5.5 5.5 0 0 1 11 0',
+    'M17 10a2.5 2.5 0 1 0 0-5',
+    'M15.5 14.5A4.8 4.8 0 0 1 21 20'
+  ],
+  template: [
+    'M6 4h12v16H6V4Z',
+    'M9 8h6',
+    'M9 12h6',
+    'M9 16h4'
+  ],
+  account: [
+    'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
+    'M4 21a8 8 0 0 1 16 0',
+    'M18 5v4',
+    'M16 7h4'
+  ],
+  performance: [
+    'M5 4h14v5H5V4Z',
+    'M5 13h6v7H5v-7Z',
+    'M15 13h4v7h-4v-7Z'
+  ]
+}
 const activePermissionScope = computed(() => permissionScopeOptions.find(item => item.value === permissionScope.value) || permissionScopeOptions[0])
+const availablePermissionPlatformOptions = computed(() => {
+  const platformSet = new Set(allowedPermissionPlatformsForScope())
+  return permissionPlatformOptions.filter(item => platformSet.has(item.value))
+})
+const availablePermissionTypeOptions = computed(() => {
+  const typeSet = new Set(allowedPermissionTypesForForm())
+  return permissionTypeOptions.filter(item => typeSet.has(item.value))
+})
 
 const dialog = reactive({
   visible: false,
@@ -167,19 +282,31 @@ const form = reactive({
   type: 'menu',
   parentKey: '',
   resourcePath: '',
-  perms: '',
   icon: '',
   sort: 0,
   status: 1
+})
+const resourcePathColumnLabel = computed(() => permissionScope.value === 'admin_api' ? 'API路径' : '路径')
+const resourcePathFormLabel = computed(() => (form.type === 'api' || form.type === 'api_category') ? 'API路径' : '路径')
+const resourcePathPlaceholder = computed(() => {
+  if (form.type === 'api') return '如 /api/v2/admin/users'
+  if (form.type === 'api_category') return '接口分组可留空'
+  return '菜单路由或资源路径'
+})
+const isDingTalkH5MenuIcon = computed(() => form.platform === 'dingtalk_h5' && (form.type === 'menu' || form.type === 'directory'))
+const showIconPicker = computed(() => {
+  if (form.type !== 'menu' && form.type !== 'directory') return false
+  return form.platform === 'admin' || form.platform === 'dingtalk_h5'
 })
 
 async function loadTree() {
   loading.value = true
   try {
-    const res = await adminApi.permissionTree({
-      platform: activePermissionScope.value.platform,
+    const params = {
       types: activePermissionScope.value.types
-    })
+    } as { platform?: string; types: string }
+    if (activePermissionScope.value.platform) params.platform = activePermissionScope.value.platform
+    const res = await adminApi.permissionTree(params)
     treeData.value = Array.isArray(res.data) ? res.data : []
   } catch { treeData.value = [] }
   loading.value = false
@@ -191,7 +318,7 @@ function filterPermissionTree(list: any[], rawKeyword: string): any[] {
   return list
     .map(item => {
       const children = item.children?.length ? filterPermissionTree(item.children, rawKeyword) : []
-      const hit = [item.name, item.key, item.resourcePath, item.path, item.perms, item.icon]
+      const hit = [item.name, item.key, item.resourcePath, item.path, item.icon]
         .some(value => String(value || '').toLowerCase().includes(text))
       return hit || children.length ? { ...item, children } : null
     })
@@ -206,14 +333,14 @@ function resetForm(parentKey: string) {
   originalPermissionKey.value = ''
   form.permissionKey = ''
   form.name = ''
-  form.platform = activePermissionScope.value.platform
-  form.type = activePermissionScope.value.defaultType
+  form.platform = permissionPlatformFromKey(parentKey) || activePermissionScope.value.defaultPlatform
+  form.type = defaultPermissionTypeForParent(parentKey)
   form.parentKey = parentKey
   form.resourcePath = ''
-  form.perms = ''
   form.icon = ''
   form.sort = 0
   form.status = 1
+  normalizePermissionTypeForForm()
 }
 
 function showAdd(parentKey: string) {
@@ -233,10 +360,10 @@ function showEdit(row: any) {
   form.type = row.type || 'menu'
   form.parentKey = row.parentKey || ''
   form.resourcePath = row.resourcePath || row.path || ''
-  form.perms = row.perms || ''
   form.icon = row.icon || ''
   form.sort = row.sort || 0
   form.status = row.status
+  normalizePermissionTypeForForm()
   dialog.visible = true
 }
 
@@ -258,7 +385,6 @@ async function handleSave() {
     parentKey: form.parentKey,
     resourcePath: form.resourcePath,
     path: form.resourcePath,
-    perms: form.perms,
     icon: form.icon,
     sort: form.sort,
     status: form.status
@@ -279,9 +405,69 @@ async function handleSave() {
 }
 
 function scopeValueForPermission(platform: string, type: string) {
-  if (platform === 'admin' && (type === 'api_category' || type === 'api')) return 'admin_api'
+  if (type === 'api_category' || type === 'api') return 'admin_api'
   if (platform === 'admin') return 'admin_menu'
   return permissionScopeOptions.find(item => item.platform === platform)?.value || 'admin_menu'
+}
+
+function permissionPlatformFromKey(parentKey: string) {
+  if (parentKey.startsWith('dingtalk_h5:')) return 'dingtalk_h5'
+  if (parentKey.startsWith('client:')) return 'client'
+  if (parentKey.startsWith('data:')) return 'data'
+  if (parentKey.startsWith('admin:')) return 'admin'
+  return ''
+}
+
+function defaultPermissionTypeForParent(parentKey: string) {
+  if (parentKey.includes(':api-category:')) return 'api'
+  return activePermissionScope.value.defaultType
+}
+
+function allowedPermissionTypesForForm() {
+  if (permissionScope.value === 'admin_api') {
+    return ['api_category', 'api']
+  }
+  if (form.platform === 'data') {
+    return ['data']
+  }
+  if (form.platform === 'admin') {
+    return ['directory', 'menu', 'button', 'login']
+  }
+  if (form.platform === 'client') {
+    return ['menu']
+  }
+  if (form.platform === 'dingtalk_h5') {
+    return ['directory', 'menu', 'button']
+  }
+  return [activePermissionScope.value.defaultType]
+}
+
+function allowedPermissionPlatformsForScope() {
+  if (permissionScope.value === 'admin_api') {
+    return ['admin', 'client', 'dingtalk_h5']
+  }
+  if (permissionScope.value === 'data') {
+    return ['data']
+  }
+  if (activePermissionScope.value.platform) {
+    return [activePermissionScope.value.platform]
+  }
+  return ['admin']
+}
+
+function normalizePermissionPlatformForForm() {
+  const allowed = allowedPermissionPlatformsForScope()
+  if (!allowed.includes(form.platform)) {
+    form.platform = allowed[0] || activePermissionScope.value.defaultPlatform
+  }
+}
+
+function normalizePermissionTypeForForm() {
+  normalizePermissionPlatformForForm()
+  const allowed = allowedPermissionTypesForForm()
+  if (!allowed.includes(form.type)) {
+    form.type = allowed[0] || activePermissionScope.value.defaultType
+  }
 }
 
 async function handleDel(row: any) {
@@ -302,8 +488,8 @@ function typeLabel(type: string) {
     menu: '菜单',
     directory: '目录',
     button: '按钮',
-    api_category: '接口类别',
-    api: '接口',
+    api_category: '接口分组',
+    api: '接口权限点',
     login: '入口',
     data: '数据'
   }
@@ -318,5 +504,79 @@ function typeTagType(type: string) {
   return 'primary'
 }
 
+function isDingTalkH5PermissionIcon(row: any) {
+  return row?.platform === 'dingtalk_h5' && Boolean(row.icon) && (row.type === 'menu' || row.type === 'directory')
+}
+
+function dingtalkH5IconLabel(icon: string) {
+  return dingtalkH5IconLabels[icon] || icon || '-'
+}
+
+function dingtalkH5IconPaths(icon: string) {
+  const key = String(icon || '').trim()
+  return dingtalkH5IconMap[key] || dingtalkH5IconMap.dashboard
+}
+
 onMounted(loadTree)
 </script>
+
+<style scoped>
+.permission-h5-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: #409eff;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.permission-h5-icon--prefix {
+  width: 16px;
+  height: 16px;
+}
+
+.permission-h5-icon--grid {
+  width: 22px;
+  height: 22px;
+}
+
+.permission-h5-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
+  gap: 8px;
+  justify-content: center;
+}
+
+.permission-h5-icon-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.permission-h5-icon-cell:hover,
+.permission-h5-icon-cell.active {
+  border-color: #409eff;
+  background: #ecf5ff;
+}
+
+.permission-h5-icon-table {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #ecf5ff;
+}
+</style>

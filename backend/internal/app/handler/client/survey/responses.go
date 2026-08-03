@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/pkg/response"
 )
 
 // MyResponses GET /survey/my_responses

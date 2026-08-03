@@ -1,8 +1,8 @@
 package builtin
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // PickerQuestion 选择器（type=picker），从 options 数组中单选（同 select 语义）。

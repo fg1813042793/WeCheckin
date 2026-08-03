@@ -86,6 +86,51 @@
           </template>
         </el-dropdown>
       </el-header>
+      <div class="admin-route-tabs">
+        <button
+          v-if="routeTabsOverflowing"
+          class="admin-route-tabs__nav admin-route-tabs__nav--left"
+          type="button"
+          aria-label="向左翻动页签"
+          :disabled="!routeTabsCanScrollLeft"
+          @click="scrollRouteTabs('left')"
+        >
+          <el-icon><component :is="resolveAdminIcon('ArrowLeft')" /></el-icon>
+        </button>
+        <el-scrollbar ref="routeTabsScrollbarRef" class="admin-route-tabs__scroll" @scroll="handleRouteTabsScroll">
+          <div class="admin-route-tabs__inner">
+            <button
+              v-for="tab in visitedTabs"
+              :key="tab.fullPath"
+              class="admin-route-tab"
+              :class="{ 'is-active': tab.fullPath === route.fullPath }"
+              type="button"
+              @click="router.push(tab.fullPath)"
+            >
+              <span class="admin-route-tab__dot" />
+              <span class="admin-route-tab__title">{{ tab.title }}</span>
+              <span
+                v-if="!isAffixTab(tab)"
+                class="admin-route-tab__close"
+                title="关闭"
+                @click.stop="closeVisitedTab(tab)"
+              >
+                <el-icon><component :is="resolveAdminIcon('Close')" /></el-icon>
+              </span>
+            </button>
+          </div>
+        </el-scrollbar>
+        <button
+          v-if="routeTabsOverflowing"
+          class="admin-route-tabs__nav admin-route-tabs__nav--right"
+          type="button"
+          aria-label="向右翻动页签"
+          :disabled="!routeTabsCanScrollRight"
+          @click="scrollRouteTabs('right')"
+        >
+          <el-icon><component :is="resolveAdminIcon('ArrowRight')" /></el-icon>
+        </button>
+      </div>
       <el-main class="admin-main">
         <router-view v-if="permsReady" />
         <div v-else class="admin-loading">
@@ -99,11 +144,28 @@
 
 <script lang="ts" setup>
 import { useRoute, useRouter } from 'vue-router'
-import { ref, onMounted, computed } from 'vue'
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { adminApi } from '../../api'
-import { setPerms, clearPerms } from '../../utils/permission'
-import { fallbackMenuItems, type AdminMenuItem } from '../../router/adminRoutes'
+import { setPerms } from '../../utils/permission'
+import { ADMIN_ROUTE_TABS_STORAGE_KEY, clearAdminSession } from '../../utils/adminSession'
+import type { AdminMenuItem } from '../../router/adminRoutes'
 import { resolveAdminIcon } from '../../icons'
+
+interface VisitedTab {
+  title: string
+  path: string
+  fullPath: string
+  name: string
+}
+
+const affixTabPaths = new Set(['/dashboard'])
+const defaultVisitedTab: VisitedTab = {
+  title: '控制台',
+  path: '/dashboard',
+  fullPath: '/dashboard',
+  name: 'Dashboard',
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -113,9 +175,15 @@ const permsReady = ref(false)
 const menuLoading = ref(false)
 const menuError = ref('')
 const sidebarCollapsed = ref(localStorage.getItem('admin_sidebar_collapsed') === '1')
-const displayMenuTree = computed(() => menuTree.value.length > 0 ? menuTree.value : fallbackMenuItems)
+const visitedTabs = ref<VisitedTab[]>(loadVisitedTabs())
+const routeTabsScrollbarRef = ref<any>()
+const routeTabsOverflowing = ref(false)
+const routeTabsCanScrollLeft = ref(false)
+const routeTabsCanScrollRight = ref(false)
+const displayMenuTree = computed(() => menuTree.value)
 const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '220px')
 const pageTitle = computed(() => String(route.meta.title || '控制台'))
+let routeTabsResizeObserver: ResizeObserver | null = null
 const breadcrumbItems = computed(() => {
   const trail = findMenuTrail(displayMenuTree.value, route.path)
   if (trail.length > 0) {
@@ -137,9 +205,147 @@ function findMenuTrail(items: AdminMenuItem[], path: string, parents: AdminMenuI
   return []
 }
 
+function loadVisitedTabs(): VisitedTab[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ADMIN_ROUTE_TABS_STORAGE_KEY) || '[]')
+    if (!Array.isArray(parsed)) return [defaultVisitedTab]
+    const tabs = parsed.filter((item: any) => item?.title && item?.path && item?.fullPath)
+    return normalizeVisitedTabs(tabs)
+  } catch {
+    return [defaultVisitedTab]
+  }
+}
+
+function normalizeVisitedTabs(tabs: VisitedTab[]) {
+  const next = tabs.some(tab => tab.path === defaultVisitedTab.path)
+    ? [...tabs]
+    : [defaultVisitedTab, ...tabs]
+  const seen = new Set<string>()
+  return next.filter(tab => {
+    if (seen.has(tab.fullPath)) return false
+    seen.add(tab.fullPath)
+    return true
+  })
+}
+
+function persistVisitedTabs() {
+  localStorage.setItem(ADMIN_ROUTE_TABS_STORAGE_KEY, JSON.stringify(visitedTabs.value))
+}
+
+function routeToVisitedTab(target: RouteLocationNormalizedLoaded): VisitedTab | null {
+  if (target.path === '/login') return null
+  const title = String(target.meta?.title || '')
+  if (!title) return null
+  return {
+    title,
+    path: target.path,
+    fullPath: target.fullPath,
+    name: String(target.name || target.path),
+  }
+}
+
+function addVisitedTab(target: RouteLocationNormalizedLoaded) {
+  const tab = routeToVisitedTab(target)
+  if (!tab) return
+  const index = visitedTabs.value.findIndex(item => item.fullPath === tab.fullPath)
+  if (index >= 0) {
+    visitedTabs.value[index] = tab
+  } else {
+    visitedTabs.value.push(tab)
+  }
+  visitedTabs.value = normalizeVisitedTabs(visitedTabs.value)
+  persistVisitedTabs()
+  syncRouteTabsAfterRender(true)
+}
+
+function isAffixTab(tab: VisitedTab) {
+  return affixTabPaths.has(tab.path)
+}
+
+function closeVisitedTab(tab: VisitedTab) {
+  if (isAffixTab(tab)) return
+  const closingIndex = visitedTabs.value.findIndex(item => item.fullPath === tab.fullPath)
+  visitedTabs.value = normalizeVisitedTabs(visitedTabs.value.filter(item => item.fullPath !== tab.fullPath))
+  persistVisitedTabs()
+  syncRouteTabsAfterRender(false)
+  if (tab.fullPath !== route.fullPath) return
+
+  const nextTab = visitedTabs.value[closingIndex] || visitedTabs.value[closingIndex - 1] || defaultVisitedTab
+  router.push(nextTab.fullPath)
+}
+
+function getRouteTabsScrollWrap(): HTMLElement | null {
+  const scrollbar = routeTabsScrollbarRef.value
+  const wrap = scrollbar?.wrapRef as HTMLElement | undefined
+  if (wrap) return wrap
+  return (scrollbar?.$el?.querySelector?.('.el-scrollbar__wrap') || null) as HTMLElement | null
+}
+
+function updateRouteTabsScrollState() {
+  const wrap = getRouteTabsScrollWrap()
+  if (!wrap) {
+    routeTabsOverflowing.value = false
+    routeTabsCanScrollLeft.value = false
+    routeTabsCanScrollRight.value = false
+    return
+  }
+
+  const maxScrollLeft = Math.max(wrap.scrollWidth - wrap.clientWidth, 0)
+  routeTabsOverflowing.value = maxScrollLeft > 1
+  routeTabsCanScrollLeft.value = routeTabsOverflowing.value && wrap.scrollLeft > 1
+  routeTabsCanScrollRight.value = routeTabsOverflowing.value && wrap.scrollLeft < maxScrollLeft - 1
+}
+
+function handleRouteTabsScroll() {
+  updateRouteTabsScrollState()
+}
+
+function scrollRouteTabs(direction: 'left' | 'right') {
+  const wrap = getRouteTabsScrollWrap()
+  if (!wrap) return
+  const maxScrollLeft = Math.max(wrap.scrollWidth - wrap.clientWidth, 0)
+  const distance = Math.max(180, Math.floor(wrap.clientWidth * 0.72))
+  const target = Math.min(
+    maxScrollLeft,
+    Math.max(0, wrap.scrollLeft + (direction === 'left' ? -distance : distance)),
+  )
+  wrap.scrollTo({ left: target, behavior: 'smooth' })
+  window.setTimeout(updateRouteTabsScrollState, 220)
+}
+
+function scrollActiveRouteTabIntoView() {
+  const wrap = getRouteTabsScrollWrap()
+  const activeTab = wrap?.querySelector('.admin-route-tab.is-active') as HTMLElement | null
+  activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  window.setTimeout(updateRouteTabsScrollState, 220)
+}
+
+function syncRouteTabsAfterRender(scrollActive: boolean) {
+  nextTick(() => {
+    updateRouteTabsScrollState()
+    if (!scrollActive) return
+    nextTick(() => {
+      scrollActiveRouteTabIntoView()
+      updateRouteTabsScrollState()
+    })
+  })
+}
+
+function setupRouteTabsResizeObserver() {
+  const wrap = getRouteTabsScrollWrap()
+  if (!wrap || typeof ResizeObserver === 'undefined') return
+  routeTabsResizeObserver?.disconnect()
+  routeTabsResizeObserver = new ResizeObserver(updateRouteTabsScrollState)
+  routeTabsResizeObserver.observe(wrap)
+  const inner = wrap.querySelector('.admin-route-tabs__inner')
+  if (inner) routeTabsResizeObserver.observe(inner)
+}
+
 function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
   localStorage.setItem('admin_sidebar_collapsed', sidebarCollapsed.value ? '1' : '0')
+  syncRouteTabsAfterRender(false)
+  window.setTimeout(updateRouteTabsScrollState, 240)
 }
 
 async function loadPerms() {
@@ -159,7 +365,7 @@ async function loadMenus() {
     menuTree.value = data.filter((m: any) => m.type !== 2)
   } catch {
     menuTree.value = []
-    menuError.value = '菜单加载失败，已使用默认菜单'
+    menuError.value = '菜单加载失败，请稍后重试'
   } finally {
     menuLoading.value = false
   }
@@ -168,14 +374,31 @@ async function loadMenus() {
 async function handleCommand(cmd: string) {
   if (cmd === 'logout') {
     try { await adminApi.adminLogout() } catch { /* ignore */ }
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin_info')
-    clearPerms()
+    clearAdminSession()
     router.push('/login')
   }
 }
 
-onMounted(() => { loadPerms(); loadMenus() })
+onMounted(() => {
+  loadPerms()
+  loadMenus()
+  nextTick(() => {
+    setupRouteTabsResizeObserver()
+    updateRouteTabsScrollState()
+    window.addEventListener('resize', updateRouteTabsScrollState)
+  })
+})
+
+onBeforeUnmount(() => {
+  routeTabsResizeObserver?.disconnect()
+  window.removeEventListener('resize', updateRouteTabsScrollState)
+})
+
+watch(
+  () => route.fullPath,
+  () => addVisitedTab(route),
+  { immediate: true },
+)
 </script>
 
 <style scoped>
@@ -258,10 +481,16 @@ onMounted(() => { loadPerms(); loadMenus() })
 
 .admin-workspace {
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .admin-header {
   height: var(--admin-header-height);
+  position: relative;
+  z-index: 6;
+  flex-shrink: 0;
   background: #fff;
   border-bottom: 1px solid var(--admin-border);
   display: flex;
@@ -303,7 +532,175 @@ onMounted(() => { loadPerms(); loadMenus() })
   white-space: nowrap;
 }
 
+.admin-route-tabs {
+  height: 40px;
+  position: relative;
+  z-index: 5;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: stretch;
+  background: #f3f6fb;
+  border-bottom: 1px solid var(--admin-border);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.admin-route-tabs__scroll {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-route-tabs :deep(.el-scrollbar__wrap) {
+  height: 40px;
+  overflow-y: hidden;
+}
+
+.admin-route-tabs :deep(.el-scrollbar__view) {
+  height: 40px;
+  min-width: max-content;
+}
+
+.admin-route-tabs :deep(.el-scrollbar__bar.is-horizontal) {
+  height: 3px;
+  bottom: 0;
+}
+
+.admin-route-tabs__inner {
+  height: 40px;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 6px 16px 0;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-route-tabs__nav {
+  width: 34px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 0;
+  background: #eef3fa;
+  color: #64748b;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.16s ease, background 0.16s ease, opacity 0.16s ease;
+}
+
+.admin-route-tabs__nav--left {
+  border-right: 1px solid #dde6f2;
+}
+
+.admin-route-tabs__nav--right {
+  border-left: 1px solid #dde6f2;
+}
+
+.admin-route-tabs__nav:hover:not(:disabled) {
+  color: #1d4ed8;
+  background: #e3edfb;
+}
+
+.admin-route-tabs__nav:focus-visible {
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+
+.admin-route-tabs__nav:disabled {
+  color: #b6c2d2;
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.admin-route-tabs__nav .el-icon {
+  font-size: 15px;
+}
+
+.admin-route-tab {
+  position: relative;
+  height: 34px;
+  max-width: 180px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 14px;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.admin-route-tab:hover {
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-route-tab.is-active {
+  color: #1d4ed8;
+  border-color: #dbe4f0;
+  border-bottom-color: #fff;
+  background: #fff;
+  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
+  transform: translateY(1px);
+}
+
+.admin-route-tab:focus-visible {
+  color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
+}
+
+.admin-route-tab__dot {
+  display: none;
+}
+
+.admin-route-tab__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-route-tab__close {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: #98a2b3;
+  flex-shrink: 0;
+  opacity: 0.72;
+  transition: color 0.16s ease, background 0.16s ease, opacity 0.16s ease;
+}
+
+.admin-route-tab:hover .admin-route-tab__close,
+.admin-route-tab.is-active .admin-route-tab__close {
+  opacity: 1;
+}
+
+.admin-route-tab__close:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.admin-route-tab__close .el-icon {
+  font-size: 11px;
+}
+
 .admin-main {
+  position: relative;
+  z-index: 0;
+  flex: 1 1 0;
+  min-height: 0;
   background: var(--admin-bg);
   padding: 20px;
   overflow: auto;
@@ -325,6 +722,14 @@ onMounted(() => { loadPerms(); loadMenus() })
 
   .admin-header {
     padding-right: 12px;
+  }
+
+  .admin-route-tabs__inner {
+    padding: 0 10px;
+  }
+
+  .admin-route-tab {
+    max-width: 132px;
   }
 
   .admin-title-stack h1 {

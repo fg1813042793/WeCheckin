@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"wecheckin-backend/backend/internal/model"
+	"wecheckin/backend/internal/model"
 )
 
 const (
@@ -22,7 +22,7 @@ type UserDTO struct {
 	ID                     string   `json:"id"`
 	Account                string   `json:"account"`
 	Name                   string   `json:"name"`
-	Role                   string   `json:"role"`
+	Avatar                 string   `json:"avatar"`
 	Position               string   `json:"position"`
 	Department             string   `json:"department"`
 	DepartmentLevel1       string   `json:"departmentLevel1"`
@@ -49,11 +49,14 @@ type NextObjective struct {
 }
 
 type ValueScore struct {
-	ID      string      `json:"id"`
-	Self    interface{} `json:"self"`
-	Manager interface{} `json:"manager"`
-	HRBP    interface{} `json:"hrbp"`
-	HR      interface{} `json:"hr"`
+	ID         string        `json:"id"`
+	Name       string        `json:"name,omitempty"`
+	Definition string        `json:"definition,omitempty"`
+	Rubric     []ValueRubric `json:"rubric,omitempty"`
+	Self       interface{}   `json:"self"`
+	Manager    interface{}   `json:"manager"`
+	HRBP       interface{}   `json:"hrbp"`
+	HR         interface{}   `json:"hr"`
 }
 
 type HistoryDTO struct {
@@ -66,9 +69,13 @@ type ReviewDTO struct {
 	ID                      string          `json:"id"`
 	DBID                    uint            `json:"dbId"`
 	EmployeeID              string          `json:"employeeId"`
+	EmployeeName            string          `json:"employeeName"`
 	ManagerID               string          `json:"managerId"`
+	ManagerName             string          `json:"managerName"`
 	HRBPID                  string          `json:"hrbpId"`
+	HRBPName                string          `json:"hrbpName"`
 	HRBPReviewerID          string          `json:"hrbpReviewerId"`
+	HRBPReviewerName        string          `json:"hrbpReviewerName"`
 	Department              string          `json:"department"`
 	DepartmentLevel1        string          `json:"departmentLevel1"`
 	DepartmentLevel2        string          `json:"departmentLevel2"`
@@ -101,6 +108,17 @@ type ReviewListResponse struct {
 	PageSize int         `json:"pageSize"`
 }
 
+type CreateReviewFailure struct {
+	EmployeeID string `json:"employeeId"`
+	Message    string `json:"message"`
+}
+
+type CreateReviewBatchResponse struct {
+	List   []ReviewDTO           `json:"list"`
+	Total  int                   `json:"total"`
+	Failed []CreateReviewFailure `json:"failed,omitempty"`
+}
+
 type DingTalkH5Review struct {
 	EmployeeID string
 	ManagerID  string
@@ -115,8 +133,9 @@ type GradeLevel struct {
 }
 
 type ValueRubric struct {
-	Label string  `json:"label"`
-	Score float64 `json:"score"`
+	Label       string  `json:"label"`
+	Score       float64 `json:"score"`
+	Description string  `json:"description,omitempty"`
 }
 
 type ValueTemplate struct {
@@ -134,14 +153,51 @@ type TemplateDTO struct {
 }
 
 type LoginResponse struct {
-	Token    string  `json:"token"`
-	UserInfo UserDTO `json:"userInfo"`
+	Token                 string                 `json:"token"`
+	UserInfo              UserDTO                `json:"userInfo"`
+	Menus                 []AppMenuDTO           `json:"menus"`
+	AppConfig             DingTalkH5AppConfigDTO `json:"appConfig"`
+	AppTitle              string                 `json:"appTitle"`
+	AppName               string                 `json:"appName"`
+	LogoText              string                 `json:"logoText"`
+	LogoURL               string                 `json:"logoUrl"`
+	ButtonPermissionKeys  []string               `json:"buttonPermissionKeys"`
+	ButtonPermissionReady bool                   `json:"buttonPermissionReady"`
+	APIPermissionKeys     []string               `json:"apiPermissionKeys"`
+	APIPermissionReady    bool                   `json:"apiPermissionReady"`
+	PermissionVersion     int64                  `json:"permissionVersion"`
 }
 
 type BootstrapResponse struct {
-	User              UserDTO      `json:"user"`
-	Menus             []AppMenuDTO `json:"menus"`
-	PermissionVersion int64        `json:"permissionVersion"`
+	User                  UserDTO                `json:"user"`
+	Menus                 []AppMenuDTO           `json:"menus"`
+	AppConfig             DingTalkH5AppConfigDTO `json:"appConfig"`
+	AppTitle              string                 `json:"appTitle"`
+	AppName               string                 `json:"appName"`
+	LogoText              string                 `json:"logoText"`
+	LogoURL               string                 `json:"logoUrl"`
+	ButtonPermissionKeys  []string               `json:"buttonPermissionKeys"`
+	ButtonPermissionReady bool                   `json:"buttonPermissionReady"`
+	APIPermissionKeys     []string               `json:"apiPermissionKeys"`
+	APIPermissionReady    bool                   `json:"apiPermissionReady"`
+	PermissionVersion     int64                  `json:"permissionVersion"`
+}
+
+type DingTalkH5AppConfigDTO struct {
+	AppTitle string `json:"appTitle"`
+	AppName  string `json:"appName"`
+	LogoText string `json:"logoText"`
+	LogoURL  string `json:"logoUrl"`
+}
+
+type PublicConfigResponse struct {
+	CorpID    string                 `json:"corpId"`
+	CorpName  string                 `json:"corpName"`
+	AppConfig DingTalkH5AppConfigDTO `json:"appConfig"`
+	AppTitle  string                 `json:"appTitle"`
+	AppName   string                 `json:"appName"`
+	LogoText  string                 `json:"logoText"`
+	LogoURL   string                 `json:"logoUrl"`
 }
 
 type WorkbenchStatsDTO struct {
@@ -155,14 +211,16 @@ type WorkbenchStatCardDTO struct {
 }
 
 type AppMenuDTO struct {
-	Key           string `json:"key"`
-	Label         string `json:"label"`
-	Icon          string `json:"icon"`
-	PermissionKey string `json:"permissionKey"`
+	Key           string       `json:"key"`
+	Label         string       `json:"label"`
+	Icon          string       `json:"icon"`
+	PermissionKey string       `json:"permissionKey"`
+	Children      []AppMenuDTO `json:"children,omitempty"`
 }
 
 type ReviewPayload struct {
 	EmployeeID             string          `json:"employeeId"`
+	EmployeeIDs            []string        `json:"employeeIds"`
 	Period                 string          `json:"period"`
 	NextPeriod             string          `json:"nextPeriod"`
 	Objectives             []Objective     `json:"objectives"`
@@ -183,8 +241,8 @@ type UserPayload struct {
 	ID                     string      `json:"id"`
 	Account                string      `json:"account"`
 	Name                   string      `json:"name"`
+	Avatar                 string      `json:"avatar"`
 	Password               string      `json:"password"`
-	Role                   string      `json:"role"`
 	Position               string      `json:"position"`
 	Department             string      `json:"department"`
 	DepartmentLevel1       string      `json:"departmentLevel1"`
@@ -195,18 +253,34 @@ type UserPayload struct {
 	ResponsibleDepartments interface{} `json:"responsibleDepartments"`
 }
 
+type AccountProfilePayload struct {
+	Account         string `json:"account"`
+	Avatar          string `json:"avatar"`
+	CurrentPassword string `json:"currentPassword"`
+}
+
+type AccountProfileResponse struct {
+	User UserDTO `json:"user"`
+}
+
 type ReviewFilters struct {
-	Keyword    string
-	Scope      string
-	Department string
-	Period     string
-	NextPeriod string
-	Status     string
-	ManagerID  string
-	HRBPID     string
-	Grade      string
-	Page       int
-	PageSize   int
+	Keyword         string
+	Scope           string
+	EmployeeName    string
+	Department      string
+	DepartmentName  string
+	DepartmentNames []string
+	Period          string
+	NotPeriod       string
+	NextPeriod      string
+	Status          string
+	Statuses        []string
+	ManagerID       string
+	HRBPID          string
+	Grade           string
+	Page            int
+	PageSize        int
+	SkipHistory     bool
 }
 
 func userDTO(user model.DingTalkH5PerfUser) UserDTO {
@@ -214,7 +288,7 @@ func userDTO(user model.DingTalkH5PerfUser) UserDTO {
 		ID:                     user.Account,
 		Account:                user.Account,
 		Name:                   user.Name,
-		Role:                   user.Role,
+		Avatar:                 user.Pic,
 		Position:               user.Position,
 		Department:             user.Department,
 		DepartmentLevel1:       user.DepartmentLevel1,
@@ -262,6 +336,26 @@ func reviewDTO(review model.DingTalkH5PerfReview, histories []model.DingTalkH5Pe
 		result.History = append(result.History, HistoryDTO{At: item.AddTime, By: item.ByName, Action: item.Action})
 	}
 	return result
+}
+
+func reviewDTOWithUsers(review model.DingTalkH5PerfReview, histories []model.DingTalkH5PerfHistory, users map[string]*model.DingTalkH5PerfUser) ReviewDTO {
+	result := reviewDTO(review, histories)
+	result.EmployeeName = reviewUserName(users, review.EmployeeAccount)
+	result.ManagerName = reviewUserName(users, review.ManagerAccount)
+	result.HRBPName = reviewUserName(users, review.HRBPAccount)
+	result.HRBPReviewerName = reviewUserName(users, review.HRBPReviewerAccount)
+	return result
+}
+
+func reviewUserName(users map[string]*model.DingTalkH5PerfUser, account string) string {
+	if users == nil || account == "" {
+		return ""
+	}
+	user := users[account]
+	if user == nil {
+		return ""
+	}
+	return strings.TrimSpace(user.Name)
 }
 
 func encodeJSON(value interface{}) string {

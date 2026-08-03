@@ -1,20 +1,58 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: WeCheckin / OA 管理系统。
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Dingtalk H5 app:
+  - Source root: `dingtalk-h5/`
+  - Tech stack: uni-app + Vue 3 + Vite, built as a standalone DingTalk H5 micro app.
+  - Local commands: `npm run dev:h5`, `npm run build:h5`, `npm run check:scaffold`, `npm run check:bootstrap`.
+  - Default dev port: 8086. Backend API proxy target defaults to `http://localhost:8083`.
+  - API prefix: `/api/v2/dingtalk/h5`; keep all endpoint constants in `dingtalk-h5/services/dingtalkH5Api.js`.
+  - Request wrapper: `dingtalk-h5/utils/request.js`; all authenticated requests must send `Authorization` and `X-Client-Platform: dingtalk-h5`.
+  - Entry page: `dingtalk-h5/pages/index/index.vue`.
+  - Shared layout and navigation: `dingtalk-h5/components/performance/AppShell.vue`.
+  - Performance feature views: `WorkbenchView.js`, `SummaryView.js`, `OrgView.vue`, `TemplateView.js`, `AccountView.vue`.
+  - Shared performance context is provided by `pages/index/index.vue` and consumed through `usePerformanceContext()`.
+  - Main stylesheet: `dingtalk-h5/styles/performance.css`; prefer extending existing classes over adding one-off inline styles.
+
+  Dingtalk H5 development conventions:
+  - Bootstrap and permission data are loaded after login through `/bootstrap`; do not rely on the workbench API for menu or API permissions.
+  - Menu visibility, button visibility, and API actions must be driven by the permission codes returned by bootstrap.
+  - Permission denial (`{"code":1,"msg":"无权限访问"}`) is not a login-expired state. Keep the current session and show a permission message instead of forcing logout.
+  - Login-expired handling is limited to explicit login/session messages such as `未登录` or `登录已过期`.
+  - All destructive actions, including delete buttons, must require a second confirmation dialog before calling the API or mutating local state.
+  - Keep PC and mobile behavior explicit. If a change affects mobile only, guard the CSS or render logic so PC remains unchanged.
+  - Mobile list pages should avoid horizontal overflow; show only the columns needed for the current workflow.
+  - Mobile dropdowns, popovers, and dialogs must render above page content and block background interaction while open.
+  - Loading, empty, no-permission, and error states must be distinct. Do not show an empty state before the first data request finishes.
+  - Prefer existing compact operational UI patterns: restrained colors, 4px controls, 8px-or-less cards, dense tables on PC, single-column cards or simplified tables on mobile.
+  - Do not duplicate API calls that can be satisfied from bootstrap or already-loaded context state unless the OpenSpec explains why fresh data is required.
+  - Keep permission codes documented when adding or renaming menus, buttons, or API actions.
+  - New backend-dependent H5 features must specify the exact API route, method, permission code, response shape, loading behavior, and no-permission behavior.
+
+  OpenSpec authoring conventions:
+  - Write OpenSpec artifacts in Chinese.
+  - Use kebab-case change IDs.
+  - Keep API routes, permission codes, field names, component filenames, and commands in backticks.
+  - Separate PC and mobile acceptance criteria whenever UI is affected.
+  - Prefer scoped, incremental changes over broad rewrites.
+
+rules:
+  proposal:
+    - Always include `Why`, `What Changes`, `Capabilities`, and `Impact`.
+    - For `dingtalk-h5` work, mention affected views, API routes, permission codes, and whether PC/mobile behavior changes.
+    - Include Non-goals when the request is UI-only, frontend-only, or explicitly excludes backend/testing work.
+    - Do not propose changing backend routes or permission semantics unless the user explicitly asks for backend work.
+  design:
+    - Describe data flow from login/bootstrap through context state to each affected component.
+    - Document loading, empty, no-permission, and error handling separately.
+    - Document overlay layering and background-interaction rules for mobile dialogs, dropdowns, and popovers.
+    - Document table/list columns separately for PC and mobile.
+    - Call out compatibility risks for DingTalk H5, uni-app components, and Vite H5 builds.
+  tasks:
+    - Break work by affected file or view.
+    - Include exact file paths for each task.
+    - Include verification steps for `npm run check:scaffold`, `npm run check:bootstrap`, and `npm run build:h5` when the change is not explicitly marked no-test.
+    - Include a manual mobile viewport check when layout, modal, dropdown, or table behavior changes.
+    - Include permission test cases for menu, button, and API authorization changes.

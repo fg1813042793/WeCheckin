@@ -6,8 +6,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"wecheckin-backend/backend/internal/app/service/formkitadmin"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/service/formkitadmin"
+	"wecheckin/backend/pkg/response"
 )
 
 // ReportSurveySchema GET /admin/survey/report/survey?surveyId=xx
@@ -15,7 +15,6 @@ import (
 // @Summary 问卷报表（schema-aware）
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/survey/report/survey [get]
 func (h *AdminSurveyHandler) ReportSurveySchema(ctx context.Context, c *app.RequestContext) {
 	surveyID, _ := strconv.Atoi(c.Query("surveyId"))
 	if surveyID == 0 {
@@ -35,7 +34,6 @@ func (h *AdminSurveyHandler) ReportSurveySchema(ctx context.Context, c *app.Requ
 // @Summary 导出问卷CSV
 // @Param surveyId query int true "问卷ID"
 // @Success 200 {file} string
-// @Router /admin/survey/export/survey [get]
 func (h *AdminSurveyHandler) ExportSurveySchemaCSV(ctx context.Context, c *app.RequestContext) {
 	surveyID, _ := strconv.Atoi(c.Query("surveyId"))
 	if surveyID == 0 {

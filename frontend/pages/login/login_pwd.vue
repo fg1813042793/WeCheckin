@@ -38,6 +38,7 @@
 <script>
 import { passportApi } from '../../api/index'
 import { setClientAuth } from '../../utils/auth'
+import { ensureClientPermissionSnapshot } from '../../utils/clientPermission'
 
 export default {
   data() {
@@ -70,6 +71,7 @@ export default {
         const res = await passportApi.loginByPwd(this.form)
         if (res.data) {
           setClientAuth(res.data)
+          await ensureClientPermissionSnapshot()
         }
         uni.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {
@@ -123,6 +125,7 @@ export default {
             const res = await passportApi.login({ user_id: loginRes.code })
             if (res.data) {
               setClientAuth(res.data)
+              await ensureClientPermissionSnapshot()
             }
             uni.showToast({ title: '登录成功', icon: 'success' })
             setTimeout(() => {

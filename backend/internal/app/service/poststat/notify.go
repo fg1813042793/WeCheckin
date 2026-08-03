@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/logger"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 )
 
 func sendInternalNotification(surveyID uint, title string, notifyAdmin bool, notifyUserIds string, msg string) {

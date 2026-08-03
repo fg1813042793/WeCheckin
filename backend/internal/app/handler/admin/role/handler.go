@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	roleservice "wecheckin-backend/backend/internal/app/service/role"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	roleservice "wecheckin/backend/internal/app/service/role"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminRoleHandler struct{}
@@ -21,7 +21,6 @@ func NewAdminRoleHandler() *AdminRoleHandler { return &AdminRoleHandler{} }
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
 // @Success 200 {object} response.Resp
-// @Router /admin/role/list [get]
 func (h *AdminRoleHandler) GetRoleList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -45,9 +44,8 @@ func (h *AdminRoleHandler) GetRoleList(ctx context.Context, c *app.RequestContex
 // @Tags PC端-角色管理
 // @Summary 获取应用菜单权限树
 // @Success 200 {object} response.Resp
-// @Router /api/v2/admin/roles/application-permissions [get]
 func (h *AdminRoleHandler) GetApplicationPermissionTree(ctx context.Context, c *app.RequestContext) {
-	response.JSON(c, roleservice.ApplicationPermissionTree())
+	response.JSON(c, roleservice.ApplicationPermissionTreeContext(ctx))
 }
 
 // @Tags PC端-角色管理
@@ -55,12 +53,11 @@ func (h *AdminRoleHandler) GetApplicationPermissionTree(ctx context.Context, c *
 // @Param name formData string true "角色名称"
 // @Param remark formData string false "备注"
 // @Param sort formData int false "排序"
-// @Param dataScope formData int false "数据权限范围(1=全部 2=自定义)"
+// @Param dataScope formData int false "数据权限范围(1=全部 2=本部门及子部门 3=本人 4=自定义部门)"
 // @Param adminPermissionKeys formData string false "后台权限编码列表(逗号分隔)"
 // @Param adminApiPermissionKeys formData string false "后台接口权限编码列表(逗号分隔)"
 // @Param deptIds formData string false "部门ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/role/add [post]
 func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	remark := c.PostForm("remark")
@@ -104,12 +101,11 @@ func (h *AdminRoleHandler) AddRole(ctx context.Context, c *app.RequestContext) {
 // @Param remark formData string false "备注"
 // @Param sort formData int false "排序"
 // @Param status formData int false "状态(1=启用 0=禁用)"
-// @Param dataScope formData int false "数据权限范围"
+// @Param dataScope formData int false "数据权限范围(1=全部 2=本部门及子部门 3=本人 4=自定义部门)"
 // @Param adminPermissionKeys formData string false "后台权限编码列表(逗号分隔)"
 // @Param adminApiPermissionKeys formData string false "后台接口权限编码列表(逗号分隔)"
 // @Param deptIds formData string false "部门ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/role/edit [post]
 func (h *AdminRoleHandler) EditRole(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	name := c.PostForm("name")
@@ -186,7 +182,6 @@ func parsePermissionKeys(value string) []string {
 // @Summary 删除角色
 // @Param id formData string true "角色ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/role/del [post]
 func (h *AdminRoleHandler) DelRole(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if id == 0 {
@@ -204,7 +199,6 @@ func (h *AdminRoleHandler) DelRole(ctx context.Context, c *app.RequestContext) {
 // @Summary 批量删除角色
 // @Param ids formData string true "角色ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/role/dels [post]
 func (h *AdminRoleHandler) DelRoles(ctx context.Context, c *app.RequestContext) {
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {

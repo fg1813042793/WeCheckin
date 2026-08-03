@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	"wecheckin-backend/backend/pkg/passwordutil"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/passwordutil"
 )
 
 func RegisterUser(userID, mobile, name, pic string, forms interface{}, status int, addIP, device string) (*LoginResponse, error) {

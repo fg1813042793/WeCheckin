@@ -82,7 +82,7 @@ const routeIconMatches = adminRoutesSource.matchAll(/icon:\s*['"]([^'"]+)['"]/g)
 for (const match of routeIconMatches) {
   const iconName = match[1]
   if (!Object.prototype.hasOwnProperty.call(ElementPlusIconsVue, iconName)) {
-    throw new Error(`admin fallback menu icon does not exist in Element Plus: ${iconName}`)
+    throw new Error(`admin route icon does not exist in Element Plus: ${iconName}`)
   }
 }
 

@@ -31,6 +31,25 @@ func TestV2AdminRoutesExposePermissionResource(t *testing.T) {
 	}
 }
 
+func TestV2AdminRoutesExposePositionResource(t *testing.T) {
+	src, err := os.ReadFile("routes_v2.go")
+	if err != nil {
+		t.Fatalf("read routes_v2.go: %v", err)
+	}
+	text := string(src)
+	for _, want := range []string{
+		`adminposition.NewAdminPositionHandler()`,
+		`admin.GET("/positions", aPosition.GetPositionList)`,
+		`admin.POST("/positions", aPosition.AddPosition)`,
+		`admin.PUT("/positions/:id", withFormID(aPosition.EditPosition))`,
+		`admin.DELETE("/positions/:id", withFormID(aPosition.DelPosition))`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("routes_v2.go missing position resource route %s", want)
+		}
+	}
+}
+
 func TestBackendNoLongerRegistersLegacyAdminPermissionRoutes(t *testing.T) {
 	routesSrc, err := os.ReadFile("routes.go")
 	if err != nil {
@@ -46,7 +65,7 @@ func TestBackendNoLongerRegistersLegacyAdminPermissionRoutes(t *testing.T) {
 	}
 }
 
-func TestAdminHandlersDoNotDocumentLegacyAdminRoutes(t *testing.T) {
+func TestAdminHandlersDoNotDeclareDuplicateSwaggerRoutes(t *testing.T) {
 	root := filepath.Join("..", "internal", "app", "handler", "admin")
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -59,8 +78,8 @@ func TestAdminHandlersDoNotDocumentLegacyAdminRoutes(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if strings.Contains(string(src), "@Router /admin") {
-			t.Fatalf("%s must document /api/v2/admin routes instead of legacy /admin routes", path)
+		if strings.Contains(string(src), "@Router ") {
+			t.Fatalf("%s must not declare Swagger routes; keep admin route docs centralized in routes_v2_swagger.go", path)
 		}
 		return nil
 	})

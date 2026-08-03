@@ -6,16 +6,15 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	eventservice "wecheckin-backend/backend/internal/app/service/event"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	eventservice "wecheckin/backend/internal/app/service/event"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 // @Tags PC端-赛事活动管理
 // @Summary 获取活动参与成员列表
 // @Param eventId query string true "活动ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_participant_list [get]
 func (h *AdminEventHandler) GetEventParticipantList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -36,7 +35,6 @@ func (h *AdminEventHandler) GetEventParticipantList(ctx context.Context, c *app.
 // @Summary 删除活动参与成员
 // @Param id formData string true "参与记录ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_participant_del [post]
 func (h *AdminEventHandler) DelEventParticipant(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -57,7 +55,6 @@ func (h *AdminEventHandler) DelEventParticipant(ctx context.Context, c *app.Requ
 // @Param id formData string true "参与记录ID"
 // @Param forms formData string false "表单数据(JSON)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_participant_edit [post]
 func (h *AdminEventHandler) EditEventParticipant(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -78,7 +75,6 @@ func (h *AdminEventHandler) EditEventParticipant(ctx context.Context, c *app.Req
 // @Summary 批量删除活动参与成员
 // @Param ids formData string true "参与记录ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/event_participant_dels [post]
 func (h *AdminEventHandler) DelEventParticipants(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -99,7 +95,6 @@ func (h *AdminEventHandler) DelEventParticipants(ctx context.Context, c *app.Req
 // @Summary 获取部门用户列表
 // @Param deptIds query string true "部门ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
-// @Router /admin/dept_users [get]
 func (h *AdminEventHandler) GetDeptUsers(ctx context.Context, c *app.RequestContext) {
 	deptIDsStr := c.Query("deptIds")
 	if deptIDsStr == "" {

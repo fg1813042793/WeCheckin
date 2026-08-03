@@ -6,9 +6,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type ResourceInput struct {
@@ -83,7 +83,7 @@ func DeleteSurveyResourceForAdminContext(ctx context.Context, id uint, adminID u
 		if err := tx.First(&res, id).Error; err != nil {
 			return err
 		}
-		queryBuilder, err := access.ScopedResourceQueryContext(ctx, tx, adminID, &model.Survey{}, "`survey_dept_id`", "`survey_create_by`")
+		queryBuilder, err := access.ScopedResourceQueryByFieldsContext(ctx, tx, adminID, &model.Survey{}, access.SurveyAuditFields)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func DeleteExamResourceForAdminContext(ctx context.Context, id uint, adminID uin
 		if err := tx.First(&res, id).Error; err != nil {
 			return err
 		}
-		queryBuilder, err := access.ScopedResourceQueryContext(ctx, tx, adminID, &model.Exam{}, "`exam_dept_id`", "`exam_create_by`")
+		queryBuilder, err := access.ScopedResourceQueryByFieldsContext(ctx, tx, adminID, &model.Exam{}, access.ExamAuditFields)
 		if err != nil {
 			return err
 		}

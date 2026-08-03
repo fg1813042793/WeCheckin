@@ -15,7 +15,7 @@ func TestAdminContentProjectOperationsUseAdminScopedQueries(t *testing.T) {
 			file: "news.go",
 			required: []string{
 				"func scopedNewsQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error)",
-				"access.ScopedResourceQueryContext(ctx, db, adminID, &model.News{}, \"`news_dept_id`\", \"`news_create_by`\")",
+				"access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.News{}, access.NewsAuditFields)",
 				"func GetNewsDetailForAdminContext(ctx context.Context, id string, adminID uint)",
 				"func EditNewsForAdminContext(",
 				"func DelNewsForAdminContext(ctx context.Context, id string, adminID uint) error",
@@ -26,7 +26,7 @@ func TestAdminContentProjectOperationsUseAdminScopedQueries(t *testing.T) {
 			file: "enroll.go",
 			required: []string{
 				"func scopedEnrollQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error)",
-				"access.ScopedResourceQueryContext(ctx, db, adminID, &model.Enroll{}, \"`enroll_dept_id`\", \"`enroll_create_by`\")",
+				"access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Enroll{}, access.EnrollAuditFields)",
 				"func GetEnrollDetailForAdminContext(ctx context.Context, id string, adminID uint)",
 				"func EditEnrollForAdminContext(",
 				"func DelEnrollForAdminContext(ctx context.Context, id string, adminID uint) error",

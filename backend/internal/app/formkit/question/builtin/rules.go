@@ -1,8 +1,8 @@
 package builtin
 
 import (
-	"wecheckin-backend/backend/internal/app/formkit/question"
-	"wecheckin-backend/backend/internal/app/formkit/schema"
+	"wecheckin/backend/internal/app/formkit/question"
+	"wecheckin/backend/internal/app/formkit/schema"
 )
 
 // runSchemaRules 跑 schema 里的 Validate 规则（maxLength/minLength/pattern/required）。

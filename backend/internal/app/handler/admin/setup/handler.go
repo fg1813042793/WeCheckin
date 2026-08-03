@@ -5,9 +5,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	setupservice "wecheckin-backend/backend/internal/app/service/setup"
-	"wecheckin-backend/backend/pkg/response"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	setupservice "wecheckin/backend/internal/app/service/setup"
+	"wecheckin/backend/pkg/response"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 type AdminSetupHandler struct{}
@@ -19,7 +19,6 @@ func NewAdminSetupHandler() *AdminSetupHandler { return &AdminSetupHandler{} }
 // @Param key formData string true "设置键名"
 // @Param value formData string true "设置值"
 // @Success 200 {object} response.Resp
-// @Router /admin/setup_set [post]
 func (h *AdminSetupHandler) SetSetup(ctx context.Context, c *app.RequestContext) {
 	key := c.PostForm("key")
 	value := c.PostForm("value")
@@ -38,7 +37,6 @@ func (h *AdminSetupHandler) SetSetup(ctx context.Context, c *app.RequestContext)
 // @Param key formData string true "设置键名"
 // @Param value formData string true "设置值"
 // @Success 200 {object} response.Resp
-// @Router /admin/setup_set_content [post]
 func (h *AdminSetupHandler) SetContentSetup(ctx context.Context, c *app.RequestContext) {
 	key := c.PostForm("key")
 	value := c.PostForm("value")
@@ -57,7 +55,6 @@ func (h *AdminSetupHandler) SetContentSetup(ctx context.Context, c *app.RequestC
 // @Param page query string false "页面路径"
 // @Param scene query string false "场景值"
 // @Success 200 {object} response.Resp
-// @Router /admin/setup_qr [get]
 func (h *AdminSetupHandler) GenMiniQr(ctx context.Context, c *app.RequestContext) {
 	response.Fail(c, "该功能暂不开放")
 }
@@ -65,12 +62,16 @@ func (h *AdminSetupHandler) GenMiniQr(ctx context.Context, c *app.RequestContext
 func (h *AdminSetupHandler) DebugTokenConfig(ctx context.Context, c *app.RequestContext) {
 	userExpire, userPrefix := tokenutil.GetTokenConfig("user")
 	adminExpire, adminPrefix := tokenutil.GetTokenConfig("admin")
+	dingTalkH5Expire, dingTalkH5Prefix := tokenutil.GetTokenConfig("dingtalk_h5")
 	response.JSON(c, map[string]interface{}{
-		"user_expire_seconds":  int(userExpire.Seconds()),
-		"user_expire_str":      userExpire.String(),
-		"user_prefix":          userPrefix,
-		"admin_expire_seconds": int(adminExpire.Seconds()),
-		"admin_expire_str":     adminExpire.String(),
-		"admin_prefix":         adminPrefix,
+		"user_expire_seconds":        int(userExpire.Seconds()),
+		"user_expire_str":            userExpire.String(),
+		"user_prefix":                userPrefix,
+		"admin_expire_seconds":       int(adminExpire.Seconds()),
+		"admin_expire_str":           adminExpire.String(),
+		"admin_prefix":               adminPrefix,
+		"dingtalk_h5_expire_seconds": int(dingTalkH5Expire.Seconds()),
+		"dingtalk_h5_expire_str":     dingTalkH5Expire.String(),
+		"dingtalk_h5_prefix":         dingTalkH5Prefix,
 	})
 }

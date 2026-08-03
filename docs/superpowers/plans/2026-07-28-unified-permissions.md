@@ -4,7 +4,7 @@
 
 **Goal:** 建立 `permissions` + `permission_grants` 统一权限底座，并让后台登录、菜单、按钮和数据权限优先读取统一授权。
 
-**Architecture:** 第一阶段新增统一权限模型和服务，迁移旧 `menus/role_menus/role_depts` 数据后清理旧角色授权关系表，业务读取统一授权表。角色表单继续使用菜单树交互，但保存只写统一授权；用户独立授权先提供后端能力和轻量表单字段。
+**Architecture:** 统一权限模型和服务以 `permissions`、`permission_grants` 为唯一运行时来源；历史 `menus/role_menus/role_depts` 仅由维护脚本做一次性迁移和清理。角色表单继续使用菜单树交互，但保存只写统一授权；用户独立授权先提供后端能力和轻量表单字段。
 
 **Tech Stack:** Go、GORM、MySQL、Hertz、Vue 3、Element Plus、uni-app。
 
@@ -44,7 +44,7 @@ Create the two model structs with stable table names and add them to `autoMigrat
 
 - [ ] **Step 4: Add migration SQL**
 
-Create tables, seed `admin:login` and `data:*`, migrate `menus` to `permissions`, migrate `role_menus` and data scope to `permission_grants`.
+Create tables, seed `admin:login` and `data:*`, migrate historical `menus`/`role_menus`/data scope to `permissions` and `permission_grants` only when maintaining an old database.
 
 - [ ] **Step 5: Run tests**
 

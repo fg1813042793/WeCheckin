@@ -6,12 +6,12 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"wecheckin-backend/backend/internal/app/support/adminaccess"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
-	rd "wecheckin-backend/backend/pkg/redis"
-	"wecheckin-backend/backend/pkg/tokenutil"
+	"wecheckin/backend/internal/app/support/adminaccess"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
+	rd "wecheckin/backend/pkg/redis"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 func GetOnlineAdmins() ([]AdminSession, error) {

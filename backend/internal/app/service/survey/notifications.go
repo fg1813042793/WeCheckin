@@ -3,8 +3,8 @@ package survey
 import (
 	"context"
 
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type NotificationQuery struct {

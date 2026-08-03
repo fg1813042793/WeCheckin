@@ -7,11 +7,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin-backend/backend/internal/app/support/access"
-	"wecheckin-backend/backend/internal/app/support/media"
-	"wecheckin-backend/backend/internal/app/support/query"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/database"
+	"wecheckin/backend/internal/app/support/access"
+	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/app/support/query"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/database"
 )
 
 type enrollObj struct {
@@ -23,9 +23,11 @@ var adminEnrollListColumns = []string{
 	"id",
 	"enroll_title",
 	"enroll_status",
-	"enroll_dept_id",
+	"create_dept_id",
 	"enroll_publish_dept_ids",
-	"enroll_create_by",
+	"create_by",
+	"update_by",
+	"update_dept_id",
 	"enroll_cate_id",
 	"enroll_cate_name",
 	"enroll_start",
@@ -40,8 +42,8 @@ var adminEnrollListColumns = []string{
 	"enroll_view_cnt",
 	"enroll_join_cnt",
 	"enroll_user_cnt",
-	"enroll_add_time",
-	"enroll_edit_time",
+	"add_time",
+	"edit_time",
 }
 
 func decodeEnrollObj(raw string) enrollObj {
@@ -78,7 +80,7 @@ func GetAdminEnrollListContext(ctx context.Context, keyword, sortStr string, pag
 	if keyword != "" {
 		queryBuilder = queryBuilder.Where("`enroll_title` LIKE ?", "%"+keyword+"%")
 	}
-	where, args := access.DataScopeFilterContext(ctx, &admin, "`enroll_dept_id`", "`enroll_create_by`")
+	where, args := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.EnrollAuditFields)
 	if where != "" {
 		queryBuilder = queryBuilder.Where(where, args...)
 	}
@@ -90,10 +92,10 @@ func GetAdminEnrollListContext(ctx context.Context, keyword, sortStr string, pag
 		"isVouch": "enroll_vouch",
 		"userCnt": "enroll_user_cnt",
 		"joinCnt": "enroll_join_cnt",
-		"addTime": "enroll_add_time",
+		"addTime": "add_time",
 	})
 	if orderClause == "" {
-		orderClause = "`enroll_add_time` DESC"
+		orderClause = "`add_time` DESC"
 	}
 	err := queryBuilder.Select(adminEnrollListColumns).Order(orderClause).Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
 	if err != nil {
@@ -116,7 +118,7 @@ func GetAdminEnrollListContext(ctx context.Context, keyword, sortStr string, pag
 }
 
 func scopedEnrollQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
-	return access.ScopedResourceQueryContext(ctx, db, adminID, &model.Enroll{}, "`enroll_dept_id`", "`enroll_create_by`")
+	return access.ScopedResourceQueryByFieldsContext(ctx, db, adminID, &model.Enroll{}, access.EnrollAuditFields)
 }
 
 func loadEnrollUserCountMapContext(ctx context.Context, db *gorm.DB, list []model.Enroll) (map[uint]int, error) {
@@ -449,6 +451,9 @@ func InsertEnrollContext(ctx context.Context, title, cateID, cateName, forms, jo
 		PublishDeptIds: publishDeptIds,
 		CreateBy:       createBy,
 		AddTime:        database.Now(),
+		EditTime:       database.Now(),
+		UpdateBy:       createBy,
+		UpdateDeptID:   deptID,
 		AddIP:          addIP,
 	}
 	return db.Create(&enroll).Error
@@ -474,10 +479,11 @@ func EditEnrollContext(ctx context.Context, id, title, cateID, cateName, forms, 
 		"enroll_join_forms":       joinForms,
 		"enroll_repeat":           allowRepeat,
 		"enroll_limit":            dailyLimit,
-		"enroll_dept_id":          deptID,
+		"create_dept_id":          deptID,
+		"update_dept_id":          deptID,
 		"enroll_publish_dept_ids": publishDeptIds,
 		"enroll_qr":               qr,
-		"enroll_edit_time":        database.Now(),
+		"edit_time":               database.Now(),
 		"enroll_edit_ip":          addIP,
 	}
 	if obj != "" {
@@ -502,10 +508,12 @@ func EditEnrollForAdminContext(ctx context.Context, id, title, cateID, cateName,
 		"enroll_join_forms":       joinForms,
 		"enroll_repeat":           allowRepeat,
 		"enroll_limit":            dailyLimit,
-		"enroll_dept_id":          deptID,
+		"create_dept_id":          deptID,
+		"update_by":               adminID,
+		"update_dept_id":          deptID,
 		"enroll_publish_dept_ids": publishDeptIds,
 		"enroll_qr":               qr,
-		"enroll_edit_time":        database.Now(),
+		"edit_time":               database.Now(),
 		"enroll_edit_ip":          addIP,
 	}
 	if obj != "" {

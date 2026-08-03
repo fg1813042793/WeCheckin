@@ -9,8 +9,8 @@
       </div>
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('role:add')" type="success" @click="showAdd">+ 新增角色</el-button>
-          <el-button v-if="hasPerm('role:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+          <el-button v-if="hasPerm('admin:menu:role:add')" type="success" @click="showAdd">+ 新增角色</el-button>
+          <el-button v-if="hasPerm('admin:menu:role:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="loadList" />
@@ -58,8 +58,8 @@
         <el-table-column label="操作" width="260">
           <template #default="{ row }">
             <div class="admin-table-actions">
-              <el-button v-if="hasPerm('role:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <el-popconfirm v-if="hasPerm('role:del')" title="确定删除该角色？" @confirm="handleDel(row)">
+              <el-button v-if="hasPerm('admin:menu:role:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
+              <el-popconfirm v-if="hasPerm('admin:menu:role:del')" title="确定删除该角色？" @confirm="handleDel(row)">
                 <template #reference>
                   <el-button size="small" type="danger">删除</el-button>
                 </template>
@@ -92,6 +92,12 @@
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
         </el-form-item>
+        <el-form-item label="状态" v-if="!dialog.isCreate">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">停用</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="数据范围">
           <el-radio-group v-model="form.dataScope">
             <el-radio :value="1">全部数据</el-radio>
@@ -100,9 +106,7 @@
             <el-radio :value="4">自定义</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="后台入口">
-          <el-switch v-model="form.allowAdminLogin" active-text="授权" inactive-text="不授权" />
-        </el-form-item>
+
         <el-form-item label="部门选择" v-if="form.dataScope === 4">
           <el-popover trigger="click" placement="bottom-start" :width="400">
             <template #reference>
@@ -122,6 +126,9 @@
           </el-popover>
         </el-form-item>
         <el-divider content-position="left">后台权限</el-divider>
+        <el-form-item label="后台入口">
+          <el-switch v-model="form.allowAdminLogin" active-text="授权" inactive-text="不授权" />
+        </el-form-item>
         <el-form-item label="权限配置" class="permission-form-item">
           <div class="permission-layout">
             <section class="permission-column permission-column--menu">
@@ -166,7 +173,7 @@
           </div>
         </el-form-item>
         <el-divider content-position="left">应用权限</el-divider>
-        <el-form-item label="权限配置" class="permission-form-item">
+        <el-form-item label="权限配置" class="permission-form-item permission-form-item--application">
           <div class="permission-layout">
             <section class="permission-column permission-column--menu">
               <div class="permission-column__header">
@@ -182,20 +189,20 @@
                   show-checkbox
                   check-strictly
                   node-key="key"
-                  :default-checked-keys="form.clientMenuKeys"
+                  :default-checked-keys="clientMenuCheckedKeys"
                   @check="onClientMenuCheck"
                   class="permission-tree"
                 />
               </div>
               <div class="permission-panel">
-                <div class="permission-panel__title">钉钉 H5 菜单</div>
+                <div class="permission-panel__title">钉钉 H5 菜单/按钮</div>
                 <el-tree
                   ref="dingtalkH5MenuTreeRef"
                   :data="dingtalkH5MenuTreeData"
                   :props="{ label: 'name', children: 'children' }"
                   show-checkbox
                   node-key="key"
-                  :default-checked-keys="form.dingtalkH5MenuKeys"
+                  :default-checked-keys="dingtalkH5MenuCheckedKeys"
                   @check="onDingTalkH5MenuCheck"
                   class="permission-tree"
                 />
@@ -214,7 +221,7 @@
                   :props="{ label: 'name', children: 'children' }"
                   show-checkbox
                   node-key="key"
-                  :default-checked-keys="form.clientApiPermissionKeys"
+                  :default-checked-keys="clientApiCheckedKeys"
                   @check="onClientApiCheck"
                   class="permission-tree"
                 />
@@ -227,7 +234,7 @@
                   :props="{ label: 'name', children: 'children' }"
                   show-checkbox
                   node-key="key"
-                  :default-checked-keys="form.dingtalkH5ApiPermissionKeys"
+                  :default-checked-keys="dingtalkH5ApiCheckedKeys"
                   @check="onDingTalkH5ApiCheck"
                   class="permission-tree"
                 />
@@ -235,12 +242,7 @@
             </section>
           </div>
         </el-form-item>
-        <el-form-item label="状态" v-if="!dialog.isCreate">
-          <el-radio-group v-model="form.status">
-            <el-radio :value="1">启用</el-radio>
-            <el-radio :value="0">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
+
       </el-form>
       <template #footer>
         <el-button @click="dialog.visible = false">取消</el-button>
@@ -301,6 +303,11 @@ const form = reactive({
   clientApiPermissionKeys: [] as string[],
   dingtalkH5ApiPermissionKeys: [] as string[]
 })
+
+const clientMenuCheckedKeys = computed(() => checkableKeysForTree(form.clientMenuKeys, clientMenuTreeData.value))
+const dingtalkH5MenuCheckedKeys = computed(() => checkableKeysForTree(form.dingtalkH5MenuKeys, dingtalkH5MenuTreeData.value))
+const clientApiCheckedKeys = computed(() => checkableKeysForTree(form.clientApiPermissionKeys, clientApiTreeData.value))
+const dingtalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(form.dingtalkH5ApiPermissionKeys, dingtalkH5ApiTreeData.value))
 
 function dataScopeLabel(v: number) {
   return { 1: '全部数据', 2: '本部门', 3: '本人', 4: '自定义' }[v] || '全部数据'
@@ -369,6 +376,8 @@ async function loadApplicationPermissionTree() {
     if (clientMenuTreeData.value.length === 0 && dingtalkH5MenuTreeData.value.length === 0 && clientApiTreeData.value.length === 0 && dingtalkH5ApiTreeData.value.length === 0) {
       ElMessage.warning('应用权限配置为空，请确认后端已启动最新版本')
     }
+    await nextTick()
+    if (dialog.visible) setApplicationPermissionTreeKeys()
   } catch {
     clientMenuTreeData.value = []
     dingtalkH5MenuTreeData.value = []
@@ -400,10 +409,7 @@ function showAdd() {
     menuTreeRef.value?.setCheckedKeys([])
     apiTreeRef.value?.setCheckedKeys([])
     deptTreeRef.value?.setCheckedKeys([])
-    clientMenuTreeRef.value?.setCheckedKeys([])
-    dingtalkH5MenuTreeRef.value?.setCheckedKeys([])
-    clientApiTreeRef.value?.setCheckedKeys([])
-    dingtalkH5ApiTreeRef.value?.setCheckedKeys([])
+    setApplicationPermissionTreeKeys()
   })
 }
 
@@ -429,10 +435,7 @@ function showEdit(row: any) {
     menuTreeRef.value?.setCheckedKeys(form.adminPermissionKeys)
     apiTreeRef.value?.setCheckedKeys(form.adminApiPermissionKeys)
     deptTreeRef.value?.setCheckedKeys(form.deptIds)
-    clientMenuTreeRef.value?.setCheckedKeys(form.clientMenuKeys)
-    dingtalkH5MenuTreeRef.value?.setCheckedKeys(form.dingtalkH5MenuKeys)
-    clientApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(form.clientApiPermissionKeys, clientApiTreeData.value))
-    dingtalkH5ApiTreeRef.value?.setCheckedKeys(checkableKeysForTree(form.dingtalkH5ApiPermissionKeys, dingtalkH5ApiTreeData.value))
+    setApplicationPermissionTreeKeys()
   })
 }
 
@@ -481,6 +484,13 @@ function onDingTalkH5ApiCheck() {
     const checked = dingtalkH5ApiTreeRef.value?.getCheckedKeys() || []
     form.dingtalkH5ApiPermissionKeys = checked.filter((key: string) => key.startsWith('dingtalk_h5:api:'))
   })
+}
+
+function setApplicationPermissionTreeKeys() {
+  clientMenuTreeRef.value?.setCheckedKeys(clientMenuCheckedKeys.value)
+  dingtalkH5MenuTreeRef.value?.setCheckedKeys(dingtalkH5MenuCheckedKeys.value)
+  clientApiTreeRef.value?.setCheckedKeys(clientApiCheckedKeys.value)
+  dingtalkH5ApiTreeRef.value?.setCheckedKeys(dingtalkH5ApiCheckedKeys.value)
 }
 
 function checkableKeysForTree(keys: string[], nodes: any[]) {
@@ -641,7 +651,18 @@ onMounted(() => { loadList(); loadMenuTree(); loadApiTree(); loadDeptTree(); loa
   background: #fff;
   box-shadow: 0 6px 16px rgba(29, 41, 57, 0.04);
 }
+.permission-form-item:not(.permission-form-item--application) .permission-panel {
+  height: 270px;
+  display: flex;
+  flex-direction: column;
+}
+.permission-form-item--application .permission-panel {
+  height: 270px;
+  display: flex;
+  flex-direction: column;
+}
 .permission-panel__title {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   min-height: 38px;
@@ -662,6 +683,16 @@ onMounted(() => { loadList(); loadMenuTree(); loadApiTree(); loadDeptTree(); loa
 }
 .permission-column--api .permission-panel__title::before {
   background: #14b8a6;
+}
+.permission-form-item:not(.permission-form-item--application) .permission-tree {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+}
+.permission-form-item--application .permission-tree {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
 }
 .permission-tree :deep(.el-tree__empty-block) {
   min-height: 150px;

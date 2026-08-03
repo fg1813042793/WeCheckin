@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"wecheckin-backend/backend/internal/app/handler/internal/param"
-	adminauthservice "wecheckin-backend/backend/internal/app/service/adminauth"
-	adminmgrservice "wecheckin-backend/backend/internal/app/service/adminmgr"
-	"wecheckin-backend/backend/internal/model"
-	"wecheckin-backend/backend/pkg/response"
+	"wecheckin/backend/internal/app/handler/internal/param"
+	adminauthservice "wecheckin/backend/internal/app/service/adminauth"
+	adminmgrservice "wecheckin/backend/internal/app/service/adminmgr"
+	"wecheckin/backend/internal/model"
+	"wecheckin/backend/pkg/response"
 )
 
 type AdminMgrHandler struct{}
@@ -22,7 +22,6 @@ func NewAdminMgrHandler() *AdminMgrHandler { return &AdminMgrHandler{} }
 // @Param name formData string true "用户名"
 // @Param password formData string true "密码"
 // @Success 200 {object} response.Resp
-// @Router /admin/login [post]
 func (h *AdminMgrHandler) AdminLogin(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	password := c.PostForm("password")
@@ -42,7 +41,6 @@ func (h *AdminMgrHandler) AdminLogin(ctx context.Context, c *app.RequestContext)
 // @Tags PC端-管理员管理
 // @Summary 获取管理员列表
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_list [get]
 func (h *AdminMgrHandler) GetMgrList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
 	admin := adminVal.(*model.Admin)
@@ -70,7 +68,6 @@ func (h *AdminMgrHandler) GetMgrList(ctx context.Context, c *app.RequestContext)
 // @Param desc formData string false "描述"
 // @Param phone formData string false "手机号"
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_insert [post]
 func (h *AdminMgrHandler) InsertMgr(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	password := c.PostForm("password")
@@ -92,7 +89,6 @@ func (h *AdminMgrHandler) InsertMgr(ctx context.Context, c *app.RequestContext) 
 // @Summary 删除管理员
 // @Param id formData string true "管理员ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_del [post]
 func (h *AdminMgrHandler) DelMgr(ctx context.Context, c *app.RequestContext) {
 	id := c.PostForm("id")
 	err := adminmgrservice.DeleteContext(ctx, id)
@@ -121,7 +117,6 @@ func (h *AdminMgrHandler) DelMgrs(ctx context.Context, c *app.RequestContext) {
 // @Summary 获取管理员详情
 // @Param id query string true "管理员ID"
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_detail [get]
 func (h *AdminMgrHandler) GetMgrDetail(ctx context.Context, c *app.RequestContext) {
 	id := c.Query("id")
 	data, err := adminmgrservice.GetDetailContext(ctx, id)
@@ -139,7 +134,6 @@ func (h *AdminMgrHandler) GetMgrDetail(ctx context.Context, c *app.RequestContex
 // @Param desc formData string false "描述"
 // @Param phone formData string false "手机号"
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_edit [post]
 func (h *AdminMgrHandler) EditMgr(ctx context.Context, c *app.RequestContext) {
 	id := c.PostForm("id")
 	name := c.PostForm("name")
@@ -163,7 +157,6 @@ func (h *AdminMgrHandler) EditMgr(ctx context.Context, c *app.RequestContext) {
 // @Param id formData string true "管理员ID"
 // @Param status formData string true "状态"
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_status [post]
 func (h *AdminMgrHandler) StatusMgr(ctx context.Context, c *app.RequestContext) {
 	id := c.PostForm("id")
 	status, _ := strconv.Atoi(c.PostForm("status"))
@@ -180,7 +173,6 @@ func (h *AdminMgrHandler) StatusMgr(ctx context.Context, c *app.RequestContext) 
 // @Param id formData string true "管理员ID"
 // @Param password formData string true "新密码"
 // @Success 200 {object} response.Resp
-// @Router /admin/mgr_pwd [post]
 func (h *AdminMgrHandler) PwdMgr(ctx context.Context, c *app.RequestContext) {
 	adminVal, exists := c.Get("admin")
 	if !exists {

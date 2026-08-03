@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	homeservice "wecheckin-backend/backend/internal/app/service/home"
-	setupservice "wecheckin-backend/backend/internal/app/service/setup"
-	"wecheckin-backend/backend/pkg/response"
+	homeservice "wecheckin/backend/internal/app/service/home"
+	setupservice "wecheckin/backend/internal/app/service/setup"
+	"wecheckin/backend/pkg/response"
 )
 
 type HomeHandler struct{}
