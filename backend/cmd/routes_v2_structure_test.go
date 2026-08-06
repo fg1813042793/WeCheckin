@@ -24,7 +24,7 @@ func TestV2AdminRoutesExposeRESTfulResources(t *testing.T) {
 	}
 	text := string(src)
 	required := []string{
-		`h.Group("/api/v2/admin", middleware.AdminAuth(), middleware.AdminPerm())`,
+		`h.Group("/api/v2/admin", adminmw.AdminAuth(), adminmw.AdminPerm())`,
 		`admin.GET("/users", aUser.GetUserList)`,
 		`admin.POST("/users", aUser.AddUser)`,
 		`admin.GET("/users/:id", withQueryID(aUser.GetUserByID))`,

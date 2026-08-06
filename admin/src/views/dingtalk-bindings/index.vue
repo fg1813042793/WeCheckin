@@ -35,6 +35,7 @@
               <el-button type="success" :disabled="!canCreateBinding" @click="openCreate">+ 新增绑定</el-button>
             </span>
           </el-tooltip>
+          <el-button plain @click="fieldHelpVisible = true">说明文件</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="loadBindings" />
@@ -177,6 +178,33 @@
         <el-button type="primary" :loading="saving" :disabled="!canEdit" @click="saveBinding">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="fieldHelpVisible" title="钉钉用户绑定字段说明" width="720px" class="binding-field-help-dialog">
+      <div class="binding-field-help">
+        <section class="binding-field-help__section">
+          <h3>企业</h3>
+          <p>对应“钉钉应用管理 / 配置选项”里的企业应用配置。绑定记录必须选择用户所属企业，同一员工在不同企业下的钉钉身份可能不同。</p>
+        </section>
+        <section class="binding-field-help__section">
+          <h3>钉钉 UserId</h3>
+          <p>员工在当前企业通讯录中的用户 UserId。可在钉钉管理后台通讯录成员详情、通讯录导出数据中查看，也可通过钉钉免登录返回的用户信息获取。</p>
+        </section>
+        <section class="binding-field-help__section">
+          <h3>UnionId</h3>
+          <p>钉钉开放平台的用户统一标识。可通过钉钉用户详情接口或免登录用户信息接口获取；如果暂时没有 UnionId，可以先使用钉钉 UserId 完成绑定。</p>
+        </section>
+        <section class="binding-field-help__section">
+          <h3>本地用户</h3>
+          <p>对应本系统“用户管理”里的账号。免登录时系统会根据所选企业下的钉钉 UserId / UnionId 找到绑定的本地用户，并以该用户身份进入系统。</p>
+        </section>
+        <div class="binding-field-help__note">
+          保存前请确认钉钉 UserId、UnionId 与所选企业一致；跨企业或迁移企业后，需要为新的企业应用重新维护绑定关系。
+        </div>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="fieldHelpVisible = false">知道了</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -248,6 +276,7 @@ const createDisabledTip = computed(() => {
 const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
+const fieldHelpVisible = ref(false)
 const list = ref<BindingRow[]>([])
 const total = ref(0)
 const corpOptions = ref<CorpOption[]>([])
@@ -466,6 +495,43 @@ onMounted(loadBindings)
 .user-tree-node--dept .user-tree-node__label {
   color: #334155;
   font-weight: 600;
+}
+
+.binding-field-help {
+  display: grid;
+  gap: 12px;
+  color: #334155;
+}
+
+.binding-field-help__section {
+  padding: 14px 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.binding-field-help__section h3 {
+  margin: 0 0 8px;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.binding-field-help__section p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.binding-field-help__note {
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 </style>

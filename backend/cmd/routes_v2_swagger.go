@@ -578,6 +578,13 @@ func swaggerV2AdminDingTalkSettingsGet() {}
 func swaggerV2AdminDingTalkSettingsPut() {}
 
 // @Tags API v2-后台管理
+// @Summary 提交 /api/v2/admin/dingtalk/settings/notification-test
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/settings/notification-test [post]
+func swaggerV2AdminDingTalkSettingsNotificationTestPost() {}
+
+// @Tags API v2-后台管理
 // @Summary 查询 /api/v2/admin/dingtalk/user-bindings
 // @Security AdminToken
 // @Success 200 {object} response.Resp

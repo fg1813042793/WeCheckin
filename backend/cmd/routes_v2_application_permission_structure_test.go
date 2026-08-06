@@ -13,7 +13,7 @@ func TestV2ClientRoutesUseClientAPIPermissionMiddleware(t *testing.T) {
 	}
 	text := string(src)
 	for _, snippet := range []string{
-		"middleware.ClientAuth(), middleware.ClientPerm()",
+		"clientmw.ClientAuth(), clientmw.ClientPerm()",
 		`client.GET("/me", pp.GetMyDetail)`,
 		`client.POST("/events/:id/scores", withFormParam("event_id", "id", ev.SaveEventScore))`,
 		`client.PUT("/exam-records/:id/answers", withFormParam("recordId", "id", cExam.SaveAnswer))`,
@@ -31,10 +31,10 @@ func TestV2DingTalkH5RoutesUseAPIPermissionMiddleware(t *testing.T) {
 	}
 	text := string(src)
 	for _, snippet := range []string{
-		"handler.Auth(), handler.ApiPerm()",
-		`auth.GET("/workbench", handler.Workbench)`,
-		`auth.POST("/reviews/:id/finalize", withBodyOrFormParam("id", "id", handler.Finalize))`,
-		`auth.PUT("/users/:id", withBodyOrFormParam("id", "id", handler.UpdateUser))`,
+		"dingtalkh5mw.DingTalkH5Auth(), dingtalkh5mw.DingTalkH5Perm()",
+		`auth.GET("/workbench", handler.Bootstrap.Workbench)`,
+		`auth.POST("/reviews/:id/finalize", withBodyOrFormParam("id", "id", handler.Review.Finalize))`,
+		`auth.PUT("/users/:id", withBodyOrFormParam("id", "id", handler.User.UpdateUser))`,
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("v2 dingtalk h5 routes must use API permission middleware with %s", snippet)

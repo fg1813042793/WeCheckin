@@ -13,13 +13,13 @@ func TestLegacyClientAuthenticatedRoutesUseClientAPIPermissionMiddleware(t *test
 	}
 	text := string(src)
 	required := []string{
-		`h.Group("/passport", middleware.ClientAuth(), middleware.ClientPerm())`,
-		`h.Group("/fav", middleware.ClientAuth(), middleware.ClientPerm())`,
-		`h.Group("/news", middleware.ClientAuth(), middleware.ClientPerm())`,
-		`h.Group("/enroll", middleware.ClientAuth(), middleware.ClientPerm())`,
-		`h.Group("/event", middleware.ClientAuth(), middleware.ClientPerm())`,
-		`h.Group("/survey", middleware.ClientAuth(), middleware.ClientPerm())`,
-		`h.Group("/exam", middleware.ClientAuth(), middleware.ClientPerm())`,
+		`h.Group("/passport", clientmw.ClientAuth(), clientmw.ClientPerm())`,
+		`h.Group("/fav", clientmw.ClientAuth(), clientmw.ClientPerm())`,
+		`h.Group("/news", clientmw.ClientAuth(), clientmw.ClientPerm())`,
+		`h.Group("/enroll", clientmw.ClientAuth(), clientmw.ClientPerm())`,
+		`h.Group("/event", clientmw.ClientAuth(), clientmw.ClientPerm())`,
+		`h.Group("/survey", clientmw.ClientAuth(), clientmw.ClientPerm())`,
+		`h.Group("/exam", clientmw.ClientAuth(), clientmw.ClientPerm())`,
 	}
 	for _, want := range required {
 		if !strings.Contains(text, want) {

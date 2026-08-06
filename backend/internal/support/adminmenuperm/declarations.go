@@ -1,0 +1,137 @@
+package adminmenuperm
+
+type Declaration struct {
+	Key       string
+	Name      string
+	Path      string
+	Perms     string
+	Icon      string
+	Sort      int
+	Type      string
+	ParentKey string
+}
+
+const (
+	TypeDirectory = "directory"
+	TypeMenu      = "menu"
+	TypeButton    = "button"
+)
+
+func Declarations(enableExam bool) []Declaration {
+	items := []Declaration{
+		{Key: "admin:menu:dashboard", Name: "控制台", Path: "/dashboard", Icon: "Odometer", Sort: 1, Type: TypeMenu},
+		{Key: "admin:menu:user", Name: "用户管理", Path: "/user", Perms: "user:list", Icon: "User", Sort: 2, Type: TypeMenu},
+		{Key: "admin:menu:online", Name: "在线用户", Path: "/online", Perms: "online:list", Icon: "Monitor", Sort: 3, Type: TypeMenu},
+		{Key: "admin:menu:enroll", Name: "打卡管理", Path: "/enroll", Perms: "enroll:list", Icon: "List", Sort: 4, Type: TypeMenu},
+		{Key: "admin:menu:news", Name: "内容管理", Path: "/news", Perms: "news:list", Icon: "Document", Sort: 5, Type: TypeMenu},
+		{Key: "admin:menu:mgr", Name: "管理员管理", Path: "/mgr", Perms: "mgr:list", Icon: "Setting", Sort: 6, Type: TypeMenu},
+		{Key: "admin:menu:log", Name: "操作日志", Path: "/log", Perms: "log:list", Icon: "Clock", Sort: 7, Type: TypeMenu},
+		{Key: "admin:menu:dict", Name: "字典管理", Path: "/dict", Perms: "dict:list", Icon: "Notebook", Sort: 8, Type: TypeMenu},
+		{Key: "admin:menu:department", Name: "部门管理", Path: "/department", Perms: "dept:list", Icon: "FolderOpened", Sort: 9, Type: TypeMenu},
+		{Key: "admin:menu:position", Name: "岗位管理", Path: "/position", Perms: "position:list", Icon: "Postcard", Sort: 10, Type: TypeMenu},
+		{Key: "admin:menu:role", Name: "角色管理", Path: "/role", Perms: "role:list", Icon: "UserFilled", Sort: 10, Type: TypeMenu},
+		{Key: "admin:menu:permission", Name: "权限管理", Path: "/menu", Perms: "menu:list", Icon: "Key", Sort: 11, Type: TypeMenu},
+		{Key: "admin:menu:setup", Name: "系统配置", Path: "/setup", Perms: "setup:list,setup:edit", Icon: "Setting", Sort: 12, Type: TypeMenu},
+		{Key: "admin:menu:dingtalk", Name: "钉钉应用管理", Path: "/dingtalk", Icon: "Connection", Sort: 13, Type: TypeDirectory},
+		{Key: "admin:menu:event", Name: "赛事活动", Path: "/event", Perms: "event:list", Icon: "TrophyBase", Sort: 14, Type: TypeMenu},
+		{Key: "admin:menu:survey", Name: "问卷调查", Path: "/survey", Perms: "survey:list", Icon: "List", Sort: 15, Type: TypeDirectory},
+		{Key: "admin:menu:question-exam", Name: "问卷考试", Path: "/question-exam", Perms: "question-bank:list", Icon: "Collection", Sort: 17, Type: TypeDirectory},
+		{Key: "admin:menu:survey:list", Name: "问卷管理", Path: "/survey", Sort: 1, Type: TypeMenu, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:responses", Name: "答卷管理", Path: "/survey/responses", Sort: 2, Type: TypeMenu, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:statistic", Name: "问卷统计", Path: "/survey/statistic", Sort: 3, Type: TypeMenu, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:question-bank", Name: "题库管理", Path: "/question-bank", Sort: 1, Type: TypeMenu, ParentKey: "admin:menu:question-exam"},
+		{Key: "admin:menu:dingtalk:config", Name: "配置选项", Path: "/dingtalk/config", Perms: "dingtalk:settings:list", Sort: 1, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
+		{Key: "admin:menu:dingtalk:bindings", Name: "用户绑定管理", Path: "/dingtalk/bindings", Perms: "dingtalk:bindings:list", Sort: 2, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
+		{Key: "admin:menu:dingtalk:perf-reviews", Name: "绩效考评单", Path: "/dingtalk/perf-reviews", Perms: "dingtalk:perf-reviews:list", Sort: 3, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
+		{Key: "admin:menu:dingtalk:perf-histories", Name: "绩效流转记录", Path: "/dingtalk/perf-histories", Perms: "dingtalk:perf-histories:list", Sort: 4, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
+		{Key: "admin:menu:user:list", Name: "用户列表", Perms: "user:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:user"},
+		{Key: "admin:menu:user:add", Name: "用户新增", Perms: "user:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:user"},
+		{Key: "admin:menu:user:edit", Name: "用户编辑", Perms: "user:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:user"},
+		{Key: "admin:menu:user:del", Name: "用户删除", Perms: "user:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:user"},
+		{Key: "admin:menu:user:status", Name: "用户审核", Perms: "user:status", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:user"},
+		{Key: "admin:menu:online:list", Name: "在线用户列表", Perms: "online:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:online"},
+		{Key: "admin:menu:online:force-offline", Name: "强制下线", Perms: "online:force_offline", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:online"},
+		{Key: "admin:menu:enroll:list", Name: "打卡列表", Perms: "enroll:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:add", Name: "打卡新增", Perms: "enroll:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:edit", Name: "打卡编辑", Perms: "enroll:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:del", Name: "打卡删除", Perms: "enroll:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:status", Name: "打卡状态管理", Perms: "enroll:status", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:vouch", Name: "打卡推荐置顶", Perms: "enroll:vouch", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:export", Name: "导出Excel", Perms: "enroll:export", Sort: 7, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:enroll:users", Name: "查看参与用户", Perms: "enroll:users", Sort: 8, Type: TypeButton, ParentKey: "admin:menu:enroll"},
+		{Key: "admin:menu:news:list", Name: "内容列表", Perms: "news:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:news"},
+		{Key: "admin:menu:news:add", Name: "内容新增", Perms: "news:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:news"},
+		{Key: "admin:menu:news:edit", Name: "内容编辑", Perms: "news:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:news"},
+		{Key: "admin:menu:news:del", Name: "内容删除", Perms: "news:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:news"},
+		{Key: "admin:menu:news:status", Name: "内容停用启用", Perms: "news:status", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:news"},
+		{Key: "admin:menu:news:vouch", Name: "内容置顶", Perms: "news:vouch", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:news"},
+		{Key: "admin:menu:mgr:list", Name: "管理员列表", Perms: "mgr:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:mgr"},
+		{Key: "admin:menu:mgr:add", Name: "管理员新增", Perms: "mgr:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:mgr"},
+		{Key: "admin:menu:mgr:edit", Name: "管理员编辑", Perms: "mgr:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:mgr"},
+		{Key: "admin:menu:mgr:del", Name: "管理员删除", Perms: "mgr:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:mgr"},
+		{Key: "admin:menu:log:list", Name: "日志列表", Perms: "log:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:log"},
+		{Key: "admin:menu:log:del", Name: "日志清空", Perms: "log:del", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:log"},
+		{Key: "admin:menu:dict:list", Name: "字典列表", Perms: "dict:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:dict"},
+		{Key: "admin:menu:dict:add", Name: "字典新增", Perms: "dict:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:dict"},
+		{Key: "admin:menu:dict:edit", Name: "字典编辑", Perms: "dict:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:dict"},
+		{Key: "admin:menu:dict:del", Name: "字典删除", Perms: "dict:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:dict"},
+		{Key: "admin:menu:department:list", Name: "部门列表", Perms: "dept:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:department"},
+		{Key: "admin:menu:department:add", Name: "部门新增", Perms: "dept:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:department"},
+		{Key: "admin:menu:department:edit", Name: "部门编辑", Perms: "dept:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:department"},
+		{Key: "admin:menu:department:del", Name: "部门删除", Perms: "dept:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:department"},
+		{Key: "admin:menu:position:list", Name: "岗位列表", Perms: "position:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:position"},
+		{Key: "admin:menu:position:add", Name: "岗位新增", Perms: "position:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:position"},
+		{Key: "admin:menu:position:edit", Name: "岗位编辑", Perms: "position:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:position"},
+		{Key: "admin:menu:position:del", Name: "岗位删除", Perms: "position:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:position"},
+		{Key: "admin:menu:role:list", Name: "角色列表", Perms: "role:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:role"},
+		{Key: "admin:menu:role:add", Name: "角色新增", Perms: "role:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:role"},
+		{Key: "admin:menu:role:edit", Name: "角色编辑", Perms: "role:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:role"},
+		{Key: "admin:menu:role:del", Name: "角色删除", Perms: "role:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:role"},
+		{Key: "admin:menu:permission:list", Name: "权限列表", Perms: "menu:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:permission"},
+		{Key: "admin:menu:permission:add", Name: "权限新增", Perms: "menu:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:permission"},
+		{Key: "admin:menu:permission:edit", Name: "权限编辑", Perms: "menu:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:permission"},
+		{Key: "admin:menu:permission:del", Name: "权限删除", Perms: "menu:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:permission"},
+		{Key: "admin:menu:dingtalk:config:list", Name: "钉钉配置查看", Perms: "dingtalk:settings:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:dingtalk:config"},
+		{Key: "admin:menu:dingtalk:config:edit", Name: "钉钉配置保存", Perms: "dingtalk:settings:edit", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:dingtalk:config"},
+		{Key: "admin:menu:dingtalk:config:test", Name: "钉钉通知测试", Perms: "dingtalk:settings:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:dingtalk:config"},
+		{Key: "admin:menu:dingtalk:bindings:list", Name: "钉钉用户绑定查看", Perms: "dingtalk:bindings:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:dingtalk:bindings"},
+		{Key: "admin:menu:dingtalk:bindings:edit", Name: "钉钉用户绑定维护", Perms: "dingtalk:bindings:edit", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:dingtalk:bindings"},
+		{Key: "admin:menu:dingtalk:perf-reviews:list", Name: "绩效考评单查看", Perms: "dingtalk:perf-reviews:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:dingtalk:perf-reviews"},
+		{Key: "admin:menu:dingtalk:perf-reviews:detail", Name: "绩效考评单详情", Perms: "dingtalk:perf-reviews:detail", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:dingtalk:perf-reviews"},
+		{Key: "admin:menu:dingtalk:perf-reviews:del", Name: "绩效考评单删除", Perms: "dingtalk:perf-reviews:del", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:dingtalk:perf-reviews"},
+		{Key: "admin:menu:dingtalk:perf-histories:list", Name: "绩效流转记录查看", Perms: "dingtalk:perf-histories:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:dingtalk:perf-histories"},
+		{Key: "admin:menu:dingtalk:perf-histories:del", Name: "绩效流转记录删除", Perms: "dingtalk:perf-histories:del", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:dingtalk:perf-histories"},
+		{Key: "admin:menu:event:list", Name: "赛事活动列表", Perms: "event:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:add", Name: "赛事活动新增", Perms: "event:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:edit", Name: "赛事活动编辑", Perms: "event:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:del", Name: "赛事活动删除", Perms: "event:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:status", Name: "开始结束", Perms: "event:status", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:vouch", Name: "推荐", Perms: "event:vouch", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:top", Name: "置顶", Perms: "event:top", Sort: 7, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:event:users", Name: "参与用户", Perms: "event:users", Sort: 8, Type: TypeButton, ParentKey: "admin:menu:event"},
+		{Key: "admin:menu:survey:button:list", Name: "问卷列表", Perms: "survey:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:add", Name: "问卷新增", Perms: "survey:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:edit", Name: "问卷编辑", Perms: "survey:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:del", Name: "问卷删除", Perms: "survey:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:status", Name: "问卷状态管理", Perms: "survey:status", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:copy", Name: "复制问卷", Perms: "survey:copy", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:response:list", Name: "答卷列表", Perms: "response:list", Sort: 7, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:response:del", Name: "答卷删除", Perms: "response:del", Sort: 8, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:survey:response:export", Name: "导出答卷", Perms: "response:export", Sort: 9, Type: TypeButton, ParentKey: "admin:menu:survey"},
+		{Key: "admin:menu:question-bank:list", Name: "题库列表", Perms: "question-bank:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:question-exam"},
+		{Key: "admin:menu:question-bank:add", Name: "题库新增", Perms: "question-bank:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:question-exam"},
+		{Key: "admin:menu:question-bank:edit", Name: "题库编辑", Perms: "question-bank:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:question-exam"},
+		{Key: "admin:menu:question-bank:del", Name: "题库删除", Perms: "question-bank:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:question-exam"},
+	}
+	if enableExam {
+		items = append(items,
+			Declaration{Key: "admin:menu:exam", Name: "在线考试", Path: "/exam", Perms: "exam:list,exam:add,exam:edit,exam:del", Icon: "EditPen", Sort: 15, Type: TypeDirectory},
+			Declaration{Key: "admin:menu:exam:list-page", Name: "考试管理", Path: "/exam/list", Sort: 1, Type: TypeMenu, ParentKey: "admin:menu:exam"},
+			Declaration{Key: "admin:menu:exam:list", Name: "考试列表", Perms: "exam:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:exam"},
+			Declaration{Key: "admin:menu:exam:add", Name: "考试新增", Perms: "exam:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:exam"},
+			Declaration{Key: "admin:menu:exam:edit", Name: "考试编辑", Perms: "exam:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:exam"},
+			Declaration{Key: "admin:menu:exam:del", Name: "考试删除", Perms: "exam:del", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:exam"},
+		)
+	}
+	return items
+}

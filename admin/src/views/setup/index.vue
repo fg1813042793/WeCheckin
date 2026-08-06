@@ -89,6 +89,28 @@
           </el-form>
         </el-tab-pane>
 
+        <el-tab-pane label="前端配置" name="FRONTEND_CONFIG">
+          <el-form label-width="160px" class="frontend-config-form">
+            <el-form-item label="Tab 页面缓存">
+              <div class="frontend-config-item">
+                <el-switch
+                  v-model="frontendConfig.tabCacheEnabled"
+                  :active-value="1"
+                  :inactive-value="0"
+                  active-text="开启"
+                  inactive-text="关闭"
+                />
+                <div class="frontend-config-help">
+                  开启后，后台菜单页在 tab 中保留时会缓存页面状态；关闭对应 tab 后会清理该页面缓存。
+                </div>
+              </div>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="saveFrontendConfig" :loading="savingFrontend">保存</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
         <el-tab-pane label="问卷通知模版" name="SURVEY_TEMPLATE_PRESETS">
           <el-tabs v-model="presetTab">
             <el-tab-pane label="内置模版" name="builtin">
@@ -158,6 +180,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../../utils/request'
+import {
+  ADMIN_FRONTEND_CONFIG_SETUP_KEY,
+  cacheAdminFrontendConfig,
+  normalizeAdminFrontendConfig,
+  notifyAdminFrontendConfigChanged
+} from '../../utils/frontendConfig'
 
 export default {
   name: 'Setup',
@@ -173,6 +201,8 @@ export default {
     const savingDomain = ref(false)
     const tokenConfig = reactive({ userExpire: '', userPrefix: '', userSingleLogin: 0, adminExpire: '', adminPrefix: '', adminSingleLogin: 0 })
     const savingToken = ref(false)
+    const frontendConfig = reactive({ tabCacheEnabled: 1 })
+    const savingFrontend = ref(false)
     const builtinPresets = ref([])
     const savingBuiltin = ref(false)
     const customPresets = ref([])
@@ -451,17 +481,47 @@ export default {
       }
     }
 
+    const loadFrontendConfig = async () => {
+      try {
+        const res = await request.get('/api/v2/home/setup', { params: { key: ADMIN_FRONTEND_CONFIG_SETUP_KEY } })
+        Object.assign(frontendConfig, normalizeAdminFrontendConfig(res.data))
+      } catch (e) {
+        Object.assign(frontendConfig, normalizeAdminFrontendConfig(null))
+      }
+      cacheAdminFrontendConfig({ tabCacheEnabled: frontendConfig.tabCacheEnabled })
+    }
+
+    const saveFrontendConfig = async () => {
+      savingFrontend.value = true
+      try {
+        const config = normalizeAdminFrontendConfig(frontendConfig)
+        await request.put('/api/v2/admin/settings/content', {
+          key: ADMIN_FRONTEND_CONFIG_SETUP_KEY,
+          value: JSON.stringify(config)
+        })
+        Object.assign(frontendConfig, config)
+        cacheAdminFrontendConfig(config)
+        notifyAdminFrontendConfigChanged(config)
+        ElMessage.success('保存成功')
+      } catch (e) {
+        console.error(e)
+      } finally {
+        savingFrontend.value = false
+      }
+    }
+
     onMounted(() => {
       textTabs.forEach(tab => loadContent(tab.key))
       loadFormFields()
       loadHomeConfig()
       loadStaticDomain()
       loadTokenConfig()
+      loadFrontendConfig()
       loadBuiltinPresets()
       loadCustomPresets()
     })
 
-    return { activeTab, textTabs, contents, savingKey, formFields, savingForm, homeConfig, savingHome, saveContent, addField, delField, saveFormFields, loadHomeConfig, saveHomeConfig, staticDomain, savingDomain, loadStaticDomain, saveStaticDomain, tokenConfig, savingToken, saveTokenConfig, builtinPresets, savingBuiltin, delBuiltinPreset, saveBuiltinPresets, customPresets, presetTab, savingCustom, delCustomPreset, saveCustomPresets, presetDialogVisible, presetDialogTitle, presetForm, openAdd, openEdit, confirmPresetDialog }
+    return { activeTab, textTabs, contents, savingKey, formFields, savingForm, homeConfig, savingHome, saveContent, addField, delField, saveFormFields, loadHomeConfig, saveHomeConfig, staticDomain, savingDomain, loadStaticDomain, saveStaticDomain, tokenConfig, savingToken, saveTokenConfig, frontendConfig, savingFrontend, saveFrontendConfig, builtinPresets, savingBuiltin, delBuiltinPreset, saveBuiltinPresets, customPresets, presetTab, savingCustom, delCustomPreset, saveCustomPresets, presetDialogVisible, presetDialogTitle, presetForm, openAdd, openEdit, confirmPresetDialog }
   }
 }
 </script>
@@ -469,5 +529,21 @@ export default {
 <style scoped>
 .setup-page {
   padding: 20px;
+}
+
+.frontend-config-form {
+  max-width: 620px;
+}
+
+.frontend-config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.frontend-config-help {
+  color: #8a97a8;
+  font-size: 13px;
+  line-height: 1.6;
 }
 </style>

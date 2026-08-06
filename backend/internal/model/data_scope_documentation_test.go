@@ -10,10 +10,10 @@ import (
 func TestRoleDataScopeDocumentationIncludesCustomAndExtra(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	files := map[string][]string{
-		"rbac.go": {
+		filepath.Join("organization", "rbac.go"): {
 			"数据范围:1全部 2本部门及子部门 3本人 4自定义部门",
 		},
-		filepath.Join("..", "app", "handler", "admin", "role", "handler.go"): {
+		filepath.Join("..", "handler", "admin", "role", "handler.go"): {
 			"数据权限范围(1=全部 2=本部门及子部门 3=本人 4=自定义部门)",
 		},
 		filepath.Join(root, "docs", "ACCESS_CONTROL_RUNTIME.md"): {

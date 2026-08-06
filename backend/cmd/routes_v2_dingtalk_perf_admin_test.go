@@ -25,27 +25,35 @@ func TestV2AdminDingTalkPerfDataRoutesAndPermissions(t *testing.T) {
 		}
 	}
 
-	permSrc, err := os.ReadFile("../internal/middleware/admin_route_permissions.go")
+	permSrc, err := os.ReadFile("../internal/middleware/admin/route_permissions.go")
 	if err != nil {
-		t.Fatalf("read admin_route_permissions.go: %v", err)
+		t.Fatalf("read admin/route_permissions.go: %v", err)
+	}
+	permText := string(permSrc)
+	for _, item := range []struct {
+		route string
+		perm  string
+	}{
+		{route: "GET /api/v2/admin/dingtalk/perf-reviews", perm: "dingtalk:perf-reviews:list"},
+		{route: "DELETE /api/v2/admin/dingtalk/perf-reviews", perm: "dingtalk:perf-reviews:del"},
+		{route: "GET /api/v2/admin/dingtalk/perf-histories", perm: "dingtalk:perf-histories:list"},
+		{route: "DELETE /api/v2/admin/dingtalk/perf-histories", perm: "dingtalk:perf-histories:del"},
+	} {
+		assertStaticAdminRoutePermission(t, permText, item.route, item.perm)
 	}
 	for _, want := range []string{
-		`"GET /api/v2/admin/dingtalk/perf-reviews":              "dingtalk:perf-reviews:list"`,
-		`"DELETE /api/v2/admin/dingtalk/perf-reviews":           "dingtalk:perf-reviews:del"`,
-		`"GET /api/v2/admin/dingtalk/perf-histories":            "dingtalk:perf-histories:list"`,
-		`"DELETE /api/v2/admin/dingtalk/perf-histories":         "dingtalk:perf-histories:del"`,
 		`{method: "GET", path: "/api/v2/admin/dingtalk/perf-reviews/:id", perm: "dingtalk:perf-reviews:detail"}`,
 		`{method: "DELETE", path: "/api/v2/admin/dingtalk/perf-reviews/:id", perm: "dingtalk:perf-reviews:del"}`,
 		`{method: "DELETE", path: "/api/v2/admin/dingtalk/perf-histories/:id", perm: "dingtalk:perf-histories:del"}`,
 	} {
-		if !strings.Contains(string(permSrc), want) {
+		if !strings.Contains(permText, want) {
 			t.Fatalf("admin route permissions missing dingtalk performance mapping %q", want)
 		}
 	}
 }
 
 func TestAdminDingTalkPerfDataMenuDeclarationsAndCatalog(t *testing.T) {
-	menuSrc, err := os.ReadFile("../internal/app/support/adminmenuperm/declarations.go")
+	menuSrc, err := os.ReadFile("../internal/support/adminmenuperm/declarations.go")
 	if err != nil {
 		t.Fatalf("read admin menu declarations: %v", err)
 	}
@@ -70,7 +78,7 @@ func TestAdminDingTalkPerfDataMenuDeclarationsAndCatalog(t *testing.T) {
 		}
 	}
 
-	catalogSrc, err := os.ReadFile("../internal/app/support/adminrouteperm/catalog.go")
+	catalogSrc, err := os.ReadFile("../internal/support/adminrouteperm/catalog.go")
 	if err != nil {
 		t.Fatalf("read admin route permission catalog: %v", err)
 	}

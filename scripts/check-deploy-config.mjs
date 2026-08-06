@@ -55,6 +55,90 @@ for (const snippet of [
 }
 forbidSnippet(compose, 'WECHECKIN_AUTO_MIGRATE', 'backend/docker-compose.yml')
 
+const backendOnlyEnvExample = read('backend/.env.backend.example')
+for (const snippet of [
+  'WECHECKIN_DATABASE_HOST=',
+  'WECHECKIN_REDIS_HOST=',
+  'WECHECKIN_BACKEND_HTTP_PORT=8083',
+  'WECHECKIN_CORS_ALLOW_ORIGINS='
+]) {
+  requireSnippet(backendOnlyEnvExample, snippet, 'backend/.env.backend.example')
+}
+
+const backendOnlyCompose = read('backend/docker-compose.backend.yml')
+forbidSnippet(backendOnlyCompose, 'version:', 'backend/docker-compose.backend.yml')
+forbidSnippet(backendOnlyCompose, 'condition: service_healthy', 'backend/docker-compose.backend.yml')
+for (const snippet of [
+  'Backend-only Docker Compose configuration',
+  'services:',
+  'backend:',
+  'host.docker.internal:host-gateway',
+  '${WECHECKIN_BACKEND_HTTP_PORT:-8083}:${WECHECKIN_SERVER_PORT:-8083}',
+  'http://127.0.0.1:${WECHECKIN_SERVER_PORT:-8083}/health',
+  'logging: *default-logging'
+]) {
+  requireSnippet(backendOnlyCompose, snippet, 'backend/docker-compose.backend.yml')
+}
+for (const forbidden of [
+  'mysql:',
+  'redis:',
+  'nginx:'
+]) {
+  forbidSnippet(backendOnlyCompose, forbidden, 'backend/docker-compose.backend.yml')
+}
+forbidSnippet(backendOnlyCompose, 'WECHECKIN_AUTO_MIGRATE', 'backend/docker-compose.backend.yml')
+
+const dingtalkH5EnvExample = read('dingtalk-h5/.env.docker.example')
+for (const snippet of [
+  'DINGTALK_H5_HTTP_PORT=8086',
+  'VITE_API_BASE_URL=',
+  'VITE_DINGTALK_CORP_ID=',
+  'NGINX_API_PROXY_TARGET=http://host.docker.internal:8083'
+]) {
+  requireSnippet(dingtalkH5EnvExample, snippet, 'dingtalk-h5/.env.docker.example')
+}
+
+const dingtalkH5Compose = read('dingtalk-h5/docker-compose.h5.yml')
+forbidSnippet(dingtalkH5Compose, 'version:', 'dingtalk-h5/docker-compose.h5.yml')
+for (const snippet of [
+  'DingTalk H5 standalone Docker Compose configuration',
+  'dingtalk-h5:',
+  'logging: *default-logging',
+  '${DINGTALK_H5_HTTP_PORT:-8086}:80',
+  'host.docker.internal:host-gateway',
+  'NGINX_API_PROXY_TARGET'
+]) {
+  requireSnippet(dingtalkH5Compose, snippet, 'dingtalk-h5/docker-compose.h5.yml')
+}
+for (const forbidden of [
+  'mysql:',
+  'redis:',
+  'backend:'
+]) {
+  forbidSnippet(dingtalkH5Compose, forbidden, 'dingtalk-h5/docker-compose.h5.yml')
+}
+
+const dingtalkH5Dockerfile = read('dingtalk-h5/Dockerfile')
+for (const snippet of [
+  'FROM node:20-alpine AS builder',
+  'npm run build:h5',
+  'FROM nginx:1.27-alpine',
+  'dist/build/h5'
+]) {
+  requireSnippet(dingtalkH5Dockerfile, snippet, 'dingtalk-h5/Dockerfile')
+}
+
+const dingtalkH5Nginx = read('dingtalk-h5/docker/nginx.conf.template')
+for (const snippet of [
+  'try_files $uri $uri/ /index.html',
+  'location /api/v2/',
+  'proxy_pass ${NGINX_API_PROXY_TARGET}',
+  'location /uploads/',
+  'location = /health'
+]) {
+  requireSnippet(dingtalkH5Nginx, snippet, 'dingtalk-h5/docker/nginx.conf.template')
+}
+
 const initScript = read('backend/init.sh')
 for (const snippet of [
   'go run ./cmd/maintenance',
@@ -111,6 +195,10 @@ for (const snippet of [
 const deploymentDoc = read('docs/DEPLOYMENT_TROUBLESHOOTING.md')
 for (const snippet of [
   'backend/.env.example',
+  'backend/docker-compose.backend.yml',
+  '.env.backend.example',
+  'dingtalk-h5/.env.docker.example',
+  'docker-compose.h5.yml',
   'docker-backup.sh',
   'docker-restore.sh',
   'docker-logs.sh',

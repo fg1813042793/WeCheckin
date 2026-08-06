@@ -78,6 +78,8 @@ cd backend
 bash init.sh
 ```
 
+`cmd/maintenance` 的配置文件读取规则和环境变量覆盖方式见 [后端版本化迁移说明](../backend/migrations/README.md#配置读取规则)。
+
 迁移成功并验证业务后，生产常态运行只启动后端服务，不需要再执行初始化脚本。
 
 6. 验证新旧接口。

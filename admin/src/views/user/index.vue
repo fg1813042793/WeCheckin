@@ -45,15 +45,14 @@
             <el-table-column prop="loginCnt" label="登录次数" width="80" />
             <el-table-column label="所属部门" min-width="260">
               <template #default="{ row }">
-                <div v-if="row.deptPathItems?.length" class="dept-path-list">
-                  <el-tooltip
-                    v-for="item in row.deptPathItems"
-                    :key="item.key"
-                    :content="item.text"
-                    placement="top"
-                    :show-after="300"
-                  >
-                    <span class="dept-path-pill">
+                <el-tooltip
+                  v-if="displayDeptPathItems(row).length"
+                  :content="deptPathTooltip(row)"
+                  placement="top"
+                  :show-after="300"
+                >
+                  <div class="dept-path-list dept-path-list--compact">
+                    <span v-for="item in displayDeptPathItems(row)" :key="item.key" class="dept-path-pill">
                       <template v-for="(segment, index) in item.segments" :key="`${item.key}-${index}`">
                         <span :class="['dept-path-segment', index === item.segments.length - 1 ? 'leaf' : 'parent']">
                           {{ segment }}
@@ -61,26 +60,29 @@
                         <span v-if="index < item.segments.length - 1" class="dept-path-separator">/</span>
                       </template>
                     </span>
-                  </el-tooltip>
-                </div>
+                    <span v-if="hiddenDeptPathCount(row) > 0" class="compact-more-badge">+{{ hiddenDeptPathCount(row) }}</span>
+                  </div>
+                </el-tooltip>
                 <span v-else>-</span>
               </template>
             </el-table-column>
             <el-table-column label="岗位" width="140">
               <template #default="{ row }">{{ row.positionName || '-' }}</template>
             </el-table-column>
-            <el-table-column label="绑定角色" width="260">
+            <el-table-column label="绑定角色" width="280">
               <template #default="{ row }">
-                <div v-if="row.roleIds?.length || row.roleId" class="role-tag-list">
-                  <el-tag
-                    v-for="name in displayRoleNames(row)"
-                    :key="name"
-                    type="primary"
-                    size="small"
-                  >
-                    {{ name }}
-                  </el-tag>
-                </div>
+                <el-tooltip
+                  v-if="displayRoleNames(row).length"
+                  :disabled="displayRoleNames(row).length <= 1"
+                  :content="roleNamesTooltip(row)"
+                  placement="top"
+                  :show-after="300"
+                >
+                  <div class="role-tag-list role-tag-list--compact">
+                    <el-tag type="primary" size="small">{{ displayRoleNames(row)[0] }}</el-tag>
+                    <span v-if="hiddenRoleCount(row) > 0" class="compact-more-badge">+{{ hiddenRoleCount(row) }}</span>
+                  </div>
+                </el-tooltip>
                 <span v-else style="color:#999">未绑定</span>
               </template>
             </el-table-column>
@@ -172,7 +174,7 @@
         <el-form-item :label="dialog.isCreate ? '登录密码' : '新密码'">
           <el-input v-model="form.password" type="password" show-password :placeholder="dialog.isCreate ? '绑定角色时必填' : '留空则不修改密码'" />
         </el-form-item>
-        <el-divider content-position="left">额外信息</el-divider>
+        <el-divider content-position="left" class="user-form-divider">额外信息</el-divider>
         <el-form-item v-for="f in formFields" :key="f._key" :label="f.label">
           <el-input v-if="f.type === '文本'" v-model="form.formsData[f._key]" />
           <el-input-number v-else-if="f.type === '数字'" v-model="form.formsData[f._key]" :min="0" />
@@ -204,10 +206,10 @@
             style="width:100%"
           />
         </el-form-item>
-        <el-divider content-position="left">角色权限</el-divider>
+        <el-divider content-position="left" class="user-form-divider">角色权限</el-divider>
         <el-form-item label="绑定角色">
           <div class="access-role-field">
-            <el-select v-model="form.roleIds" placeholder="请选择角色" clearable multiple collapse-tags collapse-tags-tooltip style="width:100%">
+            <el-select v-model="form.roleIds" placeholder="请选择角色" clearable filterable multiple collapse-tags collapse-tags-tooltip style="width:100%">
               <el-option v-for="r in roleList" :key="r.id" :label="r.name" :value="r.id">
                 <div class="role-option">
                   <span>{{ r.name }}</span>
@@ -217,17 +219,27 @@
             </el-select>
           </div>
         </el-form-item>
-        <el-divider content-position="left">用户额外数据权限</el-divider>
+        <el-divider content-position="left" class="user-form-divider">用户额外数据权限</el-divider>
         <el-form-item label="可见部门">
           <div style="width:100%;position:relative">
             <el-popover trigger="click" placement="bottom-start" :width="420" popper-style="margin-top:4px">
               <template #reference>
                 <el-input readonly :model-value="extraDataDeptDisplayText" placeholder="请选择额外可见部门" suffix-icon="ArrowDown" style="width:100%" />
               </template>
+              <div class="extra-data-picker-search">
+                <el-input
+                  v-model="extraDataDeptKeyword"
+                  placeholder="搜索部门"
+                  clearable
+                  size="small"
+                  @input="filterExtraDataDeptTree"
+                />
+              </div>
               <el-tree
                 ref="extraDataDeptTreeRef"
                 :data="deptTreeData"
                 :props="{ label: 'name' }"
+                :filter-node-method="filterExtraDataDeptNode"
                 show-checkbox
                 check-strictly
                 node-key="id"
@@ -244,11 +256,21 @@
               <template #reference>
                 <el-input readonly :model-value="extraDataUserDisplayText" placeholder="请选择额外可见用户" suffix-icon="ArrowDown" style="width:100%" />
               </template>
+              <div class="extra-data-picker-search">
+                <el-input
+                  v-model="extraDataUserKeyword"
+                  placeholder="搜索用户/手机号/部门"
+                  clearable
+                  size="small"
+                  @input="filterExtraDataUserTree"
+                />
+              </div>
               <div class="extra-data-user-tree-wrap">
                 <el-tree
                   ref="extraDataUserTreeRef"
                   :data="extraDataUserTreeData"
                   :props="{ label: 'label', children: 'children' }"
+                  :filter-node-method="filterExtraDataUserNode"
                   show-checkbox
                   check-on-click-node
                   node-key="key"
@@ -268,7 +290,7 @@
           </div>
         </el-form-item>
 
-        <el-divider content-position="left" class="collapsible-divider">
+        <el-divider content-position="left" class="user-form-divider collapsible-divider">
           <div class="collapsible-divider__content">
             <span>用户扩展应用权限</span>
             <i class="collapsible-divider__line" aria-hidden="true"></i>
@@ -311,6 +333,7 @@
                   :data="dingtalkH5MenuTreeData"
                   :props="{ label: 'name', children: 'children' }"
                   show-checkbox
+                  check-strictly
                   node-key="key"
                   :default-checked-keys="allowDingTalkH5MenuCheckedKeys"
                   @check="onUserApplicationPermissionCheck('allow')"
@@ -375,6 +398,7 @@
                   :data="dingtalkH5MenuTreeData"
                   :props="{ label: 'name', children: 'children' }"
                   show-checkbox
+                  check-strictly
                   node-key="key"
                   :default-checked-keys="denyDingTalkH5MenuCheckedKeys"
                   @check="onUserApplicationPermissionCheck('deny')"
@@ -427,7 +451,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailDialog.visible" title="用户详情" width="500px">
+    <el-dialog v-model="detailDialog.visible" title="用户详情" width="min(640px, 92vw)" class="user-detail-dialog">
       <div v-if="detailDialog.detail">
         <div style="text-align:center;margin-bottom:16px">
           <span class="user-avatar user-avatar--large" :class="{ 'user-avatar--image': avatarImageReady(detailDialog.detail) }">
@@ -444,14 +468,20 @@
           <div style="margin-top:8px;font-size:18px;font-weight:600">{{ detailDialog.detail.name }}</div>
           <el-tag :type="statusType(detailDialog.detail.status)" size="small">{{ statusLabel(detailDialog.detail.status) }}</el-tag>
         </div>
-        <el-descriptions :column="1" border>
-                <el-descriptions-item label="手机号">{{ detailDialog.detail.mobile || '-' }}</el-descriptions-item>
+        <el-descriptions :column="1" border class="user-detail-descriptions">
+          <el-descriptions-item label="手机号">{{ detailDialog.detail.mobile || '-' }}</el-descriptions-item>
           <el-descriptions-item label="所属部门">
-            {{ deptNameStr(detailDialog.detail.deptIds) }}
+            <div v-if="detailDeptNames(detailDialog.detail).length" class="user-detail-chip-list">
+              <span v-for="name in detailDeptNames(detailDialog.detail)" :key="name" class="user-detail-chip">{{ name }}</span>
+            </div>
+            <span v-else>-</span>
           </el-descriptions-item>
           <el-descriptions-item label="岗位">{{ detailDialog.detail.positionName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="绑定角色">
-            {{ (detailDialog.detail.roleNames || []).join('、') || detailDialog.detail.roleName || '-' }}
+            <div v-if="displayRoleNames(detailDialog.detail).length" class="user-detail-chip-list">
+              <el-tag v-for="name in displayRoleNames(detailDialog.detail)" :key="name" type="primary" size="small">{{ name }}</el-tag>
+            </div>
+            <span v-else>-</span>
           </el-descriptions-item>
           <el-descriptions-item label="注册时间">{{ fmtTime(detailDialog.detail.addTime) }}</el-descriptions-item>
           <el-descriptions-item label="最后登录">{{ fmtTime(detailDialog.detail.loginTime) }}</el-descriptions-item>
@@ -495,6 +525,8 @@ const deptTreeData = ref<any[]>([])
 const deptTreeRef = ref<any>(null)
 const extraDataDeptTreeRef = ref<any>(null)
 const extraDataUserTreeRef = ref<any>(null)
+const extraDataDeptKeyword = ref('')
+const extraDataUserKeyword = ref('')
 const roleList = ref<any[]>([])
 const positionOptions = ref<any[]>([])
 const dataScopeUserOptions = ref<any[]>([])
@@ -535,11 +567,11 @@ const denyDingTalkH5MenuKeys = computed(() => applicationKeysByPrefixes(form.den
 const denyClientApiKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'client:api:'))
 const denyDingTalkH5ApiKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'dingtalk_h5:api:'))
 const allowClientMenuCheckedKeys = computed(() => checkableKeysForTree(allowClientMenuKeys.value, clientMenuTreeData.value))
-const allowDingTalkH5MenuCheckedKeys = computed(() => checkableKeysForTree(allowDingTalkH5MenuKeys.value, dingtalkH5MenuTreeData.value))
+const allowDingTalkH5MenuCheckedKeys = computed(() => allowDingTalkH5MenuKeys.value)
 const allowClientApiCheckedKeys = computed(() => checkableKeysForTree(allowClientApiKeys.value, clientApiTreeData.value))
 const allowDingTalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(allowDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
 const denyClientMenuCheckedKeys = computed(() => checkableKeysForTree(denyClientMenuKeys.value, clientMenuTreeData.value))
-const denyDingTalkH5MenuCheckedKeys = computed(() => checkableKeysForTree(denyDingTalkH5MenuKeys.value, dingtalkH5MenuTreeData.value))
+const denyDingTalkH5MenuCheckedKeys = computed(() => denyDingTalkH5MenuKeys.value)
 const denyClientApiCheckedKeys = computed(() => checkableKeysForTree(denyClientApiKeys.value, clientApiTreeData.value))
 const denyDingTalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(denyDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
 
@@ -629,6 +661,45 @@ function onDeptCheck() {
 function onExtraDataDeptCheck() {
   nextTick(() => {
     form.extraDataDeptIds = extraDataDeptTreeRef.value?.getCheckedKeys() || []
+  })
+}
+
+function normalizeFilterText(value: any) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function filterExtraDataDeptTree() {
+  extraDataDeptTreeRef.value?.filter(normalizeFilterText(extraDataDeptKeyword.value))
+}
+
+function filterExtraDataUserTree() {
+  extraDataUserTreeRef.value?.filter(normalizeFilterText(extraDataUserKeyword.value))
+}
+
+function filterExtraDataDeptNode(keyword: string, data: any) {
+  const value = normalizeFilterText(keyword)
+  if (!value) return true
+  const name = normalizeFilterText(data?.name)
+  const path = data?.id ? normalizeFilterText(deptPathText([Number(data.id)])) : ''
+  return name.includes(value) || path.includes(value)
+}
+
+function filterExtraDataUserNode(keyword: string, data: any) {
+  const value = normalizeFilterText(keyword)
+  if (!value) return true
+  return [
+    data?.label,
+    data?.mobile,
+    data?.pathText
+  ].some((item) => normalizeFilterText(item).includes(value))
+}
+
+function resetExtraDataPickerFilters() {
+  extraDataDeptKeyword.value = ''
+  extraDataUserKeyword.value = ''
+  nextTick(() => {
+    filterExtraDataDeptTree()
+    filterExtraDataUserTree()
   })
 }
 
@@ -778,13 +849,13 @@ function onUserApplicationPermissionCheck(source: 'allow' | 'deny') {
   nextTick(() => {
     const allowKeys = Array.from(new Set([
       ...checkedKeys(allowClientMenuTreeRef, { prefix: 'client:menu:' }),
-      ...checkedKeys(allowDingTalkH5MenuTreeRef, { includeHalfChecked: true, prefixes: dingtalkH5MenuButtonPrefixes }),
+      ...checkedKeys(allowDingTalkH5MenuTreeRef, { prefixes: dingtalkH5MenuButtonPrefixes }),
       ...checkedKeys(allowClientApiTreeRef, { prefix: 'client:api:' }),
       ...checkedKeys(allowDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
     ])) as string[]
     const denyKeys = Array.from(new Set([
       ...checkedKeys(denyClientMenuTreeRef, { prefix: 'client:menu:' }),
-      ...checkedKeys(denyDingTalkH5MenuTreeRef, { includeHalfChecked: true, prefixes: dingtalkH5MenuButtonPrefixes }),
+      ...checkedKeys(denyDingTalkH5MenuTreeRef, { prefixes: dingtalkH5MenuButtonPrefixes }),
       ...checkedKeys(denyClientApiTreeRef, { prefix: 'client:api:' }),
       ...checkedKeys(denyDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
     ])) as string[]
@@ -1029,34 +1100,35 @@ const form = reactive({
   mobile: '',
   avatar: '',
   pic: '',
-	  deptIds: [] as number[],
-	  password: '',
-	  positionId: null as any,
-	  roleId: null as any,
-	  roleIds: [] as number[],
-	  allowPermissionKeys: [] as string[],
-	  denyPermissionKeys: [] as string[],
-	  extraDataDeptIds: [] as number[],
-	  extraDataUserIds: [] as number[],
-	  formsData: {} as any
-	})
+  deptIds: [] as number[],
+  password: '',
+  positionId: null as any,
+  roleId: null as any,
+  roleIds: [] as number[],
+  allowPermissionKeys: [] as string[],
+  denyPermissionKeys: [] as string[],
+  extraDataDeptIds: [] as number[],
+  extraDataUserIds: [] as number[],
+  formsData: {} as any
+})
 function resetForm() {
   form.id = null
   form.name = ''
   form.mobile = ''
   form.avatar = ''
   form.pic = ''
-	  form.deptIds = []
-	  form.password = ''
-	  form.positionId = null
-	  form.roleId = null
-	  form.roleIds = []
-	  form.allowPermissionKeys = []
-	  form.denyPermissionKeys = []
-	  form.extraDataDeptIds = []
-	  form.extraDataUserIds = []
-	  form.formsData = {}
-	}
+  form.deptIds = []
+  form.password = ''
+  form.positionId = null
+  form.roleId = null
+  form.roleIds = []
+  form.allowPermissionKeys = []
+  form.denyPermissionKeys = []
+  form.extraDataDeptIds = []
+  form.extraDataUserIds = []
+  form.formsData = {}
+  resetExtraDataPickerFilters()
+}
 
 function showAdd() {
   resetForm()
@@ -1165,6 +1237,38 @@ function deptNameStr(deptIds: number[]) {
   const dmap = deptNameMap()
   return deptIds.map(id => dmap[id] || id).join('、')
 }
+function normalizedDeptPathItems(row: any) {
+  const items = Array.isArray(row?.deptPathItems) ? row.deptPathItems : []
+  return items.map((item: any, index: number) => {
+    const text = String(item?.text || '').trim()
+    const segments = Array.isArray(item?.segments) && item.segments.length > 0
+      ? item.segments.map((segment: any) => String(segment).trim()).filter(Boolean)
+      : text.split('/').map((segment: string) => segment.trim()).filter(Boolean)
+    return {
+      key: item?.key || `${text}-${index}`,
+      text: text || segments.join('/'),
+      segments
+    }
+  }).filter((item: any) => item.segments.length > 0)
+}
+function displayDeptPathItems(row: any) {
+  return normalizedDeptPathItems(row).slice(0, 1)
+}
+function hiddenDeptPathCount(row: any) {
+  return Math.max(normalizedDeptPathItems(row).length - 1, 0)
+}
+function deptPathTooltip(row: any) {
+  return normalizedDeptPathItems(row).map((item: any) => item.text || item.segments.join('/')).join('、')
+}
+function detailDeptNames(row: any) {
+  const pathItems = normalizedDeptPathItems(row)
+  if (pathItems.length > 0) {
+    return pathItems.map((item: any) => item.text || item.segments.join('/')).filter(Boolean)
+  }
+  if (!row?.deptIds || row.deptIds.length === 0) return []
+  const dmap = deptNameMap()
+  return row.deptIds.map((id: number) => String(dmap[id] || id)).filter(Boolean)
+}
 function normalizeRoleIds(values: any[]) {
   const result: number[] = []
   const seen = new Set<number>()
@@ -1182,6 +1286,12 @@ function displayRoleNames(row: any) {
   if (row.roleName) return [row.roleName]
   if (row.roleId) return ['已绑定']
   return []
+}
+function hiddenRoleCount(row: any) {
+  return Math.max(displayRoleNames(row).length - 1, 0)
+}
+function roleNamesTooltip(row: any) {
+  return displayRoleNames(row).join('、')
 }
 function parsedForms(f: any) {
   const d: any = detailDialog.detail
@@ -1276,6 +1386,44 @@ onMounted(async () => {
   align-items: center !important;
   flex-wrap: nowrap !important;
 }
+.user-detail-dialog :deep(.el-dialog__body) {
+  padding-top: 8px;
+}
+.user-detail-descriptions :deep(.el-descriptions__label) {
+  box-sizing: border-box;
+  width: 112px;
+  min-width: 112px;
+  white-space: nowrap;
+  color: #475467;
+  font-weight: 600;
+}
+.user-detail-descriptions :deep(.el-descriptions__content) {
+  min-width: 0;
+  word-break: break-word;
+  line-height: 1.7;
+}
+.user-detail-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.user-detail-chip {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  background: #f8fbff;
+  color: #344054;
+  font-size: 12px;
+  line-height: 18px;
+  word-break: break-word;
+}
 .access-role-field {
   display: flex;
   align-items: center;
@@ -1294,6 +1442,20 @@ onMounted(async () => {
   gap: 6px;
   max-width: 100%;
 }
+.role-tag-list--compact {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+}
+.role-tag-list--compact :deep(.el-tag) {
+  max-width: 210px;
+}
+.role-tag-list--compact :deep(.el-tag__content) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 :deep(.user-name-column .cell) {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1305,6 +1467,14 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 6px;
   max-width: 100%;
+}
+.dept-path-list--compact {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.dept-path-list--compact .dept-path-pill {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .dept-path-pill {
   box-sizing: border-box;
@@ -1339,6 +1509,27 @@ onMounted(async () => {
   flex: 0 0 auto;
   padding: 0 5px;
   color: #98a2b3;
+}
+.compact-more-badge {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fbff;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.extra-data-picker-search {
+  box-sizing: border-box;
+  padding: 6px 4px 10px;
 }
 .extra-data-user-tree-wrap {
   box-sizing: border-box;
@@ -1391,6 +1582,10 @@ onMounted(async () => {
   color: #8a94a6;
   font-size: 12px;
 }
+.user-form-divider :deep(.el-divider__text) {
+  color: var(--el-color-primary);
+  font-weight: 700;
+}
 .collapsible-divider :deep(.el-divider__text) {
   min-width: min(420px, calc(100vw - 96px));
 }
@@ -1402,8 +1597,6 @@ onMounted(async () => {
   width: 100%;
 }
 .collapsible-divider__content span {
-  color: #1d2129;
-  font-weight: 700;
   white-space: nowrap;
 }
 .collapsible-divider__line {

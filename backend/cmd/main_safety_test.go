@@ -79,7 +79,7 @@ func TestBackendPortReferencesUse8083(t *testing.T) {
 			required:  []string{"localhost:8083"},
 			forbidden: []string{"localhost:8080"},
 		},
-		"../internal/app/support/media/static.go": {
+		"../internal/support/media/static.go": {
 			required:  []string{"http://localhost:8083"},
 			forbidden: []string{"http://localhost:8080"},
 		},

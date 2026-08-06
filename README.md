@@ -311,6 +311,22 @@ docker-compose up -d
 
 Dockerfile、Compose 和 Nginx 示例已统一到后端端口 `8083`。`backend/.env.example` 提供 Docker 部署环境变量样板，复制为 `.env` 后必须修改 MySQL、Redis 密码、域名和 CORS。
 
+如果 MySQL、Redis 和 Nginx 已由外部环境提供，只需要单独部署后端容器，可使用后端独立 Compose：
+
+```bash
+cd backend
+cp .env.backend.example .env
+docker compose -f docker-compose.backend.yml up -d --build
+```
+
+钉钉 H5 也支持单独部署为静态站点容器，默认把 `/api/v2` 同源代理到外部后端：
+
+```bash
+cd dingtalk-h5
+cp .env.docker.example .env
+docker compose -f docker-compose.h5.yml up -d --build
+```
+
 已有 MySQL 单点部署升级时，接口层以 `/api/v2` 为准，数据库结构升级仍建议先备份，并在备份库或维护窗口执行 `backend/init.sh`。迁移完成后，常态运行只启动服务，不再夹带初始化任务。
 
 Docker Compose 中 MySQL、Redis、后端和 Nginx 均配置了 healthcheck，backend 依赖 MySQL/Redis healthy，Nginx 依赖 backend healthy。该配置依赖 Docker Compose v2 的 `condition: service_healthy`。

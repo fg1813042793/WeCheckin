@@ -201,6 +201,7 @@
                   :data="dingtalkH5MenuTreeData"
                   :props="{ label: 'name', children: 'children' }"
                   show-checkbox
+                  check-strictly
                   node-key="key"
                   :default-checked-keys="dingtalkH5MenuCheckedKeys"
                   @check="onDingTalkH5MenuCheck"
@@ -280,6 +281,7 @@ const clientApiTreeData = ref<any[]>([])
 const clientApiTreeRef = ref<any>(null)
 const dingtalkH5ApiTreeData = ref<any[]>([])
 const dingtalkH5ApiTreeRef = ref<any>(null)
+const dingtalkH5MenuButtonPrefixes = ['dingtalk_h5:menu:', 'dingtalk_h5:button:']
 
 const dialog = reactive({
   visible: false,
@@ -305,7 +307,7 @@ const form = reactive({
 })
 
 const clientMenuCheckedKeys = computed(() => checkableKeysForTree(form.clientMenuKeys, clientMenuTreeData.value))
-const dingtalkH5MenuCheckedKeys = computed(() => checkableKeysForTree(form.dingtalkH5MenuKeys, dingtalkH5MenuTreeData.value))
+const dingtalkH5MenuCheckedKeys = computed(() => form.dingtalkH5MenuKeys)
 const clientApiCheckedKeys = computed(() => checkableKeysForTree(form.clientApiPermissionKeys, clientApiTreeData.value))
 const dingtalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(form.dingtalkH5ApiPermissionKeys, dingtalkH5ApiTreeData.value))
 
@@ -467,8 +469,7 @@ function onClientMenuCheck() {
 function onDingTalkH5MenuCheck() {
   nextTick(() => {
     const checked = dingtalkH5MenuTreeRef.value?.getCheckedKeys() || []
-    const halfChecked = dingtalkH5MenuTreeRef.value?.getHalfCheckedKeys?.() || []
-    form.dingtalkH5MenuKeys = Array.from(new Set([...checked, ...halfChecked]))
+    form.dingtalkH5MenuKeys = checked.filter((key: string) => dingtalkH5MenuButtonPrefixes.some((prefix) => key.startsWith(prefix)))
   })
 }
 

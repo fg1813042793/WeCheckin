@@ -22,49 +22,133 @@
                 >
                   <div class="corp-config-item__head">
                     <span>企业 {{ index + 1 }}</span>
-                    <el-button
-                      v-if="form.corpConfigs.length > 1"
-                      text
-                      type="danger"
-                      @click="removeCorpConfig(index)"
-                    >
-                      删除
-                    </el-button>
+                    <div class="corp-config-item__actions">
+                      <el-button
+                        size="small"
+                        :loading="testingCorpKey === corpConfig.localKey"
+                        :disabled="!canTestNotification(corpConfig)"
+                        @click="testCorpNotification(corpConfig)"
+                      >
+                        测试通知
+                      </el-button>
+                      <el-button
+                        v-if="form.corpConfigs.length > 1"
+                        text
+                        type="danger"
+                        @click="removeCorpConfig(index)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
                   </div>
                   <el-row :gutter="12">
                     <el-col :span="12">
-                      <el-input v-model="corpConfig.corpId" placeholder="钉钉企业 CorpId" />
+                      <div class="corp-config-field">
+                        <div class="corp-config-field__label">企业 CorpId</div>
+                        <el-input v-model="corpConfig.corpId" placeholder="钉钉企业 CorpId" />
+                      </div>
                     </el-col>
                     <el-col :span="12">
-                      <el-input v-model="corpConfig.corpName" placeholder="企业名称（选填）" />
+                      <div class="corp-config-field">
+                        <div class="corp-config-field__label">企业名称</div>
+                        <el-input v-model="corpConfig.corpName" placeholder="企业名称（选填）" />
+                      </div>
                     </el-col>
                   </el-row>
                   <el-row :gutter="12">
                     <el-col :span="12">
-                      <el-input v-model="corpConfig.appKey" placeholder="钉钉内部应用 AppKey" />
+                      <div class="corp-config-field">
+                        <div class="corp-config-field__label">应用 AppKey</div>
+                        <el-input v-model="corpConfig.appKey" placeholder="钉钉内部应用 AppKey" />
+                      </div>
                     </el-col>
                     <el-col :span="12">
-                      <el-input
-                        v-model="corpConfig.appSecret"
-                        type="password"
-                        show-password
-                        :placeholder="corpConfig.appSecretSet ? '已保存，留空表示不修改' : '请输入 AppSecret'"
+                      <div class="corp-config-field">
+                        <div class="corp-config-field__label">应用 AppSecret</div>
+                        <el-input
+                          v-model="corpConfig.appSecret"
+                          type="password"
+                          show-password
+                          :placeholder="corpConfig.appSecretSet ? '已保存，留空表示不修改' : '请输入 AppSecret'"
+                        />
+                      </div>
+                    </el-col>
+                  </el-row>
+                  <div class="corp-config-mode">
+                    <div class="corp-config-mode__head">
+                      <span>默认通知方式</span>
+                      <span class="settings-help">App ID 只用于通知点击打开应用，不决定发送通道。</span>
+                    </div>
+                    <el-row :gutter="12">
+                      <el-col :span="6">
+                        <div class="corp-config-field">
+                          <div class="corp-config-field__label">通知方式</div>
+                          <el-select v-model="corpConfig.notifyMode" placeholder="默认通知方式">
+                            <el-option label="旧版工作通知（AgentId + OA）" value="agent" />
+                            <el-option label="旧版优先，失败兜底新版" value="agent_fallback" />
+                            <el-option label="新版机器人通知（sampleLink）" value="robot" />
+                          </el-select>
+                        </div>
+                      </el-col>
+                      <el-col v-if="corpConfig.notifyMode !== 'robot'" :span="6">
+                        <div class="corp-config-field">
+                          <div class="corp-config-field__label">AgentId</div>
+                          <el-input v-model="corpConfig.agentId" placeholder="旧版 AgentId（数字）" />
+                        </div>
+                      </el-col>
+                      <el-col v-if="corpConfig.notifyMode !== 'agent'" :span="6">
+                        <div class="corp-config-field">
+                          <div class="corp-config-field__label">RobotCode</div>
+                          <el-input v-model="corpConfig.robotCode" placeholder="留空默认使用 AppKey" />
+                        </div>
+                      </el-col>
+                      <el-col :span="corpConfig.notifyMode === 'agent_fallback' ? 6 : 12">
+                        <div class="corp-config-field">
+                          <div class="corp-config-field__label">App ID</div>
+                          <el-input v-model="corpConfig.unifiedAppId" placeholder="新版 App ID，用于通知跳转" />
+                        </div>
+                      </el-col>
+                    </el-row>
+                    <div class="settings-help">
+                      选择旧版工作通知时只发送 AgentId + OA 消息；如需旧版失败后自动尝试新版 sampleLink，请选择旧版优先兜底。
+                    </div>
+                  </div>
+                  <el-row :gutter="12">
+                    <el-col :span="24">
+                      <div class="corp-config-field">
+                        <div class="corp-config-field__label">H5 应用地址</div>
+                        <el-input
+                          v-model="corpConfig.appUrl"
+                          placeholder="例如 https://...，通知点击时优先打开该企业应用地址"
+                        />
+                      </div>
+                    </el-col>
+                  </el-row>
+                  <div class="corp-config-notify">
+                    <div class="corp-config-notify__main">
+                      <span class="corp-config-notify__label">绩效流程通知</span>
+                      <el-switch
+                        v-model="corpConfig.notifyEnabled"
+                        :active-value="1"
+                        :inactive-value="0"
+                        active-text="开启"
+                        inactive-text="关闭"
+                        inline-prompt
                       />
-                    </el-col>
-                  </el-row>
-                  <el-row :gutter="12">
-                    <el-col :span="12">
-                      <el-input v-model="corpConfig.agentId" placeholder="钉钉内部应用 AgentId" />
-                    </el-col>
-                  </el-row>
-                  <el-switch
-                    v-model="corpConfig.enabled"
-                    :active-value="1"
-                    :inactive-value="0"
-                    active-text="启用"
-                    inactive-text="停用"
-                    inline-prompt
-                  />
+                    </div>
+                    <span class="settings-help">开启后，员工提交自评会通过该企业应用提醒直属上级。</span>
+                  </div>
+                  <div class="corp-config-enabled">
+                    <span class="corp-config-enabled__label">企业应用状态</span>
+                    <el-switch
+                      v-model="corpConfig.enabled"
+                      :active-value="1"
+                      :inactive-value="0"
+                      active-text="启用"
+                      inactive-text="停用"
+                      inline-prompt
+                    />
+                  </div>
                 </div>
                 <el-button class="corp-config-add" @click="addCorpConfig">新增企业应用</el-button>
               </div>
@@ -117,18 +201,9 @@
             <el-form-item label="Logo 图片地址">
               <el-input v-model="form.logoUrl" placeholder="https://...，留空时显示 Logo 文字" />
             </el-form-item>
-            <el-form-item label="绩效流程通知">
-              <div class="settings-switch-line">
-                <el-switch
-                  v-model="form.notifyEnabled"
-                  :active-value="1"
-                  :inactive-value="0"
-                  active-text="开启"
-                  inactive-text="关闭"
-                  inline-prompt
-                />
-                <span class="settings-help">开启后，员工提交自评会通过钉钉工作通知提醒直属上级。</span>
-              </div>
+            <el-form-item label="H5 应用地址">
+              <el-input v-model="form.appUrl" placeholder="https://...，用于绩效通知点击跳转" />
+              <div class="settings-help">通知会自动追加 reviewNo、view 等参数，点击后进入对应考评单。</div>
             </el-form-item>
             <el-form-item label="显示预览">
               <div class="brand-preview">
@@ -153,6 +228,68 @@
           保存
         </el-button>
       </div>
+
+      <el-dialog
+        v-model="diagnosisDialogVisible"
+        title="通知诊断结果"
+        width="860px"
+        class="dingtalk-diagnosis-dialog"
+      >
+        <template v-if="diagnosisResult">
+          <el-alert
+            :type="diagnosisResult.success ? 'success' : 'error'"
+            :title="diagnosisResult.success ? '测试通知发送成功' : '测试通知发送失败'"
+            :description="diagnosisResult.conclusion"
+            show-icon
+            :closable="false"
+          />
+          <el-descriptions class="diagnosis-summary" :column="2" border>
+            <el-descriptions-item label="企业">{{ diagnosisResult.corpName || diagnosisResult.corpId }}</el-descriptions-item>
+            <el-descriptions-item label="通知方式">{{ diagnosisResult.notifyMode }}</el-descriptions-item>
+            <el-descriptions-item label="AppKey">{{ diagnosisResult.appKeyMasked }}</el-descriptions-item>
+            <el-descriptions-item label="AppSecret">{{ diagnosisResult.appSecretSet ? '已配置' : '未配置' }}</el-descriptions-item>
+            <el-descriptions-item label="AgentId">{{ diagnosisResult.agentId || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="接收人">{{ diagnosisResult.recipientUserId || '-' }}</el-descriptions-item>
+          </el-descriptions>
+
+          <div class="diagnosis-section-title">调用链路</div>
+          <div class="diagnosis-steps">
+            <div
+              v-for="(step, index) in diagnosisResult.steps"
+              :key="`${step.name}-${index}`"
+              class="diagnosis-step"
+            >
+              <div class="diagnosis-step__head">
+                <span>{{ index + 1 }}. {{ step.name }}</span>
+                <el-tag
+                  size="small"
+                  :type="step.status === 'success' ? 'success' : step.status === 'skipped' ? 'info' : 'danger'"
+                >
+                  {{ step.status }}
+                </el-tag>
+              </div>
+              <div v-if="step.endpoint" class="diagnosis-step__endpoint">
+                {{ step.method }} {{ step.endpoint }}
+                <span v-if="step.durationMs">耗时 {{ step.durationMs }}ms</span>
+              </div>
+              <div class="diagnosis-step__grid">
+                <div>
+                  <div class="diagnosis-step__label">请求</div>
+                  <pre>{{ formatJSON(step.request) }}</pre>
+                </div>
+                <div>
+                  <div class="diagnosis-step__label">响应</div>
+                  <pre>{{ formatJSON(step.response || (step.error ? { error: step.error } : {})) }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <el-button @click="diagnosisDialogVisible = false">关闭</el-button>
+          <el-button type="primary" @click="copyDiagnosisEvidence">复制证据</el-button>
+        </template>
+      </el-dialog>
     </el-card>
   </div>
 </template>
@@ -173,8 +310,51 @@ type CorpConfigForm = {
   appKey: string
   appSecret: string
   agentId: string
+  unifiedAppId: string
+  appUrl: string
+  notifyEnabled: number
+  notifyMode: string
+  robotCode: string
   appSecretSet: boolean
   enabled: number
+}
+
+type SettingsPayload = Record<string, string | number>
+
+type DiagnosisStep = {
+  name: string
+  status: string
+  method?: string
+  endpoint?: string
+  durationMs?: number
+  request?: Record<string, unknown>
+  response?: Record<string, unknown>
+  error?: string
+}
+
+type DiagnosisResult = {
+  success: boolean
+  checkedAt: string
+  corpId: string
+  corpName: string
+  notifyEnabled: number
+  notifyMode: string
+  appKeyMasked: string
+  appSecretSet: boolean
+  agentId: string
+  unifiedAppId: string
+  robotCodeMasked: string
+  recipientUserId: string
+  conclusion: string
+  steps: DiagnosisStep[]
+}
+
+function normalizeNotifyMode(mode?: string) {
+  const value = String(mode || '').trim()
+  if (value === 'robot' || value === 'agent_fallback' || value === 'agent') {
+    return value
+  }
+  return 'agent'
 }
 
 function newCorpConfig(data: Partial<CorpConfigForm> = {}): CorpConfigForm {
@@ -184,6 +364,11 @@ function newCorpConfig(data: Partial<CorpConfigForm> = {}): CorpConfigForm {
     corpName: data.corpName || '',
     appKey: data.appKey || '',
     agentId: data.agentId || '',
+    unifiedAppId: data.unifiedAppId || '',
+    appUrl: data.appUrl || '',
+    notifyEnabled: Number(data.notifyEnabled) === 1 ? 1 : 0,
+    notifyMode: normalizeNotifyMode(data.notifyMode),
+    robotCode: data.robotCode || '',
     appSecret: '',
     appSecretSet: Boolean(data.appSecretSet),
     enabled: Number(data.enabled) === 0 ? 0 : 1
@@ -201,13 +386,16 @@ const form = reactive({
   redisPrefix: 'dingtalk_h5_token:',
   singleLogin: 0,
   selfBind: 1,
-  notifyEnabled: 0,
   appName: defaultAppName,
   logoText: defaultLogoText,
-  logoUrl: ''
+  logoUrl: '',
+  appUrl: ''
 })
 const loading = ref(false)
 const saving = ref(false)
+const testingCorpKey = ref('')
+const diagnosisDialogVisible = ref(false)
+const diagnosisResult = ref<DiagnosisResult | null>(null)
 
 const previewAppName = computed(() => form.appName.trim() || defaultAppName)
 const previewLogoText = computed(() => (form.logoText.trim() || defaultLogoText).slice(0, 4))
@@ -222,6 +410,11 @@ function normalizeCorpConfigs(data: any): CorpConfigForm[] {
         corpName: item?.corpName || '',
         appKey: item?.appKey || '',
         agentId: item?.agentId || '',
+        unifiedAppId: item?.unifiedAppId || '',
+        appUrl: item?.appUrl || '',
+        notifyEnabled: Number(item?.notifyEnabled) === 1 ? 1 : 0,
+        notifyMode: item?.notifyMode || '',
+        robotCode: item?.robotCode || '',
         appSecretSet: Boolean(item?.appSecretSet),
         enabled: Number(item?.enabled) === 0 ? 0 : 1
       })
@@ -258,34 +451,136 @@ async function loadSettings() {
     form.corpConfigs = normalizeCorpConfigs(
       data.corpConfigs && data.corpConfigs.length
         ? data.corpConfigs
-        : [{ corpId: data.corpId || '', corpName: data.corpId || '', appKey: data.appKey || '', agentId: data.agentId || '', appSecretSet: data.appSecretSet }]
+        : [{
+            corpId: data.corpId || '',
+            corpName: data.corpId || '',
+            appKey: data.appKey || '',
+            agentId: data.agentId || '',
+            unifiedAppId: data.unifiedAppId || '',
+            appUrl: data.appUrl || '',
+            notifyEnabled: Number(data.notifyEnabled) === 1 ? 1 : 0,
+            notifyMode: data.notifyMode || '',
+            robotCode: data.robotCode || '',
+            appSecretSet: data.appSecretSet
+          }]
     )
     form.tokenExpire = data.tokenExpire || '168h'
     form.redisPrefix = data.redisPrefix || 'dingtalk_h5_token:'
     form.singleLogin = Number(data.singleLogin) === 1 ? 1 : 0
     form.selfBind = Number(data.selfBind) === 0 ? 0 : 1
-    form.notifyEnabled = Number(data.notifyEnabled) === 1 ? 1 : 0
     form.appName = data.appName || defaultAppName
     form.logoText = data.logoText || defaultLogoText
     form.logoUrl = data.logoUrl || ''
+    form.appUrl = data.appUrl || ''
   } finally {
     loading.value = false
   }
 }
 
 async function saveSettings() {
-  const tokenExpire = form.tokenExpire.trim()
-  const redisPrefix = form.redisPrefix.trim()
-  const appName = previewAppName.value
-  const logoText = previewLogoText.value
-  if (!tokenExpire) {
-    ElMessage.warning('请输入 Token 过期时间')
+  const payload = buildSettingsPayload()
+  if (!payload) {
     return
   }
-  if (!redisPrefix) {
-    ElMessage.warning('请输入 Redis Key 前缀')
+  saving.value = true
+  try {
+    await request.put('/api/v2/admin/dingtalk/settings', payload)
+    ElMessage.success('保存成功')
+    await loadSettings()
+  } finally {
+    saving.value = false
+  }
+}
+
+function canTestNotification(corpConfig: CorpConfigForm) {
+  const hasButtonPerm = hasPerm('admin:menu:dingtalk:config:test') || hasPerm('admin:menu:dingtalk:config:edit')
+  return hasButtonPerm && Boolean(corpConfig.corpId.trim()) && testingCorpKey.value === ''
+}
+
+async function testCorpNotification(corpConfig: CorpConfigForm) {
+  const corpId = corpConfig.corpId.trim()
+  if (!corpId) {
+    ElMessage.warning('请先填写企业 CorpId')
     return
   }
+  testingCorpKey.value = corpConfig.localKey
+  try {
+    const res = await request.post<DiagnosisResult>('/api/v2/admin/dingtalk/settings/notification-test', { corpId })
+    diagnosisResult.value = res.data
+    diagnosisDialogVisible.value = true
+    if (res.data.success) {
+      ElMessage.success('测试通知发送成功')
+    } else {
+      ElMessage.warning('测试通知失败，已生成诊断结果')
+    }
+  } finally {
+    testingCorpKey.value = ''
+  }
+}
+
+function formatJSON(value?: Record<string, unknown>) {
+  return JSON.stringify(value || {}, null, 2)
+}
+
+async function copyDiagnosisEvidence() {
+  if (!diagnosisResult.value) return
+  const text = JSON.stringify(diagnosisResult.value, null, 2)
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    ElMessage.success('已复制诊断证据')
+  } catch {
+    ElMessage.warning('复制失败，请手动复制诊断内容')
+  }
+}
+
+function buildSettingsPayload(): SettingsPayload | null {
+  switch (activeTab.value) {
+    case 'corp':
+      return buildCorpSettingsPayload()
+    case 'login': {
+      const tokenExpire = form.tokenExpire.trim()
+      const redisPrefix = form.redisPrefix.trim()
+      if (!tokenExpire) {
+        ElMessage.warning('请输入 Token 过期时间')
+        return null
+      }
+      if (!redisPrefix) {
+        ElMessage.warning('请输入 Redis Key 前缀')
+        return null
+      }
+      return {
+        scope: 'login',
+        tokenExpire,
+        redisPrefix,
+        singleLogin: form.singleLogin,
+        selfBind: form.selfBind
+      }
+    }
+    case 'app':
+      return {
+        scope: 'app',
+        appName: previewAppName.value,
+        logoText: previewLogoText.value,
+        logoUrl: form.logoUrl.trim(),
+        appUrl: form.appUrl.trim()
+      }
+    default:
+      return buildCorpSettingsPayload()
+  }
+}
+
+function buildCorpSettingsPayload(): SettingsPayload | null {
   const corpConfigs = form.corpConfigs
     .map(item => ({
       corpId: item.corpId.trim(),
@@ -293,41 +588,47 @@ async function saveSettings() {
       appKey: item.appKey.trim(),
       appSecret: item.appSecret.trim(),
       agentId: item.agentId.trim(),
+      unifiedAppId: item.unifiedAppId.trim(),
+      appUrl: item.appUrl.trim(),
+      notifyEnabled: item.notifyEnabled,
+      notifyMode: normalizeNotifyMode(item.notifyMode),
+      robotCode: item.robotCode.trim(),
       enabled: item.enabled
     }))
     .filter(item => item.corpId || item.corpName || item.appKey || item.appSecret)
   for (const item of corpConfigs) {
     if (!item.corpId) {
       ElMessage.warning('请填写企业 CorpId')
-      return
+      return null
     }
     if (!item.appKey) {
       ElMessage.warning('请填写企业 AppKey')
-      return
+      return null
     }
   }
-  const firstCorpConfig = corpConfigs[0] || { corpId: '', appKey: '', appSecret: '', agentId: '' }
-  saving.value = true
-  try {
-    await request.put('/api/v2/admin/dingtalk/settings', {
-      corpId: firstCorpConfig.corpId,
-      appKey: firstCorpConfig.appKey,
-      appSecret: firstCorpConfig.appSecret,
-      agentId: firstCorpConfig.agentId,
-      corpConfigs: JSON.stringify(corpConfigs),
-      tokenExpire,
-      redisPrefix,
-      singleLogin: form.singleLogin,
-      selfBind: form.selfBind,
-      notifyEnabled: form.notifyEnabled,
-      appName,
-      logoText,
-      logoUrl: form.logoUrl.trim()
-    })
-    ElMessage.success('保存成功')
-    await loadSettings()
-  } finally {
-    saving.value = false
+  const firstCorpConfig = corpConfigs[0] || {
+    corpId: '',
+    appKey: '',
+    appSecret: '',
+    agentId: '',
+    unifiedAppId: '',
+    appUrl: '',
+    notifyEnabled: 0,
+    notifyMode: 'agent',
+    robotCode: ''
+  }
+  return {
+    scope: 'corp',
+    corpId: firstCorpConfig.corpId,
+    appKey: firstCorpConfig.appKey,
+    appSecret: firstCorpConfig.appSecret,
+    agentId: firstCorpConfig.agentId,
+    unifiedAppId: firstCorpConfig.unifiedAppId,
+    appUrl: firstCorpConfig.appUrl,
+    notifyEnabled: firstCorpConfig.notifyEnabled,
+    notifyMode: firstCorpConfig.notifyMode,
+    robotCode: firstCorpConfig.robotCode,
+    corpConfigs: JSON.stringify(corpConfigs)
   }
 }
 
@@ -386,15 +687,74 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.corp-config-item__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .corp-config-add {
   margin-top: 12px;
 }
 
-.settings-switch-line {
+.corp-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.corp-config-field__label,
+.corp-config-enabled__label {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.corp-config-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.corp-config-mode__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.corp-config-notify,
+.corp-config-notify__main {
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: 32px;
+}
+
+.corp-config-notify {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+
+.corp-config-enabled {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  padding: 2px 2px 0;
+}
+
+.corp-config-notify__label {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .settings-help {
@@ -451,5 +811,86 @@ onMounted(() => {
   color: #1f2937;
   font-size: 15px;
   font-weight: 700;
+}
+
+.diagnosis-summary {
+  margin-top: 14px;
+}
+
+.diagnosis-section-title {
+  margin: 18px 0 10px;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.diagnosis-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 440px;
+  overflow: auto;
+}
+
+.diagnosis-step {
+  padding: 12px;
+  border: 1px solid #e5eaf3;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.diagnosis-step__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.diagnosis-step__endpoint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.diagnosis-step__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.diagnosis-step__label {
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.diagnosis-step pre {
+  min-height: 64px;
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #e5eaf3;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+:deep(.dingtalk-diagnosis-dialog .el-dialog__body) {
+  padding-top: 12px;
 }
 </style>

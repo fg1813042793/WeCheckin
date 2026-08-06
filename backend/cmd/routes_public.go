@@ -5,12 +5,12 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	admindict "wecheckin/backend/internal/app/handler/admin/dict"
-	adminuser "wecheckin/backend/internal/app/handler/admin/user"
-	clientpassport "wecheckin/backend/internal/app/handler/client/passport"
-	clientsurvey "wecheckin/backend/internal/app/handler/client/survey"
-	publicgeo "wecheckin/backend/internal/app/handler/public/geo"
-	publichome "wecheckin/backend/internal/app/handler/public/home"
+	admindict "wecheckin/backend/internal/handler/admin/dict"
+	adminuser "wecheckin/backend/internal/handler/admin/user"
+	clientpassport "wecheckin/backend/internal/handler/client/passport"
+	clientsurvey "wecheckin/backend/internal/handler/client/survey"
+	publicgeo "wecheckin/backend/internal/handler/public/geo"
+	publichome "wecheckin/backend/internal/handler/public/home"
 	"wecheckin/backend/pkg/response"
 )
 

@@ -1,0 +1,39 @@
+# Admin standalone Docker Compose configuration.
+# Use this when the backend is deployed separately.
+#
+# Default routes:
+#   /api/     -> backend API proxy
+#   /upload/  -> backend upload API proxy
+#   /uploads/ -> backend uploads static files
+#   /         -> admin SPA
+#
+# Example:
+#   docker compose -f docker-compose.admin.yml up -d --build
+
+services:
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-}
+    image: ${WECHECKIN_ADMIN_IMAGE:-wecheckin-admin:latest}
+    container_name: ${WECHECKIN_ADMIN_CONTAINER_NAME:-wecheckin-admin}
+    restart: unless-stopped
+    ports:
+      - "${WECHECKIN_ADMIN_HTTP_PORT:-3000}:80"
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-_}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-32m}
+      NGINX_API_UPSTREAM: ${NGINX_API_UPSTREAM:-http://host.docker.internal:8083}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${WECHECKIN_UPLOADS_DIR:-../backend/uploads}:/usr/share/nginx/html/uploads:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

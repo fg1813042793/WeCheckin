@@ -316,6 +316,26 @@ docker-compose up -d
 
 当前 Compose 示例会把后端映射到 `8083:8083`，并通过 Nginx 代理 `/api/`、`/health`、`/ready`、`/swagger`，必要时可保留旧版 `/passport`、`/home`、`/upload`、`/survey`、`/exam` 等客户端兼容路径。MySQL、Redis、backend 和 Nginx 均配置了 healthcheck，backend 使用 `condition: service_healthy` 等待 MySQL/Redis，Nginx 使用 `condition: service_healthy` 等待 backend。该能力需要 Docker Compose v2。
 
+如果服务器已单独部署 MySQL、Redis 和 Nginx，只需要运行后端容器，可以使用 `backend/docker-compose.backend.yml`：
+
+```bash
+cd backend
+cp .env.backend.example .env
+docker compose -f docker-compose.backend.yml up -d --build
+```
+
+该配置只启动 `backend` 服务，默认通过 `host.docker.internal` 连接宿主机 MySQL/Redis；Linux 下已配置 `host-gateway`。生产环境请按实际地址修改 `WECHECKIN_DATABASE_HOST`、`WECHECKIN_REDIS_HOST` 和 CORS。
+
+钉钉 H5 可以单独部署为静态站点容器，适合后端已经独立部署的场景：
+
+```bash
+cd dingtalk-h5
+cp .env.docker.example .env
+docker compose -f docker-compose.h5.yml up -d --build
+```
+
+该配置只启动 H5 Nginx 容器，默认对外端口 `8086`，并将 `/api/v2/`、`/uploads/`、`/upload/` 代理到 `NGINX_API_PROXY_TARGET`。如果后端不是宿主机 `8083`，请从 `dingtalk-h5/.env.docker.example` 复制配置并修改 `dingtalk-h5/.env` 中的后端地址。
+
 Compose 已为 MySQL、Redis、backend 和 Nginx 配置 Docker `json-file` 日志轮转。默认值来自 `backend/.env.example`：
 
 ```env

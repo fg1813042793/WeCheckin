@@ -14,7 +14,7 @@ func TestV2ClientRoutesExposePermissionBootstrap(t *testing.T) {
 	text := string(src)
 	for _, snippet := range []string{
 		`client.GET("/me/bootstrap", pp.Bootstrap)`,
-		`client := h.Group("/api/v2", middleware.ClientAuth(), middleware.ClientPerm())`,
+		`client := h.Group("/api/v2", clientmw.ClientAuth(), clientmw.ClientPerm())`,
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("client v2 routes must expose permission-controlled bootstrap with %q", snippet)

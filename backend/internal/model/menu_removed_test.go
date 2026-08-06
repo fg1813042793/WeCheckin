@@ -7,9 +7,9 @@ import (
 )
 
 func TestModelLayerDoesNotDefineLegacyMenuTable(t *testing.T) {
-	src, err := os.ReadFile("rbac.go")
+	src, err := os.ReadFile("organization/rbac.go")
 	if err != nil {
-		t.Fatalf("read rbac.go: %v", err)
+		t.Fatalf("read organization/rbac.go: %v", err)
 	}
 	text := string(src)
 	for _, forbidden := range []string{

@@ -111,6 +111,65 @@ export function request(options = {}) {
   })
 }
 
+function parseUploadResponseData(raw) {
+  if (typeof raw !== 'string') return raw
+  try {
+    return JSON.parse(raw)
+  } catch (error) {
+    return null
+  }
+}
+
+export function uploadFile(url, filePath, options = {}) {
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: buildUrl(url),
+      filePath,
+      name: options.name || 'file',
+      formData: options.formData || {},
+      timeout: options.timeout || 30000,
+      header: {
+        'Authorization': getAuthToken(),
+        'X-Client-Platform': 'dingtalk-h5',
+        ...options.header
+      },
+      success: (res) => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          uni.showToast({
+            title: '上传失败',
+            icon: 'none'
+          })
+          reject(res)
+          return
+        }
+
+        const data = parseUploadResponseData(res.data)
+        if (!data) {
+          uni.showToast({
+            title: '上传响应异常',
+            icon: 'none'
+          })
+          reject(res)
+          return
+        }
+        if (data.code === undefined || data.code === 0) {
+          resolve(data)
+          return
+        }
+
+        handleBusinessError(data, reject)
+      },
+      fail: (error) => {
+        uni.showToast({
+          title: '上传失败',
+          icon: 'none'
+        })
+        reject(error)
+      }
+    })
+  })
+}
+
 export function buildApiUrl(url, query = {}) {
   const fullUrl = buildUrl(url)
   const params = Object.entries(query)

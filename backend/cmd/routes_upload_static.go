@@ -13,7 +13,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/utils"
-	"wecheckin/backend/internal/app/support/media"
+	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/pkg/logger"
 	"wecheckin/backend/pkg/response"
 )

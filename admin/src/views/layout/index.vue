@@ -132,7 +132,12 @@
         </button>
       </div>
       <el-main class="admin-main">
-        <router-view v-if="permsReady" />
+        <router-view v-if="permsReady" v-slot="{ Component }">
+          <keep-alive v-if="tabCacheEnabled" :include="cachedRouteNames">
+            <component :is="getCachedRouteComponent(Component, route)" :key="route.fullPath" />
+          </keep-alive>
+          <component v-else :is="Component" :key="route.fullPath" />
+        </router-view>
         <div v-else class="admin-loading">
           <el-icon class="is-loading"><Loading /></el-icon>
           <span>权限加载中</span>
@@ -145,10 +150,20 @@
 <script lang="ts" setup>
 import { useRoute, useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick, defineComponent, h, markRaw } from 'vue'
+import type { Component } from 'vue'
 import { adminApi } from '../../api'
 import { setPerms } from '../../utils/permission'
 import { ADMIN_ROUTE_TABS_STORAGE_KEY, clearAdminSession } from '../../utils/adminSession'
+import request from '../../utils/request'
+import {
+  ADMIN_FRONTEND_CONFIG_CHANGED_EVENT,
+  ADMIN_FRONTEND_CONFIG_SETUP_KEY,
+  ADMIN_FRONTEND_CONFIG_STORAGE_KEY,
+  cacheAdminFrontendConfig,
+  loadCachedAdminFrontendConfig,
+  normalizeAdminFrontendConfig,
+} from '../../utils/frontendConfig'
 import type { AdminMenuItem } from '../../router/adminRoutes'
 import { resolveAdminIcon } from '../../icons'
 
@@ -183,7 +198,9 @@ const routeTabsCanScrollRight = ref(false)
 const displayMenuTree = computed(() => menuTree.value)
 const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '220px')
 const pageTitle = computed(() => String(route.meta.title || '控制台'))
+const tabCacheEnabled = ref(loadCachedAdminFrontendConfig().tabCacheEnabled === 1)
 let routeTabsResizeObserver: ResizeObserver | null = null
+const routeCacheComponentMap = new Map<string, { name: string; source: Component; component: Component }>()
 const breadcrumbItems = computed(() => {
   const trail = findMenuTrail(displayMenuTree.value, route.path)
   if (trail.length > 0) {
@@ -192,6 +209,52 @@ const breadcrumbItems = computed(() => {
   if (route.path === '/dashboard') return [{ name: '后台首页', path: '/dashboard' }]
   return [{ name: '后台首页', path: '/dashboard' }, { name: pageTitle.value }]
 })
+const cachedRouteNames = computed(() => {
+  if (!tabCacheEnabled.value) return []
+  return visitedTabs.value.map(tab => getRouteCacheName(tab.fullPath, tab.name))
+})
+
+function hashRoutePath(value: string) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash).toString(36)
+}
+
+function safeRouteName(value: string) {
+  return value.replace(/[^a-zA-Z0-9_]/g, '_') || 'Route'
+}
+
+function getRouteCacheName(fullPath: string, name: string) {
+  return `AdminRouteCache_${safeRouteName(name)}_${hashRoutePath(fullPath)}`
+}
+
+function getCachedRouteComponent(component: Component, target: RouteLocationNormalizedLoaded) {
+  const cacheName = getRouteCacheName(target.fullPath, String(target.name || target.path))
+  const cached = routeCacheComponentMap.get(target.fullPath)
+  if (cached?.source === component && cached.name === cacheName) {
+    return cached.component
+  }
+
+  const wrapped = markRaw(defineComponent({
+    name: cacheName,
+    setup() {
+      return () => h(component)
+    },
+  }))
+  routeCacheComponentMap.set(target.fullPath, { name: cacheName, source: component, component: wrapped })
+  return wrapped
+}
+
+function pruneClosedRouteCaches() {
+  const activeFullPaths = new Set(visitedTabs.value.map(tab => tab.fullPath))
+  for (const fullPath of routeCacheComponentMap.keys()) {
+    if (!activeFullPaths.has(fullPath)) {
+      routeCacheComponentMap.delete(fullPath)
+    }
+  }
+}
 
 function findMenuTrail(items: AdminMenuItem[], path: string, parents: AdminMenuItem[] = []): AdminMenuItem[] {
   for (const item of items) {
@@ -266,6 +329,7 @@ function closeVisitedTab(tab: VisitedTab) {
   if (isAffixTab(tab)) return
   const closingIndex = visitedTabs.value.findIndex(item => item.fullPath === tab.fullPath)
   visitedTabs.value = normalizeVisitedTabs(visitedTabs.value.filter(item => item.fullPath !== tab.fullPath))
+  routeCacheComponentMap.delete(tab.fullPath)
   persistVisitedTabs()
   syncRouteTabsAfterRender(false)
   if (tab.fullPath !== route.fullPath) return
@@ -371,6 +435,34 @@ async function loadMenus() {
   }
 }
 
+async function loadFrontendConfig() {
+  const cached = loadCachedAdminFrontendConfig()
+  tabCacheEnabled.value = cached.tabCacheEnabled === 1
+  try {
+    const res = await request.get('/api/v2/home/setup', { params: { key: ADMIN_FRONTEND_CONFIG_SETUP_KEY } })
+    const config = normalizeAdminFrontendConfig(res.data)
+    cacheAdminFrontendConfig(config)
+    tabCacheEnabled.value = config.tabCacheEnabled === 1
+  } catch {
+    // Keep local/default config when backend setup is unavailable.
+  }
+}
+
+function applyFrontendConfig(input: unknown) {
+  const config = normalizeAdminFrontendConfig(input)
+  cacheAdminFrontendConfig(config)
+  tabCacheEnabled.value = config.tabCacheEnabled === 1
+}
+
+function handleFrontendConfigChanged(event: Event) {
+  applyFrontendConfig((event as CustomEvent).detail)
+}
+
+function handleFrontendConfigStorage(event: StorageEvent) {
+  if (event.key !== ADMIN_FRONTEND_CONFIG_STORAGE_KEY) return
+  applyFrontendConfig(event.newValue)
+}
+
 async function handleCommand(cmd: string) {
   if (cmd === 'logout') {
     try { await adminApi.adminLogout() } catch { /* ignore */ }
@@ -380,18 +472,23 @@ async function handleCommand(cmd: string) {
 }
 
 onMounted(() => {
+  loadFrontendConfig()
   loadPerms()
   loadMenus()
   nextTick(() => {
     setupRouteTabsResizeObserver()
     updateRouteTabsScrollState()
     window.addEventListener('resize', updateRouteTabsScrollState)
+    window.addEventListener(ADMIN_FRONTEND_CONFIG_CHANGED_EVENT, handleFrontendConfigChanged as EventListener)
+    window.addEventListener('storage', handleFrontendConfigStorage)
   })
 })
 
 onBeforeUnmount(() => {
   routeTabsResizeObserver?.disconnect()
   window.removeEventListener('resize', updateRouteTabsScrollState)
+  window.removeEventListener(ADMIN_FRONTEND_CONFIG_CHANGED_EVENT, handleFrontendConfigChanged as EventListener)
+  window.removeEventListener('storage', handleFrontendConfigStorage)
 })
 
 watch(
@@ -399,6 +496,17 @@ watch(
   () => addVisitedTab(route),
   { immediate: true },
 )
+
+watch(
+  () => visitedTabs.value,
+  pruneClosedRouteCaches,
+)
+
+watch(tabCacheEnabled, enabled => {
+  if (!enabled) {
+    routeCacheComponentMap.clear()
+  }
+})
 </script>
 
 <style scoped>

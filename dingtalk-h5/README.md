@@ -6,10 +6,13 @@
 
 ```text
 dingtalk-h5/
+  api/              按页面目录拆分的接口封装
+  components/       应用级、鉴权级公共组件
   config/           环境配置读取
-  pages/            页面
+  pages/            uni-app 入口页面装配层
+  router/           菜单页面映射和通知深链解析单入口
   scripts/          工程检查脚本
-  services/         `/api/v2/dingtalk/h5` 接口封装
+  views/            按一级菜单/二级菜单组织的业务页面
   utils/            请求与钉钉 JSAPI 工具
   App.vue
   main.js
@@ -43,6 +46,26 @@ VITE_DINGTALK_CORP_ID=
 - `VITE_DEV_PROXY_TARGET`：Vite 本地代理目标，默认后端地址为 `http://localhost:8083`。
 - `VITE_DINGTALK_CORP_ID`：默认钉钉企业 CorpId，用于免登授权码。多企业部署时，URL 查询参数 `corpId` 优先级更高。
 
+## Docker 单独部署
+
+钉钉 H5 可以作为独立静态站点部署，后端由外部服务提供：
+
+```bash
+cd dingtalk-h5
+cp .env.docker.example .env
+docker compose -f docker-compose.h5.yml up -d --build
+```
+
+默认会把 H5 映射到宿主机 `8086`，容器内 Nginx 会把同源 `/api/v2/`、`/uploads/` 和 `/upload/` 代理到 `NGINX_API_PROXY_TARGET`，默认是 `http://host.docker.internal:8083`。生产环境通常需要修改：
+
+```text
+DINGTALK_H5_HTTP_PORT=8086
+NGINX_API_PROXY_TARGET=http://your-backend:8083
+VITE_DINGTALK_CORP_ID=dingxxxx
+```
+
+如果使用独立 API 域名，也可以在构建前设置 `VITE_API_BASE_URL=https://api.example.com`，此时前端会直接请求该地址；否则推荐保持为空，由 Nginx 同源代理避免跨域。
+
 ## 钉钉免登流程
 
 钉钉内打开 H5 时，前端先通过 `/api/v2/dingtalk/h5/public-config` 读取后台配置的默认企业 `corpId` 和页面品牌信息，再确定当前 `corpId`：URL 查询参数 `?corpId=xxx` 优先，其次使用后台默认企业，最后使用 `VITE_DINGTALK_CORP_ID`。随后前端通过 `requestAuthCode(corpId)` 获取一次性免登授权码，然后调用 `/api/v2/dingtalk/h5/sso-login`，请求体包含 `corpId` 和 `authCode`。
@@ -53,11 +76,16 @@ VITE_DINGTALK_CORP_ID=
 
 免登只替代密码校验，不替代权限校验。用户仍必须在管理后台存在、状态启用，并配置角色权限或用户额外授权。
 
-管理后台“钉钉应用管理 / 配置选项”维护企业应用列表和登录态配置。企业应用列表写入 `dingtalk_h5_corp_configs`；第一条配置会同步到以下旧 setup 键，供单企业旧部署和兼容逻辑读取：
+管理后台“钉钉应用管理 / 配置选项”维护企业应用列表、登录态配置和 H5 展示配置。企业应用列表写入 `dingtalk_h5_corp_configs`；每个企业应用可单独配置 CorpId、AppKey、AppSecret、旧版 AgentId、新版 App ID、H5 应用地址、通知方式和绩效流程通知开关。第一条配置会同步到以下旧 setup 键，供单企业旧部署和兼容逻辑读取：
 
 - `DINGTALK_H5_CORP_ID`
 - `DINGTALK_H5_APP_KEY`
 - `DINGTALK_H5_APP_SECRET`
+- `DINGTALK_H5_AGENT_ID`
+- `DINGTALK_H5_UNIFIED_APP_ID`
+- `DINGTALK_H5_NOTIFY_MODE`
+- `DINGTALK_H5_ROBOT_CODE`
+- `DINGTALK_H5_APP_URL`
 - `TOKEN_DINGTALK_H5_EXPIRE`
 - `TOKEN_DINGTALK_H5_REDIS_PREFIX`
 - `DINGTALK_H5_SINGLE_LOGIN`
@@ -86,7 +114,11 @@ https://oa.example.com/dingtalk-h5/?corpId=ding456
 - 钉钉 JSAPI 检测与初始化：`utils/dingtalk.js`
 - 钉钉免登授权码获取封装：`requestAuthCode`
 - 客户端请求封装：`utils/request.js`
-- `/api/v2/dingtalk/h5` 接口常量：`services/dingtalkH5Api.js`
+- `/api/v2/dingtalk/h5` 接口常量：`api/common/base.js`
+- 页面接口封装按 `api/一级菜单/二级菜单` 拆分，与 `views` 目录保持同层级语义
+- 菜单页面映射和通知深链解析集中在 `router/index.js`
+- 绩效表单 tab 白名单集中在 `views/performance/common/reviewTabs.js`
+- 应用内容出口：`components/app/AppContentOutlet.js`
 - 脚手架完整性检查：`npm run check:scaffold`
 
 ## 菜单图标
@@ -99,12 +131,14 @@ https://oa.example.com/dingtalk-h5/?corpId=ding456
 dashboard, performance, mine, history, manager, hrbp, summary, org, template, account
 ```
 
-实际 SVG 路径维护在 `components/performance/AppShell.vue` 的 `navIconMap` 中。新增图标键时，需要同步后台可选项、后端菜单默认声明和 `navIconMap`。
+实际 SVG 路径维护在 `components/app/AppShell.vue` 的 `navIconMap` 中。新增图标键时，需要同步后台可选项、后端菜单默认声明和 `navIconMap`。
 
 ## 开发规范
 
 - 所有删除按钮都必须增加二次确认弹窗。用户确认后才可以执行删除接口或修改本地删除状态；用户取消时不能发起删除请求，也不能改变页面数据。
 - 所有钉钉 H5 删除接口都必须走软删除，禁止物理删除业务数据。考评单使用 `deleted_at/delete_by/delete_dept_id` 标记删除并在列表、详情、统计、导出中统一过滤；共享 `users` 表的人员删除只允许停用 `user_status=0`。
+- 钉钉工作通知点击跳转必须走后端生成的内部应用链接。后端会优先使用企业应用配置中的 H5 应用地址和新版 App ID，打开对应钉钉应用，例如“钉米-OKR”；前端只负责识别 `view`、`reviewNo`、`period`、`status` 深链参数，不在页面内手写通知跳转协议。
+- 钉钉通知卡片的来源名称由后端读取“钉钉应用管理 / 配置 / 应用名称”后写入机器人链接消息；如果钉钉客户端仍按链接协议显示 `dingtalkclient`，以前端深链参数为准，业务页面仍会进入对应考评单。
 
 ## 后端接口
 

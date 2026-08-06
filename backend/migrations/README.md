@@ -30,6 +30,44 @@ bash init.sh
 WECHECKIN_MIGRATIONS_DIR=/path/to/migrations bash init.sh
 ```
 
+## 配置读取规则
+
+`backend/init.sh` 会先切换到 `backend` 目录，再执行 `go run ./cmd/maintenance`。`cmd/maintenance` 不维护独立配置，和后端主服务一样调用 `internal/config.LoadConfig`。
+
+默认读取顺序：
+
+1. `backend/config.yaml`
+2. `backend/config/config.yaml`
+
+执行时如果传入环境参数，会在默认配置基础上继续合并对应环境配置：
+
+```bash
+cd backend
+go run ./cmd/maintenance -env prod
+```
+
+上面的命令会额外尝试读取：
+
+```text
+backend/config.prod.yaml
+backend/config/config.prod.yaml
+```
+
+环境变量会覆盖配置文件中的同名配置，例如：
+
+```bash
+WECHECKIN_DATABASE_HOST=127.0.0.1 \
+WECHECKIN_DATABASE_PORT=3306 \
+WECHECKIN_DATABASE_USER=wecheckin \
+WECHECKIN_DATABASE_PASSWORD='change-me' \
+WECHECKIN_DATABASE_DBNAME=wecheckin \
+bash init.sh
+```
+
+常用覆盖项包括 `WECHECKIN_DATABASE_*`、`WECHECKIN_REDIS_*`、`WECHECKIN_SERVER_*`、`WECHECKIN_TOKEN_*` 和 `WECHECKIN_CORS_*`。
+
+注意：在宿主机直接执行 `bash backend/init.sh` 时，Docker Compose 的 `.env` 文件不会自动加载。如需复用 `.env`，请先手动导入环境变量，或在 Compose 网络内使用专门的维护容器执行迁移。
+
 ## 新增迁移检查清单
 
 - [ ] 是否可以在生产数据量下执行。
