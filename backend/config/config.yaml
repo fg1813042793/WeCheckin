@@ -21,6 +21,7 @@ cors:
     - "Content-Type"
     - "Accept"
     - "Authorization"
+    - "x-client-platform"
 
 database:
   host: "192.168.3.4"
@@ -53,7 +54,7 @@ token:
     redis_prefix: "admin_token:"
 
 oss:
-  type: "aliyun"  # aliyun, tencent, local
+  type: "local"  # aliyun, tencent, local
   aliyun:
     access_key_id: "your-aliyun-access-key"
     access_key_secret: "your-aliyun-secret"
@@ -66,7 +67,3 @@ oss:
     bucket: "your-bucket"
   local:
     path: "./uploads"
-
-security:
-  app_id: "your-app-id"
-  app_secret: "your-app-secret"

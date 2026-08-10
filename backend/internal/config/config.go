@@ -13,8 +13,34 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	CORS     CORSConfig     `mapstructure:"cors"`
 	Log      LogConfig      `mapstructure:"log"`
+	OSS      OSSConfig      `mapstructure:"oss"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Token    TokenConfig    `mapstructure:"token"`
+}
+
+type OSSConfig struct {
+	Type    string           `mapstructure:"type"`
+	Aliyun  AliyunOSSConfig  `mapstructure:"aliyun"`
+	Tencent TencentOSSConfig `mapstructure:"tencent"`
+	Local   LocalOSSConfig   `mapstructure:"local"`
+}
+
+type AliyunOSSConfig struct {
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	AccessKeySecret string `mapstructure:"access_key_secret"`
+	Endpoint        string `mapstructure:"endpoint"`
+	Bucket          string `mapstructure:"bucket"`
+}
+
+type TencentOSSConfig struct {
+	SecretID  string `mapstructure:"secret_id"`
+	SecretKey string `mapstructure:"secret_key"`
+	Region    string `mapstructure:"region"`
+	Bucket    string `mapstructure:"bucket"`
+}
+
+type LocalOSSConfig struct {
+	Path string `mapstructure:"path"`
 }
 
 type RedisConfig struct {
@@ -111,33 +137,45 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.max_age", 30)
 	v.SetDefault("log.compress", true)
+	v.SetDefault("oss.type", "local")
+	v.SetDefault("oss.local.path", "./uploads")
 }
 
 func bindEnv(v *viper.Viper) {
 	bindings := map[string]string{
-		"server.port":              "WECHECKIN_SERVER_PORT",
-		"server.host":              "WECHECKIN_SERVER_HOST",
-		"server.mode":              "WECHECKIN_SERVER_MODE",
-		"database.host":            "WECHECKIN_DATABASE_HOST",
-		"database.port":            "WECHECKIN_DATABASE_PORT",
-		"database.user":            "WECHECKIN_DATABASE_USER",
-		"database.password":        "WECHECKIN_DATABASE_PASSWORD",
-		"database.dbname":          "WECHECKIN_DATABASE_DBNAME",
-		"redis.host":               "WECHECKIN_REDIS_HOST",
-		"redis.port":               "WECHECKIN_REDIS_PORT",
-		"redis.password":           "WECHECKIN_REDIS_PASSWORD",
-		"redis.db":                 "WECHECKIN_REDIS_DB",
-		"log.dir":                  "WECHECKIN_LOG_DIR",
-		"log.level":                "WECHECKIN_LOG_LEVEL",
-		"log.max_age":              "WECHECKIN_LOG_MAX_AGE",
-		"log.compress":             "WECHECKIN_LOG_COMPRESS",
-		"token.user.expire":        "WECHECKIN_TOKEN_USER_EXPIRE",
-		"token.user.redis_prefix":  "WECHECKIN_TOKEN_USER_REDIS_PREFIX",
-		"token.admin.expire":       "WECHECKIN_TOKEN_ADMIN_EXPIRE",
-		"token.admin.redis_prefix": "WECHECKIN_TOKEN_ADMIN_REDIS_PREFIX",
-		"cors.allow_origins":       "WECHECKIN_CORS_ALLOW_ORIGINS",
-		"cors.allow_methods":       "WECHECKIN_CORS_ALLOW_METHODS",
-		"cors.allow_headers":       "WECHECKIN_CORS_ALLOW_HEADERS",
+		"server.port":                  "WECHECKIN_SERVER_PORT",
+		"server.host":                  "WECHECKIN_SERVER_HOST",
+		"server.mode":                  "WECHECKIN_SERVER_MODE",
+		"database.host":                "WECHECKIN_DATABASE_HOST",
+		"database.port":                "WECHECKIN_DATABASE_PORT",
+		"database.user":                "WECHECKIN_DATABASE_USER",
+		"database.password":            "WECHECKIN_DATABASE_PASSWORD",
+		"database.dbname":              "WECHECKIN_DATABASE_DBNAME",
+		"redis.host":                   "WECHECKIN_REDIS_HOST",
+		"redis.port":                   "WECHECKIN_REDIS_PORT",
+		"redis.password":               "WECHECKIN_REDIS_PASSWORD",
+		"redis.db":                     "WECHECKIN_REDIS_DB",
+		"log.dir":                      "WECHECKIN_LOG_DIR",
+		"log.level":                    "WECHECKIN_LOG_LEVEL",
+		"log.max_age":                  "WECHECKIN_LOG_MAX_AGE",
+		"log.compress":                 "WECHECKIN_LOG_COMPRESS",
+		"oss.type":                     "WECHECKIN_OSS_TYPE",
+		"oss.aliyun.access_key_id":     "WECHECKIN_OSS_ALIYUN_ACCESS_KEY_ID",
+		"oss.aliyun.access_key_secret": "WECHECKIN_OSS_ALIYUN_ACCESS_KEY_SECRET",
+		"oss.aliyun.endpoint":          "WECHECKIN_OSS_ALIYUN_ENDPOINT",
+		"oss.aliyun.bucket":            "WECHECKIN_OSS_ALIYUN_BUCKET",
+		"oss.tencent.secret_id":        "WECHECKIN_OSS_TENCENT_SECRET_ID",
+		"oss.tencent.secret_key":       "WECHECKIN_OSS_TENCENT_SECRET_KEY",
+		"oss.tencent.region":           "WECHECKIN_OSS_TENCENT_REGION",
+		"oss.tencent.bucket":           "WECHECKIN_OSS_TENCENT_BUCKET",
+		"oss.local.path":               "WECHECKIN_OSS_LOCAL_PATH",
+		"token.user.expire":            "WECHECKIN_TOKEN_USER_EXPIRE",
+		"token.user.redis_prefix":      "WECHECKIN_TOKEN_USER_REDIS_PREFIX",
+		"token.admin.expire":           "WECHECKIN_TOKEN_ADMIN_EXPIRE",
+		"token.admin.redis_prefix":     "WECHECKIN_TOKEN_ADMIN_REDIS_PREFIX",
+		"cors.allow_origins":           "WECHECKIN_CORS_ALLOW_ORIGINS",
+		"cors.allow_methods":           "WECHECKIN_CORS_ALLOW_METHODS",
+		"cors.allow_headers":           "WECHECKIN_CORS_ALLOW_HEADERS",
 	}
 	for key, env := range bindings {
 		if err := v.BindEnv(key, env); err != nil {

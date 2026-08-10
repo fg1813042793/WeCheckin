@@ -14,11 +14,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/adminmenuperm"
 	"wecheckin/backend/internal/support/adminrouteperm"
 	"wecheckin/backend/internal/support/appapiperm"
 	"wecheckin/backend/internal/support/appmenuperm"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -1091,6 +1091,61 @@ func DataScopeExtrasWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID 
 		return DataScopeExtras{}, err
 	}
 	return mergeDataScopeExtras(grants), nil
+}
+
+func DataScopeBundleContext(ctx context.Context, db *gorm.DB, userID, roleID uint) (DataScope, DataScopeExtras, error) {
+	roleIDs, err := ActiveRoleIDsForUserContext(ctx, db, userID, roleID)
+	if err != nil {
+		return DataScope{}, DataScopeExtras{}, err
+	}
+	return DataScopeBundleWithRoleIDsContext(ctx, db, userID, roleIDs)
+}
+
+func DataScopeBundleWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) (DataScope, DataScopeExtras, error) {
+	if err := ctxErr(ctx); err != nil {
+		return DataScope{}, DataScopeExtras{}, err
+	}
+	if db == nil || !TablesReady(db) {
+		return DataScope{}, DataScopeExtras{}, nil
+	}
+	roleIDs = normalizeRoleIDs(roleIDs...)
+	keys := []string{DataAllPermissionKey, DataDeptPermissionKey, DataSelfPermissionKey, DataCustomPermissionKey, DataExtraPermissionKey}
+	subjects := make([]permissionSubjectRef, 0, len(roleIDs)+1)
+	subjects = append(subjects, permissionSubjectRef{subjectType: SubjectUser, subjectID: userID})
+	for _, roleID := range roleIDs {
+		subjects = append(subjects, permissionSubjectRef{subjectType: SubjectRole, subjectID: roleID})
+	}
+	grants, err := grantsBySubjectsAndKeys(ctx, db, keys, subjects...)
+	if err != nil {
+		return DataScope{}, DataScopeExtras{}, err
+	}
+	baseGrants := make([]model.PermissionGrant, 0, len(grants))
+	extraGrants := make([]model.PermissionGrant, 0)
+	for _, grant := range grants {
+		if grant.PermissionKey == DataExtraPermissionKey {
+			extraGrants = append(extraGrants, grant)
+			continue
+		}
+		baseGrants = append(baseGrants, grant)
+	}
+	userGrants := make([]model.PermissionGrant, 0)
+	roleGrants := make([]model.PermissionGrant, 0)
+	roleIDSet := uintSet(roleIDs)
+	for _, grant := range baseGrants {
+		switch {
+		case grant.SubjectType == SubjectUser && grant.SubjectID == userID:
+			userGrants = append(userGrants, grant)
+		case grant.SubjectType == SubjectRole && roleIDSet[grant.SubjectID]:
+			roleGrants = append(roleGrants, grant)
+		}
+	}
+	scope := DataScope{}
+	if found, ok := mergedDataScope(userGrants); ok {
+		scope = found
+	} else if found, ok := mergedDataScope(roleGrants); ok {
+		scope = found
+	}
+	return scope, mergeDataScopeExtras(extraGrants), nil
 }
 
 func UserDataScopeExtrasContext(ctx context.Context, db *gorm.DB, userID uint) (DataScopeExtras, error) {

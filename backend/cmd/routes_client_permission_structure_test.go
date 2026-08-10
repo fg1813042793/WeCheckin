@@ -7,9 +7,9 @@ import (
 )
 
 func TestLegacyClientAuthenticatedRoutesUseClientAPIPermissionMiddleware(t *testing.T) {
-	src, err := os.ReadFile("routes_client.go")
+	src, err := os.ReadFile("../internal/routes/v1/client/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_client.go: %v", err)
+		t.Fatalf("read v1 client routes: %v", err)
 	}
 	text := string(src)
 	required := []string{

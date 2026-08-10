@@ -69,7 +69,7 @@
 //	@name						Authorization
 //	@description				用户 Token，格式: "Bearer {token}"
 
-//go:generate sh -c "cd .. && swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger"
+//go:generate sh -c "cd .. && swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger"
 package main
 
 import (

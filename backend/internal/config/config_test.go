@@ -66,6 +66,15 @@ log:
   level: "info"
   max_age: 30
   compress: true
+oss:
+  type: "aliyun"
+  aliyun:
+    access_key_id: "ak-file"
+    access_key_secret: "sk-file"
+    endpoint: "oss-cn-hangzhou.aliyuncs.com"
+    bucket: "bucket-file"
+  local:
+    path: "./local-uploads"
 redis:
   host: "redis.local"
   port: 6379
@@ -100,6 +109,12 @@ func TestLoadConfigUsesYAMLValues(t *testing.T) {
 	if got := cfg.CORS.AllowOrigins; len(got) != 1 || got[0] != "http://localhost:3000" {
 		t.Fatalf("cors origins = %#v", got)
 	}
+	if cfg.OSS.Type != "aliyun" {
+		t.Fatalf("oss type = %q", cfg.OSS.Type)
+	}
+	if cfg.OSS.Aliyun.Bucket != "bucket-file" {
+		t.Fatalf("oss aliyun bucket = %q", cfg.OSS.Aliyun.Bucket)
+	}
 }
 
 func TestLoadConfigDefaultsToBackendPort(t *testing.T) {
@@ -124,6 +139,8 @@ func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {
 	t.Setenv("WECHECKIN_REDIS_DB", "5")
 	t.Setenv("WECHECKIN_REDIS_PASSWORD", "redis-env")
 	t.Setenv("WECHECKIN_LOG_COMPRESS", "false")
+	t.Setenv("WECHECKIN_OSS_TYPE", "local")
+	t.Setenv("WECHECKIN_OSS_LOCAL_PATH", "./env-uploads")
 	t.Setenv("WECHECKIN_CORS_ALLOW_ORIGINS", "http://one.local,http://two.local")
 	t.Setenv("WECHECKIN_TOKEN_ADMIN_EXPIRE", "48h")
 
@@ -152,6 +169,9 @@ func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {
 	}
 	if cfg.Log.Compress {
 		t.Fatalf("log compress = true")
+	}
+	if cfg.OSS.Type != "local" || cfg.OSS.Local.Path != "./env-uploads" {
+		t.Fatalf("oss config = %#v", cfg.OSS)
 	}
 	wantOrigins := []string{"http://one.local", "http://two.local"}
 	if len(cfg.CORS.AllowOrigins) != len(wantOrigins) || cfg.CORS.AllowOrigins[0] != wantOrigins[0] || cfg.CORS.AllowOrigins[1] != wantOrigins[1] {

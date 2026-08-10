@@ -7,9 +7,9 @@ import (
 )
 
 func TestV2ClientRoutesExposePermissionBootstrap(t *testing.T) {
-	src, err := os.ReadFile("routes_v2.go")
+	src, err := os.ReadFile("../internal/routes/v2/client/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2.go: %v", err)
+		t.Fatalf("read client v2 routes: %v", err)
 	}
 	text := string(src)
 	for _, snippet := range []string{

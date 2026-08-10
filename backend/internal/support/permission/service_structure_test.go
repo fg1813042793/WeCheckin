@@ -312,6 +312,32 @@ func TestDataScopeExtrasContextMergesUserAndRoleExtras(t *testing.T) {
 	}
 }
 
+func TestDataScopeBundleContextFetchesBaseAndExtraGrantsTogether(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"func DataScopeBundleContext(ctx context.Context, db *gorm.DB, userID, roleID uint) (DataScope, DataScopeExtras, error)",
+		"func DataScopeBundleWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) (DataScope, DataScopeExtras, error)",
+		"keys := []string{DataAllPermissionKey, DataDeptPermissionKey, DataSelfPermissionKey, DataCustomPermissionKey, DataExtraPermissionKey}",
+		"grantsBySubjectsAndKeys(ctx, db, keys",
+		"baseGrants := make([]model.PermissionGrant, 0, len(grants))",
+		"extraGrants := make([]model.PermissionGrant, 0)",
+		"mergeDataScopeExtras(extraGrants)",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("data scope bundle should batch base and extra grant lookups with %s", snippet)
+		}
+	}
+
+	body := testFunctionBody(t, text, "DataScopeBundleWithRoleIDsContext")
+	if strings.Count(body, "grantsBySubjectsAndKeys(ctx, db") != 1 {
+		t.Fatalf("DataScopeBundleWithRoleIDsContext should query permission grants once, body=%s", body)
+	}
+}
+
 func TestMergeDataScopeExtrasUnionsAllowGrants(t *testing.T) {
 	grants := []model.PermissionGrant{
 		{

@@ -5,7 +5,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/performance"
+	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/bootstrap"
 	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/pkg/response"
 )

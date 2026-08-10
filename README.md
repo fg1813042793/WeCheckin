@@ -214,7 +214,7 @@ Swagger 重新生成命令：
 
 ```bash
 cd backend
-swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger
+swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger
 ```
 
 ## 测试
@@ -245,7 +245,7 @@ CHECK_BUILDS=1 bash scripts/check.sh
 
 ```bash
 cd backend
-GOCACHE=$PWD/../.cache/go-build go test ./internal/app/formkit/...
+GOCACHE=$PWD/../.cache/go-build go test ./internal/formkit/...
 ```
 
 如需覆盖当前所有稳定检查，建议使用：

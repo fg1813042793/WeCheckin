@@ -148,14 +148,14 @@
 - `/passport/login_pwd`
 - `/admin/user_list`
 
-如确需新增接口，先在后端 `backend/cmd/routes_v2.go` 注册 `/api/v2` 路由，再同步前端 API 封装和 Swagger 文档。
+如确需新增接口，先在后端 `backend/internal/routes/v2` 下按 `admin`、`client`、`dingtalkh5` 分类注册 `/api/v2` 路由，再同步前端 API 封装和 Swagger 文档。
 
 ## Swagger 更新
 
-修改 v2 路由后，请同步 `backend/cmd/routes_v2_swagger.go`，然后在 `backend` 目录执行：
+修改 v2 路由后，请同步 `backend/internal/routes/v2/swagger/swagger.go`，然后在 `backend` 目录执行：
 
 ```bash
-swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger
+swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger
 ```
 
 生成文件包括：

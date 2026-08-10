@@ -25,18 +25,18 @@ func containsStaticAdminRoutePermission(permSrc, route, perm string) bool {
 }
 
 func TestV2AdminDingTalkUserBindingRoutesAndPermissions(t *testing.T) {
-	routesSrc, err := os.ReadFile("routes_v2.go")
+	routesSrc, err := os.ReadFile("../internal/routes/v2/admin/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2.go: %v", err)
+		t.Fatalf("read admin v2 routes: %v", err)
 	}
 	for _, want := range []string{
 		`admin.GET("/dingtalk/user-bindings", aDingTalk.GetUserBindings)`,
 		`admin.POST("/dingtalk/user-bindings", aDingTalk.SaveUserBinding)`,
-		`admin.PATCH("/dingtalk/user-bindings/:id/status", withFormID(aDingTalk.StatusUserBinding))`,
-		`admin.DELETE("/dingtalk/user-bindings/:id", withFormID(aDingTalk.DeleteUserBinding))`,
+		`admin.PATCH("/dingtalk/user-bindings/:id/status", routeparam.WithFormID(aDingTalk.StatusUserBinding))`,
+		`admin.DELETE("/dingtalk/user-bindings/:id", routeparam.WithFormID(aDingTalk.DeleteUserBinding))`,
 	} {
 		if !strings.Contains(string(routesSrc), want) {
-			t.Fatalf("routes_v2.go missing dingtalk binding route %q", want)
+			t.Fatalf("admin v2 routes missing dingtalk binding route %q", want)
 		}
 	}
 
@@ -152,18 +152,18 @@ func TestAdminDingTalkSettingsMenuDeclarationsExposeTableControls(t *testing.T) 
 }
 
 func TestV2AdminDingTalkNotificationDiagnosisRoute(t *testing.T) {
-	routesSrc, err := os.ReadFile("routes_v2.go")
+	routesSrc, err := os.ReadFile("../internal/routes/v2/admin/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2.go: %v", err)
+		t.Fatalf("read admin v2 routes: %v", err)
 	}
 	routeText := string(routesSrc)
 	if !strings.Contains(routeText, `admin.POST("/dingtalk/settings/notification-test", aDingTalk.TestNotification)`) {
-		t.Fatalf("routes_v2.go should register dingtalk notification diagnosis route")
+		t.Fatalf("admin v2 routes should register dingtalk notification diagnosis route")
 	}
 
-	swaggerSrc, err := os.ReadFile("routes_v2_swagger.go")
+	swaggerSrc, err := os.ReadFile("../internal/routes/v2/swagger/swagger.go")
 	if err != nil {
-		t.Fatalf("read routes_v2_swagger.go: %v", err)
+		t.Fatalf("read internal routes v2 swagger: %v", err)
 	}
 	if !strings.Contains(string(swaggerSrc), `@Router /api/v2/admin/dingtalk/settings/notification-test [post]`) {
 		t.Fatalf("swagger should document dingtalk notification diagnosis route")

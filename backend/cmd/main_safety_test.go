@@ -144,17 +144,17 @@ func TestBackendPortReferencesUse8083(t *testing.T) {
 }
 
 func TestHealthAndReadinessRoutesAreRegistered(t *testing.T) {
-	src, err := os.ReadFile("routes_health.go")
+	src, err := os.ReadFile("../internal/routes/common/health.go")
 	if err != nil {
-		t.Fatalf("read routes_health.go: %v", err)
+		t.Fatalf("read internal/routes/common/health.go: %v", err)
 	}
 	text := string(src)
 	for _, snippet := range []string{`h.GET("/health"`, `h.GET("/ready"`, "database.WithContext"} {
 		if !strings.Contains(text, snippet) {
-			t.Fatalf("routes_health.go must contain %q", snippet)
+			t.Fatalf("internal/routes/common/health.go must contain %q", snippet)
 		}
 	}
 	if strings.Contains(text, "database.DB") {
-		t.Fatalf("routes_health.go must use database.WithContext instead of database.DB")
+		t.Fatalf("internal/routes/common/health.go must use database.WithContext instead of database.DB")
 	}
 }

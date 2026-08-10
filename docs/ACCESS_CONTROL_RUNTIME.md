@@ -118,9 +118,9 @@ flowchart TB
 
 | 能力 | 文件 |
 | --- | --- |
-| 后台登录 | `backend/internal/app/service/adminauth/service.go` |
-| 后台入口判断 | `backend/internal/app/support/adminaccess/adminaccess.go` |
-| 后台认证中间件 | `backend/internal/middleware/admin_auth.go` |
+| 后台登录 | `backend/internal/service/admin/adminauth/service.go` |
+| 后台入口判断 | `backend/internal/support/adminaccess/adminaccess.go` |
+| 后台认证中间件 | `backend/internal/middleware/admin/auth.go` |
 
 ### 菜单和按钮
 
@@ -138,8 +138,8 @@ flowchart TB
 
 | 能力 | 文件 |
 | --- | --- |
-| 后台菜单服务 | `backend/internal/app/service/menu/service.go` |
-| 后台菜单声明 | `backend/internal/app/support/adminmenuperm/declarations.go` |
+| 后台菜单服务 | `backend/internal/service/admin/menu/service.go` |
+| 后台菜单声明 | `backend/internal/support/adminmenuperm/declarations.go` |
 | 后台前端菜单渲染 | `admin/src/views/layout/index.vue` |
 | 后台前端按钮权限 | `admin/src/utils/permission.ts` |
 
@@ -166,10 +166,10 @@ AdminAuth -> AdminPerm -> Handler
 
 | 能力 | 文件 |
 | --- | --- |
-| 后台路由注册 | `backend/cmd/routes_v2.go` |
-| 后台接口权限中间件 | `backend/internal/middleware/admin_permission.go` |
-| 后台路由权限声明 | `backend/internal/middleware/admin_route_permissions.go` |
-| 后台接口权限目录 | `backend/internal/app/support/adminrouteperm/catalog.go` |
+| 后台路由注册 | `backend/internal/routes/v2/admin/routes.go` |
+| 后台接口权限中间件 | `backend/internal/middleware/admin/permission.go` |
+| 后台路由权限声明 | `backend/internal/middleware/admin/route_permissions.go` |
+| 后台接口权限目录 | `backend/internal/support/adminrouteperm/catalog.go` |
 
 ## 客户端权限流程
 
@@ -197,11 +197,11 @@ ClientAuth -> ClientPerm -> Handler
 
 | 能力 | 文件 |
 | --- | --- |
-| 客户端 v2 路由注册 | `backend/cmd/routes_v2.go` |
-| 旧客户端路由注册 | `backend/cmd/routes_client.go` |
-| 客户端认证中间件 | `backend/internal/middleware/client_auth.go` |
-| 客户端接口权限中间件 | `backend/internal/middleware/client_permission.go` |
-| 客户端接口权限目录 | `backend/internal/app/support/appapiperm/catalog.go` |
+| 客户端 v2 路由注册 | `backend/internal/routes/v2/client/routes.go` |
+| 旧客户端路由注册 | `backend/internal/routes/v1/client/routes.go` |
+| 客户端认证中间件 | `backend/internal/middleware/client/auth.go` |
+| 客户端接口权限中间件 | `backend/internal/middleware/client/permission.go` |
+| 客户端接口权限目录 | `backend/internal/support/appapiperm/catalog.go` |
 | 客户端请求封装 | `frontend/utils/request.js` |
 
 ## 钉钉 H5 权限流程
@@ -239,12 +239,12 @@ dingtalkh5.Auth -> dingtalkh5.ApiPerm -> Handler
 
 | 能力 | 文件 |
 | --- | --- |
-| 钉钉 H5 路由注册 | `backend/cmd/routes_v2_dingtalk.go` |
-| 钉钉 H5 认证中间件 | `backend/internal/app/handler/client/dingtalkh5/handler.go` |
-| 钉钉 H5 接口权限中间件 | `backend/internal/app/handler/client/dingtalkh5/permission.go` |
-| 钉钉 H5 API 权限目录 | `backend/internal/app/support/appapiperm/catalog.go` |
-| 钉钉 H5 登录/bootstrap | `backend/internal/app/service/dingtalkh5/auth.go` |
-| 钉钉 H5 权限快照 | `backend/internal/app/service/dingtalkh5/permission_snapshot.go` |
+| 钉钉 H5 路由注册 | `backend/internal/routes/v2/dingtalkh5/routes.go` |
+| 钉钉 H5 认证中间件 | `backend/internal/middleware/dingtalk_h5/auth.go` |
+| 钉钉 H5 接口权限中间件 | `backend/internal/middleware/dingtalk_h5/permission.go` |
+| 钉钉 H5 API 权限目录 | `backend/internal/support/appapiperm/catalog.go` |
+| 钉钉 H5 登录 | `backend/internal/service/dingtalkh5/auth/service.go` |
+| 钉钉 H5 bootstrap / 权限快照 | `backend/internal/service/dingtalkh5/bootstrap/service.go` |
 | 钉钉 H5 请求封装 | `dingtalk-h5/utils/request.js` |
 
 ### 钉钉 H5 菜单和按钮
@@ -292,7 +292,7 @@ dingtalk_h5:api:review:create
 
 | 能力 | 文件 |
 | --- | --- |
-| 钉钉 H5 菜单/按钮声明 | `backend/internal/app/support/appmenuperm/catalog.go` |
+| 钉钉 H5 菜单/按钮声明 | `backend/internal/support/appmenuperm/catalog.go` |
 | 钉钉 H5 页面权限消费 | `dingtalk-h5/pages/index/index.vue` |
 | 钉钉 H5 API 调用 | `dingtalk-h5/services/dingtalkH5Api.js` |
 
@@ -319,9 +319,9 @@ dingtalk_h5:api:review:create
 
 | 能力 | 文件 |
 | --- | --- |
-| 角色保存 | `backend/internal/app/service/role/service.go` |
-| 用户保存 | `backend/internal/app/service/adminuser/service.go` |
-| 权限写入工具 | `backend/internal/app/support/permission/service.go` |
+| 角色保存 | `backend/internal/service/admin/role/service.go` |
+| 用户保存 | `backend/internal/service/admin/adminuser/service.go` |
+| 权限写入工具 | `backend/internal/support/permission/service.go` |
 
 ## 数据权限流程
 
@@ -375,11 +375,11 @@ dingtalk_h5:api:review:create
 
 | 能力 | 文件 |
 | --- | --- |
-| 数据权限计算 | `backend/internal/app/support/permission/service.go` |
-| 通用数据范围 helper | `backend/internal/app/support/access/access.go` |
-| 资源字段映射 | `backend/internal/app/support/access/resource_fields.go` |
-| 钉钉 H5 绩效数据范围 | `backend/internal/app/service/dingtalkh5/data_scope.go` |
-| 钉钉 H5 绩效可见性 | `backend/internal/app/service/dingtalkh5/review_scope.go` |
+| 数据权限计算 | `backend/internal/support/permission/service.go` |
+| 通用数据范围 helper | `backend/internal/support/access/access.go` |
+| 资源字段映射 | `backend/internal/support/access/resource_fields.go` |
+| 钉钉 H5 绩效数据范围 | `backend/internal/service/dingtalkh5/performance/review/scope/scope.go` |
+| 钉钉 H5 绩效可见性 | `backend/internal/service/dingtalkh5/performance/review/scope/scope.go` |
 
 ## 新增接口检查清单
 
@@ -393,7 +393,7 @@ dingtalk_h5:api:review:create
 6. 前端是否有硬编码 `hasPerm`、`hasApiPermission`、`hasButtonPermission` 需要同步。
 7. 查询、详情、编辑、删除、导出是否接入数据范围过滤。
 8. 是否存在旧接口路径绕过新权限体系。
-9. 管理端 service 新增 `ForAdminContext` 方法时，`backend/internal/app/service` 根包的数据范围守卫测试是否通过。
+9. 管理端 service 新增 `ForAdminContext` 方法时，`backend/internal/service` 根包的数据范围守卫测试是否通过。
 
 ## 排查权限问题的顺序
 
@@ -442,26 +442,26 @@ dingtalk_h5:api:review:create
 
 | 能力 | 文件 |
 | --- | --- |
-| v2 路由总注册 | `backend/cmd/routes_v2.go` |
-| 钉钉 H5 路由注册 | `backend/cmd/routes_v2_dingtalk.go` |
-| 旧客户端路由注册 | `backend/cmd/routes_client.go` |
-| 权限模型 | `backend/internal/model/permission.go` |
-| 统一权限服务 | `backend/internal/app/support/permission/service.go` |
-| 后台认证中间件 | `backend/internal/middleware/admin_auth.go` |
-| 后台接口权限中间件 | `backend/internal/middleware/admin_permission.go` |
-| 后台路由权限声明 | `backend/internal/middleware/admin_route_permissions.go` |
-| 客户端认证中间件 | `backend/internal/middleware/client_auth.go` |
-| 客户端接口权限中间件 | `backend/internal/middleware/client_permission.go` |
-| 钉钉 H5 认证中间件 | `backend/internal/app/handler/client/dingtalkh5/handler.go` |
-| 钉钉 H5 接口权限中间件 | `backend/internal/app/handler/client/dingtalkh5/permission.go` |
-| 后台菜单声明 | `backend/internal/app/support/adminmenuperm/declarations.go` |
-| 后台接口权限目录 | `backend/internal/app/support/adminrouteperm/catalog.go` |
-| 应用菜单/按钮权限目录 | `backend/internal/app/support/appmenuperm/catalog.go` |
-| 应用接口权限目录 | `backend/internal/app/support/appapiperm/catalog.go` |
-| 数据范围过滤 | `backend/internal/app/support/access/access.go` |
-| 资源字段映射 | `backend/internal/app/support/access/resource_fields.go` |
-| 钉钉 H5 权限快照 | `backend/internal/app/service/dingtalkh5/permission_snapshot.go` |
-| 管理端数据范围守卫测试 | `backend/internal/app/service/admin_data_scope_guard_test.go` |
+| v2 路由总注册 | `backend/internal/routes/v2/routes.go` |
+| 钉钉 H5 路由注册 | `backend/internal/routes/v2/dingtalkh5/routes.go` |
+| 旧客户端路由注册 | `backend/internal/routes/v1/client/routes.go` |
+| 权限模型 | `backend/internal/model/permission/permission.go` |
+| 统一权限服务 | `backend/internal/support/permission/service.go` |
+| 后台认证中间件 | `backend/internal/middleware/admin/auth.go` |
+| 后台接口权限中间件 | `backend/internal/middleware/admin/permission.go` |
+| 后台路由权限声明 | `backend/internal/middleware/admin/route_permissions.go` |
+| 客户端认证中间件 | `backend/internal/middleware/client/auth.go` |
+| 客户端接口权限中间件 | `backend/internal/middleware/client/permission.go` |
+| 钉钉 H5 认证中间件 | `backend/internal/middleware/dingtalk_h5/auth.go` |
+| 钉钉 H5 接口权限中间件 | `backend/internal/middleware/dingtalk_h5/permission.go` |
+| 后台菜单声明 | `backend/internal/support/adminmenuperm/declarations.go` |
+| 后台接口权限目录 | `backend/internal/support/adminrouteperm/catalog.go` |
+| 应用菜单/按钮权限目录 | `backend/internal/support/appmenuperm/catalog.go` |
+| 应用接口权限目录 | `backend/internal/support/appapiperm/catalog.go` |
+| 数据范围过滤 | `backend/internal/support/access/access.go` |
+| 资源字段映射 | `backend/internal/support/access/resource_fields.go` |
+| 钉钉 H5 权限快照 | `backend/internal/service/dingtalkh5/bootstrap/service.go` |
+| 管理端数据范围守卫测试 | `backend/internal/service/admin_data_scope_guard_test.go` |
 | 后台前端菜单渲染 | `admin/src/views/layout/index.vue` |
 | 后台前端按钮权限 | `admin/src/utils/permission.ts` |
 | 钉钉 H5 页面权限消费 | `dingtalk-h5/pages/index/index.vue` |

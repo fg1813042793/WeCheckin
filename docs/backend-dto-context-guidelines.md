@@ -28,8 +28,8 @@
 
 ## API v2 路由与 Swagger
 
-- v2 路由集中在 `backend/cmd/routes_v2.go`。
-- 后台 v2 路由必须在 `backend/internal/middleware/admin_permission.go` 中声明权限；未声明路由会被默认拒绝。
-- 修改 v2 路由后必须同步 `backend/cmd/routes_v2_swagger.go`，并执行 `swag init -g main.go --dir ./cmd --parseDependency --output docs/swagger`。
+- v2 路由集中在 `backend/internal/routes/v2`，并按 `admin`、`client`、`dingtalkh5` 分类。
+- 后台 v2 路由必须在 `backend/internal/middleware/admin/route_permissions.go` 中声明权限；未声明路由会被默认拒绝。
+- 修改 v2 路由后必须同步 `backend/internal/routes/v2/swagger/swagger.go`，并执行 `swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger`。
 - Swagger 产物包括 `backend/docs/swagger/docs.go`、`backend/docs/swagger/swagger.json`、`backend/docs/swagger/swagger.yaml`。
 - 相关说明见 [API v2 接口说明](API_V2.md)。

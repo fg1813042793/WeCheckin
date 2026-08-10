@@ -7,21 +7,21 @@ import (
 )
 
 func TestV2AdminDingTalkPerfDataRoutesAndPermissions(t *testing.T) {
-	routesSrc, err := os.ReadFile("routes_v2.go")
+	routesSrc, err := os.ReadFile("../internal/routes/v2/admin/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2.go: %v", err)
+		t.Fatalf("read admin v2 routes: %v", err)
 	}
 	for _, want := range []string{
 		`admin.GET("/dingtalk/perf-reviews", aDingTalk.GetPerfReviews)`,
 		`admin.DELETE("/dingtalk/perf-reviews", aDingTalk.DeletePerfReviews)`,
-		`admin.GET("/dingtalk/perf-reviews/:id", withQueryID(aDingTalk.GetPerfReviewDetail))`,
-		`admin.DELETE("/dingtalk/perf-reviews/:id", withFormID(aDingTalk.DeletePerfReview))`,
+		`admin.GET("/dingtalk/perf-reviews/:id", routeparam.WithQueryID(aDingTalk.GetPerfReviewDetail))`,
+		`admin.DELETE("/dingtalk/perf-reviews/:id", routeparam.WithFormID(aDingTalk.DeletePerfReview))`,
 		`admin.GET("/dingtalk/perf-histories", aDingTalk.GetPerfHistories)`,
 		`admin.DELETE("/dingtalk/perf-histories", aDingTalk.DeletePerfHistories)`,
-		`admin.DELETE("/dingtalk/perf-histories/:id", withFormID(aDingTalk.DeletePerfHistory))`,
+		`admin.DELETE("/dingtalk/perf-histories/:id", routeparam.WithFormID(aDingTalk.DeletePerfHistory))`,
 	} {
 		if !strings.Contains(string(routesSrc), want) {
-			t.Fatalf("routes_v2.go missing dingtalk performance data route %q", want)
+			t.Fatalf("admin v2 routes missing dingtalk performance data route %q", want)
 		}
 	}
 

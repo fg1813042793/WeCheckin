@@ -74,7 +74,7 @@ func TestApplicationPermissionTreeEndpointUsesDatabaseNames(t *testing.T) {
 }
 
 func TestDingTalkH5PermissionVersionIncludesMenuPermissionEdits(t *testing.T) {
-	src, err := os.ReadFile("../../dingtalkh5/performance/reviews.go")
+	src, err := os.ReadFile("../../dingtalkh5/performance/review/reviews.go")
 	if err != nil {
 		t.Fatalf("read dingtalk h5 reviews.go: %v", err)
 	}

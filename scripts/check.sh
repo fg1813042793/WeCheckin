@@ -29,10 +29,11 @@ cd "${BACKEND_DIR}"
 GOCACHE="${GOCACHE_DIR}" go test \
   ./cmd \
   ./pkg/tokenutil \
-  ./internal/app/handler \
-  ./internal/app/service \
+  ./internal/handler \
+  ./internal/service \
   ./internal/config \
-  ./internal/app/formkit/...
+  ./internal/formkit/... \
+  ./test/internal/...
 
 cd "${ROOT_DIR}"
 

@@ -3,7 +3,6 @@ package exam
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,9 +10,10 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"wecheckin/backend/internal/model"
 	formkitadminservice "wecheckin/backend/internal/service/admin/formkitadmin"
 	"wecheckin/backend/internal/support/media"
-	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/storage"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -55,50 +55,30 @@ func (h *AdminExamHandler) ResourceUpload(ctx context.Context, c *app.RequestCon
 		return
 	}
 
-	uploadDir := "./uploads"
 	now := time.Now()
-	dateDir := now.Format("2006/01/02")
-	saveDir := filepath.Join(uploadDir, dateDir)
-	if err := os.MkdirAll(saveDir, 0755); err != nil {
-		response.Fail(c, "创建目录失败")
-		return
-	}
 	filename := fmt.Sprintf("%d_%s", now.UnixNano(), filepath.Base(file.Filename))
-	dst := filepath.Join(saveDir, filename)
-
-	src, err := file.Open()
+	stored, err := storage.SaveMultipartFile(ctx, file, storage.SaveOptions{
+		Prefix:   "uploads",
+		Filename: filename,
+		Now:      now,
+	})
 	if err != nil {
-		response.Fail(c, "上传失败")
-		return
-	}
-	defer src.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		response.Fail(c, "上传失败")
-		return
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, src); err != nil {
-		response.Fail(c, "上传失败")
+		response.Fail(c, "上传失败: "+err.Error())
 		return
 	}
 
-	relPath := dateDir + "/" + filename
-	absUpload, _ := filepath.Abs(uploadDir)
-	relFile := "/uploads/" + relPath
-
-	domain := media.StaticDomain()
+	domain := media.StaticDomainContext(ctx)
 	data, err := formkitadminservice.CreateExamResourceContext(ctx, formkitadminservice.ResourceInput{
 		OwnerID:  uint(examID),
 		Type:     resType,
-		URL:      relFile,
+		URL:      stored.URL,
 		Filename: filename,
-		Path:     filepath.Join(absUpload, relPath),
+		Path:     stored.Path,
 		Domain:   domain,
 		AddTime:  now.UnixMilli(),
 	})
 	if err != nil {
-		_ = os.Remove(dst)
+		storage.RemoveLocal(stored)
 		response.Fail(c, "保存记录失败: "+err.Error())
 		return
 	}
@@ -152,7 +132,7 @@ func (h *AdminExamHandler) ResourceDelete(ctx context.Context, c *app.RequestCon
 		response.Fail(c, "删除失败: "+err.Error())
 		return
 	}
-	if res.Path != "" {
+	if filepath.IsAbs(res.Path) {
 		_ = os.Remove(res.Path)
 	}
 	response.JSON(c, nil)

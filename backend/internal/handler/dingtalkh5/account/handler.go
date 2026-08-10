@@ -3,8 +3,6 @@ package account
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -13,9 +11,10 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/utils"
 
-	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/performance"
+	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/account"
 	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/internal/support/media"
+	"wecheckin/backend/internal/support/storage"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -91,43 +90,26 @@ func (h *Handler) UploadAvatar(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	uploadDir := "./uploads"
 	now := time.Now()
-	dateDir := now.Format("2006/01/02")
-	saveDir := filepath.Join(uploadDir, dateDir)
-	if err := os.MkdirAll(saveDir, 0755); err != nil {
-		response.Fail(c, "创建目录失败")
-		return
-	}
 	account := dingtalkh5service.NormalizeUserID(user.Account)
 	if account == "" {
 		account = strconv.FormatUint(uint64(user.ID), 10)
 	}
 	filename := fmt.Sprintf("%d_avatar_%s%s", now.UnixNano(), account, ext)
-	dst := filepath.Join(saveDir, filename)
-
-	src, err := file.Open()
+	stored, err := storage.SaveMultipartFile(ctx, file, storage.SaveOptions{
+		Prefix:   "uploads",
+		Filename: filename,
+		Now:      now,
+	})
 	if err != nil {
-		response.Fail(c, "上传失败")
-		return
-	}
-	defer src.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		response.Fail(c, "上传失败")
-		return
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, src); err != nil {
-		_ = os.Remove(dst)
-		response.Fail(c, "上传失败")
+		response.Fail(c, "上传失败: "+err.Error())
 		return
 	}
 
-	relFile := "/uploads/" + dateDir + "/" + filename
+	publicURL := avatarPublicURL(ctx, c, stored.RelativeURL)
 	response.JSON(c, utils.H{
-		"url":      avatarPublicURL(ctx, c, relFile),
-		"path":     relFile,
+		"url":      publicURL,
+		"path":     stored.RelativeURL,
 		"filename": filename,
 	})
 }

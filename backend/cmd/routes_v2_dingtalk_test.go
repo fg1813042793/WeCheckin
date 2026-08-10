@@ -7,9 +7,9 @@ import (
 )
 
 func TestV2DingTalkH5RoutesAreIsolated(t *testing.T) {
-	src, err := os.ReadFile("routes_v2_dingtalk.go")
+	src, err := os.ReadFile("../internal/routes/v2/dingtalkh5/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2_dingtalk.go: %v", err)
+		t.Fatalf("read dingtalk h5 v2 routes: %v", err)
 	}
 	text := string(src)
 	required := []string{
@@ -19,14 +19,14 @@ func TestV2DingTalkH5RoutesAreIsolated(t *testing.T) {
 		`group.POST("/bind-self", handler.Auth.BindSelf)`,
 		`auth.GET("/bootstrap", handler.Bootstrap.Bootstrap)`,
 		`auth.GET("/reviews/export", handler.Review.ExportReviews)`,
-		`auth.POST("/reviews/:id/submit-self", withBodyOrFormParam("id", "id", handler.Review.SubmitSelf))`,
-		`auth.POST("/reviews/:id/finalize", withBodyOrFormParam("id", "id", handler.Review.Finalize))`,
+		`auth.POST("/reviews/:id/submit-self", routeparam.WithBodyOrFormParam("id", "id", handler.Review.SubmitSelf))`,
+		`auth.POST("/reviews/:id/finalize", routeparam.WithBodyOrFormParam("id", "id", handler.Review.Finalize))`,
 		`auth.GET("/template", handler.Template.Template)`,
 		`auth.PUT("/template", handler.Template.SaveTemplate)`,
 	}
 	for _, want := range required {
 		if !strings.Contains(text, want) {
-			t.Fatalf("routes_v2_dingtalk.go missing %s", want)
+			t.Fatalf("dingtalk h5 v2 routes missing %s", want)
 		}
 	}
 	if strings.Contains(text, "AdminAuth") || strings.Contains(text, "ClientAuth") {
@@ -35,9 +35,9 @@ func TestV2DingTalkH5RoutesAreIsolated(t *testing.T) {
 }
 
 func TestV2DingTalkH5LogoutBypassesBusinessAPIPermission(t *testing.T) {
-	src, err := os.ReadFile("routes_v2_dingtalk.go")
+	src, err := os.ReadFile("../internal/routes/v2/dingtalkh5/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2_dingtalk.go: %v", err)
+		t.Fatalf("read dingtalk h5 v2 routes: %v", err)
 	}
 	text := string(src)
 	for _, want := range []string{
@@ -54,9 +54,9 @@ func TestV2DingTalkH5LogoutBypassesBusinessAPIPermission(t *testing.T) {
 }
 
 func TestV2DingTalkH5SSOLoginBypassesExistingSessionAuth(t *testing.T) {
-	src, err := os.ReadFile("routes_v2_dingtalk.go")
+	src, err := os.ReadFile("../internal/routes/v2/dingtalkh5/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2_dingtalk.go: %v", err)
+		t.Fatalf("read dingtalk h5 v2 routes: %v", err)
 	}
 	text := string(src)
 	route := `group.POST("/sso-login", handler.Auth.SSOLogin)`
@@ -75,11 +75,11 @@ func TestV2DingTalkH5SSOLoginBypassesExistingSessionAuth(t *testing.T) {
 }
 
 func TestV2RouteSuiteRegistersDingTalkH5Routes(t *testing.T) {
-	src, err := os.ReadFile("routes_v2.go")
+	src, err := os.ReadFile("../internal/routes/v2/routes.go")
 	if err != nil {
-		t.Fatalf("read routes_v2.go: %v", err)
+		t.Fatalf("read internal/routes/v2/routes.go: %v", err)
 	}
-	if !strings.Contains(string(src), "registerV2DingTalkH5Routes(h)") {
+	if !strings.Contains(string(src), "dingtalkh5routes.Register(h)") {
 		t.Fatalf("registerV2Routes must register dingtalk h5 route suite")
 	}
 }
