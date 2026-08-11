@@ -51,6 +51,8 @@ type UserDTO struct {
 	DepartmentLevel1       string   `json:"departmentLevel1"`
 	DepartmentLevel2       string   `json:"departmentLevel2"`
 	DepartmentLevel3       string   `json:"departmentLevel3"`
+	DepartmentLevel4       string   `json:"departmentLevel4"`
+	DepartmentLevels       []string `json:"departmentLevels"`
 	ManagerID              string   `json:"managerId"`
 	HRBPID                 string   `json:"hrbpId"`
 	ResponsibleDepartments []string `json:"responsibleDepartments"`
@@ -111,6 +113,8 @@ type perfUserMeta struct {
 	DepartmentLevel1       string   `json:"departmentLevel1,omitempty"`
 	DepartmentLevel2       string   `json:"departmentLevel2,omitempty"`
 	DepartmentLevel3       string   `json:"departmentLevel3,omitempty"`
+	DepartmentLevel4       string   `json:"departmentLevel4,omitempty"`
+	DepartmentLevels       []string `json:"departmentLevels,omitempty"`
 	ManagerID              string   `json:"managerId,omitempty"`
 	HRBPID                 string   `json:"hrbpId,omitempty"`
 	ResponsibleDepartments []string `json:"responsibleDepartments,omitempty"`
@@ -393,6 +397,8 @@ func bootstrapUserDTO(response *bootstrapsvc.BootstrapResponse) UserDTO {
 		DepartmentLevel1:       user.DepartmentLevel1,
 		DepartmentLevel2:       user.DepartmentLevel2,
 		DepartmentLevel3:       user.DepartmentLevel3,
+		DepartmentLevel4:       user.DepartmentLevel4,
+		DepartmentLevels:       append([]string(nil), user.DepartmentLevels...),
 		ManagerID:              user.ManagerID,
 		HRBPID:                 user.HRBPID,
 		ResponsibleDepartments: append([]string(nil), user.ResponsibleDepartments...),
@@ -531,12 +537,26 @@ func hydratePerfUser(user *model.DingTalkH5PerfUser) {
 		return
 	}
 	meta := decodePerfUserMeta(user.Obj)
+	departmentLevels := normalizeDepartmentLevels(meta.DepartmentLevels)
+	if len(departmentLevels) == 0 {
+		departmentLevels = normalizeDepartmentLevels([]string{
+			meta.DepartmentLevel1,
+			meta.DepartmentLevel2,
+			meta.DepartmentLevel3,
+			meta.DepartmentLevel4,
+		})
+	}
 	user.Role = ""
 	user.Position = ""
 	user.Department = strings.TrimSpace(meta.Department)
-	user.DepartmentLevel1 = strings.TrimSpace(meta.DepartmentLevel1)
-	user.DepartmentLevel2 = strings.TrimSpace(meta.DepartmentLevel2)
-	user.DepartmentLevel3 = strings.TrimSpace(meta.DepartmentLevel3)
+	if user.Department == "" {
+		user.Department = departmentText(departmentLevels...)
+	}
+	user.DepartmentLevel1 = departmentLevelAt(departmentLevels, 0)
+	user.DepartmentLevel2 = departmentLevelAt(departmentLevels, 1)
+	user.DepartmentLevel3 = departmentLevelAt(departmentLevels, 2)
+	user.DepartmentLevel4 = departmentLevelAt(departmentLevels, 3)
+	user.DepartmentLevels = departmentLevels
 	user.ManagerAccount = NormalizeUserID(meta.ManagerID)
 	user.HRBPAccount = NormalizeUserID(meta.HRBPID)
 	user.ResponsibleDepartments = encodeJSON(uniqueStrings(meta.ResponsibleDepartments))
@@ -662,7 +682,7 @@ func userDeptPathsByUserIDDB(db *gorm.DB, userIDs []uint) (map[uint][]string, er
 }
 
 func departmentPathLevels(deptByID map[uint]model.Department, deptID uint) []string {
-	reversed := make([]string, 0, 3)
+	reversed := make([]string, 0, 4)
 	visited := map[uint]struct{}{}
 	for deptID > 0 {
 		if _, exists := visited[deptID]; exists {
@@ -701,21 +721,29 @@ func applyDepartmentPathToPerfUser(user *model.DingTalkH5PerfUser, levels []stri
 	user.DepartmentLevel1 = cleanLevels[0]
 	user.DepartmentLevel2 = ""
 	user.DepartmentLevel3 = ""
+	user.DepartmentLevel4 = ""
+	user.DepartmentLevels = cleanLevels
 	if len(cleanLevels) > 1 {
 		user.DepartmentLevel2 = cleanLevels[1]
 	}
 	if len(cleanLevels) > 2 {
-		user.DepartmentLevel3 = strings.Join(cleanLevels[2:], " / ")
+		user.DepartmentLevel3 = cleanLevels[2]
+	}
+	if len(cleanLevels) > 3 {
+		user.DepartmentLevel4 = cleanLevels[3]
 	}
 }
 
 func encodePerfUserObj(raw string, user model.DingTalkH5PerfUser) string {
 	obj := decodeObject(raw)
+	departmentLevels := departmentLevelsFromUser(user)
 	obj[perfUserMetaKey] = perfUserMeta{
 		Department:             strings.TrimSpace(user.Department),
-		DepartmentLevel1:       strings.TrimSpace(user.DepartmentLevel1),
-		DepartmentLevel2:       strings.TrimSpace(user.DepartmentLevel2),
-		DepartmentLevel3:       strings.TrimSpace(user.DepartmentLevel3),
+		DepartmentLevel1:       departmentLevelAt(departmentLevels, 0),
+		DepartmentLevel2:       departmentLevelAt(departmentLevels, 1),
+		DepartmentLevel3:       departmentLevelAt(departmentLevels, 2),
+		DepartmentLevel4:       departmentLevelAt(departmentLevels, 3),
+		DepartmentLevels:       departmentLevels,
 		ManagerID:              NormalizeUserID(user.ManagerAccount),
 		HRBPID:                 NormalizeUserID(user.HRBPAccount),
 		ResponsibleDepartments: decodeStringList(user.ResponsibleDepartments),
@@ -745,6 +773,58 @@ func decodeObject(raw string) map[string]interface{} {
 		return map[string]interface{}{}
 	}
 	return obj
+}
+
+func departmentLevelsFromUser(user model.DingTalkH5PerfUser) []string {
+	levels := normalizeDepartmentLevels(user.DepartmentLevels)
+	if len(levels) > 0 {
+		return levels
+	}
+	levels = normalizeDepartmentLevels([]string{
+		user.DepartmentLevel1,
+		user.DepartmentLevel2,
+		user.DepartmentLevel3,
+		user.DepartmentLevel4,
+	})
+	if len(levels) > 0 {
+		return levels
+	}
+	return splitDepartmentText(user.Department)
+}
+
+func normalizeDepartmentLevels(levels []string) []string {
+	clean := make([]string, 0, len(levels))
+	for _, level := range levels {
+		if level = strings.TrimSpace(level); level != "" {
+			clean = append(clean, level)
+		}
+	}
+	return clean
+}
+
+func splitDepartmentText(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	return normalizeDepartmentLevels(strings.Split(text, " / "))
+}
+
+func departmentLevelAt(levels []string, index int) string {
+	if index < 0 || index >= len(levels) {
+		return ""
+	}
+	return levels[index]
+}
+
+func departmentText(parts ...string) string {
+	clean := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			clean = append(clean, part)
+		}
+	}
+	return strings.Join(clean, " / ")
 }
 
 func encodeJSON(value interface{}) string {

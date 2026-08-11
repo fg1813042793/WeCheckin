@@ -145,6 +145,7 @@ type ReviewFilters struct {
 	DepartmentName  string
 	DepartmentNames []string
 	Period          string
+	Periods         []string
 	Year            string
 	Month           string
 	NotPeriod       string
@@ -158,6 +159,7 @@ type ReviewFilters struct {
 	Page            int
 	PageSize        int
 	SkipHistory     bool
+	Detail          bool
 }
 
 func userDTO(user model.DingTalkH5PerfUser) UserDTO {

@@ -22,7 +22,13 @@ func listReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, fil
 	defer cancel()
 	var reviews []model.DingTalkH5PerfReview
 	query := notDeletedReviewQuery(db.Model(&model.DingTalkH5PerfReview{}))
-	if filters.Period != "" {
+	if len(filters.Periods) > 0 {
+		if len(filters.Periods) == 1 {
+			query = query.Where("period = ?", filters.Periods[0])
+		} else {
+			query = query.Where("period IN ?", filters.Periods)
+		}
+	} else if filters.Period != "" {
 		query = query.Where("period = ?", filters.Period)
 	} else {
 		year := normalizeReviewYear(filters.Year)

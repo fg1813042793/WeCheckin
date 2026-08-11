@@ -39,6 +39,8 @@ type UserDTO struct {
 	DepartmentLevel1       string   `json:"departmentLevel1"`
 	DepartmentLevel2       string   `json:"departmentLevel2"`
 	DepartmentLevel3       string   `json:"departmentLevel3"`
+	DepartmentLevel4       string   `json:"departmentLevel4"`
+	DepartmentLevels       []string `json:"departmentLevels"`
 	ManagerID              string   `json:"managerId"`
 	HRBPID                 string   `json:"hrbpId"`
 	ResponsibleDepartments []string `json:"responsibleDepartments"`
@@ -746,11 +748,48 @@ func userDTO(user *model.DingTalkH5PerfUser) UserDTO {
 		DepartmentLevel1:       user.DepartmentLevel1,
 		DepartmentLevel2:       user.DepartmentLevel2,
 		DepartmentLevel3:       user.DepartmentLevel3,
+		DepartmentLevel4:       user.DepartmentLevel4,
+		DepartmentLevels:       departmentLevelsFromUser(*user),
 		ManagerID:              NormalizeUserID(user.ManagerAccount),
 		HRBPID:                 NormalizeUserID(user.HRBPAccount),
 		ResponsibleDepartments: decodeStringList(user.ResponsibleDepartments),
 		Status:                 user.Status,
 	}
+}
+
+func departmentLevelsFromUser(user model.DingTalkH5PerfUser) []string {
+	levels := normalizeDepartmentLevels(user.DepartmentLevels)
+	if len(levels) > 0 {
+		return levels
+	}
+	levels = normalizeDepartmentLevels([]string{
+		user.DepartmentLevel1,
+		user.DepartmentLevel2,
+		user.DepartmentLevel3,
+		user.DepartmentLevel4,
+	})
+	if len(levels) > 0 {
+		return levels
+	}
+	return splitDepartmentText(user.Department)
+}
+
+func normalizeDepartmentLevels(levels []string) []string {
+	clean := make([]string, 0, len(levels))
+	for _, level := range levels {
+		if level = strings.TrimSpace(level); level != "" {
+			clean = append(clean, level)
+		}
+	}
+	return clean
+}
+
+func splitDepartmentText(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	return normalizeDepartmentLevels(strings.Split(text, " / "))
 }
 
 func NormalizeUserID(value string) string {

@@ -169,6 +169,16 @@ func filtersFromQuery(c *app.RequestContext) dingtalkh5service.ReviewFilters {
 	if objectiveScore == "" {
 		objectiveScore = strings.TrimSpace(c.Query("finalScore"))
 	}
+	period := strings.TrimSpace(c.Query("period"))
+	periods := splitQueryList(c.Query("periods"))
+	if len(periods) == 0 {
+		periods = splitQueryList(period)
+	}
+	if len(periods) > 1 {
+		period = ""
+	} else if len(periods) == 1 {
+		period = periods[0]
+	}
 	return dingtalkh5service.ReviewFilters{
 		Keyword:         strings.TrimSpace(c.Query("keyword")),
 		Scope:           strings.TrimSpace(c.Query("scope")),
@@ -176,7 +186,8 @@ func filtersFromQuery(c *app.RequestContext) dingtalkh5service.ReviewFilters {
 		Department:      strings.TrimSpace(c.Query("department")),
 		DepartmentName:  strings.TrimSpace(c.Query("departmentName")),
 		DepartmentNames: splitQueryList(c.Query("departmentNames")),
-		Period:          strings.TrimSpace(c.Query("period")),
+		Period:          period,
+		Periods:         periods,
 		Year:            strings.TrimSpace(c.Query("year")),
 		Month:           strings.TrimSpace(c.Query("month")),
 		NotPeriod:       strings.TrimSpace(c.Query("notPeriod")),
@@ -190,6 +201,7 @@ func filtersFromQuery(c *app.RequestContext) dingtalkh5service.ReviewFilters {
 		Page:            parsePositiveQueryInt(c, "page", 1),
 		PageSize:        parsePositiveQueryInt(c, "pageSize", 20),
 		SkipHistory:     parseBoolQuery(c, "skipHistory", true) && !parseBoolQuery(c, "includeHistory", false),
+		Detail:          parseBoolQuery(c, "detail", false) || parseBoolQuery(c, "includeDetail", false),
 	}
 }
 

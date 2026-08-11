@@ -27,10 +27,13 @@ type DingTalkH5PerfUser struct {
 	EditTime               int64     `json:"editTime" gorm:"column:user_edit_time;comment:修改时间"`
 	Role                   string    `json:"role" gorm:"-"`
 	Position               string    `json:"position" gorm:"-"`
+	DepartmentID           uint      `json:"departmentId" gorm:"-"`
 	Department             string    `json:"department" gorm:"-"`
 	DepartmentLevel1       string    `json:"departmentLevel1" gorm:"-"`
 	DepartmentLevel2       string    `json:"departmentLevel2" gorm:"-"`
 	DepartmentLevel3       string    `json:"departmentLevel3" gorm:"-"`
+	DepartmentLevel4       string    `json:"departmentLevel4" gorm:"-"`
+	DepartmentLevels       []string  `json:"departmentLevels" gorm:"-"`
 	ManagerAccount         string    `json:"managerId" gorm:"-"`
 	HRBPAccount            string    `json:"hrbpId" gorm:"-"`
 	ResponsibleDepartments string    `json:"responsibleDepartments" gorm:"-"`

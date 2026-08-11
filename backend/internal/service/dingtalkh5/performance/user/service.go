@@ -37,10 +37,13 @@ type UserDTO struct {
 	Name                   string   `json:"name"`
 	Avatar                 string   `json:"avatar"`
 	Position               string   `json:"position"`
+	DepartmentID           uint     `json:"departmentId"`
 	Department             string   `json:"department"`
 	DepartmentLevel1       string   `json:"departmentLevel1"`
 	DepartmentLevel2       string   `json:"departmentLevel2"`
 	DepartmentLevel3       string   `json:"departmentLevel3"`
+	DepartmentLevel4       string   `json:"departmentLevel4"`
+	DepartmentLevels       []string `json:"departmentLevels"`
 	ManagerID              string   `json:"managerId"`
 	HRBPID                 string   `json:"hrbpId"`
 	ResponsibleDepartments []string `json:"responsibleDepartments"`
@@ -58,6 +61,8 @@ type UserPayload struct {
 	DepartmentLevel1       string      `json:"departmentLevel1"`
 	DepartmentLevel2       string      `json:"departmentLevel2"`
 	DepartmentLevel3       string      `json:"departmentLevel3"`
+	DepartmentLevel4       string      `json:"departmentLevel4"`
+	DepartmentLevels       []string    `json:"departmentLevels"`
 	ManagerID              string      `json:"managerId"`
 	HRBPID                 string      `json:"hrbpId"`
 	ResponsibleDepartments interface{} `json:"responsibleDepartments"`
@@ -68,9 +73,16 @@ type perfUserMeta struct {
 	DepartmentLevel1       string   `json:"departmentLevel1,omitempty"`
 	DepartmentLevel2       string   `json:"departmentLevel2,omitempty"`
 	DepartmentLevel3       string   `json:"departmentLevel3,omitempty"`
+	DepartmentLevel4       string   `json:"departmentLevel4,omitempty"`
+	DepartmentLevels       []string `json:"departmentLevels,omitempty"`
 	ManagerID              string   `json:"managerId,omitempty"`
 	HRBPID                 string   `json:"hrbpId,omitempty"`
 	ResponsibleDepartments []string `json:"responsibleDepartments,omitempty"`
+}
+
+type perfUserDepartmentPath struct {
+	DeptID uint
+	Levels []string
 }
 
 func ListUsersContext(ctx context.Context, current *model.DingTalkH5PerfUser) ([]UserDTO, error) {
@@ -88,8 +100,8 @@ func ListUsersContext(ctx context.Context, current *model.DingTalkH5PerfUser) ([
 		return nil, err
 	}
 	sort.SliceStable(users, func(i, j int) bool {
-		left := []string{users[i].DepartmentLevel1, users[i].DepartmentLevel2, users[i].Name, users[i].Account}
-		right := []string{users[j].DepartmentLevel1, users[j].DepartmentLevel2, users[j].Name, users[j].Account}
+		left := []string{users[i].DepartmentLevel1, users[i].DepartmentLevel2, users[i].DepartmentLevel3, users[i].DepartmentLevel4, users[i].Name, users[i].Account}
+		right := []string{users[j].DepartmentLevel1, users[j].DepartmentLevel2, users[j].DepartmentLevel3, users[j].DepartmentLevel4, users[j].Name, users[j].Account}
 		return strings.Join(left, "\x00") < strings.Join(right, "\x00")
 	})
 	result := make([]UserDTO, 0, len(users))
@@ -532,15 +544,22 @@ func sanitizeUserPayload(payload UserPayload, existing *model.DingTalkH5PerfUser
 	if existing != nil {
 		position = existing.Position
 	}
-	dept1 := strings.TrimSpace(payload.DepartmentLevel1)
-	dept2 := strings.TrimSpace(payload.DepartmentLevel2)
-	dept3 := strings.TrimSpace(payload.DepartmentLevel3)
-	if dept1 == "" && existing != nil {
-		dept1 = existing.DepartmentLevel1
-		dept2 = existing.DepartmentLevel2
-		dept3 = existing.DepartmentLevel3
+	departmentLevels := normalizeDepartmentLevels(payload.DepartmentLevels)
+	if len(departmentLevels) == 0 {
+		departmentLevels = normalizeDepartmentLevels([]string{
+			payload.DepartmentLevel1,
+			payload.DepartmentLevel2,
+			payload.DepartmentLevel3,
+			payload.DepartmentLevel4,
+		})
 	}
-	department := departmentText(dept1, dept2, dept3)
+	if len(departmentLevels) == 0 {
+		departmentLevels = splitDepartmentText(payload.Department)
+	}
+	if len(departmentLevels) == 0 && existing != nil {
+		departmentLevels = departmentLevelsFromUser(*existing)
+	}
+	department := departmentText(departmentLevels...)
 	if department == "" {
 		department = strings.TrimSpace(payload.Department)
 	}
@@ -582,9 +601,11 @@ func sanitizeUserPayload(payload UserPayload, existing *model.DingTalkH5PerfUser
 		Role:                   "",
 		Position:               position,
 		Department:             department,
-		DepartmentLevel1:       dept1,
-		DepartmentLevel2:       dept2,
-		DepartmentLevel3:       dept3,
+		DepartmentLevel1:       departmentLevelAt(departmentLevels, 0),
+		DepartmentLevel2:       departmentLevelAt(departmentLevels, 1),
+		DepartmentLevel3:       departmentLevelAt(departmentLevels, 2),
+		DepartmentLevel4:       departmentLevelAt(departmentLevels, 3),
+		DepartmentLevels:       departmentLevels,
 		ManagerAccount:         NormalizeUserID(payload.ManagerID),
 		HRBPAccount:            NormalizeUserID(payload.HRBPID),
 		ResponsibleDepartments: responsibleDepartments,
@@ -646,7 +667,7 @@ func listPerfUsersDB(db *gorm.DB) ([]model.DingTalkH5PerfUser, error) {
 	if err := db.Select(perfUserSelectColumns).Where("`user_status` = 1").Order("`user_name` ASC, `id` ASC").Find(&users).Error; err != nil {
 		return nil, err
 	}
-	return hydratePerfUsersWithUserDeptsDB(db, users)
+	return hydratePerfUsersForListDB(db, users)
 }
 
 func listPerfUsersByAccountsDB(db *gorm.DB, allowed map[string]struct{}) ([]model.DingTalkH5PerfUser, error) {
@@ -664,7 +685,7 @@ func listPerfUsersByAccountsDB(db *gorm.DB, allowed map[string]struct{}) ([]mode
 	if err := db.Select(perfUserSelectColumns).Where("`user_mini_openid` IN ? AND `user_status` = 1", accounts).Order("`user_name` ASC, `id` ASC").Find(&users).Error; err != nil {
 		return nil, err
 	}
-	return hydratePerfUsersWithUserDeptsDB(db, users)
+	return hydratePerfUsersForListDB(db, users)
 }
 
 func loadPerfUserByAccountDB(db *gorm.DB, account string) (*model.DingTalkH5PerfUser, error) {
@@ -694,6 +715,14 @@ func hydratePerfUserWithUserDeptDB(db *gorm.DB, user *model.DingTalkH5PerfUser) 
 }
 
 func hydratePerfUsersWithUserDeptsDB(db *gorm.DB, users []model.DingTalkH5PerfUser) ([]model.DingTalkH5PerfUser, error) {
+	return hydratePerfUsersDB(db, users, false)
+}
+
+func hydratePerfUsersForListDB(db *gorm.DB, users []model.DingTalkH5PerfUser) ([]model.DingTalkH5PerfUser, error) {
+	return hydratePerfUsersDB(db, users, true)
+}
+
+func hydratePerfUsersDB(db *gorm.DB, users []model.DingTalkH5PerfUser, expandDepartments bool) ([]model.DingTalkH5PerfUser, error) {
 	for index := range users {
 		hydratePerfUser(&users[index])
 	}
@@ -706,7 +735,7 @@ func hydratePerfUsersWithUserDeptsDB(db *gorm.DB, users []model.DingTalkH5PerfUs
 			userIDs = append(userIDs, user.ID)
 		}
 	}
-	paths, err := userDeptPathsByUserIDDB(db, uniqueUintIDs(userIDs))
+	paths, err := userDeptPathRowsByUserIDDB(db, uniqueUintIDs(userIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -719,9 +748,15 @@ func hydratePerfUsersWithUserDeptsDB(db *gorm.DB, users []model.DingTalkH5PerfUs
 		return nil, err
 	}
 	for index := range users {
-		applyDepartmentPathToPerfUser(&users[index], paths[users[index].ID])
+		if userPaths := paths[users[index].ID]; len(userPaths) > 0 {
+			users[index].DepartmentID = userPaths[0].DeptID
+			applyDepartmentPathToPerfUser(&users[index], userPaths[0].Levels)
+		}
 		applyPositionNameToPerfUser(&users[index], positionNames)
 		applyRoleIDsToPerfUser(&users[index], roleIDsByUser)
+	}
+	if expandDepartments {
+		return expandPerfUsersByDepartmentPaths(users, paths), nil
 	}
 	return users, nil
 }
@@ -731,12 +766,26 @@ func hydratePerfUser(user *model.DingTalkH5PerfUser) {
 		return
 	}
 	meta := decodePerfUserMeta(user.Obj)
+	departmentLevels := normalizeDepartmentLevels(meta.DepartmentLevels)
+	if len(departmentLevels) == 0 {
+		departmentLevels = normalizeDepartmentLevels([]string{
+			meta.DepartmentLevel1,
+			meta.DepartmentLevel2,
+			meta.DepartmentLevel3,
+			meta.DepartmentLevel4,
+		})
+	}
 	user.Role = ""
 	user.Position = ""
 	user.Department = strings.TrimSpace(meta.Department)
-	user.DepartmentLevel1 = strings.TrimSpace(meta.DepartmentLevel1)
-	user.DepartmentLevel2 = strings.TrimSpace(meta.DepartmentLevel2)
-	user.DepartmentLevel3 = strings.TrimSpace(meta.DepartmentLevel3)
+	if user.Department == "" {
+		user.Department = departmentText(departmentLevels...)
+	}
+	user.DepartmentLevel1 = departmentLevelAt(departmentLevels, 0)
+	user.DepartmentLevel2 = departmentLevelAt(departmentLevels, 1)
+	user.DepartmentLevel3 = departmentLevelAt(departmentLevels, 2)
+	user.DepartmentLevel4 = departmentLevelAt(departmentLevels, 3)
+	user.DepartmentLevels = departmentLevels
 	user.ManagerAccount = NormalizeUserID(meta.ManagerID)
 	user.HRBPAccount = NormalizeUserID(meta.HRBPID)
 	user.ResponsibleDepartments = encodeJSON(uniqueStrings(meta.ResponsibleDepartments))
@@ -744,11 +793,14 @@ func hydratePerfUser(user *model.DingTalkH5PerfUser) {
 
 func encodePerfUserObj(raw string, user model.DingTalkH5PerfUser) string {
 	obj := decodeObject(raw)
+	departmentLevels := departmentLevelsFromUser(user)
 	obj[perfUserMetaKey] = perfUserMeta{
 		Department:             strings.TrimSpace(user.Department),
-		DepartmentLevel1:       strings.TrimSpace(user.DepartmentLevel1),
-		DepartmentLevel2:       strings.TrimSpace(user.DepartmentLevel2),
-		DepartmentLevel3:       strings.TrimSpace(user.DepartmentLevel3),
+		DepartmentLevel1:       departmentLevelAt(departmentLevels, 0),
+		DepartmentLevel2:       departmentLevelAt(departmentLevels, 1),
+		DepartmentLevel3:       departmentLevelAt(departmentLevels, 2),
+		DepartmentLevel4:       departmentLevelAt(departmentLevels, 3),
+		DepartmentLevels:       departmentLevels,
 		ManagerID:              NormalizeUserID(user.ManagerAccount),
 		HRBPID:                 NormalizeUserID(user.HRBPAccount),
 		ResponsibleDepartments: decodeStringList(user.ResponsibleDepartments),
@@ -863,8 +915,8 @@ func applyRoleIDsToPerfUser(user *model.DingTalkH5PerfUser, roleIDsByUser map[ui
 	}
 }
 
-func userDeptPathsByUserIDDB(db *gorm.DB, userIDs []uint) (map[uint][]string, error) {
-	result := make(map[uint][]string, len(userIDs))
+func userDeptPathRowsByUserIDDB(db *gorm.DB, userIDs []uint) (map[uint][]perfUserDepartmentPath, error) {
+	result := make(map[uint][]perfUserDepartmentPath, len(userIDs))
 	if len(userIDs) == 0 {
 		return result, nil
 	}
@@ -885,18 +937,44 @@ func userDeptPathsByUserIDDB(db *gorm.DB, userIDs []uint) (map[uint][]string, er
 			deptByID[department.ID] = department
 		}
 	}
+	seen := make(map[uint]map[uint]struct{}, len(userIDs))
 	for _, row := range rows {
 		if row.UserID == 0 || row.DeptID == 0 {
 			continue
 		}
-		if _, exists := result[row.UserID]; exists {
+		if _, ok := seen[row.UserID]; !ok {
+			seen[row.UserID] = map[uint]struct{}{}
+		}
+		if _, exists := seen[row.UserID][row.DeptID]; exists {
 			continue
 		}
 		if levels := departmentPathLevels(deptByID, row.DeptID); len(levels) > 0 {
-			result[row.UserID] = levels
+			seen[row.UserID][row.DeptID] = struct{}{}
+			result[row.UserID] = append(result[row.UserID], perfUserDepartmentPath{DeptID: row.DeptID, Levels: levels})
 		}
 	}
 	return result, nil
+}
+
+func expandPerfUsersByDepartmentPaths(users []model.DingTalkH5PerfUser, paths map[uint][]perfUserDepartmentPath) []model.DingTalkH5PerfUser {
+	if len(users) == 0 || len(paths) == 0 {
+		return users
+	}
+	expanded := make([]model.DingTalkH5PerfUser, 0, len(users))
+	for _, user := range users {
+		userPaths := paths[user.ID]
+		if len(userPaths) == 0 {
+			expanded = append(expanded, user)
+			continue
+		}
+		for _, path := range userPaths {
+			next := user
+			next.DepartmentID = path.DeptID
+			applyDepartmentPathToPerfUser(&next, path.Levels)
+			expanded = append(expanded, next)
+		}
+	}
+	return expanded
 }
 
 func departmentDescendantIDs(all []model.Department, parentIDs []uint) []uint {
@@ -927,7 +1005,7 @@ func departmentDescendantIDs(all []model.Department, parentIDs []uint) []uint {
 }
 
 func departmentPathLevels(deptByID map[uint]model.Department, deptID uint) []string {
-	reversed := make([]string, 0, 3)
+	reversed := make([]string, 0, 4)
 	visited := map[uint]struct{}{}
 	for deptID > 0 {
 		if _, exists := visited[deptID]; exists {
@@ -966,11 +1044,16 @@ func applyDepartmentPathToPerfUser(user *model.DingTalkH5PerfUser, levels []stri
 	user.DepartmentLevel1 = cleanLevels[0]
 	user.DepartmentLevel2 = ""
 	user.DepartmentLevel3 = ""
+	user.DepartmentLevel4 = ""
+	user.DepartmentLevels = cleanLevels
 	if len(cleanLevels) > 1 {
 		user.DepartmentLevel2 = cleanLevels[1]
 	}
 	if len(cleanLevels) > 2 {
-		user.DepartmentLevel3 = strings.Join(cleanLevels[2:], " / ")
+		user.DepartmentLevel3 = cleanLevels[2]
+	}
+	if len(cleanLevels) > 3 {
+		user.DepartmentLevel4 = cleanLevels[3]
 	}
 }
 
@@ -997,8 +1080,8 @@ func departmentScopeMatches(leader model.DingTalkH5PerfUser, employee *model.Din
 	if employee == nil {
 		return false
 	}
-	leaderLevels := []string{leader.DepartmentLevel1, leader.DepartmentLevel2, leader.DepartmentLevel3}
-	employeeLevels := []string{employee.DepartmentLevel1, employee.DepartmentLevel2, employee.DepartmentLevel3}
+	leaderLevels := departmentLevelsFromUser(leader)
+	employeeLevels := departmentLevelsFromUser(*employee)
 	hasScope := false
 	for _, item := range leaderLevels {
 		if item != "" {
@@ -1010,7 +1093,10 @@ func departmentScopeMatches(leader model.DingTalkH5PerfUser, employee *model.Din
 		return leader.Department != "" && leader.Department == employee.Department
 	}
 	for index, item := range leaderLevels {
-		if item != "" && item != employeeLevels[index] {
+		if item == "" {
+			continue
+		}
+		if index >= len(employeeLevels) || item != employeeLevels[index] {
 			return false
 		}
 	}
@@ -1019,8 +1105,10 @@ func departmentScopeMatches(leader model.DingTalkH5PerfUser, employee *model.Din
 
 func perfUserResponsibleDepartmentScopeMatches(user model.DingTalkH5PerfUser, target model.DingTalkH5PerfUser) bool {
 	for _, department := range decodeStringList(user.ResponsibleDepartments) {
-		if department == target.DepartmentLevel1 || department == target.DepartmentLevel2 || department == target.DepartmentLevel3 {
-			return true
+		for _, level := range departmentLevelsFromUser(target) {
+			if department == level {
+				return true
+			}
 		}
 		if target.Department != "" && strings.Contains(target.Department, department) {
 			return true
@@ -1036,10 +1124,13 @@ func userDTO(user model.DingTalkH5PerfUser) UserDTO {
 		Name:                   user.Name,
 		Avatar:                 user.Pic,
 		Position:               user.Position,
+		DepartmentID:           user.DepartmentID,
 		Department:             user.Department,
 		DepartmentLevel1:       user.DepartmentLevel1,
 		DepartmentLevel2:       user.DepartmentLevel2,
 		DepartmentLevel3:       user.DepartmentLevel3,
+		DepartmentLevel4:       user.DepartmentLevel4,
+		DepartmentLevels:       departmentLevelsFromUser(user),
 		ManagerID:              user.ManagerAccount,
 		HRBPID:                 user.HRBPAccount,
 		ResponsibleDepartments: decodeStringList(user.ResponsibleDepartments),
@@ -1048,10 +1139,52 @@ func userDTO(user model.DingTalkH5PerfUser) UserDTO {
 }
 
 func departmentFromUser(user model.DingTalkH5PerfUser) string {
-	if text := departmentText(user.DepartmentLevel1, user.DepartmentLevel2, user.DepartmentLevel3); text != "" {
+	if text := departmentText(departmentLevelsFromUser(user)...); text != "" {
 		return text
 	}
 	return user.Department
+}
+
+func departmentLevelsFromUser(user model.DingTalkH5PerfUser) []string {
+	levels := normalizeDepartmentLevels(user.DepartmentLevels)
+	if len(levels) > 0 {
+		return levels
+	}
+	levels = normalizeDepartmentLevels([]string{
+		user.DepartmentLevel1,
+		user.DepartmentLevel2,
+		user.DepartmentLevel3,
+		user.DepartmentLevel4,
+	})
+	if len(levels) > 0 {
+		return levels
+	}
+	return splitDepartmentText(user.Department)
+}
+
+func normalizeDepartmentLevels(levels []string) []string {
+	clean := make([]string, 0, len(levels))
+	for _, level := range levels {
+		if level = strings.TrimSpace(level); level != "" {
+			clean = append(clean, level)
+		}
+	}
+	return clean
+}
+
+func splitDepartmentText(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	return normalizeDepartmentLevels(strings.Split(text, " / "))
+}
+
+func departmentLevelAt(levels []string, index int) string {
+	if index < 0 || index >= len(levels) {
+		return ""
+	}
+	return levels[index]
 }
 
 func departmentText(parts ...string) string {

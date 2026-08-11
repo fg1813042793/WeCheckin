@@ -19,12 +19,35 @@ type ExportResult struct {
 }
 
 func ExportReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, filters ReviewFilters) (*ExportResult, error) {
+	if filters.Detail {
+		filters.SkipHistory = true
+	}
 	reviewList, err := listReviewsContext(ctx, user, filters, false)
 	if err != nil {
 		return nil, err
 	}
+	filenamePrefix := "dingtalk-h5-performance"
+	var body []byte
+	if filters.Detail {
+		filenamePrefix = "dingtalk-h5-performance-detail"
+		body, err = buildReviewDetailXLSX(reviewList.List)
+	} else {
+		rows := reviewSummaryExportRows(reviewList.List)
+		body, err = buildPlainXLSX(rows)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &ExportResult{
+		Filename:    fmt.Sprintf("%s-%s.xlsx", filenamePrefix, time.Now().Format("2006-01-02")),
+		ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		Body:        body,
+	}, nil
+}
+
+func reviewSummaryExportRows(reviews []ReviewDTO) [][]string {
 	rows := [][]string{{"考评月份", "目标月份", "员工账号", "部门", "直属上级", "HRBP", "上级分档", "HRBP分档", "员工总结", "上级评价", "HRBP评价"}}
-	for _, review := range reviewList.List {
+	for _, review := range reviews {
 		rows = append(rows, []string{
 			review.Period,
 			review.NextPeriod,
@@ -39,15 +62,40 @@ func ExportReviewsContext(ctx context.Context, user *model.DingTalkH5PerfUser, f
 			review.HRBPComment,
 		})
 	}
-	body, err := buildPlainXLSX(rows)
-	if err != nil {
-		return nil, err
+	return rows
+}
+
+func reviewExportFirstText(values ...string) string {
+	for _, value := range values {
+		text := strings.TrimSpace(value)
+		if text != "" {
+			return text
+		}
 	}
-	return &ExportResult{
-		Filename:    fmt.Sprintf("dingtalk-h5-performance-%s.xlsx", time.Now().Format("2006-01-02")),
-		ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-		Body:        body,
-	}, nil
+	return ""
+}
+
+func reviewExportNumber(value float64) string {
+	text := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", value), "0"), ".")
+	if text == "-0" {
+		return "0"
+	}
+	return text
+}
+
+func reviewExportValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+	text := strings.TrimSpace(toString(value))
+	if text == "null" {
+		return ""
+	}
+	return text
+}
+
+func reviewExportComment(value string) string {
+	return reviewExportValue(value)
 }
 
 func buildPlainXLSX(rows [][]string) ([]byte, error) {

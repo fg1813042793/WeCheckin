@@ -38,12 +38,11 @@
         </el-table-column>
         <el-table-column prop="key" label="权限编码" min-width="220" />
         <el-table-column prop="resourcePath" :label="resourcePathColumnLabel" min-width="180" show-overflow-tooltip />
-        <el-table-column label="图标" width="80">
+        <el-table-column label="图标" width="132">
           <template #default="{ row }">
-            <span v-if="isDingTalkH5PermissionIcon(row)" class="permission-h5-icon-table" :title="dingtalkH5IconLabel(row.icon)">
-              <svg class="permission-h5-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path v-for="path in dingtalkH5IconPaths(row.icon)" :key="path" :d="path" />
-              </svg>
+            <span v-if="isDingTalkH5PermissionIcon(row)" class="permission-h5-icon-table" :title="dingtalkH5IconTitle(row.icon)">
+              <i class="permission-h5-real-icon u-iconfont" :class="dingtalkH5IconClass(row.icon)" aria-hidden="true"></i>
+              <span class="permission-h5-icon-value">{{ resolveDingTalkH5IconValue(row.icon) }}</span>
             </span>
             <el-icon v-else-if="resolveAdminIcon(row.icon)" :size="18"><component :is="resolveAdminIcon(row.icon)" /></el-icon>
             <span v-else>-</span>
@@ -105,29 +104,28 @@
           <el-input v-model="form.resourcePath" :placeholder="resourcePathPlaceholder" />
         </el-form-item>
         <el-form-item label="图标" v-if="showIconPicker">
-          <el-popover v-if="isDingTalkH5MenuIcon" placement="bottom-start" :width="280" trigger="click">
+          <el-popover v-if="isDingTalkH5MenuIcon" placement="bottom-start" :width="460" trigger="click">
             <template #reference>
-              <el-input :model-value="form.icon" placeholder="选择图标" readonly clearable @clear="form.icon = ''">
+              <el-input :model-value="dingtalkH5IconInputText" placeholder="选择 uView 图标" readonly clearable @clear="form.icon = ''">
                 <template #prefix>
-                  <svg v-if="form.icon" class="permission-h5-icon permission-h5-icon--prefix" viewBox="0 0 24 24" aria-hidden="true">
-                    <path v-for="path in dingtalkH5IconPaths(form.icon)" :key="path" :d="path" />
-                  </svg>
+                  <i v-if="form.icon" class="permission-h5-real-icon permission-h5-real-icon--prefix u-iconfont" :class="dingtalkH5IconClass(form.icon)" aria-hidden="true"></i>
                 </template>
               </el-input>
             </template>
+            <el-input v-model="dingtalkH5IconKeyword" class="permission-h5-icon-search" placeholder="搜索图标名称/编码" clearable />
             <div class="permission-h5-icon-grid">
               <button
-                v-for="item in dingtalkH5IconOptions"
+                v-for="item in dingtalkH5FilteredIconOptions"
                 :key="item.value"
                 type="button"
                 class="permission-h5-icon-cell"
-                :class="{ active: form.icon === item.value }"
+                :class="{ active: isDingTalkH5IconActive(item) }"
                 :title="`${item.label} ${item.value}`"
-                @click="form.icon = item.value"
+                @click="selectDingTalkH5Icon(item.value)"
               >
-                <svg class="permission-h5-icon permission-h5-icon--grid" viewBox="0 0 24 24" aria-hidden="true">
-                  <path v-for="path in dingtalkH5IconPaths(item.value)" :key="path" :d="path" />
-                </svg>
+                <i class="permission-h5-real-icon permission-h5-real-icon--picker u-iconfont" :class="dingtalkH5IconClass(item.value)" aria-hidden="true"></i>
+                <span class="permission-h5-icon-name">{{ item.label }}</span>
+                <span class="permission-h5-icon-code">{{ item.value }}</span>
               </button>
             </div>
           </el-popover>
@@ -158,6 +156,13 @@ import { ElMessage } from 'element-plus'
 import IconPicker from '../../components/IconPicker.vue'
 import { resolveAdminIcon } from '../../icons'
 import { hasPerm } from '../../utils/permission'
+import '../../styles/uview-iconfont.css'
+import {
+  DINGTALK_H5_ICON_OPTIONS,
+  type DingTalkH5IconOption,
+  dingtalkH5IconLabel,
+  resolveDingTalkH5IconValue,
+} from '../../constants/dingtalkH5Icons'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -167,6 +172,7 @@ const permissionScope = ref('admin_menu')
 const allExpanded = ref(false)
 const tableKey = ref(0)
 const originalPermissionKey = ref('')
+const dingtalkH5IconKeyword = ref('')
 const filteredTreeData = computed(() => filterPermissionTree(treeData.value, keyword.value))
 const permissionScopeOptions = [
   { label: '菜单权限/后台管理', value: 'admin_menu', platform: 'admin', types: 'directory,menu,button,login', defaultType: 'menu', defaultPlatform: 'admin' },
@@ -190,79 +196,23 @@ const permissionTypeOptions = [
   { label: '登录入口', value: 'login' },
   { label: '数据权限', value: 'data' }
 ]
-const dingtalkH5IconOptions = [
-  { label: '工作台', value: 'dashboard' },
-  { label: '绩效管理', value: 'performance' },
-  { label: '我的绩效', value: 'mine' },
-  { label: '历史绩效', value: 'history' },
-  { label: '上级评价', value: 'manager' },
-  { label: 'HRBP评价', value: 'hrbp' },
-  { label: 'HRBP汇总', value: 'summary' },
-  { label: '流程执行', value: 'org' },
-  { label: '绩效模版', value: 'template' },
-  { label: '用户账号', value: 'account' }
-]
-const dingtalkH5IconLabels = dingtalkH5IconOptions.reduce((result, item) => {
-  result[item.value] = item.label
-  return result
-}, {} as Record<string, string>)
-const dingtalkH5IconMap: Record<string, string[]> = {
-  dashboard: [
-    'M4 10.5 12 4l8 6.5',
-    'M6 9.5V20h5v-6h2v6h5V9.5'
-  ],
-  mine: [
-    'M5 12.5 9.2 17 19 7',
-    'M4 5h16v14H4V5Z'
-  ],
-  history: [
-    'M12 6v6l4 2',
-    'M4 12a8 8 0 1 0 2.3-5.7',
-    'M4 4v5h5'
-  ],
-  manager: [
-    'M8 4h8l1 3H7l1-3Z',
-    'M6 7h12v13H6V7Z',
-    'M9 12h6',
-    'M9 16h4'
-  ],
-  hrbp: [
-    'M12 4l2.3 4.7 5.2.8-3.8 3.7.9 5.2L12 16l-4.6 2.4.9-5.2-3.8-3.7 5.2-.8L12 4Z'
-  ],
-  summary: [
-    'M5 19V9',
-    'M12 19V5',
-    'M19 19v-7',
-    'M4 19h16'
-  ],
-  org: [
-    'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
-    'M3.5 20a5.5 5.5 0 0 1 11 0',
-    'M17 10a2.5 2.5 0 1 0 0-5',
-    'M15.5 14.5A4.8 4.8 0 0 1 21 20'
-  ],
-  template: [
-    'M6 4h12v16H6V4Z',
-    'M9 8h6',
-    'M9 12h6',
-    'M9 16h4'
-  ],
-  account: [
-    'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
-    'M4 21a8 8 0 0 1 16 0',
-    'M18 5v4',
-    'M16 7h4'
-  ],
-  performance: [
-    'M5 4h14v5H5V4Z',
-    'M5 13h6v7H5v-7Z',
-    'M15 13h4v7h-4v-7Z'
-  ]
-}
 const activePermissionScope = computed(() => permissionScopeOptions.find(item => item.value === permissionScope.value) || permissionScopeOptions[0])
 const availablePermissionPlatformOptions = computed(() => {
   const platformSet = new Set(allowedPermissionPlatformsForScope())
   return permissionPlatformOptions.filter(item => platformSet.has(item.value))
+})
+const dingtalkH5IconInputText = computed(() => {
+  const value = resolveDingTalkH5IconValue(form.icon)
+  if (!value) return ''
+  return `${dingtalkH5IconLabel(form.icon)} / ${value}`
+})
+const dingtalkH5FilteredIconOptions = computed(() => {
+  const keyword = dingtalkH5IconKeyword.value.trim().toLowerCase()
+  if (!keyword) return DINGTALK_H5_ICON_OPTIONS
+  return DINGTALK_H5_ICON_OPTIONS.filter(item => {
+    const aliases = item.aliases?.join(' ') || ''
+    return `${item.label} ${item.value} ${aliases}`.toLowerCase().includes(keyword)
+  })
 })
 const availablePermissionTypeOptions = computed(() => {
   const typeSet = new Set(allowedPermissionTypesForForm())
@@ -385,7 +335,7 @@ async function handleSave() {
     parentKey: form.parentKey,
     resourcePath: form.resourcePath,
     path: form.resourcePath,
-    icon: form.icon,
+    icon: normalizedPermissionIcon(),
     sort: form.sort,
     status: form.status
   }
@@ -508,58 +458,61 @@ function isDingTalkH5PermissionIcon(row: any) {
   return row?.platform === 'dingtalk_h5' && Boolean(row.icon) && (row.type === 'menu' || row.type === 'directory')
 }
 
-function dingtalkH5IconLabel(icon: string) {
-  return dingtalkH5IconLabels[icon] || icon || '-'
+function dingtalkH5IconClass(icon: string) {
+  const value = resolveDingTalkH5IconValue(icon)
+  return value ? `uicon-${value}` : ''
 }
 
-function dingtalkH5IconPaths(icon: string) {
-  const key = String(icon || '').trim()
-  return dingtalkH5IconMap[key] || dingtalkH5IconMap.dashboard
+function dingtalkH5IconTitle(icon: string) {
+  const rawValue = String(icon || '').trim()
+  const value = resolveDingTalkH5IconValue(rawValue)
+  if (!value) return '-'
+  const label = dingtalkH5IconLabel(rawValue)
+  return rawValue && rawValue !== value ? `${label} / ${value}（兼容旧值：${rawValue}）` : `${label} / ${value}`
+}
+
+function isDingTalkH5IconActive(item: DingTalkH5IconOption) {
+  return resolveDingTalkH5IconValue(form.icon) === item.value
+}
+
+function selectDingTalkH5Icon(icon: string) {
+  form.icon = icon
+}
+
+function normalizedPermissionIcon() {
+  if (form.platform === 'dingtalk_h5' && (form.type === 'menu' || form.type === 'directory')) {
+    return resolveDingTalkH5IconValue(form.icon)
+  }
+  return form.icon
 }
 
 onMounted(loadTree)
 </script>
 
 <style scoped>
-.permission-h5-icon {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  color: #409eff;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.permission-h5-icon--prefix {
-  width: 16px;
-  height: 16px;
-}
-
-.permission-h5-icon--grid {
-  width: 22px;
-  height: 22px;
-}
-
 .permission-h5-icon-grid {
   display: grid;
-  grid-template-columns: repeat(5, 44px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  justify-content: center;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.permission-h5-icon-search {
+  margin-bottom: 10px;
 }
 
 .permission-h5-icon-cell {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid transparent;
+  min-height: 78px;
+  padding: 8px 6px;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  background: transparent;
+  background: #fff;
   cursor: pointer;
   transition: all 0.18s ease;
 }
@@ -573,10 +526,69 @@ onMounted(loadTree)
 .permission-h5-icon-table {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
+  max-width: 112px;
+  padding: 3px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #f8fbff;
+  color: #1f6feb;
+  vertical-align: middle;
+}
+
+.permission-h5-real-icon {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  color: #1f6feb;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.permission-h5-real-icon--prefix {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+  font-size: 16px;
+}
+
+.permission-h5-real-icon--picker {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
-  background: #ecf5ff;
+  flex-basis: 28px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1677ff;
+  font-size: 22px;
+}
+
+.permission-h5-icon-value,
+.permission-h5-icon-code {
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-h5-icon-value {
+  color: #1f6feb;
+}
+
+.permission-h5-icon-name {
+  margin-top: 6px;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.permission-h5-icon-code {
+  margin-top: 3px;
+  max-width: 100%;
 }
 </style>
