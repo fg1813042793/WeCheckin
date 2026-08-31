@@ -16,6 +16,13 @@ import (
 	"wecheckin/backend/pkg/database"
 )
 
+const (
+	objectiveNumberMin       = 0
+	objectiveWeightMax       = 100
+	objectiveCompletionMax   = 300
+	objectiveMaxDisplayCount = 12
+)
+
 func nextStatusAfterSelfSubmit(review DingTalkH5Review) string {
 	if strings.TrimSpace(review.ManagerID) == "" {
 		return ReviewStatusHRFinal
@@ -337,6 +344,116 @@ func validateSelfSubmitPayload(payload ReviewPayload) error {
 	return nil
 }
 
+func validateSelfObjectiveNumbers(payload ReviewPayload) error {
+	if err := validateObjectiveWeights(payload.Objectives, "本月目标"); err != nil {
+		return err
+	}
+	if err := validateCurrentObjectiveCompletions(payload.Objectives); err != nil {
+		return err
+	}
+	if err := validateNextObjectiveWeights(payload.NextObjectives, "下月目标"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateObjectiveWeights(items []Objective, label string) error {
+	var total float64
+	for index, item := range items {
+		if index >= objectiveMaxDisplayCount {
+			break
+		}
+		if strings.TrimSpace(item.Target) == "" && index >= 3 {
+			continue
+		}
+		if !validNumberInRange(item.Weight, objectiveNumberMin, objectiveWeightMax) {
+			return fmt.Errorf("%s %d 的权重必须在 %d-%d 之间", label, index+1, objectiveNumberMin, objectiveWeightMax)
+		}
+		total += item.Weight
+	}
+	if total > objectiveWeightMax {
+		return fmt.Errorf("%s权重合计不能大于 %d", label, objectiveWeightMax)
+	}
+	return nil
+}
+
+func validateNextObjectiveWeights(items []NextObjective, label string) error {
+	var total float64
+	for index, item := range items {
+		if index >= objectiveMaxDisplayCount {
+			break
+		}
+		if strings.TrimSpace(item.Target) == "" {
+			continue
+		}
+		if !validNumberInRange(item.Weight, objectiveNumberMin, objectiveWeightMax) {
+			return fmt.Errorf("%s %d 的权重必须在 %d-%d 之间", label, index+1, objectiveNumberMin, objectiveWeightMax)
+		}
+		total += item.Weight
+	}
+	if total > objectiveWeightMax {
+		return fmt.Errorf("%s权重合计不能大于 %d", label, objectiveWeightMax)
+	}
+	return nil
+}
+
+func validateCurrentObjectiveCompletions(items []Objective) error {
+	for index, item := range items {
+		if index >= objectiveMaxDisplayCount {
+			break
+		}
+		if strings.TrimSpace(item.Target) == "" && index >= 3 {
+			continue
+		}
+		value, ok := payloadNumber(item.Completion)
+		if !ok {
+			if strings.TrimSpace(toString(item.Completion)) == "" {
+				continue
+			}
+			return fmt.Errorf("本月目标 %d 的完成度必须是数字", index+1)
+		}
+		if !validNumberInRange(value, objectiveNumberMin, objectiveCompletionMax) {
+			return fmt.Errorf("本月目标 %d 的完成度必须在 %d-%d 之间", index+1, objectiveNumberMin, objectiveCompletionMax)
+		}
+	}
+	return nil
+}
+
+func payloadNumber(value interface{}) (float64, bool) {
+	if value == nil {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case string:
+		text := strings.TrimSpace(typed)
+		if text == "" {
+			return 0, false
+		}
+		number, err := strconv.ParseFloat(text, 64)
+		return number, err == nil && !math.IsNaN(number) && !math.IsInf(number, 0)
+	case float64:
+		return typed, !math.IsNaN(typed) && !math.IsInf(typed, 0)
+	case float32:
+		number := float64(typed)
+		return number, !math.IsNaN(number) && !math.IsInf(number, 0)
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	default:
+		text := strings.TrimSpace(toString(value))
+		if text == "" {
+			return 0, false
+		}
+		number, err := strconv.ParseFloat(text, 64)
+		return number, err == nil && !math.IsNaN(number) && !math.IsInf(number, 0)
+	}
+}
+
+func validNumberInRange(value, min, max float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= min && value <= max
+}
+
 func selfObjectivesFilled(items []Objective) bool {
 	if len(items) == 0 {
 		return false
@@ -368,7 +485,7 @@ func copyHrbpFields(review *model.DingTalkH5PerfReview, payload ReviewPayload) {
 func sanitizeObjectives(items []Objective) []Objective {
 	result := make([]Objective, 0, len(items))
 	for index, item := range items {
-		if index >= 12 {
+		if index >= objectiveMaxDisplayCount {
 			break
 		}
 		target := strings.TrimSpace(item.Target)
@@ -382,8 +499,8 @@ func sanitizeObjectives(items []Objective) []Objective {
 		result = append(result, Objective{
 			ID:         id,
 			Target:     target,
-			Weight:     clampNumber(item.Weight, 0, 100),
-			Completion: normalizeScore(item.Completion, 0, 200),
+			Weight:     clampNumber(item.Weight, objectiveNumberMin, objectiveWeightMax),
+			Completion: normalizeScore(item.Completion, objectiveNumberMin, objectiveCompletionMax),
 			Result:     strings.TrimSpace(item.Result),
 		})
 	}
@@ -393,7 +510,7 @@ func sanitizeObjectives(items []Objective) []Objective {
 func sanitizeNextObjectives(items []NextObjective) []NextObjective {
 	result := make([]NextObjective, 0, len(items))
 	for index, item := range items {
-		if index >= 12 {
+		if index >= objectiveMaxDisplayCount {
 			break
 		}
 		target := strings.TrimSpace(item.Target)
@@ -404,7 +521,7 @@ func sanitizeNextObjectives(items []NextObjective) []NextObjective {
 		if id == "" {
 			id = "next-" + strconv.Itoa(index+1)
 		}
-		result = append(result, NextObjective{ID: id, Target: target, Weight: clampNumber(item.Weight, 0, 100)})
+		result = append(result, NextObjective{ID: id, Target: target, Weight: clampNumber(item.Weight, objectiveNumberMin, objectiveWeightMax)})
 	}
 	return result
 }

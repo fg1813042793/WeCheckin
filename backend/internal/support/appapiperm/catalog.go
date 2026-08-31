@@ -34,6 +34,7 @@ func ClientAPICategories() []Category {
 		{Key: "client:api-category:event", Name: "赛事活动", Platform: "client", Sort: 50},
 		{Key: "client:api-category:survey", Name: "问卷", Platform: "client", Sort: 60},
 		{Key: "client:api-category:exam", Name: "考试", Platform: "client", Sort: 70},
+		{Key: "client:api-category:workflow", Name: "OA 流程", Platform: "client", Sort: 80},
 	}
 }
 
@@ -59,6 +60,10 @@ func ClientAPIDeclarations() []Declaration {
 		clientAPI("client:api:exam:view", "考试查看接口", "exam:view", "client:api-category:exam", "GET", "/api/v2/me/exam-records", 10),
 		clientAPI("client:api:exam:start", "考试开始接口", "exam:start", "client:api-category:exam", "POST", "/api/v2/exams/:id/start", 20),
 		clientAPI("client:api:exam:answer", "考试答题接口", "exam:answer", "client:api-category:exam", "PUT", "/api/v2/exam-records/:id/answers", 30),
+		clientAPI("client:api:workflow:view", "OA 流程查看接口", "workflow:view", "client:api-category:workflow", "GET", "/api/v2/workflows/instances", 10),
+		clientAPI("client:api:workflow:start", "OA 流程发起接口", "workflow:start", "client:api-category:workflow", "POST", "/api/v2/workflows/instances", 20),
+		clientAPI("client:api:workflow:handle", "OA 流程处理接口", "workflow:handle", "client:api-category:workflow", "POST", "/api/v2/workflows/tasks/:id/complete", 30),
+		clientAPI("client:api:workflow:withdraw", "OA 流程撤回接口", "workflow:withdraw", "client:api-category:workflow", "POST", "/api/v2/workflows/instances/:id/withdraw", 40),
 	}
 }
 
@@ -101,6 +106,14 @@ func ClientRouteDeclarations() []RouteDeclaration {
 		{Method: "POST", Path: "/api/v2/exams/:id/start", PermissionKey: "client:api:exam:start"},
 		{Method: "GET", Path: "/api/v2/exam-records/:id", PermissionKey: "client:api:exam:view"},
 		{Method: "PUT", Path: "/api/v2/exam-records/:id/answers", PermissionKey: "client:api:exam:answer"},
+		{Method: "GET", Path: "/api/v2/workflows/definitions", PermissionKey: "client:api:workflow:view"},
+		{Method: "GET", Path: "/api/v2/workflows/definitions/:id", PermissionKey: "client:api:workflow:view"},
+		{Method: "POST", Path: "/api/v2/workflows/instances", PermissionKey: "client:api:workflow:start"},
+		{Method: "GET", Path: "/api/v2/workflows/instances", PermissionKey: "client:api:workflow:view"},
+		{Method: "GET", Path: "/api/v2/workflows/instances/:id", PermissionKey: "client:api:workflow:view"},
+		{Method: "POST", Path: "/api/v2/workflows/instances/:id/withdraw", PermissionKey: "client:api:workflow:withdraw"},
+		{Method: "GET", Path: "/api/v2/workflows/tasks", PermissionKey: "client:api:workflow:view"},
+		{Method: "POST", Path: "/api/v2/workflows/tasks/:id/complete", PermissionKey: "client:api:workflow:handle"},
 		{Method: "GET", Path: "/passport/my_detail", PermissionKey: "client:api:user:view"},
 		{Method: "POST", Path: "/passport/edit_base", PermissionKey: "client:api:user:edit"},
 		{Method: "POST", Path: "/passport/phone", PermissionKey: "client:api:user:phone"},

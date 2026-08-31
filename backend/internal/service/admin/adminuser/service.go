@@ -7,16 +7,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
+	"wecheckin/backend/internal/model"
 	setupservice "wecheckin/backend/internal/service/admin/setup"
 	"wecheckin/backend/internal/support/access"
 	deptsupport "wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/internal/support/query"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/passwordutil"
 )
@@ -621,15 +622,22 @@ func AddUserContext(ctx context.Context, name, mobile, pic, forms, addIP string,
 }
 
 func AddUserWithAdminAccessContext(ctx context.Context, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput) error {
+	normalizedName, err := normalizeAdminUserName(name)
+	if err != nil {
+		return err
+	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	now := database.Now()
-	hash := md5.Sum([]byte(fmt.Sprintf("%s-%d", name, now)))
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%d", normalizedName, now)))
 	miniOpenID := hex.EncodeToString(hash[:])
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := ensureUserNameAvailableTx(tx, normalizedName, 0); err != nil {
+			return err
+		}
 		user := model.User{
 			MiniOpenID: miniOpenID,
-			Name:       name,
+			Name:       normalizedName,
 			Mobile:     mobile,
 			PositionID: positionID,
 			Pic:        pic,
@@ -675,10 +683,14 @@ func EditUserWithAdminAccessForAdminContext(ctx context.Context, id, name, mobil
 }
 
 func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool) error {
+	normalizedName, err := normalizeAdminUserName(name)
+	if err != nil {
+		return err
+	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	updates := map[string]interface{}{
-		"user_name":        name,
+		"user_name":        normalizedName,
 		"user_mobile":      mobile,
 		"user_position_id": positionID,
 		"user_edit_time":   database.Now(),
@@ -695,6 +707,9 @@ func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP st
 		return err
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
+		if err := ensureUserNameAvailableTx(tx, normalizedName, uint(uid)); err != nil {
+			return err
+		}
 		if err := tx.Model(&model.User{}).Where("`id` = ?", id).Updates(updates).Error; err != nil {
 			return err
 		}
@@ -709,10 +724,14 @@ func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP st
 }
 
 func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool, adminID uint) error {
+	normalizedName, err := normalizeAdminUserName(name)
+	if err != nil {
+		return err
+	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	updates := map[string]interface{}{
-		"user_name":        name,
+		"user_name":        normalizedName,
 		"user_mobile":      mobile,
 		"user_position_id": positionID,
 		"user_edit_time":   database.Now(),
@@ -733,6 +752,9 @@ func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, 
 		if err != nil {
 			return err
 		}
+		if err := ensureUserNameAvailableTx(tx, normalizedName, uint(uid)); err != nil {
+			return err
+		}
 		if err := access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Updates(updates)); err != nil {
 			return err
 		}
@@ -744,6 +766,45 @@ func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, 
 		}
 		return nil
 	})
+}
+
+func normalizeAdminUserName(name string) (string, error) {
+	normalizedName := strings.TrimSpace(name)
+	if normalizedName == "" {
+		return "", fmt.Errorf("请输入用户名")
+	}
+	return normalizedName, nil
+}
+
+func ensureUserNameAvailableTx(tx *gorm.DB, name string, excludeUserID uint) error {
+	if excludeUserID > 0 {
+		var current model.User
+		if err := tx.Select("user_name").Where("`id` = ?", excludeUserID).First(&current).Error; err != nil {
+			return err
+		}
+		if sameNormalizedAdminUserName(current.Name, name) {
+			return nil
+		}
+	}
+
+	queryBuilder := tx.Model(&model.User{}).
+		Where("LOWER(TRIM(`user_name`)) = ?", strings.ToLower(name))
+	if excludeUserID > 0 {
+		queryBuilder = queryBuilder.Where("`id` <> ?", excludeUserID)
+	}
+
+	var count int64
+	if err := queryBuilder.Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("用户名已存在，请更换后重试")
+	}
+	return nil
+}
+
+func sameNormalizedAdminUserName(left, right string) bool {
+	return strings.EqualFold(strings.TrimSpace(left), strings.TrimSpace(right))
 }
 
 func saveUserAdminAccessTx(tx *gorm.DB, userID uint, adminAccess AdminAccessInput) error {

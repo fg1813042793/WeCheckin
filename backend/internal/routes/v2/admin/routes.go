@@ -19,8 +19,13 @@ import (
 	adminsetup "wecheckin/backend/internal/handler/admin/setup"
 	adminsurvey "wecheckin/backend/internal/handler/admin/survey"
 	adminuser "wecheckin/backend/internal/handler/admin/user"
+	adminworkflow "wecheckin/backend/internal/handler/admin/workflow"
 	adminmw "wecheckin/backend/internal/middleware/admin"
+	workflowapp "wecheckin/backend/internal/modules/workflow/application"
+	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
+	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpadmin"
 	"wecheckin/backend/internal/routes/v2/routeparam"
+	"wecheckin/backend/pkg/database"
 )
 
 func Register(h *server.Hertz) {
@@ -33,6 +38,30 @@ func Register(h *server.Hertz) {
 	registerSystemRoutes(admin)
 	registerSurveyRoutes(admin)
 	registerExamRoutes(admin)
+	registerWorkflowRoutes(admin)
+}
+
+func registerWorkflowRoutes(admin *route.RouterGroup) {
+	aWorkflow := adminworkflow.NewAdminWorkflowHandler()
+	db := database.GetDB()
+	store := workflowinfra.NewGormStore(db)
+	runtimeService := workflowapp.NewService(store, workflowinfra.NewAssigneeResolver(db), workflowinfra.NewRandomIDGenerator())
+	runtimeHandler := workflowhttp.NewRuntimeHandler(runtimeService)
+
+	admin.GET("/workflow-definitions", aWorkflow.List)
+	admin.POST("/workflow-definitions", aWorkflow.Create)
+	admin.GET("/workflow-definitions/:id", aWorkflow.Detail)
+	admin.PUT("/workflow-definitions/:id", aWorkflow.Update)
+	admin.DELETE("/workflow-definitions/:id", aWorkflow.Delete)
+	admin.POST("/workflow-definitions/:id/validate", aWorkflow.Validate)
+	admin.POST("/workflow-definitions/:id/publish", aWorkflow.Publish)
+	admin.GET("/workflow-definitions/:id/versions", aWorkflow.Versions)
+	admin.GET("/workflow-instances", runtimeHandler.ListInstances)
+	admin.POST("/workflow-instances", runtimeHandler.StartInstance)
+	admin.GET("/workflow-instances/:id", runtimeHandler.GetInstance)
+	admin.POST("/workflow-instances/:id/cancel", runtimeHandler.CancelInstance)
+	admin.GET("/workflow-tasks", runtimeHandler.ListTasks)
+	admin.POST("/workflow-tasks/:id/complete", runtimeHandler.CompleteTask)
 }
 
 func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler) {

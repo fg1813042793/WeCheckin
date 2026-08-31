@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/internal/model"
+	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -80,6 +80,13 @@ func autoMigrate(enableExam bool) error {
 		&model.DingTalkH5PerfReview{},
 		&model.DingTalkH5PerfHistory{},
 		&model.DingTalkH5PerfTemplate{},
+		&model.WorkflowDefinition{},
+		&model.WorkflowDefinitionVersion{},
+		&model.WorkflowProcessInstance{},
+		&model.WorkflowProcessToken{},
+		&model.WorkflowProcessTask{},
+		&model.WorkflowProcessVariable{},
+		&model.WorkflowProcessHistory{},
 	)
 	if err != nil {
 		return err

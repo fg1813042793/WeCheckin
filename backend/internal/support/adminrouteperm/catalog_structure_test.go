@@ -48,10 +48,10 @@ func TestAdminRoutePermissionCatalogIncludesPositionPermissions(t *testing.T) {
 
 func TestAdminRoutePermissionCatalogSplitsDingTalkPermissions(t *testing.T) {
 	want := map[string]bool{
-		"dingtalk:settings:list":  false,
-		"dingtalk:settings:edit":  false,
-		"dingtalk:bindings:list":  false,
-		"dingtalk:bindings:edit":  false,
+		"dingtalk:settings:list": false,
+		"dingtalk:settings:edit": false,
+		"dingtalk:bindings:list": false,
+		"dingtalk:bindings:edit": false,
 	}
 	for _, item := range Declarations() {
 		if _, ok := want[item.Perms]; ok {

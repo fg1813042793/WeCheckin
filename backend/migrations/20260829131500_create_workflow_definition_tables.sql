@@ -1,0 +1,41 @@
+CREATE TABLE IF NOT EXISTS `workflow_definitions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '流程定义ID',
+  `definition_key` varchar(100) NOT NULL COMMENT '流程编码',
+  `definition_name` varchar(200) NOT NULL DEFAULT '' COMMENT '流程名称',
+  `definition_description` varchar(500) NOT NULL DEFAULT '' COMMENT '流程说明',
+  `definition_category` varchar(100) NOT NULL DEFAULT '' COMMENT '流程分类',
+  `definition_status` int NOT NULL DEFAULT 1 COMMENT '状态:0停用 1草稿 2已发布',
+  `definition_current_version` int NOT NULL DEFAULT 0 COMMENT '当前发布版本',
+  `definition_draft_json` mediumtext COMMENT '设计器草稿JSON',
+  `definition_add_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '创建人',
+  `definition_edit_user_id` bigint unsigned NOT NULL DEFAULT 0 COMMENT '更新人',
+  `definition_add_time` bigint NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `definition_edit_time` bigint NOT NULL DEFAULT 0 COMMENT '更新时间',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_workflow_definitions_definition_key` (`definition_key`),
+  KEY `idx_workflow_definitions_definition_name` (`definition_name`),
+  KEY `idx_workflow_definitions_definition_category` (`definition_category`),
+  KEY `idx_workflow_definitions_definition_status` (`definition_status`),
+  KEY `idx_workflow_definitions_definition_add_user_id` (`definition_add_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='流程定义';
+
+CREATE TABLE IF NOT EXISTS `workflow_definition_versions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '流程版本ID',
+  `definition_id` bigint unsigned NOT NULL COMMENT '流程定义ID',
+  `definition_version` int NOT NULL COMMENT '版本号',
+  `definition_source_json` mediumtext COMMENT '发布时设计器JSON',
+  `definition_bpmn_xml` longtext COMMENT 'Flowable BPMN XML',
+  `definition_validation_json` mediumtext COMMENT '发布校验结果',
+  `definition_deployment_id` varchar(100) NOT NULL DEFAULT '' COMMENT 'Flowable部署ID',
+  `definition_published_by` bigint unsigned NOT NULL DEFAULT 0 COMMENT '发布人',
+  `definition_published_at` bigint NOT NULL DEFAULT 0 COMMENT '发布时间',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_workflow_definition_version` (`definition_id`,`definition_version`),
+  KEY `idx_workflow_definition_versions_definition_id` (`definition_id`),
+  KEY `idx_workflow_definition_versions_definition_deployment_id` (`definition_deployment_id`),
+  KEY `idx_workflow_definition_versions_definition_published_by` (`definition_published_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='流程定义发布版本';

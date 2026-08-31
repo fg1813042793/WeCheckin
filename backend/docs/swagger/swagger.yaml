@@ -326,6 +326,18 @@ paths:
       summary: 更新 /api/v2/admin/dingtalk/settings
       tags:
       - API v2-后台管理
+  /api/v2/admin/dingtalk/settings/notification-test:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 提交 /api/v2/admin/dingtalk/settings/notification-test
+      tags:
+      - API v2-后台管理
   /api/v2/admin/dingtalk/user-bindings:
     get:
       responses:
@@ -347,6 +359,24 @@ paths:
       security:
       - AdminToken: []
       summary: 提交 /api/v2/admin/dingtalk/user-bindings
+      tags:
+      - API v2-后台管理
+  /api/v2/admin/dingtalk/user-bindings/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/dingtalk/user-bindings/{id}
       tags:
       - API v2-后台管理
   /api/v2/admin/dingtalk/user-bindings/{id}/status:
@@ -2907,6 +2937,224 @@ paths:
       summary: 更新 /api/v2/admin/users/form-fields
       tags:
       - API v2-后台管理
+  /api/v2/admin/workflow-definitions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流定义列表
+      tags:
+      - API v2-后台管理-工作流
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 新建工作流定义
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-definitions/{id}:
+    delete:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除工作流定义
+      tags:
+      - API v2-后台管理-工作流
+    get:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流定义详情
+      tags:
+      - API v2-后台管理-工作流
+    put:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新工作流定义
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-definitions/{id}/publish:
+    post:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 发布工作流定义
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-definitions/{id}/validate:
+    post:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 校验工作流定义
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-definitions/{id}/versions:
+    get:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流定义版本
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-instances:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流实例列表
+      tags:
+      - API v2-后台管理-工作流
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 启动工作流实例
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-instances/{id}:
+    get:
+      parameters:
+      - description: 流程实例 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流实例详情
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-instances/{id}/cancel:
+    post:
+      parameters:
+      - description: 流程实例 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 取消运行中的工作流实例
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-tasks:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流任务列表
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-tasks/{id}/complete:
+    post:
+      parameters:
+      - description: 流程任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 完成工作流任务
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/auth/login:
     post:
       responses:
@@ -3688,6 +3936,125 @@ paths:
       summary: 查询 /api/v2/user-form-fields
       tags:
       - API v2-公开接口
+  /api/v2/workflows/definitions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询已发布的 OA 流程
+      tags:
+      - API v2-客户端-OA流程
+  /api/v2/workflows/definitions/{id}:
+    get:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询 OA 流程和表单 Schema
+      tags:
+      - API v2-客户端-OA流程
+  /api/v2/workflows/instances:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询我的 OA 流程申请
+      tags:
+      - API v2-客户端-OA流程
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 发起 OA 流程
+      tags:
+      - API v2-客户端-OA流程
+  /api/v2/workflows/instances/{id}:
+    get:
+      parameters:
+      - description: 流程实例 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询我发起或参与的 OA 流程详情
+      tags:
+      - API v2-客户端-OA流程
+  /api/v2/workflows/instances/{id}/withdraw:
+    post:
+      parameters:
+      - description: 流程实例 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 撤回未处理的 OA 流程申请
+      tags:
+      - API v2-客户端-OA流程
+  /api/v2/workflows/tasks:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询我的 OA 流程任务
+      tags:
+      - API v2-客户端-OA流程
+  /api/v2/workflows/tasks/{id}/complete:
+    post:
+      parameters:
+      - description: 流程任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 审批或拒绝我的 OA 流程任务
+      tags:
+      - API v2-客户端-OA流程
 schemes:
 - http
 securityDefinitions:

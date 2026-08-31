@@ -562,5 +562,52 @@ export const adminApi = {
   },
   surveyTemplatePresetsSave(data: { presets: TemplatePreset[] }) {
     return request.put(`${ADMIN_V2}/survey-template-presets`, data, jsonConfig)
+  },
+  // 流程定义与版本管理
+  workflowDefinitionList(params?: PageQuery & { category?: string; status?: number | string }) {
+    return request.get(`${ADMIN_V2}/workflow-definitions`, { params })
+  },
+  workflowDefinitionDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`)
+  },
+  workflowDefinitionCreate(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/workflow-definitions`, data, jsonConfig)
+  },
+  workflowDefinitionUpdate(id: ID, data: FormPayload) {
+    return request.put(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`, data, jsonConfig)
+  },
+  workflowDefinitionDelete(id: ID) {
+    return request.delete(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`)
+  },
+  workflowDefinitionValidate(id: ID) {
+    return request.post(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/validate`)
+  },
+  workflowDefinitionPublish(id: ID) {
+    return request.post(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/publish`)
+  },
+  workflowDefinitionVersions(id: ID) {
+    return request.get(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/versions`)
+  },
+  // 通用工作流运行时
+  workflowInstanceList(params?: PageQuery & {
+    definitionId?: ID
+    status?: string
+    businessType?: string
+    businessKey?: string
+    starterId?: string
+  }) {
+    return request.get(`${ADMIN_V2}/workflow-instances`, { params })
+  },
+  workflowInstanceStart(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/workflow-instances`, data, jsonConfig)
+  },
+  workflowInstanceDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/workflow-instances/${encodePath(id)}`)
+  },
+  workflowTaskList(params?: PageQuery & { instanceId?: string; assigneeId?: string; status?: string }) {
+    return request.get(`${ADMIN_V2}/workflow-tasks`, { params })
+  },
+  workflowTaskComplete(id: ID, data: FormPayload) {
+    return request.post(`${ADMIN_V2}/workflow-tasks/${encodePath(id)}/complete`, data, jsonConfig)
   }
 }

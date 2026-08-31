@@ -136,7 +136,7 @@
           </el-upload>
         </el-form-item>
         <el-form-item label="用户名" prop="name">
-          <el-input v-model="form.name" placeholder="必填" />
+          <el-input v-model="form.name" placeholder="请输入唯一用户名" maxlength="100" clearable />
         </el-form-item>
         <el-form-item label="手机号">
           <el-input v-model="form.mobile" placeholder="手机号" />
@@ -1184,7 +1184,9 @@ function handleAvatarSuccess(res: any) {
 }
 
 async function saveUser() {
-  if (!form.name) { ElMessage.warning('请输入用户名'); return }
+  const normalizedName = form.name.trim()
+  if (!normalizedName) { ElMessage.warning('请输入用户名'); return }
+  form.name = normalizedName
   const roleIds = normalizeRoleIds(form.roleIds)
   const primaryRoleId = roleIds[0] || 0
   if (roleIds.length > 0 && dialog.isCreate && !form.password) {
@@ -1194,7 +1196,7 @@ async function saveUser() {
   saving.value = true
   try {
     const payload: any = {
-      name: form.name,
+      name: normalizedName,
       mobile: form.mobile,
 	      pic: form.pic,
 	      positionId: form.positionId || 0,

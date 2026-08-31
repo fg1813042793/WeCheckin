@@ -96,6 +96,17 @@ func Declarations() []Declaration {
 		{"exam:add", "考试创建接口"},
 		{"exam:edit", "考试编辑接口"},
 		{"exam:del", "考试删除接口"},
+		{"workflow:list", "流程定义查看接口"},
+		{"workflow:add", "流程定义创建接口"},
+		{"workflow:edit", "流程定义编辑接口"},
+		{"workflow:publish", "流程定义发布接口"},
+		{"workflow:del", "流程定义删除接口"},
+		{"workflow:instance:list", "流程实例查看接口"},
+		{"workflow:instance:start", "流程实例发起接口"},
+		{"workflow:instance:detail", "流程实例详情接口"},
+		{"workflow:instance:cancel", "流程实例取消接口"},
+		{"workflow:task:list", "流程任务查看接口"},
+		{"workflow:task:complete", "流程任务处理接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -123,6 +134,7 @@ func Categories() []Category {
 		{Key: "admin:api-category:dingtalk", Name: "钉钉应用", Sort: 50},
 		{Key: "admin:api-category:survey", Name: "问卷管理", Sort: 60},
 		{Key: "admin:api-category:exam", Name: "考试管理", Sort: 70},
+		{Key: "admin:api-category:workflow", Name: "流程管理", Sort: 75},
 	}
 }
 
@@ -150,6 +162,8 @@ func categoryForPerms(categories map[string]Category, perms string) Category {
 		key = "admin:api-category:survey"
 	case "exam":
 		key = "admin:api-category:exam"
+	case "workflow":
+		key = "admin:api-category:workflow"
 	}
 	if item, ok := categories[key]; ok {
 		return item
@@ -250,4 +264,15 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"exam:add":                     {method: "POST", path: "/api/v2/admin/exams"},
 	"exam:edit":                    {method: "PUT", path: "/api/v2/admin/exams/:id"},
 	"exam:del":                     {method: "DELETE", path: "/api/v2/admin/exams/:id"},
+	"workflow:list":                {method: "GET", path: "/api/v2/admin/workflow-definitions"},
+	"workflow:add":                 {method: "POST", path: "/api/v2/admin/workflow-definitions"},
+	"workflow:edit":                {method: "PUT", path: "/api/v2/admin/workflow-definitions/:id"},
+	"workflow:publish":             {method: "POST", path: "/api/v2/admin/workflow-definitions/:id/publish"},
+	"workflow:del":                 {method: "DELETE", path: "/api/v2/admin/workflow-definitions/:id"},
+	"workflow:instance:list":       {method: "GET", path: "/api/v2/admin/workflow-instances"},
+	"workflow:instance:start":      {method: "POST", path: "/api/v2/admin/workflow-instances"},
+	"workflow:instance:detail":     {method: "GET", path: "/api/v2/admin/workflow-instances/:id"},
+	"workflow:instance:cancel":     {method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel"},
+	"workflow:task:list":           {method: "GET", path: "/api/v2/admin/workflow-tasks"},
+	"workflow:task:complete":       {method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete"},
 }

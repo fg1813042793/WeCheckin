@@ -113,6 +113,12 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "DELETE", path: "/api/v2/admin/survey-question-bank/12", want: "question-bank:del"},
 		{method: "PUT", path: "/api/v2/admin/exams/8", want: "exam:edit"},
 		{method: "DELETE", path: "/api/v2/admin/exams/8/records/99", want: "exam:del"},
+		{method: "GET", path: "/api/v2/admin/workflow-instances", want: "workflow:instance:list"},
+		{method: "POST", path: "/api/v2/admin/workflow-instances", want: "workflow:instance:start"},
+		{method: "GET", path: "/api/v2/admin/workflow-instances/wfi_42", want: "workflow:instance:detail"},
+		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/cancel", want: "workflow:instance:cancel"},
+		{method: "GET", path: "/api/v2/admin/workflow-tasks", want: "workflow:task:list"},
+		{method: "POST", path: "/api/v2/admin/workflow-tasks/wft_99/complete", want: "workflow:task:complete"},
 	}
 	for _, tc := range cases {
 		got, ok := adminRoutePermission(tc.method, tc.path)
@@ -224,15 +230,27 @@ type registeredRoute struct {
 
 func registeredV2AdminRoutes(t *testing.T) []registeredRoute {
 	t.Helper()
-	file := filepath.Join("..", "..", "..", "cmd", "routes_v2.go")
-	src, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatalf("read %s: %v", file, err)
-	}
+	routesDir := filepath.Join("..", "..", "routes", "v2", "admin")
 	re := regexp.MustCompile(`admin\.(GET|POST|PUT|DELETE|PATCH)\("([^"]+)"`)
 	var out []registeredRoute
-	for _, match := range re.FindAllStringSubmatch(string(src), -1) {
-		out = append(out, registeredRoute{method: match[1], path: "/api/v2/admin" + match[2]})
+	err := filepath.Walk(routesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		src, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		for _, match := range re.FindAllStringSubmatch(string(src), -1) {
+			out = append(out, registeredRoute{method: match[1], path: "/api/v2/admin" + match[2]})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("scan %s: %v", routesDir, err)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].path == out[j].path {

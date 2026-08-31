@@ -14,7 +14,11 @@ import (
 	publicgeo "wecheckin/backend/internal/handler/public/geo"
 	publichome "wecheckin/backend/internal/handler/public/home"
 	clientmw "wecheckin/backend/internal/middleware/client"
+	workflowapp "wecheckin/backend/internal/modules/workflow/application"
+	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
+	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpclient"
 	"wecheckin/backend/internal/routes/v2/routeparam"
+	"wecheckin/backend/pkg/database"
 )
 
 func Register(h *server.Hertz) {
@@ -63,6 +67,10 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	ev := clientevent.NewEventHandler()
 	cSurvey := clientsurvey.NewClientSurveyHandler()
 	cExam := clientexam.NewClientExamHandler()
+	db := database.GetDB()
+	workflowStore := workflowinfra.NewGormStore(db)
+	workflowService := workflowapp.NewService(workflowStore, workflowinfra.NewAssigneeResolver(db), workflowinfra.NewRandomIDGenerator())
+	workflowHandler := workflowhttp.NewRuntimeHandler(workflowService)
 
 	client := h.Group("/api/v2", clientmw.ClientAuth(), clientmw.ClientPerm())
 	client.GET("/me/bootstrap", pp.Bootstrap)
@@ -103,4 +111,12 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	client.POST("/exams/:id/start", routeparam.WithQueryParam("examId", "id", cExam.Start))
 	client.GET("/exam-records/:id", routeparam.WithQueryID(cExam.Record))
 	client.PUT("/exam-records/:id/answers", routeparam.WithFormParam("recordId", "id", cExam.SaveAnswer))
+	client.GET("/workflows/definitions", workflowHandler.ListDefinitions)
+	client.GET("/workflows/definitions/:id", workflowHandler.GetDefinition)
+	client.POST("/workflows/instances", workflowHandler.StartInstance)
+	client.GET("/workflows/instances", workflowHandler.ListMyInstances)
+	client.GET("/workflows/instances/:id", workflowHandler.GetMyInstance)
+	client.POST("/workflows/instances/:id/withdraw", workflowHandler.WithdrawInstance)
+	client.GET("/workflows/tasks", workflowHandler.ListMyTasks)
+	client.POST("/workflows/tasks/:id/complete", workflowHandler.CompleteTask)
 }

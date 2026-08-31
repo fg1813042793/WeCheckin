@@ -10,6 +10,7 @@ import (
 	organizationmodel "wecheckin/backend/internal/model/organization"
 	permissionmodel "wecheckin/backend/internal/model/permission"
 	systemmodel "wecheckin/backend/internal/model/system"
+	workflowmodel "wecheckin/backend/internal/model/workflow"
 )
 
 type Admin = adminmodel.Admin
@@ -62,5 +63,19 @@ type DingTalkH5UserBinding = dingtalkh5model.DingTalkH5UserBinding
 type DingTalkH5PerfReview = dingtalkh5model.DingTalkH5PerfReview
 type DingTalkH5PerfHistory = dingtalkh5model.DingTalkH5PerfHistory
 type DingTalkH5PerfTemplate = dingtalkh5model.DingTalkH5PerfTemplate
+
+type WorkflowDefinition = workflowmodel.Definition
+type WorkflowDefinitionVersion = workflowmodel.DefinitionVersion
+type WorkflowProcessInstance = workflowmodel.ProcessInstance
+type WorkflowProcessToken = workflowmodel.ProcessToken
+type WorkflowProcessTask = workflowmodel.ProcessTask
+type WorkflowProcessVariable = workflowmodel.ProcessVariable
+type WorkflowProcessHistory = workflowmodel.ProcessHistory
+
+const (
+	DefinitionStatusDisabled  = workflowmodel.DefinitionStatusDisabled
+	DefinitionStatusDraft     = workflowmodel.DefinitionStatusDraft
+	DefinitionStatusPublished = workflowmodel.DefinitionStatusPublished
+)
 
 var ParseJSON = interactionmodel.ParseJSON

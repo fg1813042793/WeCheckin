@@ -1863,3 +1863,170 @@ func swaggerV2AdminExamQuestionBankIdDelete226() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/exam-question-bank/categories [get]
 func swaggerV2AdminExamQuestionBankCategoriesGet227() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流定义列表
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions [get]
+func swaggerV2AdminWorkflowDefinitionsGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 新建工作流定义
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions [post]
+func swaggerV2AdminWorkflowDefinitionsPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流定义详情
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id} [get]
+func swaggerV2AdminWorkflowDefinitionsIDGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 更新工作流定义
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id} [put]
+func swaggerV2AdminWorkflowDefinitionsIDPut() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 删除工作流定义
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id} [delete]
+func swaggerV2AdminWorkflowDefinitionsIDDelete() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 校验工作流定义
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id}/validate [post]
+func swaggerV2AdminWorkflowDefinitionsIDValidatePost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 发布工作流定义
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id}/publish [post]
+func swaggerV2AdminWorkflowDefinitionsIDPublishPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流定义版本
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id}/versions [get]
+func swaggerV2AdminWorkflowDefinitionsIDVersionsGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流实例列表
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-instances [get]
+func swaggerV2AdminWorkflowInstancesGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 启动工作流实例
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-instances [post]
+func swaggerV2AdminWorkflowInstancesPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流实例详情
+// @Security AdminToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-instances/{id} [get]
+func swaggerV2AdminWorkflowInstancesIDGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 取消运行中的工作流实例
+// @Security AdminToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-instances/{id}/cancel [post]
+func swaggerV2AdminWorkflowInstancesIDCancelPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流任务列表
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-tasks [get]
+func swaggerV2AdminWorkflowTasksGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 完成工作流任务
+// @Security AdminToken
+// @Param id path string true "流程任务 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-tasks/{id}/complete [post]
+func swaggerV2AdminWorkflowTasksIDCompletePost() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 查询已发布的 OA 流程
+// @Security ClientToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/definitions [get]
+func swaggerV2WorkflowsDefinitionsGet() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 查询 OA 流程和表单 Schema
+// @Security ClientToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/definitions/{id} [get]
+func swaggerV2WorkflowsDefinitionsIDGet() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 发起 OA 流程
+// @Security ClientToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/instances [post]
+func swaggerV2WorkflowsInstancesPost() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 查询我的 OA 流程申请
+// @Security ClientToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/instances [get]
+func swaggerV2WorkflowsInstancesGet() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 查询我发起或参与的 OA 流程详情
+// @Security ClientToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/instances/{id} [get]
+func swaggerV2WorkflowsInstancesIDGet() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 撤回未处理的 OA 流程申请
+// @Security ClientToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/instances/{id}/withdraw [post]
+func swaggerV2WorkflowsInstancesIDWithdrawPost() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 查询我的 OA 流程任务
+// @Security ClientToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/tasks [get]
+func swaggerV2WorkflowsTasksGet() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 审批或拒绝我的 OA 流程任务
+// @Security ClientToken
+// @Param id path string true "流程任务 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/tasks/{id}/complete [post]
+func swaggerV2WorkflowsTasksIDCompletePost() {}

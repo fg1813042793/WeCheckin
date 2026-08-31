@@ -19,10 +19,13 @@
     "check:p2-ui": "node scripts/check-p2-ui.mjs",
     "check:icon-runtime": "node scripts/check-icon-runtime.mjs",
     "check:position-management": "node scripts/check-position-management.mjs",
+    "check:workflow-tree": "node scripts/check-workflow-tree.mjs",
+    "check:workflow-runtime-pages": "node scripts/check-workflow-runtime-pages.mjs",
+    "check:workflow-form-designer": "node scripts/check-workflow-form-designer.mjs",
     "check:question-bank-components": "node scripts/check-question-bank-components.mjs",
     "check:formkit-shared-types": "node scripts/check-formkit-shared-types.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
-    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:dingtalk-h5-menu-tree && npm run check:dingtalk-h5-icons && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
+    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:dingtalk-h5-menu-tree && npm run check:dingtalk-h5-icons && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:workflow-tree && npm run check:workflow-runtime-pages && npm run check:workflow-form-designer && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

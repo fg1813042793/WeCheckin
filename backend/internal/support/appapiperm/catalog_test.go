@@ -67,13 +67,17 @@ func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 		t.Fatalf("client API declarations must not be empty")
 	}
 	required := map[string]bool{
-		"client:api:bootstrap:view":  false,
-		"client:api:user:view":       false,
-		"client:api:news:view":       false,
-		"client:api:enroll:submit":   false,
-		"client:api:event:score":     false,
-		"client:api:survey:response": false,
-		"client:api:exam:answer":     false,
+		"client:api:bootstrap:view":    false,
+		"client:api:user:view":         false,
+		"client:api:news:view":         false,
+		"client:api:enroll:submit":     false,
+		"client:api:event:score":       false,
+		"client:api:survey:response":   false,
+		"client:api:exam:answer":       false,
+		"client:api:workflow:view":     false,
+		"client:api:workflow:start":    false,
+		"client:api:workflow:handle":   false,
+		"client:api:workflow:withdraw": false,
 	}
 	for _, declaration := range declarations {
 		if !strings.HasPrefix(declaration.Key, "client:api:") {
@@ -101,5 +105,20 @@ func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 	}
 	if !foundBootstrapRoute {
 		t.Fatalf("client bootstrap route must be protected by client:api:bootstrap:view")
+	}
+
+	workflowRoutes := map[string]string{
+		"GET /api/v2/workflows/definitions":             "client:api:workflow:view",
+		"POST /api/v2/workflows/instances":              "client:api:workflow:start",
+		"GET /api/v2/workflows/instances":               "client:api:workflow:view",
+		"POST /api/v2/workflows/instances/:id/withdraw": "client:api:workflow:withdraw",
+		"GET /api/v2/workflows/tasks":                   "client:api:workflow:view",
+		"POST /api/v2/workflows/tasks/:id/complete":     "client:api:workflow:handle",
+	}
+	for _, route := range ClientRouteDeclarations() {
+		delete(workflowRoutes, route.Method+" "+route.Path)
+	}
+	if len(workflowRoutes) != 0 {
+		t.Fatalf("missing protected workflow routes: %+v", workflowRoutes)
 	}
 }

@@ -543,6 +543,27 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/dingtalk/settings/notification-test": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "提交 /api/v2/admin/dingtalk/settings/notification-test",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/dingtalk/user-bindings": {
             "get": {
                 "security": [
@@ -573,6 +594,36 @@ const docTemplate = `{
                     "API v2-后台管理"
                 ],
                 "summary": "提交 /api/v2/admin/dingtalk/user-bindings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk/user-bindings/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/dingtalk/user-bindings/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4883,6 +4934,373 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/workflow-definitions": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流定义列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "新建工作流定义",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流定义详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "更新工作流定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "删除工作流定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}/publish": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "发布工作流定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}/validate": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "校验工作流定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}/versions": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流定义版本",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-instances": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流实例列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "启动工作流实例",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-instances/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流实例详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-instances/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "取消运行中的工作流实例",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-tasks": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流任务列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-tasks/{id}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "完成工作流任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/auth/login": {
             "post": {
                 "tags": [
@@ -6174,6 +6592,208 @@ const docTemplate = `{
                     "API v2-公开接口"
                 ],
                 "summary": "查询 /api/v2/user-form-fields",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/definitions": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "查询已发布的 OA 流程",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/definitions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "查询 OA 流程和表单 Schema",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/instances": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "查询我的 OA 流程申请",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "发起 OA 流程",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/instances/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "查询我发起或参与的 OA 流程详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/instances/{id}/withdraw": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "撤回未处理的 OA 流程申请",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "查询我的 OA 流程任务",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/workflows/tasks/{id}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "审批或拒绝我的 OA 流程任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

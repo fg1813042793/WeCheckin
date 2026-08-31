@@ -104,6 +104,12 @@ var routeMethodPerms = map[string]string{
 	"GET /api/v2/admin/exam-question-bank":            "question-bank:list",
 	"POST /api/v2/admin/exam-question-bank":           "question-bank:add",
 	"GET /api/v2/admin/exam-question-bank/categories": "question-bank:list",
+
+	"GET /api/v2/admin/workflow-definitions":  "workflow:list",
+	"POST /api/v2/admin/workflow-definitions": "workflow:add",
+	"GET /api/v2/admin/workflow-instances":    "workflow:instance:list",
+	"POST /api/v2/admin/workflow-instances":   "workflow:instance:start",
+	"GET /api/v2/admin/workflow-tasks":        "workflow:task:list",
 }
 
 var routeMethodPermPatterns = []routeMethodPerm{
@@ -222,4 +228,14 @@ var routeMethodPermPatterns = []routeMethodPerm{
 	{method: "DELETE", path: "/api/v2/admin/exam-resources/:id", perm: "exam:edit"},
 	{method: "PUT", path: "/api/v2/admin/exam-question-bank/:id", perm: "question-bank:edit"},
 	{method: "DELETE", path: "/api/v2/admin/exam-question-bank/:id", perm: "question-bank:del"},
+
+	{method: "GET", path: "/api/v2/admin/workflow-definitions/:id", perm: "workflow:list"},
+	{method: "PUT", path: "/api/v2/admin/workflow-definitions/:id", perm: "workflow:edit"},
+	{method: "DELETE", path: "/api/v2/admin/workflow-definitions/:id", perm: "workflow:del"},
+	{method: "POST", path: "/api/v2/admin/workflow-definitions/:id/validate", perm: "workflow:edit"},
+	{method: "POST", path: "/api/v2/admin/workflow-definitions/:id/publish", perm: "workflow:publish"},
+	{method: "GET", path: "/api/v2/admin/workflow-definitions/:id/versions", perm: "workflow:list"},
+	{method: "GET", path: "/api/v2/admin/workflow-instances/:id", perm: "workflow:instance:detail"},
+	{method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel", perm: "workflow:instance:cancel"},
+	{method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete", perm: "workflow:task:complete"},
 }

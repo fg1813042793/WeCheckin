@@ -22,6 +22,9 @@ func SaveSelfContext(ctx context.Context, user *model.DingTalkH5PerfUser, review
 		if review.EmployeeAccount != user.Account || review.Status != ReviewStatusDraft {
 			return fmt.Errorf("当前阶段不能修改员工自评")
 		}
+		if err := validateSelfObjectiveNumbers(payload); err != nil {
+			return err
+		}
 		if err := ensureNextObjectiveMutationPermissionsContext(ctx, db, user, review, payload); err != nil {
 			return err
 		}
@@ -39,6 +42,9 @@ func SubmitSelfContext(ctx context.Context, user *model.DingTalkH5PerfUser, revi
 	result, err := mutateReview(ctx, user, reviewNo, func(db *gorm.DB, review *model.DingTalkH5PerfReview) error {
 		if review.EmployeeAccount != user.Account || review.Status != ReviewStatusDraft {
 			return fmt.Errorf("当前阶段不能提交员工自评")
+		}
+		if err := validateSelfObjectiveNumbers(payload); err != nil {
+			return err
 		}
 		if err := validateSelfSubmitPayload(payload); err != nil {
 			return err
