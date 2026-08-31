@@ -69,6 +69,9 @@
             <el-table-column label="岗位" width="140">
               <template #default="{ row }">{{ row.positionName || '-' }}</template>
             </el-table-column>
+            <el-table-column label="直属上级" width="140">
+              <template #default="{ row }">{{ row.managerUserName || '-' }}</template>
+            </el-table-column>
             <el-table-column label="绑定角色" width="280">
               <template #default="{ row }">
                 <el-tooltip
@@ -150,6 +153,48 @@
               </div>
             </el-option>
           </el-select>
+        </el-form-item>
+        <el-form-item label="直属上级">
+          <div style="width:100%;position:relative">
+            <el-popover trigger="click" placement="bottom-start" :width="520" popper-class="extra-data-user-popover" popper-style="margin-top:4px">
+              <template #reference>
+                <el-input readonly :model-value="managerUserDisplayText" placeholder="请选择直属上级" suffix-icon="ArrowDown" style="width:100%" />
+              </template>
+              <div class="extra-data-picker-search">
+                <el-input
+                  v-model="managerUserKeyword"
+                  placeholder="搜索用户/手机号/部门"
+                  clearable
+                  size="small"
+                  @input="filterManagerUserTree"
+                />
+              </div>
+              <div class="extra-data-user-tree-wrap">
+                <el-tree
+                  ref="managerUserTreeRef"
+                  :data="managerUserTreeData"
+                  :props="{ label: 'label', children: 'children', disabled: 'disabled' }"
+                  :filter-node-method="filterExtraDataUserNode"
+                  show-checkbox
+                  check-on-click-node
+                  node-key="key"
+                  :default-checked-keys="managerUserCheckedNodeKeys"
+                  @check="onManagerUserCheck"
+                  class="extra-data-user-tree manager-user-tree"
+                >
+                  <template #default="{ node, data }">
+                    <span :class="['extra-data-user-node', data.type === 'user' ? 'is-user' : 'is-dept']">
+                      <span class="extra-data-user-node__label">{{ node.label }}</span>
+                      <span v-if="data.type === 'user' && data.mobile" class="extra-data-user-node__meta">{{ data.mobile }}</span>
+                    </span>
+                  </template>
+                </el-tree>
+              </div>
+              <div class="manager-user-actions">
+                <el-button link type="primary" @click="clearManagerUser">清空直属上级</el-button>
+              </div>
+            </el-popover>
+          </div>
         </el-form-item>
         <el-form-item label="所属部门">
           <div style="width:100%;position:relative">
@@ -477,6 +522,7 @@
             <span v-else>-</span>
           </el-descriptions-item>
           <el-descriptions-item label="岗位">{{ detailDialog.detail.positionName || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="直属上级">{{ detailDialog.detail.managerUserName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="绑定角色">
             <div v-if="displayRoleNames(detailDialog.detail).length" class="user-detail-chip-list">
               <el-tag v-for="name in displayRoleNames(detailDialog.detail)" :key="name" type="primary" size="small">{{ name }}</el-tag>
@@ -523,8 +569,10 @@ const sortColumns = [
 const formFields = ref<any[]>([])
 const deptTreeData = ref<any[]>([])
 const deptTreeRef = ref<any>(null)
+const managerUserTreeRef = ref<any>(null)
 const extraDataDeptTreeRef = ref<any>(null)
 const extraDataUserTreeRef = ref<any>(null)
+const managerUserKeyword = ref('')
 const extraDataDeptKeyword = ref('')
 const extraDataUserKeyword = ref('')
 const roleList = ref<any[]>([])
@@ -550,6 +598,13 @@ const extraDataDeptDisplayText = computed(() => {
   if (!form.extraDataDeptIds || form.extraDataDeptIds.length === 0) return ''
   return form.extraDataDeptIds.map((id: number) => deptTagName(id)).join('、')
 })
+const managerUserOptions = computed(() => dataScopeUserOptions.value.filter((user: any) => Number(user.id) !== Number(form.id || 0)))
+const managerUserTreeData = computed(() => buildSelectableUserTree(deptTreeData.value, managerUserOptions.value))
+const managerUserDisplayText = computed(() => {
+  if (!form.managerUserId) return ''
+  return dataScopeUserName(Number(form.managerUserId))
+})
+const managerUserCheckedNodeKeys = computed(() => checkedExtraDataUserNodeKeys(form.managerUserId ? [Number(form.managerUserId)] : [], managerUserTreeData.value))
 const extraDataUserTreeData = computed(() => buildExtraDataUserTree(deptTreeData.value, dataScopeUserOptions.value))
 const extraDataUserDisplayText = computed(() => {
   if (!form.extraDataUserIds || form.extraDataUserIds.length === 0) return ''
@@ -676,6 +731,10 @@ function filterExtraDataUserTree() {
   extraDataUserTreeRef.value?.filter(normalizeFilterText(extraDataUserKeyword.value))
 }
 
+function filterManagerUserTree() {
+  managerUserTreeRef.value?.filter(normalizeFilterText(managerUserKeyword.value))
+}
+
 function filterExtraDataDeptNode(keyword: string, data: any) {
   const value = normalizeFilterText(keyword)
   if (!value) return true
@@ -695,9 +754,11 @@ function filterExtraDataUserNode(keyword: string, data: any) {
 }
 
 function resetExtraDataPickerFilters() {
+  managerUserKeyword.value = ''
   extraDataDeptKeyword.value = ''
   extraDataUserKeyword.value = ''
   nextTick(() => {
+    filterManagerUserTree()
     filterExtraDataDeptTree()
     filterExtraDataUserTree()
   })
@@ -734,7 +795,11 @@ function extraDataUserNode(user: any, scopeKey: string) {
   }
 }
 
-function buildExtraDataUserTree(depts: any[], users: any[]) {
+function buildSelectableUserTree(depts: any[], users: any[]) {
+  return buildExtraDataUserTree(depts, users, { disableDepartments: true })
+}
+
+function buildExtraDataUserTree(depts: any[], users: any[], options: { disableDepartments?: boolean } = {}) {
   const usersByDept: Record<number, any[]> = {}
   const usersWithoutDept: any[] = []
   for (const user of users || []) {
@@ -761,6 +826,7 @@ function buildExtraDataUserTree(depts: any[], users: any[]) {
       type: 'dept',
       id: deptID,
       label: dept.name || String(deptID),
+      disabled: options.disableDepartments === true,
       children
     }
   }
@@ -771,6 +837,7 @@ function buildExtraDataUserTree(depts: any[], users: any[]) {
       key: 'dept-unassigned',
       type: 'dept',
       label: '未分配部门',
+      disabled: options.disableDepartments === true,
       children: usersWithoutDept.map((user: any) => extraDataUserNode(user, 'unassigned'))
     })
   }
@@ -788,6 +855,7 @@ function buildExtraDataUserTree(depts: any[], users: any[]) {
       key: 'dept-unmatched',
       type: 'dept',
       label: '未匹配部门',
+      disabled: options.disableDepartments === true,
       children: unmatchedUsers.map((user: any) => extraDataUserNode(user, 'unmatched'))
     })
   }
@@ -818,6 +886,26 @@ function extraDataUserIDsFromCheckedKeys(keys: string[]) {
 
 function setExtraDataUserTreeKeys() {
   extraDataUserTreeRef.value?.setCheckedKeys(extraDataUserCheckedNodeKeys.value)
+}
+
+function setManagerUserTreeKeys() {
+  managerUserTreeRef.value?.setCheckedKeys(managerUserCheckedNodeKeys.value)
+}
+
+function onManagerUserCheck() {
+  nextTick(() => {
+    const checkedKeys = managerUserTreeRef.value?.getCheckedKeys?.() || []
+    const checkedIDs = extraDataUserIDsFromCheckedKeys(checkedKeys)
+    const currentID = Number(form.managerUserId) || 0
+    const selectedID = checkedIDs.find(id => id !== currentID) || checkedIDs[checkedIDs.length - 1] || 0
+    form.managerUserId = selectedID || 0
+    nextTick(() => setManagerUserTreeKeys())
+  })
+}
+
+function clearManagerUser() {
+  form.managerUserId = 0
+  nextTick(() => setManagerUserTreeKeys())
 }
 
 function onExtraDataUserCheck() {
@@ -960,7 +1048,10 @@ async function loadDataScopeUserOptions() {
     const res = await adminApi.userList({ page: 1, pageSize: 9999 })
     dataScopeUserOptions.value = Array.isArray(res.data?.list) ? res.data.list : []
     await nextTick()
-    if (dialog.visible) setExtraDataUserTreeKeys()
+    if (dialog.visible) {
+      setManagerUserTreeKeys()
+      setExtraDataUserTreeKeys()
+    }
   } catch { dataScopeUserOptions.value = [] }
 }
 
@@ -1103,6 +1194,7 @@ const form = reactive({
   deptIds: [] as number[],
   password: '',
   positionId: null as any,
+  managerUserId: 0 as any,
   roleId: null as any,
   roleIds: [] as number[],
   allowPermissionKeys: [] as string[],
@@ -1120,6 +1212,7 @@ function resetForm() {
   form.deptIds = []
   form.password = ''
   form.positionId = null
+  form.managerUserId = 0
   form.roleId = null
   form.roleIds = []
   form.allowPermissionKeys = []
@@ -1137,6 +1230,7 @@ function showAdd() {
   dialog.visible = true
   nextTick(() => {
     deptTreeRef.value?.setCheckedKeys([])
+    managerUserTreeRef.value?.setCheckedKeys([])
     extraDataDeptTreeRef.value?.setCheckedKeys([])
     extraDataUserTreeRef.value?.setCheckedKeys([])
     setUserApplicationPermissionTreeKeys()
@@ -1151,6 +1245,7 @@ async function showEdit(row: any) {
   form.name = row.name
   form.mobile = row.mobile
   form.positionId = row.positionId || null
+  form.managerUserId = row.managerUserId || 0
   form.pic = preferredAvatarUrl(row)
   form.avatar = normalizeAvatarUrl(row.avatar)
   form.deptIds = row.deptIds || []
@@ -1161,6 +1256,7 @@ async function showEdit(row: any) {
     const d = res.data || {}
     form.deptIds = d.deptIds || []
     form.positionId = d.positionId || null
+    form.managerUserId = d.managerUserId || 0
     form.roleId = d.roleId || null
     form.roleIds = d.roleIds?.length ? d.roleIds : (d.roleId ? [d.roleId] : [])
     form.allowPermissionKeys = d.allowPermissionKeys || []
@@ -1173,6 +1269,7 @@ async function showEdit(row: any) {
   } catch {}
   nextTick(() => {
     deptTreeRef.value?.setCheckedKeys(form.deptIds)
+    setManagerUserTreeKeys()
     extraDataDeptTreeRef.value?.setCheckedKeys(form.extraDataDeptIds)
     setExtraDataUserTreeKeys()
     setUserApplicationPermissionTreeKeys()
@@ -1200,6 +1297,7 @@ async function saveUser() {
       mobile: form.mobile,
 	      pic: form.pic,
 	      positionId: form.positionId || 0,
+	      managerUserId: form.managerUserId || 0,
 	      password: form.password,
 	      roleId: primaryRoleId,
 	      roleIds: roleIds.join(',')
@@ -1532,6 +1630,11 @@ onMounted(async () => {
 .extra-data-picker-search {
   box-sizing: border-box;
   padding: 6px 4px 10px;
+}
+.manager-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 4px 0;
 }
 .extra-data-user-tree-wrap {
   box-sizing: border-box;

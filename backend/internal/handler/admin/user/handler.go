@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"wecheckin/backend/internal/handler/internal/param"
-	adminuserservice "wecheckin/backend/internal/service/admin/adminuser"
 	"wecheckin/backend/internal/model"
+	adminuserservice "wecheckin/backend/internal/service/admin/adminuser"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -78,6 +78,7 @@ func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContex
 // @Param name formData string true "用户名"
 // @Param mobile formData string false "手机号"
 // @Param positionId formData string false "岗位ID"
+// @Param managerUserId formData string false "直属上级用户ID"
 // @Param pic formData string false "头像URL"
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
@@ -85,12 +86,13 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
 	positionID := parsePositionID(c.PostForm("positionId"))
+	managerUserID := parsePositionID(c.PostForm("managerUserId"))
 	pic := c.PostForm("pic")
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
 	deptIds := param.ParseUintSlice(c.PostForm("deptIds"))
 	adminAccess, _ := parseAdminAccess(c)
-	err := adminuserservice.AddUserWithAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, deptIds, adminAccess)
+	err := adminuserservice.AddUserWithManagerAndAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -104,6 +106,7 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 // @Param name formData string false "用户名"
 // @Param mobile formData string false "手机号"
 // @Param positionId formData string false "岗位ID"
+// @Param managerUserId formData string false "直属上级用户ID"
 // @Param pic formData string false "头像URL"
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
@@ -114,17 +117,13 @@ func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) 
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
 	positionID := parsePositionID(c.PostForm("positionId"))
+	managerUserID := parsePositionID(c.PostForm("managerUserId"))
 	pic := c.PostForm("pic")
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
 	deptIds := param.ParseUintSlice(c.PostForm("deptIds"))
 	adminAccess, hasAdminAccess := parseAdminAccess(c)
-	var err error
-	if hasAdminAccess {
-		err = adminuserservice.EditUserWithAdminAccessForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, deptIds, adminAccess, admin.ID)
-	} else {
-		err = adminuserservice.EditUserForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, deptIds, admin.ID)
-	}
+	err := adminuserservice.EditUserWithManagerAndAdminAccessForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess, hasAdminAccess, admin.ID)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return

@@ -44,6 +44,8 @@ export interface AdminUser {
   adminDeptIds?: number[]
   positionId?: number
   positionName?: string
+  managerUserId?: number
+  managerUserName?: string
 }
 
 export interface SurveyItem {

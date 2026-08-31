@@ -16,6 +16,8 @@ import (
 )
 
 type RuntimeService interface {
+	ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error)
+	GetPublishedDefinition(context.Context, uint) (*workflowapp.PublishedDefinition, error)
 	StartInstance(context.Context, workflowapp.StartInstanceRequest) (*workflowdomain.State, error)
 	CompleteTask(context.Context, workflowapp.CompleteTaskRequest) (*workflowdomain.State, error)
 	CancelInstance(context.Context, workflowapp.CancelInstanceRequest) (*workflowdomain.State, error)
@@ -66,6 +68,37 @@ type mutationTask struct {
 	NodeName   string `json:"nodeName"`
 	AssigneeID string `json:"assigneeId"`
 	Status     string `json:"status"`
+}
+
+func (handler *RuntimeHandler) ListDefinitions(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedActorID(c); !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	data, err := handler.service.ListPublishedDefinitions(ctx)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (handler *RuntimeHandler) GetDefinition(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedActorID(c); !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || id == 0 {
+		response.Fail(c, "流程定义不能为空")
+		return
+	}
+	data, err := handler.service.GetPublishedDefinition(ctx, uint(id))
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
 }
 
 func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.RequestContext) {

@@ -490,6 +490,10 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 	var tasks []workflowmodel.ProcessTask
 	var variables []workflowmodel.ProcessVariable
 	var history []workflowmodel.ProcessHistory
+	definition, _, err := loadDefinitionVersion(db, instance.DefinitionID, instance.DefinitionVersion)
+	if err != nil {
+		return nil, err
+	}
 	if err := db.Where("instance_id = ?", instance.ID).Order("created_at ASC").Find(&tokens).Error; err != nil {
 		return nil, err
 	}
@@ -504,10 +508,13 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 	}
 	detail := &application.InstanceDetail{
 		Instance: instanceSummary(instance), Variables: make(map[string]interface{}, len(variables)),
-		FormData: make(map[string]interface{}),
-		Tokens:   make([]application.TokenSummary, 0, len(tokens)),
-		Tasks:    make([]application.TaskSummary, 0, len(tasks)),
-		History:  make([]application.HistorySummary, 0, len(history)),
+		Form:             cloneDefinitionForm(definition),
+		FormData:         make(map[string]interface{}),
+		FieldPermissions: definitionFieldPermissions(definition),
+		StartNodeID:      definitionStartNodeID(definition),
+		Tokens:           make([]application.TokenSummary, 0, len(tokens)),
+		Tasks:            make([]application.TaskSummary, 0, len(tasks)),
+		History:          make([]application.HistorySummary, 0, len(history)),
 	}
 	formData, err := decodeFormData(instance.FormDataJSON)
 	if err != nil {
@@ -548,11 +555,38 @@ func instanceSummary(row workflowmodel.ProcessInstance) application.InstanceSumm
 }
 
 func publishedDefinition(row workflowmodel.Definition, definition workflowcore.Definition, version int) application.PublishedDefinition {
-	form := append([]workflowcore.FormField(nil), definition.Form...)
 	return application.PublishedDefinition{
 		ID: row.ID, Key: row.Key, Name: row.Name, Description: row.Description,
-		Category: row.Category, Version: version, Form: form,
+		Category: row.Category, Version: version, Form: cloneDefinitionForm(definition),
+		FieldPermissions: definitionFieldPermissions(definition), StartNodeID: definitionStartNodeID(definition),
 	}
+}
+
+func cloneDefinitionForm(definition workflowcore.Definition) []workflowcore.FormField {
+	return append([]workflowcore.FormField(nil), definition.Form...)
+}
+
+func definitionFieldPermissions(definition workflowcore.Definition) map[string][]workflowcore.FieldPermission {
+	result := make(map[string][]workflowcore.FieldPermission)
+	for _, node := range definition.Nodes {
+		if len(node.FormPermissions) == 0 {
+			continue
+		}
+		result[node.ID] = append([]workflowcore.FieldPermission(nil), node.FormPermissions...)
+	}
+	if result == nil {
+		return map[string][]workflowcore.FieldPermission{}
+	}
+	return result
+}
+
+func definitionStartNodeID(definition workflowcore.Definition) string {
+	for _, node := range definition.Nodes {
+		if node.Type == workflowcore.NodeTypeStart {
+			return node.ID
+		}
+	}
+	return ""
 }
 
 func taskSummary(row workflowmodel.ProcessTask) application.TaskSummary {

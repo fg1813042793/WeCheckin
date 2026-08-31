@@ -114,11 +114,16 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "PUT", path: "/api/v2/admin/exams/8", want: "exam:edit"},
 		{method: "DELETE", path: "/api/v2/admin/exams/8/records/99", want: "exam:del"},
 		{method: "GET", path: "/api/v2/admin/workflow-instances", want: "workflow:instance:list"},
+		{method: "GET", path: "/api/v2/admin/workflow-published-definitions", want: "workflow:instance:start"},
+		{method: "GET", path: "/api/v2/admin/workflow-published-definitions/7", want: "workflow:instance:start"},
 		{method: "POST", path: "/api/v2/admin/workflow-instances", want: "workflow:instance:start"},
 		{method: "GET", path: "/api/v2/admin/workflow-instances/wfi_42", want: "workflow:instance:detail"},
 		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/cancel", want: "workflow:instance:cancel"},
 		{method: "GET", path: "/api/v2/admin/workflow-tasks", want: "workflow:task:list"},
 		{method: "POST", path: "/api/v2/admin/workflow-tasks/wft_99/complete", want: "workflow:task:complete"},
+		{method: "GET", path: "/api/v2/admin/workflow-org-approver-identities", want: "workflow:org-approver:list"},
+		{method: "GET", path: "/api/v2/admin/workflow-org-approver-assignments", want: "workflow:org-approver:list"},
+		{method: "PUT", path: "/api/v2/admin/workflow-org-approver-assignments", want: "workflow:org-approver:edit"},
 	}
 	for _, tc := range cases {
 		got, ok := adminRoutePermission(tc.method, tc.path)

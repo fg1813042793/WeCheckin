@@ -3,13 +3,15 @@ package application
 import workflowcore "wecheckin/backend/internal/workflow"
 
 type PublishedDefinition struct {
-	ID          uint                     `json:"id"`
-	Key         string                   `json:"key"`
-	Name        string                   `json:"name"`
-	Description string                   `json:"description"`
-	Category    string                   `json:"category"`
-	Version     int                      `json:"version"`
-	Form        []workflowcore.FormField `json:"form"`
+	ID               uint                                      `json:"id"`
+	Key              string                                    `json:"key"`
+	Name             string                                    `json:"name"`
+	Description      string                                    `json:"description"`
+	Category         string                                    `json:"category"`
+	Version          int                                       `json:"version"`
+	Form             []workflowcore.FormField                  `json:"form"`
+	FieldPermissions map[string][]workflowcore.FieldPermission `json:"fieldPermissions"`
+	StartNodeID      string                                    `json:"startNodeId"`
 }
 
 type InstanceQuery struct {
@@ -79,12 +81,15 @@ type HistorySummary struct {
 }
 
 type InstanceDetail struct {
-	Instance  InstanceSummary        `json:"instance"`
-	Variables map[string]interface{} `json:"variables"`
-	FormData  map[string]interface{} `json:"formData"`
-	Tokens    []TokenSummary         `json:"tokens"`
-	Tasks     []TaskSummary          `json:"tasks"`
-	History   []HistorySummary       `json:"history"`
+	Instance         InstanceSummary                         `json:"instance"`
+	Variables        map[string]interface{}                  `json:"variables"`
+	Form             []workflowcore.FormField                `json:"form"`
+	FormData         map[string]interface{}                  `json:"formData"`
+	FieldPermissions map[string][]workflowcore.FieldPermission `json:"fieldPermissions"`
+	StartNodeID      string                                  `json:"startNodeId"`
+	Tokens           []TokenSummary                          `json:"tokens"`
+	Tasks            []TaskSummary                           `json:"tasks"`
+	History          []HistorySummary                        `json:"history"`
 }
 
 type InstanceList struct {

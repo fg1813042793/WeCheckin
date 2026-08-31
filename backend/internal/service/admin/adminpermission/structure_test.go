@@ -51,6 +51,41 @@ func TestAdminPermissionTreeBackfillsApplicationCatalog(t *testing.T) {
 	}
 }
 
+func TestAdminPermissionTreeDoesNotBackfillAdminMenuCatalog(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	body := testAdminPermissionFunctionBody(t, text, "shouldEnsureApplicationPermissionCatalog")
+	platformAdminIndex := strings.Index(body, "if platform == permissionsupport.PlatformAdmin")
+	if platformAdminIndex < 0 {
+		t.Fatalf("admin permission tree must have a PlatformAdmin catalog branch")
+	}
+	unknownPlatformIndex := strings.Index(body, "if platform != \"\" && platform != permissionsupport.PlatformClient")
+	if unknownPlatformIndex < 0 || unknownPlatformIndex <= platformAdminIndex {
+		t.Fatalf("admin permission tree must keep PlatformAdmin branch before application platform branch")
+	}
+	adminBranch := body[platformAdminIndex:unknownPlatformIndex]
+	for _, snippet := range []string{
+		"permissionsupport.TypeAPICategory",
+		"permissionsupport.TypeAPI",
+	} {
+		if !strings.Contains(adminBranch, snippet) {
+			t.Fatalf("admin permission tree must continue backfilling admin API catalog with %s", snippet)
+		}
+	}
+	for _, snippet := range []string{
+		"permissionsupport.TypeDirectory",
+		"permissionsupport.TypeMenu",
+		"permissionsupport.TypeButton",
+	} {
+		if strings.Contains(adminBranch, snippet) {
+			t.Fatalf("admin menu catalog type %s must be created by migrations/bootstrap, not permission tree reads", snippet)
+		}
+	}
+}
+
 func TestAdminPermissionTreeUsesCacheBeforeCatalogBackfill(t *testing.T) {
 	src, err := os.ReadFile("service.go")
 	if err != nil {

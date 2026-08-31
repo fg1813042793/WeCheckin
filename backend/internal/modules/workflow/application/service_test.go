@@ -177,6 +177,36 @@ func TestCompleteTaskOnlyUpdatesWritableNodeFields(t *testing.T) {
 	}
 }
 
+func TestCompleteTaskRejectsNodeFormPatchThatClearsRequiredField(t *testing.T) {
+	definition := simpleDefinition()
+	definition.Form = []workflowcore.FormField{
+		{Key: "reason", Label: "申请原因", Type: workflowcore.FormFieldTypeTextarea, Required: true},
+	}
+	definition.Nodes[1].FormPermissions = []workflowcore.FieldPermission{
+		{Field: "reason", Access: workflowcore.FieldAccessWrite},
+	}
+	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
+	state, err := engine.Start(definition, workflowdomain.StartRequest{
+		DefinitionID: 9, DefinitionVersion: 1, StarterID: "7", FormData: map[string]interface{}{"reason": "出差"},
+	})
+	if err != nil {
+		t.Fatalf("prepare state: %v", err)
+	}
+	store := &fakeStore{definition: definition, state: state}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+
+	_, err = service.CompleteTask(context.Background(), CompleteTaskRequest{
+		TaskID: state.PendingTasks()[0].ID, ActorID: "42", Action: workflowdomain.TaskActionApprove,
+		FormData: map[string]interface{}{"reason": ""},
+	})
+	if !errors.Is(err, workflowcore.ErrFormDataInvalid) {
+		t.Fatalf("CompleteTask() error = %v, want ErrFormDataInvalid", err)
+	}
+	if store.savedState != nil {
+		t.Fatal("invalid merged form data must not be saved")
+	}
+}
+
 func TestWithdrawInstanceLocksByInstanceAndPersists(t *testing.T) {
 	definition := simpleDefinition()
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})

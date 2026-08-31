@@ -11,6 +11,7 @@ type User struct {
 	Name           string    `json:"name" gorm:"size:100;column:user_name;comment:用户昵称"`
 	Mobile         string    `json:"mobile" gorm:"size:20;column:user_mobile;comment:手机号"`
 	PositionID     uint      `json:"positionId" gorm:"index;default:0;column:user_position_id;comment:岗位ID"`
+	ManagerUserID  uint      `json:"managerUserId" gorm:"index;default:0;column:manager_user_id;comment:直属上级用户ID"`
 	Pic            string    `json:"avatar" gorm:"size:500;column:user_pic;comment:头像URL"`
 	Forms          string    `json:"forms" gorm:"type:text;column:user_forms;comment:扩展表单数据JSON"`
 	Obj            string    `json:"obj" gorm:"type:text;column:user_obj;comment:扩展对象数据JSON"`
@@ -30,12 +31,13 @@ type User struct {
 	CreatedAt      time.Time `json:"-"`
 	UpdatedAt      time.Time `json:"-"`
 
-	Role         string   `json:"role" gorm:"-"`
-	RoleIDs      []uint   `json:"roleIds" gorm:"-"`
-	RoleNames    []string `json:"roleNames" gorm:"-"`
-	DeptName     string   `json:"deptName" gorm:"-"`
-	TopDeptName  string   `json:"topDeptName" gorm:"-"`
-	PositionName string   `json:"positionName" gorm:"-"`
+	Role            string   `json:"role" gorm:"-"`
+	RoleIDs         []uint   `json:"roleIds" gorm:"-"`
+	RoleNames       []string `json:"roleNames" gorm:"-"`
+	DeptName        string   `json:"deptName" gorm:"-"`
+	TopDeptName     string   `json:"topDeptName" gorm:"-"`
+	PositionName    string   `json:"positionName" gorm:"-"`
+	ManagerUserName string   `json:"managerUserName" gorm:"-"`
 }
 
 func (u *User) GetRole() string {

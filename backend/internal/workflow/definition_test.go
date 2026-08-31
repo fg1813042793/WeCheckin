@@ -218,6 +218,21 @@ func TestValidateDefinitionAcceptsFormSchemaAndNodePermissions(t *testing.T) {
 	}
 }
 
+func TestValidateDefinitionAcceptsCommonFormFieldSpans(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Form = []FormField{
+		{Key: "legacy", Label: "旧字段", Type: FormFieldTypeText},
+		{Key: "quarter", Label: "四分之一行", Type: FormFieldTypeText, Span: 6},
+		{Key: "third", Label: "三分之一行", Type: FormFieldTypeText, Span: 8},
+		{Key: "half", Label: "二分之一行", Type: FormFieldTypeText, Span: 12},
+		{Key: "full", Label: "整行", Type: FormFieldTypeTextarea, Span: 24},
+	}
+
+	if errors := ValidateDefinition(definition); len(errors) != 0 {
+		t.Fatalf("expected common form field spans to be valid, got %#v", errors)
+	}
+}
+
 func TestValidateDefinitionRejectsInvalidFormSchema(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -257,6 +272,13 @@ func TestValidateDefinitionRejectsInvalidFormSchema(t *testing.T) {
 			},
 			expectCode: ValidationFieldPermissionAccess,
 		},
+		{
+			name: "invalid field span",
+			mutate: func(definition *Definition) {
+				definition.Form = []FormField{{Key: "reason", Label: "原因", Type: FormFieldTypeText, Span: 7}}
+			},
+			expectCode: ValidationFormFieldSpan,
+		},
 	}
 
 	for _, test := range tests {
@@ -291,6 +313,57 @@ func TestValidateFormDataEnforcesRequiredTypeAndRange(t *testing.T) {
 	}
 }
 
+func TestValidateFormDataSupportsCommonOAFields(t *testing.T) {
+	fields := []FormField{
+		{Key: "amount", Label: "报销金额", Type: FormFieldTypeAmount, Min: numberPointer(0), Max: numberPointer(100000)},
+		{Key: "phone", Label: "联系电话", Type: FormFieldTypePhone},
+		{Key: "email", Label: "邮箱", Type: FormFieldTypeEmail},
+		{Key: "method", Label: "出行方式", Type: FormFieldTypeRadio, Options: []FormOption{{Label: "飞机", Value: "plane"}}},
+		{Key: "benefits", Label: "福利", Type: FormFieldTypeCheckbox, Options: []FormOption{{Label: "餐补", Value: "meal"}, {Label: "交通", Value: "traffic"}}},
+		{Key: "startTime", Label: "开始时间", Type: FormFieldTypeTime},
+		{Key: "tripPeriod", Label: "出差日期", Type: FormFieldTypeDateRange},
+		{Key: "companions", Label: "同行人", Type: FormFieldTypeUserMulti},
+		{Key: "departments", Label: "协同部门", Type: FormFieldTypeDepartmentMulti},
+	}
+	definition := validLinearDefinition()
+	definition.Form = fields
+	if errors := ValidateDefinition(definition); len(errors) != 0 {
+		t.Fatalf("common OA fields must be accepted in form schema: %#v", errors)
+	}
+	data := map[string]interface{}{
+		"amount":      1280.5,
+		"phone":       "13800138000",
+		"email":       "oa@example.com",
+		"method":      "plane",
+		"benefits":    []interface{}{"meal", "traffic"},
+		"startTime":   "09:30",
+		"tripPeriod":  []interface{}{"2026-09-01", "2026-09-03"},
+		"companions":  []interface{}{"1001", "1002"},
+		"departments": []interface{}{"2001", "2002"},
+	}
+
+	if err := ValidateFormData(fields, data, false); err != nil {
+		t.Fatalf("valid common OA form data rejected: %v", err)
+	}
+	for name, value := range map[string]interface{}{
+		"phone":      "123",
+		"email":      "invalid-email",
+		"method":     "train",
+		"benefits":   []interface{}{"unknown"},
+		"startTime":  "25:00",
+		"tripPeriod": []interface{}{"2026-09-01"},
+	} {
+		invalid := make(map[string]interface{}, len(data))
+		for key, item := range data {
+			invalid[key] = item
+		}
+		invalid[name] = value
+		if err := ValidateFormData(fields, invalid, false); err == nil {
+			t.Fatalf("invalid %s value must be rejected", name)
+		}
+	}
+}
+
 func TestValidateNodeFormPatchOnlyAllowsWritableFields(t *testing.T) {
 	definition := validLinearDefinition()
 	definition.Form = []FormField{
@@ -302,11 +375,29 @@ func TestValidateNodeFormPatchOnlyAllowsWritableFields(t *testing.T) {
 		{Field: "amount", Access: FieldAccessWrite},
 	}
 
-	if err := ValidateNodeFormPatch(definition, "manager", map[string]interface{}{"amount": 120}); err != nil {
+	if err := ValidateNodeFormPatch(definition, "manager", nil, map[string]interface{}{"amount": 120}); err != nil {
 		t.Fatalf("writable field patch rejected: %v", err)
 	}
-	if err := ValidateNodeFormPatch(definition, "manager", map[string]interface{}{"reason": "changed"}); err == nil {
+	if err := ValidateNodeFormPatch(definition, "manager", nil, map[string]interface{}{"reason": "changed"}); err == nil {
 		t.Fatal("read-only field patch must be rejected")
+	}
+}
+
+func TestValidateNodeFormPatchRejectsInvalidMergedFormData(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Form = []FormField{
+		{Key: "reason", Label: "原因", Type: FormFieldTypeText, Required: true},
+	}
+	definition.Nodes[1].FormPermissions = []FieldPermission{
+		{Field: "reason", Access: FieldAccessWrite},
+	}
+	current := map[string]interface{}{"reason": "出差"}
+
+	if err := ValidateNodeFormPatch(definition, "manager", current, map[string]interface{}{"reason": ""}); err == nil {
+		t.Fatal("required field must not be cleared by node form patch")
+	}
+	if err := ValidateNodeFormPatch(definition, "manager", current, map[string]interface{}{"reason": "调整为外出"}); err != nil {
+		t.Fatalf("valid merged form patch rejected: %v", err)
 	}
 }
 

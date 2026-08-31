@@ -515,6 +515,21 @@ func TestEnsureApplicationCatalogBackfillsAdminAPIWithoutFullSync(t *testing.T) 
 	}
 }
 
+func TestEnsureApplicationCatalogDoesNotBackfillAdminMenus(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	body := testFunctionBody(t, text, "EnsureApplicationPermissionCatalogContext")
+	if strings.Contains(body, "ensureMissingAdminMenuPermissionsContext") || strings.Contains(body, "syncAdminMenuPermissions(db") {
+		t.Fatalf("admin menu permissions must be created by migrations/bootstrap, not request-path catalog backfill")
+	}
+	if strings.Contains(text, "func ensureMissingAdminMenuPermissionsContext") {
+		t.Fatalf("admin menu request-path backfill helper must not exist")
+	}
+}
+
 func TestPermissionServiceProvidesRuntimeRoleGrantLookupsWithoutLegacyTables(t *testing.T) {
 	src, err := os.ReadFile("service.go")
 	if err != nil {

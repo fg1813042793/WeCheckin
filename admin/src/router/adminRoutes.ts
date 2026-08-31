@@ -40,6 +40,7 @@ export const adminChildRoutes: RouteRecordRaw[] = [
   { path: 'workflow/definitions/:id/designer', name: 'WorkflowDesigner', component: () => import('../views/workflow/designer/index.vue'), meta: { title: '流程设计器' } },
   { path: 'workflow/instances', name: 'WorkflowInstances', component: () => import('../views/workflow/instances/index.vue'), meta: { title: '流程实例' } },
   { path: 'workflow/tasks', name: 'WorkflowTasks', component: () => import('../views/workflow/tasks/index.vue'), meta: { title: '流程任务' } },
+  { path: 'workflow/org-approvers', name: 'WorkflowOrgApprovers', component: () => import('../views/workflow/org-approvers/index.vue'), meta: { title: '组织审批身份设置' } },
   { path: 'role', name: 'Role', component: () => import('../views/role/index.vue'), meta: { title: '角色管理' } },
   { path: 'menu', name: 'Menu', component: () => import('../views/menu/index.vue'), meta: { title: '权限管理' } },
   { path: 'event', name: 'Event', component: () => import('../views/event/index.vue'), meta: { title: '赛事活动' } },

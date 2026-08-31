@@ -5247,6 +5247,67 @@
                 }
             }
         },
+        "/api/v2/admin/workflow-org-approver-assignments": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询组织审批身份人员配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "保存组织审批身份人员配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-org-approver-identities": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询组织审批身份列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-tasks": {
             "get": {
                 "security": [

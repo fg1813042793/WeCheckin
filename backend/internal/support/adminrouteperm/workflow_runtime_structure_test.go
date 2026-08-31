@@ -4,12 +4,14 @@ import "testing"
 
 func TestWorkflowRuntimeRouteDeclarations(t *testing.T) {
 	want := map[string]string{
-		"workflow:instance:list":   "/api/v2/admin/workflow-instances",
-		"workflow:instance:start":  "/api/v2/admin/workflow-instances",
-		"workflow:instance:detail": "/api/v2/admin/workflow-instances/:id",
-		"workflow:instance:cancel": "/api/v2/admin/workflow-instances/:id/cancel",
-		"workflow:task:list":       "/api/v2/admin/workflow-tasks",
-		"workflow:task:complete":   "/api/v2/admin/workflow-tasks/:id/complete",
+		"workflow:instance:list":     "/api/v2/admin/workflow-instances",
+		"workflow:instance:start":    "/api/v2/admin/workflow-instances",
+		"workflow:instance:detail":   "/api/v2/admin/workflow-instances/:id",
+		"workflow:instance:cancel":   "/api/v2/admin/workflow-instances/:id/cancel",
+		"workflow:task:list":         "/api/v2/admin/workflow-tasks",
+		"workflow:task:complete":     "/api/v2/admin/workflow-tasks/:id/complete",
+		"workflow:org-approver:list": "/api/v2/admin/workflow-org-approver-identities",
+		"workflow:org-approver:edit": "/api/v2/admin/workflow-org-approver-assignments",
 	}
 	found := make(map[string]Declaration)
 	for _, item := range Declarations() {

@@ -29,15 +29,36 @@
       </div>
     </header>
 
-    <div v-if="detail" class="designer-body">
-      <WorkflowCanvas
-        :draft="detail.draft"
-        :selected-node-id="selectedNodeId"
-        :readonly="!canEdit"
-        @select="selectNode"
-        @insert="insertNode"
-        @add-branch="addGatewayBranch"
-      />
+    <div v-if="detail" class="designer-workspace">
+      <el-tabs v-model="activeDesignerTab" class="designer-mode-tabs" @tab-change="handleDesignerTabChange">
+        <el-tab-pane label="表单设计" name="form" />
+        <el-tab-pane label="流程设计" name="process" />
+        <el-tab-pane label="字段权限" name="permissions" />
+      </el-tabs>
+
+      <div class="designer-body">
+        <WorkflowFormDesigner
+          v-if="activeDesignerTab === 'form'"
+          :fields="detail.draft.form"
+          :readonly="!canEdit"
+          @change="handleFormChange"
+        />
+        <WorkflowCanvas
+          v-else-if="activeDesignerTab === 'process'"
+          :draft="detail.draft"
+          :selected-node-id="selectedNodeId"
+          :readonly="!canEdit"
+          @select="selectNode"
+          @insert="insertNode"
+          @add-branch="addGatewayBranch"
+        />
+        <WorkflowFieldPermissions
+          v-else
+          :draft="detail.draft"
+          :readonly="!canEdit"
+          @change="markDirty"
+        />
+      </div>
     </div>
 
     <div v-if="validationErrors.length" class="validation-panel">
@@ -61,6 +82,9 @@
         v-if="detail"
         :draft="detail.draft"
         :selected-node-id="selectedNodeId"
+        :departments="workflowDepartments"
+        :users="workflowAssigneeUsers"
+        :org-identities="workflowOrgApproverIdentities"
         :readonly="!canEdit"
         @change="markDirty"
         @delete="deleteNode"
@@ -113,9 +137,13 @@ import { adminApi } from '../../../api'
 import { hasPerm } from '../../../utils/permission'
 import WorkflowCanvas from './components/WorkflowCanvas.vue'
 import NodeInspector from './components/NodeInspector.vue'
+import WorkflowFormDesigner from './components/WorkflowFormDesigner.vue'
+import WorkflowFieldPermissions from './components/WorkflowFieldPermissions.vue'
 import { addBranch, insertNodeAtEdge, removeBranch, removeNode } from './graph'
 import type {
   WorkflowDefinitionDetail,
+  WorkflowAssigneeUser,
+  WorkflowOrgApproverIdentity,
   WorkflowNodeType,
   WorkflowValidationError,
   WorkflowValidationResult,
@@ -139,6 +167,10 @@ const metadataDrawer = ref(false)
 const versionDrawer = ref(false)
 const versionsLoading = ref(false)
 const versions = ref<WorkflowVersion[]>([])
+const activeDesignerTab = ref<'form' | 'process' | 'permissions'>('process')
+const workflowDepartments = ref<any[]>([])
+const workflowAssigneeUsers = ref<WorkflowAssigneeUser[]>([])
+const workflowOrgApproverIdentities = ref<WorkflowOrgApproverIdentity[]>([])
 
 const canEdit = computed(() => hasPerm('admin:menu:workflow:edit'))
 const canPublish = computed(() => hasPerm('admin:menu:workflow:publish'))
@@ -174,6 +206,7 @@ async function loadDetail() {
     data.draft = cloneDraft(data.draft)
     detail.value = data
     selectedNodeId.value = ''
+    activeDesignerTab.value = 'process'
     nodeDrawer.value = false
     dirty.value = false
     validationErrors.value = []
@@ -182,12 +215,52 @@ async function loadDetail() {
   }
 }
 
+async function loadAssigneeOptions() {
+  try {
+    const response = await adminApi.deptTree()
+    workflowDepartments.value = Array.isArray(response.data) ? response.data : []
+  } catch {
+    workflowDepartments.value = []
+  }
+  try {
+    const response = await adminApi.userList({ page: 1, pageSize: 9999 })
+    workflowAssigneeUsers.value = Array.isArray(response.data?.list) ? response.data.list : []
+  } catch {
+    workflowAssigneeUsers.value = []
+  }
+  try {
+    const response = await adminApi.workflowOrgApproverIdentities()
+    workflowOrgApproverIdentities.value = Array.isArray(response.data) ? response.data : []
+  } catch {
+    workflowOrgApproverIdentities.value = []
+  }
+}
+
 function markDirty() {
   dirty.value = true
   validationErrors.value = []
 }
 
+function handleFormChange() {
+  if (!detail.value) return
+  const fieldKeys = new Set(detail.value.draft.form.map(field => field.key))
+  detail.value.draft.nodes.forEach((node) => {
+    node.formPermissions = (node.formPermissions || []).filter(permission => fieldKeys.has(permission.field))
+    if (node.type !== 'start' && node.type !== 'approval') return
+    detail.value?.draft.form.forEach((field) => {
+      if (node.formPermissions?.some(permission => permission.field === field.key)) return
+      node.formPermissions?.push({ field: field.key, access: node.type === 'start' ? 'write' : 'read' })
+    })
+  })
+  markDirty()
+}
+
+function handleDesignerTabChange(tab: string | number) {
+  if (tab !== 'process') nodeDrawer.value = false
+}
+
 function selectNode(nodeId: string) {
+  activeDesignerTab.value = 'process'
   selectedNodeId.value = nodeId
   nodeDrawer.value = Boolean(nodeId)
 }
@@ -319,7 +392,13 @@ async function publishDraft() {
 
 function focusValidationError(error?: WorkflowValidationError) {
   if (!error) return
-  if (error.nodeId) selectNode(error.nodeId)
+  if (error.code.startsWith('form_field_')) {
+    activeDesignerTab.value = 'form'
+    nodeDrawer.value = false
+  } else if (error.code.startsWith('field_permission_')) {
+    activeDesignerTab.value = 'permissions'
+    nodeDrawer.value = false
+  } else if (error.nodeId) selectNode(error.nodeId)
   else if (error.edgeId && detail.value) {
     const target = detail.value.draft.edges.find(item => item.id === error.edgeId)?.source
     if (target) selectNode(target)
@@ -356,11 +435,13 @@ onBeforeRouteLeave(() => {
   return window.confirm('当前流程还有未保存的修改，确定离开吗？')
 })
 
-onMounted(loadDetail)
+onMounted(async () => {
+  await Promise.all([loadDetail(), loadAssigneeOptions()])
+})
 </script>
 
 <style scoped>
-.workflow-designer-page { position: relative; display: flex; flex-direction: column; min-height: calc(100vh - 138px); margin: -20px; background: #f5f7fa; }
+.workflow-designer-page { position: relative; display: flex; flex-direction: column; height: calc(100vh - 138px); min-height: 680px; overflow: hidden; margin: -20px; background: #f5f7fa; }
 .designer-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 72px; padding: 0 20px; border-bottom: 1px solid #dfe6ee; background: #fff; }
 .designer-header__main, .designer-header__actions { display: flex; align-items: center; gap: 10px; }
 .designer-header__main { min-width: 0; }
@@ -374,7 +455,14 @@ onMounted(loadDetail)
 .designer-title__meta code { color: #64748b; }
 .dirty-state { display: inline-flex; align-items: center; gap: 5px; color: #d97706; }
 .dirty-state i { width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; }
-.designer-body { min-height: 0; flex: 1; display: flex; height: calc(100vh - 210px); }
+.designer-workspace { min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.designer-mode-tabs { flex: 0 0 auto; background: #fff; }
+.designer-mode-tabs :deep(.el-tabs__header) { margin: 0; padding: 0 20px; border-bottom: 1px solid #dfe6ee; }
+.designer-mode-tabs :deep(.el-tabs__nav-wrap::after) { display: none; }
+.designer-mode-tabs :deep(.el-tabs__item) { height: 46px; padding: 0 22px; color: #64748b; font-size: 13px; }
+.designer-mode-tabs :deep(.el-tabs__item.is-active) { color: #1677ff; font-weight: 600; }
+.designer-mode-tabs :deep(.el-tabs__content) { display: none; }
+.designer-body { min-height: 0; flex: 1; display: flex; }
 .validation-panel { position: absolute; left: 18px; bottom: 18px; z-index: 5; width: min(560px, calc(100vw - 36px)); max-height: 230px; overflow-y: auto; border: 1px solid #f4c7c3; border-radius: 8px; background: #fff; box-shadow: 0 14px 35px rgb(15 23 42 / 14%); }
 .validation-panel__heading { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f7dfdc; color: #b42318; background: #fff8f7; font-size: 13px; font-weight: 600; }
 .validation-panel__heading span { display: flex; align-items: center; gap: 6px; }
@@ -388,6 +476,6 @@ onMounted(loadDetail)
   .designer-header { align-items: flex-start; flex-direction: column; padding: 12px 16px; }
   .designer-header__actions { width: 100%; overflow-x: auto; padding-bottom: 2px; }
   .designer-title__input { width: 360px; }
-  .designer-body { height: calc(100vh - 270px); }
+  .designer-mode-tabs :deep(.el-tabs__header) { padding: 0 16px; }
 }
 </style>

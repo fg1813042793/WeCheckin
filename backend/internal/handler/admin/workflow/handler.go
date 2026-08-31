@@ -147,6 +147,38 @@ func (h *AdminWorkflowHandler) Versions(ctx context.Context, c *app.RequestConte
 	response.JSON(c, data)
 }
 
+func (h *AdminWorkflowHandler) OrgApproverIdentities(ctx context.Context, c *app.RequestContext) {
+	data, err := workflowservice.ListOrgApproverIdentitiesContext(ctx)
+	if err != nil {
+		response.Fail(c, "获取组织审批身份失败")
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *AdminWorkflowHandler) OrgApproverAssignments(ctx context.Context, c *app.RequestContext) {
+	departmentID, _ := strconv.ParseUint(c.Query("departmentId"), 10, 64)
+	data, err := workflowservice.ListOrgApproverAssignmentsContext(ctx, uint(departmentID), c.Query("identityCode"))
+	if err != nil {
+		response.Fail(c, "获取组织审批身份人员失败")
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *AdminWorkflowHandler) SaveOrgApproverAssignments(ctx context.Context, c *app.RequestContext) {
+	var request workflowservice.SaveOrgApproverAssignmentsRequest
+	if err := c.BindAndValidate(&request); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	if err := workflowservice.SaveOrgApproverAssignmentsContext(ctx, request); err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, nil)
+}
+
 func currentAdmin(c *app.RequestContext) (*model.Admin, bool) {
 	value, ok := c.Get("admin")
 	if !ok {

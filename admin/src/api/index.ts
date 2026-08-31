@@ -588,6 +588,15 @@ export const adminApi = {
   workflowDefinitionVersions(id: ID) {
     return request.get(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/versions`)
   },
+  workflowOrgApproverIdentities() {
+    return request.get(`${ADMIN_V2}/workflow-org-approver-identities`)
+  },
+  workflowOrgApproverAssignments(params?: { departmentId?: ID; identityCode?: string }) {
+    return request.get(`${ADMIN_V2}/workflow-org-approver-assignments`, { params })
+  },
+  workflowOrgApproverAssignmentsSave(data: FormPayload & { departmentId?: ID; identityCode?: string; userIds?: ID[] }) {
+    return request.put(`${ADMIN_V2}/workflow-org-approver-assignments`, data, jsonConfig)
+  },
   // 通用工作流运行时
   workflowInstanceList(params?: PageQuery & {
     definitionId?: ID

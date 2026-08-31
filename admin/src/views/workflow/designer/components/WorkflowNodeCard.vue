@@ -32,7 +32,14 @@ defineEmits<{ select: [nodeId: string] }>()
 const description = computed(() => {
   if (props.node.type === 'start') return '所有人均可发起'
   const mode = ({ single: '单人审批', sequential: '依次审批', parallel: '并行审批', countersign: '会签审批' } as Record<string, string>)[props.node.approvalMode || '']
-  const assignee = ({ user: '指定用户', role: '指定角色', department_leader: '部门负责人', manager: '直属上级', variable: '流程变量' } as Record<string, string>)[props.node.assignee?.type || '']
+  const assignee = ({
+    user: '指定用户',
+    role: '指定角色',
+    department_leader: '部门负责人',
+    manager: '直属上级',
+    variable: '流程变量',
+    org_identity: '组织审批身份'
+  } as Record<string, string>)[props.node.assignee?.type || '']
   return [assignee, mode].filter(Boolean).join(' · ') || '请配置审批规则'
 })
 </script>

@@ -48,3 +48,38 @@ func TestResolveManagerUsesGenericWorkflowVariable(t *testing.T) {
 		t.Fatalf("Resolve() = %#v, want [21]", actual)
 	}
 }
+
+func TestResolveUserAssigneePreservesConfiguredOrder(t *testing.T) {
+	resolver := NewAssigneeResolver(nil)
+	actual, err := resolver.Resolve(workflowdomain.AssigneeRequest{
+		Node: workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "9, 4, 9, 2"}},
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if !reflect.DeepEqual(actual, []string{"9", "4", "2"}) {
+		t.Fatalf("Resolve() = %#v, want [9 4 2]", actual)
+	}
+}
+
+func TestParseOrgIdentityValueScopes(t *testing.T) {
+	tests := []struct {
+		raw            string
+		wantScope      string
+		wantDepartment uint
+		wantIdentity   string
+	}{
+		{raw: "department_leader", wantScope: "starter_department", wantIdentity: "department_leader"},
+		{raw: "starter_department:group_leader", wantScope: "starter_department", wantIdentity: "group_leader"},
+		{raw: "department:17:hrbp", wantScope: "department", wantDepartment: 17, wantIdentity: "hrbp"},
+	}
+	for _, test := range tests {
+		t.Run(test.raw, func(t *testing.T) {
+			scope, departmentID, identityCode := parseOrgIdentityValue(test.raw)
+			if scope != test.wantScope || departmentID != test.wantDepartment || identityCode != test.wantIdentity {
+				t.Fatalf("parseOrgIdentityValue() = (%q, %d, %q), want (%q, %d, %q)",
+					scope, departmentID, identityCode, test.wantScope, test.wantDepartment, test.wantIdentity)
+			}
+		})
+	}
+}

@@ -163,7 +163,7 @@ func (service *Service) CompleteTask(ctx context.Context, request CompleteTaskRe
 				break
 			}
 		}
-		if err := workflowcore.ValidateNodeFormPatch(definition, taskNodeID, request.FormData); err != nil {
+		if err := workflowcore.ValidateNodeFormPatch(definition, taskNodeID, loaded.FormData, request.FormData); err != nil {
 			return err
 		}
 		if err := service.engine.Complete(definition, loaded, workflowdomain.CompleteRequest{

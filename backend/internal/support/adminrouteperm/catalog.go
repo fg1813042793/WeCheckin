@@ -107,6 +107,8 @@ func Declarations() []Declaration {
 		{"workflow:instance:cancel", "流程实例取消接口"},
 		{"workflow:task:list", "流程任务查看接口"},
 		{"workflow:task:complete", "流程任务处理接口"},
+		{"workflow:org-approver:list", "组织审批身份查看接口"},
+		{"workflow:org-approver:edit", "组织审批身份维护接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -275,4 +277,6 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"workflow:instance:cancel":     {method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel"},
 	"workflow:task:list":           {method: "GET", path: "/api/v2/admin/workflow-tasks"},
 	"workflow:task:complete":       {method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete"},
+	"workflow:org-approver:list":   {method: "GET", path: "/api/v2/admin/workflow-org-approver-identities"},
+	"workflow:org-approver:edit":   {method: "PUT", path: "/api/v2/admin/workflow-org-approver-assignments"},
 }

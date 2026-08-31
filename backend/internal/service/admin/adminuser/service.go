@@ -64,6 +64,8 @@ type UserDetail struct {
 	LoginTime           int64    `json:"loginTime"`
 	PositionID          uint     `json:"positionId"`
 	PositionName        string   `json:"positionName"`
+	ManagerUserID       uint     `json:"managerUserId"`
+	ManagerUserName     string   `json:"managerUserName"`
 	RoleID              uint     `json:"roleId"`
 	RoleName            string   `json:"roleName"`
 	RoleIDs             []uint   `json:"roleIds"`
@@ -112,6 +114,10 @@ func GetUserByIDContext(ctx context.Context, id string) (UserDetail, error) {
 	if err != nil {
 		return UserDetail{}, err
 	}
+	managerNames, err := loadManagerUserNameMapContext(ctx, db, []model.User{user})
+	if err != nil {
+		return UserDetail{}, err
+	}
 	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
@@ -144,6 +150,8 @@ func GetUserByIDContext(ctx context.Context, id string) (UserDetail, error) {
 		LoginTime:           user.LoginTime,
 		PositionID:          user.PositionID,
 		PositionName:        positionNames[user.PositionID],
+		ManagerUserID:       user.ManagerUserID,
+		ManagerUserName:     managerNames[user.ManagerUserID],
 		RoleID:              user.RoleID,
 		RoleName:            roleNamesByID[user.RoleID],
 		RoleIDs:             roleIDs,
@@ -192,6 +200,10 @@ func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint) (U
 	if err != nil {
 		return UserDetail{}, err
 	}
+	managerNames, err := loadManagerUserNameMapContext(ctx, db, []model.User{user})
+	if err != nil {
+		return UserDetail{}, err
+	}
 	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
@@ -224,6 +236,8 @@ func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint) (U
 		LoginTime:           user.LoginTime,
 		PositionID:          user.PositionID,
 		PositionName:        positionNames[user.PositionID],
+		ManagerUserID:       user.ManagerUserID,
+		ManagerUserName:     managerNames[user.ManagerUserID],
 		RoleID:              user.RoleID,
 		RoleName:            roleNamesByID[user.RoleID],
 		RoleIDs:             roleIDs,
@@ -267,22 +281,24 @@ func saveUserDeptsTx(tx *gorm.DB, userID uint, deptIDs []uint) error {
 }
 
 type UserListItem struct {
-	ID           uint     `json:"id"`
-	Name         string   `json:"name"`
-	Mobile       string   `json:"mobile"`
-	Avatar       string   `json:"avatar"`
-	Pic          string   `json:"pic"`
-	Status       int      `json:"status"`
-	LoginCnt     int      `json:"loginCnt"`
-	AddTime      int64    `json:"addTime"`
-	LoginTime    int64    `json:"loginTime"`
-	DeptIDs      []uint   `json:"deptIds"`
-	PositionID   uint     `json:"positionId"`
-	PositionName string   `json:"positionName"`
-	RoleID       uint     `json:"roleId"`
-	RoleName     string   `json:"roleName"`
-	RoleIDs      []uint   `json:"roleIds"`
-	RoleNames    []string `json:"roleNames"`
+	ID              uint     `json:"id"`
+	Name            string   `json:"name"`
+	Mobile          string   `json:"mobile"`
+	Avatar          string   `json:"avatar"`
+	Pic             string   `json:"pic"`
+	Status          int      `json:"status"`
+	LoginCnt        int      `json:"loginCnt"`
+	AddTime         int64    `json:"addTime"`
+	LoginTime       int64    `json:"loginTime"`
+	DeptIDs         []uint   `json:"deptIds"`
+	PositionID      uint     `json:"positionId"`
+	PositionName    string   `json:"positionName"`
+	ManagerUserID   uint     `json:"managerUserId"`
+	ManagerUserName string   `json:"managerUserName"`
+	RoleID          uint     `json:"roleId"`
+	RoleName        string   `json:"roleName"`
+	RoleIDs         []uint   `json:"roleIds"`
+	RoleNames       []string `json:"roleNames"`
 }
 
 var userListColumns = []string{
@@ -290,6 +306,7 @@ var userListColumns = []string{
 	"user_name",
 	"user_mobile",
 	"user_position_id",
+	"manager_user_id",
 	"user_role_id",
 	"user_pic",
 	"user_status",
@@ -372,6 +389,10 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 	if err != nil {
 		return nil, 0, err
 	}
+	managerNames, err := loadManagerUserNameMapContext(ctx, db, list)
+	if err != nil {
+		return nil, 0, err
+	}
 	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, list)
 	if err != nil {
 		return nil, 0, err
@@ -385,22 +406,24 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 		avatar := media.FullURLWithStaticDomainContext(ctx, u.Pic)
 		roleIDs := roleIDsByUser[u.ID]
 		result[i] = UserListItem{
-			ID:           u.ID,
-			Name:         u.Name,
-			Mobile:       u.Mobile,
-			Avatar:       avatar,
-			Pic:          avatar,
-			Status:       u.Status,
-			LoginCnt:     u.LoginCnt,
-			AddTime:      u.AddTime,
-			LoginTime:    u.LoginTime,
-			DeptIDs:      deptIDsByUser[u.ID],
-			PositionID:   u.PositionID,
-			PositionName: positionNames[u.PositionID],
-			RoleID:       u.RoleID,
-			RoleName:     roleNamesByID[u.RoleID],
-			RoleIDs:      roleIDs,
-			RoleNames:    roleNamesForIDs(roleIDs, roleNamesByID),
+			ID:              u.ID,
+			Name:            u.Name,
+			Mobile:          u.Mobile,
+			Avatar:          avatar,
+			Pic:             avatar,
+			Status:          u.Status,
+			LoginCnt:        u.LoginCnt,
+			AddTime:         u.AddTime,
+			LoginTime:       u.LoginTime,
+			DeptIDs:         deptIDsByUser[u.ID],
+			PositionID:      u.PositionID,
+			PositionName:    positionNames[u.PositionID],
+			ManagerUserID:   u.ManagerUserID,
+			ManagerUserName: managerNames[u.ManagerUserID],
+			RoleID:          u.RoleID,
+			RoleName:        roleNamesByID[u.RoleID],
+			RoleIDs:         roleIDs,
+			RoleNames:       roleNamesForIDs(roleIDs, roleNamesByID),
 		}
 	}
 	return result, total, nil
@@ -459,6 +482,36 @@ func loadPositionNameMapContext(ctx context.Context, db *gorm.DB, list []model.U
 		positionNames[item.ID] = item.Name
 	}
 	return positionNames, nil
+}
+
+func loadManagerUserNameMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint]string, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	managerIDSet := make(map[uint]struct{})
+	for _, item := range list {
+		if item.ManagerUserID > 0 {
+			managerIDSet[item.ManagerUserID] = struct{}{}
+		}
+	}
+	managerNames := make(map[uint]string, len(managerIDSet))
+	if len(managerIDSet) == 0 {
+		return managerNames, nil
+	}
+	managerIDs := make([]uint, 0, len(managerIDSet))
+	for id := range managerIDSet {
+		managerIDs = append(managerIDs, id)
+	}
+	var managers []model.User
+	if err := db.Select("id", "user_name").Where("`id` IN ?", managerIDs).Find(&managers).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range managers {
+		managerNames[item.ID] = item.Name
+	}
+	return managerNames, nil
 }
 
 func loadRoleNameMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint]string, error) {
@@ -622,6 +675,10 @@ func AddUserContext(ctx context.Context, name, mobile, pic, forms, addIP string,
 }
 
 func AddUserWithAdminAccessContext(ctx context.Context, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput) error {
+	return AddUserWithManagerAndAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, 0, deptIDs, adminAccess)
+}
+
+func AddUserWithManagerAndAdminAccessContext(ctx context.Context, name, mobile, pic, forms, addIP string, positionID, managerUserID uint, deptIDs []uint, adminAccess AdminAccessInput) error {
 	normalizedName, err := normalizeAdminUserName(name)
 	if err != nil {
 		return err
@@ -635,18 +692,22 @@ func AddUserWithAdminAccessContext(ctx context.Context, name, mobile, pic, forms
 		if err := ensureUserNameAvailableTx(tx, normalizedName, 0); err != nil {
 			return err
 		}
+		if err := ensureManagerUserAvailableTx(tx, 0, managerUserID); err != nil {
+			return err
+		}
 		user := model.User{
-			MiniOpenID: miniOpenID,
-			Name:       normalizedName,
-			Mobile:     mobile,
-			PositionID: positionID,
-			Pic:        pic,
-			Forms:      forms,
-			Status:     1,
-			AddTime:    now,
-			AddIP:      addIP,
-			EditTime:   now,
-			EditIP:     addIP,
+			MiniOpenID:    miniOpenID,
+			Name:          normalizedName,
+			Mobile:        mobile,
+			PositionID:    positionID,
+			ManagerUserID: managerUserID,
+			Pic:           pic,
+			Forms:         forms,
+			Status:        1,
+			AddTime:       now,
+			AddIP:         addIP,
+			EditTime:      now,
+			EditIP:        addIP,
 		}
 		if err := tx.Create(&user).Error; err != nil {
 			return err
@@ -680,6 +741,13 @@ func EditUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, 
 
 func EditUserWithAdminAccessForAdminContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput, adminID uint) error {
 	return editUserForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, deptIDs, adminAccess, true, adminID)
+}
+
+func EditUserWithManagerAndAdminAccessForAdminContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID, managerUserID uint, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool, adminID uint) error {
+	if err := ensureAdminID(adminID); err != nil {
+		return err
+	}
+	return editUserForAdminWithManagerContext(ctx, id, name, mobile, pic, forms, addIP, positionID, managerUserID, true, deptIDs, adminAccess, saveAdminAccess, adminID)
 }
 
 func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool) error {
@@ -724,6 +792,13 @@ func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP st
 }
 
 func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool, adminID uint) error {
+	if err := ensureAdminID(adminID); err != nil {
+		return err
+	}
+	return editUserForAdminWithManagerContext(ctx, id, name, mobile, pic, forms, addIP, positionID, 0, false, deptIDs, adminAccess, saveAdminAccess, adminID)
+}
+
+func editUserForAdminWithManagerContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID, managerUserID uint, updateManager bool, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool, adminID uint) error {
 	normalizedName, err := normalizeAdminUserName(name)
 	if err != nil {
 		return err
@@ -736,6 +811,9 @@ func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, 
 		"user_position_id": positionID,
 		"user_edit_time":   database.Now(),
 		"user_edit_ip":     addIP,
+	}
+	if updateManager {
+		updates["manager_user_id"] = managerUserID
 	}
 	if pic != "" {
 		updates["user_pic"] = pic
@@ -754,6 +832,11 @@ func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, 
 		}
 		if err := ensureUserNameAvailableTx(tx, normalizedName, uint(uid)); err != nil {
 			return err
+		}
+		if updateManager {
+			if err := ensureManagerUserAvailableTx(tx, uint(uid), managerUserID); err != nil {
+				return err
+			}
 		}
 		if err := access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Updates(updates)); err != nil {
 			return err
@@ -774,6 +857,30 @@ func normalizeAdminUserName(name string) (string, error) {
 		return "", fmt.Errorf("请输入用户名")
 	}
 	return normalizedName, nil
+}
+
+func ensureAdminID(adminID uint) error {
+	if adminID == 0 {
+		return fmt.Errorf("管理员无效")
+	}
+	return nil
+}
+
+func ensureManagerUserAvailableTx(tx *gorm.DB, userID, managerUserID uint) error {
+	if managerUserID == 0 {
+		return nil
+	}
+	if userID > 0 && userID == managerUserID {
+		return fmt.Errorf("用户不能选择自己作为直属上级")
+	}
+	var count int64
+	if err := tx.Model(&model.User{}).Where("`id` = ? AND `user_status` = 1", managerUserID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("直属上级用户不存在或已停用")
+	}
+	return nil
 }
 
 func ensureUserNameAvailableTx(tx *gorm.DB, name string, excludeUserID uint) error {

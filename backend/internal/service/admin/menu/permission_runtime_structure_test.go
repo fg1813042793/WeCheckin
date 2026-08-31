@@ -44,3 +44,17 @@ func TestMenuRuntimePrefersUnifiedPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestMenuRuntimeDoesNotBackfillPermissionCatalogOnRead(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	text := string(src)
+	if strings.Contains(text, "ensureAdminRuntimePermissionCatalogContext") {
+		t.Fatalf("menu runtime reads must not create permission catalog entries")
+	}
+	if strings.Contains(text, "EnsureApplicationPermissionCatalogContext") {
+		t.Fatalf("menu runtime reads must rely on migration-created permissions, not catalog backfill")
+	}
+}

@@ -3125,6 +3125,41 @@ paths:
       summary: 取消运行中的工作流实例
       tags:
       - API v2-后台管理-工作流
+  /api/v2/admin/workflow-org-approver-assignments:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询组织审批身份人员配置
+      tags:
+      - API v2-后台管理-工作流
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 保存组织审批身份人员配置
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-org-approver-identities:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询组织审批身份列表
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/admin/workflow-tasks:
     get:
       responses:

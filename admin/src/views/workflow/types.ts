@@ -1,12 +1,58 @@
 export type WorkflowNodeType = 'start' | 'approval' | 'exclusive' | 'parallel' | 'end'
 export type ApprovalMode = 'single' | 'sequential' | 'parallel' | 'countersign'
-export type AssigneeType = 'user' | 'role' | 'department_leader' | 'manager' | 'variable'
+export type AssigneeType = 'user' | 'role' | 'department_leader' | 'manager' | 'variable' | 'org_identity'
 export type GatewayMode = 'split' | 'join'
 export type ConditionOperator = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte'
+export type WorkflowFormFieldType =
+  | 'text' | 'textarea' | 'number' | 'amount' | 'phone' | 'email' | 'boolean'
+  | 'select' | 'multi_select' | 'radio' | 'checkbox'
+  | 'date' | 'datetime' | 'time' | 'date_range'
+  | 'user' | 'user_multi' | 'department' | 'department_multi' | 'attachment'
+export type WorkflowFormFieldSpan = 6 | 8 | 12 | 24
+export type WorkflowFieldAccess = 'hidden' | 'read' | 'write'
+
+export interface WorkflowFormOption {
+  label: string
+  value: string
+}
+
+export interface WorkflowFormField {
+  key: string
+  label: string
+  type: WorkflowFormFieldType
+  required?: boolean
+  default?: unknown
+  placeholder?: string
+  maxLength?: number
+  min?: number
+  max?: number
+  options?: WorkflowFormOption[]
+  span?: WorkflowFormFieldSpan
+}
+
+export interface WorkflowFieldPermission {
+  field: string
+  access: WorkflowFieldAccess
+}
 
 export interface WorkflowAssignee {
   type: AssigneeType
   value: string
+}
+
+export interface WorkflowOrgApproverIdentity {
+  id?: number
+  code: string
+  name: string
+  sort?: number
+  status?: number
+}
+
+export interface WorkflowAssigneeUser {
+  id: number
+  name: string
+  mobile?: string
+  deptIds?: number[]
 }
 
 export interface WorkflowCondition {
@@ -24,6 +70,7 @@ export interface WorkflowNode {
   assignee?: WorkflowAssignee
   completionRate?: number
   gatewayMode?: GatewayMode
+  formPermissions?: WorkflowFieldPermission[]
 }
 
 export interface WorkflowNodePosition {
@@ -44,6 +91,7 @@ export interface WorkflowDraft {
   schemaVersion: number
   key: string
   name: string
+  form: WorkflowFormField[]
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
 }
@@ -154,5 +202,12 @@ export interface WorkflowInstanceDetail {
 }
 
 export function cloneDraft(draft: WorkflowDraft): WorkflowDraft {
-  return JSON.parse(JSON.stringify(draft)) as WorkflowDraft
+  const cloned = JSON.parse(JSON.stringify(draft)) as WorkflowDraft
+  cloned.form = Array.isArray(cloned.form) ? cloned.form : []
+  cloned.nodes = Array.isArray(cloned.nodes) ? cloned.nodes : []
+  cloned.edges = Array.isArray(cloned.edges) ? cloned.edges : []
+  cloned.nodes.forEach((node) => {
+    node.formPermissions = Array.isArray(node.formPermissions) ? node.formPermissions : []
+  })
+  return cloned
 }

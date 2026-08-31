@@ -71,11 +71,18 @@ type WorkflowProcessToken = workflowmodel.ProcessToken
 type WorkflowProcessTask = workflowmodel.ProcessTask
 type WorkflowProcessVariable = workflowmodel.ProcessVariable
 type WorkflowProcessHistory = workflowmodel.ProcessHistory
+type WorkflowOrgApproverIdentity = workflowmodel.OrgApproverIdentity
+type WorkflowOrgApproverAssignment = workflowmodel.OrgApproverAssignment
 
 const (
 	DefinitionStatusDisabled  = workflowmodel.DefinitionStatusDisabled
 	DefinitionStatusDraft     = workflowmodel.DefinitionStatusDraft
 	DefinitionStatusPublished = workflowmodel.DefinitionStatusPublished
+
+	OrgApproverIdentityStatusDisabled = workflowmodel.OrgApproverIdentityStatusDisabled
+	OrgApproverIdentityStatusEnabled  = workflowmodel.OrgApproverIdentityStatusEnabled
+	OrgApproverAssignmentStatusOff    = workflowmodel.OrgApproverAssignmentStatusOff
+	OrgApproverAssignmentStatusOn     = workflowmodel.OrgApproverAssignmentStatusOn
 )
 
 var ParseJSON = interactionmodel.ParseJSON

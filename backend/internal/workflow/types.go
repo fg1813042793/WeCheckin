@@ -28,6 +28,7 @@ const (
 	AssigneeTypeDepartmentLeader = "department_leader"
 	AssigneeTypeManager          = "manager"
 	AssigneeTypeVariable         = "variable"
+	AssigneeTypeOrgIdentity      = "org_identity"
 )
 
 const (
@@ -45,17 +46,26 @@ const (
 )
 
 const (
-	FormFieldTypeText        = "text"
-	FormFieldTypeTextarea    = "textarea"
-	FormFieldTypeNumber      = "number"
-	FormFieldTypeSelect      = "select"
-	FormFieldTypeMultiSelect = "multi_select"
-	FormFieldTypeDate        = "date"
-	FormFieldTypeDateTime    = "datetime"
-	FormFieldTypeUser        = "user"
-	FormFieldTypeDepartment  = "department"
-	FormFieldTypeAttachment  = "attachment"
-	FormFieldTypeBoolean     = "boolean"
+	FormFieldTypeText            = "text"
+	FormFieldTypeTextarea        = "textarea"
+	FormFieldTypeNumber          = "number"
+	FormFieldTypeSelect          = "select"
+	FormFieldTypeMultiSelect     = "multi_select"
+	FormFieldTypeDate            = "date"
+	FormFieldTypeDateTime        = "datetime"
+	FormFieldTypeUser            = "user"
+	FormFieldTypeDepartment      = "department"
+	FormFieldTypeAttachment      = "attachment"
+	FormFieldTypeBoolean         = "boolean"
+	FormFieldTypeAmount          = "amount"
+	FormFieldTypePhone           = "phone"
+	FormFieldTypeEmail           = "email"
+	FormFieldTypeRadio           = "radio"
+	FormFieldTypeCheckbox        = "checkbox"
+	FormFieldTypeTime            = "time"
+	FormFieldTypeDateRange       = "date_range"
+	FormFieldTypeUserMulti       = "user_multi"
+	FormFieldTypeDepartmentMulti = "department_multi"
 )
 
 const (
@@ -90,6 +100,7 @@ const (
 	ValidationFormFieldType            = "form_field_type_invalid"
 	ValidationFormFieldOptions         = "form_field_options_invalid"
 	ValidationFormFieldRange           = "form_field_range_invalid"
+	ValidationFormFieldSpan            = "form_field_span_invalid"
 	ValidationFieldPermissionField     = "field_permission_field_invalid"
 	ValidationFieldPermissionAccess    = "field_permission_access_invalid"
 	ValidationFieldPermissionDuplicate = "field_permission_duplicate"
@@ -115,6 +126,7 @@ type FormField struct {
 	Min         *float64     `json:"min,omitempty"`
 	Max         *float64     `json:"max,omitempty"`
 	Options     []FormOption `json:"options,omitempty"`
+	Span        int          `json:"span,omitempty"`
 }
 
 type FormOption struct {

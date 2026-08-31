@@ -2,6 +2,7 @@ package httpadmin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -10,6 +11,7 @@ import (
 	"wecheckin/backend/internal/model"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
+	workflowcore "wecheckin/backend/internal/workflow"
 )
 
 type runtimeServiceStub struct {
@@ -18,9 +20,37 @@ type runtimeServiceStub struct {
 	cancelRequest   workflowapp.CancelInstanceRequest
 	instanceQuery   workflowapp.InstanceQuery
 	taskQuery       workflowapp.TaskQuery
+	definitionID    uint
+	listDefinitions int
+	getDefinition   int
 	startCalls      int
 	completeCalls   int
 	cancelCalls     int
+}
+
+func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error) {
+	stub.listDefinitions++
+	return []workflowapp.PublishedDefinition{{
+		ID: 7, Key: "leave", Name: "请假审批", Version: 3,
+		Form: []workflowcore.FormField{{Key: "reason", Label: "申请原因", Type: workflowcore.FormFieldTypeTextarea}},
+		FieldPermissions: map[string][]workflowcore.FieldPermission{
+			"start": {{Field: "reason", Access: workflowcore.FieldAccessWrite}},
+		},
+		StartNodeID: "start",
+	}}, nil
+}
+
+func (stub *runtimeServiceStub) GetPublishedDefinition(_ context.Context, definitionID uint) (*workflowapp.PublishedDefinition, error) {
+	stub.getDefinition++
+	stub.definitionID = definitionID
+	return &workflowapp.PublishedDefinition{
+		ID: definitionID, Key: "leave", Name: "请假审批", Version: 3,
+		Form: []workflowcore.FormField{{Key: "reason", Label: "申请原因", Type: workflowcore.FormFieldTypeTextarea}},
+		FieldPermissions: map[string][]workflowcore.FieldPermission{
+			"start": {{Field: "reason", Access: workflowcore.FieldAccessWrite}},
+		},
+		StartNodeID: "start",
+	}, nil
 }
 
 func (stub *runtimeServiceStub) StartInstance(_ context.Context, request workflowapp.StartInstanceRequest) (*workflowdomain.State, error) {
@@ -53,6 +83,41 @@ func (stub *runtimeServiceStub) GetInstance(_ context.Context, instanceID string
 func (stub *runtimeServiceStub) ListTasks(_ context.Context, query workflowapp.TaskQuery) (*workflowapp.TaskList, error) {
 	stub.taskQuery = query
 	return &workflowapp.TaskList{Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+	c := newAdminContext(42)
+
+	handler.ListDefinitions(context.Background(), c)
+
+	if stub.listDefinitions != 1 {
+		t.Fatalf("expected published definitions to be loaded once, got %d", stub.listDefinitions)
+	}
+	body := string(c.Response.Body())
+	for _, snippet := range []string{`"key":"leave"`, `"form"`, `"reason"`, `"fieldPermissions"`, `"startNodeId":"start"`} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("published definition response missing %s: %s", snippet, body)
+		}
+	}
+}
+
+func TestGetDefinitionReturnsPublishedFormSchemaForAdmins(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+	c := newAdminContext(42)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "7"})
+
+	handler.GetDefinition(context.Background(), c)
+
+	if stub.getDefinition != 1 || stub.definitionID != 7 {
+		t.Fatalf("expected definition 7 to be loaded once, got calls=%d id=%d", stub.getDefinition, stub.definitionID)
+	}
+	body := string(c.Response.Body())
+	if !strings.Contains(body, `"form"`) || !strings.Contains(body, `"reason"`) {
+		t.Fatalf("published definition detail should include form schema, got %s", body)
+	}
 }
 
 func TestStartInstanceUsesAuthenticatedAdminAsStarter(t *testing.T) {

@@ -145,15 +145,21 @@ func validateFormSchema(fields []FormField) (map[string]FormField, []ValidationE
 		switch field.Type {
 		case FormFieldTypeText, FormFieldTypeTextarea, FormFieldTypeNumber, FormFieldTypeSelect,
 			FormFieldTypeMultiSelect, FormFieldTypeDate, FormFieldTypeDateTime, FormFieldTypeUser,
-			FormFieldTypeDepartment, FormFieldTypeAttachment, FormFieldTypeBoolean:
+			FormFieldTypeDepartment, FormFieldTypeAttachment, FormFieldTypeBoolean, FormFieldTypeAmount,
+			FormFieldTypePhone, FormFieldTypeEmail, FormFieldTypeRadio, FormFieldTypeCheckbox,
+			FormFieldTypeTime, FormFieldTypeDateRange, FormFieldTypeUserMulti, FormFieldTypeDepartmentMulti:
 		default:
 			errors = append(errors, ValidationError{Code: ValidationFormFieldType, Message: "表单字段类型无效：" + field.Key})
 		}
-		if (field.Type == FormFieldTypeSelect || field.Type == FormFieldTypeMultiSelect) && !validFormOptions(field.Options) {
+		if (field.Type == FormFieldTypeSelect || field.Type == FormFieldTypeMultiSelect ||
+			field.Type == FormFieldTypeRadio || field.Type == FormFieldTypeCheckbox) && !validFormOptions(field.Options) {
 			errors = append(errors, ValidationError{Code: ValidationFormFieldOptions, Message: "选择字段必须配置不重复的选项：" + field.Key})
 		}
 		if field.MaxLength < 0 || (field.Min != nil && field.Max != nil && *field.Min > *field.Max) {
 			errors = append(errors, ValidationError{Code: ValidationFormFieldRange, Message: "表单字段约束无效：" + field.Key})
+		}
+		if !validFormFieldSpan(field.Span) {
+			errors = append(errors, ValidationError{Code: ValidationFormFieldSpan, Message: "表单字段宽度无效：" + field.Key})
 		}
 		if field.Default != nil {
 			if err := validateFieldValue(field, field.Default); err != nil {
@@ -162,6 +168,10 @@ func validateFormSchema(fields []FormField) (map[string]FormField, []ValidationE
 		}
 	}
 	return fieldByKey, errors
+}
+
+func validFormFieldSpan(span int) bool {
+	return span == 0 || span == 6 || span == 8 || span == 12 || span == 24
 }
 
 func validFormOptions(options []FormOption) bool {
@@ -216,7 +226,7 @@ func validateApproval(node Node) []ValidationError {
 		errors = append(errors, ValidationError{Code: ValidationAssigneeRequired, Message: "审批节点必须配置审批人", NodeID: node.ID})
 	} else {
 		switch node.Assignee.Type {
-		case AssigneeTypeUser, AssigneeTypeRole, AssigneeTypeDepartmentLeader, AssigneeTypeManager, AssigneeTypeVariable:
+		case AssigneeTypeUser, AssigneeTypeRole, AssigneeTypeDepartmentLeader, AssigneeTypeManager, AssigneeTypeVariable, AssigneeTypeOrgIdentity:
 		default:
 			errors = append(errors, ValidationError{Code: ValidationAssigneeRequired, Message: "审批人类型无效", NodeID: node.ID})
 		}

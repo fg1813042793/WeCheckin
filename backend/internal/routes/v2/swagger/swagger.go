@@ -1927,6 +1927,27 @@ func swaggerV2AdminWorkflowDefinitionsIDPublishPost() {}
 func swaggerV2AdminWorkflowDefinitionsIDVersionsGet() {}
 
 // @Tags API v2-后台管理-工作流
+// @Summary 查询组织审批身份列表
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-org-approver-identities [get]
+func swaggerV2AdminWorkflowOrgApproverIdentitiesGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询组织审批身份人员配置
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-org-approver-assignments [get]
+func swaggerV2AdminWorkflowOrgApproverAssignmentsGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 保存组织审批身份人员配置
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-org-approver-assignments [put]
+func swaggerV2AdminWorkflowOrgApproverAssignmentsPut() {}
+
+// @Tags API v2-后台管理-工作流
 // @Summary 查询工作流实例列表
 // @Security AdminToken
 // @Success 200 {object} response.Resp

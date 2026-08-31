@@ -44,6 +44,7 @@ func Declarations(enableExam bool) []Declaration {
 		{Key: "admin:menu:workflow:definitions", Name: "流程定义", Path: "/workflow/definitions", Perms: "workflow:list", Sort: 1, Type: TypeMenu, ParentKey: "admin:menu:workflow"},
 		{Key: "admin:menu:workflow:instances", Name: "流程实例", Path: "/workflow/instances", Perms: "workflow:instance:list", Sort: 2, Type: TypeMenu, ParentKey: "admin:menu:workflow"},
 		{Key: "admin:menu:workflow:tasks", Name: "流程任务", Path: "/workflow/tasks", Perms: "workflow:task:list", Sort: 3, Type: TypeMenu, ParentKey: "admin:menu:workflow"},
+		{Key: "admin:menu:workflow:org-approvers", Name: "组织审批身份设置", Path: "/workflow/org-approvers", Perms: "workflow:org-approver:list", Sort: 4, Type: TypeMenu, ParentKey: "admin:menu:workflow"},
 		{Key: "admin:menu:dingtalk:config", Name: "配置选项", Path: "/dingtalk/config", Perms: "dingtalk:settings:list", Sort: 1, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
 		{Key: "admin:menu:dingtalk:bindings", Name: "用户绑定管理", Path: "/dingtalk/bindings", Perms: "dingtalk:bindings:list", Sort: 2, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
 		{Key: "admin:menu:dingtalk:perf-reviews", Name: "绩效考评单", Path: "/dingtalk/perf-reviews", Perms: "dingtalk:perf-reviews:list", Sort: 3, Type: TypeMenu, ParentKey: "admin:menu:dingtalk"},
@@ -137,6 +138,8 @@ func Declarations(enableExam bool) []Declaration {
 		{Key: "admin:menu:workflow:instance:cancel", Name: "取消流程实例", Perms: "workflow:instance:cancel", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:workflow:instances"},
 		{Key: "admin:menu:workflow:task:list", Name: "流程任务查看", Perms: "workflow:task:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:workflow:tasks"},
 		{Key: "admin:menu:workflow:task:complete", Name: "处理流程任务", Perms: "workflow:task:complete", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:workflow:tasks"},
+		{Key: "admin:menu:workflow:org-approver:list", Name: "组织审批身份查看", Perms: "workflow:org-approver:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:workflow:org-approvers"},
+		{Key: "admin:menu:workflow:org-approver:edit", Name: "组织审批身份维护", Perms: "workflow:org-approver:edit", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:workflow:org-approvers"},
 	}
 	if enableExam {
 		items = append(items,

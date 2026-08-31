@@ -50,6 +50,8 @@ for (const snippet of [
   'workflowInstanceDetail(',
   'workflowTaskList(',
   'workflowTaskComplete(',
+  'workflowPublishedDefinitionList(',
+  'workflowPublishedDefinitionDetail(',
 ]) {
   requireSnippet(api, snippet, 'workflow runtime API')
 }
@@ -68,6 +70,14 @@ for (const snippet of [
 for (const snippet of [
   "hasPerm('admin:menu:workflow:instance:start')",
   "hasPerm('admin:menu:workflow:instance:detail')",
+  'WorkflowRuntimeForm',
+  'selectedStartDefinition',
+  'startFormData',
+  'workflowPublishedDefinitionList',
+  'workflowPublishedDefinitionDetail',
+  'formData: startFormData.value',
+  'detail.formData',
+  '流程表单',
   'workflowInstanceList',
   'workflowInstanceStart',
   'workflowInstanceDetail',
@@ -78,6 +88,11 @@ for (const snippet of [
 
 for (const snippet of [
   "hasPerm('admin:menu:workflow:task:complete')",
+  'WorkflowRuntimeForm',
+  'activeInstanceDetail',
+  'completeFormData',
+  'writableWorkflowFormData',
+  'formData: writableWorkflowFormData',
   'workflowTaskList',
   'workflowTaskComplete',
   'approve',
