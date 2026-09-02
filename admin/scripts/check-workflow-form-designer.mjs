@@ -123,6 +123,25 @@ if (moveWorkflowDetailColumn(detailColumnOrder, 1, 2)) {
   throw new Error('明细列拖入原位置不应触发变更')
 }
 
+const detailPreviewRequirements = [
+  ['detail-preview__grid', '缺少统一明细列网格'],
+  ['detail-preview__cell', '明细字段名称与输入预览未绑定到同一网格单元'],
+  ['detail-preview__label', '明细字段单元缺少名称'],
+  ['detail-preview__control', '明细字段单元缺少输入预览'],
+]
+
+for (const [source, surface] of [
+  [formDesignerSource, '根级明细预览'],
+  [fieldPreviewSource, '分组内明细预览'],
+]) {
+  for (const [snippet, message] of detailPreviewRequirements) {
+    if (!source.includes(snippet)) throw new Error(`${surface}${message}`)
+  }
+  for (const legacyClass of ['detail-preview__head', 'detail-preview__row']) {
+    if (source.includes(legacyClass)) throw new Error(`${surface}仍使用独立名称和输入网格：${legacyClass}`)
+  }
+}
+
 const requirements = [
   [typeSource, "export type WorkflowFormFieldType", '缺少流程表单字段类型'],
   [typeSource, 'form: WorkflowFormField[]', '流程草稿缺少 form 字段'],

@@ -253,19 +253,16 @@
                   </el-input>
                   <el-button v-else-if="field.type === 'attachment'" icon="Upload" disabled>选择附件</el-button>
                   <div v-else-if="field.type === 'detail_list'" class="detail-preview">
-                    <div class="detail-preview__head">
-                      <span
+                    <div class="detail-preview__grid">
+                      <div
                         v-for="column in detailColumns(field)"
                         :key="column.key"
+                        class="detail-preview__cell"
                         :style="{ gridColumn: `span ${fieldSpan(column)}` }"
-                      >{{ column.label || column.key }}</span>
-                    </div>
-                    <div class="detail-preview__row">
-                      <span
-                        v-for="column in detailColumns(field)"
-                        :key="column.key"
-                        :style="{ gridColumn: `span ${fieldSpan(column)}` }"
-                      >{{ detailColumnPlaceholder(column) }}</span>
+                      >
+                        <span class="detail-preview__label">{{ column.label || column.key }}</span>
+                        <span class="detail-preview__control">{{ detailColumnPlaceholder(column) }}</span>
+                      </div>
                     </div>
                     <el-button size="small" icon="Plus" disabled>新增行</el-button>
                   </div>
@@ -1245,20 +1242,40 @@ function emitChange() {
   border-radius: 6px;
   background: #f8fafc;
 }
-.detail-preview__head, .detail-preview__row {
+.detail-preview__grid {
   display: grid;
   grid-template-columns: repeat(24, minmax(0, 1fr));
   gap: 8px;
+}
+.detail-preview__cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+.detail-preview__label {
+  min-width: 0;
+  overflow: hidden;
   color: #64748b;
   font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.detail-preview__head { font-weight: 650; }
-.detail-preview__row span {
+.detail-preview__control {
+  display: block;
   min-height: 28px;
   padding: 6px 8px;
+  overflow: hidden;
   border: 1px solid #e5eaf0;
   border-radius: 5px;
+  color: #64748b;
   background: #fff;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .field-drop-zone--tail { display: flex; grid-column: 1 / -1; align-items: center; justify-content: center; gap: 6px; min-height: 18px; border: 1px dashed transparent; border-radius: 6px; color: #94a3b8; background: transparent; font-size: 11px; transition: min-height .15s, border-color .15s, background-color .15s; }
 .field-drop-zone--tail.is-dragging { min-height: 42px; border-color: #cbd5e1; background: #f8fafc; }

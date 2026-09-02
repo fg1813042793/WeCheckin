@@ -4,19 +4,16 @@
     <p v-else-if="field.type === 'description'">{{ field.content || '请输入说明内容' }}</p>
     <el-button v-else-if="field.type === 'button'" size="small" disabled>{{ field.label }}</el-button>
     <div v-else-if="field.type === 'detail_list'" class="detail-preview">
-      <div class="detail-preview__head">
-        <span
+      <div class="detail-preview__grid">
+        <div
           v-for="column in field.columns || []"
           :key="column.key"
+          class="detail-preview__cell"
           :style="{ gridColumn: `span ${columnSpan(column)}` }"
-        >{{ column.label || column.key }}</span>
-      </div>
-      <div class="detail-preview__row">
-        <span
-          v-for="column in field.columns || []"
-          :key="column.key"
-          :style="{ gridColumn: `span ${columnSpan(column)}` }"
-        >{{ column.placeholder || '请输入' }}</span>
+        >
+          <span class="detail-preview__label">{{ column.label || column.key }}</span>
+          <span class="detail-preview__control">{{ column.placeholder || '请输入' }}</span>
+        </div>
       </div>
       <el-button size="small" icon="Plus" disabled>新增行</el-button>
     </div>
@@ -89,9 +86,41 @@ function columnSpan(column: WorkflowFormField) {
 .nested-field-preview :deep(.el-radio),
 .nested-field-preview :deep(.el-checkbox) { margin-right: 0; }
 .detail-preview { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #e6ebf1; border-radius: 6px; background: #f8fafc; }
-.detail-preview__head, .detail-preview__row { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 8px; color: #64748b; font-size: 11px; }
-.detail-preview__head { font-weight: 650; }
-.detail-preview__row span { min-height: 28px; padding: 6px 8px; border: 1px solid #e5eaf0; border-radius: 5px; background: #fff; }
+.detail-preview__grid {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 8px;
+}
+.detail-preview__cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+.detail-preview__label {
+  min-width: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-preview__control {
+  display: block;
+  min-height: 28px;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 1px solid #e5eaf0;
+  border-radius: 5px;
+  color: #64748b;
+  background: #fff;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 @media (max-width: 1120px) {
   .nested-field-preview { margin-left: 0; }
 }
