@@ -44,6 +44,32 @@ redis:
   password: "foster@2026"
   db: 10
 
+scheduled_task:
+  redis_key_prefix: "wecheckin"
+  worker_count: 4
+  scheduler_poll_seconds: 2
+  scheduler_recovery_seconds: 30
+  worker_poll_block_seconds: 5
+  worker_heartbeat_seconds: 10
+  worker_ttl_seconds: 30
+  recovery_timeout_seconds: 90
+  minimum_second_interval: 5
+  run_retention_days: 90
+  log_retention_days: 30
+  max_log_segment_bytes: 16384
+  max_log_run_bytes: 1048576
+  enable_shell: false
+  enable_sql: false
+  http:
+    allowed_hosts: []
+    allowed_cidrs: []
+    allow_private_networks: false
+    max_redirects: 0
+    max_request_bytes: 1048576
+    max_response_bytes: 1048576
+  shell_commands: {}
+  sql_data_sources: {}
+
 token:
   user:
     expire: "168h"

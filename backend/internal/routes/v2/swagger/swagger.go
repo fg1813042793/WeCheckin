@@ -1,8 +1,14 @@
 package swagger
 
-import "wecheckin/backend/pkg/response"
+import (
+	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
+	workflowservice "wecheckin/backend/internal/service/admin/workflow"
+	"wecheckin/backend/pkg/response"
+)
 
 var _ response.Resp
+var _ scheduledtaskapp.CreateTaskRequest
+var _ workflowservice.PublishRequest
 
 // @Tags API v2-公开接口
 // @Summary 查询 /api/v2/home
@@ -622,6 +628,13 @@ func swaggerV2AdminDingTalkUserBindingsIDDelete() {}
 func swaggerV2AdminDingTalkPerfReviewsGet() {}
 
 // @Tags API v2-后台管理
+// @Summary 批量删除 /api/v2/admin/dingtalk/perf-reviews
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-reviews [delete]
+func swaggerV2AdminDingTalkPerfReviewsDelete() {}
+
+// @Tags API v2-后台管理
 // @Summary 查询 /api/v2/admin/dingtalk/perf-reviews/{id}
 // @Security AdminToken
 // @Param id path int true "id"
@@ -643,6 +656,21 @@ func swaggerV2AdminDingTalkPerfReviewsIDDelete() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/dingtalk/perf-histories [get]
 func swaggerV2AdminDingTalkPerfHistoriesGet() {}
+
+// @Tags API v2-后台管理
+// @Summary 批量删除 /api/v2/admin/dingtalk/perf-histories
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-histories [delete]
+func swaggerV2AdminDingTalkPerfHistoriesDelete() {}
+
+// @Tags API v2-后台管理
+// @Summary 删除 /api/v2/admin/dingtalk/perf-histories/{id}
+// @Security AdminToken
+// @Param id path int true "id"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk/perf-histories/{id} [delete]
+func swaggerV2AdminDingTalkPerfHistoriesIDDelete() {}
 
 // @Tags API v2-后台管理
 // @Summary 查询 /api/v2/admin/users
@@ -1914,6 +1942,7 @@ func swaggerV2AdminWorkflowDefinitionsIDValidatePost() {}
 // @Summary 发布工作流定义
 // @Security AdminToken
 // @Param id path int true "流程定义 ID"
+// @Param body body workflowservice.PublishRequest true "发布配置"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-definitions/{id}/publish [post]
 func swaggerV2AdminWorkflowDefinitionsIDPublishPost() {}
@@ -1948,6 +1977,35 @@ func swaggerV2AdminWorkflowOrgApproverAssignmentsGet() {}
 func swaggerV2AdminWorkflowOrgApproverAssignmentsPut() {}
 
 // @Tags API v2-后台管理-工作流
+// @Summary 查询可发起的已发布工作流
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-published-definitions [get]
+func swaggerV2AdminWorkflowPublishedDefinitionsGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询已发布工作流表单 Schema
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-published-definitions/{id} [get]
+func swaggerV2AdminWorkflowPublishedDefinitionsIDGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流可选用户
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-user-options [get]
+func swaggerV2AdminWorkflowUserOptionsGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流可选部门树
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-department-options [get]
+func swaggerV2AdminWorkflowDepartmentOptionsGet() {}
+
+// @Tags API v2-后台管理-工作流
 // @Summary 查询工作流实例列表
 // @Security AdminToken
 // @Success 200 {object} response.Resp
@@ -1957,6 +2015,7 @@ func swaggerV2AdminWorkflowInstancesGet() {}
 // @Tags API v2-后台管理-工作流
 // @Summary 启动工作流实例
 // @Security AdminToken
+// @Description starterId 为业务发起人，实际操作人从管理员登录态获取并保存为 operatorId
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-instances [post]
 func swaggerV2AdminWorkflowInstancesPost() {}
@@ -1968,6 +2027,14 @@ func swaggerV2AdminWorkflowInstancesPost() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-instances/{id} [get]
 func swaggerV2AdminWorkflowInstancesIDGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 恢复工作流实例的定时节点
+// @Security AdminToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-instances/{id}/resume [post]
+func swaggerV2AdminWorkflowInstancesIDResumePost() {}
 
 // @Tags API v2-后台管理-工作流
 // @Summary 取消运行中的工作流实例
@@ -1992,6 +2059,141 @@ func swaggerV2AdminWorkflowTasksGet() {}
 // @Router /api/v2/admin/workflow-tasks/{id}/complete [post]
 func swaggerV2AdminWorkflowTasksIDCompletePost() {}
 
+// @Tags API v2-后台管理-工作流
+// @Summary 查询工作流通知投递记录
+// @Security AdminToken
+// @Param instanceId query string false "流程实例 ID"
+// @Param recipientUserId query string false "接收人用户 ID"
+// @Param kind query string false "通知事件"
+// @Param channel query string false "通知渠道"
+// @Param status query string false "投递状态"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-notifications [get]
+func swaggerV2AdminWorkflowNotificationsGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 投递到期的工作流通知
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-notifications/dispatch-due [post]
+func swaggerV2AdminWorkflowNotificationsDispatchDuePost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 重试单条工作流通知
+// @Security AdminToken
+// @Param id path string true "通知 Outbox ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-notifications/{id}/retry [post]
+func swaggerV2AdminWorkflowNotificationsIDRetryPost() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 查询定时任务列表
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks [get]
+func swaggerV2AdminScheduledTasksGet() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 创建定时任务
+// @Security AdminToken
+// @Param body body scheduledtaskapp.CreateTaskRequest true "定时任务配置"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks [post]
+func swaggerV2AdminScheduledTasksPost() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 查询定时任务详情
+// @Security AdminToken
+// @Param id path int true "定时任务 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks/{id} [get]
+func swaggerV2AdminScheduledTasksIDGet() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 更新定时任务
+// @Security AdminToken
+// @Param id path int true "定时任务 ID"
+// @Param body body scheduledtaskapp.UpdateTaskRequest true "定时任务配置"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks/{id} [put]
+func swaggerV2AdminScheduledTasksIDPut() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 删除定时任务
+// @Security AdminToken
+// @Param id path int true "定时任务 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks/{id} [delete]
+func swaggerV2AdminScheduledTasksIDDelete() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 启用或停用定时任务
+// @Security AdminToken
+// @Param id path int true "定时任务 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks/{id}/status [patch]
+func swaggerV2AdminScheduledTasksIDStatusPatch() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 立即运行定时任务
+// @Security AdminToken
+// @Param id path int true "定时任务 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks/{id}/run [post]
+func swaggerV2AdminScheduledTasksIDRunPost() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 预览 Cron 执行时间
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-tasks/cron-preview [post]
+func swaggerV2AdminScheduledTasksCronPreviewPost() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 查询可用任务处理器
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-handlers [get]
+func swaggerV2AdminScheduledTaskHandlersGet() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 查询定时任务运行记录
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-runs [get]
+func swaggerV2AdminScheduledTaskRunsGet() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 查询定时任务运行详情和日志
+// @Security AdminToken
+// @Param id path string true "运行记录 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-runs/{id} [get]
+func swaggerV2AdminScheduledTaskRunsIDGet() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 重试失败的定时任务运行
+// @Security AdminToken
+// @Param id path string true "运行记录 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-runs/{id}/retry [post]
+func swaggerV2AdminScheduledTaskRunsIDRetryPost() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 取消定时任务运行
+// @Security AdminToken
+// @Param id path string true "运行记录 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-runs/{id}/cancel [post]
+func swaggerV2AdminScheduledTaskRunsIDCancelPost() {}
+
+// @Tags API v2-后台管理-定时任务
+// @Summary 查询定时任务执行节点
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-workers [get]
+func swaggerV2AdminScheduledTaskWorkersGet() {}
+
 // @Tags API v2-客户端-OA流程
 // @Summary 查询已发布的 OA 流程
 // @Security ClientToken
@@ -2008,6 +2210,22 @@ func swaggerV2WorkflowsDefinitionsGet() {}
 func swaggerV2WorkflowsDefinitionsIDGet() {}
 
 // @Tags API v2-客户端-OA流程
+// @Summary 查询我的 OA 流程发起草稿
+// @Security ClientToken
+// @Param definitionId path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/drafts/{definitionId} [get]
+func swaggerV2WorkflowsDraftsDefinitionIDGet() {}
+
+// @Tags API v2-客户端-OA流程
+// @Summary 保存我的 OA 流程发起草稿
+// @Security ClientToken
+// @Param definitionId path int true "流程定义 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/workflows/drafts/{definitionId} [put]
+func swaggerV2WorkflowsDraftsDefinitionIDPut() {}
+
+// @Tags API v2-客户端-OA流程
 // @Summary 发起 OA 流程
 // @Security ClientToken
 // @Success 200 {object} response.Resp
@@ -2017,6 +2235,7 @@ func swaggerV2WorkflowsInstancesPost() {}
 // @Tags API v2-客户端-OA流程
 // @Summary 查询我的 OA 流程申请
 // @Security ClientToken
+// @Param scope query string false "查询范围: started, handled, copied" default(started)
 // @Success 200 {object} response.Resp
 // @Router /api/v2/workflows/instances [get]
 func swaggerV2WorkflowsInstancesGet() {}

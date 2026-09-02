@@ -3,7 +3,10 @@
     <header class="designer-header">
       <div class="designer-header__main">
         <el-button circle icon="ArrowLeft" title="返回流程列表" @click="backToList" />
-        <span class="designer-logo"><el-icon><Share /></el-icon></span>
+        <span class="designer-logo">
+          <img v-if="detail?.logoUrl" :src="detail.logoUrl" :alt="detail.name" />
+          <el-icon v-else><Share /></el-icon>
+        </span>
         <div class="designer-title">
           <el-input
             v-if="detail"
@@ -23,9 +26,10 @@
       <div class="designer-header__actions">
         <el-button @click="openMetadata">流程信息</el-button>
         <el-button @click="openVersions">版本</el-button>
+        <el-button icon="View" @click="openFormPreview">表单预览</el-button>
         <el-button :loading="validating" @click="validateDraft">校验</el-button>
         <el-button v-if="canEdit" type="primary" plain :loading="saving" @click="saveDraft">保存</el-button>
-        <el-button v-if="canPublish" type="success" :loading="publishing" @click="publishDraft">发布</el-button>
+        <el-button v-if="canPublish" type="success" @click="publishDraft">发布</el-button>
       </div>
     </header>
 
@@ -34,6 +38,7 @@
         <el-tab-pane label="表单设计" name="form" />
         <el-tab-pane label="流程设计" name="process" />
         <el-tab-pane label="字段权限" name="permissions" />
+        <el-tab-pane label="流程配置" name="config" />
       </el-tabs>
 
       <div class="designer-body">
@@ -51,10 +56,19 @@
           @select="selectNode"
           @insert="insertNode"
           @add-branch="addGatewayBranch"
+          @change="markDirty"
         />
         <WorkflowFieldPermissions
-          v-else
+          v-else-if="activeDesignerTab === 'permissions'"
           :draft="detail.draft"
+          :readonly="!canEdit"
+          @change="markDirty"
+        />
+        <WorkflowStartConfig
+          v-else-if="activeDesignerTab === 'config'"
+          :draft="detail.draft"
+          :departments="workflowDepartments"
+          :users="workflowAssigneeUsers"
           :readonly="!canEdit"
           @change="markDirty"
         />
@@ -126,6 +140,19 @@
         </div>
       </div>
     </el-drawer>
+
+    <WorkflowPublishDialog
+      v-model="publishDialog"
+      :definition="detail"
+      @published="loadDetail"
+    />
+
+    <WorkflowFormPreviewDialog
+      v-if="detail"
+      v-model="formPreviewDialog"
+      :draft="detail.draft"
+      :title="detail.name"
+    />
   </div>
 </template>
 
@@ -139,17 +166,21 @@ import WorkflowCanvas from './components/WorkflowCanvas.vue'
 import NodeInspector from './components/NodeInspector.vue'
 import WorkflowFormDesigner from './components/WorkflowFormDesigner.vue'
 import WorkflowFieldPermissions from './components/WorkflowFieldPermissions.vue'
+import WorkflowStartConfig from './components/WorkflowStartConfig.vue'
+import WorkflowFormPreviewDialog from './components/WorkflowFormPreviewDialog.vue'
+import WorkflowPublishDialog from '../components/WorkflowPublishDialog.vue'
 import { addBranch, insertNodeAtEdge, removeBranch, removeNode } from './graph'
 import type {
   WorkflowDefinitionDetail,
   WorkflowAssigneeUser,
+  WorkflowInsertableNodeType,
   WorkflowOrgApproverIdentity,
-  WorkflowNodeType,
   WorkflowValidationError,
   WorkflowValidationResult,
   WorkflowVersion,
 } from '../types'
 import { cloneDraft } from '../types'
+import { workflowDataFields } from '../formLayout'
 
 const route = useRoute()
 const router = useRouter()
@@ -157,17 +188,18 @@ const definitionId = computed(() => Number(route.params.id || 0))
 const loading = ref(false)
 const saving = ref(false)
 const validating = ref(false)
-const publishing = ref(false)
 const detail = ref<WorkflowDefinitionDetail | null>(null)
 const selectedNodeId = ref('')
 const dirty = ref(false)
 const validationErrors = ref<WorkflowValidationError[]>([])
 const nodeDrawer = ref(false)
 const metadataDrawer = ref(false)
+const publishDialog = ref(false)
+const formPreviewDialog = ref(false)
 const versionDrawer = ref(false)
 const versionsLoading = ref(false)
 const versions = ref<WorkflowVersion[]>([])
-const activeDesignerTab = ref<'form' | 'process' | 'permissions'>('process')
+const activeDesignerTab = ref<'form' | 'process' | 'permissions' | 'config'>('process')
 const workflowDepartments = ref<any[]>([])
 const workflowAssigneeUsers = ref<WorkflowAssigneeUser[]>([])
 const workflowOrgApproverIdentities = ref<WorkflowOrgApproverIdentity[]>([])
@@ -177,7 +209,7 @@ const canPublish = computed(() => hasPerm('admin:menu:workflow:publish'))
 const selectedNode = computed(() => detail.value?.draft.nodes.find(item => item.id === selectedNodeId.value))
 const selectedNodeTitle = computed(() => {
   if (!selectedNode.value) return '节点配置'
-  if (selectedNode.value.type === 'start') return '发起人配置'
+  if (selectedNode.value.type === 'start') return '开始节点'
   if (selectedNode.value.type === 'approval') return '审批人配置'
   if (selectedNode.value.gatewayMode === 'split') return selectedNode.value.type === 'exclusive' ? '条件分支配置' : '并行分支配置'
   return '节点配置'
@@ -243,11 +275,12 @@ function markDirty() {
 
 function handleFormChange() {
   if (!detail.value) return
-  const fieldKeys = new Set(detail.value.draft.form.map(field => field.key))
+  const formFields = workflowDataFields(detail.value.draft.form)
+  const fieldKeys = new Set(formFields.map(field => field.key))
   detail.value.draft.nodes.forEach((node) => {
     node.formPermissions = (node.formPermissions || []).filter(permission => fieldKeys.has(permission.field))
-    if (node.type !== 'start' && node.type !== 'approval') return
-    detail.value?.draft.form.forEach((field) => {
+    if (node.type !== 'start' && node.type !== 'approval' && node.type !== 'handle') return
+    formFields.forEach((field) => {
       if (node.formPermissions?.some(permission => permission.field === field.key)) return
       node.formPermissions?.push({ field: field.key, access: node.type === 'start' ? 'write' : 'read' })
     })
@@ -267,7 +300,7 @@ function selectNode(nodeId: string) {
 
 function insertNode(payload: {
   edgeId: string
-  type: Extract<WorkflowNodeType, 'approval' | 'exclusive' | 'parallel'>
+  type: WorkflowInsertableNodeType
 }) {
   if (!detail.value) return
   const node = insertNodeAtEdge(detail.value.draft, payload.edgeId, payload.type)
@@ -375,19 +408,7 @@ async function validateDraft(showSuccess = true) {
 async function publishDraft() {
   if (!detail.value) return
   if (!(await validateDraft(false))) return
-  try {
-    await ElMessageBox.confirm('发布后将生成不可变更的新版本，后续修改会进入下一版本草稿。确定继续？', '发布流程', { type: 'warning' })
-  } catch {
-    return
-  }
-  publishing.value = true
-  try {
-    const response = await adminApi.workflowDefinitionPublish(detail.value.id)
-    ElMessage.success(`流程已发布为 v${response.data?.version}`)
-    await loadDetail()
-  } finally {
-    publishing.value = false
-  }
+  publishDialog.value = true
 }
 
 function focusValidationError(error?: WorkflowValidationError) {
@@ -398,6 +419,9 @@ function focusValidationError(error?: WorkflowValidationError) {
   } else if (error.code.startsWith('field_permission_')) {
     activeDesignerTab.value = 'permissions'
     nodeDrawer.value = false
+  } else if (error.code === 'initiator_invalid' || error.code === 'start_availability_invalid') {
+    activeDesignerTab.value = 'config'
+    nodeDrawer.value = false
   } else if (error.nodeId) selectNode(error.nodeId)
   else if (error.edgeId && detail.value) {
     const target = detail.value.draft.edges.find(item => item.id === error.edgeId)?.source
@@ -407,6 +431,11 @@ function focusValidationError(error?: WorkflowValidationError) {
 
 function openMetadata() {
   metadataDrawer.value = true
+}
+
+function openFormPreview() {
+  if (!detail.value) return
+  formPreviewDialog.value = true
 }
 
 async function saveMetadata() {
@@ -446,7 +475,8 @@ onMounted(async () => {
 .designer-header__main, .designer-header__actions { display: flex; align-items: center; gap: 10px; }
 .designer-header__main { min-width: 0; }
 .designer-header__actions { flex: 0 0 auto; }
-.designer-logo { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; color: #fff; background: #0f9f8f; font-size: 19px; }
+.designer-logo { display: grid; place-items: center; width: 38px; height: 38px; overflow: hidden; border-radius: 8px; color: #fff; background: #0f9f8f; font-size: 19px; }
+.designer-logo img { width: 100%; height: 100%; object-fit: cover; }
 .designer-title { min-width: 260px; }
 .designer-title__input { width: min(420px, 32vw); }
 .designer-title__input :deep(.el-input__wrapper) { padding-left: 0; box-shadow: none; }

@@ -23,7 +23,7 @@
         <el-table-column prop="instanceId" label="实例 ID" min-width="190" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono-text">{{ row.instanceId }}</span></template>
         </el-table-column>
-        <el-table-column label="审批节点" min-width="170">
+        <el-table-column label="任务节点" min-width="170">
           <template #default="{ row }">
             <div class="task-node">
               <strong>{{ row.nodeName || row.nodeId }}</strong>
@@ -70,21 +70,33 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="completeDialog" title="处理流程任务" width="580px" destroy-on-close>
+    <el-dialog v-model="completeDialog" title="处理流程任务" width="700px" destroy-on-close>
       <el-descriptions v-if="activeTask" :column="2" border class="task-summary">
-        <el-descriptions-item label="审批节点">{{ activeTask.nodeName || activeTask.nodeId }}</el-descriptions-item>
+        <el-descriptions-item label="任务节点">{{ activeTask.nodeName || activeTask.nodeId }}</el-descriptions-item>
         <el-descriptions-item label="处理人 ID">{{ activeTask.assigneeId }}</el-descriptions-item>
         <el-descriptions-item label="实例 ID" :span="2"><span class="mono-text">{{ activeTask.instanceId }}</span></el-descriptions-item>
       </el-descriptions>
+      <section v-loading="taskDetailLoading" class="complete-runtime-form">
+        <h3>流程表单</h3>
+        <WorkflowRuntimeForm
+          ref="completeRuntimeForm"
+          v-model="completeFormData"
+          :fields="activeInstanceDetail?.form || []"
+          :field-access="activeTaskFieldAccess"
+          :field-actions="activeTaskFieldActions"
+          empty-text="该任务没有可处理的流程表单"
+        />
+      </section>
       <el-form label-width="86px" @submit.prevent>
         <el-form-item label="处理结果" required>
-          <el-radio-group v-model="completeForm.action">
+          <el-tag v-if="activeTaskNodeType === 'handle'" type="primary">提交</el-tag>
+          <el-radio-group v-else v-model="completeForm.action">
             <el-radio-button value="approve">通过</el-radio-button>
             <el-radio-button value="reject">驳回</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="处理意见">
-          <el-input v-model="completeForm.comment" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="填写审批意见" />
+        <el-form-item :label="activeTaskNodeType === 'handle' ? '办理说明' : '处理意见'">
+          <el-input v-model="completeForm.comment" type="textarea" :rows="4" maxlength="500" show-word-limit :placeholder="activeTaskNodeType === 'handle' ? '填写办理说明' : '填写审批意见'" />
         </el-form-item>
         <el-form-item label="更新变量">
           <el-input
@@ -97,8 +109,8 @@
       </el-form>
       <template #footer>
         <el-button @click="completeDialog = false">取消</el-button>
-        <el-button :type="completeForm.action === 'reject' ? 'danger' : 'primary'" :loading="completing" @click="completeTask">
-          {{ completeForm.action === 'reject' ? '确认驳回' : '确认通过' }}
+        <el-button :type="completeForm.action === 'reject' ? 'danger' : 'primary'" :loading="completing" :disabled="taskDetailLoading" @click="completeTask">
+          确认{{ completeActionText }}
         </el-button>
       </template>
     </el-dialog>
@@ -110,11 +122,14 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../../api'
 import { hasPerm } from '../../../utils/permission'
-import type { WorkflowTaskAction, WorkflowTaskStatus, WorkflowTaskSummary } from '../types'
+import WorkflowRuntimeForm from '../components/WorkflowRuntimeForm.vue'
+import { initialWorkflowFormData, workflowFieldActionMap, workflowFieldAccessMap, writableWorkflowFormData } from '../runtimeForm'
+import type { WorkflowInstanceDetail, WorkflowTaskAction, WorkflowTaskStatus, WorkflowTaskSummary } from '../types'
 
 const statusOptions = [
   { label: '待激活', value: 'waiting' },
   { label: '待处理', value: 'pending' },
+  { label: '已提交', value: 'completed' },
   { label: '已通过', value: 'approved' },
   { label: '已驳回', value: 'rejected' },
   { label: '已取消', value: 'cancelled' },
@@ -130,14 +145,49 @@ const filters = reactive({ instanceId: '', assigneeId: '', status: '' })
 
 const completeDialog = ref(false)
 const completing = ref(false)
+const taskDetailLoading = ref(false)
 const activeTask = ref<WorkflowTaskSummary | null>(null)
+const activeInstanceDetail = ref<WorkflowInstanceDetail | null>(null)
+const completeFormData = ref<Record<string, unknown>>({})
+const completeRuntimeForm = ref<{ validate: () => boolean; resetValidation: () => void } | null>(null)
 const completeForm = reactive<{ action: WorkflowTaskAction; comment: string; variablesText: string }>({
   action: 'approve', comment: '', variablesText: '',
+})
+
+const activeTaskNodeType = computed(() => {
+  if (!activeTask.value || !activeInstanceDetail.value) return 'approval'
+  return activeInstanceDetail.value.nodeTypes?.[activeTask.value.nodeId] || 'approval'
+})
+
+const completeActionText = computed(() => {
+  if (completeForm.action === 'submit') return '提交'
+  if (completeForm.action === 'reject') return '驳回'
+  return '通过'
+})
+
+const activeTaskFieldAccess = computed(() => {
+  if (!activeTask.value || !activeInstanceDetail.value) return {}
+  return workflowFieldAccessMap(
+    activeInstanceDetail.value.form || [],
+    activeInstanceDetail.value.fieldPermissions || {},
+    activeTask.value.nodeId,
+    'read',
+  )
+})
+
+const activeTaskFieldActions = computed(() => {
+  if (!activeTask.value || !activeInstanceDetail.value) return {}
+  return workflowFieldActionMap(
+    activeInstanceDetail.value.form || [],
+    activeInstanceDetail.value.fieldPermissions || {},
+    activeTask.value.nodeId,
+  )
 })
 
 function taskStatusMeta(status: WorkflowTaskStatus) {
   const values = {
     waiting: { label: '待激活', type: 'info' as const }, pending: { label: '待处理', type: 'warning' as const },
+    completed: { label: '已提交', type: 'success' as const },
     approved: { label: '已通过', type: 'success' as const }, rejected: { label: '已驳回', type: 'danger' as const },
     cancelled: { label: '已取消', type: 'info' as const },
   }
@@ -147,6 +197,7 @@ function taskStatusMeta(status: WorkflowTaskStatus) {
 function actionLabel(action: WorkflowTaskAction | '') {
   if (action === 'approve') return '通过'
   if (action === 'reject') return '驳回'
+  if (action === 'submit') return '提交'
   return '-'
 }
 
@@ -196,14 +247,33 @@ function handlePageSizeChange(size: number) {
   loadList()
 }
 
-function openCompleteDialog(row: WorkflowTaskSummary) {
+async function openCompleteDialog(row: WorkflowTaskSummary) {
   activeTask.value = row
+  activeInstanceDetail.value = null
+  completeFormData.value = {}
   Object.assign(completeForm, { action: 'approve', comment: '', variablesText: '' })
   completeDialog.value = true
+  taskDetailLoading.value = true
+  try {
+    const response = await adminApi.workflowInstanceDetail(row.instanceId)
+    activeInstanceDetail.value = response.data as WorkflowInstanceDetail
+    completeForm.action = activeInstanceDetail.value.nodeTypes?.[row.nodeId] === 'handle' ? 'submit' : 'approve'
+    completeFormData.value = initialWorkflowFormData(
+      activeInstanceDetail.value.form || [],
+      activeInstanceDetail.value.formData || {},
+    )
+    completeRuntimeForm.value?.resetValidation()
+  } finally {
+    taskDetailLoading.value = false
+  }
 }
 
 async function completeTask() {
   if (!activeTask.value) return
+  if (completeRuntimeForm.value && !completeRuntimeForm.value.validate()) {
+    ElMessage.warning('请检查流程表单中的校验提示')
+    return
+  }
   let variables: Record<string, unknown>
   try {
     variables = parseVariables(completeForm.variablesText)
@@ -211,7 +281,7 @@ async function completeTask() {
     ElMessage.warning(error instanceof Error ? error.message : '更新变量 JSON 格式无效')
     return
   }
-  const actionText = completeForm.action === 'reject' ? '驳回' : '通过'
+  const actionText = completeActionText.value
   try {
     await ElMessageBox.confirm(`确定${actionText}任务“${activeTask.value.nodeName || activeTask.value.nodeId}”？`, `确认${actionText}`, {
       type: completeForm.action === 'reject' ? 'warning' : 'info',
@@ -226,6 +296,7 @@ async function completeTask() {
       action: completeForm.action,
       comment: completeForm.comment.trim(),
       variables,
+      formData: writableWorkflowFormData(activeInstanceDetail.value?.form || [], completeFormData.value, activeTaskFieldAccess.value),
     })
     completeDialog.value = false
     ElMessage.success(`任务已${actionText}`)
@@ -245,4 +316,6 @@ onMounted(loadList)
 .task-node small { display: block; margin-top: 3px; color: #94a3b8; font-size: 12px; }
 .muted-text { color: #c0c4cc; }
 .task-summary { margin-bottom: 20px; }
+.complete-runtime-form { margin-bottom: 18px; padding-bottom: 2px; }
+.complete-runtime-form h3 { margin: 0 0 12px; color: #303133; font-size: 15px; font-weight: 600; }
 </style>

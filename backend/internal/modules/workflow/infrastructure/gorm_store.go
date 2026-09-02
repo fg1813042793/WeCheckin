@@ -5,15 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"wecheckin/backend/internal/model"
 	workflowmodel "wecheckin/backend/internal/model/workflow"
 	"wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/support/access"
+	"wecheckin/backend/internal/workflowcore"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -64,6 +69,72 @@ func (store *GormStore) LoadPublishedDefinition(ctx context.Context, definitionI
 		version = definitionModel.CurrentVersion
 	}
 	return loadDefinitionVersion(db, definitionID, version)
+}
+
+func (store *GormStore) IsActiveUser(ctx context.Context, userID string) (bool, error) {
+	id, err := strconv.ParseUint(strings.TrimSpace(userID), 10, 64)
+	if err != nil || id == 0 {
+		return false, nil
+	}
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cancel()
+	var count int64
+	if err := db.Table("users").Where("id = ? AND user_status = 1", id).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (store *GormStore) UserDepartmentIDs(ctx context.Context, rawUserID string) ([]uint, error) {
+	userID := parsePositiveUint(rawUserID)
+	if userID == 0 {
+		return nil, nil
+	}
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	var departmentIDs []uint
+	if err := db.Table("user_depts").
+		Where("user_dept_user_id = ?", userID).
+		Order("user_dept_dept_id ASC").
+		Pluck("user_dept_dept_id", &departmentIDs).Error; err != nil {
+		return nil, err
+	}
+	return normalizeUintIDs(departmentIDs), nil
+}
+
+func (store *GormStore) CanOperatorStartFor(ctx context.Context, operatorID, starterID string) (bool, error) {
+	operator, err := strconv.ParseUint(strings.TrimSpace(operatorID), 10, 64)
+	if err != nil || operator == 0 {
+		return false, nil
+	}
+	starter, err := strconv.ParseUint(strings.TrimSpace(starterID), 10, 64)
+	if err != nil || starter == 0 {
+		return false, nil
+	}
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cancel()
+	var admin model.Admin
+	if err := db.First(&admin, uint(operator)).Error; err != nil {
+		return false, err
+	}
+	query := db.Model(&model.User{}).Where("id = ? AND user_status = 1", starter)
+	if where, args := access.UserDataScopeFilterWithDBContext(ctx, db, &admin); where != "" {
+		query = query.Where(where, args...)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (store *GormStore) ListPublishedDefinitions(ctx context.Context) ([]application.PublishedDefinition, error) {
@@ -139,6 +210,70 @@ func (store *GormStore) CreateState(ctx context.Context, state *workflowdomain.S
 	return createHistory(db, state.Instance.ID, state.History, now)
 }
 
+func (store *GormStore) GetStartDraft(ctx context.Context, definitionID uint, starterID string) (*application.StartDraft, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	var row workflowmodel.StartDraft
+	if err := db.First(&row, "definition_id = ? AND starter_id = ?", definitionID, strings.TrimSpace(starterID)).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	formData := make(map[string]interface{})
+	if strings.TrimSpace(row.FormDataJSON) != "" {
+		if err := json.Unmarshal([]byte(row.FormDataJSON), &formData); err != nil {
+			return nil, fmt.Errorf("解析流程草稿失败: %w", err)
+		}
+	}
+	return &application.StartDraft{
+		DefinitionID: row.DefinitionID, DefinitionVersion: row.DefinitionVersion,
+		StarterID: row.StarterID, FormData: formData, UpdatedAt: row.EditTime,
+	}, nil
+}
+
+func (store *GormStore) SaveStartDraft(ctx context.Context, draft application.StartDraft) (*application.StartDraft, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	encoded, err := json.Marshal(draft.FormData)
+	if err != nil {
+		return nil, fmt.Errorf("序列化流程草稿失败: %w", err)
+	}
+	row := workflowmodel.StartDraft{
+		DefinitionID: draft.DefinitionID, DefinitionVersion: draft.DefinitionVersion,
+		StarterID: strings.TrimSpace(draft.StarterID), FormDataJSON: string(encoded), EditTime: draft.UpdatedAt,
+	}
+	if err := db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "definition_id"}, {Name: "starter_id"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"definition_version": row.DefinitionVersion,
+			"form_data_json":     row.FormDataJSON,
+			"edit_time":          row.EditTime,
+			"updated_at":         database.Now(),
+		}),
+	}).Create(&row).Error; err != nil {
+		return nil, err
+	}
+	result := draft
+	return &result, nil
+}
+
+func (store *GormStore) DeleteStartDraft(ctx context.Context, definitionID uint, starterID string) error {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+	return db.Where("definition_id = ? AND starter_id = ?", definitionID, strings.TrimSpace(starterID)).
+		Delete(&workflowmodel.StartDraft{}).Error
+}
+
 func (store *GormStore) LoadStateByTaskForUpdate(ctx context.Context, taskID string) (workflowcore.Definition, *workflowdomain.State, error) {
 	db, cancel, err := store.contextDB(ctx)
 	if err != nil {
@@ -184,6 +319,27 @@ func (store *GormStore) LoadStateByInstanceForUpdate(ctx context.Context, instan
 	return loadStateRecords(db, instance)
 }
 
+func (store *GormStore) LoadDefinitionAndStateByInstanceForUpdate(ctx context.Context, instanceID string) (workflowcore.Definition, *workflowdomain.State, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return workflowcore.Definition{}, nil, err
+	}
+	defer cancel()
+	var instance workflowmodel.ProcessInstance
+	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&instance, "id = ?", instanceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return workflowcore.Definition{}, nil, ErrInstanceNotFound
+		}
+		return workflowcore.Definition{}, nil, err
+	}
+	definition, _, err := loadDefinitionVersion(db, instance.DefinitionID, instance.DefinitionVersion)
+	if err != nil {
+		return workflowcore.Definition{}, nil, err
+	}
+	state, err := loadStateRecords(db, instance)
+	return definition, state, err
+}
+
 func (store *GormStore) SaveState(ctx context.Context, state *workflowdomain.State) error {
 	if state == nil {
 		return errors.New("流程运行状态不能为空")
@@ -224,6 +380,126 @@ func (store *GormStore) SaveState(ctx context.Context, state *workflowdomain.Sta
 	return createHistory(db, state.Instance.ID, state.History, now)
 }
 
+func (store *GormStore) PersistEffects(ctx context.Context, state *workflowdomain.State) ([]string, error) {
+	if state == nil {
+		return nil, errors.New("流程运行状态不能为空")
+	}
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	now := database.Now()
+	if len(state.Participants) > 0 {
+		rows := make([]workflowmodel.InstanceParticipant, 0, len(state.Participants))
+		for _, participant := range state.Participants {
+			rows = append(rows, workflowmodel.InstanceParticipant{
+				ID: participant.ID, InstanceID: state.Instance.ID, UserID: participant.UserID,
+				Role: string(participant.Role), NodeID: participant.NodeID, AddTime: now,
+			})
+		}
+		if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows).Error; err != nil {
+			return nil, err
+		}
+	}
+	if len(state.NotificationIntents) == 0 {
+		return nil, nil
+	}
+	starterName := workflowUserDisplayName(db, state.Instance.StarterID)
+	outboxIDs := make([]string, 0)
+	for _, intent := range state.NotificationIntents {
+		payload := renderNotificationPayload(state, intent, starterName)
+		payloadJSON, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("序列化流程通知失败: %w", err)
+		}
+		channels := append([]string(nil), intent.Config.Channels...)
+		sort.Strings(channels)
+		for _, channel := range channels {
+			channel = strings.TrimSpace(channel)
+			outboxID := intent.ID + "-" + channel
+			taskKey := strings.TrimSpace(intent.TaskID)
+			if taskKey == "" {
+				taskKey = "-"
+			}
+			row := workflowmodel.NotificationOutbox{
+				ID: outboxID, InstanceID: state.Instance.ID, NodeID: intent.NodeID, TaskID: intent.TaskID,
+				RecipientUserID: intent.RecipientUserID, Kind: string(intent.Kind), Channel: channel,
+				Status:      workflowmodel.NotificationStatusPending,
+				DedupeKey:   strings.Join([]string{state.Instance.ID, string(intent.Kind), intent.NodeID, taskKey, intent.RecipientUserID, channel}, ":"),
+				PayloadJSON: string(payloadJSON), NextRetryAt: now, AddTime: now, EditTime: now,
+			}
+			result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+			if result.Error != nil {
+				return nil, result.Error
+			}
+			if result.RowsAffected > 0 {
+				outboxIDs = append(outboxIDs, outboxID)
+			}
+		}
+	}
+	return outboxIDs, nil
+}
+
+func (store *GormStore) HasParticipant(ctx context.Context, instanceID, userID, role string) (bool, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cancel()
+	var count int64
+	err = db.Model(&workflowmodel.InstanceParticipant{}).
+		Where("instance_id = ? AND user_id = ? AND participant_role = ?", strings.TrimSpace(instanceID), strings.TrimSpace(userID), strings.TrimSpace(role)).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func workflowUserDisplayName(db *gorm.DB, userID string) string {
+	fallback := strings.TrimSpace(userID)
+	id, err := strconv.ParseUint(fallback, 10, 64)
+	if err != nil || id == 0 {
+		return fallback
+	}
+	var user model.User
+	if err := db.Select("id", "user_name", "user_account").First(&user, uint(id)).Error; err != nil {
+		return fallback
+	}
+	if name := strings.TrimSpace(user.Name); name != "" {
+		return name
+	}
+	if account := strings.TrimSpace(user.Account); account != "" {
+		return account
+	}
+	return fallback
+}
+
+func renderNotificationPayload(state *workflowdomain.State, intent workflowdomain.NotificationIntent, starterName string) application.NotificationPayload {
+	replacements := map[string]string{
+		"{{workflowName}}": intent.WorkflowName,
+		"{{nodeName}}":     intent.NodeName,
+		"{{starterName}}":  starterName,
+		"{{instanceId}}":   state.Instance.ID,
+		"{{taskId}}":       intent.TaskID,
+	}
+	render := func(value string, limit int) string {
+		for token, replacement := range replacements {
+			value = strings.ReplaceAll(value, token, replacement)
+		}
+		value = strings.TrimSpace(value)
+		if utf8.RuneCountInString(value) <= limit {
+			return value
+		}
+		return string([]rune(value)[:limit])
+	}
+	return application.NotificationPayload{
+		Title: render(intent.Config.Title, 64), Content: render(intent.Config.Content, 1000),
+		WorkflowName: intent.WorkflowName, NodeName: intent.NodeName,
+		StarterID: state.Instance.StarterID, StarterName: starterName,
+		InstanceID: state.Instance.ID, TaskID: intent.TaskID,
+		RecipientUserID: intent.RecipientUserID, Kind: string(intent.Kind),
+	}
+}
+
 func (store *GormStore) ListInstances(ctx context.Context, query application.InstanceQuery) (*application.InstanceList, error) {
 	db, cancel, err := store.contextDB(ctx)
 	if err != nil {
@@ -262,6 +538,28 @@ func (store *GormStore) GetInstance(ctx context.Context, instanceID string) (*ap
 		return nil, err
 	}
 	return loadInstanceDetail(db, instance)
+}
+
+func (store *GormStore) FindStateByBusiness(ctx context.Context, businessType, businessKey string) (*workflowdomain.State, bool, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	defer cancel()
+	var instance workflowmodel.ProcessInstance
+	err = db.Clauses(clause.Locking{Strength: "SHARE"}).
+		First(&instance, "business_type = ? AND business_key = ?", strings.TrimSpace(businessType), strings.TrimSpace(businessKey)).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	state, err := loadStateRecords(db, instance)
+	if err != nil {
+		return nil, false, err
+	}
+	return state, true, nil
 }
 
 func (store *GormStore) ListTasks(ctx context.Context, query application.TaskQuery) (*application.TaskList, error) {
@@ -330,7 +628,8 @@ func instanceToModel(instance workflowdomain.ProcessInstance, formData map[strin
 		ID: instance.ID, DefinitionID: instance.DefinitionID,
 		DefinitionVersion: instance.DefinitionVersion, DefinitionKey: instance.DefinitionKey,
 		BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
-		StarterID: instance.StarterID, Status: string(instance.Status), FormDataJSON: formDataJSON,
+		StarterID: instance.StarterID, OperatorID: instance.OperatorID,
+		Status: string(instance.Status), FormDataJSON: formDataJSON,
 		StartTime: now, EndTime: endTime,
 	}, nil
 }
@@ -426,7 +725,7 @@ func upsertTasks(db *gorm.DB, instanceID string, tasks []workflowdomain.Task, hi
 	rows := make([]workflowmodel.ProcessTask, 0, len(tasks))
 	for _, task := range tasks {
 		handledAt := existingHandledAt[task.ID]
-		if handledAt == 0 && (task.Status == workflowdomain.TaskStatusApproved || task.Status == workflowdomain.TaskStatusRejected) {
+		if handledAt == 0 && (task.Status == workflowdomain.TaskStatusCompleted || task.Status == workflowdomain.TaskStatusApproved || task.Status == workflowdomain.TaskStatusRejected) {
 			handledAt = now
 		}
 		rows = append(rows, taskToModel(instanceID, task, handledAt, actors))
@@ -512,6 +811,7 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 		FormData:         make(map[string]interface{}),
 		FieldPermissions: definitionFieldPermissions(definition),
 		StartNodeID:      definitionStartNodeID(definition),
+		NodeTypes:        definitionNodeTypes(definition),
 		Tokens:           make([]application.TokenSummary, 0, len(tokens)),
 		Tasks:            make([]application.TaskSummary, 0, len(tasks)),
 		History:          make([]application.HistorySummary, 0, len(history)),
@@ -550,7 +850,8 @@ func instanceSummary(row workflowmodel.ProcessInstance) application.InstanceSumm
 	return application.InstanceSummary{
 		ID: row.ID, DefinitionID: row.DefinitionID, DefinitionVersion: row.DefinitionVersion,
 		DefinitionKey: row.DefinitionKey, BusinessType: row.BusinessType, BusinessKey: row.BusinessKey,
-		StarterID: row.StarterID, Status: row.Status, StartTime: row.StartTime, EndTime: row.EndTime,
+		StarterID: row.StarterID, OperatorID: row.OperatorID,
+		Status: row.Status, StartTime: row.StartTime, EndTime: row.EndTime,
 	}
 }
 
@@ -559,11 +860,68 @@ func publishedDefinition(row workflowmodel.Definition, definition workflowcore.D
 		ID: row.ID, Key: row.Key, Name: row.Name, Description: row.Description,
 		Category: row.Category, Version: version, Form: cloneDefinitionForm(definition),
 		FieldPermissions: definitionFieldPermissions(definition), StartNodeID: definitionStartNodeID(definition),
+		Initiator: definitionInitiator(definition), Availability: definitionStartAvailability(definition),
 	}
 }
 
+func definitionInitiator(definition workflowcore.Definition) workflowcore.InitiatorConfig {
+	for _, node := range definition.Nodes {
+		if node.Type == workflowcore.NodeTypeStart && node.Initiator != nil {
+			return workflowcore.InitiatorConfig{
+				Scope:         node.Initiator.Scope,
+				UserIDs:       append([]uint(nil), node.Initiator.UserIDs...),
+				DepartmentIDs: append([]uint(nil), node.Initiator.DepartmentIDs...),
+			}
+		}
+	}
+	return workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeAll}
+}
+
+func definitionStartAvailability(definition workflowcore.Definition) workflowcore.StartAvailabilityConfig {
+	for index := range definition.Nodes {
+		if definition.Nodes[index].Type == workflowcore.NodeTypeStart {
+			return workflowcore.CloneStartAvailability(definition.Nodes[index].Availability)
+		}
+	}
+	return workflowcore.DefaultStartAvailability()
+}
+
 func cloneDefinitionForm(definition workflowcore.Definition) []workflowcore.FormField {
-	return append([]workflowcore.FormField(nil), definition.Form...)
+	return cloneFormFields(definition.Form)
+}
+
+func cloneFormFields(fields []workflowcore.FormField) []workflowcore.FormField {
+	if len(fields) == 0 {
+		return nil
+	}
+	result := make([]workflowcore.FormField, 0, len(fields))
+	for _, field := range fields {
+		field.Options = cloneFormOptions(field.Options)
+		if field.OptionSource != nil {
+			optionSource := *field.OptionSource
+			field.OptionSource = &optionSource
+		}
+		field.Columns = cloneFormFields(field.Columns)
+		field.Fields = cloneFormFields(field.Fields)
+		if field.Help != nil {
+			help := *field.Help
+			field.Help = &help
+		}
+		result = append(result, field)
+	}
+	return result
+}
+
+func cloneFormOptions(options []workflowcore.FormOption) []workflowcore.FormOption {
+	if len(options) == 0 {
+		return nil
+	}
+	result := make([]workflowcore.FormOption, 0, len(options))
+	for _, option := range options {
+		option.Children = cloneFormOptions(option.Children)
+		result = append(result, option)
+	}
+	return result
 }
 
 func definitionFieldPermissions(definition workflowcore.Definition) map[string][]workflowcore.FieldPermission {
@@ -572,10 +930,23 @@ func definitionFieldPermissions(definition workflowcore.Definition) map[string][
 		if len(node.FormPermissions) == 0 {
 			continue
 		}
-		result[node.ID] = append([]workflowcore.FieldPermission(nil), node.FormPermissions...)
+		permissions := make([]workflowcore.FieldPermission, 0, len(node.FormPermissions))
+		for _, permission := range node.FormPermissions {
+			permission.Actions = append([]string(nil), permission.Actions...)
+			permissions = append(permissions, permission)
+		}
+		result[node.ID] = permissions
 	}
 	if result == nil {
 		return map[string][]workflowcore.FieldPermission{}
+	}
+	return result
+}
+
+func definitionNodeTypes(definition workflowcore.Definition) map[string]string {
+	result := make(map[string]string, len(definition.Nodes))
+	for _, node := range definition.Nodes {
+		result[node.ID] = node.Type
 	}
 	return result
 }
@@ -613,6 +984,24 @@ func applyInstanceFilters(db *gorm.DB, query application.InstanceQuery) *gorm.DB
 	}
 	if value := strings.TrimSpace(query.StarterID); value != "" {
 		db = db.Where("starter_id = ?", value)
+	}
+	if userID := strings.TrimSpace(query.ScopeUserID); userID != "" {
+		switch query.Scope {
+		case application.InstanceScopeStarted:
+			db = db.Where("starter_id = ?", userID)
+		case application.InstanceScopeHandled:
+			db = db.Where(`EXISTS (
+				SELECT 1 FROM workflow_process_tasks scope_task
+				WHERE scope_task.instance_id = workflow_process_instances.id
+				AND (scope_task.task_assignee_id = ? OR scope_task.handled_by = ?)
+			)`, userID, userID)
+		case application.InstanceScopeCopied:
+			db = db.Where(`EXISTS (
+				SELECT 1 FROM workflow_instance_participants scope_participant
+				WHERE scope_participant.instance_id = workflow_process_instances.id
+				AND scope_participant.user_id = ? AND scope_participant.participant_role = ?
+			)`, userID, workflowmodel.ParticipantRoleCC)
+		}
 	}
 	return db
 }

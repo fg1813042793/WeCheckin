@@ -422,6 +422,55 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "批量删除 /api/v2/admin/dingtalk/perf-histories",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk/perf-histories/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "删除 /api/v2/admin/dingtalk/perf-histories/{id}",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
             }
         },
         "/api/v2/admin/dingtalk/perf-reviews": {
@@ -435,6 +484,25 @@ const docTemplate = `{
                     "API v2-后台管理"
                 ],
                 "summary": "查询 /api/v2/admin/dingtalk/perf-reviews",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理"
+                ],
+                "summary": "批量删除 /api/v2/admin/dingtalk/perf-reviews",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3487,6 +3555,386 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/scheduled-task-handlers": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "查询可用任务处理器",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-task-runs": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "查询定时任务运行记录",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-task-runs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "查询定时任务运行详情和日志",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "运行记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-task-runs/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "取消定时任务运行",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "运行记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-task-runs/{id}/retry": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "重试失败的定时任务运行",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "运行记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-task-workers": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "查询定时任务执行节点",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-tasks": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "查询定时任务列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "创建定时任务",
+                "parameters": [
+                    {
+                        "description": "定时任务配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.CreateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-tasks/cron-preview": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "预览 Cron 执行时间",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-tasks/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "查询定时任务详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "定时任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "更新定时任务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "定时任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "定时任务配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.UpdateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "删除定时任务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "定时任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-tasks/{id}/run": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "立即运行定时任务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "定时任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/scheduled-tasks/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "启用或停用定时任务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "定时任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/settings": {
             "put": {
                 "security": [
@@ -5078,6 +5526,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "发布配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workflowservice.PublishRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -5150,6 +5607,27 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/workflow-department-options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流可选部门树",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-instances": {
             "get": {
                 "security": [
@@ -5176,6 +5654,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "starterId 为业务发起人，实际操作人从管理员登录态获取并保存为 operatorId",
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
@@ -5235,6 +5714,140 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-instances/{id}/resume": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "恢复工作流实例的定时节点",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-notifications": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流通知投递记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "instanceId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "接收人用户 ID",
+                        "name": "recipientUserId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "通知事件",
+                        "name": "kind",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "通知渠道",
+                        "name": "channel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "投递状态",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-notifications/dispatch-due": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "投递到期的工作流通知",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-notifications/{id}/retry": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "重试单条工作流通知",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "通知 Outbox ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -5311,6 +5924,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/workflow-published-definitions": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询可发起的已发布工作流",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-published-definitions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询已发布工作流表单 Schema",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-tasks": {
             "get": {
                 "security": [
@@ -5352,6 +6016,27 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-user-options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流可选用户",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6714,6 +7399,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/workflows/drafts/{definitionId}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "查询我的 OA 流程发起草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "保存我的 OA 流程发起草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/workflows/instances": {
             "get": {
                 "security": [
@@ -6725,6 +7468,15 @@ const docTemplate = `{
                     "API v2-客户端-OA流程"
                 ],
                 "summary": "查询我的 OA 流程申请",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "started",
+                        "description": "查询范围: started, handled, copied",
+                        "name": "scope",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6867,6 +7619,121 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "application.CreateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "concurrencyPolicy": {
+                    "type": "string"
+                },
+                "cronExpression": {
+                    "type": "string"
+                },
+                "cronPrecision": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "handlerConfigJson": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "handlerType": {
+                    "type": "string"
+                },
+                "maxCatchUp": {
+                    "type": "integer"
+                },
+                "maxRetries": {
+                    "type": "integer"
+                },
+                "misfirePolicy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "retryBackoffJson": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "timeoutSeconds": {
+                    "type": "integer"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.UpdateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "concurrencyPolicy": {
+                    "type": "string"
+                },
+                "cronExpression": {
+                    "type": "string"
+                },
+                "cronPrecision": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "handlerConfigJson": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "handlerType": {
+                    "type": "string"
+                },
+                "maxCatchUp": {
+                    "type": "integer"
+                },
+                "maxRetries": {
+                    "type": "integer"
+                },
+                "misfirePolicy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "retryBackoffJson": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "timeoutSeconds": {
+                    "type": "integer"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "response.Resp": {
             "type": "object",
             "properties": {
@@ -6876,6 +7743,34 @@ const docTemplate = `{
                 "data": {},
                 "msg": {
                     "type": "string"
+                }
+            }
+        },
+        "workflow.InitiatorConfig": {
+            "type": "object",
+            "properties": {
+                "departmentIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "userIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "workflowservice.PublishRequest": {
+            "type": "object",
+            "properties": {
+                "initiator": {
+                    "$ref": "#/definitions/workflow.InitiatorConfig"
                 }
             }
         }

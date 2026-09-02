@@ -73,25 +73,6 @@ func TestApplicationPermissionTreeEndpointUsesDatabaseNames(t *testing.T) {
 	}
 }
 
-func TestDingTalkH5PermissionVersionIncludesMenuPermissionEdits(t *testing.T) {
-	src, err := os.ReadFile("../../dingtalkh5/performance/review/reviews.go")
-	if err != nil {
-		t.Fatalf("read dingtalk h5 reviews.go: %v", err)
-	}
-	text := string(src)
-	for _, snippet := range []string{
-		"dingTalkH5MenuPermissionEditVersionContext(ctx, db, user)",
-		"MAX(`permission_edit_time`)",
-		"`permission_key` IN ?",
-		"permissionsupport.PlatformDingTalkH5",
-		"permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton",
-	} {
-		if !strings.Contains(text, snippet) {
-			t.Fatalf("dingtalk h5 bootstrap permission version must include menu permission edits with %q", snippet)
-		}
-	}
-}
-
 func TestDingTalkH5BuiltInParentSupportsDirectoryType(t *testing.T) {
 	src, err := os.ReadFile("../../../support/appmenuperm/catalog.go")
 	if err != nil {

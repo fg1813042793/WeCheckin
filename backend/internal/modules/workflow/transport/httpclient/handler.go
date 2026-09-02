@@ -12,12 +12,15 @@ import (
 	"wecheckin/backend/internal/model"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
+	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/pkg/response"
 )
 
 type RuntimeService interface {
-	ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error)
-	GetPublishedDefinition(context.Context, uint) (*workflowapp.PublishedDefinition, error)
+	ListPublishedDefinitionsForStarter(context.Context, string) ([]workflowapp.PublishedDefinition, error)
+	GetPublishedDefinitionForStarter(context.Context, uint, string) (*workflowapp.PublishedDefinition, error)
+	GetStartDraft(context.Context, uint, string) (*workflowapp.StartDraft, error)
+	SaveStartDraft(context.Context, workflowapp.SaveStartDraftRequest) (*workflowapp.StartDraft, error)
 	StartInstance(context.Context, workflowapp.StartInstanceRequest) (*workflowdomain.State, error)
 	CompleteTask(context.Context, workflowapp.CompleteTaskRequest) (*workflowdomain.State, error)
 	WithdrawInstance(context.Context, workflowapp.WithdrawInstanceRequest) (*workflowdomain.State, error)
@@ -40,6 +43,11 @@ type startInstanceBody struct {
 	BusinessType      string                 `json:"businessType"`
 	BusinessKey       string                 `json:"businessKey"`
 	Variables         map[string]interface{} `json:"variables"`
+	FormData          map[string]interface{} `json:"formData"`
+}
+
+type saveStartDraftBody struct {
+	DefinitionVersion int                    `json:"definitionVersion"`
 	FormData          map[string]interface{} `json:"formData"`
 }
 
@@ -71,11 +79,12 @@ type mutationTask struct {
 }
 
 func (handler *RuntimeHandler) ListDefinitions(ctx context.Context, c *app.RequestContext) {
-	if _, ok := authenticatedActorID(c); !ok {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
 		response.Fail(c, "未登录或权限失效")
 		return
 	}
-	data, err := handler.service.ListPublishedDefinitions(ctx)
+	data, err := handler.service.ListPublishedDefinitionsForStarter(ctx, actorID)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -84,7 +93,8 @@ func (handler *RuntimeHandler) ListDefinitions(ctx context.Context, c *app.Reque
 }
 
 func (handler *RuntimeHandler) GetDefinition(ctx context.Context, c *app.RequestContext) {
-	if _, ok := authenticatedActorID(c); !ok {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
 		response.Fail(c, "未登录或权限失效")
 		return
 	}
@@ -93,12 +103,58 @@ func (handler *RuntimeHandler) GetDefinition(ctx context.Context, c *app.Request
 		response.Fail(c, "流程定义无效")
 		return
 	}
-	data, err := handler.service.GetPublishedDefinition(ctx, uint(definitionID))
+	data, err := handler.service.GetPublishedDefinitionForStarter(ctx, uint(definitionID), actorID)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
 	}
 	response.JSON(c, data)
+}
+
+func (handler *RuntimeHandler) GetStartDraft(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	definitionID, ok := parseDefinitionID(c, "definitionId")
+	if !ok {
+		response.Fail(c, "流程定义无效")
+		return
+	}
+	draft, err := handler.service.GetStartDraft(ctx, definitionID, actorID)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, draft)
+}
+
+func (handler *RuntimeHandler) SaveStartDraft(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	definitionID, ok := parseDefinitionID(c, "definitionId")
+	if !ok {
+		response.Fail(c, "流程定义无效")
+		return
+	}
+	var body saveStartDraftBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	draft, err := handler.service.SaveStartDraft(ctx, workflowapp.SaveStartDraftRequest{
+		DefinitionID: definitionID, DefinitionVersion: body.DefinitionVersion,
+		StarterID: actorID, FormData: body.FormData,
+	})
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, draft)
 }
 
 func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.RequestContext) {
@@ -114,8 +170,10 @@ func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.Request
 	}
 	state, err := handler.service.StartInstance(ctx, workflowapp.StartInstanceRequest{
 		DefinitionID: body.DefinitionID, DefinitionVersion: body.DefinitionVersion,
-		BusinessType: body.BusinessType, BusinessKey: body.BusinessKey, StarterID: actorID,
-		Variables: body.Variables, FormData: body.FormData,
+		BusinessType: body.BusinessType, BusinessKey: body.BusinessKey,
+		StarterID: actorID, OperatorID: actorID,
+		ClearStartDraft: true,
+		Variables:       body.Variables, FormData: body.FormData,
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
@@ -134,7 +192,8 @@ func (handler *RuntimeHandler) ListMyInstances(ctx context.Context, c *app.Reque
 	data, err := handler.service.ListMyInstances(ctx, actorID, workflowapp.InstanceQuery{
 		DefinitionID: uint(definitionID), Status: strings.TrimSpace(c.Query("status")),
 		BusinessType: strings.TrimSpace(c.Query("businessType")), BusinessKey: strings.TrimSpace(c.Query("businessKey")),
-		Page: queryInt(c, "page"), PageSize: queryInt(c, "pageSize"),
+		Scope: strings.TrimSpace(c.Query("scope")),
+		Page:  queryInt(c, "page"), PageSize: queryInt(c, "pageSize"),
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
@@ -235,15 +294,20 @@ func (handler *RuntimeHandler) CompleteTask(ctx context.Context, c *app.RequestC
 }
 
 func authenticatedActorID(c *app.RequestContext) (string, bool) {
-	value, ok := c.Get("user")
-	if !ok {
-		return "", false
+	if value, ok := c.Get("user"); ok {
+		if user, ok := value.(*model.User); ok && user != nil && user.ID > 0 {
+			return strconv.FormatUint(uint64(user.ID), 10), true
+		}
 	}
-	user, ok := value.(*model.User)
-	if !ok || user == nil || user.ID == 0 {
-		return "", false
+	if user, ok := dingtalkh5session.CurrentUser(c); ok && user != nil && user.ID > 0 {
+		return strconv.FormatUint(uint64(user.ID), 10), true
 	}
-	return strconv.FormatUint(uint64(user.ID), 10), true
+	return "", false
+}
+
+func parseDefinitionID(c *app.RequestContext, key string) (uint, bool) {
+	value, err := strconv.ParseUint(strings.TrimSpace(c.Param(key)), 10, 64)
+	return uint(value), err == nil && value > 0
 }
 
 func decodeJSONBody(c *app.RequestContext, target interface{}) error {

@@ -8,19 +8,22 @@
         <el-input v-model="selectedNode.name" maxlength="40" :disabled="readonly" @input="$emit('change')" />
       </section>
 
-      <template v-if="selectedNode.type === 'approval'">
+      <template v-if="['approval', 'handle', 'cc', 'notify'].includes(selectedNode.type)">
         <section class="inspector-section">
-          <h4>审批规则</h4>
-          <label class="field-label">审批方式</label>
-          <el-select :model-value="selectedNode.approvalMode" :disabled="readonly" style="width: 100%" @change="updateApprovalMode">
-            <el-option label="单人审批" value="single" />
-            <el-option label="依次审批" value="sequential" />
-            <el-option label="并行审批" value="parallel" />
-            <el-option label="会签审批" value="countersign" />
-          </el-select>
+          <h4>{{ selectedNode.type === 'approval' ? '审批规则' : selectedNode.type === 'handle' ? '办理规则' : selectedNode.type === 'cc' ? '抄送规则' : '接收人规则' }}</h4>
+          <template v-if="selectedNode.type === 'approval'">
+            <label class="field-label">审批方式</label>
+            <el-select :model-value="selectedNode.approvalMode" :disabled="readonly" style="width: 100%" @change="updateApprovalMode">
+              <el-option label="单人审批" value="single" />
+              <el-option label="依次审批" value="sequential" />
+              <el-option label="并行审批" value="parallel" />
+              <el-option label="会签审批" value="countersign" />
+            </el-select>
+          </template>
 
-          <label class="field-label spacing">处理人来源</label>
+          <label class="field-label spacing">{{ ['cc', 'notify'].includes(selectedNode.type) ? '接收人来源' : '处理人来源' }}</label>
           <el-select :model-value="selectedNode.assignee?.type" :disabled="readonly" style="width: 100%" @change="updateAssigneeType">
+            <el-option label="发起人" value="initiator" />
             <el-option label="指定用户" value="user" />
             <el-option label="系统权限角色" value="role" />
             <el-option label="组织审批身份" value="org_identity" />
@@ -79,7 +82,7 @@
                   {{ selectedNode.approvalMode === 'sequential' ? `${index + 1}. ` : '' }}{{ user.name }}
                 </el-tag>
                 <span v-if="user.mobile" class="selected-assignee-row__meta">{{ user.mobile }}</span>
-                <template v-if="selectedNode.approvalMode === 'sequential' && selectedAssigneeUsers.length > 1">
+                <template v-if="selectedNode.type === 'approval' && selectedNode.approvalMode === 'sequential' && selectedAssigneeUsers.length > 1">
                   <el-button circle size="small" icon="ArrowUp" :disabled="readonly || index === 0" @click="moveSelectedAssigneeUser(index, -1)" />
                   <el-button circle size="small" icon="ArrowDown" :disabled="readonly || index === selectedAssigneeUsers.length - 1" @click="moveSelectedAssigneeUser(index, 1)" />
                 </template>
@@ -115,10 +118,10 @@
             <el-select :model-value="orgIdentityCode" :disabled="readonly" style="width: 100%" @change="updateOrgIdentityCode">
               <el-option v-for="identity in orgIdentityOptions" :key="identity.code" :label="identity.name" :value="identity.code" />
             </el-select>
-            <p class="assignee-helper">单人审批时，若组织审批身份解析出多人，则为任一人审批。</p>
+            <p v-if="selectedNode.type === 'approval'" class="assignee-helper">单人审批时，若组织审批身份解析出多人，则为任一人审批。</p>
           </template>
 
-          <template v-else>
+          <template v-else-if="selectedNode.assignee?.type !== 'initiator'">
             <label class="field-label spacing">处理人标识</label>
             <el-input
               :model-value="selectedNode.assignee?.value"
@@ -144,6 +147,84 @@
         </section>
       </template>
 
+      <template v-if="['approval', 'handle', 'cc', 'notify'].includes(selectedNode.type)">
+        <section class="inspector-section notification-section">
+          <div class="section-title-row">
+            <div class="section-title-with-help">
+              <h4>{{ ['approval', 'handle'].includes(selectedNode.type) ? '任务到达通知' : selectedNode.type === 'cc' ? '抄送通知' : '通知配置' }}</h4>
+              <el-tooltip content="通知消息配置说明" placement="top">
+                <el-button
+                  class="notification-help-button"
+                  link
+                  type="primary"
+                  :icon="QuestionFilled"
+                  aria-label="打开通知消息配置说明"
+                  @click="notificationHelpVisible = true"
+                />
+              </el-tooltip>
+            </div>
+            <el-switch
+              v-if="selectedNode.type !== 'notify'"
+              :model-value="notificationEnabled"
+              :disabled="readonly"
+              @change="updateNotificationEnabled"
+            />
+            <el-tag v-else size="small" type="success" effect="plain">必须发送</el-tag>
+          </div>
+          <template v-if="notificationEnabled">
+            <label class="field-label">通知渠道</label>
+            <el-checkbox-group :model-value="notificationChannels" :disabled="readonly" class="notification-channels" @change="updateNotificationChannels">
+              <el-checkbox value="in_app">站内通知</el-checkbox>
+              <el-checkbox value="dingtalk_oa">钉钉 OA</el-checkbox>
+            </el-checkbox-group>
+            <label class="field-label spacing">通知标题</label>
+            <el-input
+              :model-value="selectedNode.notification?.title || ''"
+              maxlength="256"
+              :disabled="readonly"
+              placeholder="{{workflowName}}"
+              @input="updateNotificationTitle"
+            />
+            <label class="field-label spacing">通知正文</label>
+            <el-input
+              :model-value="selectedNode.notification?.content || ''"
+              type="textarea"
+              :rows="5"
+              maxlength="2000"
+              show-word-limit
+              :disabled="readonly"
+              @input="updateNotificationContent"
+            />
+          </template>
+        </section>
+      </template>
+
+      <template v-if="selectedNode.type === 'automation'">
+        <section class="inspector-section">
+          <h4>自动动作</h4>
+          <label class="field-label">写入流程变量</label>
+          <el-input v-model="automationVariablesText" type="textarea" :rows="8" :disabled="readonly" placeholder="JSON 对象" />
+          <el-button class="section-action" type="primary" plain :disabled="readonly" @click="applyAutomationVariables">应用变量</el-button>
+        </section>
+      </template>
+
+      <template v-if="selectedNode.type === 'timer'">
+        <section class="inspector-section">
+          <h4>定时等待</h4>
+          <label class="field-label">等待秒数</label>
+          <el-input-number
+            :model-value="selectedNode.timer?.delaySeconds || 86400"
+            :min="1"
+            :max="31536000"
+            :step="60"
+            :disabled="readonly"
+            controls-position="right"
+            style="width: 100%"
+            @change="updateTimerDelay"
+          />
+        </section>
+      </template>
+
       <template v-if="selectedNode.gatewayMode === 'split'">
         <section class="inspector-section">
           <div class="section-title-row">
@@ -166,7 +247,24 @@
               <el-checkbox :model-value="branch.default === true" :disabled="readonly" class="default-check" @change="updateDefaultBranch(branch, $event)">默认分支</el-checkbox>
               <template v-if="!branch.default">
                 <label class="field-label">条件字段</label>
-                <el-input :model-value="branch.condition?.field" size="small" :disabled="readonly" placeholder="例如：amount" @input="updateConditionField(branch, $event)" />
+                <el-select
+                  :model-value="branch.condition?.field"
+                  size="small"
+                  class="condition-field-select"
+                  :disabled="readonly"
+                  filterable
+                  allow-create
+                  default-first-option
+                  placeholder="选择表单字段"
+                  @change="updateConditionField(branch, $event)"
+                >
+                  <el-option
+                    v-for="field in conditionFieldOptions"
+                    :key="field.key"
+                    :label="`${field.label}（${field.key}）`"
+                    :value="field.key"
+                  />
+                </el-select>
                 <div class="condition-row">
                   <el-select :model-value="branch.condition?.operator || 'eq'" size="small" :disabled="readonly" @change="updateConditionOperator(branch, $event)">
                     <el-option label="等于" value="eq" />
@@ -194,10 +292,69 @@
       </div>
     </div>
   </aside>
+
+  <el-dialog
+    v-model="notificationHelpVisible"
+    title="通知消息配置说明"
+    width="min(680px, calc(100vw - 32px))"
+    append-to-body
+    destroy-on-close
+  >
+    <div class="notification-help-content">
+      <section class="notification-help-section">
+        <h3>如何配置</h3>
+        <ol class="notification-help-steps">
+          <li>选择站内通知、钉钉 OA，或同时选择两个渠道。</li>
+          <li>在通知标题和通知正文中输入固定文字，并按需插入下方占位符。</li>
+          <li>保存并发布流程后，系统会在任务到达或通知节点触发时替换占位符并发送消息。</li>
+        </ol>
+        <el-alert
+          title="当前所选渠道共用同一套标题和正文；钉钉通知点击后进入企业配置的应用首页。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+      </section>
+
+      <section class="notification-help-section">
+        <h3>可用占位符</h3>
+        <el-table :data="notificationPlaceholderRows" border size="small" table-layout="fixed">
+          <el-table-column label="占位符" width="180">
+            <template #default="{ row }"><code class="placeholder-code" v-text="row.placeholder" /></template>
+          </el-table-column>
+          <el-table-column prop="description" label="替换内容" />
+          <el-table-column prop="example" label="示例" width="150" />
+        </el-table>
+      </section>
+
+      <section class="notification-help-section">
+        <h3>配置示例</h3>
+        <dl class="notification-example-list">
+          <div><dt>标题模板</dt><dd><code v-text="notificationExample.titleTemplate" /></dd></div>
+          <div><dt>正文模板</dt><dd><code v-text="notificationExample.contentTemplate" /></dd></div>
+          <div><dt>发送标题</dt><dd>{{ notificationExample.renderedTitle }}</dd></div>
+          <div><dt>发送正文</dt><dd>{{ notificationExample.renderedContent }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="notification-help-section notification-help-limits">
+        <h3>格式限制</h3>
+        <p>配置时标题最多 256 个字符，正文最多 2000 个字符。</p>
+        <p>发送时标题最多 64 个字符，正文最多 1000 个字符，超出部分会被截断。</p>
+        <p>为避免表单数据泄露，通知模板不支持直接读取表单字段或流程变量。</p>
+      </section>
+    </div>
+    <template #footer>
+      <el-button type="primary" @click="notificationHelpVisible = false">知道了</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { QuestionFilled } from '@element-plus/icons-vue'
+import { defaultNotificationConfig } from '../graph'
 import type {
   ApprovalMode,
   AssigneeType,
@@ -206,6 +363,7 @@ import type {
   WorkflowDraft,
   WorkflowEdge,
   WorkflowOrgApproverIdentity,
+  WorkflowNotificationChannel,
 } from '../../types'
 
 const props = defineProps<{
@@ -225,11 +383,27 @@ const emit = defineEmits<{
 
 const assigneeUserTreeRef = ref<any>(null)
 const assigneeUserKeyword = ref('')
+const automationVariablesText = ref('{}')
+const notificationHelpVisible = ref(false)
+const notificationPlaceholderRows = [
+  { placeholder: '{{workflowName}}', description: '当前流程定义名称', example: '请假审批' },
+  { placeholder: '{{nodeName}}', description: '当前审批、办理、抄送或通知节点名称', example: '部门负责人审批' },
+  { placeholder: '{{starterName}}', description: '流程业务发起人的显示名称', example: '张三' },
+  { placeholder: '{{instanceId}}', description: '当前流程实例 ID', example: 'instance_123' },
+  { placeholder: '{{taskId}}', description: '当前审批或办理任务 ID；非任务通知为空', example: 'task_456' },
+]
+const notificationExample = {
+  titleTemplate: '{{workflowName}}',
+  contentTemplate: '{{starterName}} 发起的流程已到达 {{nodeName}}，请及时处理。',
+  renderedTitle: '请假审批',
+  renderedContent: '张三发起的流程已到达部门负责人审批，请及时处理。',
+}
 
 const selectedNode = computed(() => props.draft.nodes.find(item => item.id === props.selectedNodeId))
 const branchEdges = computed(() => selectedNode.value?.gatewayMode === 'split'
   ? props.draft.edges.filter(item => item.source === selectedNode.value?.id)
   : [])
+const conditionFieldOptions = computed(() => props.draft.form || [])
 const canDelete = computed(() => !props.readonly && selectedNode.value && !['start', 'end'].includes(selectedNode.value.type))
 const departments = computed(() => props.departments || [])
 const users = computed(() => props.users || [])
@@ -237,7 +411,8 @@ const orgIdentityOptions = computed(() => {
   if (props.orgIdentities?.length) return props.orgIdentities
   return [{ code: 'department_leader', name: '部门负责人' }]
 })
-const canSelectMultipleAssignees = computed(() => selectedNode.value?.approvalMode !== 'single')
+const canSelectMultipleAssignees = computed(() => selectedNode.value?.type === 'cc' || selectedNode.value?.type === 'notify'
+  || (selectedNode.value?.type === 'approval' && selectedNode.value.approvalMode !== 'single'))
 const assigneeUserTreeData = computed(() => buildAssigneeUserTree(departments.value, users.value))
 const selectedAssigneeUserIDs = computed(() => parseNumberIDs(selectedNode.value?.assignee?.type === 'user' ? selectedNode.value.assignee.value : ''))
 const selectedAssigneeUsers = computed(() => {
@@ -253,8 +428,13 @@ const orgIdentitySelection = computed(() => parseOrgIdentityValue(selectedNode.v
 const orgIdentityScope = computed(() => orgIdentitySelection.value.scope)
 const orgIdentityDepartmentID = computed(() => orgIdentitySelection.value.departmentID)
 const orgIdentityCode = computed(() => orgIdentitySelection.value.identityCode || defaultOrgIdentityCode())
+const notificationEnabled = computed(() => selectedNode.value?.type === 'notify' || selectedNode.value?.notification?.enabled === true)
+const notificationChannels = computed(() => selectedNode.value?.notification?.channels || [])
 
-watch(() => props.selectedNodeId, () => nextTick(syncAssigneeUserTreeKeys))
+watch(() => props.selectedNodeId, () => {
+  syncAutomationVariablesText()
+  nextTick(syncAssigneeUserTreeKeys)
+}, { immediate: true })
 watch(() => selectedNode.value?.assignee?.value, () => nextTick(syncAssigneeUserTreeKeys))
 watch(() => users.value.length, () => nextTick(syncAssigneeUserTreeKeys))
 
@@ -262,6 +442,46 @@ function ensureAssignee() {
   if (!selectedNode.value) return undefined
   selectedNode.value.assignee ||= { type: 'manager', value: 'direct_manager' }
   return selectedNode.value.assignee
+}
+
+function ensureNotification() {
+  if (!selectedNode.value || !['approval', 'handle', 'cc', 'notify'].includes(selectedNode.value.type)) return undefined
+  if (!selectedNode.value.notification) {
+    selectedNode.value.notification = defaultNotificationConfig(selectedNode.value.type as 'approval' | 'handle' | 'cc' | 'notify')
+  }
+  if (selectedNode.value.type === 'notify') selectedNode.value.notification.enabled = true
+  return selectedNode.value.notification
+}
+
+function updateNotificationEnabled(value: string | number | boolean) {
+  if (!selectedNode.value || selectedNode.value.type === 'notify') return
+  const notification = ensureNotification()
+  if (!notification) return
+  notification.enabled = Boolean(value)
+  emit('change')
+}
+
+function updateNotificationChannels(value: unknown) {
+  const notification = ensureNotification()
+  if (!notification) return
+  const allowed = new Set<WorkflowNotificationChannel>(['in_app', 'dingtalk_oa'])
+  notification.channels = Array.from(new Set(Array.isArray(value) ? value : []))
+    .filter((item): item is WorkflowNotificationChannel => allowed.has(item as WorkflowNotificationChannel))
+  emit('change')
+}
+
+function updateNotificationTitle(value: string) {
+  const notification = ensureNotification()
+  if (!notification) return
+  notification.title = String(value || '')
+  emit('change')
+}
+
+function updateNotificationContent(value: string) {
+  const notification = ensureNotification()
+  if (!notification) return
+  notification.content = String(value || '')
+  emit('change')
 }
 
 function updateApprovalMode(value: ApprovalMode) {
@@ -307,8 +527,34 @@ function updateCompletionRate(value: number | undefined) {
   emit('change')
 }
 
+function syncAutomationVariablesText() {
+  automationVariablesText.value = JSON.stringify(selectedNode.value?.automation?.variables || {}, null, 2)
+}
+
+function applyAutomationVariables() {
+  if (!selectedNode.value || selectedNode.value.type !== 'automation') return
+  try {
+    const variables = JSON.parse(automationVariablesText.value || '{}')
+    if (!variables || Array.isArray(variables) || typeof variables !== 'object' || Object.keys(variables).length === 0) {
+      throw new Error('请填写非空 JSON 对象')
+    }
+    selectedNode.value.automation = { type: 'set_variables', variables }
+    automationVariablesText.value = JSON.stringify(variables, null, 2)
+    emit('change')
+  } catch (error) {
+    ElMessage.warning(error instanceof Error ? error.message : '变量 JSON 格式无效')
+  }
+}
+
+function updateTimerDelay(value: number | undefined) {
+  if (!selectedNode.value || selectedNode.value.type !== 'timer') return
+  selectedNode.value.timer = { delaySeconds: Math.min(31536000, Math.max(1, Number(value || 1))) }
+  emit('change')
+}
+
 function assigneePlaceholder(type?: AssigneeType) {
   return ({
+    initiator: '流程业务发起人',
     user: '请选择用户',
     role: '输入系统权限角色 ID，多个用逗号分隔',
     department_leader: '例如：current_department',
@@ -621,6 +867,7 @@ function setDefaultBranch(edge: WorkflowEdge, checked: boolean) {
 .inspector-section h4 { margin: 0 0 14px; color: #334155; font-size: 13px; }
 .field-label { display: block; margin-bottom: 7px; color: #64748b; font-size: 12px; font-weight: 500; }
 .field-label.spacing { margin-top: 14px; }
+.section-action { width: 100%; margin-top: 10px; }
 .scope-group { width: 100%; }
 .scope-group :deep(.el-radio-button) { width: 50%; }
 .scope-group :deep(.el-radio-button__inner) { width: 100%; }
@@ -636,12 +883,36 @@ function setDefaultBranch(edge: WorkflowEdge, checked: boolean) {
 .selected-assignee-row__meta { flex: 1; min-width: 0; overflow: hidden; color: #94a3b8; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .section-title-row h4 { margin: 0; }
+.section-title-with-help { display: inline-flex; min-width: 0; align-items: center; gap: 3px; }
+.notification-help-button { width: 28px; height: 28px; padding: 0; font-size: 16px; }
+.notification-channels { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.notification-channels :deep(.el-checkbox) { margin-right: 0; }
 .branch-editor { margin-bottom: 12px; padding: 12px; border: 1px solid #e5eaf0; border-radius: 7px; background: #fafbfd; }
 .branch-editor:last-child { margin-bottom: 0; }
 .branch-editor__heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #334155; font-size: 12px; }
 .default-check { margin: 9px 0; }
+.condition-field-select { width: 100%; }
 .condition-row { display: grid; grid-template-columns: 105px 1fr; gap: 7px; margin-top: 7px; }
 .join-note { display: flex; align-items: flex-start; gap: 8px; color: #64748b; font-size: 12px; line-height: 1.6; }
 .join-note .el-icon { margin-top: 3px; color: #0f766e; }
 .inspector-footer { padding-top: 18px; }
+.notification-help-content { color: #475569; }
+.notification-help-section + .notification-help-section { margin-top: 22px; }
+.notification-help-section h3 { margin: 0 0 10px; color: #1f2937; font-size: 15px; }
+.notification-help-steps { margin: 0 0 14px; padding-left: 22px; line-height: 1.8; }
+.notification-example-list { margin: 0; border-top: 1px solid #e5e7eb; }
+.notification-example-list > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); border-bottom: 1px solid #e5e7eb; }
+.notification-example-list dt,
+.notification-example-list dd { margin: 0; padding: 10px 12px; line-height: 1.6; }
+.notification-example-list dt { background: #f8fafc; color: #64748b; font-weight: 600; }
+.notification-example-list dd { min-width: 0; overflow-wrap: anywhere; color: #334155; }
+.placeholder-code,
+.notification-example-list code { color: #2563eb; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.notification-help-limits { padding: 12px 14px; border-left: 3px solid #409eff; background: #f6faff; }
+.notification-help-limits p { margin: 0; line-height: 1.8; }
+@media (max-width: 560px) {
+  .notification-example-list > div { grid-template-columns: 1fr; }
+  .notification-example-list dt { padding-bottom: 4px; }
+  .notification-example-list dd { padding-top: 4px; }
+}
 </style>

@@ -1,4 +1,4 @@
-import type { WorkflowDraft, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '../types'
+import type { WorkflowDraft, WorkflowEdge, WorkflowEdgeHandle, WorkflowInsertableNodeType, WorkflowNode, WorkflowNodeType, WorkflowNotificationConfig } from '../types'
 
 let sequence = 0
 
@@ -14,19 +14,78 @@ function approvalNode(name = '审批节点'): WorkflowNode {
     name,
     approvalMode: 'single',
     assignee: { type: 'manager', value: 'direct_manager' },
+    notification: defaultNotificationConfig('approval'),
   }
 }
 
-function edge(source: string, target: string, name = ''): WorkflowEdge {
-  return { id: nextID('flow'), source, target, ...(name ? { name } : {}) }
+export function defaultNotificationConfig(type: Extract<WorkflowNodeType, 'approval' | 'handle' | 'cc' | 'notify'>): WorkflowNotificationConfig {
+  const content = type === 'cc'
+    ? '{{starterName}} 发起的流程已抄送给你'
+    : type === 'notify'
+      ? '流程已到达 {{nodeName}}'
+      : '你有一项待处理任务：{{nodeName}}'
+  return {
+    enabled: true,
+    channels: ['in_app', 'dingtalk_oa'],
+    title: '{{workflowName}}',
+    content,
+  }
 }
 
-function reconnectEdge(original: WorkflowEdge, source: string, target: string): WorkflowEdge {
+function operationNode(type: Extract<WorkflowNodeType, 'handle' | 'cc' | 'notify' | 'automation' | 'timer'>): WorkflowNode {
+  if (type === 'handle') {
+    return {
+      id: nextID(type), type, name: '办理/填写',
+      assignee: { type: 'manager', value: 'direct_manager' },
+      notification: defaultNotificationConfig(type),
+    }
+  }
+  if (type === 'cc') {
+    return {
+      id: nextID(type), type, name: '抄送',
+      assignee: { type: 'variable', value: 'ccUserIds' },
+      notification: defaultNotificationConfig(type),
+    }
+  }
+  if (type === 'notify') {
+    return {
+      id: nextID(type), type, name: '通知',
+      assignee: { type: 'variable', value: 'notificationUserIds' },
+      notification: defaultNotificationConfig(type),
+    }
+  }
+  if (type === 'automation') {
+    return { id: nextID(type), type, name: '自动动作', automation: { type: 'set_variables', variables: { processed: true } } }
+  }
+  return { id: nextID(type), type, name: '定时/等待', timer: { delaySeconds: 86400 } }
+}
+
+function edge(source: string, target: string, name = '', sourceHandle?: WorkflowEdgeHandle, targetHandle?: WorkflowEdgeHandle): WorkflowEdge {
+  return {
+    id: nextID('flow'),
+    source,
+    target,
+    ...(name ? { name } : {}),
+    ...(sourceHandle ? { sourceHandle } : {}),
+    ...(targetHandle ? { targetHandle } : {}),
+  }
+}
+
+function reconnectEdge(
+  original: WorkflowEdge,
+  source: string,
+  target: string,
+  handles?: { sourceHandle?: WorkflowEdgeHandle; targetHandle?: WorkflowEdgeHandle },
+): WorkflowEdge {
+  const sourceHandle = handles ? handles.sourceHandle : original.sourceHandle
+  const targetHandle = handles ? handles.targetHandle : original.targetHandle
   return {
     ...original,
     id: nextID('flow'),
     source,
     target,
+    sourceHandle,
+    targetHandle,
     ...(original.condition ? { condition: { ...original.condition } } : {}),
   }
 }
@@ -55,17 +114,17 @@ export function insertGateway(draft: WorkflowDraft, type: Extract<WorkflowNodeTy
 export function insertNodeAtEdge(
   draft: WorkflowDraft,
   edgeID: string,
-  type: Extract<WorkflowNodeType, 'approval' | 'exclusive' | 'parallel'>,
+  type: WorkflowInsertableNodeType,
 ) {
   const currentEdge = draft.edges.find(item => item.id === edgeID)
   if (!currentEdge) return null
-  if (type === 'approval') {
-    const node = approvalNode()
+  if (type !== 'exclusive' && type !== 'parallel') {
+    const node = type === 'approval' ? approvalNode() : operationNode(type)
     draft.edges = draft.edges.filter(item => item.id !== currentEdge.id)
     draft.nodes.push(node)
     draft.edges.push(
-      reconnectEdge(currentEdge, currentEdge.source, node.id),
-      edge(node.id, currentEdge.target),
+      reconnectEdge(currentEdge, currentEdge.source, node.id, { sourceHandle: currentEdge.sourceHandle }),
+      edge(node.id, currentEdge.target, '', undefined, currentEdge.targetHandle),
     )
     return node
   }
@@ -83,12 +142,12 @@ export function insertNodeAtEdge(
   draft.edges = draft.edges.filter(item => item.id !== currentEdge.id)
   draft.nodes.push(split, branchA, branchB, join)
   draft.edges.push(
-    reconnectEdge(currentEdge, currentEdge.source, split.id),
+    reconnectEdge(currentEdge, currentEdge.source, split.id, { sourceHandle: currentEdge.sourceHandle }),
     first,
     second,
     edge(branchA.id, join.id),
     edge(branchB.id, join.id),
-    edge(join.id, currentEdge.target),
+    edge(join.id, currentEdge.target, '', undefined, currentEdge.targetHandle),
   )
   return split
 }
@@ -128,7 +187,13 @@ function findPairedSplit(draft: WorkflowDraft, joinID: string) {
       ...item,
       gatewayMode: item.gatewayMode === 'join' ? 'split' : item.gatewayMode === 'split' ? 'join' : undefined,
     })),
-    edges: draft.edges.map(item => ({ ...item, source: item.target, target: item.source })),
+    edges: draft.edges.map(item => ({
+      ...item,
+      source: item.target,
+      target: item.source,
+      sourceHandle: item.targetHandle,
+      targetHandle: item.sourceHandle,
+    })),
   }
   const paired = findPairedJoin(reversed, joinID)
   return draft.nodes.find(item => item.id === paired?.id && item.gatewayMode === 'split')
@@ -160,7 +225,7 @@ export function removeNode(draft: WorkflowDraft, nodeID: string) {
     const removed = collectNodesBeforeJoin(draft, split.id, join.id)
     draft.nodes = draft.nodes.filter(item => !removed.has(item.id))
     draft.edges = draft.edges.filter(item => !removed.has(item.source) && !removed.has(item.target))
-    draft.edges.push(edge(before.source, after.target))
+    draft.edges.push(edge(before.source, after.target, '', before.sourceHandle, after.targetHandle))
     return true
   }
 
@@ -178,7 +243,10 @@ export function removeNode(draft: WorkflowDraft, nodeID: string) {
   }
   draft.nodes = draft.nodes.filter(item => item.id !== nodeID)
   draft.edges = draft.edges.filter(item => item.source !== nodeID && item.target !== nodeID)
-  draft.edges.push(reconnectEdge(incoming[0], incoming[0].source, outgoing[0].target))
+  draft.edges.push(reconnectEdge(incoming[0], incoming[0].source, outgoing[0].target, {
+    sourceHandle: incoming[0].sourceHandle,
+    targetHandle: outgoing[0].targetHandle,
+  }))
   return true
 }
 

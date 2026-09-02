@@ -69,7 +69,18 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	cExam := clientexam.NewClientExamHandler()
 	db := database.GetDB()
 	workflowStore := workflowinfra.NewGormStore(db)
-	workflowService := workflowapp.NewService(workflowStore, workflowinfra.NewAssigneeResolver(db), workflowinfra.NewRandomIDGenerator())
+	notificationRepository := workflowinfra.NewGormNotificationRepository(db)
+	notificationDispatcher := workflowapp.NewNotificationDispatcher(
+		notificationRepository,
+		workflowinfra.NewDingTalkNotificationChannel(db, nil),
+	)
+	workflowService := workflowapp.NewServiceWithNotifications(
+		workflowStore,
+		workflowinfra.NewAssigneeResolver(db),
+		workflowinfra.NewRandomIDGenerator(),
+		workflowapp.DefaultLifecycleEventPublisher(),
+		notificationDispatcher,
+	)
 	workflowHandler := workflowhttp.NewRuntimeHandler(workflowService)
 
 	client := h.Group("/api/v2", clientmw.ClientAuth(), clientmw.ClientPerm())
@@ -113,6 +124,8 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	client.PUT("/exam-records/:id/answers", routeparam.WithFormParam("recordId", "id", cExam.SaveAnswer))
 	client.GET("/workflows/definitions", workflowHandler.ListDefinitions)
 	client.GET("/workflows/definitions/:id", workflowHandler.GetDefinition)
+	client.GET("/workflows/drafts/:definitionId", workflowHandler.GetStartDraft)
+	client.PUT("/workflows/drafts/:definitionId", workflowHandler.SaveStartDraft)
 	client.POST("/workflows/instances", workflowHandler.StartInstance)
 	client.GET("/workflows/instances", workflowHandler.ListMyInstances)
 	client.GET("/workflows/instances/:id", workflowHandler.GetMyInstance)

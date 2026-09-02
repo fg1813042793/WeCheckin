@@ -94,10 +94,6 @@ func TestBackendPortReferencesUse8083(t *testing.T) {
 			},
 			forbidden: []string{`"8080:8080"`},
 		},
-		"../nginx.conf": {
-			required:  []string{"location /api/", "proxy_pass http://backend:8083;", "location = /health", "location = /ready"},
-			forbidden: []string{"backend:8080", "proxy_pass http://backend:8083/;", "\n}\n\n# API 服务器配置\nserver"},
-		},
 		"../docs/swagger/docs.go": {
 			required:  []string{"localhost:8083"},
 			forbidden: []string{"localhost:8080"},

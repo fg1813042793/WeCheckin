@@ -10,6 +10,7 @@ const requiredSnippets = [
   'manualChunks',
   'vendor-vue',
   'vendor-element-plus',
+  'vendor-workflow-graph',
   'vendor-echarts',
   'vendor-editor',
   'vendor-qrcode-map'

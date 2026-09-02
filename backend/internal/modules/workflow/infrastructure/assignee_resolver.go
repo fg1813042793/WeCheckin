@@ -10,8 +10,10 @@ import (
 
 	"gorm.io/gorm"
 
+	"wecheckin/backend/internal/model"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/workflowcore"
+	"wecheckin/backend/pkg/database"
 )
 
 type AssigneeResolver struct {
@@ -28,6 +30,8 @@ func (resolver *AssigneeResolver) Resolve(request workflowdomain.AssigneeRequest
 	}
 	assignee := request.Node.Assignee
 	switch assignee.Type {
+	case workflowcore.AssigneeTypeInitiator:
+		return orderedUniqueAssignees([]string{request.Instance.StarterID}), nil
 	case workflowcore.AssigneeTypeUser:
 		return orderedUniqueAssignees(strings.Split(assignee.Value, ",")), nil
 	case workflowcore.AssigneeTypeVariable:
@@ -58,32 +62,25 @@ func (resolver *AssigneeResolver) resolveManager(ctx context.Context, request wo
 	if starterID == 0 {
 		return nil, nil
 	}
-	var starter struct {
+	var relation struct {
 		ManagerUserID uint `gorm:"column:manager_user_id"`
 	}
-	err := resolver.db.WithContext(ctx).Table("users").
-		Select("manager_user_id").
-		Where("id = ? AND user_status = 1", starterID).
-		Take(&starter).Error
+	now := database.Now()
+	err := resolver.db.WithContext(ctx).Table("user_reporting_relations AS r").
+		Select("r.manager_user_id").
+		Joins("JOIN users AS employee ON employee.id = r.employee_user_id AND employee.user_status = 1").
+		Joins("JOIN users AS manager ON manager.id = r.manager_user_id AND manager.user_status = 1").
+		Where("r.employee_user_id = ? AND r.relation_type = ? AND r.relation_status = ?", starterID, model.ReportingRelationTypeDirect, model.ReportingRelationStatusOn).
+		Where("(r.effective_from = 0 OR r.effective_from <= ?) AND (r.effective_to = 0 OR r.effective_to > ?)", now, now).
+		Order("r.is_primary DESC, r.relation_sort ASC, r.id ASC").
+		Take(&relation).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if starter.ManagerUserID == 0 {
-		return nil, nil
-	}
-	var count int64
-	if err := resolver.db.WithContext(ctx).Table("users").
-		Where("id = ? AND user_status = 1", starter.ManagerUserID).
-		Count(&count).Error; err != nil {
-		return nil, err
-	}
-	if count == 0 {
-		return nil, nil
-	}
-	return []string{strconv.FormatUint(uint64(starter.ManagerUserID), 10)}, nil
+	return []string{strconv.FormatUint(uint64(relation.ManagerUserID), 10)}, nil
 }
 
 func managerVariableKeys(rawKey string) []string {
@@ -127,6 +124,16 @@ func (resolver *AssigneeResolver) resolveOrgIdentity(ctx context.Context, reques
 	departmentIDs := make([]uint, 0, 1)
 	switch scope {
 	case "starter_department":
+		starterID := parsePositiveUint(request.Instance.StarterID)
+		if starterID > 0 {
+			userIDs, err := resolver.resolveOrgIdentityAssignments(ctx, model.OrgApproverSubjectTypeUser, []uint{starterID}, identityCode)
+			if err != nil {
+				return nil, err
+			}
+			if len(userIDs) > 0 {
+				return userIDs, nil
+			}
+		}
 		ids, err := resolver.starterDepartmentIDs(ctx, request.Instance.StarterID)
 		if err != nil {
 			return nil, err
@@ -142,12 +149,19 @@ func (resolver *AssigneeResolver) resolveOrgIdentity(ctx context.Context, reques
 	if len(departmentIDs) == 0 {
 		return nil, nil
 	}
+	return resolver.resolveOrgIdentityAssignments(ctx, model.OrgApproverSubjectTypeDepartment, departmentIDs, identityCode)
+}
+
+func (resolver *AssigneeResolver) resolveOrgIdentityAssignments(ctx context.Context, subjectType string, subjectIDs []uint, identityCode string) ([]string, error) {
+	if len(subjectIDs) == 0 {
+		return nil, nil
+	}
 	var userIDs []uint
 	if err := resolver.db.WithContext(ctx).Table("workflow_org_approver_assignments AS a").
 		Joins("JOIN workflow_org_approver_identities AS i ON i.identity_code = a.identity_code AND i.identity_status = 1").
 		Joins("JOIN users AS u ON u.id = a.user_id AND u.user_status = 1").
-		Where("a.department_id IN ? AND a.identity_code = ? AND a.assignment_status = 1", departmentIDs, identityCode).
-		Order("a.department_id ASC, a.assignment_sort ASC, a.id ASC").
+		Where("a.subject_type = ? AND a.subject_id IN ? AND a.identity_code = ? AND a.assignment_status = 1", subjectType, subjectIDs, identityCode).
+		Order("a.subject_id ASC, a.assignment_sort ASC, a.id ASC").
 		Pluck("a.user_id", &userIDs).Error; err != nil {
 		return nil, err
 	}

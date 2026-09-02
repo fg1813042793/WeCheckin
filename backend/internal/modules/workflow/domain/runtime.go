@@ -1,6 +1,6 @@
 package domain
 
-import workflowcore "wecheckin/backend/internal/workflow"
+import "wecheckin/backend/internal/workflowcore"
 
 type InstanceStatus string
 
@@ -25,6 +25,7 @@ type TaskStatus string
 const (
 	TaskStatusWaiting   TaskStatus = "waiting"
 	TaskStatusPending   TaskStatus = "pending"
+	TaskStatusCompleted TaskStatus = "completed"
 	TaskStatusApproved  TaskStatus = "approved"
 	TaskStatusRejected  TaskStatus = "rejected"
 	TaskStatusCancelled TaskStatus = "cancelled"
@@ -35,6 +36,7 @@ type TaskAction string
 const (
 	TaskActionApprove TaskAction = "approve"
 	TaskActionReject  TaskAction = "reject"
+	TaskActionSubmit  TaskAction = "submit"
 )
 
 type HistoryEventType string
@@ -45,11 +47,29 @@ const (
 	HistoryTaskActivated     HistoryEventType = "task_activated"
 	HistoryTaskApproved      HistoryEventType = "task_approved"
 	HistoryTaskRejected      HistoryEventType = "task_rejected"
+	HistoryTaskSubmitted     HistoryEventType = "task_submitted"
 	HistoryTaskCancelled     HistoryEventType = "task_cancelled"
+	HistoryNodeCC            HistoryEventType = "node_cc"
+	HistoryNodeNotify        HistoryEventType = "node_notify"
+	HistoryNodeAutomated     HistoryEventType = "node_automated"
+	HistoryTimerWaiting      HistoryEventType = "timer_waiting"
+	HistoryTimerResumed      HistoryEventType = "timer_resumed"
 	HistoryInstanceCompleted HistoryEventType = "instance_completed"
 	HistoryInstanceRejected  HistoryEventType = "instance_rejected"
 	HistoryInstanceWithdrawn HistoryEventType = "instance_withdrawn"
 	HistoryInstanceCancelled HistoryEventType = "instance_cancelled"
+)
+
+type ParticipantRole string
+
+const ParticipantRoleCC ParticipantRole = "cc"
+
+type NotificationKind string
+
+const (
+	NotificationKindNodeCC      NotificationKind = "node_cc"
+	NotificationKindNodeNotify  NotificationKind = "node_notify"
+	NotificationKindTaskArrived NotificationKind = "task_arrived"
 )
 
 type ProcessInstance struct {
@@ -60,6 +80,7 @@ type ProcessInstance struct {
 	BusinessType      string
 	BusinessKey       string
 	StarterID         string
+	OperatorID        string
 	Status            InstanceStatus
 }
 
@@ -96,13 +117,33 @@ type HistoryEvent struct {
 	Message string
 }
 
+type Participant struct {
+	ID     string
+	UserID string
+	Role   ParticipantRole
+	NodeID string
+}
+
+type NotificationIntent struct {
+	ID              string
+	Kind            NotificationKind
+	NodeID          string
+	NodeName        string
+	TaskID          string
+	RecipientUserID string
+	WorkflowName    string
+	Config          workflowcore.NotificationConfig
+}
+
 type State struct {
-	Instance  ProcessInstance
-	Tokens    []Token
-	Tasks     []Task
-	Variables map[string]interface{}
-	FormData  map[string]interface{}
-	History   []HistoryEvent
+	Instance            ProcessInstance
+	Tokens              []Token
+	Tasks               []Task
+	Variables           map[string]interface{}
+	FormData            map[string]interface{}
+	History             []HistoryEvent
+	Participants        []Participant
+	NotificationIntents []NotificationIntent
 }
 
 func (state *State) PendingTasks() []Task {
@@ -121,6 +162,7 @@ type StartRequest struct {
 	BusinessType      string
 	BusinessKey       string
 	StarterID         string
+	OperatorID        string
 	Variables         map[string]interface{}
 	FormData          map[string]interface{}
 }

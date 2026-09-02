@@ -9,11 +9,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/workflowcore"
 )
 
 const maxAutomaticTransitions = 1000
+const timerDueVariablePrefix = "__workflow_timer_due."
 
 var (
 	ErrTaskNotFound            = errors.New("工作流任务不存在")
@@ -25,7 +27,7 @@ var (
 	ErrInstanceAlreadyHandled  = errors.New("流程任务已被处理，不能撤回")
 	ErrNoMatchingBranch        = errors.New("排他网关没有命中条件且未配置默认分支")
 	ErrTransitionLimit         = errors.New("流程自动流转次数超过限制")
-	ErrAssigneeUnavailable     = errors.New("审批节点未解析到审批人")
+	ErrAssigneeUnavailable     = errors.New("流程节点未解析到处理人")
 )
 
 type Engine struct {
@@ -44,6 +46,9 @@ func (engine *Engine) Start(definition workflowcore.Definition, request StartReq
 	if engine.resolver == nil || engine.ids == nil {
 		return nil, errors.New("工作流引擎依赖未配置")
 	}
+	if strings.TrimSpace(request.OperatorID) == "" {
+		request.OperatorID = request.StarterID
+	}
 	startNode, ok := findStartNode(definition)
 	if !ok {
 		return nil, errors.New("流程缺少开始节点")
@@ -53,13 +58,13 @@ func (engine *Engine) Start(definition workflowcore.Definition, request StartReq
 			ID: engine.ids.NewID("instance"), DefinitionID: request.DefinitionID,
 			DefinitionVersion: request.DefinitionVersion, DefinitionKey: definition.Key,
 			BusinessType: request.BusinessType, BusinessKey: request.BusinessKey,
-			StarterID: request.StarterID, Status: InstanceStatusRunning,
+			StarterID: request.StarterID, OperatorID: request.OperatorID, Status: InstanceStatusRunning,
 		},
 		Variables: cloneVariables(request.Variables),
 		FormData:  cloneVariables(request.FormData),
 	}
 	state.Tokens = append(state.Tokens, Token{ID: engine.ids.NewID("token"), NodeID: startNode.ID, Status: TokenStatusActive})
-	engine.addHistory(state, HistoryInstanceStarted, startNode.ID, "", request.StarterID, "流程实例已启动")
+	engine.addHistory(state, HistoryInstanceStarted, startNode.ID, "", request.OperatorID, "流程实例已启动")
 	if err := engine.advanceToken(definition, state, len(state.Tokens)-1, 0); err != nil {
 		return nil, err
 	}
@@ -81,7 +86,15 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 	if strings.TrimSpace(task.AssigneeID) != strings.TrimSpace(request.ActorID) {
 		return ErrTaskActorMismatch
 	}
-	if request.Action != TaskActionApprove && request.Action != TaskActionReject {
+	node, ok := findNode(definition, task.NodeID)
+	if !ok {
+		return fmt.Errorf("流程节点 %s 不存在", task.NodeID)
+	}
+	if node.Type == workflowcore.NodeTypeHandle {
+		if request.Action != TaskActionSubmit {
+			return ErrInvalidTaskAction
+		}
+	} else if node.Type != workflowcore.NodeTypeApproval || (request.Action != TaskActionApprove && request.Action != TaskActionReject) {
 		return ErrInvalidTaskAction
 	}
 	for key, value := range request.Variables {
@@ -92,6 +105,16 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 	}
 	task.Action = request.Action
 	task.Comment = request.Comment
+	if node.Type == workflowcore.NodeTypeHandle {
+		task.Status = TaskStatusCompleted
+		engine.addHistory(state, HistoryTaskSubmitted, task.NodeID, task.ID, request.ActorID, request.Comment)
+		tokenIndex := findTokenIndex(state.Tokens, task.TokenID)
+		if tokenIndex < 0 {
+			return errors.New("办理任务对应的流程令牌不存在")
+		}
+		state.Tokens[tokenIndex].Status = TokenStatusActive
+		return engine.leaveNode(definition, state, tokenIndex, 0)
+	}
 	if request.Action == TaskActionReject {
 		task.Status = TaskStatusRejected
 		engine.addHistory(state, HistoryTaskRejected, task.NodeID, task.ID, request.ActorID, request.Comment)
@@ -109,6 +132,7 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 		if next := nextWaitingTask(state.Tasks, task.GroupKey); next >= 0 {
 			state.Tasks[next].Status = TaskStatusPending
 			engine.addHistory(state, HistoryTaskActivated, state.Tasks[next].NodeID, state.Tasks[next].ID, state.Tasks[next].AssigneeID, "顺序审批任务已激活")
+			engine.addTaskNotificationIntent(state, definition.Name, node, state.Tasks[next])
 		} else {
 			shouldAdvance = true
 		}
@@ -186,12 +210,22 @@ func (engine *Engine) advanceToken(definition workflowcore.Definition, state *St
 	case workflowcore.NodeTypeStart:
 		return engine.leaveNode(definition, state, tokenIndex, depth+1)
 	case workflowcore.NodeTypeApproval:
-		return engine.createApprovalTasks(state, tokenIndex, node)
+		return engine.createApprovalTasks(definition.Name, state, tokenIndex, node)
+	case workflowcore.NodeTypeHandle:
+		return engine.createHandleTask(definition.Name, state, tokenIndex, node)
+	case workflowcore.NodeTypeCC:
+		return engine.executeCC(definition, state, tokenIndex, node, depth+1)
+	case workflowcore.NodeTypeNotify:
+		return engine.executeNotify(definition, state, tokenIndex, node, depth+1)
+	case workflowcore.NodeTypeAutomation:
+		return engine.executeAutomation(definition, state, tokenIndex, node, depth+1)
+	case workflowcore.NodeTypeTimer:
+		return engine.waitForTimer(state, tokenIndex, node)
 	case workflowcore.NodeTypeExclusive:
 		if node.GatewayMode == workflowcore.GatewayModeJoin {
 			return engine.leaveNode(definition, state, tokenIndex, depth+1)
 		}
-		edge, err := selectExclusiveEdge(definition, node.ID, state.Variables)
+		edge, err := selectExclusiveEdge(definition, node.ID, state.Variables, state.FormData)
 		if err != nil {
 			return err
 		}
@@ -210,6 +244,142 @@ func (engine *Engine) advanceToken(definition workflowcore.Definition, state *St
 	}
 }
 
+func (engine *Engine) createHandleTask(workflowName string, state *State, tokenIndex int, node workflowcore.Node) error {
+	assignees, err := engine.resolver.Resolve(AssigneeRequest{Instance: state.Instance, Node: node, Variables: cloneVariables(state.Variables)})
+	if err != nil {
+		return err
+	}
+	assignees = uniqueNonEmpty(assignees)
+	if len(assignees) == 0 {
+		return ErrAssigneeUnavailable
+	}
+	task := Task{
+		ID: engine.ids.NewID("task"), TokenID: state.Tokens[tokenIndex].ID,
+		NodeID: node.ID, NodeName: node.Name, GroupKey: engine.ids.NewID("task-group"),
+		AssigneeID: assignees[0], ApprovalMode: workflowcore.ApprovalModeSingle,
+		CompletionRate: 100, Sequence: 1, Total: 1, Status: TaskStatusPending,
+	}
+	state.Tasks = append(state.Tasks, task)
+	engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, task.AssigneeID, "办理任务已创建")
+	engine.addTaskNotificationIntent(state, workflowName, node, task)
+	state.Tokens[tokenIndex].Status = TokenStatusWaiting
+	return nil
+}
+
+func (engine *Engine) executeCC(definition workflowcore.Definition, state *State, tokenIndex int, node workflowcore.Node, depth int) error {
+	assignees, err := engine.resolver.Resolve(AssigneeRequest{Instance: state.Instance, Node: node, Variables: cloneVariables(state.Variables)})
+	if err != nil {
+		return err
+	}
+	assignees = uniqueNonEmpty(assignees)
+	if len(assignees) == 0 {
+		return ErrAssigneeUnavailable
+	}
+	for _, assigneeID := range assignees {
+		state.Participants = append(state.Participants, Participant{
+			ID: engine.ids.NewID("participant"), UserID: assigneeID, Role: ParticipantRoleCC, NodeID: node.ID,
+		})
+		engine.addHistory(state, HistoryNodeCC, node.ID, "", assigneeID, "流程节点已抄送")
+		engine.addNotificationIntent(state, definition.Name, node, "", assigneeID, NotificationKindNodeCC)
+	}
+	return engine.leaveNode(definition, state, tokenIndex, depth+1)
+}
+
+func (engine *Engine) executeNotify(definition workflowcore.Definition, state *State, tokenIndex int, node workflowcore.Node, depth int) error {
+	assignees, err := engine.resolver.Resolve(AssigneeRequest{Instance: state.Instance, Node: node, Variables: cloneVariables(state.Variables)})
+	if err != nil {
+		return err
+	}
+	assignees = uniqueNonEmpty(assignees)
+	if len(assignees) == 0 {
+		return ErrAssigneeUnavailable
+	}
+	for _, assigneeID := range assignees {
+		engine.addHistory(state, HistoryNodeNotify, node.ID, "", assigneeID, "流程通知节点已触发")
+		engine.addNotificationIntent(state, definition.Name, node, "", assigneeID, NotificationKindNodeNotify)
+	}
+	return engine.leaveNode(definition, state, tokenIndex, depth+1)
+}
+
+func (engine *Engine) executeAutomation(definition workflowcore.Definition, state *State, tokenIndex int, node workflowcore.Node, depth int) error {
+	for key, value := range node.Automation.Variables {
+		state.Variables[key] = value
+	}
+	engine.addHistory(state, HistoryNodeAutomated, node.ID, "", "", "自动动作已写入流程变量")
+	return engine.leaveNode(definition, state, tokenIndex, depth+1)
+}
+
+func (engine *Engine) waitForTimer(state *State, tokenIndex int, node workflowcore.Node) error {
+	key := timerDueVariableKey(state.Tokens[tokenIndex].ID)
+	state.Variables[key] = time.Now().Unix() + node.Timer.DelaySeconds
+	state.Tokens[tokenIndex].Status = TokenStatusWaiting
+	engine.addHistory(state, HistoryTimerWaiting, node.ID, "", "", "流程进入定时等待")
+	return nil
+}
+
+func (engine *Engine) ResumeTimers(definition workflowcore.Definition, state *State, now int64) (int, error) {
+	if state == nil {
+		return 0, ErrInstanceNotRunning
+	}
+	if state.Instance.Status == InstanceStatusCompleted {
+		return 0, nil
+	}
+	if state.Instance.Status != InstanceStatusRunning {
+		return 0, ErrInstanceNotRunning
+	}
+	advanced := 0
+	initialTokenCount := len(state.Tokens)
+	for index := 0; index < initialTokenCount; index++ {
+		token := state.Tokens[index]
+		if token.Status != TokenStatusWaiting {
+			continue
+		}
+		node, ok := findNode(definition, token.NodeID)
+		if !ok || node.Type != workflowcore.NodeTypeTimer {
+			continue
+		}
+		key := timerDueVariableKey(token.ID)
+		dueAt, ok := timerDueAt(state.Variables[key])
+		if !ok {
+			return advanced, fmt.Errorf("定时节点 %s 缺少有效到期时间", node.ID)
+		}
+		if dueAt > now {
+			continue
+		}
+		state.Tokens[index].Status = TokenStatusActive
+		delete(state.Variables, key)
+		engine.addHistory(state, HistoryTimerResumed, node.ID, "", "", "定时等待已到期")
+		if err := engine.leaveNode(definition, state, index, 0); err != nil {
+			return advanced, err
+		}
+		advanced++
+	}
+	return advanced, nil
+}
+
+func timerDueVariableKey(tokenID string) string {
+	return timerDueVariablePrefix + tokenID
+}
+
+func timerDueAt(value interface{}) (int64, bool) {
+	switch typed := value.(type) {
+	case int:
+		return int64(typed), true
+	case int64:
+		return typed, true
+	case float64:
+		return int64(typed), float64(int64(typed)) == typed
+	case json.Number:
+		result, err := typed.Int64()
+		return result, err == nil
+	case string:
+		result, err := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
+		return result, err == nil
+	default:
+		return 0, false
+	}
+}
+
 func (engine *Engine) leaveNode(definition workflowcore.Definition, state *State, tokenIndex, depth int) error {
 	edges := outgoingEdges(definition, state.Tokens[tokenIndex].NodeID)
 	if len(edges) != 1 {
@@ -224,7 +394,7 @@ func (engine *Engine) followEdge(definition workflowcore.Definition, state *Stat
 	return engine.advanceToken(definition, state, tokenIndex, depth+1)
 }
 
-func (engine *Engine) createApprovalTasks(state *State, tokenIndex int, node workflowcore.Node) error {
+func (engine *Engine) createApprovalTasks(workflowName string, state *State, tokenIndex int, node workflowcore.Node) error {
 	assignees, err := engine.resolver.Resolve(AssigneeRequest{Instance: state.Instance, Node: node, Variables: cloneVariables(state.Variables)})
 	if err != nil {
 		return err
@@ -251,9 +421,28 @@ func (engine *Engine) createApprovalTasks(state *State, tokenIndex int, node wor
 		}
 		state.Tasks = append(state.Tasks, task)
 		engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, task.AssigneeID, "审批任务已创建")
+		if task.Status == TaskStatusPending {
+			engine.addTaskNotificationIntent(state, workflowName, node, task)
+		}
 	}
 	state.Tokens[tokenIndex].Status = TokenStatusWaiting
 	return nil
+}
+
+func (engine *Engine) addTaskNotificationIntent(state *State, workflowName string, node workflowcore.Node, task Task) {
+	engine.addNotificationIntent(state, workflowName, node, task.ID, task.AssigneeID, NotificationKindTaskArrived)
+}
+
+func (engine *Engine) addNotificationIntent(state *State, workflowName string, node workflowcore.Node, taskID, recipientID string, kind NotificationKind) {
+	if node.Notification == nil || !node.Notification.Enabled {
+		return
+	}
+	config := *node.Notification
+	config.Channels = append([]string(nil), node.Notification.Channels...)
+	state.NotificationIntents = append(state.NotificationIntents, NotificationIntent{
+		ID: engine.ids.NewID("notification"), Kind: kind, NodeID: node.ID, NodeName: node.Name,
+		TaskID: taskID, RecipientUserID: recipientID, WorkflowName: workflowName, Config: config,
+	})
 }
 
 func (engine *Engine) splitParallel(definition workflowcore.Definition, state *State, tokenIndex int, node workflowcore.Node, depth int) error {
@@ -372,7 +561,7 @@ func outgoingEdges(definition workflowcore.Definition, nodeID string) []workflow
 	return result
 }
 
-func selectExclusiveEdge(definition workflowcore.Definition, nodeID string, variables map[string]interface{}) (workflowcore.Edge, error) {
+func selectExclusiveEdge(definition workflowcore.Definition, nodeID string, variables, formData map[string]interface{}) (workflowcore.Edge, error) {
 	var defaultEdge *workflowcore.Edge
 	for _, edge := range outgoingEdges(definition, nodeID) {
 		if edge.Default {
@@ -380,14 +569,25 @@ func selectExclusiveEdge(definition workflowcore.Definition, nodeID string, vari
 			defaultEdge = &copy
 			continue
 		}
-		if edge.Condition != nil && conditionMatches(*edge.Condition, variables[edge.Condition.Field]) {
-			return edge, nil
+		if edge.Condition != nil {
+			actual, ok := conditionValue(edge.Condition.Field, variables, formData)
+			if ok && conditionMatches(*edge.Condition, actual) {
+				return edge, nil
+			}
 		}
 	}
 	if defaultEdge != nil {
 		return *defaultEdge, nil
 	}
 	return workflowcore.Edge{}, ErrNoMatchingBranch
+}
+
+func conditionValue(field string, variables, formData map[string]interface{}) (interface{}, bool) {
+	if value, ok := variables[field]; ok && value != nil {
+		return value, true
+	}
+	value, ok := formData[field]
+	return value, ok && value != nil
 }
 
 func conditionMatches(condition workflowcore.Condition, actual interface{}) bool {

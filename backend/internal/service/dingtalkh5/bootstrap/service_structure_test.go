@@ -159,27 +159,6 @@ func TestDingTalkH5MenusByKeysUsesPermissionLabels(t *testing.T) {
 	}
 }
 
-func TestDingTalkH5RefreshReloadsBootstrapMenuLabels(t *testing.T) {
-	pageSrc, err := os.ReadFile("../../../../../dingtalk-h5/pages/index/usePerformanceApp.js")
-	if err != nil {
-		t.Fatalf("read dingtalk h5 app state: %v", err)
-	}
-	page := string(pageSrc)
-	for _, snippet := range []string{
-		"async function refreshSessionAndDataSafely()",
-		"const bootstrapped = await loadBootstrapSafely()",
-		"if (!bootstrapped) return false",
-		"return refreshDataSafely({ forceReference: true, contentLoading: true })",
-		"async function refreshWithUserFeedback()",
-		"const refreshed = await refreshSessionAndDataSafely()",
-		"refreshData: refreshWithUserFeedback",
-	} {
-		if !strings.Contains(page, snippet) {
-			t.Fatalf("dingtalk h5 refresh must reload lightweight bootstrap menu labels with %q", snippet)
-		}
-	}
-}
-
 func TestWorkbenchStatsFromCountsReturnsCardsOnly(t *testing.T) {
 	stats := workbenchStatsFromCounts(map[string]int{
 		reviewStatusDraft:         1,

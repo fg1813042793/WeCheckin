@@ -95,9 +95,9 @@ func TestManagerReviewStartedDetectsManagerEvaluationFields(t *testing.T) {
 }
 
 func TestWithdrawContextGuardsEmployeeWithdrawAfterManagerReviewStarted(t *testing.T) {
-	src, err := os.ReadFile("reviews.go")
+	src, err := os.ReadFile("review_flow.go")
 	if err != nil {
-		t.Fatalf("read reviews.go: %v", err)
+		t.Fatalf("read review_flow.go: %v", err)
 	}
 	body := functionBody(string(src), "func WithdrawContext")
 	if body == "" {

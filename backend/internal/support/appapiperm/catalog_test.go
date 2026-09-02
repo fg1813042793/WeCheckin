@@ -30,6 +30,10 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 		"dingtalk_h5:api:user:edit":          false,
 		"dingtalk_h5:api:template:view":      false,
 		"dingtalk_h5:api:template:save":      false,
+		"dingtalk_h5:api:workflow:view":      false,
+		"dingtalk_h5:api:workflow:start":     false,
+		"dingtalk_h5:api:workflow:handle":    false,
+		"dingtalk_h5:api:workflow:withdraw":  false,
 	}
 	for _, declaration := range declarations {
 		if !strings.HasPrefix(declaration.Key, "dingtalk_h5:api:") {
@@ -46,6 +50,31 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing dingtalk h5 API permission %s", key)
 		}
+	}
+
+	workflowRoutes := map[string]string{
+		"GET /api/v2/dingtalk/h5/workflows/definitions":             "dingtalk_h5:api:workflow:view",
+		"GET /api/v2/dingtalk/h5/workflows/definitions/:id":         "dingtalk_h5:api:workflow:view",
+		"GET /api/v2/dingtalk/h5/workflows/drafts/:definitionId":    "dingtalk_h5:api:workflow:start",
+		"PUT /api/v2/dingtalk/h5/workflows/drafts/:definitionId":    "dingtalk_h5:api:workflow:start",
+		"POST /api/v2/dingtalk/h5/workflows/instances":              "dingtalk_h5:api:workflow:start",
+		"GET /api/v2/dingtalk/h5/workflows/instances":               "dingtalk_h5:api:workflow:view",
+		"GET /api/v2/dingtalk/h5/workflows/instances/:id":           "dingtalk_h5:api:workflow:view",
+		"POST /api/v2/dingtalk/h5/workflows/instances/:id/withdraw": "dingtalk_h5:api:workflow:withdraw",
+		"GET /api/v2/dingtalk/h5/workflows/tasks":                   "dingtalk_h5:api:workflow:view",
+		"POST /api/v2/dingtalk/h5/workflows/tasks/:id/complete":     "dingtalk_h5:api:workflow:handle",
+	}
+	for _, route := range DingTalkH5RouteDeclarations() {
+		key := route.Method + " " + route.Path
+		if expected, ok := workflowRoutes[key]; ok {
+			if route.PermissionKey != expected {
+				t.Fatalf("DingTalk H5 workflow route %s permission = %q, want %q", key, route.PermissionKey, expected)
+			}
+			delete(workflowRoutes, key)
+		}
+	}
+	if len(workflowRoutes) != 0 {
+		t.Fatalf("missing protected DingTalk H5 workflow routes: %+v", workflowRoutes)
 	}
 }
 
@@ -109,6 +138,8 @@ func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 
 	workflowRoutes := map[string]string{
 		"GET /api/v2/workflows/definitions":             "client:api:workflow:view",
+		"GET /api/v2/workflows/drafts/:definitionId":    "client:api:workflow:start",
+		"PUT /api/v2/workflows/drafts/:definitionId":    "client:api:workflow:start",
 		"POST /api/v2/workflows/instances":              "client:api:workflow:start",
 		"GET /api/v2/workflows/instances":               "client:api:workflow:view",
 		"POST /api/v2/workflows/instances/:id/withdraw": "client:api:workflow:withdraw",

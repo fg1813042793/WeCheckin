@@ -5,11 +5,30 @@ import (
 
 	dingtalkh5 "wecheckin/backend/internal/handler/dingtalkh5"
 	dingtalkh5mw "wecheckin/backend/internal/middleware/dingtalk_h5"
+	workflowapp "wecheckin/backend/internal/modules/workflow/application"
+	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
+	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpclient"
 	"wecheckin/backend/internal/routes/v2/routeparam"
+	"wecheckin/backend/pkg/database"
 )
 
 func Register(h *server.Hertz) {
 	handler := dingtalkh5.NewHandler()
+	db := database.GetDB()
+	workflowStore := workflowinfra.NewGormStore(db)
+	workflowNotificationRepository := workflowinfra.NewGormNotificationRepository(db)
+	workflowNotificationDispatcher := workflowapp.NewNotificationDispatcher(
+		workflowNotificationRepository,
+		workflowinfra.NewDingTalkNotificationChannel(db, nil),
+	)
+	workflowService := workflowapp.NewServiceWithNotifications(
+		workflowStore,
+		workflowinfra.NewAssigneeResolver(db),
+		workflowinfra.NewRandomIDGenerator(),
+		workflowapp.DefaultLifecycleEventPublisher(),
+		workflowNotificationDispatcher,
+	)
+	workflowHandler := workflowhttp.NewRuntimeHandler(workflowService)
 	group := h.Group("/api/v2/dingtalk/h5")
 	group.GET("/public-config", handler.Auth.PublicConfig)
 	group.POST("/login", handler.Auth.Login)
@@ -47,4 +66,14 @@ func Register(h *server.Hertz) {
 	auth.DELETE("/users/:id", handler.User.DeleteUser)
 	auth.GET("/template", handler.Template.Template)
 	auth.PUT("/template", handler.Template.SaveTemplate)
+	auth.GET("/workflows/definitions", workflowHandler.ListDefinitions)
+	auth.GET("/workflows/definitions/:id", workflowHandler.GetDefinition)
+	auth.GET("/workflows/drafts/:definitionId", workflowHandler.GetStartDraft)
+	auth.PUT("/workflows/drafts/:definitionId", workflowHandler.SaveStartDraft)
+	auth.POST("/workflows/instances", workflowHandler.StartInstance)
+	auth.GET("/workflows/instances", workflowHandler.ListMyInstances)
+	auth.GET("/workflows/instances/:id", workflowHandler.GetMyInstance)
+	auth.POST("/workflows/instances/:id/withdraw", workflowHandler.WithdrawInstance)
+	auth.GET("/workflows/tasks", workflowHandler.ListMyTasks)
+	auth.POST("/workflows/tasks/:id/complete", workflowHandler.CompleteTask)
 }

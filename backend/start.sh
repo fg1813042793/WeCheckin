@@ -42,7 +42,7 @@ cd "$(dirname "$0")"
 BACKEND_DIR="$(pwd)"
 
 echo -e "${GREEN}后端目录: ${BACKEND_DIR}${NC}"
-
+export GOPROXY=https://goproxy.cn,direct
 # 检查依赖
 echo -e "${YELLOW}正在检查依赖...${NC}"
 go mod download

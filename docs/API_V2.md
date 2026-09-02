@@ -1,6 +1,6 @@
 # API v2 接口说明
 
-最后更新：2026-07-29
+最后更新：2026-09-01
 
 ## 当前状态
 
@@ -132,8 +132,21 @@
 | 考试 | `/api/v2/admin/exams` |
 | 考试题库 | `/api/v2/admin/exam-question-bank` |
 | 考试资源 | `/api/v2/admin/exam-resources` |
+| 流程定义 | `/api/v2/admin/workflow-definitions` |
+| 定时任务 | `/api/v2/admin/scheduled-tasks` |
+| 定时任务运行记录 | `/api/v2/admin/scheduled-task-runs` |
+| 定时任务执行节点 | `/api/v2/admin/scheduled-task-workers` |
 
-完整方法、参数和响应以 Swagger 为准。
+完整方法、参数和响应以 Swagger 为准。定时任务的运行语义、处理器安全边界和部署方式见 [通用定时任务](SCHEDULED_TASKS.md)。
+
+### 流程定义 Logo
+
+`POST /api/v2/admin/workflow-definitions` 和 `PUT /api/v2/admin/workflow-definitions/:id` 保留原有 JSON 请求格式，同时支持 `multipart/form-data`：
+
+- 文本字段使用 `key`、`name`、`category`、`description` 和可选的 `draft`。
+- 图片字段使用 `logo`，仅支持 PNG、JPG/JPEG、WebP，最大 2MB。
+- 修改时传 `removeLogo=true` 可移除当前 Logo；同时提交图片时以新图片为准。
+- 列表和详情响应通过 `logoUrl` 返回可访问的完整图片地址；Logo 不进入设计草稿、BPMN 和历史发布版本。
 
 ## 前端调用入口
 

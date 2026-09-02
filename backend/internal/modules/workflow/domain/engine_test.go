@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/workflowcore"
 )
 
 type staticResolver map[string][]string
@@ -87,6 +88,110 @@ func TestEngineExclusiveGatewaySelectsConditionAndDefaultBranch(t *testing.T) {
 	}
 	if got := low.PendingTasks(); len(got) != 1 || got[0].NodeID != "manager" {
 		t.Fatalf("low amount did not select default branch: %#v", got)
+	}
+
+	missing, err := newTestEngine(resolver).Start(definition, StartRequest{StarterID: "u1"})
+	if err != nil {
+		t.Fatalf("start workflow without condition value: %v", err)
+	}
+	if got := missing.PendingTasks(); len(got) != 1 || got[0].NodeID != "manager" {
+		t.Fatalf("missing condition value did not select default branch: %#v", got)
+	}
+}
+
+func TestEngineExclusiveGatewayReadsConditionFromFormData(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "expense_form_review",
+		Name:          "费用表单审批",
+		Form: []workflowcore.FormField{
+			{Key: "amount", Label: "申请金额", Type: workflowcore.FormFieldTypeAmount},
+		},
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{ID: "gateway", Type: workflowcore.NodeTypeExclusive, Name: "金额判断", GatewayMode: workflowcore.GatewayModeSplit},
+			approvalNode("manager", workflowcore.ApprovalModeSingle, 0),
+			approvalNode("finance", workflowcore.ApprovalModeSingle, 0),
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "gateway"},
+			{ID: "e2", Source: "gateway", Target: "finance", Condition: &workflowcore.Condition{Field: "amount", Operator: workflowcore.ConditionGTE, Value: 1000}},
+			{ID: "e3", Source: "gateway", Target: "manager", Default: true},
+			{ID: "e4", Source: "manager", Target: "end"},
+			{ID: "e5", Source: "finance", Target: "end"},
+		},
+	}
+	resolver := staticResolver{"manager": {"manager-1"}, "finance": {"finance-1"}}
+
+	high, err := newTestEngine(resolver).Start(definition, StartRequest{
+		StarterID: "u1",
+		FormData:  map[string]interface{}{"amount": 1200},
+	})
+	if err != nil {
+		t.Fatalf("start high amount form workflow: %v", err)
+	}
+	if got := high.PendingTasks(); len(got) != 1 || got[0].NodeID != "finance" {
+		t.Fatalf("form amount selected wrong branch: %#v", got)
+	}
+
+	low, err := newTestEngine(resolver).Start(definition, StartRequest{
+		StarterID: "u1",
+		FormData:  map[string]interface{}{"amount": 99},
+	})
+	if err != nil {
+		t.Fatalf("start low amount form workflow: %v", err)
+	}
+	if got := low.PendingTasks(); len(got) != 1 || got[0].NodeID != "manager" {
+		t.Fatalf("low form amount did not select default branch: %#v", got)
+	}
+}
+
+func TestEngineExclusiveGatewayReadsUpdatedFormDataAfterApproval(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "updated_form_review",
+		Name:          "更新表单审批",
+		Form: []workflowcore.FormField{
+			{Key: "status", Label: "资料状态", Type: workflowcore.FormFieldTypeText},
+		},
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			approvalNode("fill", workflowcore.ApprovalModeSingle, 0),
+			{ID: "gateway", Type: workflowcore.NodeTypeExclusive, Name: "资料判断", GatewayMode: workflowcore.GatewayModeSplit},
+			approvalNode("manager", workflowcore.ApprovalModeSingle, 0),
+			approvalNode("finance", workflowcore.ApprovalModeSingle, 0),
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "fill"},
+			{ID: "e2", Source: "fill", Target: "gateway"},
+			{ID: "e3", Source: "gateway", Target: "finance", Condition: &workflowcore.Condition{Field: "status", Operator: workflowcore.ConditionEQ, Value: "ready"}},
+			{ID: "e4", Source: "gateway", Target: "manager", Default: true},
+			{ID: "e5", Source: "manager", Target: "end"},
+			{ID: "e6", Source: "finance", Target: "end"},
+		},
+	}
+	resolver := staticResolver{"fill": {"owner"}, "manager": {"manager-1"}, "finance": {"finance-1"}}
+	engine := newTestEngine(resolver)
+	state, err := engine.Start(definition, StartRequest{
+		StarterID: "u1",
+		FormData:  map[string]interface{}{"status": "draft"},
+	})
+	if err != nil {
+		t.Fatalf("start form workflow: %v", err)
+	}
+
+	if err := engine.Complete(definition, state, CompleteRequest{
+		TaskID:   state.PendingTasks()[0].ID,
+		ActorID:  "owner",
+		Action:   TaskActionApprove,
+		FormData: map[string]interface{}{"status": "ready"},
+	}); err != nil {
+		t.Fatalf("complete fill task: %v", err)
+	}
+	if got := state.PendingTasks(); len(got) != 1 || got[0].NodeID != "finance" {
+		t.Fatalf("updated form status selected wrong branch: %#v", got)
 	}
 }
 
@@ -295,6 +400,195 @@ func TestEngineAdminCancelTerminatesRunningInstance(t *testing.T) {
 	}
 }
 
+func TestEngineHandleTaskOnlyAcceptsSubmit(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "profile_update",
+		Name:          "资料填写",
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{ID: "handle", Type: workflowcore.NodeTypeHandle, Name: "填写资料", Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeVariable, Value: "targetUserId"}},
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "handle"},
+			{ID: "e2", Source: "handle", Target: "end"},
+		},
+	}
+	engine := newTestEngine(staticResolver{"handle": {"user-9"}})
+	state, err := engine.Start(definition, StartRequest{StarterID: "admin-1"})
+	if err != nil {
+		t.Fatalf("start handle workflow: %v", err)
+	}
+	pending := state.PendingTasks()
+	if len(pending) != 1 || pending[0].AssigneeID != "user-9" {
+		t.Fatalf("unexpected handle tasks: %#v", pending)
+	}
+	if err := engine.Complete(definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: "user-9", Action: TaskActionApprove}); !errors.Is(err, ErrInvalidTaskAction) {
+		t.Fatalf("approve handle task error = %v, want ErrInvalidTaskAction", err)
+	}
+	if err := engine.Complete(definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: "user-9", Action: TaskAction("submit")}); err != nil {
+		t.Fatalf("submit handle task: %v", err)
+	}
+	if state.Tasks[0].Status != TaskStatus("completed") || state.Instance.Status != InstanceStatusCompleted {
+		t.Fatalf("handle workflow not completed: task=%#v instance=%#v", state.Tasks[0], state.Instance)
+	}
+}
+
+func TestEngineCCAndAutomationRunWithoutBlocking(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "notify_and_mark",
+		Name:          "通知并标记",
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{
+				ID: "cc", Type: workflowcore.NodeTypeCC, Name: "抄送相关人",
+				Assignee:     &workflowcore.Assignee{Type: workflowcore.AssigneeTypeVariable, Value: "ccUserIds"},
+				Notification: notificationConfig("流程抄送", "{{starterName}} 发起的流程已抄送给你"),
+			},
+			{ID: "automation", Type: workflowcore.NodeTypeAutomation, Name: "写入变量", Automation: &workflowcore.AutomationConfig{Type: workflowcore.AutomationTypeSetVariables, Variables: map[string]interface{}{"processed": true}}},
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "cc"},
+			{ID: "e2", Source: "cc", Target: "automation"},
+			{ID: "e3", Source: "automation", Target: "end"},
+		},
+	}
+	state, err := newTestEngine(staticResolver{"cc": {"user-2", "user-3"}}).Start(definition, StartRequest{StarterID: "admin-1"})
+	if err != nil {
+		t.Fatalf("start automatic workflow: %v", err)
+	}
+	if state.Instance.Status != InstanceStatusCompleted || len(state.Tasks) != 0 || state.Variables["processed"] != true {
+		t.Fatalf("unexpected automatic state: instance=%#v tasks=%#v variables=%#v", state.Instance, state.Tasks, state.Variables)
+	}
+	if countHistoryType(state.History, HistoryEventType("node_cc")) != 2 {
+		t.Fatalf("cc history = %#v", state.History)
+	}
+	if countHistoryType(state.History, HistoryEventType("node_automated")) != 1 {
+		t.Fatalf("automation history = %#v", state.History)
+	}
+	if len(state.Participants) != 2 || state.Participants[0].Role != ParticipantRoleCC || state.Participants[1].Role != ParticipantRoleCC {
+		t.Fatalf("cc participants = %#v", state.Participants)
+	}
+	if len(state.NotificationIntents) != 2 {
+		t.Fatalf("cc notification intents = %#v", state.NotificationIntents)
+	}
+	for _, intent := range state.NotificationIntents {
+		if intent.Kind != NotificationKindNodeCC || intent.NodeID != "cc" || intent.TaskID != "" {
+			t.Fatalf("unexpected cc notification intent: %#v", intent)
+		}
+	}
+}
+
+func TestEngineNotifyNodeCreatesMessageIntentWithoutParticipant(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "notify_only",
+		Name:          "纯通知流程",
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{
+				ID: "notify", Type: workflowcore.NodeTypeNotify, Name: "通知观察人",
+				Assignee:     &workflowcore.Assignee{Type: workflowcore.AssigneeTypeVariable, Value: "observerIds"},
+				Notification: notificationConfig("流程提醒", "流程已到达 {{nodeName}}"),
+			},
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{{ID: "e1", Source: "start", Target: "notify"}, {ID: "e2", Source: "notify", Target: "end"}},
+	}
+	state, err := newTestEngine(staticResolver{"notify": {"user-2", "user-2", "user-3"}}).Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start notify workflow: %v", err)
+	}
+	if state.Instance.Status != InstanceStatusCompleted || len(state.Tasks) != 0 || len(state.Participants) != 0 {
+		t.Fatalf("notify node must not block or grant access: %#v", state)
+	}
+	if countHistoryType(state.History, HistoryNodeNotify) != 2 || len(state.NotificationIntents) != 2 {
+		t.Fatalf("notify effects = history %#v intents %#v", state.History, state.NotificationIntents)
+	}
+	for _, intent := range state.NotificationIntents {
+		if intent.Kind != NotificationKindNodeNotify || intent.NodeID != "notify" {
+			t.Fatalf("unexpected notify intent: %#v", intent)
+		}
+	}
+}
+
+func TestEngineTaskArrivalNotificationsFollowTaskActivation(t *testing.T) {
+	definition := linearDefinition(workflowcore.ApprovalModeSequential, 0)
+	definition.Nodes[1].Notification = notificationConfig("待办提醒", "请处理 {{nodeName}}")
+	engine := newTestEngine(staticResolver{"approve": {"u1", "u2", "u3"}})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start sequential workflow: %v", err)
+	}
+	if len(state.NotificationIntents) != 1 || state.NotificationIntents[0].RecipientUserID != "u1" {
+		t.Fatalf("initial task notifications = %#v", state.NotificationIntents)
+	}
+	first := state.PendingTasks()[0]
+	if err := engine.Complete(definition, state, CompleteRequest{TaskID: first.ID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
+		t.Fatalf("complete first task: %v", err)
+	}
+	if len(state.NotificationIntents) != 2 || state.NotificationIntents[1].RecipientUserID != "u2" || state.NotificationIntents[1].Kind != NotificationKindTaskArrived {
+		t.Fatalf("activated task notifications = %#v", state.NotificationIntents)
+	}
+}
+
+func TestEngineTimerWaitsUntilDueAndResumesOnce(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "delayed_finish",
+		Name:          "延时完成",
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{ID: "timer", Type: workflowcore.NodeTypeTimer, Name: "等待", Timer: &workflowcore.TimerConfig{DelaySeconds: 30}},
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "timer"},
+			{ID: "e2", Source: "timer", Target: "end"},
+		},
+	}
+	startedAt := time.Now().Unix()
+	engine := newTestEngine(staticResolver{})
+	state, err := engine.Start(definition, StartRequest{StarterID: "admin-1"})
+	if err != nil {
+		t.Fatalf("start timer workflow: %v", err)
+	}
+	if state.Instance.Status != InstanceStatusRunning || len(state.Tokens) != 1 || state.Tokens[0].Status != TokenStatusWaiting {
+		t.Fatalf("timer did not wait: instance=%#v tokens=%#v", state.Instance, state.Tokens)
+	}
+	resumer, ok := interface{}(engine).(interface {
+		ResumeTimers(workflowcore.Definition, *State, int64) (int, error)
+	})
+	if !ok {
+		t.Fatal("timer resume support missing")
+	}
+	advanced, err := resumer.ResumeTimers(definition, state, startedAt+29)
+	if err != nil || advanced != 0 || state.Instance.Status != InstanceStatusRunning {
+		t.Fatalf("timer advanced before due: advanced=%d err=%v state=%#v", advanced, err, state.Instance)
+	}
+	advanced, err = resumer.ResumeTimers(definition, state, startedAt+31)
+	if err != nil || advanced != 1 || state.Instance.Status != InstanceStatusCompleted {
+		t.Fatalf("timer did not advance after due: advanced=%d err=%v state=%#v", advanced, err, state.Instance)
+	}
+	advanced, err = resumer.ResumeTimers(definition, state, startedAt+60)
+	if err != nil || advanced != 0 {
+		t.Fatalf("timer resumed twice: advanced=%d err=%v", advanced, err)
+	}
+}
+
+func countHistoryType(history []HistoryEvent, eventType HistoryEventType) int {
+	count := 0
+	for _, event := range history {
+		if event.Type == eventType {
+			count++
+		}
+	}
+	return count
+}
+
 func hasHistoryType(history []HistoryEvent, eventType HistoryEventType) bool {
 	for _, event := range history {
 		if event.Type == eventType {
@@ -331,5 +625,12 @@ func approvalNode(id, mode string, completionRate int) workflowcore.Node {
 		ID: id, Type: workflowcore.NodeTypeApproval, Name: id,
 		ApprovalMode: mode, CompletionRate: completionRate,
 		Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: id},
+	}
+}
+
+func notificationConfig(title, content string) *workflowcore.NotificationConfig {
+	return &workflowcore.NotificationConfig{
+		Enabled: true, Channels: []string{workflowcore.NotificationChannelInApp, workflowcore.NotificationChannelDingTalkOA},
+		Title: title, Content: content,
 	}
 }

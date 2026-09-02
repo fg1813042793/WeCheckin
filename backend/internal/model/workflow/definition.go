@@ -14,6 +14,7 @@ type Definition struct {
 	Name           string    `json:"name" gorm:"size:200;column:definition_name;index;comment:流程名称"`
 	Description    string    `json:"description" gorm:"size:500;column:definition_description;comment:流程说明"`
 	Category       string    `json:"category" gorm:"size:100;column:definition_category;index;comment:流程分类"`
+	LogoURL        string    `json:"logoUrl" gorm:"size:500;column:definition_logo_url;comment:流程Logo地址"`
 	Status         int       `json:"status" gorm:"default:1;column:definition_status;index;comment:状态:0停用 1草稿 2已发布"`
 	CurrentVersion int       `json:"currentVersion" gorm:"default:0;column:definition_current_version;comment:当前发布版本"`
 	DraftJSON      string    `json:"draftJson" gorm:"type:mediumtext;column:definition_draft_json;comment:设计器草稿JSON"`

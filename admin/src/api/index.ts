@@ -13,6 +13,7 @@ import type {
 } from './types'
 
 export type TemplatePreset = { label: string; value: string }
+type WorkflowInitiatorConfig = { scope: 'all' | 'specified'; userIds?: number[]; departmentIds?: number[] }
 
 const API_V2 = '/api/v2'
 const ADMIN_V2 = `${API_V2}/admin`
@@ -570,11 +571,11 @@ export const adminApi = {
   workflowDefinitionDetail(id: ID) {
     return request.get(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`)
   },
-  workflowDefinitionCreate(data: FormPayload) {
-    return request.post(`${ADMIN_V2}/workflow-definitions`, data, jsonConfig)
+  workflowDefinitionCreate(data: FormPayload | FormData) {
+    return request.post(`${ADMIN_V2}/workflow-definitions`, data, data instanceof FormData ? undefined : jsonConfig)
   },
-  workflowDefinitionUpdate(id: ID, data: FormPayload) {
-    return request.put(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`, data, jsonConfig)
+  workflowDefinitionUpdate(id: ID, data: FormPayload | FormData) {
+    return request.put(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`, data, data instanceof FormData ? undefined : jsonConfig)
   },
   workflowDefinitionDelete(id: ID) {
     return request.delete(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`)
@@ -582,8 +583,8 @@ export const adminApi = {
   workflowDefinitionValidate(id: ID) {
     return request.post(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/validate`)
   },
-  workflowDefinitionPublish(id: ID) {
-    return request.post(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/publish`)
+  workflowDefinitionPublish(id: ID, data: { initiator?: WorkflowInitiatorConfig } = {}) {
+    return request.post(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/publish`, data, jsonConfig)
   },
   workflowDefinitionVersions(id: ID) {
     return request.get(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/versions`)
@@ -591,13 +592,25 @@ export const adminApi = {
   workflowOrgApproverIdentities() {
     return request.get(`${ADMIN_V2}/workflow-org-approver-identities`)
   },
-  workflowOrgApproverAssignments(params?: { departmentId?: ID; identityCode?: string }) {
+  workflowOrgApproverAssignments(params?: { subjectType?: 'department' | 'user'; subjectId?: ID; departmentId?: ID; identityCode?: string }) {
     return request.get(`${ADMIN_V2}/workflow-org-approver-assignments`, { params })
   },
-  workflowOrgApproverAssignmentsSave(data: FormPayload & { departmentId?: ID; identityCode?: string; userIds?: ID[] }) {
+  workflowOrgApproverAssignmentsSave(data: FormPayload & { subjectType?: 'department' | 'user'; subjectId?: ID; departmentId?: ID; identityCode?: string; userIds?: ID[] }) {
     return request.put(`${ADMIN_V2}/workflow-org-approver-assignments`, data, jsonConfig)
   },
   // 通用工作流运行时
+  workflowPublishedDefinitionList(params?: QueryParams) {
+    return request.get(`${ADMIN_V2}/workflow-published-definitions`, { params })
+  },
+  workflowPublishedDefinitionDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/workflow-published-definitions/${encodePath(id)}`)
+  },
+  workflowUserOptions(params?: PageQuery) {
+    return request.get<PageResult<AdminUser>>(`${ADMIN_V2}/workflow-user-options`, { params })
+  },
+  workflowDepartmentOptions() {
+    return request.get(`${ADMIN_V2}/workflow-department-options`)
+  },
   workflowInstanceList(params?: PageQuery & {
     definitionId?: ID
     status?: string
@@ -613,10 +626,71 @@ export const adminApi = {
   workflowInstanceDetail(id: ID) {
     return request.get(`${ADMIN_V2}/workflow-instances/${encodePath(id)}`)
   },
+  workflowInstanceResume(id: ID) {
+    return request.post(`${ADMIN_V2}/workflow-instances/${encodePath(id)}/resume`, {}, jsonConfig)
+  },
   workflowTaskList(params?: PageQuery & { instanceId?: string; assigneeId?: string; status?: string }) {
     return request.get(`${ADMIN_V2}/workflow-tasks`, { params })
   },
   workflowTaskComplete(id: ID, data: FormPayload) {
     return request.post(`${ADMIN_V2}/workflow-tasks/${encodePath(id)}/complete`, data, jsonConfig)
+  },
+  workflowNotificationList(params?: PageQuery & {
+    instanceId?: string
+    recipientUserId?: string
+    kind?: string
+    channel?: string
+    status?: string
+  }) {
+    return request.get(`${ADMIN_V2}/workflow-notifications`, { params })
+  },
+  workflowNotificationRetry(id: ID) {
+    return request.post(`${ADMIN_V2}/workflow-notifications/${encodePath(id)}/retry`, {}, jsonConfig)
+  },
+  workflowNotificationDispatchDue(data: { limit?: number } = {}) {
+    return request.post(`${ADMIN_V2}/workflow-notifications/dispatch-due`, data, jsonConfig)
+  },
+  // 通用定时任务
+  scheduledTaskList(params?: QueryParams) {
+    return request.get(`${ADMIN_V2}/scheduled-tasks`, { params })
+  },
+  scheduledTaskDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/scheduled-tasks/${encodePath(id)}`)
+  },
+  scheduledTaskCreate(data: object) {
+    return request.post(`${ADMIN_V2}/scheduled-tasks`, data, jsonConfig)
+  },
+  scheduledTaskUpdate(id: ID, data: object) {
+    return request.put(`${ADMIN_V2}/scheduled-tasks/${encodePath(id)}`, data, jsonConfig)
+  },
+  scheduledTaskDelete(id: ID) {
+    return request.delete(`${ADMIN_V2}/scheduled-tasks/${encodePath(id)}`)
+  },
+  scheduledTaskStatus(id: ID, data: { enabled: boolean; version: number }) {
+    return request.patch(`${ADMIN_V2}/scheduled-tasks/${encodePath(id)}/status`, data, jsonConfig)
+  },
+  scheduledTaskRun(id: ID) {
+    return request.post(`${ADMIN_V2}/scheduled-tasks/${encodePath(id)}/run`, {}, jsonConfig)
+  },
+  scheduledTaskCronPreview(data: FormPayload) {
+    return request.post(`${ADMIN_V2}/scheduled-tasks/cron-preview`, data, jsonConfig)
+  },
+  scheduledTaskHandlers() {
+    return request.get(`${ADMIN_V2}/scheduled-task-handlers`)
+  },
+  scheduledTaskRunList(params?: QueryParams) {
+    return request.get(`${ADMIN_V2}/scheduled-task-runs`, { params })
+  },
+  scheduledTaskRunDetail(id: ID) {
+    return request.get(`${ADMIN_V2}/scheduled-task-runs/${encodePath(id)}`)
+  },
+  scheduledTaskRunRetry(id: ID) {
+    return request.post(`${ADMIN_V2}/scheduled-task-runs/${encodePath(id)}/retry`, {}, jsonConfig)
+  },
+  scheduledTaskRunCancel(id: ID) {
+    return request.post(`${ADMIN_V2}/scheduled-task-runs/${encodePath(id)}/cancel`, {}, jsonConfig)
+  },
+  scheduledTaskWorkers() {
+    return request.get(`${ADMIN_V2}/scheduled-task-workers`)
   }
 }

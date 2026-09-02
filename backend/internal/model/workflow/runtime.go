@@ -15,9 +15,25 @@ const (
 
 	TaskStatusWaiting   = "waiting"
 	TaskStatusPending   = "pending"
+	TaskStatusCompleted = "completed"
 	TaskStatusApproved  = "approved"
 	TaskStatusRejected  = "rejected"
 	TaskStatusCancelled = "cancelled"
+
+	ParticipantRoleCC = "cc"
+
+	NotificationKindNodeCC      = "node_cc"
+	NotificationKindNodeNotify  = "node_notify"
+	NotificationKindTaskArrived = "task_arrived"
+
+	NotificationChannelInApp      = "in_app"
+	NotificationChannelDingTalkOA = "dingtalk_oa"
+
+	NotificationStatusPending = "pending"
+	NotificationStatusSending = "sending"
+	NotificationStatusSent    = "sent"
+	NotificationStatusFailed  = "failed"
+	NotificationStatusDead    = "dead"
 )
 
 // ProcessInstance is the persistence root of the generic workflow runtime.
@@ -30,7 +46,8 @@ type ProcessInstance struct {
 	BusinessType      string    `json:"businessType" gorm:"size:100;column:business_type;uniqueIndex:idx_workflow_instance_business;comment:业务类型"`
 	BusinessKey       string    `json:"businessKey" gorm:"size:160;column:business_key;uniqueIndex:idx_workflow_instance_business;comment:业务唯一标识"`
 	StarterID         string    `json:"starterId" gorm:"size:64;column:starter_id;index:idx_workflow_instances_starter_status,priority:1;comment:发起人ID"`
-	Status            string    `json:"status" gorm:"size:24;column:instance_status;default:running;index:idx_workflow_instances_definition_status,priority:2;index:idx_workflow_instances_starter_status,priority:2;comment:实例状态"`
+	OperatorID        string    `json:"operatorId" gorm:"size:64;column:operator_id;index:idx_workflow_instances_operator_status,priority:1;comment:实际发起操作人ID"`
+	Status            string    `json:"status" gorm:"size:24;column:instance_status;default:running;index:idx_workflow_instances_definition_status,priority:2;index:idx_workflow_instances_starter_status,priority:2;index:idx_workflow_instances_operator_status,priority:2;comment:实例状态"`
 	FormDataJSON      string    `json:"formDataJson" gorm:"type:mediumtext;column:form_data_json;comment:流程表单数据JSON"`
 	StartTime         int64     `json:"startTime" gorm:"column:start_time;comment:开始时间"`
 	EndTime           int64     `json:"endTime" gorm:"column:end_time;comment:结束时间"`
@@ -39,6 +56,19 @@ type ProcessInstance struct {
 }
 
 func (ProcessInstance) TableName() string { return "workflow_process_instances" }
+
+type StartDraft struct {
+	ID                uint      `json:"id" gorm:"primaryKey;comment:流程发起草稿ID"`
+	DefinitionID      uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:uk_workflow_start_draft_owner,priority:1;comment:流程定义ID"`
+	DefinitionVersion int       `json:"definitionVersion" gorm:"column:definition_version;comment:流程定义版本"`
+	StarterID         string    `json:"starterId" gorm:"size:64;column:starter_id;uniqueIndex:uk_workflow_start_draft_owner,priority:2;index:idx_workflow_start_drafts_starter_time,priority:1;comment:草稿所属发起人ID"`
+	FormDataJSON      string    `json:"formDataJson" gorm:"type:mediumtext;column:form_data_json;comment:草稿表单数据JSON"`
+	EditTime          int64     `json:"editTime" gorm:"column:edit_time;index:idx_workflow_start_drafts_starter_time,priority:2;comment:草稿更新时间"`
+	CreatedAt         time.Time `json:"-"`
+	UpdatedAt         time.Time `json:"-"`
+}
+
+func (StartDraft) TableName() string { return "workflow_start_drafts" }
 
 type ProcessToken struct {
 	ID          string    `json:"id" gorm:"size:64;primaryKey;comment:流程令牌ID"`
@@ -102,3 +132,41 @@ type ProcessHistory struct {
 }
 
 func (ProcessHistory) TableName() string { return "workflow_process_history" }
+
+type InstanceParticipant struct {
+	ID         string    `json:"id" gorm:"size:64;primaryKey;comment:参与人记录ID"`
+	InstanceID string    `json:"instanceId" gorm:"size:64;column:instance_id;uniqueIndex:uk_workflow_participant_source,priority:1;index:idx_workflow_participant_instance;index:idx_workflow_participant_user_role,priority:3;comment:流程实例ID"`
+	UserID     string    `json:"userId" gorm:"size:64;column:user_id;uniqueIndex:uk_workflow_participant_source,priority:2;index:idx_workflow_participant_user_role,priority:1;comment:本地用户ID"`
+	Role       string    `json:"role" gorm:"size:24;column:participant_role;uniqueIndex:uk_workflow_participant_source,priority:3;index:idx_workflow_participant_user_role,priority:2;comment:参与角色"`
+	NodeID     string    `json:"nodeId" gorm:"size:100;column:node_id;uniqueIndex:uk_workflow_participant_source,priority:4;comment:来源节点ID"`
+	AddTime    int64     `json:"addTime" gorm:"column:add_time;comment:创建时间"`
+	CreatedAt  time.Time `json:"-"`
+	UpdatedAt  time.Time `json:"-"`
+}
+
+func (InstanceParticipant) TableName() string { return "workflow_instance_participants" }
+
+type NotificationOutbox struct {
+	ID                string    `json:"id" gorm:"size:64;primaryKey;comment:通知Outbox ID"`
+	InstanceID        string    `json:"instanceId" gorm:"size:64;column:instance_id;index:idx_workflow_notification_instance,priority:1;comment:流程实例ID"`
+	NodeID            string    `json:"nodeId" gorm:"size:100;column:node_id;comment:来源节点ID"`
+	TaskID            string    `json:"taskId" gorm:"size:64;column:task_id;comment:来源任务ID"`
+	RecipientUserID   string    `json:"recipientUserId" gorm:"size:64;column:recipient_user_id;index:idx_workflow_notification_recipient,priority:1;comment:本地接收人ID"`
+	Kind              string    `json:"kind" gorm:"size:32;column:notification_kind;comment:通知类型"`
+	Channel           string    `json:"channel" gorm:"size:32;column:notification_channel;comment:通知渠道"`
+	Status            string    `json:"status" gorm:"size:24;column:notification_status;index:idx_workflow_notification_due,priority:1;index:idx_workflow_notification_recipient,priority:2;comment:投递状态"`
+	DedupeKey         string    `json:"dedupeKey" gorm:"size:255;column:dedupe_key;uniqueIndex:uk_workflow_notification_dedupe;comment:通知幂等键"`
+	PayloadJSON       string    `json:"payloadJson" gorm:"type:mediumtext;column:payload_json;comment:通知负载JSON"`
+	CorpID            string    `json:"corpId" gorm:"size:120;column:corp_id;comment:钉钉企业ID"`
+	ProviderMessageID string    `json:"providerMessageId" gorm:"size:160;column:provider_message_id;comment:渠道消息标识"`
+	Attempts          int       `json:"attempts" gorm:"column:attempts;comment:投递尝试次数"`
+	NextRetryAt       int64     `json:"nextRetryAt" gorm:"column:next_retry_at;index:idx_workflow_notification_due,priority:2;comment:下次重试时间"`
+	LastError         string    `json:"lastError" gorm:"size:1000;column:last_error;comment:最近失败摘要"`
+	SentAt            int64     `json:"sentAt" gorm:"column:sent_at;comment:发送成功时间"`
+	AddTime           int64     `json:"addTime" gorm:"column:add_time;index:idx_workflow_notification_instance,priority:2;comment:创建时间"`
+	EditTime          int64     `json:"editTime" gorm:"column:edit_time;comment:更新时间"`
+	CreatedAt         time.Time `json:"-"`
+	UpdatedAt         time.Time `json:"-"`
+}
+
+func (NotificationOutbox) TableName() string { return "workflow_notification_outbox" }

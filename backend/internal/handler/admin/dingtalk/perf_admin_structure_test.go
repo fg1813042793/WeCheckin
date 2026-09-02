@@ -47,7 +47,7 @@ func TestDingTalkPerfAdminHandlerStructure(t *testing.T) {
 }
 
 func TestDingTalkPerfAdminFrontendStructure(t *testing.T) {
-	routeSrc, err := os.ReadFile("../../../../../../admin/src/router/adminRoutes.ts")
+	routeSrc, err := os.ReadFile("../../../../../admin/src/router/adminRoutes.ts")
 	if err != nil {
 		t.Fatalf("read admin routes: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestDingTalkPerfAdminFrontendStructure(t *testing.T) {
 		}
 	}
 
-	reviewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-perf-reviews/index.vue")
+	reviewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-perf-reviews/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk performance review page: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestDingTalkPerfAdminFrontendStructure(t *testing.T) {
 		t.Fatalf("dingtalk performance review page should use separated filter/action toolbars, got %d", got)
 	}
 
-	historySrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-perf-histories/index.vue")
+	historySrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-perf-histories/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk performance history page: %v", err)
 	}

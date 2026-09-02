@@ -1,17 +1,34 @@
 package application
 
-import workflowcore "wecheckin/backend/internal/workflow"
+import "wecheckin/backend/internal/workflowcore"
+
+const (
+	InstanceScopeStarted = "started"
+	InstanceScopeHandled = "handled"
+	InstanceScopeCopied  = "copied"
+)
 
 type PublishedDefinition struct {
-	ID               uint                                      `json:"id"`
-	Key              string                                    `json:"key"`
-	Name             string                                    `json:"name"`
-	Description      string                                    `json:"description"`
-	Category         string                                    `json:"category"`
-	Version          int                                       `json:"version"`
-	Form             []workflowcore.FormField                  `json:"form"`
-	FieldPermissions map[string][]workflowcore.FieldPermission `json:"fieldPermissions"`
-	StartNodeID      string                                    `json:"startNodeId"`
+	ID                 uint                                      `json:"id"`
+	Key                string                                    `json:"key"`
+	Name               string                                    `json:"name"`
+	Description        string                                    `json:"description"`
+	Category           string                                    `json:"category"`
+	Version            int                                       `json:"version"`
+	Form               []workflowcore.FormField                  `json:"form"`
+	FieldPermissions   map[string][]workflowcore.FieldPermission `json:"fieldPermissions"`
+	StartNodeID        string                                    `json:"startNodeId"`
+	Initiator          workflowcore.InitiatorConfig              `json:"initiator"`
+	Availability       workflowcore.StartAvailabilityConfig      `json:"availability"`
+	AvailabilityStatus string                                    `json:"availabilityStatus"`
+}
+
+type StartDraft struct {
+	DefinitionID      uint                   `json:"definitionId"`
+	DefinitionVersion int                    `json:"definitionVersion"`
+	StarterID         string                 `json:"-"`
+	FormData          map[string]interface{} `json:"formData"`
+	UpdatedAt         int64                  `json:"updatedAt"`
 }
 
 type InstanceQuery struct {
@@ -20,8 +37,23 @@ type InstanceQuery struct {
 	BusinessType string
 	BusinessKey  string
 	StarterID    string
+	Scope        string
+	ScopeUserID  string
 	Page         int
 	PageSize     int
+}
+
+type NotificationPayload struct {
+	Title           string `json:"title"`
+	Content         string `json:"content"`
+	WorkflowName    string `json:"workflowName"`
+	NodeName        string `json:"nodeName"`
+	StarterID       string `json:"starterId"`
+	StarterName     string `json:"starterName"`
+	InstanceID      string `json:"instanceId"`
+	TaskID          string `json:"taskId"`
+	RecipientUserID string `json:"recipientUserId"`
+	Kind            string `json:"kind"`
 }
 
 type TaskQuery struct {
@@ -40,6 +72,7 @@ type InstanceSummary struct {
 	BusinessType      string `json:"businessType"`
 	BusinessKey       string `json:"businessKey"`
 	StarterID         string `json:"starterId"`
+	OperatorID        string `json:"operatorId"`
 	Status            string `json:"status"`
 	StartTime         int64  `json:"startTime"`
 	EndTime           int64  `json:"endTime"`
@@ -81,15 +114,16 @@ type HistorySummary struct {
 }
 
 type InstanceDetail struct {
-	Instance         InstanceSummary                         `json:"instance"`
-	Variables        map[string]interface{}                  `json:"variables"`
-	Form             []workflowcore.FormField                `json:"form"`
-	FormData         map[string]interface{}                  `json:"formData"`
+	Instance         InstanceSummary                           `json:"instance"`
+	Variables        map[string]interface{}                    `json:"variables"`
+	Form             []workflowcore.FormField                  `json:"form"`
+	FormData         map[string]interface{}                    `json:"formData"`
 	FieldPermissions map[string][]workflowcore.FieldPermission `json:"fieldPermissions"`
-	StartNodeID      string                                  `json:"startNodeId"`
-	Tokens           []TokenSummary                          `json:"tokens"`
-	Tasks            []TaskSummary                           `json:"tasks"`
-	History          []HistorySummary                        `json:"history"`
+	StartNodeID      string                                    `json:"startNodeId"`
+	NodeTypes        map[string]string                         `json:"nodeTypes"`
+	Tokens           []TokenSummary                            `json:"tokens"`
+	Tasks            []TaskSummary                             `json:"tasks"`
+	History          []HistorySummary                          `json:"history"`
 }
 
 type InstanceList struct {

@@ -14,10 +14,10 @@ func taskToModel(instanceID string, task workflowdomain.Task, handledAt int64, a
 	if actorByTask != nil {
 		handledBy = actorByTask[task.ID]
 	}
-	if handledBy == "" && (task.Status == workflowdomain.TaskStatusApproved || task.Status == workflowdomain.TaskStatusRejected) {
+	if handledBy == "" && (task.Status == workflowdomain.TaskStatusCompleted || task.Status == workflowdomain.TaskStatusApproved || task.Status == workflowdomain.TaskStatusRejected) {
 		handledBy = task.AssigneeID
 	}
-	if task.Status != workflowdomain.TaskStatusApproved && task.Status != workflowdomain.TaskStatusRejected {
+	if task.Status != workflowdomain.TaskStatusCompleted && task.Status != workflowdomain.TaskStatusApproved && task.Status != workflowdomain.TaskStatusRejected {
 		handledAt = 0
 	}
 	return workflowmodel.ProcessTask{
@@ -86,7 +86,8 @@ func stateFromModels(
 			ID: instance.ID, DefinitionID: instance.DefinitionID,
 			DefinitionVersion: instance.DefinitionVersion, DefinitionKey: instance.DefinitionKey,
 			BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
-			StarterID: instance.StarterID, Status: workflowdomain.InstanceStatus(instance.Status),
+			StarterID: instance.StarterID, OperatorID: instance.OperatorID,
+			Status: workflowdomain.InstanceStatus(instance.Status),
 		},
 		Variables: make(map[string]interface{}, len(variables)),
 		FormData:  make(map[string]interface{}),
@@ -130,7 +131,7 @@ func handledActors(history []workflowdomain.HistoryEvent) map[string]string {
 		if strings.TrimSpace(event.TaskID) == "" {
 			continue
 		}
-		if event.Type == workflowdomain.HistoryTaskApproved || event.Type == workflowdomain.HistoryTaskRejected {
+		if event.Type == workflowdomain.HistoryTaskSubmitted || event.Type == workflowdomain.HistoryTaskApproved || event.Type == workflowdomain.HistoryTaskRejected {
 			result[event.TaskID] = event.ActorID
 		}
 	}

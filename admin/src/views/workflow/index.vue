@@ -28,7 +28,10 @@
         <el-table-column prop="name" label="流程名称" min-width="190">
           <template #default="{ row }">
             <div class="workflow-name">
-              <span class="workflow-name__icon"><el-icon><Share /></el-icon></span>
+              <span class="workflow-name__icon">
+                <img v-if="row.logoUrl" :src="row.logoUrl" :alt="row.name" />
+                <el-icon v-else><Share /></el-icon>
+              </span>
               <div>
                 <strong>{{ row.name }}</strong>
                 <small>{{ row.key }}</small>
@@ -51,9 +54,10 @@
         <el-table-column label="更新时间" width="170">
           <template #default="{ row }">{{ formatTime(row.editTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="330" fixed="right">
+        <el-table-column label="操作" width="390" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
+              <el-button v-if="canEdit" size="small" icon="EditPen" @click="openEdit(row)">修改</el-button>
               <el-button v-if="canEdit" size="small" type="primary" @click="openDesigner(row)">设计</el-button>
               <el-button size="small" @click="openVersions(row)">版本</el-button>
               <el-button v-if="canPublish" size="small" type="success" plain @click="publish(row)">发布</el-button>
@@ -76,6 +80,48 @@
       </div>
     </el-card>
 
+    <el-dialog v-model="editDialog" title="修改流程信息" width="520px" destroy-on-close>
+      <el-form label-width="86px" @submit.prevent>
+        <el-form-item label="流程名称" required>
+          <el-input
+            v-model="editForm.name"
+            maxlength="80"
+            placeholder="请输入流程名称"
+            @keyup.enter="updateDefinitionMetadata"
+          />
+        </el-form-item>
+        <el-form-item label="流程编码">
+          <el-input :model-value="editTarget?.key" disabled />
+          <div class="form-help">流程编码和已发布版本保持不变。</div>
+        </el-form-item>
+        <el-form-item label="流程分类">
+          <el-input v-model="editForm.category" maxlength="50" placeholder="例如：行政审批" />
+        </el-form-item>
+        <el-form-item label="流程说明">
+          <el-input v-model="editForm.description" type="textarea" :rows="3" maxlength="300" show-word-limit />
+        </el-form-item>
+        <el-form-item label="流程 Logo">
+          <WorkflowLogoPicker
+            :image-url="editLogoRemoved ? '' : editTarget?.logoUrl"
+            :file="editLogoFile"
+            :disabled="editing"
+            @update:file="handleEditLogoFile"
+            @clear="editLogoRemoved = true"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialog = false">取消</el-button>
+        <el-button type="primary" :loading="editing" @click="updateDefinitionMetadata">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <WorkflowPublishDialog
+      v-model="publishDialog"
+      :definition="publishTarget"
+      @published="loadList"
+    />
+
     <el-dialog v-model="createDialog" title="创建流程" width="520px" destroy-on-close>
       <el-form label-width="86px" @submit.prevent>
         <el-form-item label="流程名称" required>
@@ -90,6 +136,9 @@
         </el-form-item>
         <el-form-item label="流程说明">
           <el-input v-model="createForm.description" type="textarea" :rows="3" maxlength="300" show-word-limit />
+        </el-form-item>
+        <el-form-item label="流程 Logo">
+          <WorkflowLogoPicker v-model:file="createLogoFile" :disabled="creating" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -119,6 +168,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
 import { hasPerm } from '../../utils/permission'
+import WorkflowLogoPicker from './components/WorkflowLogoPicker.vue'
+import WorkflowPublishDialog from './components/WorkflowPublishDialog.vue'
 import type { WorkflowDefinitionDetail, WorkflowDefinitionSummary, WorkflowVersion } from './types'
 
 const router = useRouter()
@@ -137,6 +188,15 @@ const canDelete = computed(() => hasPerm('admin:menu:workflow:del'))
 const createDialog = ref(false)
 const creating = ref(false)
 const createForm = reactive({ name: '', key: '', category: '', description: '' })
+const createLogoFile = ref<File | null>(null)
+const editDialog = ref(false)
+const editing = ref(false)
+const editTarget = ref<WorkflowDefinitionSummary | null>(null)
+const editForm = reactive({ name: '', category: '', description: '' })
+const editLogoFile = ref<File | null>(null)
+const editLogoRemoved = ref(false)
+const publishDialog = ref(false)
+const publishTarget = ref<WorkflowDefinitionSummary | null>(null)
 const versionDrawer = ref(false)
 const versionsLoading = ref(false)
 const versions = ref<WorkflowVersion[]>([])
@@ -190,7 +250,68 @@ function handlePageSizeChange(size: number) {
 
 function openCreate() {
   Object.assign(createForm, { name: '', key: '', category: '', description: '' })
+  createLogoFile.value = null
   createDialog.value = true
+}
+
+function openEdit(row: WorkflowDefinitionSummary) {
+  editTarget.value = row
+  Object.assign(editForm, {
+    name: row.name,
+    category: row.category || '',
+    description: row.description || '',
+  })
+  editLogoFile.value = null
+  editLogoRemoved.value = false
+  editDialog.value = true
+}
+
+function handleEditLogoFile(file: File | null) {
+  editLogoFile.value = file
+  if (file) editLogoRemoved.value = false
+}
+
+function buildWorkflowDefinitionFormData(values: Record<string, string>, logoFile: File | null, removeLogo = false) {
+  const formData = new FormData()
+  Object.entries(values).forEach(([key, value]) => formData.append(key, value))
+  if (logoFile) formData.append('logo', logoFile)
+  if (removeLogo) formData.append('removeLogo', 'true')
+  return formData
+}
+
+async function updateDefinitionMetadata() {
+  if (!editTarget.value) return
+  const name = editForm.name.trim()
+  const category = editForm.category.trim()
+  const description = editForm.description.trim()
+  if (!name) {
+    ElMessage.warning('流程名称不能为空')
+    return
+  }
+  if (
+    name === editTarget.value.name
+    && category === editTarget.value.category
+    && description === editTarget.value.description
+    && !editLogoFile.value
+    && !editLogoRemoved.value
+  ) {
+    editDialog.value = false
+    return
+  }
+  editing.value = true
+  try {
+    const formData = buildWorkflowDefinitionFormData({
+      name,
+      description: editForm.description.trim(),
+      category: editForm.category.trim(),
+    }, editLogoFile.value, editLogoRemoved.value)
+    await adminApi.workflowDefinitionUpdate(editTarget.value.id, formData)
+    editDialog.value = false
+    ElMessage.success('流程信息修改成功')
+    await loadList()
+  } finally {
+    editing.value = false
+  }
 }
 
 async function createDefinition() {
@@ -206,7 +327,13 @@ async function createDefinition() {
   }
   creating.value = true
   try {
-    const response = await adminApi.workflowDefinitionCreate({ ...createForm, name, key })
+    const formData = buildWorkflowDefinitionFormData({
+      name,
+      key,
+      category: createForm.category.trim(),
+      description: createForm.description.trim(),
+    }, createLogoFile.value)
+    const response = await adminApi.workflowDefinitionCreate(formData)
     const detail = response.data as WorkflowDefinitionDetail
     createDialog.value = false
     ElMessage.success('流程已创建')
@@ -220,16 +347,9 @@ function openDesigner(row: WorkflowDefinitionSummary) {
   router.push(`/workflow/definitions/${row.id}/designer`)
 }
 
-async function publish(row: WorkflowDefinitionSummary) {
-  await ElMessageBox.confirm(`确定发布“${row.name}”当前草稿？发布后将生成不可变更的新版本。`, '发布流程', { type: 'warning' })
-  const validation = await adminApi.workflowDefinitionValidate(row.id)
-  if (!validation.data?.valid) {
-    ElMessage.error(validation.data?.errors?.[0]?.message || '流程校验未通过，请先进入设计器修正')
-    return
-  }
-  const response = await adminApi.workflowDefinitionPublish(row.id)
-  ElMessage.success(`已发布 v${response.data?.version}`)
-  await loadList()
+function publish(row: WorkflowDefinitionSummary) {
+  publishTarget.value = row
+  publishDialog.value = true
 }
 
 async function remove(row: WorkflowDefinitionSummary) {
@@ -257,7 +377,8 @@ onMounted(loadList)
 
 <style scoped>
 .workflow-name { display: flex; align-items: center; gap: 10px; }
-.workflow-name__icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; color: #0f766e; background: #e9f8f5; }
+.workflow-name__icon { display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 7px; color: #0f766e; background: #e9f8f5; }
+.workflow-name__icon img { width: 100%; height: 100%; object-fit: cover; }
 .workflow-name strong { display: block; color: #1f2937; font-weight: 600; }
 .workflow-name small { display: block; margin-top: 3px; color: #94a3b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .form-help { margin-top: 6px; color: #94a3b8; font-size: 12px; line-height: 1.5; }

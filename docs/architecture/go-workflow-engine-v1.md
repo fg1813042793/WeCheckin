@@ -22,7 +22,7 @@ flowchart LR
   RESOLVER --> USER["用户 / 角色 / 部门"]
 ```
 
-- `internal/workflow`：流程定义、校验和 BPMN 导出。
+- `internal/workflowcore`：流程定义、校验和 BPMN 导出。
 - `internal/modules/workflow/domain`：纯 Go 状态机，不依赖 GORM、Hertz 和业务模块。
 - `internal/model/workflow`：运行实例、令牌、任务、变量和历史模型。
 - `internal/service/admin/workflow`：事务、持久化、审批人解析和 API 编排。
@@ -75,7 +75,7 @@ V1 要求并行分支使用成对的 `split` 与 `join`，不支持跨层交叉�
 
 ## 5. 持久化表
 
-- `workflow_process_instances`：实例、发布版本、业务键、发起人和状态。
+- `workflow_process_instances`：实例、发布版本、业务键、业务发起人、实际操作人和状态。
 - `workflow_process_tokens`：活动路径、当前节点、分支组和状态。
 - `workflow_process_tasks`：审批人、审批组、顺序、处理结果和意见。
 - `workflow_process_variables`：实例变量，按键覆盖更新。
@@ -89,7 +89,7 @@ V1 要求并行分支使用成对的 `split` 与 `join`，不支持跨层交叉�
 
 ## 6. API
 
-- `POST /api/v2/admin/workflow-instances`：按流程定义启动实例。
+- `POST /api/v2/admin/workflow-instances`：按流程定义启动实例；`starterId` 指定业务发起人，登录管理员记录为 `operatorId`。
 - `GET /api/v2/admin/workflow-instances`：分页查询实例。
 - `GET /api/v2/admin/workflow-instances/:id`：查询实例、当前任务和历史。
 - `GET /api/v2/admin/workflow-tasks`：查询当前用户或指定实例的待办。
@@ -122,4 +122,3 @@ sequenceDiagram
 - 子流程、流程迁移、动态加签、委托和转交。
 - 外部 Flowable 自动部署和双写运行。
 - 直接替换现有绩效流转；绩效模块待 V1 稳定后通过适配层接入。
-

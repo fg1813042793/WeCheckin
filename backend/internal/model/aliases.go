@@ -9,6 +9,7 @@ import (
 	interactionmodel "wecheckin/backend/internal/model/interaction"
 	organizationmodel "wecheckin/backend/internal/model/organization"
 	permissionmodel "wecheckin/backend/internal/model/permission"
+	scheduledtaskmodel "wecheckin/backend/internal/model/scheduledtask"
 	systemmodel "wecheckin/backend/internal/model/system"
 	workflowmodel "wecheckin/backend/internal/model/workflow"
 )
@@ -19,6 +20,7 @@ type Log = adminmodel.Log
 type User = accountmodel.User
 type UserDept = accountmodel.UserDept
 type UserRole = accountmodel.UserRole
+type UserReportingRelation = accountmodel.UserReportingRelation
 type UserFormField = accountmodel.UserFormField
 
 type Department = organizationmodel.Department
@@ -67,12 +69,19 @@ type DingTalkH5PerfTemplate = dingtalkh5model.DingTalkH5PerfTemplate
 type WorkflowDefinition = workflowmodel.Definition
 type WorkflowDefinitionVersion = workflowmodel.DefinitionVersion
 type WorkflowProcessInstance = workflowmodel.ProcessInstance
+type WorkflowStartDraft = workflowmodel.StartDraft
 type WorkflowProcessToken = workflowmodel.ProcessToken
 type WorkflowProcessTask = workflowmodel.ProcessTask
 type WorkflowProcessVariable = workflowmodel.ProcessVariable
 type WorkflowProcessHistory = workflowmodel.ProcessHistory
+type WorkflowInstanceParticipant = workflowmodel.InstanceParticipant
+type WorkflowNotificationOutbox = workflowmodel.NotificationOutbox
 type WorkflowOrgApproverIdentity = workflowmodel.OrgApproverIdentity
 type WorkflowOrgApproverAssignment = workflowmodel.OrgApproverAssignment
+
+type ScheduledTask = scheduledtaskmodel.Task
+type ScheduledTaskRun = scheduledtaskmodel.Run
+type ScheduledTaskRunLog = scheduledtaskmodel.RunLog
 
 const (
 	DefinitionStatusDisabled  = workflowmodel.DefinitionStatusDisabled
@@ -83,6 +92,13 @@ const (
 	OrgApproverIdentityStatusEnabled  = workflowmodel.OrgApproverIdentityStatusEnabled
 	OrgApproverAssignmentStatusOff    = workflowmodel.OrgApproverAssignmentStatusOff
 	OrgApproverAssignmentStatusOn     = workflowmodel.OrgApproverAssignmentStatusOn
+	OrgApproverSubjectTypeDepartment  = workflowmodel.OrgApproverSubjectTypeDepartment
+	OrgApproverSubjectTypeUser        = workflowmodel.OrgApproverSubjectTypeUser
+
+	ReportingRelationTypeDirect = accountmodel.ReportingRelationTypeDirect
+	ReportingRelationTypeDotted = accountmodel.ReportingRelationTypeDotted
+	ReportingRelationStatusOff  = accountmodel.ReportingRelationStatusOff
+	ReportingRelationStatusOn   = accountmodel.ReportingRelationStatusOn
 )
 
 var ParseJSON = interactionmodel.ParseJSON

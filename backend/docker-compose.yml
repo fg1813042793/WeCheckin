@@ -100,6 +100,45 @@ services:
       timeout: 5s
       retries: 3
 
+  # 独立定时任务服务；不监听或占用 HTTP 端口
+  taskd:
+    build: .
+    logging: *default-logging
+    command: ["./taskd", "--role=all"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - APP_ENV=production
+      - WECHECKIN_DATABASE_HOST=${WECHECKIN_DATABASE_HOST:-mysql}
+      - WECHECKIN_DATABASE_PORT=${WECHECKIN_DATABASE_PORT:-3306}
+      - WECHECKIN_DATABASE_USER=${WECHECKIN_DATABASE_USER:-wecheckin}
+      - WECHECKIN_DATABASE_PASSWORD=${WECHECKIN_DATABASE_PASSWORD:-wecheckin-password}
+      - WECHECKIN_DATABASE_DBNAME=${WECHECKIN_DATABASE_DBNAME:-wecheckin}
+      - WECHECKIN_REDIS_HOST=${WECHECKIN_REDIS_HOST:-redis}
+      - WECHECKIN_REDIS_PORT=${WECHECKIN_REDIS_PORT:-6379}
+      - WECHECKIN_REDIS_PASSWORD=${WECHECKIN_REDIS_PASSWORD:-wecheckin-redis-password}
+      - WECHECKIN_REDIS_DB=${WECHECKIN_REDIS_DB:-0}
+      - WECHECKIN_LOG_DIR=${WECHECKIN_LOG_DIR:-/root/logs}
+      - WECHECKIN_SCHEDULED_TASK_WORKER_COUNT=${WECHECKIN_SCHEDULED_TASK_WORKER_COUNT:-4}
+    volumes:
+      - ./uploads:/root/uploads
+      - ./logs:/root/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - wecheckin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   # Nginx 反向代理
   nginx:
     image: nginx:alpine

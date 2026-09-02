@@ -77,3 +77,23 @@ export function buildWorkflowTree(draft: WorkflowDraft): WorkflowTreeSequence {
 
   return buildSequence(start.id)
 }
+
+export function workflowPermissionNodes(draft: WorkflowDraft): WorkflowNode[] {
+  const result: WorkflowNode[] = []
+  const included = new Set<string>()
+
+  function append(sequence: WorkflowTreeSequence) {
+    for (const item of sequence.items) {
+      if (item.kind === 'branch') {
+        item.branches.forEach(branch => append(branch.sequence))
+        continue
+      }
+      if (!['start', 'approval', 'handle'].includes(item.node.type) || included.has(item.node.id)) continue
+      included.add(item.node.id)
+      result.push(item.node)
+    }
+  }
+
+  append(buildWorkflowTree(draft))
+  return result
+}

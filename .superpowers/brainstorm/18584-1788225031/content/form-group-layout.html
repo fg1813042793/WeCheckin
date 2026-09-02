@@ -1,0 +1,79 @@
+<h2>表单组应该怎样组织字段？</h2>
+<p class="subtitle">关键是拖动分组时，内部字段是否一起移动，以及运行时的阅读层次。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a-divider" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#f5f7fa;min-height:330px">
+      <div style="background:#fff;border:1px solid #dfe6ee;border-radius:6px;padding:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <strong style="font-size:15px;color:#1f2937">基本信息</strong>
+          <span style="height:1px;background:#e5e7eb;flex:1"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label style="font-size:12px;color:#64748b">申请人<input class="mock-input" value="张三" readonly></label>
+          <label style="font-size:12px;color:#64748b">所属部门<input class="mock-input" value="研发部" readonly></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin:22px 0 14px">
+          <strong style="font-size:15px;color:#1f2937">申请内容</strong>
+          <span style="height:1px;background:#e5e7eb;flex:1"></span>
+        </div>
+        <label style="font-size:12px;color:#64748b">申请事由<textarea class="mock-input" style="height:72px;resize:none">请填写详细事由</textarea></label>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 分段标题</h3>
+      <p>分组只是一条标题分隔线，所有字段仍在同一层。实现最轻，但拖动标题不会带走组内字段。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b-container" onclick="toggleSelect(this)" style="border-color:#7aa7e8">
+    <div class="card-image" style="padding:16px;background:#f5f7fa;min-height:330px">
+      <div style="border:1px solid #b9c9dc;border-radius:6px;background:#fff;overflow:hidden;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+          <strong style="font-size:14px;color:#1f2937">基本信息</strong>
+          <button class="mock-button" style="font-size:11px;padding:4px 8px;background:#fff;color:#2563eb;border:1px solid #bfd3f3">查看说明</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px">
+          <label style="font-size:12px;color:#64748b">申请人<input class="mock-input" value="张三" readonly></label>
+          <label style="font-size:12px;color:#64748b">所属部门<input class="mock-input" value="研发部" readonly></label>
+        </div>
+      </div>
+      <div style="border:1px solid #b9c9dc;border-radius:6px;background:#fff;overflow:hidden">
+        <div style="padding:10px 13px;background:#f8fafc;border-bottom:1px solid #e2e8f0"><strong style="font-size:14px;color:#1f2937">申请内容</strong></div>
+        <div style="padding:14px"><label style="font-size:12px;color:#64748b">申请事由<textarea class="mock-input" style="height:60px;resize:none">请填写详细事由</textarea></label></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 固定分组容器（推荐）</h3>
+      <p>字段真正属于组，可拖入组内；移动整组时子字段一起移动。运行时层次清楚，也不会隐藏必填项。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c-collapse" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#f5f7fa;min-height:330px">
+      <div style="border:1px solid #b9c9dc;border-radius:6px;background:#fff;overflow:hidden;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:#f8fafc">
+          <strong style="font-size:14px;color:#1f2937">▼ 基本信息</strong><span style="font-size:11px;color:#64748b">2 个字段</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border-top:1px solid #e2e8f0">
+          <label style="font-size:12px;color:#64748b">申请人<input class="mock-input" value="张三" readonly></label>
+          <label style="font-size:12px;color:#64748b">所属部门<input class="mock-input" value="研发部" readonly></label>
+        </div>
+      </div>
+      <div style="border:1px solid #b9c9dc;border-radius:6px;background:#fff;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:#f8fafc">
+          <strong style="font-size:14px;color:#1f2937">▶ 补充材料</strong><span style="font-size:11px;color:#64748b">可选</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 可折叠分组</h3>
+      <p>适合很长的表单，但折叠后可能隐藏校验错误和必填项，审批端还需额外处理自动展开。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px;padding:14px 16px;border-left:3px solid #2563eb;background:#eff6ff">
+  <strong style="color:#1e3a8a">我的建议</strong>
+  <p style="margin:6px 0 0;color:#475569">选 B：设计器里是真实容器，可嵌套普通字段、标签、说明和说明按钮；第一版不做折叠，减少审批时遗漏。</p>
+</div>

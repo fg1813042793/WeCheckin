@@ -36,6 +36,7 @@
                 @insert="$emit('insert', $event)"
                 @add-branch="$emit('add-branch', $event)"
               />
+              <span class="branch-lane__tail" />
             </div>
           </div>
           <span class="branch-group__join" />
@@ -48,7 +49,7 @@
 
 <script lang="ts" setup>
 import { Plus } from '@element-plus/icons-vue'
-import type { WorkflowEdge, WorkflowNodeType } from '../../types'
+import type { WorkflowEdge, WorkflowInsertableNodeType, WorkflowNodeType } from '../../types'
 import type { WorkflowTreeSequence } from '../flowTree'
 import FlowInsertButton from './FlowInsertButton.vue'
 import WorkflowNodeCard from './WorkflowNodeCard.vue'
@@ -57,7 +58,7 @@ defineOptions({ name: 'WorkflowSequence' })
 defineProps<{ sequence: WorkflowTreeSequence; selectedNodeId: string; readonly?: boolean }>()
 defineEmits<{
   select: [nodeId: string]
-  insert: [payload: { edgeId: string; type: Extract<WorkflowNodeType, 'approval' | 'exclusive' | 'parallel'> }]
+  insert: [payload: { edgeId: string; type: WorkflowInsertableNodeType }]
   'add-branch': [splitId: string]
 }>()
 
@@ -84,6 +85,7 @@ function conditionSummary(edge: WorkflowEdge, type: WorkflowNodeType) {
 .branch-lane::before, .branch-lane::after { position: absolute; left: 50%; width: 1px; content: ''; background: #c8d0da; }
 .branch-lane::before { top: -24px; height: 24px; }
 .branch-lane::after { bottom: -38px; height: 38px; }
+.branch-lane__tail { width: 1px; min-height: 0; flex: 1; background: #c8d0da; }
 .branch-card { display: block; width: 210px; min-height: 76px; padding: 11px 12px; border: 1px solid #dce2e9; border-radius: 5px; color: #344054; background: #fff; text-align: left; box-shadow: 0 3px 9px rgb(31 41 55 / 7%); cursor: pointer; transition: border-color .18s, box-shadow .18s; }
 .branch-card:hover, .branch-card.selected { border-color: #70c89b; box-shadow: 0 5px 13px rgb(31 41 55 / 10%); }
 .branch-group--parallel .branch-card:hover, .branch-group--parallel .branch-card.selected { border-color: #78adf3; }

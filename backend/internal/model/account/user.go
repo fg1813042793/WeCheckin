@@ -2,6 +2,14 @@ package account
 
 import "time"
 
+const (
+	ReportingRelationTypeDirect = "direct"
+	ReportingRelationTypeDotted = "dotted"
+
+	ReportingRelationStatusOff = 0
+	ReportingRelationStatusOn  = 1
+)
+
 type User struct {
 	ID             uint      `json:"id" gorm:"primaryKey;comment:用户ID"`
 	MiniOpenID     string    `json:"miniOpenID" gorm:"uniqueIndex;size:200;column:user_mini_openid;comment:微信小程序openid"`
@@ -11,7 +19,6 @@ type User struct {
 	Name           string    `json:"name" gorm:"size:100;column:user_name;comment:用户昵称"`
 	Mobile         string    `json:"mobile" gorm:"size:20;column:user_mobile;comment:手机号"`
 	PositionID     uint      `json:"positionId" gorm:"index;default:0;column:user_position_id;comment:岗位ID"`
-	ManagerUserID  uint      `json:"managerUserId" gorm:"index;default:0;column:manager_user_id;comment:直属上级用户ID"`
 	Pic            string    `json:"avatar" gorm:"size:500;column:user_pic;comment:头像URL"`
 	Forms          string    `json:"forms" gorm:"type:text;column:user_forms;comment:扩展表单数据JSON"`
 	Obj            string    `json:"obj" gorm:"type:text;column:user_obj;comment:扩展对象数据JSON"`
@@ -37,6 +44,7 @@ type User struct {
 	DeptName        string   `json:"deptName" gorm:"-"`
 	TopDeptName     string   `json:"topDeptName" gorm:"-"`
 	PositionName    string   `json:"positionName" gorm:"-"`
+	ManagerUserID   uint     `json:"managerUserId" gorm:"-"`
 	ManagerUserName string   `json:"managerUserName" gorm:"-"`
 }
 
@@ -61,6 +69,24 @@ type UserDept struct {
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }
+
+type UserReportingRelation struct {
+	ID             uint      `json:"id" gorm:"primaryKey;comment:汇报关系ID"`
+	EmployeeUserID uint      `json:"employeeUserId" gorm:"index;column:employee_user_id;comment:员工用户ID"`
+	ManagerUserID  uint      `json:"managerUserId" gorm:"index;column:manager_user_id;comment:上级用户ID"`
+	RelationType   string    `json:"relationType" gorm:"size:40;index;column:relation_type;comment:关系类型:direct直属 dotted虚线"`
+	IsPrimary      int       `json:"isPrimary" gorm:"default:1;column:is_primary;comment:是否主关系"`
+	Sort           int       `json:"sort" gorm:"default:0;column:relation_sort;comment:排序"`
+	Status         int       `json:"status" gorm:"default:1;index;column:relation_status;comment:状态:1启用 0停用"`
+	EffectiveFrom  int64     `json:"effectiveFrom" gorm:"default:0;index;column:effective_from;comment:生效时间"`
+	EffectiveTo    int64     `json:"effectiveTo" gorm:"default:0;index;column:effective_to;comment:失效时间,0长期有效"`
+	AddTime        int64     `json:"addTime" gorm:"column:relation_add_time;comment:创建时间"`
+	EditTime       int64     `json:"editTime" gorm:"column:relation_edit_time;comment:更新时间"`
+	CreatedAt      time.Time `json:"-"`
+	UpdatedAt      time.Time `json:"-"`
+}
+
+func (UserReportingRelation) TableName() string { return "user_reporting_relations" }
 
 type UserRole struct {
 	ID        uint      `json:"id" gorm:"primaryKey;comment:关联ID"`

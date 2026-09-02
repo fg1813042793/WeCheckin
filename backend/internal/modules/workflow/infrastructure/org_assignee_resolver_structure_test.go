@@ -8,7 +8,7 @@ import (
 
 func TestOrgApproverIdentityResolverStructure(t *testing.T) {
 	modelSource := readWorkflowStructureFile(t, "../../../model/workflow/org_approver.go")
-	coreTypes := readWorkflowStructureFile(t, "../../../workflow/types.go")
+	coreTypes := readWorkflowStructureFile(t, "../../../workflowcore/types.go")
 	resolverSource := readWorkflowStructureFile(t, "assignee_resolver.go")
 
 	for _, want := range []string{
@@ -17,7 +17,10 @@ func TestOrgApproverIdentityResolverStructure(t *testing.T) {
 		"OrgApproverAssignment",
 		"workflow_org_approver_assignments",
 		"IdentityCode",
-		"DepartmentID",
+		"SubjectType",
+		"SubjectID",
+		"OrgApproverSubjectTypeDepartment",
+		"OrgApproverSubjectTypeUser",
 		"UserID",
 		"Sort",
 	} {
@@ -32,7 +35,11 @@ func TestOrgApproverIdentityResolverStructure(t *testing.T) {
 		"resolveOrgIdentity",
 		"starter_department:",
 		"department:",
-		"manager_user_id",
+		"user_reporting_relations",
+		"employee_user_id",
+		"subject_type",
+		"subject_id",
+		"OrgApproverSubjectTypeUser",
 		"department_leader",
 	} {
 		if !strings.Contains(resolverSource, want) {

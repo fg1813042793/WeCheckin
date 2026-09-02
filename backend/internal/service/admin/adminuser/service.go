@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -114,10 +115,11 @@ func GetUserByIDContext(ctx context.Context, id string) (UserDetail, error) {
 	if err != nil {
 		return UserDetail{}, err
 	}
-	managerNames, err := loadManagerUserNameMapContext(ctx, db, []model.User{user})
+	managerIDs, managerNames, err := loadDirectManagerRelationsContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
 	}
+	managerUserID := managerIDs[user.ID]
 	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
@@ -150,8 +152,8 @@ func GetUserByIDContext(ctx context.Context, id string) (UserDetail, error) {
 		LoginTime:           user.LoginTime,
 		PositionID:          user.PositionID,
 		PositionName:        positionNames[user.PositionID],
-		ManagerUserID:       user.ManagerUserID,
-		ManagerUserName:     managerNames[user.ManagerUserID],
+		ManagerUserID:       managerUserID,
+		ManagerUserName:     managerNames[managerUserID],
 		RoleID:              user.RoleID,
 		RoleName:            roleNamesByID[user.RoleID],
 		RoleIDs:             roleIDs,
@@ -200,10 +202,11 @@ func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint) (U
 	if err != nil {
 		return UserDetail{}, err
 	}
-	managerNames, err := loadManagerUserNameMapContext(ctx, db, []model.User{user})
+	managerIDs, managerNames, err := loadDirectManagerRelationsContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
 	}
+	managerUserID := managerIDs[user.ID]
 	roleIDsByUser, err := loadUserRoleIDMapContext(ctx, db, []model.User{user})
 	if err != nil {
 		return UserDetail{}, err
@@ -236,8 +239,8 @@ func GetUserByIDForAdminContext(ctx context.Context, id string, adminID uint) (U
 		LoginTime:           user.LoginTime,
 		PositionID:          user.PositionID,
 		PositionName:        positionNames[user.PositionID],
-		ManagerUserID:       user.ManagerUserID,
-		ManagerUserName:     managerNames[user.ManagerUserID],
+		ManagerUserID:       managerUserID,
+		ManagerUserName:     managerNames[managerUserID],
 		RoleID:              user.RoleID,
 		RoleName:            roleNamesByID[user.RoleID],
 		RoleIDs:             roleIDs,
@@ -306,7 +309,6 @@ var userListColumns = []string{
 	"user_name",
 	"user_mobile",
 	"user_position_id",
-	"manager_user_id",
 	"user_role_id",
 	"user_pic",
 	"user_status",
@@ -389,7 +391,7 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 	if err != nil {
 		return nil, 0, err
 	}
-	managerNames, err := loadManagerUserNameMapContext(ctx, db, list)
+	managerIDs, managerNames, err := loadDirectManagerRelationsContext(ctx, db, list)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -418,8 +420,8 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 			DeptIDs:         deptIDsByUser[u.ID],
 			PositionID:      u.PositionID,
 			PositionName:    positionNames[u.PositionID],
-			ManagerUserID:   u.ManagerUserID,
-			ManagerUserName: managerNames[u.ManagerUserID],
+			ManagerUserID:   managerIDs[u.ID],
+			ManagerUserName: managerNames[managerIDs[u.ID]],
 			RoleID:          u.RoleID,
 			RoleName:        roleNamesByID[u.RoleID],
 			RoleIDs:         roleIDs,
@@ -484,34 +486,47 @@ func loadPositionNameMapContext(ctx context.Context, db *gorm.DB, list []model.U
 	return positionNames, nil
 }
 
-func loadManagerUserNameMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint]string, error) {
+func loadDirectManagerRelationsContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint]uint, map[uint]string, error) {
 	if ctx != nil {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	managerIDSet := make(map[uint]struct{})
+	employeeIDs := make([]uint, 0, len(list))
 	for _, item := range list {
-		if item.ManagerUserID > 0 {
-			managerIDSet[item.ManagerUserID] = struct{}{}
+		if item.ID > 0 {
+			employeeIDs = append(employeeIDs, item.ID)
 		}
 	}
-	managerNames := make(map[uint]string, len(managerIDSet))
-	if len(managerIDSet) == 0 {
-		return managerNames, nil
+	managerIDs := make(map[uint]uint, len(employeeIDs))
+	managerNames := make(map[uint]string, len(employeeIDs))
+	if len(employeeIDs) == 0 {
+		return managerIDs, managerNames, nil
 	}
-	managerIDs := make([]uint, 0, len(managerIDSet))
-	for id := range managerIDSet {
-		managerIDs = append(managerIDs, id)
+	type directManagerRow struct {
+		EmployeeUserID uint   `gorm:"column:employee_user_id"`
+		ManagerUserID  uint   `gorm:"column:manager_user_id"`
+		ManagerName    string `gorm:"column:manager_name"`
 	}
-	var managers []model.User
-	if err := db.Select("id", "user_name").Where("`id` IN ?", managerIDs).Find(&managers).Error; err != nil {
-		return nil, err
+	var rows []directManagerRow
+	now := database.Now()
+	if err := db.WithContext(ctx).Table("user_reporting_relations AS r").
+		Select("r.employee_user_id, r.manager_user_id, m.user_name AS manager_name").
+		Joins("JOIN users AS m ON m.id = r.manager_user_id AND m.user_status = 1").
+		Where("r.employee_user_id IN ? AND r.relation_type = ? AND r.relation_status = ?", employeeIDs, model.ReportingRelationTypeDirect, model.ReportingRelationStatusOn).
+		Where("(r.effective_from = 0 OR r.effective_from <= ?) AND (r.effective_to = 0 OR r.effective_to > ?)", now, now).
+		Order("r.employee_user_id ASC, r.is_primary DESC, r.relation_sort ASC, r.id ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, nil, err
 	}
-	for _, item := range managers {
-		managerNames[item.ID] = item.Name
+	for _, row := range rows {
+		if managerIDs[row.EmployeeUserID] > 0 {
+			continue
+		}
+		managerIDs[row.EmployeeUserID] = row.ManagerUserID
+		managerNames[row.ManagerUserID] = row.ManagerName
 	}
-	return managerNames, nil
+	return managerIDs, managerNames, nil
 }
 
 func loadRoleNameMapContext(ctx context.Context, db *gorm.DB, list []model.User) (map[uint]string, error) {
@@ -696,20 +711,22 @@ func AddUserWithManagerAndAdminAccessContext(ctx context.Context, name, mobile, 
 			return err
 		}
 		user := model.User{
-			MiniOpenID:    miniOpenID,
-			Name:          normalizedName,
-			Mobile:        mobile,
-			PositionID:    positionID,
-			ManagerUserID: managerUserID,
-			Pic:           pic,
-			Forms:         forms,
-			Status:        1,
-			AddTime:       now,
-			AddIP:         addIP,
-			EditTime:      now,
-			EditIP:        addIP,
+			MiniOpenID: miniOpenID,
+			Name:       normalizedName,
+			Mobile:     mobile,
+			PositionID: positionID,
+			Pic:        pic,
+			Forms:      forms,
+			Status:     1,
+			AddTime:    now,
+			AddIP:      addIP,
+			EditTime:   now,
+			EditIP:     addIP,
 		}
 		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		if err := saveUserDirectManagerRelationTx(tx, user.ID, managerUserID); err != nil {
 			return err
 		}
 		if err := saveUserDeptsTx(tx, user.ID, deptIDs); err != nil {
@@ -812,9 +829,6 @@ func editUserForAdminWithManagerContext(ctx context.Context, id, name, mobile, p
 		"user_edit_time":   database.Now(),
 		"user_edit_ip":     addIP,
 	}
-	if updateManager {
-		updates["manager_user_id"] = managerUserID
-	}
 	if pic != "" {
 		updates["user_pic"] = pic
 	}
@@ -840,6 +854,11 @@ func editUserForAdminWithManagerContext(ctx context.Context, id, name, mobile, p
 		}
 		if err := access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Updates(updates)); err != nil {
 			return err
+		}
+		if updateManager {
+			if err := saveUserDirectManagerRelationTx(tx, uint(uid), managerUserID); err != nil {
+				return err
+			}
 		}
 		if err := saveUserDeptsTx(tx, uint(uid), deptIDs); err != nil {
 			return err
@@ -881,6 +900,43 @@ func ensureManagerUserAvailableTx(tx *gorm.DB, userID, managerUserID uint) error
 		return fmt.Errorf("直属上级用户不存在或已停用")
 	}
 	return nil
+}
+
+func saveUserDirectManagerRelationTx(tx *gorm.DB, employeeUserID, managerUserID uint) error {
+	now := database.Now()
+	var current model.UserReportingRelation
+	err := tx.Where(
+		"employee_user_id = ? AND relation_type = ? AND relation_status = ? AND (effective_from = 0 OR effective_from <= ?) AND (effective_to = 0 OR effective_to > ?)",
+		employeeUserID, model.ReportingRelationTypeDirect, model.ReportingRelationStatusOn, now, now,
+	).Order("is_primary DESC, relation_sort ASC, id ASC").Take(&current).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	if err == nil && current.ManagerUserID == managerUserID {
+		return nil
+	}
+	if err := tx.Model(&model.UserReportingRelation{}).
+		Where("employee_user_id = ? AND relation_type = ? AND relation_status = ?", employeeUserID, model.ReportingRelationTypeDirect, model.ReportingRelationStatusOn).
+		Updates(map[string]interface{}{
+			"relation_status":    model.ReportingRelationStatusOff,
+			"effective_to":       now,
+			"relation_edit_time": now,
+		}).Error; err != nil {
+		return err
+	}
+	if managerUserID == 0 {
+		return nil
+	}
+	return tx.Create(&model.UserReportingRelation{
+		EmployeeUserID: employeeUserID,
+		ManagerUserID:  managerUserID,
+		RelationType:   model.ReportingRelationTypeDirect,
+		IsPrimary:      1,
+		Status:         model.ReportingRelationStatusOn,
+		EffectiveFrom:  now,
+		AddTime:        now,
+		EditTime:       now,
+	}).Error
 }
 
 func ensureUserNameAvailableTx(tx *gorm.DB, name string, excludeUserID uint) error {

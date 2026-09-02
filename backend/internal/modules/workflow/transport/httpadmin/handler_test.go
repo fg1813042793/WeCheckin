@@ -11,21 +11,30 @@ import (
 	"wecheckin/backend/internal/model"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/workflowcore"
 )
 
 type runtimeServiceStub struct {
-	startRequest    workflowapp.StartInstanceRequest
-	completeRequest workflowapp.CompleteTaskRequest
-	cancelRequest   workflowapp.CancelInstanceRequest
-	instanceQuery   workflowapp.InstanceQuery
-	taskQuery       workflowapp.TaskQuery
-	definitionID    uint
-	listDefinitions int
-	getDefinition   int
-	startCalls      int
-	completeCalls   int
-	cancelCalls     int
+	startRequest           workflowapp.StartInstanceRequest
+	completeRequest        workflowapp.CompleteTaskRequest
+	cancelRequest          workflowapp.CancelInstanceRequest
+	resumeInstanceID       string
+	resumeActorID          string
+	instanceQuery          workflowapp.InstanceQuery
+	taskQuery              workflowapp.TaskQuery
+	definitionID           uint
+	listDefinitions        int
+	getDefinition          int
+	startCalls             int
+	completeCalls          int
+	cancelCalls            int
+	resumeCalls            int
+	notificationQuery      workflowapp.NotificationQuery
+	notificationListCalls  int
+	retryNotificationID    string
+	retryNotificationCalls int
+	dispatchDueLimit       int
+	dispatchDueCalls       int
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error) {
@@ -37,6 +46,13 @@ func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]wor
 			"start": {{Field: "reason", Access: workflowcore.FieldAccessWrite}},
 		},
 		StartNodeID: "start",
+		Initiator: workflowcore.InitiatorConfig{
+			Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3, 5},
+		},
+		Availability: workflowcore.StartAvailabilityConfig{
+			Mode: workflowcore.StartAvailabilityWeekly, Timezone: "Asia/Shanghai", Weekdays: []int{1, 3, 5}, DailyStartTime: "09:00", DailyEndTime: "18:00",
+		},
+		AvailabilityStatus: workflowcore.StartAvailabilityStateAvailable,
 	}}, nil
 }
 
@@ -50,6 +66,13 @@ func (stub *runtimeServiceStub) GetPublishedDefinition(_ context.Context, defini
 			"start": {{Field: "reason", Access: workflowcore.FieldAccessWrite}},
 		},
 		StartNodeID: "start",
+		Initiator: workflowcore.InitiatorConfig{
+			Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3, 5},
+		},
+		Availability: workflowcore.StartAvailabilityConfig{
+			Mode: workflowcore.StartAvailabilityWeekly, Timezone: "Asia/Shanghai", Weekdays: []int{1, 3, 5}, DailyStartTime: "09:00", DailyEndTime: "18:00",
+		},
+		AvailabilityStatus: workflowcore.StartAvailabilityStateAvailable,
 	}, nil
 }
 
@@ -71,6 +94,13 @@ func (stub *runtimeServiceStub) CancelInstance(_ context.Context, request workfl
 	return &workflowdomain.State{}, nil
 }
 
+func (stub *runtimeServiceStub) ResumeTimers(_ context.Context, instanceID, actorID string) (*workflowdomain.State, int, error) {
+	stub.resumeCalls++
+	stub.resumeInstanceID = instanceID
+	stub.resumeActorID = actorID
+	return &workflowdomain.State{}, 0, nil
+}
+
 func (stub *runtimeServiceStub) ListInstances(_ context.Context, query workflowapp.InstanceQuery) (*workflowapp.InstanceList, error) {
 	stub.instanceQuery = query
 	return &workflowapp.InstanceList{Page: query.Page, PageSize: query.PageSize}, nil
@@ -85,6 +115,24 @@ func (stub *runtimeServiceStub) ListTasks(_ context.Context, query workflowapp.T
 	return &workflowapp.TaskList{Page: query.Page, PageSize: query.PageSize}, nil
 }
 
+func (stub *runtimeServiceStub) ListNotifications(_ context.Context, query workflowapp.NotificationQuery) (*workflowapp.NotificationList, error) {
+	stub.notificationListCalls++
+	stub.notificationQuery = query
+	return &workflowapp.NotificationList{Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (stub *runtimeServiceStub) RetryNotification(_ context.Context, id string) error {
+	stub.retryNotificationCalls++
+	stub.retryNotificationID = id
+	return nil
+}
+
+func (stub *runtimeServiceStub) DispatchDueNotifications(_ context.Context, limit int) (int, error) {
+	stub.dispatchDueCalls++
+	stub.dispatchDueLimit = limit
+	return 3, nil
+}
+
 func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
 	stub := &runtimeServiceStub{}
 	handler := NewRuntimeHandler(stub)
@@ -96,7 +144,11 @@ func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
 		t.Fatalf("expected published definitions to be loaded once, got %d", stub.listDefinitions)
 	}
 	body := string(c.Response.Body())
-	for _, snippet := range []string{`"key":"leave"`, `"form"`, `"reason"`, `"fieldPermissions"`, `"startNodeId":"start"`} {
+	for _, snippet := range []string{
+		`"key":"leave"`, `"form"`, `"reason"`, `"fieldPermissions"`, `"startNodeId":"start"`,
+		`"initiator":{"scope":"specified","userIds":[7],"departmentIds":[3,5]}`,
+		`"availability":{"mode":"weekly","timezone":"Asia/Shanghai"`, `"availabilityStatus":"available"`,
+	} {
 		if !strings.Contains(body, snippet) {
 			t.Fatalf("published definition response missing %s: %s", snippet, body)
 		}
@@ -120,7 +172,7 @@ func TestGetDefinitionReturnsPublishedFormSchemaForAdmins(t *testing.T) {
 	}
 }
 
-func TestStartInstanceUsesAuthenticatedAdminAsStarter(t *testing.T) {
+func TestStartInstanceUsesSelectedStarterAndAuthenticatedAdminAsOperator(t *testing.T) {
 	stub := &runtimeServiceStub{}
 	handler := NewRuntimeHandler(stub)
 	c := newAdminContext(42)
@@ -129,7 +181,7 @@ func TestStartInstanceUsesAuthenticatedAdminAsStarter(t *testing.T) {
 		"definitionVersion": 3,
 		"businessType": "leave",
 		"businessKey": "LEAVE-1001",
-		"starterId": "forged-user",
+		"starterId": "7",
 		"variables": {"days": 2},
 		"formData": {"reason": "annual leave"}
 	}`)
@@ -139,8 +191,14 @@ func TestStartInstanceUsesAuthenticatedAdminAsStarter(t *testing.T) {
 	if stub.startCalls != 1 {
 		t.Fatalf("expected one start call, got %d", stub.startCalls)
 	}
-	if stub.startRequest.StarterID != "42" {
-		t.Fatalf("starter must come from authenticated admin, got %q", stub.startRequest.StarterID)
+	if stub.startRequest.StarterID != "7" {
+		t.Fatalf("starter must come from selected business user, got %q", stub.startRequest.StarterID)
+	}
+	if stub.startRequest.OperatorID != "42" {
+		t.Fatalf("operator must come from authenticated admin, got %q", stub.startRequest.OperatorID)
+	}
+	if !stub.startRequest.AdminInitiated {
+		t.Fatal("admin start must enforce administrator data scope")
 	}
 	if stub.startRequest.BusinessType != "leave" || stub.startRequest.BusinessKey != "LEAVE-1001" {
 		t.Fatalf("unexpected business reference: %+v", stub.startRequest)
@@ -190,6 +248,62 @@ func TestCancelInstanceUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 	}
 	if stub.cancelRequest.InstanceID != "instance-1001" || stub.cancelRequest.ActorID != "42" {
 		t.Fatalf("route instance and authenticated actor must win: %+v", stub.cancelRequest)
+	}
+}
+
+func TestResumeTimersUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+	c := newAdminContext(42)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1001"})
+	resumer, ok := interface{}(handler).(interface {
+		ResumeTimers(context.Context, *app.RequestContext)
+	})
+	if !ok {
+		t.Fatal("admin timer resume handler missing")
+	}
+
+	resumer.ResumeTimers(context.Background(), c)
+
+	if stub.resumeCalls != 1 || stub.resumeInstanceID != "instance-1001" || stub.resumeActorID != "42" {
+		t.Fatalf("resume must use route instance and authenticated actor: calls=%d instance=%q actor=%q", stub.resumeCalls, stub.resumeInstanceID, stub.resumeActorID)
+	}
+}
+
+func TestNotificationManagementUsesAuthenticatedAdminAndStableInputs(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+
+	listContext := newAdminContext(42)
+	listContext.Request.SetRequestURI("/api/v2/admin/workflow-notifications?instanceId=instance-1&recipientUserId=7&kind=node_cc&channel=dingtalk_oa&status=failed&page=2&pageSize=15")
+	handler.ListNotifications(context.Background(), listContext)
+	query := stub.notificationQuery
+	if stub.notificationListCalls != 1 || query.InstanceID != "instance-1" || query.RecipientUserID != "7" || query.Kind != "node_cc" || query.Channel != "dingtalk_oa" || query.Status != "failed" || query.Page != 2 || query.PageSize != 15 {
+		t.Fatalf("notification query = %#v calls=%d", query, stub.notificationListCalls)
+	}
+
+	retryContext := newAdminContext(42)
+	retryContext.Params = append(retryContext.Params, param.Param{Key: "id", Value: "outbox-route"})
+	retryContext.Request.SetBodyString(`{"id":"outbox-forged"}`)
+	handler.RetryNotification(context.Background(), retryContext)
+	if stub.retryNotificationCalls != 1 || stub.retryNotificationID != "outbox-route" {
+		t.Fatalf("retry notification = calls %d id %q", stub.retryNotificationCalls, stub.retryNotificationID)
+	}
+
+	dueContext := newAdminContext(42)
+	dueContext.Request.SetBodyString(`{"limit":25}`)
+	handler.DispatchDueNotifications(context.Background(), dueContext)
+	if stub.dispatchDueCalls != 1 || stub.dispatchDueLimit != 25 {
+		t.Fatalf("dispatch due = calls %d limit %d", stub.dispatchDueCalls, stub.dispatchDueLimit)
+	}
+	if !strings.Contains(string(dueContext.Response.Body()), `"dispatched":3`) {
+		t.Fatalf("dispatch due response = %s", dueContext.Response.Body())
+	}
+
+	unauthenticated := app.NewContext(1)
+	handler.ListNotifications(context.Background(), unauthenticated)
+	if stub.notificationListCalls != 1 {
+		t.Fatalf("unauthenticated notification list calls = %d", stub.notificationListCalls)
 	}
 }
 

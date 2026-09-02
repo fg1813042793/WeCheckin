@@ -1,8 +1,12 @@
 package admin
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/route"
+	"wecheckin/backend/internal/config"
 	admindept "wecheckin/backend/internal/handler/admin/department"
 	admindict "wecheckin/backend/internal/handler/admin/dict"
 	admindingtalk "wecheckin/backend/internal/handler/admin/dingtalk"
@@ -21,11 +25,15 @@ import (
 	adminuser "wecheckin/backend/internal/handler/admin/user"
 	adminworkflow "wecheckin/backend/internal/handler/admin/workflow"
 	adminmw "wecheckin/backend/internal/middleware/admin"
+	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
+	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
+	scheduledtaskhttp "wecheckin/backend/internal/modules/scheduledtask/transport/httpadmin"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpadmin"
 	"wecheckin/backend/internal/routes/v2/routeparam"
 	"wecheckin/backend/pkg/database"
+	redispkg "wecheckin/backend/pkg/redis"
 )
 
 func Register(h *server.Hertz) {
@@ -38,14 +46,28 @@ func Register(h *server.Hertz) {
 	registerSystemRoutes(admin)
 	registerSurveyRoutes(admin)
 	registerExamRoutes(admin)
-	registerWorkflowRoutes(admin)
+	workflowRuntime := registerWorkflowRoutes(admin)
+	registerScheduledTaskRoutes(admin, workflowRuntime)
 }
 
-func registerWorkflowRoutes(admin *route.RouterGroup) {
+func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	aWorkflow := adminworkflow.NewAdminWorkflowHandler()
+	aUser := adminuser.NewAdminUserHandler()
+	aDept := admindept.NewAdminDeptHandler()
 	db := database.GetDB()
 	store := workflowinfra.NewGormStore(db)
-	runtimeService := workflowapp.NewService(store, workflowinfra.NewAssigneeResolver(db), workflowinfra.NewRandomIDGenerator())
+	notificationRepository := workflowinfra.NewGormNotificationRepository(db)
+	notificationDispatcher := workflowapp.NewNotificationDispatcher(
+		notificationRepository,
+		workflowinfra.NewDingTalkNotificationChannel(db, nil),
+	)
+	runtimeService := workflowapp.NewServiceWithNotifications(
+		store,
+		workflowinfra.NewAssigneeResolver(db),
+		workflowinfra.NewRandomIDGenerator(),
+		workflowapp.DefaultLifecycleEventPublisher(),
+		notificationDispatcher,
+	)
 	runtimeHandler := workflowhttp.NewRuntimeHandler(runtimeService)
 
 	admin.GET("/workflow-definitions", aWorkflow.List)
@@ -61,12 +83,61 @@ func registerWorkflowRoutes(admin *route.RouterGroup) {
 	admin.PUT("/workflow-org-approver-assignments", aWorkflow.SaveOrgApproverAssignments)
 	admin.GET("/workflow-published-definitions", runtimeHandler.ListDefinitions)
 	admin.GET("/workflow-published-definitions/:id", runtimeHandler.GetDefinition)
+	admin.GET("/workflow-user-options", aUser.GetUserList)
+	admin.GET("/workflow-department-options", aDept.GetDeptTree)
 	admin.GET("/workflow-instances", runtimeHandler.ListInstances)
 	admin.POST("/workflow-instances", runtimeHandler.StartInstance)
 	admin.GET("/workflow-instances/:id", runtimeHandler.GetInstance)
+	admin.POST("/workflow-instances/:id/resume", runtimeHandler.ResumeTimers)
 	admin.POST("/workflow-instances/:id/cancel", runtimeHandler.CancelInstance)
 	admin.GET("/workflow-tasks", runtimeHandler.ListTasks)
 	admin.POST("/workflow-tasks/:id/complete", runtimeHandler.CompleteTask)
+	admin.GET("/workflow-notifications", runtimeHandler.ListNotifications)
+	admin.POST("/workflow-notifications/dispatch-due", runtimeHandler.DispatchDueNotifications)
+	admin.POST("/workflow-notifications/:id/retry", runtimeHandler.RetryNotification)
+	return runtimeService
+}
+
+func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *workflowapp.Service) {
+	db := database.GetDB()
+	taskStore := scheduledtaskinfra.NewGormStore(db)
+	registry, err := scheduledtaskinfra.NewHandlerRegistry(
+		config.Cfg.ScheduledTask,
+		workflowRuntime,
+		scheduledtaskinfra.NewCleanupJob(taskStore, config.Cfg.ScheduledTask.RunRetentionDays, config.Cfg.ScheduledTask.LogRetentionDays, nil),
+		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("initialize scheduled task handlers: %v", err))
+	}
+	var queue *scheduledtaskinfra.RedisStreamQueue
+	var publisher scheduledtaskapp.QueuePublisher
+	var workers scheduledtaskhttp.WorkerLister
+	if redispkg.RDB != nil {
+		queue = scheduledtaskinfra.NewRedisStreamQueue(redispkg.RDB, config.Cfg.ScheduledTask.RedisKeyPrefix)
+		publisher = queue
+		workers = queue
+	}
+	service := scheduledtaskapp.NewService(
+		taskStore, registry, publisher,
+		scheduledtaskapp.ServiceConfig{MinimumSecondInterval: time.Duration(config.Cfg.ScheduledTask.MinimumSecondInterval) * time.Second},
+	)
+	handler := scheduledtaskhttp.NewHandler(service, workers, scheduledtaskhttp.NewGormRiskAuthorizer(db))
+
+	admin.POST("/scheduled-tasks/cron-preview", handler.PreviewCron)
+	admin.GET("/scheduled-task-handlers", handler.ListHandlers)
+	admin.GET("/scheduled-task-workers", handler.ListWorkers)
+	admin.GET("/scheduled-task-runs", handler.ListRuns)
+	admin.GET("/scheduled-task-runs/:id", handler.GetRun)
+	admin.POST("/scheduled-task-runs/:id/retry", handler.RetryRun)
+	admin.POST("/scheduled-task-runs/:id/cancel", handler.CancelRun)
+	admin.GET("/scheduled-tasks", handler.ListTasks)
+	admin.POST("/scheduled-tasks", handler.CreateTask)
+	admin.GET("/scheduled-tasks/:id", handler.GetTask)
+	admin.PUT("/scheduled-tasks/:id", handler.UpdateTask)
+	admin.DELETE("/scheduled-tasks/:id", handler.DeleteTask)
+	admin.PATCH("/scheduled-tasks/:id/status", handler.SetTaskStatus)
+	admin.POST("/scheduled-tasks/:id/run", handler.RunTask)
 }
 
 func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler) {

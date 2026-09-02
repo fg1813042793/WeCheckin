@@ -35,7 +35,7 @@ if (legacyUsages.length > 0) {
   throw new Error(`admin hasPerm must use unified permission keys:\n${legacyUsages.join('\n')}`)
 }
 
-const menuService = readFileSync(resolve(currentDir, '../../backend/internal/app/service/menu/service.go'), 'utf8')
+const menuService = readFileSync(resolve(currentDir, '../../backend/internal/service/admin/menu/service.go'), 'utf8')
 for (const forbidden of [
   'permissionsupport.AdminPermCodesContext',
   'allAdminPermissionsWithPermCodesContext',

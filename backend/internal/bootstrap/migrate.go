@@ -82,7 +82,7 @@ func autoMigrate(enableExam bool) error {
 		&model.DingTalkH5PerfTemplate{},
 		&model.WorkflowDefinition{},
 		&model.WorkflowDefinitionVersion{},
-		&model.WorkflowProcessInstance{},
+		// workflow_process_instances is changed only by versioned SQL because new columns require explicit backfills.
 		&model.WorkflowProcessToken{},
 		&model.WorkflowProcessTask{},
 		&model.WorkflowProcessVariable{},

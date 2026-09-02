@@ -251,7 +251,7 @@
             style="width:100%"
           />
         </el-form-item>
-        <el-divider content-position="left" class="user-form-divider">角色权限</el-divider>
+        <el-divider content-position="left" class="user-form-divider">权限角色</el-divider>
         <el-form-item label="绑定角色">
           <div class="access-role-field">
             <el-select v-model="form.roleIds" placeholder="请选择角色" clearable filterable multiple collapse-tags collapse-tags-tooltip style="width:100%">

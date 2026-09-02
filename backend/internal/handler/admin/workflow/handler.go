@@ -1,6 +1,7 @@
 package workflowhandler
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 
@@ -8,6 +9,7 @@ import (
 
 	"wecheckin/backend/internal/model"
 	workflowservice "wecheckin/backend/internal/service/admin/workflow"
+	"wecheckin/backend/internal/support/storage"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -37,12 +39,29 @@ func (h *AdminWorkflowHandler) Create(ctx context.Context, c *app.RequestContext
 		return
 	}
 	var request workflowservice.CreateRequest
-	if err := c.BindAndValidate(&request); err != nil {
+	var uploaded *storage.StoredFile
+	if isWorkflowMultipart(c) {
+		request = workflowCreateRequestFromMultipart(c)
+		file, err := optionalWorkflowLogo(c)
+		if err != nil {
+			response.Fail(c, err.Error())
+			return
+		}
+		if file != nil {
+			uploaded, err = saveWorkflowLogo(ctx, file)
+			if err != nil {
+				response.Fail(c, err.Error())
+				return
+			}
+			request.LogoURL = uploaded.URL
+		}
+	} else if err := c.BindAndValidate(&request); err != nil {
 		response.Fail(c, "请求参数格式无效")
 		return
 	}
 	data, err := workflowservice.CreateContext(ctx, admin.ID, request)
 	if err != nil {
+		storage.RemoveLocal(uploaded)
 		response.Fail(c, err.Error())
 		return
 	}
@@ -75,12 +94,32 @@ func (h *AdminWorkflowHandler) Update(ctx context.Context, c *app.RequestContext
 		return
 	}
 	var request workflowservice.UpdateRequest
-	if err := c.BindAndValidate(&request); err != nil {
+	var uploaded *storage.StoredFile
+	if isWorkflowMultipart(c) {
+		request = workflowUpdateRequestFromMultipart(c)
+		file, err := optionalWorkflowLogo(c)
+		if err != nil {
+			response.Fail(c, err.Error())
+			return
+		}
+		if file != nil {
+			uploaded, err = saveWorkflowLogo(ctx, file)
+			if err != nil {
+				response.Fail(c, err.Error())
+				return
+			}
+			request.LogoURL = &uploaded.URL
+		} else if string(c.FormValue("removeLogo")) == "true" {
+			empty := ""
+			request.LogoURL = &empty
+		}
+	} else if err := c.BindAndValidate(&request); err != nil {
 		response.Fail(c, "请求参数格式无效")
 		return
 	}
 	data, err := workflowservice.UpdateContext(ctx, admin.ID, id, request)
 	if err != nil {
+		storage.RemoveLocal(uploaded)
 		response.Fail(c, err.Error())
 		return
 	}
@@ -125,7 +164,14 @@ func (h *AdminWorkflowHandler) Publish(ctx context.Context, c *app.RequestContex
 		response.Fail(c, "流程定义 ID 无效")
 		return
 	}
-	data, err := workflowservice.PublishContext(ctx, admin.ID, id)
+	var request workflowservice.PublishRequest
+	if len(bytes.TrimSpace(c.Request.Body())) > 0 {
+		if err := c.BindAndValidate(&request); err != nil {
+			response.Fail(c, "发布配置格式无效")
+			return
+		}
+	}
+	data, err := workflowservice.PublishContext(ctx, admin.ID, id, request)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -157,8 +203,15 @@ func (h *AdminWorkflowHandler) OrgApproverIdentities(ctx context.Context, c *app
 }
 
 func (h *AdminWorkflowHandler) OrgApproverAssignments(ctx context.Context, c *app.RequestContext) {
-	departmentID, _ := strconv.ParseUint(c.Query("departmentId"), 10, 64)
-	data, err := workflowservice.ListOrgApproverAssignmentsContext(ctx, uint(departmentID), c.Query("identityCode"))
+	subjectID, _ := strconv.ParseUint(c.Query("subjectId"), 10, 64)
+	subjectType := c.Query("subjectType")
+	if subjectID == 0 {
+		subjectID, _ = strconv.ParseUint(c.Query("departmentId"), 10, 64)
+		if subjectID > 0 && subjectType == "" {
+			subjectType = model.OrgApproverSubjectTypeDepartment
+		}
+	}
+	data, err := workflowservice.ListOrgApproverAssignmentsContext(ctx, subjectType, uint(subjectID), c.Query("identityCode"))
 	if err != nil {
 		response.Fail(c, "获取组织审批身份人员失败")
 		return

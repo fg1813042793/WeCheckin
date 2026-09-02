@@ -11,7 +11,8 @@ import (
 	"gorm.io/gorm/clause"
 
 	"wecheckin/backend/internal/model"
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/support/media"
+	"wecheckin/backend/internal/workflowcore"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -20,6 +21,7 @@ type CreateRequest struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Category    string          `json:"category"`
+	LogoURL     string          `json:"-"`
 	Draft       json.RawMessage `json:"draft"`
 }
 
@@ -27,6 +29,7 @@ type UpdateRequest struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Category    string          `json:"category"`
+	LogoURL     *string         `json:"-"`
 	Status      *int            `json:"status"`
 	Draft       json.RawMessage `json:"draft"`
 }
@@ -37,6 +40,7 @@ type DefinitionSummary struct {
 	Name           string `json:"name"`
 	Description    string `json:"description"`
 	Category       string `json:"category"`
+	LogoURL        string `json:"logoUrl"`
 	Status         int    `json:"status"`
 	CurrentVersion int    `json:"currentVersion"`
 	AddUserID      uint   `json:"addUserId"`
@@ -66,6 +70,10 @@ type PublishResponse struct {
 	DefinitionID uint   `json:"definitionId"`
 	Version      int    `json:"version"`
 	BPMNXML      string `json:"bpmnXml"`
+}
+
+type PublishRequest struct {
+	Initiator *workflowcore.InitiatorConfig `json:"initiator,omitempty"`
 }
 
 type VersionSummary struct {
@@ -112,7 +120,7 @@ func GetListContext(ctx context.Context, keyword, category string, status, page,
 	}
 	list := make([]DefinitionSummary, 0, len(rows))
 	for _, row := range rows {
-		list = append(list, summaryFromModel(row))
+		list = append(list, summaryFromModel(ctx, row))
 	}
 	return &ListResponse{List: list, Total: total, Page: page, PageSize: pageSize}, nil
 }
@@ -131,7 +139,7 @@ func GetDetailContext(ctx context.Context, id uint) (*DefinitionDetail, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DefinitionDetail{DefinitionSummary: summaryFromModel(item), Draft: draft}, nil
+	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
 
 func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*DefinitionDetail, error) {
@@ -139,6 +147,10 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	request.Name = strings.TrimSpace(request.Name)
 	if request.Key == "" || request.Name == "" {
 		return nil, errors.New("流程编码和流程名称不能为空")
+	}
+	logoURL, err := normalizeDefinitionLogoURL(request.LogoURL)
+	if err != nil {
+		return nil, err
 	}
 	draftInput := request.Draft
 	if len(bytes.TrimSpace(draftInput)) == 0 {
@@ -176,6 +188,7 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 		Name:        request.Name,
 		Description: strings.TrimSpace(request.Description),
 		Category:    strings.TrimSpace(request.Category),
+		LogoURL:     logoURL,
 		Status:      model.DefinitionStatusDraft,
 		DraftJSON:   encoded,
 		AddUserID:   adminID,
@@ -186,7 +199,7 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	if err := db.Create(&item).Error; err != nil {
 		return nil, err
 	}
-	return &DefinitionDetail{DefinitionSummary: summaryFromModel(item), Draft: draft}, nil
+	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
 
 func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest) (*DefinitionDetail, error) {
@@ -221,28 +234,76 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		}
 		status = *request.Status
 	}
-	now := database.Now()
-	updates := map[string]interface{}{
-		"definition_name":         name,
-		"definition_description":  strings.TrimSpace(request.Description),
-		"definition_category":     strings.TrimSpace(request.Category),
-		"definition_status":       status,
-		"definition_draft_json":   encoded,
-		"definition_edit_user_id": adminID,
-		"definition_edit_time":    now,
-		"updated_at":              gorm.Expr("CURRENT_TIMESTAMP"),
+	description := strings.TrimSpace(request.Description)
+	category := strings.TrimSpace(request.Category)
+	var logoURL *string
+	if request.LogoURL != nil {
+		normalized, err := normalizeDefinitionLogoURL(*request.LogoURL)
+		if err != nil {
+			return nil, err
+		}
+		logoURL = &normalized
 	}
-	if err := db.Model(&model.WorkflowDefinition{}).Where("id = ?", id).Updates(updates).Error; err != nil {
-		return nil, err
+	updates := definitionContentUpdates(item, name, description, category, status, encoded, logoURL)
+	if len(updates) > 0 {
+		now := database.Now()
+		updates["definition_edit_user_id"] = adminID
+		updates["definition_edit_time"] = now
+		updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
+		if err := definitionUpdateSession(db).Model(&model.WorkflowDefinition{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+		item.EditUserID = adminID
+		item.EditTime = now
 	}
 	item.Name = name
-	item.Description = strings.TrimSpace(request.Description)
-	item.Category = strings.TrimSpace(request.Category)
+	item.Description = description
+	item.Category = category
+	if logoURL != nil {
+		item.LogoURL = *logoURL
+	}
 	item.Status = status
 	item.DraftJSON = encoded
-	item.EditUserID = adminID
-	item.EditTime = now
-	return &DefinitionDetail{DefinitionSummary: summaryFromModel(item), Draft: draft}, nil
+	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
+}
+
+func definitionContentUpdates(item model.WorkflowDefinition, name, description, category string, status int, draftJSON string, logoURL *string) map[string]interface{} {
+	updates := make(map[string]interface{}, 6)
+	if name != item.Name {
+		updates["definition_name"] = name
+	}
+	if description != item.Description {
+		updates["definition_description"] = description
+	}
+	if category != item.Category {
+		updates["definition_category"] = category
+	}
+	if status != item.Status {
+		updates["definition_status"] = status
+	}
+	if draftJSON != item.DraftJSON {
+		updates["definition_draft_json"] = draftJSON
+	}
+	if logoURL != nil && *logoURL != item.LogoURL {
+		updates["definition_logo_url"] = *logoURL
+	}
+	return updates
+}
+
+func normalizeDefinitionLogoURL(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(value, "/uploads/workflow-logos/") {
+		return "", errors.New("流程 Logo 地址无效")
+	}
+	return value, nil
+}
+
+func definitionUpdateSession(db *gorm.DB) *gorm.DB {
+	// The primary-key update is already atomic; an outer transaction only adds round trips.
+	return db.Session(&gorm.Session{SkipDefaultTransaction: true})
 }
 
 func ValidateContext(ctx context.Context, id uint) (*ValidationResponse, error) {
@@ -250,14 +311,18 @@ func ValidateContext(ctx context.Context, id uint) (*ValidationResponse, error) 
 	if err != nil {
 		return nil, err
 	}
-	errors := workflowcore.ValidateDefinition(detail.Draft)
+	errors := validateDesignDraft(detail.Draft)
 	if errors == nil {
 		errors = make([]workflowcore.ValidationError, 0)
 	}
 	return &ValidationResponse{Valid: len(errors) == 0, Errors: errors}, nil
 }
 
-func PublishContext(ctx context.Context, adminID, id uint) (*PublishResponse, error) {
+func validateDesignDraft(definition workflowcore.Definition) []workflowcore.ValidationError {
+	return workflowcore.ValidateDefinition(definition)
+}
+
+func PublishContext(ctx context.Context, adminID, id uint, request PublishRequest) (*PublishResponse, error) {
 	if id == 0 {
 		return nil, errors.New("流程定义 ID 无效")
 	}
@@ -269,10 +334,16 @@ func PublishContext(ctx context.Context, adminID, id uint) (*PublishResponse, er
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
-		draft, encoded, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name)
+		draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name)
 		if err != nil {
 			return err
 		}
+		applyPublishInitiator(&draft, request.Initiator)
+		encodedJSON, err := json.Marshal(draft)
+		if err != nil {
+			return err
+		}
+		encoded := string(encodedJSON)
 		bpmn, err := workflowcore.CompileBPMN(draft)
 		if err != nil {
 			return err
@@ -312,6 +383,30 @@ func PublishContext(ctx context.Context, adminID, id uint) (*PublishResponse, er
 		return nil, err
 	}
 	return &result, nil
+}
+
+func applyPublishInitiator(definition *workflowcore.Definition, requested *workflowcore.InitiatorConfig) {
+	if definition == nil {
+		return
+	}
+	for index := range definition.Nodes {
+		if definition.Nodes[index].Type != workflowcore.NodeTypeStart {
+			continue
+		}
+		initiator := requested
+		if initiator == nil {
+			initiator = definition.Nodes[index].Initiator
+		}
+		if initiator == nil {
+			initiator = &workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeAll}
+		}
+		definition.Nodes[index].Initiator = &workflowcore.InitiatorConfig{
+			Scope:         strings.TrimSpace(initiator.Scope),
+			UserIDs:       append([]uint(nil), initiator.UserIDs...),
+			DepartmentIDs: append([]uint(nil), initiator.DepartmentIDs...),
+		}
+		return
+	}
 }
 
 func GetVersionsContext(ctx context.Context, id uint) ([]VersionSummary, error) {
@@ -358,7 +453,13 @@ func newDefaultDefinition(key, name string) workflowcore.Definition {
 		Key:           strings.TrimSpace(key),
 		Name:          strings.TrimSpace(name),
 		Nodes: []workflowcore.Node{
-			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{
+				ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始",
+				Initiator: &workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeAll},
+				Availability: &workflowcore.StartAvailabilityConfig{
+					Mode: workflowcore.StartAvailabilityAlways, Timezone: workflowcore.DefaultStartAvailabilityTimezone,
+				},
+			},
 			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
 		},
 		Edges: []workflowcore.Edge{{ID: "flow_start_end", Source: "start", Target: "end"}},
@@ -369,9 +470,27 @@ func normalizeDraft(raw json.RawMessage, key, name string) (workflowcore.Definit
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	decoder.DisallowUnknownFields()
-	var definition workflowcore.Definition
-	if err := decoder.Decode(&definition); err != nil {
+	var input struct {
+		workflowcore.Definition
+		LegacyInitiator *workflowcore.InitiatorConfig `json:"initiator,omitempty"`
+	}
+	if err := decoder.Decode(&input); err != nil {
 		return workflowcore.Definition{}, "", errors.New("流程设计数据格式无效：" + err.Error())
+	}
+	definition := input.Definition
+	if input.LegacyInitiator != nil {
+		for index := range definition.Nodes {
+			if definition.Nodes[index].Type != workflowcore.NodeTypeStart {
+				continue
+			}
+			if definition.Nodes[index].Initiator == nil {
+				initiator := *input.LegacyInitiator
+				initiator.UserIDs = append([]uint(nil), input.LegacyInitiator.UserIDs...)
+				initiator.DepartmentIDs = append([]uint(nil), input.LegacyInitiator.DepartmentIDs...)
+				definition.Nodes[index].Initiator = &initiator
+			}
+			break
+		}
 	}
 	definition.Key = strings.TrimSpace(key)
 	definition.Name = strings.TrimSpace(name)
@@ -382,10 +501,10 @@ func normalizeDraft(raw json.RawMessage, key, name string) (workflowcore.Definit
 	return definition, string(encoded), nil
 }
 
-func summaryFromModel(item model.WorkflowDefinition) DefinitionSummary {
+func summaryFromModel(ctx context.Context, item model.WorkflowDefinition) DefinitionSummary {
 	return DefinitionSummary{
 		ID: item.ID, Key: item.Key, Name: item.Name, Description: item.Description,
-		Category: item.Category, Status: item.Status, CurrentVersion: item.CurrentVersion,
+		Category: item.Category, LogoURL: media.FullURLWithStaticDomainContext(ctx, item.LogoURL), Status: item.Status, CurrentVersion: item.CurrentVersion,
 		AddUserID: item.AddUserID, EditUserID: item.EditUserID, AddTime: item.AddTime, EditTime: item.EditTime,
 	}
 }

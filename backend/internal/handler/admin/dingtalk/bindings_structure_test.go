@@ -44,7 +44,7 @@ func TestDingTalkUserBindingAdminHandlerStructure(t *testing.T) {
 }
 
 func TestDingTalkUserBindingAdminFrontendStructure(t *testing.T) {
-	routeSrc, err := os.ReadFile("../../../../../../admin/src/router/adminRoutes.ts")
+	routeSrc, err := os.ReadFile("../../../../../admin/src/router/adminRoutes.ts")
 	if err != nil {
 		t.Fatalf("read admin routes: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestDingTalkUserBindingAdminFrontendStructure(t *testing.T) {
 		}
 	}
 
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-bindings/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-bindings/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk binding page: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestDingTalkUserBindingLocalUserPickerUsesDeptTreeSingleSelect(t *testing.T
 		}
 	}
 
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-bindings/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-bindings/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk binding page: %v", err)
 	}

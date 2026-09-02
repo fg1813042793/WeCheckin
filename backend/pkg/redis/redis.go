@@ -14,12 +14,20 @@ var Ctx = context.Background()
 
 func Init(cfg config.RedisConfig) error {
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	RDB = goredis.NewClient(&goredis.Options{
+	client := goredis.NewClient(&goredis.Options{
 		Addr:     addr,
 		Password: cfg.Password,
 		DB:       cfg.DB,
 	})
-	return RDB.Ping(Ctx).Err()
+	if err := client.Ping(Ctx).Err(); err != nil {
+		_ = client.Close()
+		return err
+	}
+	if RDB != nil {
+		_ = RDB.Close()
+	}
+	RDB = client
+	return nil
 }
 
 func Close() {

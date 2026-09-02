@@ -7,6 +7,9 @@ const (
 	OrgApproverIdentityStatusEnabled  = 1
 	OrgApproverAssignmentStatusOff    = 0
 	OrgApproverAssignmentStatusOn     = 1
+
+	OrgApproverSubjectTypeDepartment = "department"
+	OrgApproverSubjectTypeUser       = "user"
 )
 
 type OrgApproverIdentity struct {
@@ -25,9 +28,11 @@ func (OrgApproverIdentity) TableName() string { return "workflow_org_approver_id
 
 type OrgApproverAssignment struct {
 	ID           uint      `json:"id" gorm:"primaryKey;comment:组织审批身份人员ID"`
-	DepartmentID uint      `json:"departmentId" gorm:"index;default:0;column:department_id;comment:部门ID"`
+	SubjectType  string    `json:"subjectType" gorm:"size:20;index;column:subject_type;comment:适用对象类型:department部门 user人员"`
+	SubjectID    uint      `json:"subjectId" gorm:"index;default:0;column:subject_id;comment:适用对象ID"`
+	DepartmentID uint      `json:"departmentId,omitempty" gorm:"index;default:0;column:department_id;comment:兼容部门ID"`
 	IdentityCode string    `json:"identityCode" gorm:"size:80;index;column:identity_code;comment:身份编码"`
-	UserID       uint      `json:"userId" gorm:"index;default:0;column:user_id;comment:用户ID"`
+	UserID       uint      `json:"userId" gorm:"index;default:0;column:user_id;comment:审批人用户ID"`
 	Sort         int       `json:"sort" gorm:"default:0;column:assignment_sort;comment:审批顺序"`
 	Status       int       `json:"status" gorm:"default:1;column:assignment_status;comment:状态:1启用 0停用"`
 	AddTime      int64     `json:"addTime" gorm:"column:assignment_add_time;comment:创建时间"`

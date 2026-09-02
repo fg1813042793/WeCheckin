@@ -1,5 +1,81 @@
 basePath: /
 definitions:
+  application.CreateTaskRequest:
+    properties:
+      code:
+        type: string
+      concurrencyPolicy:
+        type: string
+      cronExpression:
+        type: string
+      cronPrecision:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      handlerConfigJson:
+        items:
+          type: integer
+        type: array
+      handlerType:
+        type: string
+      maxCatchUp:
+        type: integer
+      maxRetries:
+        type: integer
+      misfirePolicy:
+        type: string
+      name:
+        type: string
+      retryBackoffJson:
+        items:
+          type: integer
+        type: array
+      timeoutSeconds:
+        type: integer
+      timezone:
+        type: string
+    type: object
+  application.UpdateTaskRequest:
+    properties:
+      code:
+        type: string
+      concurrencyPolicy:
+        type: string
+      cronExpression:
+        type: string
+      cronPrecision:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      handlerConfigJson:
+        items:
+          type: integer
+        type: array
+      handlerType:
+        type: string
+      maxCatchUp:
+        type: integer
+      maxRetries:
+        type: integer
+      misfirePolicy:
+        type: string
+      name:
+        type: string
+      retryBackoffJson:
+        items:
+          type: integer
+        type: array
+      timeoutSeconds:
+        type: integer
+      timezone:
+        type: string
+      version:
+        type: integer
+    type: object
   response.Resp:
     properties:
       code:
@@ -7,6 +83,24 @@ definitions:
       data: {}
       msg:
         type: string
+    type: object
+  workflow.InitiatorConfig:
+    properties:
+      departmentIds:
+        items:
+          type: integer
+        type: array
+      scope:
+        type: string
+      userIds:
+        items:
+          type: integer
+        type: array
+    type: object
+  workflowservice.PublishRequest:
+    properties:
+      initiator:
+        $ref: '#/definitions/workflow.InitiatorConfig'
     type: object
 host: localhost:8083
 info:
@@ -245,6 +339,17 @@ paths:
       tags:
       - API v2-后台管理
   /api/v2/admin/dingtalk/perf-histories:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 批量删除 /api/v2/admin/dingtalk/perf-histories
+      tags:
+      - API v2-后台管理
     get:
       responses:
         "200":
@@ -256,7 +361,36 @@ paths:
       summary: 查询 /api/v2/admin/dingtalk/perf-histories
       tags:
       - API v2-后台管理
+  /api/v2/admin/dingtalk/perf-histories/{id}:
+    delete:
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除 /api/v2/admin/dingtalk/perf-histories/{id}
+      tags:
+      - API v2-后台管理
   /api/v2/admin/dingtalk/perf-reviews:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 批量删除 /api/v2/admin/dingtalk/perf-reviews
+      tags:
+      - API v2-后台管理
     get:
       responses:
         "200":
@@ -2086,6 +2220,232 @@ paths:
       summary: 查询 /api/v2/admin/roles/application-permissions
       tags:
       - API v2-后台管理
+  /api/v2/admin/scheduled-task-handlers:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询可用任务处理器
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-task-runs:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询定时任务运行记录
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-task-runs/{id}:
+    get:
+      parameters:
+      - description: 运行记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询定时任务运行详情和日志
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-task-runs/{id}/cancel:
+    post:
+      parameters:
+      - description: 运行记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 取消定时任务运行
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-task-runs/{id}/retry:
+    post:
+      parameters:
+      - description: 运行记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 重试失败的定时任务运行
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-task-workers:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询定时任务执行节点
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-tasks:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询定时任务列表
+      tags:
+      - API v2-后台管理-定时任务
+    post:
+      parameters:
+      - description: 定时任务配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/application.CreateTaskRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 创建定时任务
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-tasks/{id}:
+    delete:
+      parameters:
+      - description: 定时任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除定时任务
+      tags:
+      - API v2-后台管理-定时任务
+    get:
+      parameters:
+      - description: 定时任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询定时任务详情
+      tags:
+      - API v2-后台管理-定时任务
+    put:
+      parameters:
+      - description: 定时任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 定时任务配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/application.UpdateTaskRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 更新定时任务
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-tasks/{id}/run:
+    post:
+      parameters:
+      - description: 定时任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 立即运行定时任务
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-tasks/{id}/status:
+    patch:
+      parameters:
+      - description: 定时任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 启用或停用定时任务
+      tags:
+      - API v2-后台管理-定时任务
+  /api/v2/admin/scheduled-tasks/cron-preview:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 预览 Cron 执行时间
+      tags:
+      - API v2-后台管理-定时任务
   /api/v2/admin/settings:
     put:
       responses:
@@ -3020,6 +3380,12 @@ paths:
         name: id
         required: true
         type: integer
+      - description: 发布配置
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workflowservice.PublishRequest'
       responses:
         "200":
           description: OK
@@ -3066,6 +3432,18 @@ paths:
       summary: 查询工作流定义版本
       tags:
       - API v2-后台管理-工作流
+  /api/v2/admin/workflow-department-options:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流可选部门树
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/admin/workflow-instances:
     get:
       responses:
@@ -3079,6 +3457,7 @@ paths:
       tags:
       - API v2-后台管理-工作流
     post:
+      description: starterId 为业务发起人，实际操作人从管理员登录态获取并保存为 operatorId
       responses:
         "200":
           description: OK
@@ -3125,6 +3504,87 @@ paths:
       summary: 取消运行中的工作流实例
       tags:
       - API v2-后台管理-工作流
+  /api/v2/admin/workflow-instances/{id}/resume:
+    post:
+      parameters:
+      - description: 流程实例 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 恢复工作流实例的定时节点
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-notifications:
+    get:
+      parameters:
+      - description: 流程实例 ID
+        in: query
+        name: instanceId
+        type: string
+      - description: 接收人用户 ID
+        in: query
+        name: recipientUserId
+        type: string
+      - description: 通知事件
+        in: query
+        name: kind
+        type: string
+      - description: 通知渠道
+        in: query
+        name: channel
+        type: string
+      - description: 投递状态
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流通知投递记录
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-notifications/{id}/retry:
+    post:
+      parameters:
+      - description: 通知 Outbox ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 重试单条工作流通知
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-notifications/dispatch-due:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 投递到期的工作流通知
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/admin/workflow-org-approver-assignments:
     get:
       responses:
@@ -3160,6 +3620,36 @@ paths:
       summary: 查询组织审批身份列表
       tags:
       - API v2-后台管理-工作流
+  /api/v2/admin/workflow-published-definitions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询可发起的已发布工作流
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-published-definitions/{id}:
+    get:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询已发布工作流表单 Schema
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/admin/workflow-tasks:
     get:
       responses:
@@ -3188,6 +3678,18 @@ paths:
       security:
       - AdminToken: []
       summary: 完成工作流任务
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-user-options:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 查询工作流可选用户
       tags:
       - API v2-后台管理-工作流
   /api/v2/auth/login:
@@ -4001,8 +4503,49 @@ paths:
       summary: 查询 OA 流程和表单 Schema
       tags:
       - API v2-客户端-OA流程
+  /api/v2/workflows/drafts/{definitionId}:
+    get:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: definitionId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询我的 OA 流程发起草稿
+      tags:
+      - API v2-客户端-OA流程
+    put:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: definitionId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 保存我的 OA 流程发起草稿
+      tags:
+      - API v2-客户端-OA流程
   /api/v2/workflows/instances:
     get:
+      parameters:
+      - default: started
+        description: '查询范围: started, handled, copied'
+        in: query
+        name: scope
+        type: string
       responses:
         "200":
           description: OK

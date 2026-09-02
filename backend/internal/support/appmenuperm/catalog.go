@@ -44,6 +44,7 @@ func DingTalkH5MenuDeclarations() []Declaration {
 		{Key: "dingtalk_h5:menu:performance:summary", Name: "HRBP汇总", Platform: "dingtalk_h5", Path: "performance:summary", Icon: "summary", ParentKey: "dingtalk_h5:menu:performance", Sort: 70},
 		{Key: "dingtalk_h5:menu:performance:org", Name: "流程执行", Platform: "dingtalk_h5", Path: "performance:org", Icon: "org", ParentKey: "dingtalk_h5:menu:performance", Sort: 80},
 		{Key: "dingtalk_h5:menu:performance:template", Name: "绩效模版", Platform: "dingtalk_h5", Path: "performance:template", Icon: "template", ParentKey: "dingtalk_h5:menu:performance", Sort: 90},
+		{Key: "dingtalk_h5:menu:workflow", Name: "流程审批", Platform: "dingtalk_h5", Path: "workflow", Icon: "workflow", Sort: 100},
 	}
 }
 

@@ -107,8 +107,24 @@ func Declarations() []Declaration {
 		{"workflow:instance:cancel", "流程实例取消接口"},
 		{"workflow:task:list", "流程任务查看接口"},
 		{"workflow:task:complete", "流程任务处理接口"},
+		{"workflow:notification:list", "流程通知查看接口"},
+		{"workflow:notification:retry", "流程通知重试接口"},
 		{"workflow:org-approver:list", "组织审批身份查看接口"},
 		{"workflow:org-approver:edit", "组织审批身份维护接口"},
+		{"scheduled-task:list", "定时任务查看接口"},
+		{"scheduled-task:add", "定时任务创建接口"},
+		{"scheduled-task:edit", "定时任务编辑接口"},
+		{"scheduled-task:delete", "定时任务删除接口"},
+		{"scheduled-task:status", "定时任务启停接口"},
+		{"scheduled-task:run", "定时任务立即运行接口"},
+		{"scheduled-task:run:list", "定时任务运行记录查看接口"},
+		{"scheduled-task:run:retry", "定时任务运行重试接口"},
+		{"scheduled-task:run:cancel", "定时任务运行取消接口"},
+		{"scheduled-task:worker:list", "定时任务执行节点查看接口"},
+		{"scheduled-task:http", "定时任务 HTTP 处理器配置接口"},
+		{"scheduled-task:shell", "定时任务 Shell 处理器配置接口"},
+		{"scheduled-task:sql:read", "定时任务 SQL 查询配置接口"},
+		{"scheduled-task:sql:write", "定时任务 SQL 写入配置接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -137,6 +153,7 @@ func Categories() []Category {
 		{Key: "admin:api-category:survey", Name: "问卷管理", Sort: 60},
 		{Key: "admin:api-category:exam", Name: "考试管理", Sort: 70},
 		{Key: "admin:api-category:workflow", Name: "流程管理", Sort: 75},
+		{Key: "admin:api-category:scheduled-task", Name: "定时任务", Sort: 80},
 	}
 }
 
@@ -166,6 +183,8 @@ func categoryForPerms(categories map[string]Category, perms string) Category {
 		key = "admin:api-category:exam"
 	case "workflow":
 		key = "admin:api-category:workflow"
+	case "scheduled-task":
+		key = "admin:api-category:scheduled-task"
 	}
 	if item, ok := categories[key]; ok {
 		return item
@@ -277,6 +296,22 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"workflow:instance:cancel":     {method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel"},
 	"workflow:task:list":           {method: "GET", path: "/api/v2/admin/workflow-tasks"},
 	"workflow:task:complete":       {method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete"},
+	"workflow:notification:list":   {method: "GET", path: "/api/v2/admin/workflow-notifications"},
+	"workflow:notification:retry":  {method: "POST", path: "/api/v2/admin/workflow-notifications/:id/retry"},
 	"workflow:org-approver:list":   {method: "GET", path: "/api/v2/admin/workflow-org-approver-identities"},
 	"workflow:org-approver:edit":   {method: "PUT", path: "/api/v2/admin/workflow-org-approver-assignments"},
+	"scheduled-task:list":          {method: "GET", path: "/api/v2/admin/scheduled-tasks"},
+	"scheduled-task:add":           {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
+	"scheduled-task:edit":          {method: "PUT", path: "/api/v2/admin/scheduled-tasks/:id"},
+	"scheduled-task:delete":        {method: "DELETE", path: "/api/v2/admin/scheduled-tasks/:id"},
+	"scheduled-task:status":        {method: "PATCH", path: "/api/v2/admin/scheduled-tasks/:id/status"},
+	"scheduled-task:run":           {method: "POST", path: "/api/v2/admin/scheduled-tasks/:id/run"},
+	"scheduled-task:run:list":      {method: "GET", path: "/api/v2/admin/scheduled-task-runs"},
+	"scheduled-task:run:retry":     {method: "POST", path: "/api/v2/admin/scheduled-task-runs/:id/retry"},
+	"scheduled-task:run:cancel":    {method: "POST", path: "/api/v2/admin/scheduled-task-runs/:id/cancel"},
+	"scheduled-task:worker:list":   {method: "GET", path: "/api/v2/admin/scheduled-task-workers"},
+	"scheduled-task:http":          {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
+	"scheduled-task:shell":         {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
+	"scheduled-task:sql:read":      {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
+	"scheduled-task:sql:write":     {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
 }

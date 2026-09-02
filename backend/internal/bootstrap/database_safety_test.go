@@ -53,6 +53,28 @@ func TestStartupNoLongerUsesAutoMigrateEnvironmentSwitch(t *testing.T) {
 	}
 }
 
+func TestWorkflowProcessInstanceSchemaIsManagedBySQLMigrations(t *testing.T) {
+	src, err := os.ReadFile("migrate.go")
+	if err != nil {
+		t.Fatalf("read migrate.go: %v", err)
+	}
+	if strings.Contains(string(src), "&model.WorkflowProcessInstance{}") {
+		t.Fatal("workflow_process_instances schema changes must be created by versioned SQL migrations")
+	}
+}
+
+func TestWorkflowNotificationSchemasAreManagedBySQLMigrations(t *testing.T) {
+	src, err := os.ReadFile("migrate.go")
+	if err != nil {
+		t.Fatalf("read migrate.go: %v", err)
+	}
+	for _, model := range []string{"&model.WorkflowInstanceParticipant{}", "&model.WorkflowNotificationOutbox{}"} {
+		if strings.Contains(string(src), model) {
+			t.Fatalf("workflow notification runtime schema must be created by versioned SQL, found %s", model)
+		}
+	}
+}
+
 func TestMaintenanceInitializationReturnsErrors(t *testing.T) {
 	src, err := os.ReadFile("maintenance.go")
 	if err != nil {

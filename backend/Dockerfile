@@ -16,20 +16,22 @@ RUN go mod download
 # 复制源代码
 COPY . .
 
-# 构建应用
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
+# 构建 HTTP 服务和独立定时任务服务
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd \
+    && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o taskd ./cmd/taskd
 
 # 运行时镜像
 FROM alpine:latest
 
-# 安装 ca-certificates 用于 HTTPS
-RUN apk --no-cache add ca-certificates
+# HTTPS 和 IANA 时区 Cron 运行依赖
+RUN apk --no-cache add ca-certificates tzdata
 
 # 设置工作目录
 WORKDIR /root/
 
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/main .
+COPY --from=builder /app/taskd .
 
 # 复制配置目录
 COPY --from=builder /app/config ./config

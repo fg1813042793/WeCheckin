@@ -69,7 +69,7 @@ func TestDingTalkSettingsExposeH5BrandConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestDingTalkSettingsExposeH5BrandConfig(t *testing.T) {
 }
 
 func TestDingTalkSettingsSeparatesCorpConfigFromLoginConfig(t *testing.T) {
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestDingTalkSettingsSeparatesCorpConfigFromLoginConfig(t *testing.T) {
 }
 
 func TestDingTalkSettingsCorpDeleteRequiresConfirmation(t *testing.T) {
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestDingTalkSettingsExposePerformanceNotificationConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestDingTalkSettingsEnterpriseAppCarriesNotificationJumpURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestDingTalkSettingsSaveOnlyPersistsActiveTabScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestDingTalkSettingsExposeNotificationDiagnosisAction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	viewSrc, err := os.ReadFile("../../../../../../admin/src/views/dingtalk-setup/index.vue")
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}

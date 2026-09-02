@@ -24,13 +24,16 @@
     "check:workflow-runtime-form": "node scripts/check-workflow-runtime-form.mjs",
     "check:workflow-form-designer": "node scripts/check-workflow-form-designer.mjs",
     "check:workflow-org-approver": "node scripts/check-workflow-org-approver.mjs",
+    "check:scheduled-task": "node scripts/check-scheduled-task.mjs",
     "check:question-bank-components": "node scripts/check-question-bank-components.mjs",
     "check:formkit-shared-types": "node scripts/check-formkit-shared-types.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
-    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:dingtalk-h5-menu-tree && npm run check:dingtalk-h5-icons && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:workflow-tree && npm run check:workflow-runtime-pages && npm run check:workflow-runtime-form && npm run check:workflow-form-designer && npm run check:workflow-org-approver && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
+    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:dingtalk-h5-menu-tree && npm run check:dingtalk-h5-icons && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:workflow-tree && npm run check:workflow-runtime-pages && npm run check:workflow-runtime-form && npm run check:workflow-form-designer && npm run check:workflow-org-approver && npm run check:scheduled-task && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
     "@element-plus/icons-vue": "^2.3.1",
+    "@vue-flow/core": "^1.48.2",
     "@vueup/vue-quill": "^1.5.3",
     "axios": "^1.7.9",
     "echarts": "^6.1.0",

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
-	workflowcore "wecheckin/backend/internal/workflow"
+	"wecheckin/backend/internal/workflowcore"
 )
 
 func TestResolveVariableAssigneesSupportsCommonValueShapes(t *testing.T) {
@@ -59,6 +59,20 @@ func TestResolveUserAssigneePreservesConfiguredOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(actual, []string{"9", "4", "2"}) {
 		t.Fatalf("Resolve() = %#v, want [9 4 2]", actual)
+	}
+}
+
+func TestResolveInitiatorAssigneeUsesBusinessStarter(t *testing.T) {
+	resolver := NewAssigneeResolver(nil)
+	actual, err := resolver.Resolve(workflowdomain.AssigneeRequest{
+		Instance: workflowdomain.ProcessInstance{StarterID: "27", OperatorID: "3"},
+		Node:     workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeInitiator}},
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if !reflect.DeepEqual(actual, []string{"27"}) {
+		t.Fatalf("Resolve() = %#v, want business starter [27]", actual)
 	}
 }
 

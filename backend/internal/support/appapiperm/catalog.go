@@ -108,6 +108,8 @@ func ClientRouteDeclarations() []RouteDeclaration {
 		{Method: "PUT", Path: "/api/v2/exam-records/:id/answers", PermissionKey: "client:api:exam:answer"},
 		{Method: "GET", Path: "/api/v2/workflows/definitions", PermissionKey: "client:api:workflow:view"},
 		{Method: "GET", Path: "/api/v2/workflows/definitions/:id", PermissionKey: "client:api:workflow:view"},
+		{Method: "GET", Path: "/api/v2/workflows/drafts/:definitionId", PermissionKey: "client:api:workflow:start"},
+		{Method: "PUT", Path: "/api/v2/workflows/drafts/:definitionId", PermissionKey: "client:api:workflow:start"},
 		{Method: "POST", Path: "/api/v2/workflows/instances", PermissionKey: "client:api:workflow:start"},
 		{Method: "GET", Path: "/api/v2/workflows/instances", PermissionKey: "client:api:workflow:view"},
 		{Method: "GET", Path: "/api/v2/workflows/instances/:id", PermissionKey: "client:api:workflow:view"},
@@ -161,6 +163,7 @@ func DingTalkH5APICategories() []Category {
 		{Key: "dingtalk_h5:api-category:flow", Name: "流程操作", Platform: "dingtalk_h5", Sort: 40},
 		{Key: "dingtalk_h5:api-category:user", Name: "人员维护", Platform: "dingtalk_h5", Sort: 50},
 		{Key: "dingtalk_h5:api-category:template", Name: "绩效模版", Platform: "dingtalk_h5", Sort: 60},
+		{Key: "dingtalk_h5:api-category:workflow", Name: "OA 流程", Platform: "dingtalk_h5", Sort: 70},
 	}
 }
 
@@ -192,11 +195,15 @@ func DingTalkH5APIDeclarations() []Declaration {
 		dingtalkAPI("dingtalk_h5:api:user:delete", "人员删除接口", "user:delete", "dingtalk_h5:api-category:user", "DELETE", "/api/v2/dingtalk/h5/users/:id", 40),
 		dingtalkAPI("dingtalk_h5:api:template:view", "绩效模版查看接口", "template:view", "dingtalk_h5:api-category:template", "GET", "/api/v2/dingtalk/h5/template", 10),
 		dingtalkAPI("dingtalk_h5:api:template:save", "绩效模版保存接口", "template:save", "dingtalk_h5:api-category:template", "PUT", "/api/v2/dingtalk/h5/template", 20),
+		dingtalkAPI("dingtalk_h5:api:workflow:view", "OA 流程查看接口", "workflow:view", "dingtalk_h5:api-category:workflow", "GET", "/api/v2/dingtalk/h5/workflows/instances", 10),
+		dingtalkAPI("dingtalk_h5:api:workflow:start", "OA 流程发起接口", "workflow:start", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/instances", 20),
+		dingtalkAPI("dingtalk_h5:api:workflow:handle", "OA 流程处理接口", "workflow:handle", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/tasks/:id/complete", 30),
+		dingtalkAPI("dingtalk_h5:api:workflow:withdraw", "OA 流程撤回接口", "workflow:withdraw", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/instances/:id/withdraw", 40),
 	}
 }
 
 func DingTalkH5RouteDeclarations() []RouteDeclaration {
-	routes := make([]RouteDeclaration, 0, len(DingTalkH5APIDeclarations()))
+	routes := make([]RouteDeclaration, 0, len(DingTalkH5APIDeclarations())+6)
 	for _, declaration := range DingTalkH5APIDeclarations() {
 		routes = append(routes, RouteDeclaration{
 			Method:        declaration.Method,
@@ -204,6 +211,14 @@ func DingTalkH5RouteDeclarations() []RouteDeclaration {
 			PermissionKey: declaration.Key,
 		})
 	}
+	routes = append(routes,
+		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/definitions", PermissionKey: "dingtalk_h5:api:workflow:view"},
+		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/definitions/:id", PermissionKey: "dingtalk_h5:api:workflow:view"},
+		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/drafts/:definitionId", PermissionKey: "dingtalk_h5:api:workflow:start"},
+		RouteDeclaration{Method: "PUT", Path: "/api/v2/dingtalk/h5/workflows/drafts/:definitionId", PermissionKey: "dingtalk_h5:api:workflow:start"},
+		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/instances/:id", PermissionKey: "dingtalk_h5:api:workflow:view"},
+		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/tasks", PermissionKey: "dingtalk_h5:api:workflow:view"},
+	)
 	return routes
 }
 
