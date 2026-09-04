@@ -199,6 +199,13 @@
         </section>
       </template>
 
+      <WorkflowResultNotificationEditor
+        v-if="selectedNode.type === 'approval'"
+        :model-value="selectedNode.resultNotification"
+        :readonly="readonly"
+        @update:model-value="updateResultNotification"
+      />
+
       <template v-if="selectedNode.type === 'automation'">
         <section class="inspector-section">
           <h4>自动动作</h4>
@@ -355,6 +362,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import { defaultNotificationConfig } from '../graph'
+import WorkflowResultNotificationEditor from './WorkflowResultNotificationEditor.vue'
 import type {
   ApprovalMode,
   AssigneeType,
@@ -364,6 +372,7 @@ import type {
   WorkflowEdge,
   WorkflowOrgApproverIdentity,
   WorkflowNotificationChannel,
+  WorkflowNotificationConfig,
 } from '../../types'
 
 const props = defineProps<{
@@ -481,6 +490,12 @@ function updateNotificationContent(value: string) {
   const notification = ensureNotification()
   if (!notification) return
   notification.content = String(value || '')
+  emit('change')
+}
+
+function updateResultNotification(value: WorkflowNotificationConfig) {
+  if (!selectedNode.value || selectedNode.value.type !== 'approval') return
+  selectedNode.value.resultNotification = value
   emit('change')
 }
 

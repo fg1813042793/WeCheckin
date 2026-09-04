@@ -1,0 +1,9 @@
+allowBuilds:
+  '@uni-helper/unocss-preset-uni': true
+  bufferutil: true
+  core-js: true
+  core-js-pure: set this to true or false
+  esbuild: true
+  vue-demi: true
+overrides:
+  unconfig: 7.3.2

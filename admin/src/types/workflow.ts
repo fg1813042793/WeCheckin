@@ -202,6 +202,7 @@ export interface WorkflowNode {
   availability?: WorkflowStartAvailabilityConfig
   startLimit?: WorkflowStartLimitConfig
   notification?: WorkflowNotificationConfig
+  resultNotification?: WorkflowNotificationConfig
 }
 
 export interface WorkflowNodePosition {
@@ -383,7 +384,14 @@ export interface WorkflowHistorySummary {
   eventTime: number
 }
 
-export type WorkflowNotificationKind = 'node_cc' | 'node_notify' | 'task_arrived'
+export type WorkflowNotificationKind
+  = 'node_cc'
+    | 'node_notify'
+    | 'task_arrived'
+    | 'task_reminder'
+    | 'instance_commented'
+    | 'approval_result_approved'
+    | 'approval_result_rejected'
 export type WorkflowNotificationStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'dead'
 
 export interface WorkflowNotificationPayload {

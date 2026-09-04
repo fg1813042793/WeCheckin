@@ -1,0 +1,21 @@
+services:
+  h5app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        VITE_API_BASE_URL: ''
+        VITE_DEV_PROXY_TARGET: ''
+    image: wecheckin-h5app:latest
+    container_name: wecheckin-h5app
+    environment:
+      BACKEND_URL: http://192.168.50.6:8083
+    ports:
+      - '8086:80'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

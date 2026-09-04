@@ -72,11 +72,11 @@ const ParticipantRoleCC ParticipantRole = "cc"
 type NotificationKind string
 
 const (
-	NotificationKindNodeCC            NotificationKind = "node_cc"
-	NotificationKindNodeNotify        NotificationKind = "node_notify"
-	NotificationKindTaskArrived       NotificationKind = "task_arrived"
-	NotificationKindTaskReminder      NotificationKind = "task_reminder"
-	NotificationKindInstanceCommented NotificationKind = "instance_commented"
+	NotificationKindNodeCC                 NotificationKind = "node_cc"
+	NotificationKindNodeNotify             NotificationKind = "node_notify"
+	NotificationKindTaskArrived            NotificationKind = "task_arrived"
+	NotificationKindTaskReminder           NotificationKind = "task_reminder"
+	NotificationKindInstanceCommented      NotificationKind = "instance_commented"
 	NotificationKindApprovalResultApproved NotificationKind = "approval_result_approved"
 	NotificationKindApprovalResultRejected NotificationKind = "approval_result_rejected"
 )

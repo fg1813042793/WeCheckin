@@ -500,7 +500,15 @@ function notificationStatusMeta(status: WorkflowNotificationStatus) {
 }
 
 function notificationKindLabel(kind: WorkflowNotificationKind) {
-  return { node_cc: '节点抄送', node_notify: '节点通知', task_arrived: '任务到达' }[kind] || kind
+  return {
+    node_cc: '节点抄送',
+    node_notify: '节点通知',
+    task_arrived: '任务到达',
+    task_reminder: '处理提醒',
+    instance_commented: '流程评论',
+    approval_result_approved: '审批通过结果',
+    approval_result_rejected: '审批驳回结果',
+  }[kind] || kind
 }
 
 function notificationChannelLabel(channel: WorkflowNotificationChannel) {

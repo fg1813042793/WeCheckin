@@ -1,0 +1,28 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: 20m
+    max-file: 5
+services:
+  h5app:
+    image: registry.cn-hangzhou.aliyuncs.com/ms_other_app/wecheckin-dingding-h5
+    logging: *default-logging
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    container_name: wecheckin-h5app
+    environment:
+      BACKEND_URL: http://192.168.50.6:8083
+    ports:
+      - '8086:80'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - dingtalk-h5-network
+networks:
+  dingtalk-h5-network:
+    driver: bridge

@@ -1,0 +1,802 @@
+:root {
+  --app-page-content-max-width: 1440px;
+  --app-form-content-max-width: 960px;
+  --app-page-gutter: 24px;
+  --app-page-section-gap: 20px;
+  --app-control-height: 36px;
+  --app-control-radius: 4px;
+  --app-panel-radius: 6px;
+  --app-border-color: #e5eaf3;
+  --app-border-strong-color: #d8e0e8;
+  --app-surface-color: #ffffff;
+  --app-surface-subtle-color: #f7f8fa;
+  --app-text-color: #1f2329;
+  --app-text-secondary-color: #4e5969;
+  --app-text-muted-color: #86909c;
+  --app-table-header-height: 44px;
+  --app-table-row-min-height: 56px;
+  --app-dialog-width-small: 420px;
+  --app-dialog-width-medium: 640px;
+  --app-dialog-width-large: 960px;
+  --app-dialog-max-height: min(88vh, 900px);
+}
+
+.app-layout-page {
+  width: 100%;
+  max-width: var(--app-page-content-max-width);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 24px var(--app-page-gutter) 40px;
+  box-sizing: border-box;
+}
+
+.app-layout-page--form {
+  max-width: var(--app-form-content-max-width);
+}
+
+.app-page-header {
+  min-width: 0;
+  margin-bottom: var(--app-page-section-gap);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app-page-header__copy {
+  min-width: 0;
+}
+
+.app-page-header__title {
+  display: block;
+  margin: 0;
+  color: var(--app-text-color);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.app-page-header__description {
+  display: block;
+  margin-top: 4px;
+  color: var(--app-text-muted-color);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.app-page-header__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-filter-bar {
+  min-width: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--app-border-color);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.app-filter-field {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.app-filter-field--wide {
+  grid-column: span 2;
+}
+
+.app-filter-field__label {
+  color: var(--app-text-secondary-color);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.app-filter-control {
+  width: 100%;
+  min-width: 0;
+  height: var(--app-control-height);
+  border-radius: var(--app-control-radius);
+  box-sizing: border-box;
+}
+
+.app-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-filter-actions > * {
+  flex: 0 0 auto;
+}
+
+.app-data-table {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-panel-radius);
+  overflow: hidden;
+  background: var(--app-surface-color);
+  box-sizing: border-box;
+}
+
+.app-data-table__scroller {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.app-data-table__header,
+.app-data-table__row {
+  min-width: var(--app-table-min-width, 720px);
+  display: grid;
+  grid-template-columns: var(--app-table-columns, repeat(4, minmax(120px, 1fr)));
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.app-data-table__header {
+  min-height: var(--app-table-header-height);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--app-border-color);
+  background: var(--app-surface-subtle-color);
+  color: var(--app-text-muted-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-data-table__row {
+  min-height: var(--app-table-row-min-height);
+  padding: 10px 16px;
+  background: var(--app-surface-color);
+}
+
+.app-data-table__row + .app-data-table__row {
+  border-top: 1px solid var(--app-border-color);
+}
+
+.app-data-table__row:hover {
+  background: #f8fafc;
+}
+
+.app-data-table__cell {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--app-text-secondary-color);
+  font-size: 13px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-data-table__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-dialog-shell {
+  --app-dialog-current-width: var(--app-dialog-width-medium);
+
+  width: min(var(--app-dialog-current-width), calc(100vw - 48px));
+  max-height: var(--app-dialog-max-height);
+  min-height: 0;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--app-surface-color);
+  color: var(--app-text-color);
+  box-sizing: border-box;
+}
+
+.app-dialog-shell--small {
+  --app-dialog-current-width: var(--app-dialog-width-small);
+}
+
+.app-dialog-shell--large {
+  --app-dialog-current-width: var(--app-dialog-width-large);
+}
+
+.app-dialog-shell__header,
+.app-dialog-shell__footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--app-surface-color);
+}
+
+.app-dialog-shell__header {
+  min-height: 56px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--app-border-color);
+  justify-content: space-between;
+}
+
+.app-dialog-shell__body {
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-dialog-shell__footer {
+  min-height: 56px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--app-border-color);
+  justify-content: flex-end;
+}
+
+@media screen and (min-width: 769px) and (max-width: 1023px) {
+  :root {
+    --app-page-gutter: 20px;
+  }
+
+  .app-pc-control-scope {
+    --app-control-height: 36px;
+    --app-input-font-size: 13px;
+    --app-icon-size: 18px;
+    --app-button-icon-size: 15px;
+    --app-large-icon-size: 28px;
+    --app-icon-button-size: 32px;
+    --app-loading-size: 18px;
+    --app-loading-large-size: 24px;
+    --app-counter-font-size: 11px;
+
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  :where(.app-pc-control-scope .u-btn) {
+    min-height: 0 !important;
+    letter-spacing: 0 !important;
+    line-height: 1 !important;
+  }
+
+  :where(.app-pc-control-scope .u-btn.u-size-default) {
+    height: 36px !important;
+    padding: 0 16px !important;
+    font-size: 14px !important;
+  }
+
+  :where(.app-pc-control-scope .u-btn.u-size-medium) {
+    height: 34px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-pc-control-scope .u-btn.u-size-small) {
+    height: 32px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-pc-control-scope .u-btn.u-size-mini) {
+    height: 28px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+  }
+
+  :where(.app-pc-control-scope .u-icon__icon) {
+    font-size: var(--app-icon-size) !important;
+    line-height: 1 !important;
+  }
+
+  :where(.app-pc-control-scope .u-icon__img) {
+    width: var(--app-icon-size) !important;
+    height: var(--app-icon-size) !important;
+  }
+
+  :where(.app-pc-control-scope .u-btn .u-icon__icon) {
+    font-size: var(--app-button-icon-size) !important;
+  }
+
+  :where(.app-pc-control-scope .u-btn .u-icon__img) {
+    width: var(--app-button-icon-size) !important;
+    height: var(--app-button-icon-size) !important;
+  }
+
+  :where(.app-pc-control-scope [class*="__empty"] > .u-icon .u-icon__icon),
+  :where(.app-pc-control-scope [class*="__state"] > .u-icon .u-icon__icon) {
+    font-size: var(--app-large-icon-size) !important;
+  }
+
+  :where(.app-pc-control-scope [class*="__empty"] > .u-icon .u-icon__img),
+  :where(.app-pc-control-scope [class*="__state"] > .u-icon .u-icon__img) {
+    width: var(--app-large-icon-size) !important;
+    height: var(--app-large-icon-size) !important;
+  }
+
+  :where(.app-pc-control-scope .u-loading-circle),
+  :where(.app-pc-control-scope .u-loading-flower) {
+    width: var(--app-loading-size) !important;
+    height: var(--app-loading-size) !important;
+  }
+
+  :where(.app-pc-control-scope [class*="__loading"] > .u-loading-circle),
+  :where(.app-pc-control-scope [class*="__loading"] > .u-loading-flower),
+  :where(.app-pc-control-scope [class*="__state"] > .u-loading-circle),
+  :where(.app-pc-control-scope [class*="__state"] > .u-loading-flower) {
+    width: var(--app-loading-large-size) !important;
+    height: var(--app-loading-large-size) !important;
+  }
+
+  :where(.app-icon-button) {
+    width: var(--app-icon-button-size, 32px) !important;
+    height: var(--app-icon-button-size, 32px) !important;
+    min-width: var(--app-icon-button-size, 32px) !important;
+    min-height: var(--app-icon-button-size, 32px) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 var(--app-icon-button-size, 32px);
+    align-items: center;
+    justify-content: center;
+    font-size: var(--app-icon-size, 18px) !important;
+    line-height: 1 !important;
+    box-sizing: border-box;
+  }
+
+  :where(.app-icon-button.app-icon-button--small) {
+    --app-icon-button-size: 28px;
+  }
+
+  :where(.app-icon-button .u-icon__icon) {
+    font-size: var(--app-button-icon-size, 15px) !important;
+  }
+
+  :where(.app-pc-control-scope .u-input:not(:has(.u-input__textarea))) {
+    height: var(--app-control-height) !important;
+    min-height: var(--app-control-height) !important;
+    padding-right: 10px !important;
+    padding-left: 10px !important;
+    box-sizing: border-box;
+  }
+
+  :where(.app-pc-control-scope .u-input__input:not(.u-input__textarea)) {
+    height: 100% !important;
+    min-height: 0 !important;
+    font-size: var(--app-input-font-size) !important;
+    line-height: var(--app-control-height) !important;
+  }
+
+  :where(.app-pc-control-scope .u-input__textarea),
+  :where(.app-pc-control-scope .u-textarea__field) {
+    font-size: var(--app-input-font-size) !important;
+    line-height: 1.5 !important;
+  }
+
+  :where(.app-pc-control-scope .uni-input-placeholder),
+  :where(.app-pc-control-scope .uni-textarea-placeholder),
+  :where(.app-pc-control-scope .u-input__input::placeholder),
+  :where(.app-pc-control-scope .u-textarea__field::placeholder),
+  :where(.app-pc-control-scope .uni-input-input::placeholder),
+  :where(.app-pc-control-scope .uni-textarea-textarea::placeholder) {
+    font-size: var(--app-input-font-size) !important;
+    line-height: 1.5 !important;
+    letter-spacing: 0 !important;
+  }
+
+  :where(.app-pc-control-scope .u-textarea__count),
+  :where(.app-pc-control-scope .u-input__count) {
+    right: 8px !important;
+    bottom: 6px !important;
+    padding: 1px 4px !important;
+    border-radius: 4px !important;
+    font-size: var(--app-counter-font-size) !important;
+    line-height: 16px !important;
+    letter-spacing: 0 !important;
+  }
+
+  :where(.app-pc-control-scope .u-tag.u-size-default) {
+    padding: 5px 9px !important;
+    font-size: 12px !important;
+  }
+
+  :where(.app-pc-control-scope .u-tag.u-size-mini) {
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+  }
+
+  :where(.app-pc-control-scope .u-checkbox__icon-wrap),
+  :where(.app-pc-control-scope .u-radio__icon-wrap) {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 14px !important;
+  }
+
+  :where(.app-pc-control-scope .u-checkbox__label),
+  :where(.app-pc-control-scope .u-radio__label) {
+    margin-right: 12px !important;
+    margin-left: 6px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-pc-control-scope .u-switch) {
+    font-size: 20px !important;
+  }
+
+  :where(.app-pc-control-scope .u-pagination) {
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  :where(.app-pc-control-scope .u-pagination .custom-class) {
+    width: auto !important;
+    min-width: 72px !important;
+    height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 4px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-pc-control-scope .u-pagination-text),
+  :where(.app-pc-control-scope .u-pagination-text text),
+  :where(.app-pc-control-scope .u-pagination-text .u-text__value) {
+    font-size: 13px !important;
+    line-height: 34px !important;
+    white-space: nowrap;
+  }
+
+  :where(.app-workflow-form .workflow-form__grid),
+  :where(.app-workflow-form .workflow-detail__columns) {
+    margin: -6px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__field),
+  :where(.app-workflow-form .workflow-detail__column),
+  :where(.app-workflow-form .workflow-form__label),
+  :where(.app-workflow-form .workflow-form__description),
+  :where(.app-workflow-form .workflow-form__layout-button) {
+    padding: 6px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__field-label) {
+    min-height: 20px !important;
+    margin-bottom: 6px !important;
+    gap: 4px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__error) {
+    margin-top: 5px !important;
+    font-size: 12px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__group) {
+    margin: 8px 6px !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__group-header) {
+    margin-bottom: 10px !important;
+    gap: 6px !important;
+    font-size: 15px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__label) {
+    font-size: 16px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__description) {
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__empty),
+  :where(.app-workflow-form .workflow-detail__empty) {
+    min-height: 96px !important;
+    gap: 8px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail) {
+    padding: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__toolbar),
+  :where(.app-workflow-form .workflow-detail__row-header) {
+    gap: 8px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__toolbar) {
+    margin-bottom: 8px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__add) {
+    margin-top: 10px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__add-button) {
+    min-width: 80px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__row) {
+    margin-top: 8px !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__row-header) {
+    margin-bottom: 8px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-control__empty),
+  :where(.app-workflow-form .workflow-picker) {
+    min-height: 36px !important;
+    padding: 0 10px !important;
+    border-radius: 4px !important;
+    gap: 8px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-control__switch) {
+    min-height: 36px !important;
+    gap: 8px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-control__datetime),
+  :where(.app-workflow-form .workflow-control__date-range) {
+    gap: 8px !important;
+  }
+
+  :where(.app-workflow-form .workflow-control__range-separator) {
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-picker .u-icon__icon) {
+    font-size: 16px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__list) {
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__item) {
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+    border-radius: 4px !important;
+    gap: 10px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__file) {
+    gap: 8px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__icon) {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 4px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__meta) {
+    gap: 2px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__name) {
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__size) {
+    font-size: 11px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__actions) {
+    min-width: 52px !important;
+    gap: 8px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__actions > view) {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__empty) {
+    min-height: 36px !important;
+    padding: 0 10px !important;
+    border-radius: 4px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__upload) {
+    min-width: 96px !important;
+  }
+
+  :where(.app-workflow-form .workflow-attachment__upload .u-button__text) {
+    gap: 4px !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__help-action .u-icon__icon) {
+    font-size: 15px !important;
+  }
+
+  :where(.app-workflow-form .workflow-detail__row-header .u-icon__icon),
+  :where(.app-workflow-form .workflow-attachment .u-icon__icon) {
+    font-size: 16px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__nav) {
+    min-height: 48px !important;
+    padding: 0 16px !important;
+    gap: 20px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__nav-item) {
+    gap: 6px !important;
+    font-size: 13px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__nav-item .u-icon__icon) {
+    font-size: 18px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__body),
+  :where(.app-pc-control-scope .workflow-start-page__section) {
+    padding: 16px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__form-card) {
+    padding: 14px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__actions) {
+    min-height: 56px !important;
+    padding: 10px 16px !important;
+    gap: 8px !important;
+  }
+
+  :where(.app-pc-control-scope .workflow-start-page__action) {
+    min-width: 96px !important;
+  }
+
+  .app-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-filter-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media screen and (min-width: 1440px) {
+  :root {
+    --app-page-gutter: 32px;
+  }
+
+  .app-filter-bar {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  :root {
+    --app-page-gutter: 12px;
+    --app-page-section-gap: 14px;
+    --app-table-row-min-height: 0px;
+    --app-dialog-max-height: 92vh;
+  }
+
+  .app-layout-page {
+    padding-top: 16px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .app-page-header {
+    margin-bottom: var(--app-page-section-gap);
+    display: grid;
+    gap: 12px;
+  }
+
+  .app-page-header__title {
+    font-size: 20px;
+  }
+
+  .app-page-header__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-filter-bar {
+    padding: 12px 0 14px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .app-filter-field--wide,
+  .app-filter-actions {
+    grid-column: auto;
+  }
+
+  .app-filter-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-filter-actions > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .app-data-table {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  .app-data-table__scroller {
+    overflow: visible;
+  }
+
+  .app-data-table__header {
+    display: none;
+  }
+
+  .app-data-table__row {
+    min-width: 0;
+    margin-bottom: 10px;
+    padding: 12px;
+    border: 1px solid var(--app-border-color);
+    border-radius: var(--app-panel-radius);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .app-data-table__row + .app-data-table__row {
+    border-top: 1px solid var(--app-border-color);
+  }
+
+  .app-data-table__cell {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 10px;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .app-data-table__cell::before {
+    content: attr(data-label);
+    color: var(--app-text-muted-color);
+    font-size: 12px;
+  }
+
+  .app-data-table__actions {
+    padding-top: 4px;
+    justify-content: flex-end;
+  }
+
+  .app-dialog-shell {
+    width: 100%;
+    max-height: var(--app-dialog-max-height);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .app-dialog-shell__header {
+    min-height: 52px;
+    padding: 0 16px;
+  }
+
+  .app-dialog-shell__body {
+    padding: 16px 12px;
+  }
+
+  .app-dialog-shell__footer {
+    min-height: 56px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+}

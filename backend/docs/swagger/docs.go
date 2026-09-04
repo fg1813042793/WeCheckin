@@ -12088,7 +12088,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
-                "description": "流程发起人、处理人和抄送人可以添加评论，支持文字或最多 9 张已上传的流程图片",
+                "description": "流程发起人、处理人和抄送人可以添加评论，支持文字或最多 9 张已上传的流程图片；可选通知该流程的其他参与人，站内信与钉钉通知按请求渠道发送，钉钉评论通知使用 ActionCard",
                 "tags": [
                     "API v2-H5App-OA流程"
                 ],
@@ -12306,7 +12306,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
-                "description": "按发起人应用调用者的统一数据权限，覆盖指定流程定义的全部历史发布版本",
+                "description": "按调用者的统一数据权限查询流程实例，可跨流程定义汇总并覆盖全部历史发布版本",
                 "tags": [
                     "API v2-H5App-OA流程"
                 ],
@@ -12316,8 +12316,13 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "流程定义 ID",
                         "name": "definitionId",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程名称关键字",
+                        "name": "definitionName",
+                        "in": "query"
                     },
                     {
                         "type": "integer",
@@ -15619,6 +15624,35 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.H5AppWorkflowCommentNotification": {
+            "type": "object",
+            "properties": {
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "in_app",
+                            "dingtalk_oa"
+                        ]
+                    },
+                    "example": [
+                        "in_app",
+                        "dingtalk_oa"
+                    ]
+                },
+                "userIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "7",
+                        "84"
+                    ]
+                }
+            }
+        },
         "swagger.H5AppWorkflowCommentRequest": {
             "type": "object",
             "properties": {
@@ -15630,6 +15664,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/swagger.H5AppWorkflowImage"
                     }
+                },
+                "notification": {
+                    "$ref": "#/definitions/swagger.H5AppWorkflowCommentNotification"
                 }
             }
         },

@@ -23,10 +23,10 @@ const (
 
 	ParticipantRoleCC = "cc"
 
-	NotificationKindNodeCC       = "node_cc"
-	NotificationKindNodeNotify   = "node_notify"
-	NotificationKindTaskArrived  = "task_arrived"
-	NotificationKindTaskReminder = "task_reminder"
+	NotificationKindNodeCC                 = "node_cc"
+	NotificationKindNodeNotify             = "node_notify"
+	NotificationKindTaskArrived            = "task_arrived"
+	NotificationKindTaskReminder           = "task_reminder"
 	NotificationKindApprovalResultApproved = "approval_result_approved"
 	NotificationKindApprovalResultRejected = "approval_result_rejected"
 

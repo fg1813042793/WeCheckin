@@ -15,6 +15,7 @@ function approvalNode(name = '审批节点'): WorkflowNode {
     approvalMode: 'single',
     assignee: { type: 'manager', value: 'direct_manager' },
     notification: defaultNotificationConfig('approval'),
+    resultNotification: defaultResultNotificationConfig(),
   }
 }
 
@@ -29,6 +30,15 @@ export function defaultNotificationConfig(type: Extract<WorkflowNodeType, 'appro
     channels: ['in_app', 'dingtalk_oa'],
     title: '{{workflowName}}',
     content,
+  }
+}
+
+export function defaultResultNotificationConfig(): WorkflowNotificationConfig {
+  return {
+    enabled: true,
+    channels: ['in_app', 'dingtalk_oa'],
+    title: '{{workflowName}}审批结果',
+    content: '你发起的流程在“{{nodeName}}”节点{{result}}',
   }
 }
 

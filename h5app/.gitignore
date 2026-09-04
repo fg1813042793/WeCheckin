@@ -1,0 +1,32 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+backend/config/bak/*
+backend/config/config.prod.yaml
+node_modules
+.DS_Store
+dist
+docs/*
+!docs/development-guidelines.md
+!docs/ui-layout-style-guidelines.md
+!docs/superpowers/
+!docs/superpowers/**
+*.local
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+components.d.ts

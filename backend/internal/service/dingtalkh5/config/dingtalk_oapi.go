@@ -81,6 +81,9 @@ func (client defaultDingTalkIdentityClient) SendWorkNotificationContext(ctx cont
 		return fmt.Errorf("请先配置钉钉 H5 AppKey 和 AppSecret")
 	}
 	notification = normalizeDingTalkWorkNotificationPayload(notification)
+	if notification.MessageType == DingTalkMessageTypeActionCard && notification.URL == "" {
+		return fmt.Errorf("ActionCard 跳转地址不能为空")
+	}
 	notifyMode := normalizeDingTalkH5NotifyMode(config.NotifyMode, config.AgentID, config.RobotCode)
 	if notifyMode == "robot" {
 		return client.sendRobotWorkNotificationContext(ctx, appKey, appSecret, config.RobotCode, userIDs, notification)

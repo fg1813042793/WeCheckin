@@ -465,10 +465,10 @@ func TestCompileBPMNIncludesNotifyNodeAndNotificationAttributes(t *testing.T) {
 func TestApprovalResultNotificationSupportsResultPlaceholder(t *testing.T) {
 	definition := validLinearDefinition()
 	definition.Nodes[1].ResultNotification = &NotificationConfig{
-		Enabled: true,
+		Enabled:  true,
 		Channels: []string{NotificationChannelInApp, NotificationChannelDingTalkOA},
-		Title: "{{workflowName}}审批结果",
-		Content: "{{nodeName}}{{result}}",
+		Title:    "{{workflowName}}审批结果",
+		Content:  "{{nodeName}}{{result}}",
 	}
 	if validationErrors := ValidateDefinition(definition); len(validationErrors) != 0 {
 		t.Fatalf("result notification validation errors = %#v", validationErrors)

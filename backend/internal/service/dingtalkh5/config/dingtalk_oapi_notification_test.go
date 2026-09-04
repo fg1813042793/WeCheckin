@@ -154,6 +154,20 @@ func TestDingTalkAgentNotificationMessageUsesActionCardWhenRequested(t *testing.
 	}
 }
 
+func TestDingTalkWorkNotificationRejectsActionCardWithoutURL(t *testing.T) {
+	client := defaultDingTalkIdentityClient{}
+	err := client.SendWorkNotificationContext(context.Background(), DingTalkH5CorpConfig{
+		AppKey: "app-key", AppSecret: "app-secret", AgentID: "123",
+	}, []string{"ding-user-1"}, DingTalkWorkNotificationPayload{
+		MessageType: DingTalkMessageTypeActionCard,
+		Title:       "《绩效考评单》有新评论",
+		Content:     "David 添加评论：请关注本次评分",
+	})
+	if err == nil || !strings.Contains(err.Error(), "ActionCard 跳转地址不能为空") {
+		t.Fatalf("SendWorkNotificationContext() error = %v", err)
+	}
+}
+
 func TestDingTalkOAPIClientDoesNotFallbackToRobotWhenAgentModeIsStrict(t *testing.T) {
 	agentAttempts := 0
 	robotAttempts := 0

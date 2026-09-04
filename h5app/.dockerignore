@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.hbuilderx
+.vscode
+.DS_Store
+*.log
+deploy/README.md

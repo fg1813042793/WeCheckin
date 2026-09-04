@@ -299,22 +299,22 @@ type FieldPermission struct {
 }
 
 type Node struct {
-	ID              string                   `json:"id"`
-	Type            string                   `json:"type"`
-	Name            string                   `json:"name"`
-	Position        *Position                `json:"position,omitempty"`
-	ApprovalMode    string                   `json:"approvalMode,omitempty"`
-	Assignee        *Assignee                `json:"assignee,omitempty"`
-	CompletionRate  int                      `json:"completionRate,omitempty"`
-	GatewayMode     string                   `json:"gatewayMode,omitempty"`
-	FormPermissions []FieldPermission        `json:"formPermissions,omitempty"`
-	Automation      *AutomationConfig        `json:"automation,omitempty"`
-	Timer           *TimerConfig             `json:"timer,omitempty"`
-	Notification    *NotificationConfig      `json:"notification,omitempty"`
-	ResultNotification *NotificationConfig   `json:"resultNotification,omitempty"`
-	Initiator       *InitiatorConfig         `json:"initiator,omitempty"`
-	Availability    *StartAvailabilityConfig `json:"availability,omitempty"`
-	StartLimit      *StartLimitConfig        `json:"startLimit,omitempty"`
+	ID                 string                   `json:"id"`
+	Type               string                   `json:"type"`
+	Name               string                   `json:"name"`
+	Position           *Position                `json:"position,omitempty"`
+	ApprovalMode       string                   `json:"approvalMode,omitempty"`
+	Assignee           *Assignee                `json:"assignee,omitempty"`
+	CompletionRate     int                      `json:"completionRate,omitempty"`
+	GatewayMode        string                   `json:"gatewayMode,omitempty"`
+	FormPermissions    []FieldPermission        `json:"formPermissions,omitempty"`
+	Automation         *AutomationConfig        `json:"automation,omitempty"`
+	Timer              *TimerConfig             `json:"timer,omitempty"`
+	Notification       *NotificationConfig      `json:"notification,omitempty"`
+	ResultNotification *NotificationConfig      `json:"resultNotification,omitempty"`
+	Initiator          *InitiatorConfig         `json:"initiator,omitempty"`
+	Availability       *StartAvailabilityConfig `json:"availability,omitempty"`
+	StartLimit         *StartLimitConfig        `json:"startLimit,omitempty"`
 }
 
 type NotificationConfig struct {

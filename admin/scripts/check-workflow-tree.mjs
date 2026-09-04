@@ -34,6 +34,7 @@ const layout = loadTypeScriptModule('src/views/workflow/designer/layout.ts')
 const typeSource = fs.readFileSync(path.join(root, 'src/types/workflow.ts'), 'utf8')
 const insertSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/FlowInsertButton.vue'), 'utf8')
 const inspectorSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/NodeInspector.vue'), 'utf8')
+const resultNotificationSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowResultNotificationEditor.vue'), 'utf8')
 const cardSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowNodeCard.vue'), 'utf8')
 const sequenceSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowSequence.vue'), 'utf8')
 const canvasSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowCanvas.vue'), 'utf8')
@@ -55,6 +56,9 @@ assert(inserted?.type === 'approval', '指定连线应插入审批节点')
 assert(inserted?.notification?.enabled === true, '新审批节点应默认开启任务到达通知')
 assert(inserted?.notification?.channels?.join(',') === 'in_app,dingtalk_oa', '新审批节点应默认启用站内和钉钉 OA 通知')
 assert(inserted?.notification?.content === '你有一项待处理任务：{{nodeName}}', '新审批节点的默认通知模板无效')
+assert(inserted?.resultNotification?.enabled === true, '新审批节点应默认开启任务处理结果通知')
+assert(inserted?.resultNotification?.channels?.join(',') === 'in_app,dingtalk_oa', '新审批节点的结果通知应默认启用站内和钉钉 OA 通知')
+assert(inserted?.resultNotification?.content.includes('{{result}}'), '新审批节点的结果通知模板应包含处理结果占位符')
 assert(!insertionDraft.edges.some(edge => edge.id === 'start_to_end'), '原连线应被替换')
 assert(insertionDraft.edges.some(edge => edge.source === 'start' && edge.target === inserted.id), '应连接到新节点')
 assert(insertionDraft.edges.some(edge => edge.source === inserted.id && edge.target === 'end'), '新节点应连接到原目标')
@@ -112,11 +116,13 @@ const legacyDraft = workflowTypes.cloneDraft({
   edges: [],
 })
 assert(legacyDraft.nodes[0]?.notification === undefined, '旧流程缺少 notification 时不得自动开启')
+assert(legacyDraft.nodes[0]?.resultNotification === undefined, '旧流程缺少 resultNotification 时不得自动开启')
 
 for (const [source, snippet, message] of [
   [typeSource, "'handle' | 'cc' | 'notify' | 'automation' | 'timer'", '流程节点类型缺少通知节点'],
   [typeSource, "export type WorkflowNotificationChannel = 'in_app' | 'dingtalk_oa'", '流程类型缺少通知渠道'],
   [typeSource, 'notification?: WorkflowNotificationConfig', '流程节点缺少通知配置'],
+  [typeSource, 'resultNotification?: WorkflowNotificationConfig', '审批节点缺少任务处理结果通知配置'],
   [typeSource, "'initiator'", '处理人来源类型缺少发起人'],
   [typeSource, 'sourceHandle?: WorkflowEdgeHandle', '流程连线缺少来源连接点字段'],
   [typeSource, 'targetHandle?: WorkflowEdgeHandle', '流程连线缺少目标连接点字段'],
@@ -135,6 +141,10 @@ for (const [source, snippet, message] of [
   [inspectorSource, 'notificationChannels', '节点配置缺少通知渠道复选'],
   [inspectorSource, '通知标题', '节点配置缺少通知标题'],
   [inspectorSource, '通知正文', '节点配置缺少通知正文'],
+  [inspectorSource, '<WorkflowResultNotificationEditor', '审批人配置缺少任务处理结果通知编辑器'],
+  [inspectorSource, '@update:model-value="updateResultNotification"', '任务处理结果通知修改未写回审批节点'],
+  [resultNotificationSource, '任务处理结果通知', '结果通知编辑器缺少独立配置标题'],
+  [resultNotificationSource, "'in_app', 'dingtalk_oa'", '结果通知编辑器缺少通知渠道配置'],
   [inspectorSource, "selectedNode.type !== 'notify'", '通知节点不应允许关闭通知'],
   [inspectorSource, 'notificationHelpVisible', '节点配置缺少通知消息说明弹窗状态'],
   [inspectorSource, 'QuestionFilled', '通知配置标题旁缺少说明图标'],
