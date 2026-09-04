@@ -25,7 +25,7 @@ func (h *Handler) ListReviews(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.ListReviewsContext(ctx, user, filtersFromQuery(c))
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -39,7 +39,7 @@ func (h *Handler) ReviewDetail(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.GetReviewContext(ctx, user, c.Param("id"))
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -53,7 +53,7 @@ func (h *Handler) CreateReview(ctx context.Context, c *app.RequestContext) {
 	if len(payload.EmployeeIDs) > 0 {
 		data, err := dingtalkh5service.CreateReviewsContext(ctx, user, payload)
 		if err != nil {
-			response.Fail(c, err.Error())
+			response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 			return
 		}
 		response.JSON(c, data)
@@ -61,7 +61,7 @@ func (h *Handler) CreateReview(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.CreateReviewContext(ctx, user, payload)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -118,7 +118,7 @@ func (h *Handler) DeleteReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := dingtalkh5service.DeleteReviewContext(ctx, user, c.Param("id")); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -131,7 +131,7 @@ func (h *Handler) reviewAction(ctx context.Context, c *app.RequestContext, fn fu
 	}
 	data, err := fn(ctx, user, c.Param("id"), payload)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -156,7 +156,7 @@ func (h *Handler) ExportReviews(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.ExportReviewsContext(ctx, user, filtersFromQuery(c))
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.review.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	c.Header("Content-Type", data.ContentType)

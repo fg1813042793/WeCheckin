@@ -95,6 +95,13 @@ func (service *Service) DeleteTask(ctx context.Context, taskID, actorID uint64) 
 	if taskID == 0 {
 		return ErrTaskNotFound
 	}
+	task, err := service.store.GetTask(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	if isSystemTaskCode(task.Code) {
+		return ErrSystemTaskReadOnly
+	}
 	store, err := service.managementStore()
 	if err != nil {
 		return err
@@ -109,6 +116,9 @@ func (service *Service) SetTaskEnabled(ctx context.Context, taskID, actorID uint
 	task, err := service.store.GetTask(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if isSystemTaskCode(task.Code) {
+		return nil, ErrSystemTaskReadOnly
 	}
 	nextRunAt := int64(0)
 	if enabled {

@@ -55,6 +55,61 @@ func TestMainDoesNotRunDatabaseMaintenanceOnServiceStartup(t *testing.T) {
 	}
 }
 
+func TestMainUsesConfiguredAddressTimeoutsAndCORSCredentials(t *testing.T) {
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)",
+		"server.WithReadTimeout(",
+		"server.WithWriteTimeout(",
+		"server.WithIdleTimeout(",
+		"AllowCredentials: cfg.CORS.AllowCredentials",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("main.go must use configured HTTP server option %q", snippet)
+		}
+	}
+	if strings.Contains(text, "AllowCredentials: true") {
+		t.Fatal("main.go must not hard-code CORS credentials")
+	}
+}
+
+func TestMainUsesDatabaseOptions(t *testing.T) {
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{"database.ConnectDatabaseWithOptions(", "database.Options{", "ConnectTimeout:", "ReadTimeout:", "WriteTimeout:"} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("main.go must use database option %q", snippet)
+		}
+	}
+	if strings.Contains(text, "database.InitDatabase(") {
+		t.Fatal("main.go must not use fatal database compatibility wrapper")
+	}
+}
+
+func TestMainConfiguresPostStatNotificationOutbox(t *testing.T) {
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"notificationoutboxinfra.NewGormStore(",
+		"notificationoutboxapp.NewService(",
+		"poststatservice.ConfigureNotificationDispatcher(",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("main.go must configure PostStat outbox with %q", snippet)
+		}
+	}
+}
+
 func TestStartScriptRunsBackendPackage(t *testing.T) {
 	src, err := os.ReadFile("../start.sh")
 	if err != nil {

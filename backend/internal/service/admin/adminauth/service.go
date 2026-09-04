@@ -7,10 +7,10 @@ import (
 	"strconv"
 
 	"gorm.io/gorm"
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/adminaccess"
 	"wecheckin/backend/internal/support/media"
 	permissionsupport "wecheckin/backend/internal/support/permission"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/passwordutil"
 	"wecheckin/backend/pkg/randutil"
@@ -161,7 +161,7 @@ func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) 
 }
 
 func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addIP, device, roleName string, roleIDs []uint, roleNames []string) {
-	expire, prefix := tokenutil.GetTokenConfig("admin")
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 	now := database.Now()
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
@@ -178,7 +178,7 @@ func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addI
 	redisCtx, redisCancel := rd.OperationContext(ctx)
 	defer redisCancel()
 
-	if tokenutil.IsAdminSingleLogin() {
+	if tokenutil.IsAdminSingleLoginContext(ctx) {
 		if oldTokens, _ := rd.RDB.SMembers(redisCtx, keySet).Result(); len(oldTokens) > 0 {
 			for _, t := range oldTokens {
 				if t != token {

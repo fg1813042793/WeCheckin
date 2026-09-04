@@ -29,6 +29,7 @@ const (
 	NotificationKindTaskReminder           = "task_reminder"
 	NotificationKindApprovalResultApproved = "approval_result_approved"
 	NotificationKindApprovalResultRejected = "approval_result_rejected"
+	NotificationKindApprovalResultReturned = "approval_result_returned"
 
 	NotificationChannelInApp      = "in_app"
 	NotificationChannelDingTalkOA = "dingtalk_oa"
@@ -105,27 +106,32 @@ type ProcessToken struct {
 func (ProcessToken) TableName() string { return "workflow_process_tokens" }
 
 type ProcessTask struct {
-	ID             string    `json:"id" gorm:"size:64;primaryKey;comment:流程任务ID"`
-	InstanceID     string    `json:"instanceId" gorm:"size:64;column:instance_id;index:idx_workflow_tasks_instance_status,priority:1;comment:流程实例ID"`
-	TokenID        string    `json:"tokenId" gorm:"size:64;column:token_id;comment:流程令牌ID"`
-	NodeID         string    `json:"nodeId" gorm:"size:100;column:node_id;comment:节点ID"`
-	NodeName       string    `json:"nodeName" gorm:"size:200;column:node_name;comment:节点名称"`
-	GroupKey       string    `json:"groupKey" gorm:"size:64;column:task_group_key;index:idx_workflow_tasks_group_status,priority:1;comment:多人审批任务组"`
-	AssigneeID     string    `json:"assigneeId" gorm:"size:64;column:task_assignee_id;index:idx_workflow_tasks_assignee_status,priority:1;comment:处理人ID"`
-	ApprovalMode   string    `json:"approvalMode" gorm:"size:24;column:approval_mode;default:single;comment:审批模式"`
-	CompletionRate int       `json:"completionRate" gorm:"column:completion_rate;default:100;comment:会签通过比例百分数"`
-	Sequence       int       `json:"sequence" gorm:"column:task_sequence;default:1;comment:顺序审批序号"`
-	Total          int       `json:"total" gorm:"column:task_total;default:1;comment:任务组任务数"`
-	Status         string    `json:"status" gorm:"size:24;column:task_status;default:pending;index:idx_workflow_tasks_assignee_status,priority:2;index:idx_workflow_tasks_instance_status,priority:2;index:idx_workflow_tasks_group_status,priority:2;comment:任务状态"`
-	Action         string    `json:"action" gorm:"size:24;column:task_action;comment:处理动作"`
-	Comment        string    `json:"comment" gorm:"size:1000;column:task_comment;comment:处理意见"`
-	ImagesJSON     string    `json:"-" gorm:"type:mediumtext;column:task_images_json;comment:处理图片JSON"`
-	HandledBy      string    `json:"handledBy" gorm:"size:64;column:handled_by;comment:实际处理人ID"`
-	HandledAt      int64     `json:"handledAt" gorm:"column:handled_at;comment:处理时间"`
-	AdminDeletedAt int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_tasks_admin_deleted_time,priority:1;comment:管理员删除时间"`
-	AdminDeletedBy string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
-	CreatedAt      time.Time `json:"-"`
-	UpdatedAt      time.Time `json:"-"`
+	ID                   string    `json:"id" gorm:"size:64;primaryKey;comment:流程任务ID"`
+	InstanceID           string    `json:"instanceId" gorm:"size:64;column:instance_id;index:idx_workflow_tasks_instance_status,priority:1;comment:流程实例ID"`
+	TokenID              string    `json:"tokenId" gorm:"size:64;column:token_id;comment:流程令牌ID"`
+	NodeID               string    `json:"nodeId" gorm:"size:100;column:node_id;comment:节点ID"`
+	NodeName             string    `json:"nodeName" gorm:"size:200;column:node_name;comment:节点名称"`
+	GroupKey             string    `json:"groupKey" gorm:"size:64;column:task_group_key;index:idx_workflow_tasks_group_status,priority:1;comment:多人审批任务组"`
+	AssigneeID           string    `json:"assigneeId" gorm:"size:64;column:task_assignee_id;index:idx_workflow_tasks_assignee_status,priority:1;comment:处理人ID"`
+	ApprovalMode         string    `json:"approvalMode" gorm:"size:24;column:approval_mode;default:single;comment:审批模式"`
+	CompletionRate       int       `json:"completionRate" gorm:"column:completion_rate;default:100;comment:会签通过比例百分数"`
+	Sequence             int       `json:"sequence" gorm:"column:task_sequence;default:1;comment:顺序审批序号"`
+	Total                int       `json:"total" gorm:"column:task_total;default:1;comment:任务组任务数"`
+	ApprovalChainKey     string    `json:"approvalChainKey,omitempty" gorm:"size:64;column:approval_chain_key;index:idx_workflow_tasks_chain_layer,priority:1;comment:分层审批链快照标识"`
+	ApprovalLayer        int       `json:"approvalLayer,omitempty" gorm:"column:approval_layer;default:0;index:idx_workflow_tasks_chain_layer,priority:2;comment:分层审批层级序号"`
+	ApprovalLayerTotal   int       `json:"approvalLayerTotal,omitempty" gorm:"column:approval_layer_total;default:0;comment:分层审批总层数"`
+	SourceDepartmentID   uint      `json:"sourceDepartmentId,omitempty" gorm:"column:source_department_id;default:0;comment:审批层来源部门ID快照"`
+	SourceDepartmentName string    `json:"sourceDepartmentName,omitempty" gorm:"size:100;column:source_department_name;comment:审批层来源部门名称快照"`
+	Status               string    `json:"status" gorm:"size:24;column:task_status;default:pending;index:idx_workflow_tasks_assignee_status,priority:2;index:idx_workflow_tasks_instance_status,priority:2;index:idx_workflow_tasks_group_status,priority:2;comment:任务状态"`
+	Action               string    `json:"action" gorm:"size:24;column:task_action;comment:处理动作"`
+	Comment              string    `json:"comment" gorm:"size:1000;column:task_comment;comment:处理意见"`
+	ImagesJSON           string    `json:"-" gorm:"type:mediumtext;column:task_images_json;comment:处理图片JSON"`
+	HandledBy            string    `json:"handledBy" gorm:"size:64;column:handled_by;comment:实际处理人ID"`
+	HandledAt            int64     `json:"handledAt" gorm:"column:handled_at;comment:处理时间"`
+	AdminDeletedAt       int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_tasks_admin_deleted_time,priority:1;comment:管理员删除时间"`
+	AdminDeletedBy       string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
+	CreatedAt            time.Time `json:"-"`
+	UpdatedAt            time.Time `json:"-"`
 }
 
 func (ProcessTask) TableName() string { return "workflow_process_tasks" }

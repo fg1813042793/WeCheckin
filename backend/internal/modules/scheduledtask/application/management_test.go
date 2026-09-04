@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -24,6 +25,43 @@ func TestSetTaskEnabledUsesOptimisticVersionAndRecomputesSchedule(t *testing.T) 
 	}
 	if store.updatedExpectedVersion != 4 || store.updatedTask != updated {
 		t.Fatalf("store update = %#v, version = %d", store.updatedTask, store.updatedExpectedVersion)
+	}
+}
+
+func TestSystemTaskCannotBeDisabledOrDeleted(t *testing.T) {
+	for _, operation := range []string{"disable", "delete"} {
+		t.Run(operation, func(t *testing.T) {
+			task := validTask()
+			task.Code = "system.notification-outbox-dispatch"
+			task.Version = 2
+			store := &fakeManagementStore{fakeStore: fakeStore{task: task}}
+			service := newTestService(store, &fakeValidator{}, nil)
+			var err error
+			if operation == "disable" {
+				_, err = service.SetTaskEnabled(context.Background(), task.ID, 7, false, task.Version)
+			} else {
+				err = service.DeleteTask(context.Background(), task.ID, 7)
+			}
+			if !errors.Is(err, ErrSystemTaskReadOnly) {
+				t.Fatalf("error = %v", err)
+			}
+			if store.updatedTask != nil || store.deletedTaskID != 0 {
+				t.Fatalf("system task was mutated: %#v", store)
+			}
+		})
+	}
+}
+
+func TestSystemTaskCanRunNow(t *testing.T) {
+	task := validTask()
+	task.Code = "system.notification-outbox-dispatch"
+	store := &fakeManagementStore{fakeStore: fakeStore{task: task}}
+	service := newTestService(store, &fakeValidator{}, &fakePublisher{})
+	if _, err := service.RunNow(context.Background(), task.ID, 7); err != nil {
+		t.Fatal(err)
+	}
+	if store.createdRun == nil {
+		t.Fatal("manual run was not created")
 	}
 }
 
@@ -75,6 +113,7 @@ type fakeManagementStore struct {
 	updatedExpectedVersion int64
 	cancelRunID            string
 	cancelRunning          bool
+	deletedTaskID          uint64
 }
 
 func (store *fakeManagementStore) UpdateTask(_ context.Context, task *scheduledtaskmodel.Task, version int64) error {
@@ -87,7 +126,8 @@ func (store *fakeManagementStore) ListTasks(context.Context, TaskQuery) ([]sched
 	return nil, 0, nil
 }
 
-func (store *fakeManagementStore) DeleteTask(context.Context, uint64, uint64, int64) error {
+func (store *fakeManagementStore) DeleteTask(_ context.Context, taskID uint64, _ uint64, _ int64) error {
+	store.deletedTaskID = taskID
 	return nil
 }
 

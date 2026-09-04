@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/notificationstyle"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -21,17 +22,19 @@ type Repository interface {
 	UnreadCount(ctx context.Context, userID string) (int64, error)
 	MarkRead(ctx context.Context, userID string, id uint) (bool, error)
 	MarkAllRead(ctx context.Context, userID string) error
+	NotificationStyles(ctx context.Context) (notificationstyle.Config, error)
 }
 
 type Notification struct {
-	ID         uint   `json:"id"`
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	Type       string `json:"type"`
-	SourceType string `json:"sourceType"`
-	SourceID   string `json:"sourceId"`
-	IsRead     int    `json:"isRead"`
-	AddTime    int64  `json:"addTime"`
+	ID         uint                    `json:"id"`
+	Title      string                  `json:"title"`
+	Content    string                  `json:"content"`
+	Type       string                  `json:"type"`
+	SourceType string                  `json:"sourceType"`
+	SourceID   string                  `json:"sourceId"`
+	IsRead     int                     `json:"isRead"`
+	AddTime    int64                   `json:"addTime"`
+	Style      notificationstyle.Style `json:"style"`
 }
 
 type ListResult struct {
@@ -63,6 +66,10 @@ func (s *Service) List(ctx context.Context, currentUserID uint, page, pageSize i
 	if err != nil {
 		return ListResult{}, err
 	}
+	styles, err := s.repository.NotificationStyles(ctx)
+	if err != nil {
+		return ListResult{}, err
+	}
 	result := ListResult{
 		List:     make([]Notification, 0, len(items)),
 		Total:    total,
@@ -79,6 +86,7 @@ func (s *Service) List(ctx context.Context, currentUserID uint, page, pageSize i
 			SourceID:   item.SourceID,
 			IsRead:     item.IsRead,
 			AddTime:    item.AddTime,
+			Style:      notificationstyle.StyleFor(styles, item.Type),
 		})
 	}
 	return result, nil
@@ -192,6 +200,13 @@ func (r *GormRepository) MarkAllRead(ctx context.Context, userID string) error {
 	return db.Model(&model.Notify{}).
 		Where("`notify_user_id` = ? AND `notify_is_read` = 0", userID).
 		UpdateColumn("notify_is_read", 1).Error
+}
+
+func (r *GormRepository) NotificationStyles(ctx context.Context) (notificationstyle.Config, error) {
+	if r == nil {
+		return notificationstyle.Config{}, errors.New("notification database is not initialized")
+	}
+	return notificationstyle.Load(ctx, r.db)
 }
 
 func (r *GormRepository) withContext(parent context.Context) (*gorm.DB, context.CancelFunc) {

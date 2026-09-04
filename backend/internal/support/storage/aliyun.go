@@ -15,7 +15,19 @@ import (
 	"time"
 )
 
+var aliyunHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 func saveAliyun(ctx context.Context, src io.Reader, objectKey, filename, contentType string) (*StoredFile, error) {
+	return saveAliyunWithClient(ctx, aliyunHTTPClient, src, objectKey, filename, contentType)
+}
+
+func saveAliyunWithClient(ctx context.Context, client *http.Client, src io.Reader, objectKey, filename, contentType string) (*StoredFile, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if client == nil {
+		return nil, fmt.Errorf("阿里云 OSS HTTP 客户端未初始化")
+	}
 	cfg := currentOSSConfig().Aliyun
 	accessKeyID := strings.TrimSpace(cfg.AccessKeyID)
 	accessKeySecret := strings.TrimSpace(cfg.AccessKeySecret)
@@ -40,14 +52,14 @@ func saveAliyun(ctx context.Context, src io.Reader, objectKey, filename, content
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Authorization", aliyunAuthorization(accessKeyID, accessKeySecret, bucket, objectKey, contentType, date))
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("上传阿里云 OSS 失败: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("上传阿里云 OSS 失败: %s %s", resp.Status, strings.TrimSpace(string(msg)))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("上传阿里云 OSS 失败: %s", resp.Status)
 	}
 
 	relativeURL := "/" + objectKey

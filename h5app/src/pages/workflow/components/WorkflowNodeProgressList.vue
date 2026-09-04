@@ -24,7 +24,8 @@ const tasksByNode = computed(() => {
     grouped[task.nodeId].push(task)
   }
   for (const tasks of Object.values(grouped)) {
-    tasks.sort((left, right) => left.sequence - right.sequence || left.id.localeCompare(right.id))
+    tasks.sort((left, right) => (left.approvalLayer || 0) - (right.approvalLayer || 0)
+      || left.sequence - right.sequence || left.id.localeCompare(right.id))
   }
   return grouped
 })
@@ -105,6 +106,13 @@ function taskHandlerName(task: WorkflowTaskSummary) {
   return String(name || '').trim() || '未知用户'
 }
 
+function taskLayerLabel(task: WorkflowTaskSummary) {
+  if (!task.approvalLayer)
+    return ''
+  const department = task.sourceDepartmentName || `部门 ${task.sourceDepartmentId || '-'}`
+  return `${department} · 第 ${task.approvalLayer}/${task.approvalLayerTotal || task.approvalLayer} 级`
+}
+
 function commentActorName(comment: WorkflowHistorySummary) {
   return String(comment.actorName || '').trim() || '未知用户'
 }
@@ -168,6 +176,9 @@ function formatTime(timestamp?: number) {
                 size="mini"
               />
             </view>
+            <text v-if="taskLayerLabel(task)" class="workflow-node-progress__task-meta">
+              {{ taskLayerLabel(task) }}
+            </text>
             <text class="workflow-node-progress__task-meta">
               {{ task.handledAt ? formatTime(task.handledAt) : '等待处理' }}
             </text>

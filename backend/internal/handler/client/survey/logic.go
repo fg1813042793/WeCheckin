@@ -10,14 +10,14 @@ import (
 
 // ApplyLogic POST /survey/apply
 // 应用 schema 逻辑（计算值 + 显隐）
-func (h *ClientSurveyHandler) ApplyLogic(_ context.Context, c *app.RequestContext) {
+func (h *ClientSurveyHandler) ApplyLogic(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	var req struct {
 		SurveyID uint                   `json:"surveyId"`
 		Answers  map[string]interface{} `json:"answers"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.logic", "参数错误，请稍后重试", err)
 		return
 	}
 	sv, err := h.survey.Get(req.SurveyID)
@@ -30,14 +30,14 @@ func (h *ClientSurveyHandler) ApplyLogic(_ context.Context, c *app.RequestContex
 }
 
 // Validate POST /survey/validate
-func (h *ClientSurveyHandler) Validate(_ context.Context, c *app.RequestContext) {
+func (h *ClientSurveyHandler) Validate(ctx context.Context, c *app.RequestContext) {
 	h.lazyInit()
 	var req struct {
 		SurveyID uint                   `json:"surveyId"`
 		Answers  map[string]interface{} `json:"answers"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.logic", "参数错误，请稍后重试", err)
 		return
 	}
 	sv, err := h.survey.Get(req.SurveyID)

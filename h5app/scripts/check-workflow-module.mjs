@@ -28,6 +28,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowFieldControl.vue',
   'src/pages/workflow/components/WorkflowAttachmentControl.vue',
   'src/pages/workflow/components/WorkflowImagePicker.vue',
+  'src/pages/workflow/components/WorkflowParticipantSelect.vue',
   'src/pages/workflow/components/WorkflowTextarea.vue',
   'src/pages/workflow/components/WorkflowDetailPanel.vue',
   'src/pages/workflow/components/WorkflowNodeProgressList.vue',
@@ -92,7 +93,7 @@ const requiredContent = [
   },
   {
     file: 'src/types/workflow.ts',
-    patterns: ['logoUrl?: string', 'minVisibleRows?: number', 'maxVisibleRows?: number', 'export interface WorkflowAttachment', 'mimeType: string', 'size: number', 'starterName: string', 'starterName?: string', 'assigneeName: string', 'handledByName: string', 'currentNodeNames: string[]', 'currentAssigneeNames: string[]', 'WorkflowNodeProgressStatus', 'WorkflowNodeProgressSummary', 'nodeProgress?: WorkflowNodeProgressSummary[]', 'WorkflowReminderPolicy', 'WorkflowReminderNode', 'reminderPolicy: WorkflowReminderPolicy', 'reminderNodes: WorkflowReminderNode[]', 'nodes?: WorkflowPublishedNode[]', 'edges?: WorkflowPublishedEdge[]', 'userNames: Record<string, string>', 'WorkflowCommentNotificationRequest', 'WorkflowNotificationChannel', 'notification?: WorkflowCommentNotificationRequest', 'definitionCategory?: string', 'startTimeFrom?: number', 'startTimeTo?: number', 'endTimeFrom?: number', 'endTimeTo?: number'],
+    patterns: ['logoUrl?: string', 'minVisibleRows?: number', 'maxVisibleRows?: number', 'export interface WorkflowAttachment', 'mimeType: string', 'size: number', 'starterName: string', 'starterName?: string', 'assigneeName: string', 'handledByName: string', 'approvalChainKey?: string', 'approvalLayer?: number', 'approvalLayerTotal?: number', 'sourceDepartmentName?: string', 'currentNodeNames: string[]', 'currentAssigneeNames: string[]', 'WorkflowNodeProgressStatus', 'WorkflowNodeProgressSummary', 'nodeProgress?: WorkflowNodeProgressSummary[]', 'WorkflowReminderPolicy', 'WorkflowReminderNode', 'reminderPolicy: WorkflowReminderPolicy', 'reminderNodes: WorkflowReminderNode[]', 'nodes?: WorkflowPublishedNode[]', 'edges?: WorkflowPublishedEdge[]', 'userNames: Record<string, string>', 'WorkflowCommentNotificationRequest', 'WorkflowNotificationChannel', 'notification?: WorkflowCommentNotificationRequest', 'definitionCategory?: string', 'startTimeFrom?: number', 'startTimeTo?: number', 'endTimeFrom?: number', 'endTimeTo?: number'],
   },
   {
     file: 'src/pages/workflow/workflow-form.ts',
@@ -165,7 +166,11 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
-    patterns: ['dingtalk_h5:api:workflow:remind', 'reminderNodes', 'remindWorkflowInstance', '提醒处理', '今日剩余', 'rejectVisible', 'rejectImages', 'commentImages', 'WorkflowImagePicker', 'commentNotificationGroups', 'commentNotificationUserIds', 'commentNotificationChannels = ref<WorkflowNotificationChannel[]>([\'in_app\'])', 'value="in_app" label="站内信"', 'value="dingtalk_oa" label="钉钉"', 'notification: commentNotificationUserIds.value.length > 0', 'right.eventTime - left.eventTime'],
+    patterns: ['dingtalk_h5:api:workflow:remind', 'reminderNodes', 'remindWorkflowInstance', '提醒处理', '今日剩余', 'rejectVisible', 'rejectImages', 'commentImages', 'WorkflowImagePicker', 'WorkflowParticipantSelect', 'commentNotificationGroups', 'commentNotificationUserIds', 'commentNotificationChannels = ref<WorkflowNotificationChannel[]>([\'in_app\'])', ':groups="commentNotificationGroups"', 'value="in_app" label="站内信"', 'value="dingtalk_oa" label="钉钉"', 'notification: commentNotificationUserIds.value.length > 0', 'right.eventTime - left.eventTime'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowParticipantSelect.vue',
+    patterns: ['modelValue: string[]', 'selectedLabel', 'toggleDesktopOption', 'workflow-participant-select__panel', 'role="option"', 'u-popup', '确认选择'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowImagePicker.vue',
@@ -525,6 +530,8 @@ const requiredContent = [
       'nodeTypeLabel',
       'instance.starterName || \'未知用户\'',
       'taskHandlerName(task)',
+      'taskLayerLabel(task)',
+      'task.approvalLayerTotal || task.approvalLayer',
       'custom-class="workflow-node-progress__status-tag"',
       ':deep(.workflow-node-progress__status-tag)',
       'workflow-node-progress__item--warning',

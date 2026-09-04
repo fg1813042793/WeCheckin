@@ -1,6 +1,10 @@
 package domain
 
-import "wecheckin/backend/internal/workflowcore"
+import (
+	"context"
+
+	"wecheckin/backend/internal/workflowcore"
+)
 
 type InstanceStatus string
 
@@ -79,6 +83,7 @@ const (
 	NotificationKindInstanceCommented      NotificationKind = "instance_commented"
 	NotificationKindApprovalResultApproved NotificationKind = "approval_result_approved"
 	NotificationKindApprovalResultRejected NotificationKind = "approval_result_rejected"
+	NotificationKindApprovalResultReturned NotificationKind = "approval_result_returned"
 )
 
 type ProcessInstance struct {
@@ -103,20 +108,25 @@ type Token struct {
 }
 
 type Task struct {
-	ID             string
-	TokenID        string
-	NodeID         string
-	NodeName       string
-	GroupKey       string
-	AssigneeID     string
-	ApprovalMode   string
-	CompletionRate int
-	Sequence       int
-	Total          int
-	Status         TaskStatus
-	Action         TaskAction
-	Comment        string
-	Images         []workflowcore.FormAttachment
+	ID                 string
+	TokenID            string
+	NodeID             string
+	NodeName           string
+	GroupKey           string
+	AssigneeID         string
+	ApprovalMode       string
+	CompletionRate     int
+	Sequence           int
+	Total              int
+	ApprovalChainKey   string
+	ApprovalLayer      int
+	ApprovalLayerTotal int
+	DepartmentID       uint
+	DepartmentName     string
+	Status             TaskStatus
+	Action             TaskAction
+	Comment            string
+	Images             []workflowcore.FormAttachment
 }
 
 type HistoryEvent struct {
@@ -142,6 +152,7 @@ type NotificationIntent struct {
 	Kind            NotificationKind
 	NodeID          string
 	NodeName        string
+	TargetNodeName  string
 	TaskID          string
 	RecipientUserID string
 	WorkflowName    string
@@ -199,8 +210,18 @@ type AssigneeRequest struct {
 	Variables map[string]interface{}
 }
 
+type ApprovalLayer struct {
+	DepartmentID   uint
+	DepartmentName string
+	AssigneeIDs    []string
+}
+
 type AssigneeResolver interface {
-	Resolve(AssigneeRequest) ([]string, error)
+	Resolve(context.Context, AssigneeRequest) ([]string, error)
+}
+
+type ApprovalLayerResolver interface {
+	ResolveApprovalLayers(context.Context, AssigneeRequest) ([]ApprovalLayer, error)
 }
 
 type IDGenerator interface {

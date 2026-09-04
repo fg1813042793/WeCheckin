@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 	"wecheckin/backend/internal/formkit/calc"
 	"wecheckin/backend/internal/formkit/schema"
-	poststatservice "wecheckin/backend/internal/service/client/poststat"
 	"wecheckin/backend/internal/model"
+	poststatservice "wecheckin/backend/internal/service/client/poststat"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/logger"
 )
@@ -173,6 +174,10 @@ func (r *ResponseService) SubmitContext(ctx context.Context, surveyID uint, user
 		logger.Logger.Printf("[Submit] 渠道计数更新失败 surveyId=%d err=%s", surveyID, err.Error())
 	}
 	logger.Logger.Printf("[Submit] 成功 surveyId=%d userId=%d respId=%d ip=%s device=%s", surveyID, userID, resp.ID, ip, device)
-	go poststatservice.ProcessContext(context.Background(), surveyID, userID, nickname, resp.Answers)
+	// The response is already persisted here; an enqueue failure is observable but does not roll it back.
+	if err := poststatservice.ProcessResponseContext(ctx, surveyID, resp.ID, userID, nickname, resp.Answers); err != nil {
+		logger.Logger.Printf("[Submit] post-submit notification enqueue failed surveyId=%d respId=%d err=%v", surveyID, resp.ID, err)
+		return resp, fmt.Errorf("enqueue post-submit notification: %w", err)
+	}
 	return resp, nil
 }

@@ -32,16 +32,30 @@ func TestDingTalkPerfAdminHandlerStructure(t *testing.T) {
 		"GetPerfHistories",
 		"DeletePerfHistory",
 		"DeletePerfHistories",
-		"DingTalkH5PerfReview",
-		"DingTalkH5PerfHistory",
-		"`deleted_at` = 0",
-		"review_no",
-		"employee_account",
-		"period",
-		"status",
+		"h.service.ListPerfReviews",
+		"h.service.GetPerfReviewDetail",
+		"h.service.DeletePerfReviews",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("dingtalk performance admin handler missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"database.GetDB", "database.WithContext", ".Transaction(", "gorm."} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("dingtalk admin handlers must not access GORM directly: %q", forbidden)
+		}
+	}
+	serviceSource, err := os.ReadFile("../../../service/admin/dingtalk/performance.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceText := string(serviceSource)
+	for _, want := range []string{
+		"DingTalkH5PerfReview", "DingTalkH5PerfHistory", "`deleted_at` = 0",
+		"review_no", "employee_account", "period", "status", "type PerfReviewList struct",
+	} {
+		if !strings.Contains(serviceText, want) {
+			t.Fatalf("dingtalk performance service missing %q", want)
 		}
 	}
 }

@@ -7,9 +7,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"wecheckin/backend/internal/handler/internal/param"
+	"wecheckin/backend/internal/model"
 	adminauthservice "wecheckin/backend/internal/service/admin/adminauth"
 	adminmgrservice "wecheckin/backend/internal/service/admin/adminmgr"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -185,7 +185,7 @@ func (h *AdminMgrHandler) PwdMgr(ctx context.Context, c *app.RequestContext) {
 	password := c.PostForm("password")
 	err := adminmgrservice.ChangePasswordContext(ctx, strconv.Itoa(int(admin.ID)), oldPassword, password)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.mgr.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

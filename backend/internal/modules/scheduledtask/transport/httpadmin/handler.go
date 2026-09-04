@@ -61,7 +61,7 @@ func (handler *Handler) ListTasks(ctx context.Context, c *app.RequestContext) {
 		query.Enabled = &value
 	}
 	data, err := handler.service.ListTasks(ctx, query)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) CreateTask(ctx context.Context, c *app.RequestContext) {
@@ -79,7 +79,7 @@ func (handler *Handler) CreateTask(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.CreateTask(ctx, uint64(admin.ID), request)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) GetTask(ctx context.Context, c *app.RequestContext) {
@@ -89,7 +89,7 @@ func (handler *Handler) GetTask(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.GetTask(ctx, id)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) UpdateTask(ctx context.Context, c *app.RequestContext) {
@@ -112,7 +112,7 @@ func (handler *Handler) UpdateTask(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.UpdateTask(ctx, id, uint64(admin.ID), request)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) DeleteTask(ctx context.Context, c *app.RequestContext) {
@@ -127,7 +127,7 @@ func (handler *Handler) DeleteTask(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	err := handler.service.DeleteTask(ctx, id, uint64(admin.ID))
-	respond(c, nil, err)
+	respond(ctx, c, nil, err)
 }
 
 func (handler *Handler) SetTaskStatus(ctx context.Context, c *app.RequestContext) {
@@ -147,7 +147,7 @@ func (handler *Handler) SetTaskStatus(ctx context.Context, c *app.RequestContext
 		return
 	}
 	data, err := handler.service.SetTaskEnabled(ctx, id, uint64(admin.ID), body.Enabled, body.Version)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) RunTask(ctx context.Context, c *app.RequestContext) {
@@ -162,10 +162,10 @@ func (handler *Handler) RunTask(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.RunNow(ctx, id, uint64(admin.ID))
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
-func (handler *Handler) PreviewCron(_ context.Context, c *app.RequestContext) {
+func (handler *Handler) PreviewCron(ctx context.Context, c *app.RequestContext) {
 	var body cronPreviewBody
 	if err := decodeJSONBody(c, &body); err != nil {
 		response.Fail(c, "请求参数格式无效")
@@ -179,7 +179,7 @@ func (handler *Handler) PreviewCron(_ context.Context, c *app.RequestContext) {
 		Expression: body.Expression, Precision: body.Precision, Timezone: body.Timezone,
 		Count: body.Count, After: after,
 	})
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) ListHandlers(_ context.Context, c *app.RequestContext) {
@@ -193,7 +193,7 @@ func (handler *Handler) ListRuns(ctx context.Context, c *app.RequestContext) {
 		WorkerID: c.Query("workerId"), StartTime: queryInt64(c, "startTime"), EndTime: queryInt64(c, "endTime"),
 		Page: queryInt(c, "page"), PageSize: queryInt(c, "pageSize"),
 	})
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) GetRun(ctx context.Context, c *app.RequestContext) {
@@ -203,7 +203,7 @@ func (handler *Handler) GetRun(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.GetRunDetail(ctx, runID)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) RetryRun(ctx context.Context, c *app.RequestContext) {
@@ -218,7 +218,7 @@ func (handler *Handler) RetryRun(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.RetryRun(ctx, runID, uint64(admin.ID))
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) CancelRun(ctx context.Context, c *app.RequestContext) {
@@ -233,7 +233,7 @@ func (handler *Handler) CancelRun(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	data, err := handler.service.CancelRun(ctx, runID, uint64(admin.ID))
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) ListWorkers(ctx context.Context, c *app.RequestContext) {
@@ -242,7 +242,7 @@ func (handler *Handler) ListWorkers(ctx context.Context, c *app.RequestContext) 
 		return
 	}
 	data, err := handler.workers.ListWorkers(ctx)
-	respond(c, data, err)
+	respond(ctx, c, data, err)
 }
 
 func (handler *Handler) authorizeRisk(ctx context.Context, c *app.RequestContext, admin *model.Admin, handlerType string, raw json.RawMessage) bool {
@@ -293,9 +293,13 @@ func riskPermission(handlerType string, raw json.RawMessage) string {
 	}
 }
 
-func respond(c *app.RequestContext, data interface{}, err error) {
+func respond(ctx context.Context, c *app.RequestContext, data interface{}, err error) {
 	if err != nil {
-		response.Fail(c, err.Error())
+		if errors.Is(err, application.ErrSystemTaskReadOnly) {
+			response.Fail(c, "系统定时任务不可编辑")
+			return
+		}
+		response.FailInternal(ctx, c, "scheduledtask.admin", "定时任务操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)

@@ -23,7 +23,7 @@ func (h *ClientSurveyHandler) MyResponses(ctx context.Context, c *app.RequestCon
 	}
 	list, err := h.responses.MyResponsesContext(ctx, uid, 50)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.responses", "查询失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, myResponsesResponse{List: list})

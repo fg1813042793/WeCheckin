@@ -50,6 +50,8 @@ const (
 	DataExtraPermissionKey  = "data:extra"
 )
 
+var ErrPermissionSchemaNotReady = errors.New("权限数据结构尚未初始化，请先执行数据库迁移")
+
 const (
 	dingtalkH5MenuPermissionCacheTTL           = 30 * time.Second
 	subjectPermissionSetCacheTTL               = 30 * time.Second
@@ -243,15 +245,17 @@ func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error {
 	}
 	if !db.Migrator().HasTable(&model.Permission{}) {
 		markPermissionTablesReady(false)
-		return ctxErr(ctx)
+		return ErrPermissionSchemaNotReady
 	}
 	if !db.Migrator().HasColumn(&model.Permission{}, "Icon") {
-		if err := db.Migrator().AddColumn(&model.Permission{}, "Icon"); err != nil {
-			markPermissionTablesReady(false)
-			return err
-		}
+		markPermissionTablesReady(false)
+		return ErrPermissionSchemaNotReady
 	}
-	markPermissionSchemaReady(db.Migrator().HasTable(&model.PermissionGrant{}))
+	if !db.Migrator().HasTable(&model.PermissionGrant{}) {
+		markPermissionTablesReady(false)
+		return ErrPermissionSchemaNotReady
+	}
+	markPermissionSchemaReady(true)
 	return ctxErr(ctx)
 }
 

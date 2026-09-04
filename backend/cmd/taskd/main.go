@@ -18,10 +18,13 @@ import (
 	"wecheckin/backend/internal/config"
 	inappnotificationapp "wecheckin/backend/internal/modules/inappnotification/application"
 	inappnotificationinfra "wecheckin/backend/internal/modules/inappnotification/infrastructure"
+	notificationoutboxapp "wecheckin/backend/internal/modules/notificationoutbox/application"
+	notificationoutboxinfra "wecheckin/backend/internal/modules/notificationoutbox/infrastructure"
 	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
 	scheduledtaskruntime "wecheckin/backend/internal/modules/scheduledtask/runtime"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
+	"wecheckin/backend/internal/support/outboundhttp"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/logger"
 	redispkg "wecheckin/backend/pkg/redis"
@@ -198,7 +201,17 @@ func run() error {
 		return fmt.Errorf("initialize logger: %w", err)
 	}
 	if err := waitForDependency(ctx, "database", func() error {
-		return database.ConnectDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
+		return database.ConnectDatabaseWithOptions(database.Options{
+			Host: cfg.Database.Host, Port: cfg.Database.Port,
+			User: cfg.Database.User, Password: cfg.Database.Password, DBName: cfg.Database.DBName,
+			ConnectTimeout: time.Duration(cfg.Database.ConnectTimeoutSec) * time.Second,
+			ReadTimeout:    time.Duration(cfg.Database.ReadTimeoutSec) * time.Second,
+			WriteTimeout:   time.Duration(cfg.Database.WriteTimeoutSec) * time.Second,
+			MaxIdleConns:   cfg.Database.MaxIdleConns, MaxOpenConns: cfg.Database.MaxOpenConns,
+			ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
+			ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
+			LogLevel:        gormlogger.Warn, Colorful: false,
+		})
 	}); err != nil {
 		return err
 	}
@@ -210,7 +223,6 @@ func run() error {
 	defer redispkg.Close()
 
 	db := database.GetDB()
-	db.Logger = db.Logger.LogMode(gormlogger.Warn)
 	workflowStore := workflowinfra.NewGormStore(db)
 	notificationRepository := workflowinfra.NewGormNotificationRepository(db)
 	notificationDispatcher := workflowapp.NewNotificationDispatcher(
@@ -227,12 +239,27 @@ func run() error {
 	taskStore := scheduledtaskinfra.NewGormStore(db)
 	notificationStore := inappnotificationinfra.NewGormStore(db)
 	notificationService := inappnotificationapp.NewService(notificationStore)
+	webhookClient, err := outboundhttp.NewClient(outboundhttp.Policy{
+		AllowAnyPublicHosts: true,
+		MaxRedirects:        cfg.ScheduledTask.HTTP.MaxRedirects,
+		MaxRequestBytes:     cfg.ScheduledTask.HTTP.MaxRequestBytes,
+		MaxResponseBytes:    cfg.ScheduledTask.HTTP.MaxResponseBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize notification webhook client: %w", err)
+	}
+	outboxService := notificationoutboxapp.NewService(
+		notificationoutboxinfra.NewGormStore(db),
+		notificationoutboxinfra.NewInternalChannel(notificationService),
+		notificationoutboxinfra.NewWebhookChannel(webhookClient),
+	)
 	registry, err := scheduledtaskinfra.NewHandlerRegistry(
 		cfg.ScheduledTask,
 		workflowRuntime,
 		scheduledtaskinfra.NewCleanupJob(taskStore, cfg.ScheduledTask.RunRetentionDays, cfg.ScheduledTask.LogRetentionDays, nil),
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
 		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
+		scheduledtaskinfra.NewNotificationOutboxDispatchJob(outboxService),
 	)
 	if err != nil {
 		return fmt.Errorf("initialize handlers: %w", err)

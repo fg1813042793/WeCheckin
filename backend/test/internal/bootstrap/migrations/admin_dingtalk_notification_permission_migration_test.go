@@ -18,7 +18,6 @@ func TestAdminDingTalkNotificationMigrationRegistersPermissionWithoutAutoGrant(t
 	}
 	text := string(source)
 	for _, snippet := range []string{
-		"通知管理",
 		"admin:menu:notification:dingtalk-send",
 		"admin:api:notification:dingtalk-send",
 		"notification:dingtalk:send",

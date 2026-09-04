@@ -35,7 +35,7 @@ func (h *ClientSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	clientIP := c.ClientIP()
 	list, total, serviceLimits, err := h.survey.PublishedListWithLimitsContext(ctx, keyword, category, page, pageSize, deviceId, clientIP)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.browse", "查询失败，请稍后重试", err)
 		return
 	}
 	limitsMap := make(map[uint]limitInfo, len(serviceLimits))
@@ -76,7 +76,7 @@ func (h *ClientSurveyHandler) Detail(ctx context.Context, c *app.RequestContext)
 			response.Fail(c, "请先登录")
 			return
 		}
-		rdKey := tokenutil.TokenAuthKey("user", token)
+		rdKey := tokenutil.TokenAuthKeyContext(ctx, "user", token)
 		redisCtx, cancel := rd.OperationContext(ctx)
 		defer cancel()
 		jsonStr, err := rd.RDB.Get(redisCtx, rdKey).Result()

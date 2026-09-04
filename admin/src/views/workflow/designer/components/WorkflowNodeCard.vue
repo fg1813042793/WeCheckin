@@ -67,7 +67,8 @@ const description = computed(() => {
   if (props.node.type === 'automation') return `写入 ${Object.keys(props.node.automation?.variables || {}).length} 个变量`
   if (props.node.type === 'timer') return formatDelay(props.node.timer?.delaySeconds || 0)
   const mode = ({ single: '单人审批', sequential: '依次审批', parallel: '并行审批', countersign: '会签审批' } as Record<string, string>)[props.node.approvalMode || '']
-  return [assigneeDescription(props.node), mode, notificationChannelSummary(props.node)].filter(Boolean).join(' · ') || '请配置审批规则'
+  const chain = props.node.departmentApprovalChain?.enabled ? '逐级向上' : ''
+  return [assigneeDescription(props.node), chain, mode, notificationChannelSummary(props.node)].filter(Boolean).join(' · ') || '请配置审批规则'
 })
 
 function notificationChannelSummary(node: WorkflowNode) {

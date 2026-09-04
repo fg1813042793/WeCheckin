@@ -24,6 +24,7 @@ var (
 	ErrRunNotCancelable   = errors.New("scheduled task run is not cancelable")
 	ErrInvalidTask        = errors.New("invalid scheduled task")
 	ErrHandlerUnavailable = errors.New("scheduled task handler unavailable")
+	ErrSystemTaskReadOnly = errors.New("system scheduled task is read-only")
 )
 
 var taskCodePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{1,99}$`)
@@ -108,6 +109,9 @@ func NewService(store Store, validator HandlerConfigValidator, publisher QueuePu
 }
 
 func (service *Service) CreateTask(ctx context.Context, actorID uint64, request CreateTaskRequest) (*scheduledtaskmodel.Task, error) {
+	if isSystemTaskCode(request.Code) {
+		return nil, ErrSystemTaskReadOnly
+	}
 	normalized, schedule, err := service.validateTaskRequest(ctx, request)
 	if err != nil {
 		return nil, err
@@ -138,6 +142,9 @@ func (service *Service) UpdateTask(ctx context.Context, taskID, actorID uint64, 
 	existing, err := service.store.GetTask(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if isSystemTaskCode(existing.Code) || isSystemTaskCode(request.Code) {
+		return nil, ErrSystemTaskReadOnly
 	}
 	normalized, schedule, err := service.validateTaskRequest(ctx, request.CreateTaskRequest)
 	if err != nil {
@@ -379,4 +386,8 @@ func boolInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func isSystemTaskCode(code string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(code)), "system.")
 }

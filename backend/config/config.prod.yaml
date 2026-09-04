@@ -1,9 +1,14 @@
 server:
+  host: "0.0.0.0"
   port: 8083
-  mode: "debug"
+  mode: "release"
   timeout: 30
+  read_timeout_seconds: 30
+  write_timeout_seconds: 60
+  idle_timeout_seconds: 120
 
 cors:
+  allow_credentials: false
   allow_origins:
     - "*"
   allow_methods:
@@ -24,11 +29,18 @@ cors:
     - "Authorization"
 
 database:
-  host: "101.37.205.158"
-  port: 3307
+  host: "localhost"
+  port: 3306
   user: "root"
-  password: "Pass_123"
-  dbname: "go_wecheckin"
+  password: ""
+  dbname: "wecheckin"
+  connect_timeout_seconds: 10
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime_minutes: 60
+  conn_max_idle_time_minutes: 10
   charset: "utf8mb4"
   parse_time: true
   loc: "Local"
@@ -40,10 +52,10 @@ log:
   compress: true
 
 redis:
-  host: "101.37.205.158"
-  port: 6377
-  password: "foster@2026"
-  db: 10
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
 
 scheduled_task:
   redis_key_prefix: "wecheckin"
@@ -82,13 +94,13 @@ token:
 oss:
   type: "local"  # aliyun, tencent, local
   aliyun:
-    access_key_id: "your-aliyun-access-key"
-    access_key_secret: "your-aliyun-secret"
+    access_key_id: ""
+    access_key_secret: ""
     endpoint: "oss-cn-hangzhou.aliyuncs.com"
     bucket: "your-bucket"
   tencent:
-    secret_id: "your-tencent-secret-id"
-    secret_key: "your-tencent-secret-key"
+    secret_id: ""
+    secret_key: ""
     region: "ap-beijing"
     bucket: "your-bucket"
   local:

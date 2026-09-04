@@ -12,6 +12,7 @@ import (
 	"wecheckin/backend/internal/model"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
+	workflowhttperror "wecheckin/backend/internal/modules/workflow/transport/httperror"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -98,7 +99,7 @@ func (handler *RuntimeHandler) ListDefinitions(ctx context.Context, c *app.Reque
 	}
 	data, err := handler.service.ListPublishedDefinitions(ctx)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.list_definitions", err)
 		return
 	}
 	response.JSON(c, data)
@@ -116,7 +117,7 @@ func (handler *RuntimeHandler) GetDefinition(ctx context.Context, c *app.Request
 	}
 	data, err := handler.service.GetPublishedDefinition(ctx, uint(id))
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.get_definition", err)
 		return
 	}
 	response.JSON(c, data)
@@ -145,7 +146,7 @@ func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.Request
 		FormData:          body.FormData,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.start", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
@@ -173,7 +174,7 @@ func (handler *RuntimeHandler) CompleteTask(ctx context.Context, c *app.RequestC
 		Variables: body.Variables, FormData: body.FormData,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.complete_task", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
@@ -201,7 +202,7 @@ func (handler *RuntimeHandler) CancelInstance(ctx context.Context, c *app.Reques
 		InstanceID: instanceID, ActorID: actorID, Reason: body.Reason,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.cancel", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
@@ -220,7 +221,7 @@ func (handler *RuntimeHandler) ResumeTimers(ctx context.Context, c *app.RequestC
 	}
 	state, advanced, err := handler.service.ResumeTimers(ctx, instanceID, actorID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.resume_timers", err)
 		return
 	}
 	response.JSON(c, resumeTimersResponse{mutationResponse: newMutationResponse(state), Advanced: advanced})
@@ -243,7 +244,7 @@ func (handler *RuntimeHandler) ListInstances(ctx context.Context, c *app.Request
 		PageSize:           queryInt(c, "pageSize"),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.list_instances", err)
 		return
 	}
 	response.JSON(c, data)
@@ -257,7 +258,7 @@ func (handler *RuntimeHandler) GetInstance(ctx context.Context, c *app.RequestCo
 	}
 	data, err := handler.service.GetInstance(ctx, instanceID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.get_instance", err)
 		return
 	}
 	response.JSON(c, data)
@@ -276,7 +277,7 @@ func (handler *RuntimeHandler) DeleteInstance(ctx context.Context, c *app.Reques
 	}
 	deleted, err := handler.service.DeleteInstances(ctx, actorID, []string{instanceID})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.delete_instance", err)
 		return
 	}
 	response.JSON(c, map[string]int{"deleted": deleted})
@@ -295,7 +296,7 @@ func (handler *RuntimeHandler) DeleteInstances(ctx context.Context, c *app.Reque
 	}
 	deleted, err := handler.service.DeleteInstances(ctx, actorID, body.IDs)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.delete_instances", err)
 		return
 	}
 	response.JSON(c, map[string]int{"deleted": deleted})
@@ -311,7 +312,7 @@ func (handler *RuntimeHandler) ListTasks(ctx context.Context, c *app.RequestCont
 		PageSize:         queryInt(c, "pageSize"),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.list_tasks", err)
 		return
 	}
 	response.JSON(c, data)
@@ -329,7 +330,7 @@ func (handler *RuntimeHandler) DeleteTask(ctx context.Context, c *app.RequestCon
 		return
 	}
 	if err := handler.service.DeleteTask(ctx, actorID, taskID); err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.delete_task", err)
 		return
 	}
 	response.JSON(c, map[string]string{"id": taskID})
@@ -350,7 +351,7 @@ func (handler *RuntimeHandler) ListNotifications(ctx context.Context, c *app.Req
 		PageSize:        queryInt(c, "pageSize"),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.list_notifications", err)
 		return
 	}
 	response.JSON(c, data)
@@ -367,7 +368,7 @@ func (handler *RuntimeHandler) RetryNotification(ctx context.Context, c *app.Req
 		return
 	}
 	if err := handler.service.RetryNotification(ctx, id); err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.retry_notification", err)
 		return
 	}
 	response.JSON(c, map[string]string{"id": id})
@@ -387,7 +388,7 @@ func (handler *RuntimeHandler) DispatchDueNotifications(ctx context.Context, c *
 	}
 	count, err := handler.service.DispatchDueNotifications(ctx, body.Limit)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.admin.dispatch_notifications", err)
 		return
 	}
 	response.JSON(c, map[string]int{"dispatched": count})

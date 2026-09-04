@@ -278,3 +278,35 @@ export function setNavigationTitle(title: string) {
 
   uni.setNavigationBarTitle({ title })
 }
+
+export function setBrowserFavicon(logoUrl: string) {
+  // #ifdef H5
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  let favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
+  if (!favicon) {
+    favicon = document.createElement('link')
+    favicon.id = 'app-favicon'
+    favicon.rel = 'icon'
+    document.head.appendChild(favicon)
+  }
+
+  const fallbackHref = favicon.getAttribute('data-default-href') || favicon.getAttribute('href') || 'static/logo.png'
+  favicon.setAttribute('data-default-href', fallbackHref)
+  favicon.onerror = null
+
+  const configuredLogoUrl = String(logoUrl || '').trim()
+  if (!configuredLogoUrl) {
+    favicon.href = fallbackHref
+    return
+  }
+
+  favicon.onerror = () => {
+    favicon.onerror = null
+    favicon.href = fallbackHref
+  }
+  favicon.href = configuredLogoUrl
+  // #endif
+}

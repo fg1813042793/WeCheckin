@@ -34,6 +34,19 @@ export interface PageResult<T> {
 }
 
 export type InAppNotificationScope = 'all' | 'departments' | 'users'
+export type NotificationTone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+
+export interface NotificationStyle {
+  type: string
+  label: string
+  icon: string
+  tone: NotificationTone
+}
+
+export interface NotificationStyleConfig {
+  version: number
+  styles: NotificationStyle[]
+}
 
 export interface InAppNotificationItem {
   id: number
@@ -78,6 +91,14 @@ export interface InAppNotificationSendResult {
 
 export type DingTalkNotificationSendPayload = Omit<InAppNotificationSendPayload, 'requestId'>
 export type DingTalkNotificationSendResult = InAppNotificationSendResult
+
+export interface NotificationStyleTestPayload {
+  requestId: string
+  notificationType: string
+  title: string
+  content: string
+  userIds: number[]
+}
 
 export interface AdminMenuItem {
   id: string | number

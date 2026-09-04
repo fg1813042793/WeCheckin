@@ -8,9 +8,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/tokenutil"
 )
 
 type SetupItem struct {
@@ -128,6 +129,7 @@ func SetContentSetupContext(ctx context.Context, key, value, addIP string) error
 
 func invalidateRelatedSetupCaches(key string) {
 	invalidateSetupServiceCache()
+	tokenutil.InvalidateSetupCache()
 	if key == "STATIC_DOMAIN" {
 		media.InvalidateStaticDomainCache()
 	}
@@ -135,6 +137,7 @@ func invalidateRelatedSetupCaches(key string) {
 
 func invalidateRelatedSetupCachesForKeys(keys []string) {
 	invalidateSetupServiceCache()
+	tokenutil.InvalidateSetupCache()
 	for _, key := range keys {
 		if key == "STATIC_DOMAIN" {
 			media.InvalidateStaticDomainCache()

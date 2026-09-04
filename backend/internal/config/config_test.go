@@ -150,15 +150,25 @@ func TestLoadConfigDefaultCORSMethodsIncludePatch(t *testing.T) {
 func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {
 	withTempConfigDir(t, testConfigYAML)
 	t.Setenv("WECHECKIN_SERVER_PORT", "18083")
+	t.Setenv("WECHECKIN_SERVER_TIMEOUT", "45")
+	t.Setenv("WECHECKIN_SERVER_READ_TIMEOUT_SECONDS", "12")
+	t.Setenv("WECHECKIN_SERVER_WRITE_TIMEOUT_SECONDS", "34")
+	t.Setenv("WECHECKIN_SERVER_IDLE_TIMEOUT_SECONDS", "56")
 	t.Setenv("WECHECKIN_DATABASE_HOST", "db.env")
 	t.Setenv("WECHECKIN_DATABASE_PORT", "3310")
 	t.Setenv("WECHECKIN_DATABASE_PASSWORD", "from-env")
+	t.Setenv("WECHECKIN_DATABASE_CONNECT_TIMEOUT_SECONDS", "9")
+	t.Setenv("WECHECKIN_DATABASE_READ_TIMEOUT_SECONDS", "19")
+	t.Setenv("WECHECKIN_DATABASE_WRITE_TIMEOUT_SECONDS", "29")
+	t.Setenv("WECHECKIN_DATABASE_MAX_IDLE_CONNS", "8")
+	t.Setenv("WECHECKIN_DATABASE_MAX_OPEN_CONNS", "64")
 	t.Setenv("WECHECKIN_REDIS_DB", "5")
 	t.Setenv("WECHECKIN_REDIS_PASSWORD", "redis-env")
 	t.Setenv("WECHECKIN_LOG_COMPRESS", "false")
 	t.Setenv("WECHECKIN_OSS_TYPE", "local")
 	t.Setenv("WECHECKIN_OSS_LOCAL_PATH", "./env-uploads")
 	t.Setenv("WECHECKIN_CORS_ALLOW_ORIGINS", "http://one.local,http://two.local")
+	t.Setenv("WECHECKIN_CORS_ALLOW_CREDENTIALS", "true")
 	t.Setenv("WECHECKIN_TOKEN_ADMIN_EXPIRE", "48h")
 
 	cfg, err := LoadConfig("")
@@ -169,6 +179,9 @@ func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {
 	if cfg.Server.Port != "18083" {
 		t.Fatalf("server port = %q", cfg.Server.Port)
 	}
+	if cfg.Server.TimeoutSec != 45 || cfg.Server.ReadTimeoutSec != 12 || cfg.Server.WriteTimeoutSec != 34 || cfg.Server.IdleTimeoutSec != 56 {
+		t.Fatalf("server timeouts = %#v", cfg.Server)
+	}
 	if cfg.Database.Host != "db.env" {
 		t.Fatalf("database host = %q", cfg.Database.Host)
 	}
@@ -177,6 +190,12 @@ func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {
 	}
 	if cfg.Database.Password != "from-env" {
 		t.Fatalf("database password = %q", cfg.Database.Password)
+	}
+	if cfg.Database.ConnectTimeoutSec != 9 || cfg.Database.ReadTimeoutSec != 19 || cfg.Database.WriteTimeoutSec != 29 {
+		t.Fatalf("database timeouts = %#v", cfg.Database)
+	}
+	if cfg.Database.MaxIdleConns != 8 || cfg.Database.MaxOpenConns != 64 {
+		t.Fatalf("database pool limits = %#v", cfg.Database)
 	}
 	if cfg.Redis.DB != 5 {
 		t.Fatalf("redis db = %d", cfg.Redis.DB)
@@ -194,7 +213,74 @@ func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {
 	if len(cfg.CORS.AllowOrigins) != len(wantOrigins) || cfg.CORS.AllowOrigins[0] != wantOrigins[0] || cfg.CORS.AllowOrigins[1] != wantOrigins[1] {
 		t.Fatalf("cors origins = %#v", cfg.CORS.AllowOrigins)
 	}
+	if !cfg.CORS.AllowCredentials {
+		t.Fatal("cors allow credentials = false")
+	}
 	if cfg.Token.Admin.Expire != "48h" {
 		t.Fatalf("admin token expire = %q", cfg.Token.Admin.Expire)
+	}
+}
+
+func TestLoadConfigNormalizesServerTimeoutDefaults(t *testing.T) {
+	withTempWorkingDir(t)
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	if cfg.Server.Host != "0.0.0.0" {
+		t.Fatalf("default server host = %q, want 0.0.0.0", cfg.Server.Host)
+	}
+	if cfg.Server.TimeoutSec != 30 || cfg.Server.ReadTimeoutSec != 30 || cfg.Server.WriteTimeoutSec != 60 || cfg.Server.IdleTimeoutSec != 120 {
+		t.Fatalf("default server timeouts = %#v", cfg.Server)
+	}
+	if cfg.CORS.AllowCredentials {
+		t.Fatal("default CORS credentials must be disabled")
+	}
+	if cfg.Database.ConnectTimeoutSec != 10 || cfg.Database.ReadTimeoutSec != 30 || cfg.Database.WriteTimeoutSec != 30 {
+		t.Fatalf("default database timeouts = %#v", cfg.Database)
+	}
+	if cfg.Database.MaxIdleConns != 10 || cfg.Database.MaxOpenConns != 100 || cfg.Database.ConnMaxLifetimeMin != 60 || cfg.Database.ConnMaxIdleTimeMin != 10 {
+		t.Fatalf("default database pool = %#v", cfg.Database)
+	}
+}
+
+func TestLoadConfigRejectsInvalidValuesWithoutReplacingGlobalConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantKey string
+	}{
+		{name: "port is not numeric", yaml: "server:\n  port: nope\n", wantKey: "server.port"},
+		{name: "port is out of range", yaml: "server:\n  port: 70000\n", wantKey: "server.port"},
+		{name: "timeout is not positive", yaml: "server:\n  timeout: 0\n", wantKey: "server.timeout"},
+		{name: "database host is empty", yaml: "database:\n  host: \"\"\n", wantKey: "database.host"},
+		{name: "database port is invalid", yaml: "database:\n  port: 0\n", wantKey: "database.port"},
+		{name: "redis db is invalid", yaml: "redis:\n  db: 256\n", wantKey: "redis.db"},
+		{
+			name:    "wildcard cors cannot use credentials",
+			yaml:    "cors:\n  allow_origins: [\"*\"]\n  allow_credentials: true\n",
+			wantKey: "cors.allow_credentials",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			withTempConfigDir(t, test.yaml)
+			previous := &Config{Server: ServerConfig{Port: "19999"}}
+			Cfg = previous
+
+			_, err := LoadConfig("")
+			if err == nil {
+				t.Fatalf("LoadConfig() error = nil, want %s validation error", test.wantKey)
+			}
+			if !strings.Contains(err.Error(), test.wantKey) {
+				t.Fatalf("LoadConfig() error = %q, want key %q", err, test.wantKey)
+			}
+			if Cfg != previous {
+				t.Fatal("invalid config replaced the active global config")
+			}
+		})
 	}
 }

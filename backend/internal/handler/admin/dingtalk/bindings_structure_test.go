@@ -29,10 +29,8 @@ func TestDingTalkUserBindingAdminHandlerStructure(t *testing.T) {
 		"SaveUserBinding",
 		"StatusUserBinding",
 		"DeleteUserBinding",
-		"DingTalkH5UserBinding",
-		"`corp_id`",
-		"`dingtalk_user_id`",
-		"`user_id`",
+		"h.service.ListUserBindings",
+		"h.service.SaveUserBinding",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("dingtalk binding admin handler missing %q", want)
@@ -89,20 +87,20 @@ func TestDingTalkUserBindingAdminFrontendStructure(t *testing.T) {
 }
 
 func TestDingTalkUserBindingLocalUserPickerUsesDeptTreeSingleSelect(t *testing.T) {
-	handlerSrc, err := os.ReadFile("bindings.go")
+	serviceSrc, err := os.ReadFile("../../../service/admin/dingtalk/bindings.go")
 	if err != nil {
-		t.Fatalf("read dingtalk binding handler: %v", err)
+		t.Fatalf("read dingtalk binding service: %v", err)
 	}
-	handlerText := string(handlerSrc)
+	serviceText := string(serviceSrc)
 	for _, want := range []string{
-		"type dingTalkUserBindingUserTreeNode struct",
-		"buildDingTalkBindingUserTree",
+		"type UserBindingTreeNode struct",
+		"buildBindingUserTree",
 		"`user_depts`",
 		"`departments`",
-		`"userTreeOptions": userTreeOptions`,
+		`UserTreeOptions: userTreeOptions`,
 	} {
-		if !strings.Contains(handlerText, want) {
-			t.Fatalf("dingtalk binding handler should expose local users as dept tree, missing %q", want)
+		if !strings.Contains(serviceText, want) {
+			t.Fatalf("dingtalk binding service should expose local users as dept tree, missing %q", want)
 		}
 	}
 

@@ -54,7 +54,7 @@ func TestStartInstanceLoadsPublishedVersionAndPersistsState(t *testing.T) {
 func TestCompleteTaskLocksStateAndPersistsTransition(t *testing.T) {
 	definition := simpleDefinition()
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-	state, err := engine.Start(definition, workflowdomain.StartRequest{
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{
 		DefinitionID: 9, DefinitionVersion: 3, StarterID: "7",
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func TestCompleteTaskLocksStateAndPersistsTransition(t *testing.T) {
 func TestCompleteTaskRejectsDifferentActorWithoutSaving(t *testing.T) {
 	definition := simpleDefinition()
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-	state, err := engine.Start(definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 3, StarterID: "7"})
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 3, StarterID: "7"})
 	if err != nil {
 		t.Fatalf("prepare state: %v", err)
 	}
@@ -685,7 +685,7 @@ func TestCompleteTaskOnlyUpdatesWritableNodeFields(t *testing.T) {
 		{Field: "opinion", Access: workflowcore.FieldAccessWrite},
 	}
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-	state, err := engine.Start(definition, workflowdomain.StartRequest{
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{
 		DefinitionID: 9, DefinitionVersion: 1, StarterID: "7", FormData: map[string]interface{}{"reason": "出差"},
 	})
 	if err != nil {
@@ -726,7 +726,7 @@ func TestCompleteTaskRejectsNodeFormPatchThatClearsRequiredField(t *testing.T) {
 		{Field: "reason", Access: workflowcore.FieldAccessWrite},
 	}
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-	state, err := engine.Start(definition, workflowdomain.StartRequest{
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{
 		DefinitionID: 9, DefinitionVersion: 1, StarterID: "7", FormData: map[string]interface{}{"reason": "出差"},
 	})
 	if err != nil {
@@ -771,7 +771,7 @@ func TestCompleteTaskRequiresDetailListRowActions(t *testing.T) {
 		map[string]interface{}{"id": "obj-1", "target": "提升续费率", "weight": 40, "result": "待跟进"},
 	}
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-	state, err := engine.Start(definition, workflowdomain.StartRequest{
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{
 		DefinitionID: 9, DefinitionVersion: 1, StarterID: "7", FormData: map[string]interface{}{"objectives": initialRows},
 	})
 	if err != nil {
@@ -858,7 +858,7 @@ func TestResumeTimersLocksInstanceAndPersistsDueTransition(t *testing.T) {
 func TestWithdrawInstanceLocksByInstanceAndPersists(t *testing.T) {
 	definition := simpleDefinition()
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-	state, err := engine.Start(definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 1, StarterID: "7"})
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 1, StarterID: "7"})
 	if err != nil {
 		t.Fatalf("prepare state: %v", err)
 	}
@@ -1143,7 +1143,7 @@ func TestCompleteTaskRequiresRejectReasonAndValidatesImages(t *testing.T) {
 	definition := simpleDefinition()
 	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
 	newState := func() *workflowdomain.State {
-		state, err := engine.Start(definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 3, StarterID: "7"})
+		state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 3, StarterID: "7"})
 		if err != nil {
 			t.Fatalf("prepare state: %v", err)
 		}
@@ -1556,7 +1556,7 @@ func TestServicePublishesBusinessLifecycleEventsForEveryTerminalStatus(t *testin
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state, err := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{}).Start(
+			state, err := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{}).Start(context.Background(),
 				simpleDefinition(),
 				workflowdomain.StartRequest{
 					DefinitionID: 9, DefinitionVersion: 1,
@@ -1602,7 +1602,7 @@ func TestWorkflowMutationsDispatchNewNotificationsAfterCommit(t *testing.T) {
 	t.Run("complete dispatches only current effects", func(t *testing.T) {
 		definition := simpleDefinition()
 		engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
-		state, err := engine.Start(definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 1, StarterID: "7"})
+		state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{DefinitionID: 9, DefinitionVersion: 1, StarterID: "7"})
 		if err != nil {
 			t.Fatalf("prepare state: %v", err)
 		}
@@ -1929,7 +1929,7 @@ func (publisher *recordingPublisher) Publish(_ context.Context, event LifecycleE
 	publisher.events = append(publisher.events, event)
 }
 
-func (resolver fixedResolver) Resolve(workflowdomain.AssigneeRequest) ([]string, error) {
+func (resolver fixedResolver) Resolve(context.Context, workflowdomain.AssigneeRequest) ([]string, error) {
 	return append([]string(nil), resolver...), nil
 }
 
@@ -1938,7 +1938,7 @@ type displayNameResolver struct {
 	request workflowdomain.AssigneeRequest
 }
 
-func (resolver *displayNameResolver) Resolve(request workflowdomain.AssigneeRequest) ([]string, error) {
+func (resolver *displayNameResolver) Resolve(_ context.Context, request workflowdomain.AssigneeRequest) ([]string, error) {
 	resolver.request = request
 	return []string{"88", "99"}, nil
 }

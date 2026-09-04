@@ -59,6 +59,7 @@ assert(inserted?.notification?.content === '你有一项待处理任务：{{node
 assert(inserted?.resultNotification?.enabled === true, '新审批节点应默认开启任务处理结果通知')
 assert(inserted?.resultNotification?.channels?.join(',') === 'in_app,dingtalk_oa', '新审批节点的结果通知应默认启用站内和钉钉 OA 通知')
 assert(inserted?.resultNotification?.content.includes('{{result}}'), '新审批节点的结果通知模板应包含处理结果占位符')
+assert(inserted?.resultNotification?.resultTypes?.join(',') === 'approved,rejected,returned', '新审批节点应默认通知通过、驳回和退回结果')
 assert(!insertionDraft.edges.some(edge => edge.id === 'start_to_end'), '原连线应被替换')
 assert(insertionDraft.edges.some(edge => edge.source === 'start' && edge.target === inserted.id), '应连接到新节点')
 assert(insertionDraft.edges.some(edge => edge.source === inserted.id && edge.target === 'end'), '新节点应连接到原目标')
@@ -145,6 +146,8 @@ for (const [source, snippet, message] of [
   [inspectorSource, '@update:model-value="updateResultNotification"', '任务处理结果通知修改未写回审批节点'],
   [resultNotificationSource, '任务处理结果通知', '结果通知编辑器缺少独立配置标题'],
   [resultNotificationSource, "'in_app', 'dingtalk_oa'", '结果通知编辑器缺少通知渠道配置'],
+  [resultNotificationSource, '通知结果', '结果通知编辑器缺少结果类型配置'],
+  [resultNotificationSource, '退回', '结果通知编辑器缺少退回选项'],
   [inspectorSource, "selectedNode.type !== 'notify'", '通知节点不应允许关闭通知'],
   [inspectorSource, 'notificationHelpVisible', '节点配置缺少通知消息说明弹窗状态'],
   [inspectorSource, 'QuestionFilled', '通知配置标题旁缺少说明图标'],

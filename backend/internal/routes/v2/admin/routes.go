@@ -36,6 +36,7 @@ import (
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpadmin"
 	"wecheckin/backend/internal/routes/v2/routeparam"
+	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	"wecheckin/backend/pkg/database"
 	redispkg "wecheckin/backend/pkg/redis"
 )
@@ -67,6 +68,10 @@ func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.
 	admin.POST("/in-app-notifications", handler.Send)
 	admin.GET("/dingtalk-notifications/recipient-options", handler.RecipientOptions)
 	admin.POST("/dingtalk-notifications", handler.SendDingTalk)
+	admin.GET("/notification-styles", handler.NotificationStyles)
+	admin.PUT("/notification-styles", handler.SaveNotificationStyles)
+	admin.POST("/notification-styles/test/in-app", handler.SendInAppStyleTest)
+	admin.POST("/notification-styles/test/dingtalk", handler.SendDingTalkStyleTest)
 	admin.PATCH("/in-app-notifications/read-all", handler.MarkAllRead)
 	admin.PATCH("/in-app-notifications/:id/read", handler.MarkRead)
 	return service
@@ -174,7 +179,7 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	aHome := adminhome.NewAdminHomeHandler()
 	aSetup := adminsetup.NewAdminSetupHandler()
 	aUser := adminuser.NewAdminUserHandler()
-	aDingTalk := admindingtalk.NewAdminDingTalkHandler()
+	aDingTalk := admindingtalk.NewAdminDingTalkHandler(admindingtalkservice.NewService(database.GetDB()))
 	aUpload := adminupload.NewHandler()
 
 	admin.GET("/home", aHome.AdminHome)

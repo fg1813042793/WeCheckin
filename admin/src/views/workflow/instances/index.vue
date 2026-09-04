@@ -226,7 +226,9 @@
           <section class="detail-section">
             <h3>任务记录</h3>
             <el-table :data="detail.tasks" size="small" border>
-              <el-table-column prop="nodeName" label="节点" min-width="140" />
+              <el-table-column label="节点" min-width="180" show-overflow-tooltip>
+                <template #default="{ row }">{{ taskNodeDisplay(row) }}</template>
+              </el-table-column>
               <el-table-column label="处理人" width="120">
                 <template #default="{ row }">{{ taskUserDisplay(row) }}</template>
               </el-table-column>
@@ -262,7 +264,11 @@
                 <template #default="{ row }">{{ userDisplay(row.recipientUserName, row.recipientUserId) }}</template>
               </el-table-column>
               <el-table-column label="事件" width="110">
-                <template #default="{ row }">{{ notificationKindLabel(row.kind) }}</template>
+                <template #default="{ row }">
+                  <el-tag :type="notificationKindMeta(row.kind).type" effect="plain" size="small">
+                    {{ notificationKindMeta(row.kind).label }}
+                  </el-tag>
+                </template>
               </el-table-column>
               <el-table-column label="渠道" width="105">
                 <template #default="{ row }">{{ notificationChannelLabel(row.channel) }}</template>
@@ -477,6 +483,13 @@ function taskUserDisplay(task: WorkflowTaskSummary) {
   return userDisplay(task.assigneeName, task.assigneeId)
 }
 
+function taskNodeDisplay(task: WorkflowTaskSummary) {
+  const nodeName = task.nodeName || task.nodeId
+  if (!task.approvalLayer) return nodeName
+  const department = task.sourceDepartmentName || `部门 ${task.sourceDepartmentId || '-'}`
+  return `${nodeName} · ${department}（第 ${task.approvalLayer}/${task.approvalLayerTotal || task.approvalLayer} 级）`
+}
+
 function canSelectInstance(instance: WorkflowInstanceSummary) {
   return instance.status !== 'running'
 }
@@ -499,16 +512,21 @@ function notificationStatusMeta(status: WorkflowNotificationStatus) {
     || { value: status, label: status || '未知', type: 'info' as const }
 }
 
-function notificationKindLabel(kind: WorkflowNotificationKind) {
-  return {
-    node_cc: '节点抄送',
-    node_notify: '节点通知',
-    task_arrived: '任务到达',
-    task_reminder: '处理提醒',
-    instance_commented: '流程评论',
-    approval_result_approved: '审批通过结果',
-    approval_result_rejected: '审批驳回结果',
-  }[kind] || kind
+type NotificationTagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
+
+const notificationKindMetas: Record<WorkflowNotificationKind, { label: string, type: NotificationTagType }> = {
+  node_cc: { label: '节点抄送', type: 'info' },
+  node_notify: { label: '节点通知', type: 'primary' },
+  task_arrived: { label: '任务到达', type: 'warning' },
+  task_reminder: { label: '处理提醒', type: 'warning' },
+  instance_commented: { label: '流程评论', type: 'primary' },
+  approval_result_approved: { label: '审批通过结果', type: 'success' },
+  approval_result_rejected: { label: '审批驳回结果', type: 'danger' },
+  approval_result_returned: { label: '审批退回结果', type: 'warning' },
+}
+
+function notificationKindMeta(kind: WorkflowNotificationKind): { label: string, type: NotificationTagType } {
+  return notificationKindMetas[kind] || { label: kind, type: 'info' }
 }
 
 function notificationChannelLabel(channel: WorkflowNotificationChannel) {

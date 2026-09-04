@@ -32,7 +32,7 @@ func (h *Handler) List(ctx context.Context, c *app.RequestContext) {
 	pageSize, _ := strconv.Atoi(strings.TrimSpace(c.Query("pageSize")))
 	data, err := h.service.List(ctx, user.ID, page, pageSize)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.notification.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -46,7 +46,7 @@ func (h *Handler) UnreadCount(ctx context.Context, c *app.RequestContext) {
 	}
 	count, err := h.service.UnreadCount(ctx, user.ID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.notification.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, map[string]int64{"count": count})
@@ -68,7 +68,7 @@ func (h *Handler) MarkRead(ctx context.Context, c *app.RequestContext) {
 			response.Fail(c, "通知不存在")
 			return
 		}
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.notification.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -81,7 +81,7 @@ func (h *Handler) MarkAllRead(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := h.service.MarkAllRead(ctx, user.ID); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.notification.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

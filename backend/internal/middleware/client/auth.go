@@ -34,7 +34,7 @@ func ClientAuth() app.HandlerFunc {
 			return
 		}
 
-		expire, prefix := tokenutil.GetTokenConfig("user")
+		expire, prefix := tokenutil.GetTokenConfigContext(ctx, "user")
 		redisCtx, cancel := rd.OperationContext(ctx)
 		defer cancel()
 

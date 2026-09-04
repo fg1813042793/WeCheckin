@@ -2,8 +2,8 @@ package exam
 
 import (
 	examPkg "wecheckin/backend/internal/formkit/exam"
-	examservice "wecheckin/backend/internal/service/client/exam"
 	"wecheckin/backend/internal/model"
+	examservice "wecheckin/backend/internal/service/client/exam"
 )
 
 type examLimitInfo struct {

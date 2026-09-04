@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -116,23 +118,35 @@ type LogConfig struct {
 }
 
 type CORSConfig struct {
-	AllowOrigins []string `mapstructure:"allow_origins"`
-	AllowMethods []string `mapstructure:"allow_methods"`
-	AllowHeaders []string `mapstructure:"allow_headers"`
+	AllowOrigins     []string `mapstructure:"allow_origins"`
+	AllowMethods     []string `mapstructure:"allow_methods"`
+	AllowHeaders     []string `mapstructure:"allow_headers"`
+	AllowCredentials bool     `mapstructure:"allow_credentials"`
 }
 
 type ServerConfig struct {
-	Port string `mapstructure:"port"`
-	Host string `mapstructure:"host"`
-	Mode string `mapstructure:"mode"`
+	Port            string `mapstructure:"port"`
+	Host            string `mapstructure:"host"`
+	Mode            string `mapstructure:"mode"`
+	TimeoutSec      int    `mapstructure:"timeout"`
+	ReadTimeoutSec  int    `mapstructure:"read_timeout_seconds"`
+	WriteTimeoutSec int    `mapstructure:"write_timeout_seconds"`
+	IdleTimeoutSec  int    `mapstructure:"idle_timeout_seconds"`
 }
 
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"dbname"`
+	Host               string `mapstructure:"host"`
+	Port               int    `mapstructure:"port"`
+	User               string `mapstructure:"user"`
+	Password           string `mapstructure:"password"`
+	DBName             string `mapstructure:"dbname"`
+	ConnectTimeoutSec  int    `mapstructure:"connect_timeout_seconds"`
+	ReadTimeoutSec     int    `mapstructure:"read_timeout_seconds"`
+	WriteTimeoutSec    int    `mapstructure:"write_timeout_seconds"`
+	MaxIdleConns       int    `mapstructure:"max_idle_conns"`
+	MaxOpenConns       int    `mapstructure:"max_open_conns"`
+	ConnMaxLifetimeMin int    `mapstructure:"conn_max_lifetime_minutes"`
+	ConnMaxIdleTimeMin int    `mapstructure:"conn_max_idle_time_minutes"`
 }
 
 var Cfg *Config
@@ -163,6 +177,10 @@ func LoadConfig(env string) (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
+	cfg.normalize()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	Cfg = &cfg
 	return &cfg, nil
 }
@@ -170,16 +188,29 @@ func LoadConfig(env string) (*Config, error) {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.port", "8083")
 	v.SetDefault("server.mode", "debug")
-	v.SetDefault("server.host", "localhost")
+	v.SetDefault("server.host", "0.0.0.0")
+	v.SetDefault("server.timeout", 30)
 	v.SetDefault("database.host", "localhost")
 	v.SetDefault("database.port", 3306)
 	v.SetDefault("database.user", "root")
 	v.SetDefault("database.password", "")
 	v.SetDefault("database.dbname", "wecheckin")
+	v.SetDefault("database.connect_timeout_seconds", 10)
+	v.SetDefault("database.read_timeout_seconds", 30)
+	v.SetDefault("database.write_timeout_seconds", 30)
+	v.SetDefault("database.max_idle_conns", 10)
+	v.SetDefault("database.max_open_conns", 100)
+	v.SetDefault("database.conn_max_lifetime_minutes", 60)
+	v.SetDefault("database.conn_max_idle_time_minutes", 10)
+	v.SetDefault("redis.host", "localhost")
+	v.SetDefault("redis.port", 6379)
+	v.SetDefault("redis.password", "")
+	v.SetDefault("redis.db", 0)
 
 	v.SetDefault("cors.allow_origins", []string{"*"})
 	v.SetDefault("cors.allow_methods", []string{"get", "post", "put", "patch", "delete", "options"})
 	v.SetDefault("cors.allow_headers", []string{"Origin", "Content-Type", "Accept", "Authorization"})
+	v.SetDefault("cors.allow_credentials", false)
 
 	v.SetDefault("log.dir", "./logs")
 	v.SetDefault("log.level", "info")
@@ -213,11 +244,22 @@ func bindEnv(v *viper.Viper) {
 		"server.port":                                "WECHECKIN_SERVER_PORT",
 		"server.host":                                "WECHECKIN_SERVER_HOST",
 		"server.mode":                                "WECHECKIN_SERVER_MODE",
+		"server.timeout":                             "WECHECKIN_SERVER_TIMEOUT",
+		"server.read_timeout_seconds":                "WECHECKIN_SERVER_READ_TIMEOUT_SECONDS",
+		"server.write_timeout_seconds":               "WECHECKIN_SERVER_WRITE_TIMEOUT_SECONDS",
+		"server.idle_timeout_seconds":                "WECHECKIN_SERVER_IDLE_TIMEOUT_SECONDS",
 		"database.host":                              "WECHECKIN_DATABASE_HOST",
 		"database.port":                              "WECHECKIN_DATABASE_PORT",
 		"database.user":                              "WECHECKIN_DATABASE_USER",
 		"database.password":                          "WECHECKIN_DATABASE_PASSWORD",
 		"database.dbname":                            "WECHECKIN_DATABASE_DBNAME",
+		"database.connect_timeout_seconds":           "WECHECKIN_DATABASE_CONNECT_TIMEOUT_SECONDS",
+		"database.read_timeout_seconds":              "WECHECKIN_DATABASE_READ_TIMEOUT_SECONDS",
+		"database.write_timeout_seconds":             "WECHECKIN_DATABASE_WRITE_TIMEOUT_SECONDS",
+		"database.max_idle_conns":                    "WECHECKIN_DATABASE_MAX_IDLE_CONNS",
+		"database.max_open_conns":                    "WECHECKIN_DATABASE_MAX_OPEN_CONNS",
+		"database.conn_max_lifetime_minutes":         "WECHECKIN_DATABASE_CONN_MAX_LIFETIME_MINUTES",
+		"database.conn_max_idle_time_minutes":        "WECHECKIN_DATABASE_CONN_MAX_IDLE_TIME_MINUTES",
 		"redis.host":                                 "WECHECKIN_REDIS_HOST",
 		"redis.port":                                 "WECHECKIN_REDIS_PORT",
 		"redis.password":                             "WECHECKIN_REDIS_PASSWORD",
@@ -243,6 +285,7 @@ func bindEnv(v *viper.Viper) {
 		"cors.allow_origins":                         "WECHECKIN_CORS_ALLOW_ORIGINS",
 		"cors.allow_methods":                         "WECHECKIN_CORS_ALLOW_METHODS",
 		"cors.allow_headers":                         "WECHECKIN_CORS_ALLOW_HEADERS",
+		"cors.allow_credentials":                     "WECHECKIN_CORS_ALLOW_CREDENTIALS",
 		"scheduled_task.redis_key_prefix":            "WECHECKIN_SCHEDULED_TASK_REDIS_KEY_PREFIX",
 		"scheduled_task.worker_count":                "WECHECKIN_SCHEDULED_TASK_WORKER_COUNT",
 		"scheduled_task.scheduler_poll_seconds":      "WECHECKIN_SCHEDULED_TASK_SCHEDULER_POLL_SECONDS",
@@ -294,4 +337,127 @@ func splitCSV(raw string) []string {
 		}
 	}
 	return values
+}
+
+func (cfg *Config) normalize() {
+	if cfg.Server.ReadTimeoutSec == 0 {
+		cfg.Server.ReadTimeoutSec = cfg.Server.TimeoutSec
+	}
+	if cfg.Server.WriteTimeoutSec == 0 {
+		cfg.Server.WriteTimeoutSec = cfg.Server.TimeoutSec * 2
+	}
+	if cfg.Server.IdleTimeoutSec == 0 {
+		cfg.Server.IdleTimeoutSec = cfg.Server.TimeoutSec * 4
+	}
+}
+
+func (cfg Config) Validate() error {
+	port, err := strconv.Atoi(strings.TrimSpace(cfg.Server.Port))
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("server.port must be an integer between 1 and 65535")
+	}
+	if strings.TrimSpace(cfg.Server.Host) == "" {
+		return fmt.Errorf("server.host is required")
+	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Server.Mode)) {
+	case "debug", "release", "test":
+	default:
+		return fmt.Errorf("server.mode must be debug, release, or test")
+	}
+	if cfg.Server.TimeoutSec <= 0 {
+		return fmt.Errorf("server.timeout must be greater than zero")
+	}
+	if cfg.Server.ReadTimeoutSec <= 0 {
+		return fmt.Errorf("server.read_timeout_seconds must be greater than zero")
+	}
+	if cfg.Server.WriteTimeoutSec <= 0 {
+		return fmt.Errorf("server.write_timeout_seconds must be greater than zero")
+	}
+	if cfg.Server.IdleTimeoutSec <= 0 {
+		return fmt.Errorf("server.idle_timeout_seconds must be greater than zero")
+	}
+	if strings.TrimSpace(cfg.Database.Host) == "" {
+		return fmt.Errorf("database.host is required")
+	}
+	if cfg.Database.Port < 1 || cfg.Database.Port > 65535 {
+		return fmt.Errorf("database.port must be between 1 and 65535")
+	}
+	if strings.TrimSpace(cfg.Database.User) == "" {
+		return fmt.Errorf("database.user is required")
+	}
+	if strings.TrimSpace(cfg.Database.DBName) == "" {
+		return fmt.Errorf("database.dbname is required")
+	}
+	databasePositiveValues := []struct {
+		key   string
+		value int
+	}{
+		{key: "database.connect_timeout_seconds", value: cfg.Database.ConnectTimeoutSec},
+		{key: "database.read_timeout_seconds", value: cfg.Database.ReadTimeoutSec},
+		{key: "database.write_timeout_seconds", value: cfg.Database.WriteTimeoutSec},
+		{key: "database.max_idle_conns", value: cfg.Database.MaxIdleConns},
+		{key: "database.max_open_conns", value: cfg.Database.MaxOpenConns},
+		{key: "database.conn_max_lifetime_minutes", value: cfg.Database.ConnMaxLifetimeMin},
+		{key: "database.conn_max_idle_time_minutes", value: cfg.Database.ConnMaxIdleTimeMin},
+	}
+	for _, item := range databasePositiveValues {
+		if item.value <= 0 {
+			return fmt.Errorf("%s must be greater than zero", item.key)
+		}
+	}
+	if cfg.Database.MaxIdleConns > cfg.Database.MaxOpenConns {
+		return fmt.Errorf("database.max_idle_conns must not exceed database.max_open_conns")
+	}
+	if strings.TrimSpace(cfg.Redis.Host) == "" {
+		return fmt.Errorf("redis.host is required")
+	}
+	if cfg.Redis.Port < 1 || cfg.Redis.Port > 65535 {
+		return fmt.Errorf("redis.port must be between 1 and 65535")
+	}
+	if cfg.Redis.DB < 0 || cfg.Redis.DB > 255 {
+		return fmt.Errorf("redis.db must be between 0 and 255")
+	}
+	if cfg.CORS.AllowCredentials {
+		for _, origin := range cfg.CORS.AllowOrigins {
+			if strings.TrimSpace(origin) == "*" {
+				return fmt.Errorf("cors.allow_credentials cannot be true when cors.allow_origins contains wildcard")
+			}
+		}
+	}
+	return validateScheduledTaskConfig(cfg.ScheduledTask)
+}
+
+func validateScheduledTaskConfig(cfg ScheduledTaskConfig) error {
+	checks := []struct {
+		key   string
+		value int
+	}{
+		{key: "scheduled_task.worker_count", value: cfg.WorkerCount},
+		{key: "scheduled_task.scheduler_poll_seconds", value: cfg.SchedulerPollSeconds},
+		{key: "scheduled_task.scheduler_recovery_seconds", value: cfg.SchedulerRecoverySeconds},
+		{key: "scheduled_task.worker_poll_block_seconds", value: cfg.WorkerPollBlockSeconds},
+		{key: "scheduled_task.worker_heartbeat_seconds", value: cfg.WorkerHeartbeatSeconds},
+		{key: "scheduled_task.worker_ttl_seconds", value: cfg.WorkerTTLSeconds},
+		{key: "scheduled_task.recovery_timeout_seconds", value: cfg.RecoveryTimeoutSeconds},
+		{key: "scheduled_task.minimum_second_interval", value: cfg.MinimumSecondInterval},
+		{key: "scheduled_task.run_retention_days", value: cfg.RunRetentionDays},
+		{key: "scheduled_task.log_retention_days", value: cfg.LogRetentionDays},
+		{key: "scheduled_task.max_log_segment_bytes", value: cfg.MaxLogSegmentBytes},
+		{key: "scheduled_task.max_log_run_bytes", value: cfg.MaxLogRunBytes},
+	}
+	for _, check := range checks {
+		if check.value <= 0 {
+			return fmt.Errorf("%s must be greater than zero", check.key)
+		}
+	}
+	if cfg.WorkerTTLSeconds <= cfg.WorkerHeartbeatSeconds {
+		return fmt.Errorf("scheduled_task.worker_ttl_seconds must be greater than scheduled_task.worker_heartbeat_seconds")
+	}
+	if cfg.RecoveryTimeoutSeconds < cfg.WorkerTTLSeconds {
+		return fmt.Errorf("scheduled_task.recovery_timeout_seconds must be at least scheduled_task.worker_ttl_seconds")
+	}
+	if cfg.MaxLogRunBytes < cfg.MaxLogSegmentBytes {
+		return fmt.Errorf("scheduled_task.max_log_run_bytes must be at least scheduled_task.max_log_segment_bytes")
+	}
+	return nil
 }

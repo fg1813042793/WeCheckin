@@ -6,9 +6,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/service/admin/formkitadmin"
 	surveyservice "wecheckin/backend/internal/service/client/survey"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/logger"
 	"wecheckin/backend/pkg/response"
 )
@@ -51,7 +51,7 @@ func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	status, _ := strconv.Atoi(c.Query("status"))
 	list, total, err := h.survey.ListForAdminContext(ctx, keyword, category, status, page, pageSize, admin.ID)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "查询失败，请稍后重试", err)
 		return
 	}
 	var ids []uint
@@ -60,7 +60,7 @@ func (h *AdminSurveyHandler) List(ctx context.Context, c *app.RequestContext) {
 	}
 	countMap, err := h.survey.ResponseCountsContext(ctx, ids)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "查询失败，请稍后重试", err)
 		return
 	}
 	var out []surveyListItem
@@ -97,7 +97,7 @@ func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) 
 	h.lazyInit()
 	var sv model.Survey
 	if err := c.BindAndValidate(&sv); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "参数错误，请稍后重试", err)
 		return
 	}
 	if admin, ok := c.Get("admin"); ok {
@@ -105,7 +105,7 @@ func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) 
 			sv.CreateBy = a.ID
 			deptID, err := formkitadmin.FirstAdminDeptIDContext(ctx, a.ID)
 			if err != nil {
-				response.Fail(c, "获取部门失败: "+err.Error())
+				response.FailInternal(ctx, c, "admin.survey.handler", "获取部门失败，请稍后重试", err)
 				return
 			}
 			sv.DeptID = deptID
@@ -113,7 +113,7 @@ func (h *AdminSurveyHandler) Insert(ctx context.Context, c *app.RequestContext) 
 	}
 	if err := h.survey.CreateContext(ctx, &sv); err != nil {
 		logger.Logger.Printf("[AdminSurveyInsert] 创建失败 title=%s err=%s", sv.Title, err.Error())
-		response.Fail(c, "创建失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "创建失败，请稍后重试", err)
 		return
 	}
 	logger.Logger.Printf("[AdminSurveyInsert] 创建成功 id=%d title=%s", sv.ID, sv.Title)
@@ -131,13 +131,13 @@ func (h *AdminSurveyHandler) Edit(ctx context.Context, c *app.RequestContext) {
 	admin := adminVal.(*model.Admin)
 	var sv model.Survey
 	if err := c.BindAndValidate(&sv); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "参数错误，请稍后重试", err)
 		return
 	}
 	old, _ := h.survey.GetForAdminContext(ctx, sv.ID, admin.ID)
 	if err := h.survey.UpdateForAdminContext(ctx, &sv, admin.ID); err != nil {
 		logger.Logger.Printf("[AdminSurveyEdit] 更新失败 id=%d err=%s", sv.ID, err.Error())
-		response.Fail(c, "更新失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "更新失败，请稍后重试", err)
 		return
 	}
 	oldMaxResponse := 0
@@ -159,7 +159,7 @@ func (h *AdminSurveyHandler) Del(ctx context.Context, c *app.RequestContext) {
 	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := h.survey.DeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -178,7 +178,7 @@ func (h *AdminSurveyHandler) Status(ctx context.Context, c *app.RequestContext) 
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	status, _ := strconv.Atoi(c.PostForm("status"))
 	if err := h.survey.SetStatusForAdminContext(ctx, uint(id), status, admin.ID); err != nil {
-		response.Fail(c, "更新失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "更新失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -202,14 +202,14 @@ func (h *AdminSurveyHandler) Copy(ctx context.Context, c *app.RequestContext) {
 			var err error
 			deptID, err = formkitadmin.FirstAdminDeptIDContext(ctx, a.ID)
 			if err != nil {
-				response.Fail(c, "获取部门失败: "+err.Error())
+				response.FailInternal(ctx, c, "admin.survey.handler", "获取部门失败，请稍后重试", err)
 				return
 			}
 		}
 	}
 	newSv, err := h.survey.CopyForAdminContext(ctx, uint(id), createBy, deptID, adminID)
 	if err != nil {
-		response.Fail(c, "复制失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.handler", "复制失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, newSv)

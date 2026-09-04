@@ -58,7 +58,7 @@ func (h *PassportHandler) LoginByPwd(ctx context.Context, c *app.RequestContext)
 	device := string(c.UserAgent())
 	data, err := passportservice.LoginByPwdContext(ctx, name, pwd, addIP, device)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "client.passport.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -168,7 +168,7 @@ func (h *PassportHandler) Logout(ctx context.Context, c *app.RequestContext) {
 	userIDVal, _ := c.Get("user_id")
 	currentToken := string(c.Request.Header.Peek("Authorization"))
 	if userID, ok := userIDVal.(uint); ok {
-		_, prefix := tokenutil.GetTokenConfig("user")
+		_, prefix := tokenutil.GetTokenConfigContext(ctx, "user")
 		if prefix == "" {
 			prefix = "user_token:"
 		}

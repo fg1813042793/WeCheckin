@@ -28,7 +28,7 @@ func (h *AdminPositionHandler) AddPosition(ctx context.Context, c *app.RequestCo
 	name := c.PostForm("name")
 	sort, _ := strconv.Atoi(c.PostForm("sort"))
 	if err := positionservice.AddContext(ctx, name, c.ClientIP(), sort); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.position.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -40,7 +40,7 @@ func (h *AdminPositionHandler) EditPosition(ctx context.Context, c *app.RequestC
 	sort, _ := strconv.Atoi(c.PostForm("sort"))
 	status, _ := strconv.Atoi(c.PostForm("status"))
 	if err := positionservice.EditContext(ctx, uint(id), name, c.ClientIP(), sort, status); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.position.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -49,7 +49,7 @@ func (h *AdminPositionHandler) EditPosition(ctx context.Context, c *app.RequestC
 func (h *AdminPositionHandler) DelPosition(ctx context.Context, c *app.RequestContext) {
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := positionservice.DeleteContext(ctx, uint(id)); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.position.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

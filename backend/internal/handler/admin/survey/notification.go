@@ -23,7 +23,7 @@ func (h *AdminSurveyHandler) NotifyList(ctx context.Context, c *app.RequestConte
 		PageSize:   pageSize,
 	})
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.notification", "查询失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, surveyNotificationListResponse{List: result.List, Total: result.Total})
@@ -46,7 +46,7 @@ func (h *AdminSurveyHandler) NotifyRead(ctx context.Context, c *app.RequestConte
 		All:    req.All,
 		UserID: req.UserID,
 	}); err != nil {
-		response.Fail(c, "更新失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.notification", "更新失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -58,7 +58,7 @@ func (h *AdminSurveyHandler) NotifyUnreadCount(ctx context.Context, c *app.Reque
 	userID := c.Query("userId")
 	count, err := h.survey.NotificationUnreadCountContext(ctx, userID)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.notification", "查询失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, map[string]int64{"count": count})

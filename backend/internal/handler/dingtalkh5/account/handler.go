@@ -40,7 +40,7 @@ func (h *Handler) ChangePassword(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := dingtalkh5service.ChangePasswordContext(ctx, user, req.CurrentPassword, req.NewPassword, req.ConfirmPassword); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.account.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -59,7 +59,7 @@ func (h *Handler) UpdateProfile(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.UpdateAccountProfileContext(ctx, user, dingtalkh5session.CurrentToken(c), req)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.account.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -73,7 +73,7 @@ func (h *Handler) UploadAvatar(ctx context.Context, c *app.RequestContext) {
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.account.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
@@ -102,7 +102,7 @@ func (h *Handler) UploadAvatar(ctx context.Context, c *app.RequestContext) {
 		Now:      now,
 	})
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.account.handler", "上传失败，请稍后重试", err)
 		return
 	}
 

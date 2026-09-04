@@ -34,7 +34,7 @@ func AdminAuth() app.HandlerFunc {
 			return
 		}
 
-		expire, prefix := tokenutil.GetTokenConfig("admin")
+		expire, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 		redisCtx, cancel := rd.OperationContext(ctx)
 		defer cancel()
 

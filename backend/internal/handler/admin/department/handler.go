@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	departmentservice "wecheckin/backend/internal/service/admin/department"
 	"wecheckin/backend/internal/model"
+	departmentservice "wecheckin/backend/internal/service/admin/department"
 	"wecheckin/backend/pkg/response"
 )
 

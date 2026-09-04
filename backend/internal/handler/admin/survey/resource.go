@@ -30,7 +30,7 @@ func (h *AdminSurveyHandler) ResourceUpload(ctx context.Context, c *app.RequestC
 	admin := adminVal.(*model.Admin)
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.resource", "上传失败，请稍后重试", err)
 		return
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
@@ -65,7 +65,7 @@ func (h *AdminSurveyHandler) ResourceUpload(ctx context.Context, c *app.RequestC
 		Now:      now,
 	})
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.resource", "上传失败，请稍后重试", err)
 		return
 	}
 
@@ -81,7 +81,7 @@ func (h *AdminSurveyHandler) ResourceUpload(ctx context.Context, c *app.RequestC
 	})
 	if err != nil {
 		storage.RemoveLocal(stored)
-		response.Fail(c, "保存记录失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.resource", "保存记录失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -134,7 +134,7 @@ func (h *AdminSurveyHandler) ResourceDelete(ctx context.Context, c *app.RequestC
 		return
 	}
 	if err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.resource", "删除失败，请稍后重试", err)
 		return
 	}
 	if filepath.IsAbs(res.Path) {

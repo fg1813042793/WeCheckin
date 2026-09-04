@@ -29,7 +29,7 @@ func registerUploadRoutes(h *server.Hertz) {
 	h.POST("/upload", func(ctx context.Context, c *app.RequestContext) {
 		file, err := c.FormFile("file")
 		if err != nil {
-			response.Fail(c, "上传失败: "+err.Error())
+			response.FailInternal(ctx, c, "common.upload.form_file", "上传失败，请稍后重试", err)
 			return
 		}
 		ext := strings.ToLower(filepath.Ext(file.Filename))
@@ -53,7 +53,7 @@ func registerUploadRoutes(h *server.Hertz) {
 			Now:      now,
 		})
 		if err != nil {
-			response.Fail(c, "上传失败: "+err.Error())
+			response.FailInternal(ctx, c, "common.upload.store", "上传失败，请稍后重试", err)
 			return
 		}
 		thumbRelFile := ""

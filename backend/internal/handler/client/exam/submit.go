@@ -10,8 +10,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 
 	examPkg "wecheckin/backend/internal/formkit/exam"
-	examservice "wecheckin/backend/internal/service/client/exam"
 	"wecheckin/backend/internal/model"
+	examservice "wecheckin/backend/internal/service/client/exam"
 	"wecheckin/backend/pkg/logger"
 	rd "wecheckin/backend/pkg/redis"
 	"wecheckin/backend/pkg/response"
@@ -56,7 +56,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 				response.Fail(c, "记录不存在")
 				return
 			}
-			response.Fail(c, "提交失败: "+err.Error())
+			response.FailInternal(ctx, c, "client.exam.submit", "提交失败，请稍后重试", err)
 			return
 		}
 		exQs := make([]examPkg.Question, 0, len(qs))
@@ -93,7 +93,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		}
 		if err := h.service().UpdatePaperSubmissionContext(ctx, rec.ID, updates); err != nil {
 			logger.Logger.Printf("[ExamSubmit] PaperID模式提交失败 examId=%d recordId=%d uid=%d err=%s", rec.ExamID, req.RecordID, uid, err.Error())
-			response.Fail(c, "提交失败: "+err.Error())
+			response.FailInternal(ctx, c, "client.exam.submit", "提交失败，请稍后重试", err)
 			return
 		}
 		logger.Logger.Printf("[ExamSubmit] PaperID模式提交成功 examId=%d recordId=%d uid=%d score=%d fullScore=%d", rec.ExamID, req.RecordID, uid, res.TotalScore, res.FullScore)
@@ -127,7 +127,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 	uidStr := ""
 	auth := string(c.GetHeader("Authorization"))
 	if auth != "" {
-		rdKey := tokenutil.TokenAuthKey("user", auth)
+		rdKey := tokenutil.TokenAuthKeyContext(ctx, "user", auth)
 		if jsonStr, err := rd.RDB.Get(redisCtx, rdKey).Result(); err == nil && jsonStr != "" {
 			var userInfo struct {
 				ID uint `json:"id"`
@@ -141,7 +141,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 	clientIP = c.ClientIP()
 	msg, err := h.service().CheckLimitContext(ctx, e, uidStr, req.Device, req.DeviceID, clientIP)
 	if err != nil {
-		response.Fail(c, "提交失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.exam.submit", "提交失败，请稍后重试", err)
 		return
 	}
 	if msg != "" {
@@ -214,7 +214,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 	}
 	if err := h.service().CreateSchemaSubmissionContext(ctx, &rec); err != nil {
 		logger.Logger.Printf("[ExamSubmit] Schema模式持久化失败 examId=%d uid=%s err=%s", req.ExamID, uidStr, err.Error())
-		response.Fail(c, "提交失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.exam.submit", "提交失败，请稍后重试", err)
 		return
 	}
 	logger.Logger.Printf("[ExamSubmit] Schema模式提交成功 examId=%d uid=%s score=%d fullScore=%d ip=%s device=%s", req.ExamID, uidStr, res.TotalScore, res.FullScore, clientIP, req.Device)

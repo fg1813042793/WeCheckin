@@ -811,7 +811,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dingtalk.PerfHistoryList"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -906,7 +918,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dingtalk.PerfReviewList"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -966,7 +990,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dingtalk.PerfReviewDetail"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1015,7 +1051,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dingtalk.SettingsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1238,7 +1286,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dingtalk.UserBindingList"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -5674,6 +5734,130 @@
                 }
             }
         },
+        "/api/v2/admin/notification-styles": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-通知样式"
+                ],
+                "summary": "查询通知消息样式",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-通知样式"
+                ],
+                "summary": "保存通知消息样式",
+                "parameters": [
+                    {
+                        "description": "完整的通知样式配置",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.NotificationStyleConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/notification-styles/test/dingtalk": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-通知样式"
+                ],
+                "summary": "向指定用户发送钉钉样式测试",
+                "parameters": [
+                    {
+                        "description": "测试消息类型、内容与收件人",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.NotificationStyleTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/notification-styles/test/in-app": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-通知样式"
+                ],
+                "summary": "向指定用户发送站内信样式测试",
+                "parameters": [
+                    {
+                        "description": "测试消息类型、内容与收件人",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.NotificationStyleTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/permissions": {
             "get": {
                 "security": [
@@ -7077,7 +7261,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/setup.DebugTokenConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -7187,7 +7383,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/survey.EvalExprResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -7872,7 +8080,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.FormSchema"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -15105,6 +15325,550 @@
                 }
             }
         },
+        "dingtalk.CorpConfigResponse": {
+            "type": "object",
+            "properties": {
+                "agentId": {
+                    "type": "string"
+                },
+                "appKey": {
+                    "type": "string"
+                },
+                "appSecretSet": {
+                    "type": "boolean"
+                },
+                "appUrl": {
+                    "type": "string"
+                },
+                "corpId": {
+                    "type": "string"
+                },
+                "corpName": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "integer"
+                },
+                "notifyEnabled": {
+                    "type": "integer"
+                },
+                "notifyMode": {
+                    "type": "string"
+                },
+                "robotCode": {
+                    "type": "string"
+                },
+                "unifiedAppId": {
+                    "type": "string"
+                }
+            }
+        },
+        "dingtalk.PerfHistoryItem": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "addTime": {
+                    "type": "integer"
+                },
+                "byAccount": {
+                    "type": "string"
+                },
+                "byName": {
+                    "type": "string"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "reviewId": {
+                    "type": "integer"
+                },
+                "reviewNo": {
+                    "type": "string"
+                },
+                "updateBy": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dingtalk.PerfHistoryList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.PerfHistoryItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dingtalk.PerfReviewDetail": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "audit": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "createDeptId": {
+                    "type": "integer"
+                },
+                "deleteBy": {
+                    "type": "integer"
+                },
+                "deleteDeptId": {
+                    "type": "integer"
+                },
+                "deletedAt": {
+                    "type": "integer"
+                },
+                "department": {
+                    "type": "string"
+                },
+                "departmentLevel1": {
+                    "type": "string"
+                },
+                "departmentLevel2": {
+                    "type": "string"
+                },
+                "departmentLevel3": {
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "employeeAccount": {
+                    "type": "string"
+                },
+                "employeeConfirm": {
+                    "type": "string"
+                },
+                "employeeConfirmComment": {
+                    "type": "string"
+                },
+                "employeeConfirmedAt": {
+                    "type": "integer"
+                },
+                "finalGrade": {
+                    "type": "string"
+                },
+                "finalNote": {
+                    "type": "string"
+                },
+                "histories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.PerfHistoryItem"
+                    }
+                },
+                "hrbpAccount": {
+                    "type": "string"
+                },
+                "hrbpComment": {
+                    "type": "string"
+                },
+                "hrbpGrade": {
+                    "type": "string"
+                },
+                "hrbpReviewerAccount": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "managerAccount": {
+                    "type": "string"
+                },
+                "managerComment": {
+                    "type": "string"
+                },
+                "managerGrade": {
+                    "type": "string"
+                },
+                "nextObjectivesJson": {
+                    "type": "string"
+                },
+                "nextPeriod": {
+                    "type": "string"
+                },
+                "objectiveSourcePeriod": {
+                    "type": "string"
+                },
+                "objectiveSourceReviewNo": {
+                    "type": "string"
+                },
+                "objectivesJson": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "reviewNo": {
+                    "type": "string"
+                },
+                "selfSummary": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "statusLabel": {
+                    "type": "string"
+                },
+                "statusOptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.PerfStatusOption"
+                    }
+                },
+                "targetScore": {
+                    "type": "integer"
+                },
+                "updateBy": {
+                    "type": "integer"
+                },
+                "updateDeptId": {
+                    "type": "integer"
+                },
+                "valuesJson": {
+                    "type": "string"
+                }
+            }
+        },
+        "dingtalk.PerfReviewList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.PerfReviewListItem"
+                    }
+                },
+                "statusOptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.PerfStatusOption"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dingtalk.PerfReviewListItem": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "createDeptId": {
+                    "type": "integer"
+                },
+                "deleteBy": {
+                    "type": "integer"
+                },
+                "deleteDeptId": {
+                    "type": "integer"
+                },
+                "deletedAt": {
+                    "type": "integer"
+                },
+                "department": {
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "employeeAccount": {
+                    "type": "string"
+                },
+                "employeeConfirm": {
+                    "type": "string"
+                },
+                "finalGrade": {
+                    "type": "string"
+                },
+                "hrbpAccount": {
+                    "type": "string"
+                },
+                "hrbpGrade": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "managerAccount": {
+                    "type": "string"
+                },
+                "managerGrade": {
+                    "type": "string"
+                },
+                "nextPeriod": {
+                    "type": "string"
+                },
+                "objectiveSourcePeriod": {
+                    "type": "string"
+                },
+                "objectiveSourceReviewNo": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "reviewNo": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "statusLabel": {
+                    "type": "string"
+                },
+                "targetScore": {
+                    "type": "integer"
+                },
+                "updateBy": {
+                    "type": "integer"
+                },
+                "updateDeptId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dingtalk.PerfStatusOption": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "dingtalk.SettingsResponse": {
+            "type": "object",
+            "properties": {
+                "agentId": {
+                    "type": "string"
+                },
+                "appKey": {
+                    "type": "string"
+                },
+                "appName": {
+                    "type": "string"
+                },
+                "appSecretSet": {
+                    "type": "boolean"
+                },
+                "appUrl": {
+                    "type": "string"
+                },
+                "corpConfigs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.CorpConfigResponse"
+                    }
+                },
+                "corpId": {
+                    "type": "string"
+                },
+                "logoText": {
+                    "type": "string"
+                },
+                "logoUrl": {
+                    "type": "string"
+                },
+                "notifyEnabled": {
+                    "type": "integer"
+                },
+                "notifyMode": {
+                    "type": "string"
+                },
+                "redisPrefix": {
+                    "type": "string"
+                },
+                "robotCode": {
+                    "type": "string"
+                },
+                "selfBind": {
+                    "type": "integer"
+                },
+                "singleLogin": {
+                    "type": "integer"
+                },
+                "tokenExpire": {
+                    "type": "string"
+                },
+                "unifiedAppId": {
+                    "type": "string"
+                }
+            }
+        },
+        "dingtalk.UserBinding": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "corpId": {
+                    "type": "string"
+                },
+                "corpName": {
+                    "type": "string"
+                },
+                "dingTalkUserId": {
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "unionId": {
+                    "type": "string"
+                },
+                "userAccount": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
+                },
+                "userMiniOpenId": {
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
+        "dingtalk.UserBindingCorpOption": {
+            "type": "object",
+            "properties": {
+                "corpId": {
+                    "type": "string"
+                },
+                "corpName": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dingtalk.UserBindingList": {
+            "type": "object",
+            "properties": {
+                "corpOptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.UserBindingCorpOption"
+                    }
+                },
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.UserBinding"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "userOptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.UserBindingUserOption"
+                    }
+                },
+                "userTreeOptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.UserBindingTreeNode"
+                    }
+                }
+            }
+        },
+        "dingtalk.UserBindingTreeNode": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string"
+                },
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dingtalk.UserBindingTreeNode"
+                    }
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "miniOpenId": {
+                    "type": "string"
+                },
+                "searchText": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
+                },
+                "value": {}
+            }
+        },
+        "dingtalk.UserBindingUserOption": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "miniOpenId": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.Survey": {
             "type": "object",
             "properties": {
@@ -15468,6 +16232,186 @@
                 "self": {}
             }
         },
+        "schema.CalcValue": {
+            "type": "object",
+            "properties": {
+                "expr": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.FormSchema": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.Question"
+                    }
+                },
+                "setting": {
+                    "$ref": "#/definitions/schema.Setting"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.LogicCondition": {
+            "type": "object",
+            "properties": {
+                "operator": {
+                    "type": "string"
+                },
+                "questionId": {
+                    "type": "string"
+                },
+                "value": {}
+            }
+        },
+        "schema.LogicRule": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "when": {
+                    "$ref": "#/definitions/schema.LogicCondition"
+                }
+            }
+        },
+        "schema.Question": {
+            "type": "object",
+            "properties": {
+                "calcValue": {
+                    "$ref": "#/definitions/schema.CalcValue"
+                },
+                "defaultValue": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "help": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logic": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.LogicRule"
+                    }
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "props": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "validate": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ValidateRule"
+                    }
+                }
+            }
+        },
+        "schema.Setting": {
+            "type": "object",
+            "properties": {
+                "allowDraft": {
+                    "type": "boolean"
+                },
+                "deadline": {
+                    "type": "integer"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "postSubmitMsg": {
+                    "type": "string"
+                },
+                "showProgress": {
+                    "type": "boolean"
+                },
+                "submitBtnText": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ValidateRule": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "value": {}
+            }
+        },
+        "setup.DebugTokenConfigResponse": {
+            "type": "object",
+            "properties": {
+                "admin_expire_seconds": {
+                    "type": "integer"
+                },
+                "admin_expire_str": {
+                    "type": "string"
+                },
+                "admin_prefix": {
+                    "type": "string"
+                },
+                "dingtalk_h5_expire_seconds": {
+                    "type": "integer"
+                },
+                "dingtalk_h5_expire_str": {
+                    "type": "string"
+                },
+                "dingtalk_h5_prefix": {
+                    "type": "string"
+                },
+                "user_expire_seconds": {
+                    "type": "integer"
+                },
+                "user_expire_str": {
+                    "type": "string"
+                },
+                "user_prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "survey.EvalExprResponse": {
+            "type": "object",
+            "properties": {
+                "value": {}
+            }
+        },
         "swagger.AdminWorkflowInstanceDeleteRequest": {
             "type": "object",
             "properties": {
@@ -15820,6 +16764,91 @@
                 },
                 "userIds": {
                     "description": "UserIDs 是指定用户范围下的用户 ID。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        66,
+                        67
+                    ]
+                }
+            }
+        },
+        "swagger.NotificationStyleConfigRequest": {
+            "type": "object",
+            "properties": {
+                "styles": {
+                    "description": "Styles 是所有支持的消息类型样式。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/swagger.NotificationStyleRequest"
+                    }
+                },
+                "version": {
+                    "description": "Version 是样式配置结构版本。",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "swagger.NotificationStyleRequest": {
+            "type": "object",
+            "properties": {
+                "icon": {
+                    "description": "Icon 是 uView Pro 图标名称。",
+                    "type": "string",
+                    "example": "clock"
+                },
+                "label": {
+                    "description": "Label 是在通知列表与详情中显示的类型标签。",
+                    "type": "string",
+                    "example": "待处理"
+                },
+                "tone": {
+                    "description": "Tone 是样式语义色。",
+                    "type": "string",
+                    "enum": [
+                        "primary",
+                        "success",
+                        "warning",
+                        "danger",
+                        "info"
+                    ],
+                    "example": "warning"
+                },
+                "type": {
+                    "description": "Type 是稳定的消息类型编码。",
+                    "type": "string",
+                    "example": "task_arrived"
+                }
+            }
+        },
+        "swagger.NotificationStyleTestRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content 是测试通知正文。",
+                    "type": "string",
+                    "example": "这是一条退回结果通知样式测试消息。"
+                },
+                "notificationType": {
+                    "description": "NotificationType 是需要测试的已注册消息类型。",
+                    "type": "string",
+                    "example": "approval_result_returned"
+                },
+                "requestId": {
+                    "description": "RequestID 是客户端生成的幂等请求标识；为空时由服务端生成。",
+                    "type": "string",
+                    "example": "8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"
+                },
+                "title": {
+                    "description": "Title 是测试通知标题，服务端会自动添加测试标识。",
+                    "type": "string",
+                    "example": "退回结果通知"
+                },
+                "userIds": {
+                    "description": "UserIDs 是测试消息的指定收件用户 ID。",
                     "type": "array",
                     "items": {
                         "type": "integer"

@@ -12,6 +12,8 @@
 - `backend/bin/`
 - `backend/uploads/`
 - `backend/logs/`
+- `backend/config/config.local.yaml`
+- `backend/config/config.*.local.yaml`
 
 当前检查结果：
 
@@ -22,6 +24,16 @@
 - `.gitignore` 已覆盖这些路径。
 
 如果后续需要保留构建包用于发布，请放到独立发布制品系统或压缩包归档，不要直接提交到源码仓库。
+
+本地数据库、Redis 和 OSS 凭据写入被忽略的 `backend/config/config.local.yaml`，启动时使用 `-env local`。可从 `backend/config/config.local.example.yaml` 复制字段结构。生产环境使用 `WECHECKIN_*` 环境变量或部署平台的密钥管理能力，不把真实地址、密码或 access key 写入被 Git 跟踪的 YAML。
+
+## 后端启动与运行边界
+
+- 配置加载顺序为默认值、`config.yaml`、可选的 `config.<env>.yaml`、`WECHECKIN_*` 环境变量；加载后统一校验端口、超时、连接池、Redis、CORS 凭据组合和定时任务参数，非法配置不得带病启动。
+- HTTP 主服务和 `cmd/maintenance` 启动连库失败时立即退出。`taskd --role=all` 在单进程中同时运行 scheduler/worker，对临时 MySQL/Redis 故障指数退避并恢复，不启动 HTTP 服务。
+- 数据库 DSN 设置连接、读、写超时和连接池上限；GORM 日志使用参数化 SQL，避免把用户输入和凭据值展开到日志。`taskd` 固定使用 `Warn` 级别，正常空轮询不应打印 SQL。
+- HTTP 边界将内部错误记录后返回稳定公开文案，不向客户端透出 SQL、堆栈、本地路径或下游错误。对外 HTTP 调用使用统一客户端的超时、请求/响应大小、重定向和私网/元数据地址限制。
+- 主服务和业务请求不运行 AutoMigrate，也不在发现 schema 缺失时自动建表/加列。遇到“数据库结构未初始化”提示时，在维护窗口运行 `cd backend && bash init.sh`。
 
 ## 本地质量门禁
 

@@ -56,7 +56,7 @@ func validateUploadContent(filename string, content []byte) bool {
 func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.upload.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	if !allowedUploadExtension(file.Filename) {
@@ -70,7 +70,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 
 	src, err := file.Open()
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.upload.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	contentHeader := make([]byte, 512)
@@ -94,7 +94,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 		Now:      now,
 	})
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.upload.handler", "上传失败，请稍后重试", err)
 		return
 	}
 

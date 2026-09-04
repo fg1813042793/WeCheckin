@@ -57,9 +57,10 @@ Go 任务不能填写函数名，只能选择服务端注册键。当前内置�
 
 - `scheduled-task.cleanup`：按服务端运行记录和日志保留天数分批清理历史。
 - `workflow.notification.dispatch_due`：派发已经到期的通用流程通知。
+- `notification.outbox.dispatch_due`：派发通用通知 Outbox，支持站内信和受控 Webhook 渠道的重试与死信状态。
 - `notification.in_app.send`：按任务执行时的组织数据向启用用户发送站内信。
 
-建议为这两个任务分别建立定义，例如：
+流程通知与通用通知 Outbox 由迁移创建为系统任务，管理端可查看和手工立即执行，不允许修改、停用或删除。自定义任务可选择已注册处理器，例如：
 
 ```json
 {
@@ -113,7 +114,7 @@ MySQL 是唯一事实源，Redis 只承担投递和节点心跳。平台采用�
 - 历史任务中的单值 `starterId` 仍可执行，并继续使用原 `<run_id>` 业务键保证升级前后幂等。
 - 创建或编辑流程类定时任务的管理员还需具备 `workflow:instance:start` 权限，才能读取已发布流程和组织用户选项。
 
-启动和运行期间都会将临时数据库或 Redis 错误视为可恢复故障，按 1 秒起步、最大 30 秒的指数退避继续重试；单次连接或查询超时不会终止 `taskd`。启动等待可由 `SIGINT`/`SIGTERM` 正常中断。`role=all` 下 scheduler 和 worker 独立监督，其中一个组件异常重启时不会取消另一个组件。
+`taskd` 启动和运行期间都会将临时数据库或 Redis 错误视为可恢复故障，按 1 秒起步、最大 30 秒的指数退避继续重试；单次连接或查询超时不会终止 `taskd`。启动等待可由 `SIGINT`/`SIGTERM` 正常中断。`role=all` 下 scheduler 和 worker 独立监督，其中一个组件异常重启时不会取消另一个组件。与之不同，HTTP 主服务和 `maintenance` 命令在启动时连接数据库失败会立即退出，由进程管理器或部署系统决定是否重启。
 
 扫描频率分为两组：
 

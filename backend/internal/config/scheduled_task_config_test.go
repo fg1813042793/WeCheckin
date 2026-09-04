@@ -2,6 +2,7 @@ package config
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -50,6 +51,40 @@ func TestScheduledTaskConfigAllowsEnvironmentOverrides(t *testing.T) {
 	}
 	if cfg.ScheduledTask.RedisKeyPrefix != "test-env" {
 		t.Fatalf("redis key prefix = %q", cfg.ScheduledTask.RedisKeyPrefix)
+	}
+}
+
+func TestScheduledTaskConfigRejectsInvalidRuntimeRelationships(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantKey string
+	}{
+		{
+			name:    "worker ttl must exceed heartbeat",
+			yaml:    "scheduled_task:\n  worker_heartbeat_seconds: 10\n  worker_ttl_seconds: 10\n",
+			wantKey: "scheduled_task.worker_ttl_seconds",
+		},
+		{
+			name:    "recovery timeout must cover worker ttl",
+			yaml:    "scheduled_task:\n  worker_ttl_seconds: 30\n  recovery_timeout_seconds: 29\n",
+			wantKey: "scheduled_task.recovery_timeout_seconds",
+		},
+		{
+			name:    "run log budget must cover a segment",
+			yaml:    "scheduled_task:\n  max_log_segment_bytes: 2048\n  max_log_run_bytes: 1024\n",
+			wantKey: "scheduled_task.max_log_run_bytes",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			withTempConfigDir(t, test.yaml)
+			_, err := LoadConfig("")
+			if err == nil || !strings.Contains(err.Error(), test.wantKey) {
+				t.Fatalf("LoadConfig() error = %v, want key %q", err, test.wantKey)
+			}
+		})
 	}
 }
 

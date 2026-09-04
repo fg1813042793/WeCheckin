@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	eventservice "wecheckin/backend/internal/service/client/event"
 	"wecheckin/backend/internal/model"
+	eventservice "wecheckin/backend/internal/service/client/event"
 	"wecheckin/backend/pkg/response"
 )
 

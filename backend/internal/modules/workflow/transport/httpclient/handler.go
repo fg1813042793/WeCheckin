@@ -12,6 +12,7 @@ import (
 	"wecheckin/backend/internal/model"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
+	workflowhttperror "wecheckin/backend/internal/modules/workflow/transport/httperror"
 	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/internal/workflowcore"
 	"wecheckin/backend/pkg/response"
@@ -104,7 +105,7 @@ func (handler *RuntimeHandler) ListDefinitions(ctx context.Context, c *app.Reque
 	}
 	data, err := handler.service.ListPublishedDefinitionsForStarter(ctx, actorID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.list_definitions", err)
 		return
 	}
 	response.JSON(c, data)
@@ -117,7 +118,7 @@ func (handler *RuntimeHandler) ListDefinitionCategories(ctx context.Context, c *
 	}
 	data, err := handler.service.ListPublishedDefinitionCategories(ctx)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.list_categories", err)
 		return
 	}
 	response.JSON(c, data)
@@ -136,7 +137,7 @@ func (handler *RuntimeHandler) GetDefinition(ctx context.Context, c *app.Request
 	}
 	data, err := handler.service.GetPublishedDefinitionForStarter(ctx, uint(definitionID), actorID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.get_definition", err)
 		return
 	}
 	response.JSON(c, data)
@@ -155,7 +156,7 @@ func (handler *RuntimeHandler) GetStartDraft(ctx context.Context, c *app.Request
 	}
 	draft, err := handler.service.GetStartDraft(ctx, definitionID, actorID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.get_draft", err)
 		return
 	}
 	response.JSON(c, draft)
@@ -182,7 +183,7 @@ func (handler *RuntimeHandler) SaveStartDraft(ctx context.Context, c *app.Reques
 		StarterID: actorID, FormData: body.FormData,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.save_draft", err)
 		return
 	}
 	response.JSON(c, draft)
@@ -200,7 +201,7 @@ func (handler *RuntimeHandler) DeleteStartDraft(ctx context.Context, c *app.Requ
 		return
 	}
 	if err := handler.service.DeleteStartDraft(ctx, definitionID, actorID); err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.delete_draft", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -225,7 +226,7 @@ func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.Request
 		Variables:       body.Variables, FormData: body.FormData,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.start", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
@@ -255,7 +256,7 @@ func (handler *RuntimeHandler) ListMyInstances(ctx context.Context, c *app.Reque
 		PageSize:           queryInt(c, "pageSize"),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.list_instances", err)
 		return
 	}
 	response.JSON(c, data)
@@ -274,7 +275,7 @@ func (handler *RuntimeHandler) GetMyInstance(ctx context.Context, c *app.Request
 	}
 	data, err := handler.service.GetMyInstance(ctx, actorID, instanceID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.get_instance", err)
 		return
 	}
 	response.JSON(c, data)
@@ -292,7 +293,7 @@ func (handler *RuntimeHandler) DeleteMyInstance(ctx context.Context, c *app.Requ
 		return
 	}
 	if err := handler.service.DeleteMyInstance(ctx, actorID, instanceID); err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.delete_instance", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -320,7 +321,7 @@ func (handler *RuntimeHandler) WithdrawInstance(ctx context.Context, c *app.Requ
 		InstanceID: instanceID, ActorID: actorID, Reason: body.Reason,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.withdraw", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
@@ -346,7 +347,7 @@ func (handler *RuntimeHandler) CommentInstance(ctx context.Context, c *app.Reque
 		InstanceID: instanceID, ActorID: actorID, Comment: body.Comment, Images: body.Images,
 		Notification: body.Notification,
 	}); err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.comment", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -372,7 +373,7 @@ func (handler *RuntimeHandler) RemindInstance(ctx context.Context, c *app.Reques
 		InstanceID: instanceID, ActorID: actorID, NodeID: body.NodeID,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.remind", err)
 		return
 	}
 	response.JSON(c, result)
@@ -396,7 +397,7 @@ func (handler *RuntimeHandler) ListMyTasks(ctx context.Context, c *app.RequestCo
 		PageSize:           queryInt(c, "pageSize"),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.list_tasks", err)
 		return
 	}
 	response.JSON(c, data)
@@ -424,7 +425,7 @@ func (handler *RuntimeHandler) CompleteTask(ctx context.Context, c *app.RequestC
 		Variables: body.Variables, FormData: body.FormData,
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.client.complete_task", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))

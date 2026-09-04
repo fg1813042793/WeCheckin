@@ -581,6 +581,11 @@ func renderNotificationPayload(state *workflowdomain.State, intent workflowdomai
 		result = "已通过"
 	case workflowdomain.NotificationKindApprovalResultRejected:
 		result = "已驳回"
+	case workflowdomain.NotificationKindApprovalResultReturned:
+		result = "已退回"
+		if targetNodeName := strings.TrimSpace(intent.TargetNodeName); targetNodeName != "" {
+			result += fmt.Sprintf("至“%s”", targetNodeName)
+		}
 	}
 	replacements := map[string]string{
 		"{{workflowName}}": intent.WorkflowName,
@@ -1411,7 +1416,10 @@ func taskSummary(row workflowmodel.ProcessTask) (application.TaskSummary, error)
 		ID: row.ID, InstanceID: row.InstanceID, NodeID: row.NodeID, NodeName: row.NodeName,
 		AssigneeID: row.AssigneeID, ApprovalMode: row.ApprovalMode, CompletionRate: row.CompletionRate,
 		Sequence: row.Sequence, Total: row.Total, Status: row.Status, Action: row.Action,
-		Comment: row.Comment, Images: images, HandledBy: row.HandledBy, HandledAt: row.HandledAt,
+		ApprovalChainKey: row.ApprovalChainKey, ApprovalLayer: row.ApprovalLayer,
+		ApprovalLayerTotal: row.ApprovalLayerTotal, SourceDepartmentID: row.SourceDepartmentID,
+		SourceDepartmentName: row.SourceDepartmentName,
+		Comment:              row.Comment, Images: images, HandledBy: row.HandledBy, HandledAt: row.HandledAt,
 	}, nil
 }
 

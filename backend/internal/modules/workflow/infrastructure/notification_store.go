@@ -179,8 +179,12 @@ func (repository *GormNotificationRepository) DeliverInApp(ctx context.Context, 
 }
 
 func workflowInAppNotify(notification application.NotificationRecord, now int64) *model.Notify {
+	notificationType := strings.TrimSpace(notification.Kind)
+	if notificationType == "" {
+		notificationType = workflowNotificationType
+	}
 	return &model.Notify{
-		Title: notification.Payload.Title, Content: notification.Payload.Content, Type: workflowNotificationType,
+		Title: notification.Payload.Title, Content: notification.Payload.Content, Type: notificationType,
 		SourceID: notification.InstanceID, SourceType: workflowNotificationSourceType,
 		UserID: notification.RecipientUserID, IsRead: 0, AddTime: now,
 	}

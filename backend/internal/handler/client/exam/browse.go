@@ -40,7 +40,7 @@ func (h *ClientExamHandler) List(ctx context.Context, c *app.RequestContext) {
 	clientIP := c.ClientIP()
 	list, total, serviceLimits, err := h.service().PublishedListWithLimitsContext(ctx, c.Query("keyword"), page, pageSize, deviceId, clientIP)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.exam.browse", "查询失败，请稍后重试", err)
 		return
 	}
 	limitsMap := make(map[uint]examLimitInfo, len(serviceLimits))
@@ -111,7 +111,7 @@ func (h *ClientExamHandler) View(ctx context.Context, c *app.RequestContext) {
 			response.Fail(c, "请先登录")
 			return
 		}
-		rdKey := tokenutil.TokenAuthKey("user", token)
+		rdKey := tokenutil.TokenAuthKeyContext(ctx, "user", token)
 		redisCtx, cancel := rd.OperationContext(ctx)
 		defer cancel()
 		jsonStr, err := rd.RDB.Get(redisCtx, rdKey).Result()

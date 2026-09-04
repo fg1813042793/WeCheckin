@@ -19,6 +19,51 @@
               <el-option label="并行审批" value="parallel" />
               <el-option label="会签审批" value="countersign" />
             </el-select>
+            <div class="setting-switch-row spacing">
+              <label class="field-label">逐级向上审批</label>
+              <el-switch :model-value="departmentApprovalChainEnabled" :disabled="readonly" @change="updateDepartmentApprovalChainEnabled" />
+            </div>
+            <template v-if="departmentApprovalChainEnabled">
+              <label class="field-label spacing">终止范围</label>
+              <el-radio-group :model-value="departmentApprovalChainStopMode" :disabled="readonly" class="scope-group" @change="updateDepartmentApprovalChainStopMode">
+                <el-radio-button label="root">组织根部门</el-radio-button>
+                <el-radio-button label="department">指定部门</el-radio-button>
+              </el-radio-group>
+              <template v-if="departmentApprovalChainStopMode === 'department'">
+                <label class="field-label spacing">终止部门</label>
+                <el-tree-select
+                  :model-value="selectedNode.departmentApprovalChain?.stopDepartmentId || undefined"
+                  :data="departments"
+                  :props="{ label: 'name', children: 'children' }"
+                  node-key="id"
+                  check-strictly
+                  clearable
+                  :render-after-expand="false"
+                  :disabled="readonly"
+                  placeholder="请选择终止部门"
+                  style="width: 100%"
+                  @change="updateDepartmentApprovalChainStopDepartment"
+                />
+              </template>
+              <label class="field-label spacing">部门未配置该身份</label>
+              <el-radio-group
+                :model-value="selectedNode.departmentApprovalChain?.missingAssigneePolicy || 'skip'"
+                :disabled="readonly"
+                class="scope-group"
+                @change="updateDepartmentApprovalChainMissingPolicy"
+              >
+                <el-radio-button label="skip">跳过该部门</el-radio-button>
+                <el-radio-button label="error">阻止发起</el-radio-button>
+              </el-radio-group>
+              <div class="setting-switch-row spacing">
+                <label class="field-label">跳过发起人本人</label>
+                <el-switch
+                  :model-value="selectedNode.departmentApprovalChain?.skipStarter === true"
+                  :disabled="readonly"
+                  @change="updateDepartmentApprovalChainSkipStarter"
+                />
+              </div>
+            </template>
           </template>
 
           <label class="field-label spacing">{{ ['cc', 'notify'].includes(selectedNode.type) ? '接收人来源' : '处理人来源' }}</label>
@@ -118,7 +163,7 @@
             <el-select :model-value="orgIdentityCode" :disabled="readonly" style="width: 100%" @change="updateOrgIdentityCode">
               <el-option v-for="identity in orgIdentityOptions" :key="identity.code" :label="identity.name" :value="identity.code" />
             </el-select>
-            <p v-if="selectedNode.type === 'approval'" class="assignee-helper">单人审批时，若组织审批身份解析出多人，则为任一人审批。</p>
+            <p v-if="selectedNode.type === 'approval'" class="assignee-helper">审批方式应用于同一部门内解析出的处理人；逐级审批固定按部门层级顺序流转。</p>
           </template>
 
           <template v-else-if="selectedNode.assignee?.type !== 'initiator'">
@@ -418,7 +463,10 @@ const departments = computed(() => props.departments || [])
 const users = computed(() => props.users || [])
 const orgIdentityOptions = computed(() => {
   if (props.orgIdentities?.length) return props.orgIdentities
-  return [{ code: 'department_leader', name: '部门负责人' }]
+  return [
+    { code: 'department_leader', name: '部门负责人' },
+    { code: 'supervisor', name: '主管' },
+  ]
 })
 const canSelectMultipleAssignees = computed(() => selectedNode.value?.type === 'cc' || selectedNode.value?.type === 'notify'
   || (selectedNode.value?.type === 'approval' && selectedNode.value.approvalMode !== 'single'))
@@ -437,6 +485,8 @@ const orgIdentitySelection = computed(() => parseOrgIdentityValue(selectedNode.v
 const orgIdentityScope = computed(() => orgIdentitySelection.value.scope)
 const orgIdentityDepartmentID = computed(() => orgIdentitySelection.value.departmentID)
 const orgIdentityCode = computed(() => orgIdentitySelection.value.identityCode || defaultOrgIdentityCode())
+const departmentApprovalChainEnabled = computed(() => selectedNode.value?.departmentApprovalChain?.enabled === true)
+const departmentApprovalChainStopMode = computed(() => selectedNode.value?.departmentApprovalChain?.stopMode || 'root')
 const notificationEnabled = computed(() => selectedNode.value?.type === 'notify' || selectedNode.value?.notification?.enabled === true)
 const notificationChannels = computed(() => selectedNode.value?.notification?.channels || [])
 
@@ -517,6 +567,7 @@ function updateAssigneeType(value: AssigneeType) {
   if (!assignee) return
   assignee.type = value
   assignee.value = defaultAssigneeValue(value)
+  if (value !== 'org_identity' && selectedNode.value) delete selectedNode.value.departmentApprovalChain
   assigneeUserKeyword.value = ''
   nextTick(syncAssigneeUserTreeKeys)
   emit('change')
@@ -641,6 +692,7 @@ function mergeSelectedUserOrder(currentIDs: number[], checkedIDs: number[]) {
 
 function updateOrgIdentityScope(value: string | number | boolean) {
   const scope = String(value) === 'department' ? 'department' : 'starter_department'
+  if (scope === 'department' && selectedNode.value) delete selectedNode.value.departmentApprovalChain
   updateOrgIdentityValue(scope, orgIdentityDepartmentID.value, orgIdentityCode.value)
 }
 
@@ -660,6 +712,58 @@ function updateOrgIdentityValue(scope: string, departmentID: number, identityCod
   assignee.value = scope === 'department'
     ? `department:${Number(departmentID) || 0}:${code}`
     : `starter_department:${code}`
+  emit('change')
+}
+
+function ensureDepartmentApprovalChain() {
+  if (!selectedNode.value || selectedNode.value.type !== 'approval') return undefined
+  selectedNode.value.departmentApprovalChain ||= {
+    enabled: true,
+    stopMode: 'root',
+    missingAssigneePolicy: 'skip',
+  }
+  return selectedNode.value.departmentApprovalChain
+}
+
+function updateDepartmentApprovalChainEnabled(value: string | number | boolean) {
+  if (!selectedNode.value) return
+  if (!Boolean(value)) {
+    delete selectedNode.value.departmentApprovalChain
+    emit('change')
+    return
+  }
+  const config = ensureDepartmentApprovalChain()
+  if (!config) return
+  config.enabled = true
+  updateOrgIdentityValue('starter_department', 0, orgIdentityCode.value)
+}
+
+function updateDepartmentApprovalChainStopMode(value: string | number | boolean) {
+  const config = ensureDepartmentApprovalChain()
+  if (!config) return
+  config.stopMode = String(value) === 'department' ? 'department' : 'root'
+  if (config.stopMode === 'root') delete config.stopDepartmentId
+  emit('change')
+}
+
+function updateDepartmentApprovalChainStopDepartment(value: string | number | undefined) {
+  const config = ensureDepartmentApprovalChain()
+  if (!config) return
+  config.stopDepartmentId = Number(value) || undefined
+  emit('change')
+}
+
+function updateDepartmentApprovalChainMissingPolicy(value: string | number | boolean) {
+  const config = ensureDepartmentApprovalChain()
+  if (!config) return
+  config.missingAssigneePolicy = String(value) === 'error' ? 'error' : 'skip'
+  emit('change')
+}
+
+function updateDepartmentApprovalChainSkipStarter(value: string | number | boolean) {
+  const config = ensureDepartmentApprovalChain()
+  if (!config) return
+  config.skipStarter = Boolean(value)
   emit('change')
 }
 
@@ -886,6 +990,9 @@ function setDefaultBranch(edge: WorkflowEdge, checked: boolean) {
 .scope-group { width: 100%; }
 .scope-group :deep(.el-radio-button) { width: 50%; }
 .scope-group :deep(.el-radio-button__inner) { width: 100%; }
+.setting-switch-row { display: flex; min-height: 32px; align-items: center; justify-content: space-between; gap: 12px; }
+.setting-switch-row.spacing { margin-top: 14px; }
+.setting-switch-row .field-label { margin-bottom: 0; }
 .assignee-helper { margin: 8px 0 0; color: #64748b; font-size: 12px; line-height: 1.6; }
 .assignee-picker-search { margin-bottom: 10px; }
 .assignee-user-tree-wrap { max-height: 320px; overflow-y: auto; }

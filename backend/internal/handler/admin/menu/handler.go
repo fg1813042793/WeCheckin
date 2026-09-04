@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	menuservice "wecheckin/backend/internal/service/admin/menu"
 	"wecheckin/backend/internal/model"
+	menuservice "wecheckin/backend/internal/service/admin/menu"
 	"wecheckin/backend/pkg/response"
 )
 

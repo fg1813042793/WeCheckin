@@ -180,6 +180,7 @@ const requiredContent = [
       '/unread-count',
       '/read-all',
       '/read',
+      'style?: NotificationStyle',
     ],
   },
   {
@@ -199,6 +200,11 @@ const requiredContent = [
       'markAllNotificationsRead',
       'void markRead(notification)',
       'mode="right"',
+      'notificationTypeMeta',
+      'approval_result_returned',
+      'notification-item__kind',
+      'notification-detail__kind',
+      'notification.style',
     ],
   },
   {

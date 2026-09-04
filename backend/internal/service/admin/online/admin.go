@@ -6,9 +6,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/adminaccess"
 	"wecheckin/backend/internal/support/media"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 	rd "wecheckin/backend/pkg/redis"
 	"wecheckin/backend/pkg/tokenutil"
@@ -19,7 +19,7 @@ func GetOnlineAdmins() ([]AdminSession, error) {
 }
 
 func GetOnlineAdminsContext(ctx context.Context) ([]AdminSession, error) {
-	_, prefix := tokenutil.GetTokenConfig("admin")
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 	if rd.RDB == nil {
 		return []AdminSession{}, nil
 	}
@@ -102,7 +102,7 @@ func ForceOfflineAdmin(idStr, token string) error {
 }
 
 func ForceOfflineAdminContext(ctx context.Context, idStr, token string) error {
-	_, prefix := tokenutil.GetTokenConfig("admin")
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 	if rd.RDB == nil || token == "" {
 		return nil
 	}
@@ -127,7 +127,7 @@ func BatchForceOfflineAdminContext(ctx context.Context, items []struct {
 	IDStr string `json:"idStr"`
 	Token string `json:"token"`
 }) (int, error) {
-	_, prefix := tokenutil.GetTokenConfig("admin")
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 	if rd.RDB == nil || len(items) == 0 {
 		return 0, nil
 	}
@@ -167,7 +167,7 @@ func AdminLogout(adminID uint, currentToken string) error {
 }
 
 func AdminLogoutContext(ctx context.Context, adminID uint, currentToken string) error {
-	_, prefix := tokenutil.GetTokenConfig("admin")
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 	if rd.RDB == nil {
 		return nil
 	}

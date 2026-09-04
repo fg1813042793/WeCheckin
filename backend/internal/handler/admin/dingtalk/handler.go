@@ -8,8 +8,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/performance"
+	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	setupservice "wecheckin/backend/internal/service/admin/setup"
+	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/performance"
 	"wecheckin/backend/pkg/response"
 	"wecheckin/backend/pkg/tokenutil"
 )
@@ -21,9 +22,17 @@ const (
 	defaultDingTalkH5LogoText    = "OA"
 )
 
-type AdminDingTalkHandler struct{}
+type AdminDingTalkHandler struct {
+	service *admindingtalkservice.Service
+}
 
-func NewAdminDingTalkHandler() *AdminDingTalkHandler { return &AdminDingTalkHandler{} }
+func NewAdminDingTalkHandler(service ...*admindingtalkservice.Service) *AdminDingTalkHandler {
+	var selected *admindingtalkservice.Service
+	if len(service) > 0 {
+		selected = service[0]
+	}
+	return &AdminDingTalkHandler{service: selected}
+}
 
 func (h *AdminDingTalkHandler) GetSettings(ctx context.Context, c *app.RequestContext) {
 	corpConfigs, err := listDingTalkH5CorpConfigsContext(ctx)
@@ -31,9 +40,9 @@ func (h *AdminDingTalkHandler) GetSettings(ctx context.Context, c *app.RequestCo
 		response.Fail(c, "读取配置失败")
 		return
 	}
-	expire, prefix := tokenutil.GetTokenConfig("dingtalk_h5")
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, "dingtalk_h5")
 	singleLogin := 0
-	if tokenutil.IsDingTalkH5SingleLogin() {
+	if tokenutil.IsDingTalkH5SingleLoginContext(ctx) {
 		singleLogin = 1
 	}
 	appSecret := adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_SECRET")
@@ -57,24 +66,16 @@ func (h *AdminDingTalkHandler) GetSettings(ctx context.Context, c *app.RequestCo
 			appSecret = "set"
 		}
 	}
-	response.JSON(c, map[string]interface{}{
-		"corpId":        corpID,
-		"appKey":        appKey,
-		"agentId":       agentID,
-		"unifiedAppId":  unifiedAppID,
-		"notifyMode":    notifyMode,
-		"robotCode":     robotCode,
-		"appSecretSet":  appSecret != "",
-		"corpConfigs":   adminDingTalkCorpConfigResponses(corpConfigs),
-		"tokenExpire":   expire.String(),
-		"redisPrefix":   prefix,
-		"singleLogin":   singleLogin,
-		"selfBind":      boolToSwitch(dingtalkh5service.SelfBindEnabledContext(ctx)),
-		"notifyEnabled": notifyEnabled,
-		"appName":       adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_APP_NAME", defaultDingTalkH5AppName),
-		"logoText":      adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_LOGO_TEXT", defaultDingTalkH5LogoText),
-		"logoUrl":       adminDingTalkSetupValue(ctx, "DINGTALK_H5_LOGO_URL"),
-		"appUrl":        adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_URL"),
+	response.JSON(c, admindingtalkservice.SettingsResponse{
+		CorpID: corpID, AppKey: appKey, AgentID: agentID, UnifiedAppID: unifiedAppID,
+		NotifyMode: notifyMode, RobotCode: robotCode, AppSecretSet: appSecret != "",
+		CorpConfigs: adminDingTalkCorpConfigResponses(corpConfigs), TokenExpire: expire.String(), RedisPrefix: prefix,
+		SingleLogin: singleLogin, SelfBind: boolToSwitch(dingtalkh5service.SelfBindEnabledContext(ctx)),
+		NotifyEnabled: notifyEnabled,
+		AppName:       adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_APP_NAME", defaultDingTalkH5AppName),
+		LogoText:      adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_LOGO_TEXT", defaultDingTalkH5LogoText),
+		LogoURL:       adminDingTalkSetupValue(ctx, "DINGTALK_H5_LOGO_URL"),
+		AppURL:        adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_URL"),
 	})
 }
 
@@ -233,7 +234,7 @@ func (h *AdminDingTalkHandler) TestNotification(ctx context.Context, c *app.Requ
 	}
 	result, err := dingtalkh5service.DiagnoseDingTalkH5WorkNotificationContext(ctx, corpID, recipientUserID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.dingtalk.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, result)
@@ -308,21 +309,14 @@ func parseDingTalkCorpConfigInputs(raw string) ([]dingtalkh5service.DingTalkH5Co
 	return configs, nil
 }
 
-func adminDingTalkCorpConfigResponses(configs []dingtalkh5service.DingTalkH5CorpConfig) []map[string]interface{} {
-	items := make([]map[string]interface{}, 0, len(configs))
+func adminDingTalkCorpConfigResponses(configs []dingtalkh5service.DingTalkH5CorpConfig) []admindingtalkservice.CorpConfigResponse {
+	items := make([]admindingtalkservice.CorpConfigResponse, 0, len(configs))
 	for _, config := range configs {
-		items = append(items, map[string]interface{}{
-			"corpId":        config.CorpID,
-			"corpName":      config.CorpName,
-			"appKey":        config.AppKey,
-			"agentId":       config.AgentID,
-			"unifiedAppId":  config.UnifiedAppID,
-			"appUrl":        config.AppURL,
-			"notifyEnabled": config.NotifyEnabled,
-			"notifyMode":    config.NotifyMode,
-			"robotCode":     config.RobotCode,
-			"enabled":       config.Enabled,
-			"appSecretSet":  config.AppSecretSet,
+		items = append(items, admindingtalkservice.CorpConfigResponse{
+			CorpID: config.CorpID, CorpName: config.CorpName, AppKey: config.AppKey,
+			AgentID: config.AgentID, UnifiedAppID: config.UnifiedAppID, AppURL: config.AppURL,
+			NotifyEnabled: config.NotifyEnabled, NotifyMode: config.NotifyMode, RobotCode: config.RobotCode,
+			Enabled: config.Enabled, AppSecretSet: config.AppSecretSet,
 		})
 	}
 	return items

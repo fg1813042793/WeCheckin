@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	formkitadminservice "wecheckin/backend/internal/service/admin/formkitadmin"
 	"wecheckin/backend/internal/model"
+	formkitadminservice "wecheckin/backend/internal/service/admin/formkitadmin"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -56,7 +56,7 @@ func (h *AdminExamHandler) QuestionBankInsert(ctx context.Context, c *app.Reques
 	}
 	var r req
 	if err := c.BindAndValidate(&r); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.question_bank", "参数错误，请稍后重试", err)
 		return
 	}
 	if r.Title == "" {
@@ -105,7 +105,7 @@ func (h *AdminExamHandler) QuestionBankEdit(ctx context.Context, c *app.RequestC
 	}
 	var r req
 	if err := c.BindAndValidate(&r); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.question_bank", "参数错误，请稍后重试", err)
 		return
 	}
 	adminVal, _ := c.Get("admin")

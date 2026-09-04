@@ -32,3 +32,21 @@ func TestDingTalkNotificationRoutesRequireDedicatedSendPermission(t *testing.T) 
 		}
 	}
 }
+
+func TestNotificationStyleRoutesRequireDedicatedPermissions(t *testing.T) {
+	source, err := os.ReadFile("route_permissions.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(source)), " ")
+	for _, snippet := range []string{
+		`"GET /api/v2/admin/notification-styles": "notification:style:list"`,
+		`"PUT /api/v2/admin/notification-styles": "notification:style:edit"`,
+		`"POST /api/v2/admin/notification-styles/test/in-app": "notification:send"`,
+		`"POST /api/v2/admin/notification-styles/test/dingtalk": "notification:dingtalk:send"`,
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("notification style permission mapping missing %q", snippet)
+		}
+	}
+}

@@ -3,8 +3,8 @@ package home
 import (
 	"context"
 	"github.com/cloudwego/hertz/pkg/app"
-	dashboardservice "wecheckin/backend/internal/service/admin/dashboard"
 	"wecheckin/backend/internal/model"
+	dashboardservice "wecheckin/backend/internal/service/admin/dashboard"
 	"wecheckin/backend/pkg/response"
 )
 

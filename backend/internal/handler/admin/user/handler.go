@@ -94,7 +94,7 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	adminAccess, _ := parseAdminAccess(c)
 	err := adminuserservice.AddUserWithManagerAndAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.user.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -125,7 +125,7 @@ func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) 
 	adminAccess, hasAdminAccess := parseAdminAccess(c)
 	err := adminuserservice.EditUserWithManagerAndAdminAccessForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess, hasAdminAccess, admin.ID)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.user.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

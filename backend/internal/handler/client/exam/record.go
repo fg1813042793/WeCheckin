@@ -54,7 +54,7 @@ func (h *ClientExamHandler) MyRecords(ctx context.Context, c *app.RequestContext
 	}
 	list, err := h.service().UserRecordsContext(ctx, uid, 50)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.exam.record", "查询失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, examMyRecordsResponse{List: list})

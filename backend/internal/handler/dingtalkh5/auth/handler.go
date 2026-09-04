@@ -18,7 +18,7 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) PublicConfig(ctx context.Context, c *app.RequestContext) {
 	data, err := dingtalkh5service.PublicConfigContext(ctx)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.auth.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -39,7 +39,7 @@ func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.LoginContext(ctx, req.Name, req.Password, c.ClientIP(), string(c.UserAgent()))
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.auth.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -65,12 +65,12 @@ func (h *Handler) SSOLogin(ctx context.Context, c *app.RequestContext) {
 		if bindData, ok := dingtalkh5service.DingTalkH5BindRequiredData(err); ok {
 			c.JSON(consts.StatusOK, response.Resp{
 				Code: dingtalkh5service.DingTalkH5BindRequiredCode,
-				Msg:  err.Error(),
+				Msg:  "钉钉账号未绑定系统用户",
 				Data: bindData,
 			})
 			return
 		}
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.auth.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -94,7 +94,7 @@ func (h *Handler) BindSelf(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.BindSelfContext(ctx, req.BindTicket, req.Account, req.Password, c.ClientIP(), string(c.UserAgent()))
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.auth.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)

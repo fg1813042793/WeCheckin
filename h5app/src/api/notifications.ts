@@ -2,6 +2,15 @@ import { get, patch } from '@/api/dingtalk-h5/base'
 
 const NOTIFICATION_API = '/api/v2/dingtalk/h5/notifications'
 
+export type NotificationTone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+
+export interface NotificationStyle {
+  type: string
+  label: string
+  icon: string
+  tone: NotificationTone
+}
+
 export interface InAppNotification {
   id: number
   title: string
@@ -11,6 +20,7 @@ export interface InAppNotification {
   sourceId: string
   isRead: number
   addTime: number
+  style?: NotificationStyle
 }
 
 export interface InAppNotificationList {

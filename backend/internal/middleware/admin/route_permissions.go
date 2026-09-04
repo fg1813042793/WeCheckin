@@ -129,6 +129,10 @@ var routeMethodPerms = map[string]string{
 	"POST /api/v2/admin/in-app-notifications":                    "notification:send",
 	"GET /api/v2/admin/dingtalk-notifications/recipient-options": "notification:dingtalk:send",
 	"POST /api/v2/admin/dingtalk-notifications":                  "notification:dingtalk:send",
+	"GET /api/v2/admin/notification-styles":                      "notification:style:list",
+	"PUT /api/v2/admin/notification-styles":                      "notification:style:edit",
+	"POST /api/v2/admin/notification-styles/test/in-app":         "notification:send",
+	"POST /api/v2/admin/notification-styles/test/dingtalk":       "notification:dingtalk:send",
 
 	"GET /api/v2/admin/scheduled-tasks":               "scheduled-task:list",
 	"POST /api/v2/admin/scheduled-tasks":              "scheduled-task:add",

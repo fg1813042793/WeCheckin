@@ -10,13 +10,14 @@ import (
 
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/modules/inappnotification/application"
+	"wecheckin/backend/internal/support/notificationstyle"
 )
 
 func TestSendUsesManualSourceAndRecipientRuleFromRequest(t *testing.T) {
 	service := &serviceStub{sendResult: application.SendResult{SourceID: "manual-1", SentCount: 2}}
 	handler := NewHandler(service)
 	c := newAdminContext(66)
-	c.Request.SetBodyString(`{"requestId":"manual-1","title":"系统通知","content":"内容","scope":"departments","departmentIds":[3,5]}`)
+	c.Request.SetBodyString(`{"requestId":"manual-1","title":"系统通知","content":"内容","scope":"departments","departmentIds":[3,5],"notificationType":"approval_result_returned"}`)
 
 	handler.Send(context.Background(), c)
 
@@ -28,6 +29,9 @@ func TestSendUsesManualSourceAndRecipientRuleFromRequest(t *testing.T) {
 	}
 	if service.sendInput.Scope != application.ScopeDepartments || len(service.sendInput.DepartmentIDs) != 2 {
 		t.Fatalf("send recipients = %#v", service.sendInput)
+	}
+	if service.sendInput.NotificationType != "" {
+		t.Fatalf("ordinary send must ignore notification type, got %q", service.sendInput.NotificationType)
 	}
 	if !strings.Contains(string(c.Response.Body()), `"sentCount":2`) {
 		t.Fatalf("response = %s", c.Response.Body())
@@ -102,6 +106,80 @@ func TestInboxHandlersRejectUnauthenticatedRequests(t *testing.T) {
 	}
 }
 
+func TestNotificationStylesCanBeReadAndSaved(t *testing.T) {
+	service := &serviceStub{styles: notificationstyle.DefaultConfig()}
+	handler := NewHandler(service)
+	readContext := newAdminContext(66)
+
+	handler.NotificationStyles(context.Background(), readContext)
+
+	if service.styleReadCalls != 1 || !strings.Contains(string(readContext.Response.Body()), `"task_arrived"`) {
+		t.Fatalf("style read calls=%d response=%s", service.styleReadCalls, readContext.Response.Body())
+	}
+	writeContext := newAdminContext(66)
+	writeContext.Request.SetBodyString(`{"version":1,"styles":[{"type":"task_arrived","label":"新待办","icon":"bell","tone":"danger"}]}`)
+
+	handler.SaveNotificationStyles(context.Background(), writeContext)
+
+	if service.styleSaveCalls != 1 || len(service.savedStyles.Styles) != 1 || service.savedStyles.Styles[0].Label != "新待办" {
+		t.Fatalf("saved styles = %#v", service.savedStyles)
+	}
+}
+
+func TestSendInAppStyleTestUsesSelectedTypeAndMarksTitleAsTest(t *testing.T) {
+	service := &serviceStub{sendResult: application.SendResult{SentCount: 1}}
+	handler := NewHandler(service)
+	c := newAdminContext(66)
+	c.Request.SetBodyString(`{"notificationType":"approval_result_returned","title":"退回通知","content":"测试内容","userIds":[3]}`)
+
+	handler.SendInAppStyleTest(context.Background(), c)
+
+	if service.sendInput.NotificationType != notificationstyle.TypeApprovalResultReturned {
+		t.Fatalf("style test notification type = %q", service.sendInput.NotificationType)
+	}
+	if service.sendInput.Scope != application.ScopeUsers || len(service.sendInput.UserIDs) != 1 {
+		t.Fatalf("style test recipients = %#v", service.sendInput)
+	}
+	if service.sendInput.Title != "[样式测试] 退回通知" {
+		t.Fatalf("style test title = %q", service.sendInput.Title)
+	}
+}
+
+func TestSendDingTalkStyleTestUsesSelectedUsersAndMarksTitleAsTest(t *testing.T) {
+	service := &serviceStub{dingTalkSendResult: application.SendResult{SentCount: 2}}
+	handler := NewHandler(service)
+	c := newAdminContext(66)
+	c.Request.SetBodyString(`{"notificationType":"task_reminder","title":"催办通知","content":"测试内容","userIds":[3,5]}`)
+
+	handler.SendDingTalkStyleTest(context.Background(), c)
+
+	if service.dingTalkSendCalls != 1 {
+		t.Fatalf("DingTalk style test send calls = %d", service.dingTalkSendCalls)
+	}
+	if service.dingTalkSendInput.NotificationType != notificationstyle.TypeTaskReminder {
+		t.Fatalf("DingTalk style test notification type = %q", service.dingTalkSendInput.NotificationType)
+	}
+	if service.dingTalkSendInput.Scope != application.ScopeUsers || len(service.dingTalkSendInput.UserIDs) != 2 {
+		t.Fatalf("DingTalk style test recipients = %#v", service.dingTalkSendInput)
+	}
+	if service.dingTalkSendInput.Title != "[样式测试] 催办通知" {
+		t.Fatalf("DingTalk style test title = %q", service.dingTalkSendInput.Title)
+	}
+}
+
+func TestSendStyleTestRejectsEmptyOriginalTitle(t *testing.T) {
+	service := &serviceStub{}
+	handler := NewHandler(service)
+	c := newAdminContext(66)
+	c.Request.SetBodyString(`{"notificationType":"task_arrived","title":" ","content":"测试内容","userIds":[3]}`)
+
+	handler.SendInAppStyleTest(context.Background(), c)
+
+	if service.sendCalls != 0 || !strings.Contains(string(c.Response.Body()), "请输入通知标题") {
+		t.Fatalf("send calls=%d response=%s", service.sendCalls, c.Response.Body())
+	}
+}
+
 type serviceStub struct {
 	sendInput          application.SendInput
 	sendResult         application.SendResult
@@ -115,6 +193,10 @@ type serviceStub struct {
 	listPageSize       int
 	markReadUserID     uint
 	markReadID         uint
+	styles             notificationstyle.Config
+	savedStyles        notificationstyle.Config
+	styleReadCalls     int
+	styleSaveCalls     int
 }
 
 func (stub *serviceStub) Send(_ context.Context, input application.SendInput) (application.SendResult, error) {
@@ -148,6 +230,17 @@ func (stub *serviceStub) MarkAllRead(context.Context, uint) error { return nil }
 
 func (stub *serviceStub) RecipientOptions(context.Context) (application.RecipientOptions, error) {
 	return application.RecipientOptions{}, nil
+}
+
+func (stub *serviceStub) NotificationStyles(context.Context) (notificationstyle.Config, error) {
+	stub.styleReadCalls++
+	return stub.styles, nil
+}
+
+func (stub *serviceStub) SaveNotificationStyles(_ context.Context, config notificationstyle.Config) (notificationstyle.Config, error) {
+	stub.styleSaveCalls++
+	stub.savedStyles = config
+	return config, nil
 }
 
 func newAdminContext(adminID uint) *app.RequestContext {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/pkg/database"
 	rd "wecheckin/backend/pkg/redis"
 	"wecheckin/backend/pkg/tokenutil"
@@ -42,7 +42,7 @@ func GetOnlineUsersContext(ctx context.Context) ([]UserSession, error) {
 	groups := make([]roleEntries, 0, len(userSessionRoles))
 	allEntries := make([]entry, 0)
 	for _, item := range userSessionRoles {
-		_, prefix := tokenutil.GetTokenConfig(item.role)
+		_, prefix := tokenutil.GetTokenConfigContext(ctx, item.role)
 		entries, err := scanSets(ctx, prefix+"s:")
 		if err != nil {
 			return nil, err
@@ -71,11 +71,11 @@ func GetOnlineUsersContext(ctx context.Context) ([]UserSession, error) {
 }
 
 func StoreUserSessionContext(ctx context.Context, user *model.User, token, addIP, device string) error {
-	return storeUserSessionForRoleContext(ctx, "user", tokenutil.IsUserSingleLogin(), user, token, addIP, device)
+	return storeUserSessionForRoleContext(ctx, "user", tokenutil.IsUserSingleLoginContext(ctx), user, token, addIP, device)
 }
 
 func StoreDingTalkH5SessionContext(ctx context.Context, user *model.User, token, addIP, device string) error {
-	return storeUserSessionForRoleContext(ctx, "dingtalk_h5", tokenutil.IsDingTalkH5SingleLogin(), user, token, addIP, device)
+	return storeUserSessionForRoleContext(ctx, "dingtalk_h5", tokenutil.IsDingTalkH5SingleLoginContext(ctx), user, token, addIP, device)
 }
 
 func UpdateDingTalkH5SessionUserContext(ctx context.Context, user *model.User, token string) error {
@@ -86,7 +86,7 @@ func storeUserSessionForRoleContext(ctx context.Context, role string, singleLogi
 	if user == nil || user.ID == 0 || token == "" {
 		return fmt.Errorf("登录信息异常")
 	}
-	expire, prefix := tokenutil.GetTokenConfig(role)
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, role)
 	if rd.RDB == nil {
 		return fmt.Errorf("服务异常")
 	}
@@ -137,7 +137,7 @@ func updateUserSessionForRoleContext(ctx context.Context, role string, user *mod
 		return fmt.Errorf("登录信息异常")
 	}
 	token = strings.TrimSpace(token)
-	expire, prefix := tokenutil.GetTokenConfig(role)
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, role)
 	if rd.RDB == nil {
 		return fmt.Errorf("服务异常")
 	}
@@ -179,7 +179,7 @@ func loadUserSessionPayloadContext(ctx context.Context, role, token string) (sto
 	if token == "" {
 		return payload, fmt.Errorf("未登录")
 	}
-	expire, prefix := tokenutil.GetTokenConfig(role)
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, role)
 	if rd.RDB == nil {
 		return payload, fmt.Errorf("服务异常")
 	}
@@ -220,7 +220,7 @@ func removeUserSessionForRoleContext(ctx context.Context, role string, userID ui
 
 func removeUserTokenForRoleContext(ctx context.Context, role, token string) error {
 	token = strings.TrimSpace(token)
-	_, prefix := tokenutil.GetTokenConfig(role)
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, role)
 	if rd.RDB == nil || token == "" {
 		return nil
 	}
@@ -281,7 +281,7 @@ func ForceOfflineUserContext(ctx context.Context, idStr, token string) error {
 }
 
 func forceOfflineUserForRoleContext(ctx context.Context, role, idStr, token string) error {
-	_, prefix := tokenutil.GetTokenConfig(role)
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, role)
 	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	if err := rd.RDB.Del(redisCtx, prefix+"a:"+token).Err(); err != nil {
@@ -332,7 +332,7 @@ func batchForceOfflineUserForRoleContext(ctx context.Context, role string, items
 	IDStr string `json:"idStr"`
 	Token string `json:"token"`
 }) error {
-	_, prefix := tokenutil.GetTokenConfig(role)
+	_, prefix := tokenutil.GetTokenConfigContext(ctx, role)
 	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	byID := make(map[string][]string, len(items))

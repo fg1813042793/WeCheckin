@@ -43,17 +43,28 @@ const requirements = [
   [orgApproverPageSource, 'defaultExpandedUserTreeKeys', '组织审批身份设置页缺少当前部门树展开状态'],
   [orgApproverPageSource, 'empty-text="尚未选择处理人"', '组织审批身份设置页缺少已选处理人空状态'],
   [workflowTypesSource, "'org_identity'", '流程审批人类型缺少组织审批身份'],
+  [workflowTypesSource, 'WorkflowDepartmentApprovalChain', '流程类型缺少分层审批链配置'],
   [workflowDesignerSource, 'workflowOrgApproverIdentities', '流程设计器未加载组织审批身份'],
   [workflowDesignerSource, 'workflowAssigneeUsers', '流程设计器未加载审批用户树数据'],
   [nodeInspectorSource, 'assignee-user-tree', '审批节点缺少用户树选择'],
   [nodeInspectorSource, 'orgIdentityOptions', '审批节点缺少组织审批身份选项'],
   [nodeInspectorSource, 'starter_department:', '组织审批身份缺少发起人部门作用域编码'],
-  [nodeInspectorSource, '任一人审批', '单人审批缺少多人组织身份说明'],
+  [nodeInspectorSource, '逐级向上审批', '组织审批身份缺少逐级审批开关'],
+  [nodeInspectorSource, 'departmentApprovalChainStopMode', '逐级审批缺少终止范围配置'],
+  [nodeInspectorSource, 'missingAssigneePolicy', '逐级审批缺少负责人缺失策略'],
+  [nodeInspectorSource, "code: 'supervisor', name: '主管'", '审批身份默认选项缺少主管'],
+  [nodeInspectorSource, '审批方式应用于同一部门', '组织身份缺少同层审批方式说明'],
   [nodeCardSource, '组织审批身份', '流程节点卡片缺少组织审批身份描述'],
 ]
 
 for (const [source, snippet, message] of requirements) {
   if (!source.includes(snippet)) throw new Error(message)
+}
+
+const chainSwitchIndex = nodeInspectorSource.indexOf('逐级向上审批')
+const assigneeSourceIndex = nodeInspectorSource.indexOf('处理人来源')
+if (chainSwitchIndex < 0 || assigneeSourceIndex < 0 || chainSwitchIndex > assigneeSourceIndex) {
+  throw new Error('逐级审批开关必须在审批节点中直接可见，不能隐藏在处理人来源配置内')
 }
 
 console.log('workflow organization approver structure checks passed')

@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"log"
+	"time"
 
+	gormlogger "gorm.io/gorm/logger"
 	"wecheckin/backend/internal/bootstrap"
 	"wecheckin/backend/internal/config"
 	"wecheckin/backend/pkg/database"
@@ -21,7 +23,25 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
+	databaseLogLevel := gormlogger.Warn
+	databaseLogColorful := false
+	if cfg.Server.Mode == "debug" {
+		databaseLogLevel = gormlogger.Info
+		databaseLogColorful = true
+	}
+	if err := database.ConnectDatabaseWithOptions(database.Options{
+		Host: cfg.Database.Host, Port: cfg.Database.Port,
+		User: cfg.Database.User, Password: cfg.Database.Password, DBName: cfg.Database.DBName,
+		ConnectTimeout: time.Duration(cfg.Database.ConnectTimeoutSec) * time.Second,
+		ReadTimeout:    time.Duration(cfg.Database.ReadTimeoutSec) * time.Second,
+		WriteTimeout:   time.Duration(cfg.Database.WriteTimeoutSec) * time.Second,
+		MaxIdleConns:   cfg.Database.MaxIdleConns, MaxOpenConns: cfg.Database.MaxOpenConns,
+		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
+		ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
+		LogLevel:        databaseLogLevel, Colorful: databaseLogColorful,
+	}); err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 	if err := bootstrap.RunMaintenance(bootstrap.MaintenanceOptions{
 		EnableExam:       *enableExam,
 		MigrationsDir:    *migrationsDir,

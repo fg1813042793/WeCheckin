@@ -678,10 +678,42 @@ func validateApproval(node Node) []ValidationError {
 		errors = append(errors, ValidationError{Code: ValidationApprovalMode, Message: "审批方式无效", NodeID: node.ID})
 	}
 	errors = append(errors, validateNodeAssignee(node, "审批节点")...)
+	errors = append(errors, validateDepartmentApprovalChain(node)...)
 	if node.ApprovalMode == ApprovalModeCountersign && (node.CompletionRate < 1 || node.CompletionRate > 100) {
 		errors = append(errors, ValidationError{Code: ValidationCompletionRate, Message: "会签通过比例必须在 1 到 100 之间", NodeID: node.ID})
 	}
 	return errors
+}
+
+func validateDepartmentApprovalChain(node Node) []ValidationError {
+	config := node.DepartmentApprovalChain
+	if config == nil || !config.Enabled {
+		return nil
+	}
+	if node.Assignee == nil || node.Assignee.Type != AssigneeTypeOrgIdentity {
+		return []ValidationError{{Code: ValidationDepartmentApprovalChain, Message: "逐级部门审批必须使用组织审批身份", NodeID: node.ID}}
+	}
+	if !usesStarterDepartmentOrgIdentity(node.Assignee.Value) {
+		return []ValidationError{{Code: ValidationDepartmentApprovalChain, Message: "逐级部门审批必须从发起人部门开始解析", NodeID: node.ID}}
+	}
+	if config.StopMode != DepartmentApprovalChainStopRoot && config.StopMode != DepartmentApprovalChainStopDepartment {
+		return []ValidationError{{Code: ValidationDepartmentApprovalChain, Message: "逐级部门审批终止范围无效", NodeID: node.ID}}
+	}
+	if config.StopMode == DepartmentApprovalChainStopDepartment && config.StopDepartmentID == 0 {
+		return []ValidationError{{Code: ValidationDepartmentApprovalChain, Message: "逐级部门审批必须选择终止部门", NodeID: node.ID}}
+	}
+	if config.MissingAssigneePolicy != DepartmentApprovalChainMissingSkip && config.MissingAssigneePolicy != DepartmentApprovalChainMissingError {
+		return []ValidationError{{Code: ValidationDepartmentApprovalChain, Message: "逐级部门审批的负责人缺失策略无效", NodeID: node.ID}}
+	}
+	return nil
+}
+
+func usesStarterDepartmentOrgIdentity(value string) bool {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) == 1 {
+		return strings.TrimSpace(parts[0]) != ""
+	}
+	return len(parts) == 2 && strings.TrimSpace(parts[0]) == "starter_department" && strings.TrimSpace(parts[1]) != ""
 }
 
 func validateNodeAssignee(node Node, label string) []ValidationError {
@@ -775,6 +807,24 @@ func validateNotificationConfig(node Node, config *NotificationConfig, allowResu
 	}
 	if !validNotificationTemplate(title, extraTokens...) || !validNotificationTemplate(content, extraTokens...) {
 		return []ValidationError{{Code: ValidationNotification, Message: "通知模板包含不支持的占位符", NodeID: node.ID}}
+	}
+	if !allowResult && len(config.ResultTypes) > 0 {
+		return []ValidationError{{Code: ValidationNotification, Message: "非结果通知不能配置结果类型", NodeID: node.ID}}
+	}
+	if allowResult && config.ResultTypes != nil {
+		if len(config.ResultTypes) == 0 {
+			return []ValidationError{{Code: ValidationNotification, Message: "结果通知至少选择一种通知结果", NodeID: node.ID}}
+		}
+		seenResults := make(map[string]struct{}, len(config.ResultTypes))
+		for _, resultType := range config.ResultTypes {
+			if resultType != NotificationResultApproved && resultType != NotificationResultRejected && resultType != NotificationResultReturned {
+				return []ValidationError{{Code: ValidationNotification, Message: "结果通知类型无效", NodeID: node.ID}}
+			}
+			if _, exists := seenResults[resultType]; exists {
+				return []ValidationError{{Code: ValidationNotification, Message: "结果通知类型不能重复", NodeID: node.ID}}
+			}
+			seenResults[resultType] = struct{}{}
+		}
 	}
 	return nil
 }

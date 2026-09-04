@@ -19,14 +19,16 @@
 
 | 场景 | 后端声明位置 | 前端是否通常要改 |
 | --- | --- | --- |
-| 后台菜单/按钮 | `backend/internal/app/support/adminmenuperm/declarations.go` | 通常不用逐个改，后台菜单树来自后端；如果页面按钮还写死了 `hasPerm`，需要同步。 |
-| 后台 API | `backend/internal/app/support/adminrouteperm/catalog.go` | 通常不用逐个改；接口权限树来自后端。 |
-| 客户端菜单 | `backend/internal/app/support/appmenuperm/catalog.go` | 现阶段管理后台配置页通常不用逐个改，除非前端页面自己写死了菜单 key。 |
-| 客户端 API | `backend/internal/app/support/appapiperm/catalog.go` | 管理后台配置页通常不用逐个改，除非调用端写死了权限 key。 |
-| 钉钉 H5 菜单/按钮 | `backend/internal/app/support/appmenuperm/catalog.go` | 菜单主要来自 `bootstrap` 返回；按钮 key 在 H5 页面有硬编码，需要同步。 |
-| 钉钉 H5 API | `backend/internal/app/support/appapiperm/catalog.go` | 需要同步 H5 页面里所有 `hasApiPermission` 和动作映射。 |
+| 后台菜单/按钮 | `backend/internal/support/adminmenuperm/declarations.go` | 通常不用逐个改，后台菜单树来自后端；如果页面按钮还写死了 `hasPerm`，需要同步。 |
+| 后台 API | `backend/internal/support/adminrouteperm/catalog.go` | 通常不用逐个改；接口权限树来自后端。 |
+| 客户端菜单 | `backend/internal/support/appmenuperm/catalog.go` | 现阶段管理后台配置页通常不用逐个改，除非前端页面自己写死了菜单 key。 |
+| 客户端 API | `backend/internal/support/appapiperm/catalog.go` | 管理后台配置页通常不用逐个改，除非调用端写死了权限 key。 |
+| 钉钉 H5 菜单/按钮 | `backend/internal/support/appmenuperm/catalog.go` | 菜单主要来自 `bootstrap` 返回；按钮 key 在 H5 页面有硬编码，需要同步。 |
+| 钉钉 H5 API | `backend/internal/support/appapiperm/catalog.go` | 需要同步 H5 页面里所有 `hasApiPermission` 和动作映射。 |
 
 数据库中的 `permissions.permission_key` 是权限定义编码，`permission_grants.grant_permission_key` 是角色或用户实际授权编码。两者必须保持一致。
+
+权限表、授权表和 `permission_icon` 缺失时，主服务和管理接口只返回迁移提示，不会在请求链路执行 DDL。升级环境必须在维护窗口运行 `backend/init.sh`，由 `backend/migrations/` 下的版本化 SQL 完成结构变更。
 
 菜单展示名和图标也来自 `permissions`：
 
@@ -103,14 +105,13 @@
 
 菜单显示主要使用后端返回的 `menus`，如果只改菜单权限 key、不改菜单 `path`，H5 页面通常不用改路由逻辑。
 
-菜单图标也跟随 `menus[].icon` 返回。后端优先读取 `permissions.permission_icon`，没有配置时使用 `appmenuperm.DingTalkH5MenuDeclarations()` 里的默认图标。H5 前端的实际 SVG 图标集合在 `dingtalk-h5/components/performance/AppShell.vue` 的 `navIconMap` 中；新增图标键时，需要同时更新后台可选项和这个映射。
+菜单图标也跟随 `menus[].icon` 返回。后端优先读取 `permissions.permission_icon`，没有配置时使用 `appmenuperm.DingTalkH5MenuDeclarations()` 里的默认图标。当前钉钉 H5 权威前端是 `h5app/`，图标解析和导航装配分别位于 `h5app/src/config/app-icons.ts` 和 `h5app/src/config/app-navigation.ts`；新增图标键时，需要同时更新后台可选项和这两处映射。
 
 按钮和接口判断存在硬编码，修改权限编码时必须同步检查：
 
-- `dingtalk-h5/pages/index/index.vue` 中的流程动作 API 映射：`reviewActionApiPermissions`。
-- `dingtalk-h5/pages/index/index.vue` 中的流程动作按钮映射：`reviewActionButtonPermissions`。
-- `dingtalk-h5/pages/index/index.vue` 中所有 `hasApiPermission('dingtalk_h5:api:*')`。
-- `dingtalk-h5/pages/index/index.vue` 中所有 `hasButtonPermission('dingtalk_h5:button:*')`。
+- `h5app/src/pages/performance/constants/performancePermissions.ts` 中的 `reviewActionApiPermissions` 和 `reviewActionButtonPermissions`。
+- `h5app/src/pages/performance/` 与 `h5app/src/pages/workflow/` 中所有 `hasApiPermission('dingtalk_h5:api:*')`。
+- 上述页面中所有 `hasButtonPermission('dingtalk_h5:button:*')`，以及 `h5app/src/stores/dingtalkAuth.ts` 中的统一判断方法。
 
 示例：如果把模板保存接口权限从 `dingtalk_h5:api:template:save` 改为 `dingtalk_h5:api:template:update`，需要同步：
 

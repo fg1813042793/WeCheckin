@@ -23,7 +23,7 @@ func (h *Handler) ListUsers(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.ListUsersContext(ctx, user)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.user.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -39,7 +39,7 @@ func (h *Handler) CreateUser(ctx context.Context, c *app.RequestContext) {
 	_ = c.BindAndValidate(&payload)
 	created, users, err := dingtalkh5service.CreateUserContext(ctx, user, payload)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.user.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, utils.H{"user": created, "users": users})
@@ -55,7 +55,7 @@ func (h *Handler) UpdateUser(ctx context.Context, c *app.RequestContext) {
 	_ = c.BindAndValidate(&payload)
 	updated, users, err := dingtalkh5service.UpdateUserContext(ctx, user, c.Param("id"), payload)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.user.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, utils.H{"user": updated, "users": users})
@@ -69,7 +69,7 @@ func (h *Handler) DeleteUser(ctx context.Context, c *app.RequestContext) {
 	}
 	users, err := dingtalkh5service.DeleteUserContext(ctx, user, c.Param("id"))
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.user.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, utils.H{"users": users})

@@ -32,7 +32,7 @@ func (h *AdminSurveyHandler) ResponseList(ctx context.Context, c *app.RequestCon
 	keyword := c.Query("keyword")
 	list, total, err := h.responses.ListForAdminContext(ctx, uint(surveyID), page, pageSize, keyword, admin.ID)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.responses", "查询失败，请稍后重试", err)
 		return
 	}
 	voList := make([]surveyResponseWithAnswers, len(list))
@@ -76,7 +76,7 @@ func (h *AdminSurveyHandler) ResponseDel(ctx context.Context, c *app.RequestCont
 	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := h.responses.DeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.responses", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -108,7 +108,7 @@ func (h *AdminSurveyHandler) ResponseBatchDel(ctx context.Context, c *app.Reques
 		return
 	}
 	if err := h.responses.BatchDeleteForAdminContext(ctx, ids, admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.responses", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -131,7 +131,7 @@ func (h *AdminSurveyHandler) ResponseExport(ctx context.Context, c *app.RequestC
 	}
 	list, err := h.responses.ListAllBySurveyForAdminContext(ctx, uint(surveyID), admin.ID)
 	if err != nil {
-		response.Fail(c, "导出失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.responses", "导出失败，请稍后重试", err)
 		return
 	}
 	items := make([]report.AnswerItem, len(list))
@@ -140,7 +140,7 @@ func (h *AdminSurveyHandler) ResponseExport(ctx context.Context, c *app.RequestC
 	}
 	tbl, err := report.RenderAnswers(sv.Schema, items)
 	if err != nil {
-		response.Fail(c, "导出失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.responses", "导出失败，请稍后重试", err)
 		return
 	}
 	csvData := report.ToCSV(tbl)

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	adminuserservice "wecheckin/backend/internal/service/admin/adminuser"
 	"wecheckin/backend/internal/model"
+	adminuserservice "wecheckin/backend/internal/service/admin/adminuser"
 	"wecheckin/backend/pkg/response"
 )
 

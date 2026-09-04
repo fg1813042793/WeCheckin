@@ -28,13 +28,18 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/cors"
+	gormlogger "gorm.io/gorm/logger"
 	_ "wecheckin/backend/docs/swagger"
 	"wecheckin/backend/internal/config"
 	"wecheckin/backend/internal/middleware"
+	notificationoutboxapp "wecheckin/backend/internal/modules/notificationoutbox/application"
+	notificationoutboxinfra "wecheckin/backend/internal/modules/notificationoutbox/infrastructure"
+	poststatservice "wecheckin/backend/internal/service/client/poststat"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/logger"
 	rd "wecheckin/backend/pkg/redis"
@@ -50,7 +55,25 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	database.InitDatabase(cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName)
+	databaseLogLevel := gormlogger.Warn
+	databaseLogColorful := false
+	if cfg.Server.Mode == "debug" {
+		databaseLogLevel = gormlogger.Info
+		databaseLogColorful = true
+	}
+	if err := database.ConnectDatabaseWithOptions(database.Options{
+		Host: cfg.Database.Host, Port: cfg.Database.Port,
+		User: cfg.Database.User, Password: cfg.Database.Password, DBName: cfg.Database.DBName,
+		ConnectTimeout: time.Duration(cfg.Database.ConnectTimeoutSec) * time.Second,
+		ReadTimeout:    time.Duration(cfg.Database.ReadTimeoutSec) * time.Second,
+		WriteTimeout:   time.Duration(cfg.Database.WriteTimeoutSec) * time.Second,
+		MaxIdleConns:   cfg.Database.MaxIdleConns, MaxOpenConns: cfg.Database.MaxOpenConns,
+		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
+		ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
+		LogLevel:        databaseLogLevel, Colorful: databaseLogColorful,
+	}); err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 
 	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
 		logger.Logger.Printf("Warning: logger init: %v", err)
@@ -62,13 +85,22 @@ func main() {
 		logger.Logger.Println("Redis connected")
 	}
 
-	h := server.Default(server.WithHostPorts(":"+cfg.Server.Port), server.WithMaxRequestBodySize(32*1024*1024))
+	outboxService := notificationoutboxapp.NewService(notificationoutboxinfra.NewGormStore(database.GetDB()))
+	poststatservice.ConfigureNotificationDispatcher(poststatservice.NewOutboxDispatcher(outboxService))
+
+	h := server.Default(
+		server.WithHostPorts(net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)),
+		server.WithReadTimeout(time.Duration(cfg.Server.ReadTimeoutSec)*time.Second),
+		server.WithWriteTimeout(time.Duration(cfg.Server.WriteTimeoutSec)*time.Second),
+		server.WithIdleTimeout(time.Duration(cfg.Server.IdleTimeoutSec)*time.Second),
+		server.WithMaxRequestBodySize(32*1024*1024),
+	)
 
 	h.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORS.AllowOrigins,
 		AllowMethods:     cfg.CORS.AllowMethods,
 		AllowHeaders:     cfg.CORS.AllowHeaders,
-		AllowCredentials: true,
+		AllowCredentials: cfg.CORS.AllowCredentials,
 		MaxAge:           time.Hour,
 	}))
 

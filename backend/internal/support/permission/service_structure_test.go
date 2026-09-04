@@ -40,7 +40,7 @@ func TestPermissionServiceExposesUnifiedAccessFunctions(t *testing.T) {
 	}
 }
 
-func TestPermissionServiceBackfillsOptionalPermissionColumns(t *testing.T) {
+func TestPermissionServiceChecksSchemaWithoutRuntimeDDL(t *testing.T) {
 	src, err := os.ReadFile("service.go")
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -49,11 +49,16 @@ func TestPermissionServiceBackfillsOptionalPermissionColumns(t *testing.T) {
 	for _, snippet := range []string{
 		"func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error",
 		"HasColumn(&model.Permission{}, \"Icon\")",
-		"AddColumn(&model.Permission{}, \"Icon\")",
-		"EnsurePermissionSchemaContext(context.Background(), db)",
+		"ErrPermissionSchemaNotReady",
 	} {
 		if !strings.Contains(text, snippet) {
-			t.Fatalf("permission service must backfill optional permission columns with %s", snippet)
+			t.Fatalf("permission service must check required schema with %s", snippet)
+		}
+	}
+	body := testFunctionBody(t, text, "EnsurePermissionSchemaContext")
+	for _, forbidden := range []string{"AddColumn", "AutoMigrate", "CreateTable", "ALTER TABLE"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("permission schema check must not execute request-time DDL %s", forbidden)
 		}
 	}
 }

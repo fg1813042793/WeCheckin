@@ -25,6 +25,8 @@ import type {
   InAppNotificationRecipientOptions,
   InAppNotificationSendPayload,
   InAppNotificationSendResult,
+  NotificationStyleConfig,
+  NotificationStyleTestPayload,
   PageQuery,
   PageResult,
   QueryParams,
@@ -642,6 +644,18 @@ export const adminApi = {
   },
   dingTalkNotificationSend(data: DingTalkNotificationSendPayload) {
     return request.post<DingTalkNotificationSendResult, DingTalkNotificationSendPayload>(`${ADMIN_V2}/dingtalk-notifications`, data, jsonConfig)
+  },
+  notificationStylesGet() {
+    return request.get<NotificationStyleConfig>(`${ADMIN_V2}/notification-styles`)
+  },
+  notificationStylesSave(data: NotificationStyleConfig) {
+    return request.put<NotificationStyleConfig, NotificationStyleConfig>(`${ADMIN_V2}/notification-styles`, data, jsonConfig)
+  },
+  notificationStyleInAppTest(data: NotificationStyleTestPayload) {
+    return request.post<InAppNotificationSendResult, NotificationStyleTestPayload>(`${ADMIN_V2}/notification-styles/test/in-app`, data, jsonConfig)
+  },
+  notificationStyleDingTalkTest(data: NotificationStyleTestPayload) {
+    return request.post<DingTalkNotificationSendResult, NotificationStyleTestPayload>(`${ADMIN_V2}/notification-styles/test/dingtalk`, data, jsonConfig)
   },
   surveyTemplatePresetsGet() {
     return request.get<TemplatePreset[]>(`${ADMIN_V2}/survey-template-presets`)

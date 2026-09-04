@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	admincontentservice "wecheckin/backend/internal/service/admin/admincontent"
 	"wecheckin/backend/internal/model"
+	admincontentservice "wecheckin/backend/internal/service/admin/admincontent"
 	"wecheckin/backend/pkg/response"
 )
 

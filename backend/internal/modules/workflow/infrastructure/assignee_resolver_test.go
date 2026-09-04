@@ -1,6 +1,8 @@
 package infrastructure
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -8,6 +10,22 @@ import (
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 	"wecheckin/backend/internal/workflowcore"
 )
+
+func TestResolveReturnsCanceledContextBeforeResolvingAssignees(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	resolver := NewAssigneeResolver(nil)
+
+	actual, err := resolver.Resolve(ctx, workflowdomain.AssigneeRequest{
+		Node: workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "9"}},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Resolve() error = %v, want context.Canceled", err)
+	}
+	if actual != nil {
+		t.Fatalf("Resolve() = %#v, want nil", actual)
+	}
+}
 
 func TestResolvedAssigneeDisplayNamesPreserveResolverOrder(t *testing.T) {
 	actual := resolvedAssigneeDisplayNames(
@@ -35,7 +53,7 @@ func TestResolveVariableAssigneesSupportsCommonValueShapes(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resolver := NewAssigneeResolver(nil)
-			actual, err := resolver.Resolve(workflowdomain.AssigneeRequest{
+			actual, err := resolver.Resolve(context.Background(), workflowdomain.AssigneeRequest{
 				Node:      workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeVariable, Value: "reviewers"}},
 				Variables: test.variables,
 			})
@@ -51,7 +69,7 @@ func TestResolveVariableAssigneesSupportsCommonValueShapes(t *testing.T) {
 
 func TestResolveManagerUsesGenericWorkflowVariable(t *testing.T) {
 	resolver := NewAssigneeResolver(nil)
-	actual, err := resolver.Resolve(workflowdomain.AssigneeRequest{
+	actual, err := resolver.Resolve(context.Background(), workflowdomain.AssigneeRequest{
 		Node:      workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeManager}},
 		Variables: map[string]interface{}{"managerId": "21"},
 	})
@@ -65,7 +83,7 @@ func TestResolveManagerUsesGenericWorkflowVariable(t *testing.T) {
 
 func TestResolveUserAssigneePreservesConfiguredOrder(t *testing.T) {
 	resolver := NewAssigneeResolver(nil)
-	actual, err := resolver.Resolve(workflowdomain.AssigneeRequest{
+	actual, err := resolver.Resolve(context.Background(), workflowdomain.AssigneeRequest{
 		Node: workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "9, 4, 9, 2"}},
 	})
 	if err != nil {
@@ -78,7 +96,7 @@ func TestResolveUserAssigneePreservesConfiguredOrder(t *testing.T) {
 
 func TestResolveInitiatorAssigneeUsesBusinessStarter(t *testing.T) {
 	resolver := NewAssigneeResolver(nil)
-	actual, err := resolver.Resolve(workflowdomain.AssigneeRequest{
+	actual, err := resolver.Resolve(context.Background(), workflowdomain.AssigneeRequest{
 		Instance: workflowdomain.ProcessInstance{StarterID: "27", OperatorID: "3"},
 		Node:     workflowcore.Node{Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeInitiator}},
 	})
@@ -109,5 +127,50 @@ func TestParseOrgIdentityValueScopes(t *testing.T) {
 					scope, departmentID, identityCode, test.wantScope, test.wantDepartment, test.wantIdentity)
 			}
 		})
+	}
+}
+
+func TestBuildDepartmentApprovalPathUsesDynamicAncestors(t *testing.T) {
+	departments := []model.Department{
+		{ID: 1, Name: "集团", ParentID: 0},
+		{ID: 2, Name: "事业部", ParentID: 1},
+		{ID: 3, Name: "产品部", ParentID: 2},
+	}
+	path, err := buildDepartmentApprovalPath(departments, 3, workflowcore.DepartmentApprovalChainStopRoot, 0)
+	if err != nil {
+		t.Fatalf("build root approval path: %v", err)
+	}
+	if got := departmentPathIDs(path); !reflect.DeepEqual(got, []uint{3, 2, 1}) {
+		t.Fatalf("root approval path = %#v", got)
+	}
+
+	path, err = buildDepartmentApprovalPath(departments, 3, workflowcore.DepartmentApprovalChainStopDepartment, 2)
+	if err != nil {
+		t.Fatalf("build bounded approval path: %v", err)
+	}
+	if got := departmentPathIDs(path); !reflect.DeepEqual(got, []uint{3, 2}) {
+		t.Fatalf("bounded approval path = %#v", got)
+	}
+
+	if _, err := buildDepartmentApprovalPath(departments, 3, workflowcore.DepartmentApprovalChainStopDepartment, 99); err == nil {
+		t.Fatal("non-ancestor stop department should fail")
+	}
+}
+
+func TestBuildDepartmentApprovalPathRejectsCycle(t *testing.T) {
+	departments := []model.Department{{ID: 1, ParentID: 2}, {ID: 2, ParentID: 1}}
+	if _, err := buildDepartmentApprovalPath(departments, 1, workflowcore.DepartmentApprovalChainStopRoot, 0); err == nil {
+		t.Fatal("cyclic department path should fail")
+	}
+}
+
+func TestFilterApprovalLayerAssigneesSkipsStarterAndCrossLayerDuplicates(t *testing.T) {
+	seen := map[string]struct{}{"9": {}}
+	actual := filterApprovalLayerAssignees([]string{"7", "8", "9", "8"}, "7", true, seen)
+	if !reflect.DeepEqual(actual, []string{"8"}) {
+		t.Fatalf("filtered layer assignees = %#v", actual)
+	}
+	if _, exists := seen["8"]; !exists {
+		t.Fatal("new layer assignee should be recorded as seen")
 	}
 }

@@ -143,6 +143,8 @@ func Declarations() []Declaration {
 		{"notification:read", "站内信已读接口"},
 		{"notification:send", "站内信发送接口"},
 		{"notification:dingtalk:send", "钉钉通知发送接口"},
+		{"notification:style:list", "通知样式查看接口"},
+		{"notification:style:edit", "通知样式维护接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -353,4 +355,6 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"notification:read":            {method: "PATCH", path: "/api/v2/admin/in-app-notifications/:id/read"},
 	"notification:send":            {method: "POST", path: "/api/v2/admin/in-app-notifications"},
 	"notification:dingtalk:send":   {method: "POST", path: "/api/v2/admin/dingtalk-notifications"},
+	"notification:style:list":      {method: "GET", path: "/api/v2/admin/notification-styles"},
+	"notification:style:edit":      {method: "PUT", path: "/api/v2/admin/notification-styles"},
 }

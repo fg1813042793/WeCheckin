@@ -25,7 +25,7 @@ func (h *ClientSurveyHandler) PublicValidate(ctx context.Context, c *app.Request
 		DeviceID string                 `json:"deviceId"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "请求参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.public_tools", "请求参数错误，请稍后重试", err)
 		return
 	}
 	schema := req.Schema
@@ -43,7 +43,7 @@ func (h *ClientSurveyHandler) PublicValidate(ctx context.Context, c *app.Request
 	}
 	s, err := schemaPkg.Parse(schema)
 	if err != nil {
-		response.Fail(c, "schema 解析失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.public_tools", "schema 解析失败，请稍后重试", err)
 		return
 	}
 	type fieldErr struct {
@@ -72,18 +72,18 @@ func (h *ClientSurveyHandler) PublicValidate(ctx context.Context, c *app.Request
 // @Tags 客户端-表单工具
 // @Summary 应用表单逻辑（通用）
 // @Router /survey/apply [post]
-func (h *ClientSurveyHandler) PublicApply(_ context.Context, c *app.RequestContext) {
+func (h *ClientSurveyHandler) PublicApply(ctx context.Context, c *app.RequestContext) {
 	var req struct {
 		Schema  string                 `json:"schema"`
 		Answers map[string]interface{} `json:"answers"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "请求参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.public_tools", "请求参数错误，请稍后重试", err)
 		return
 	}
 	s, err := schemaPkg.Parse(req.Schema)
 	if err != nil {
-		response.Fail(c, "schema 解析失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.public_tools", "schema 解析失败，请稍后重试", err)
 		return
 	}
 	eng := calcPkg.New()

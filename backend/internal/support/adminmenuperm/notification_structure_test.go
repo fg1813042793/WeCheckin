@@ -13,6 +13,8 @@ func TestNotificationMenuDeclarations(t *testing.T) {
 		"admin:menu:notification:read":          {parent: "admin:menu:notification", perms: "notification:read", typ: TypeButton},
 		"admin:menu:notification:send":          {parent: "admin:menu:notification", perms: "notification:send", typ: TypeButton},
 		"admin:menu:notification:dingtalk-send": {parent: "admin:menu:notification", perms: "notification:dingtalk:send", typ: TypeButton},
+		"admin:menu:notification:style:list":    {parent: "admin:menu:notification", perms: "notification:style:list", typ: TypeButton},
+		"admin:menu:notification:style:edit":    {parent: "admin:menu:notification", perms: "notification:style:edit", typ: TypeButton},
 	}
 
 	found := make(map[string]Declaration)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { InAppNotification } from '@/api/notifications'
+import type { InAppNotification, NotificationTone } from '@/api/notifications'
 import { computed, ref, watch } from 'vue'
 import {
   listNotifications,
@@ -34,6 +34,43 @@ const page = ref(1)
 const pageSize = 20
 const total = ref(0)
 
+interface NotificationTypeMeta {
+  label: string
+  icon: string
+  color: string
+  tone: NotificationTone
+}
+
+const notificationTypeMetas: Record<string, NotificationTypeMeta> = {
+  task_arrived: { label: '待处理', icon: 'clock', color: '#b45309', tone: 'warning' },
+  task_reminder: { label: '处理提醒', icon: 'bell', color: '#b45309', tone: 'warning' },
+  approval_result_approved: { label: '审批通过', icon: 'checkmark-circle', color: '#00875a', tone: 'success' },
+  approval_result_rejected: { label: '审批驳回', icon: 'error-circle', color: '#c93756', tone: 'danger' },
+  approval_result_returned: { label: '审批退回', icon: 'reload', color: '#b45309', tone: 'warning' },
+  node_cc: { label: '流程抄送', icon: 'share', color: '#475569', tone: 'info' },
+  node_notify: { label: '流程通知', icon: 'email', color: '#2563eb', tone: 'primary' },
+  instance_commented: { label: '流程评论', icon: 'chat', color: '#2563eb', tone: 'primary' },
+  workflow: { label: '流程消息', icon: 'file-text', color: '#475569', tone: 'info' },
+  admin_manual: { label: '系统通知', icon: 'email', color: '#2563eb', tone: 'primary' },
+  scheduled_task: { label: '定时通知', icon: 'clock', color: '#475569', tone: 'info' },
+  survey_stat: { label: '问卷统计', icon: 'file-text', color: '#475569', tone: 'info' },
+}
+
+const defaultNotificationTypeMeta: NotificationTypeMeta = {
+  label: '系统消息',
+  icon: 'email',
+  color: '#475569',
+  tone: 'info',
+}
+
+const notificationToneColors: Record<NotificationTone, string> = {
+  primary: '#2563eb',
+  success: '#00875a',
+  warning: '#b45309',
+  danger: '#c93756',
+  info: '#475569',
+}
+
 const visible = computed({
   get: () => props.modelValue,
   set: value => emit('update:modelValue', value),
@@ -41,6 +78,25 @@ const visible = computed({
 
 const hasMore = computed(() => notifications.value.length < total.value)
 const unreadLabel = computed(() => props.unreadCount > 99 ? '99+' : String(props.unreadCount))
+
+function notificationTypeMeta(notification: InAppNotification | string) {
+  const type = typeof notification === 'string' ? notification : notification.type
+  const fallback = notificationTypeMetas[String(type || '').trim()] || defaultNotificationTypeMeta
+  if (typeof notification === 'string' || !notification.style)
+    return fallback
+  const style = notification.style
+  const tone = notificationToneColors[style.tone] ? style.tone : fallback.tone
+  return {
+    label: String(style.label || '').trim() || fallback.label,
+    icon: String(style.icon || '').trim() || fallback.icon,
+    tone,
+    color: notificationToneColors[tone],
+  }
+}
+
+function notificationToneClass(notification: InAppNotification, block: string) {
+  return `${block}--${notificationTypeMeta(notification).tone}`
+}
 
 watch(() => props.modelValue, (value) => {
   if (value) {
@@ -192,6 +248,17 @@ function formatTime(value: number) {
 
       <view v-if="selectedNotification" class="notification-detail">
         <view class="notification-detail__meta">
+          <view
+            class="notification-detail__kind"
+            :class="notificationToneClass(selectedNotification, 'notification-detail__kind')"
+          >
+            <u-icon
+              :name="notificationTypeMeta(selectedNotification).icon"
+              size="14"
+              :color="notificationTypeMeta(selectedNotification).color"
+            />
+            <text>{{ notificationTypeMeta(selectedNotification).label }}</text>
+          </view>
           <text class="notification-detail__title">
             {{ selectedNotification.title || '站内消息' }}
           </text>
@@ -231,8 +298,24 @@ function formatTime(value: number) {
             @click="openNotification(item)"
           >
             <view class="notification-item__indicator" />
+            <view
+              class="notification-item__kind-icon"
+              :class="notificationToneClass(item, 'notification-item__kind-icon')"
+            >
+              <u-icon
+                :name="notificationTypeMeta(item).icon"
+                size="17"
+                :color="notificationTypeMeta(item).color"
+              />
+            </view>
             <view class="notification-item__content">
               <view class="notification-item__topline">
+                <text
+                  class="notification-item__kind"
+                  :class="notificationToneClass(item, 'notification-item__kind')"
+                >
+                  {{ notificationTypeMeta(item).label }}
+                </text>
                 <text class="notification-item__title">
                   {{ item.title || '站内消息' }}
                 </text>
@@ -409,15 +492,28 @@ function formatTime(value: number) {
 }
 
 .notification-item__indicator {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
+  position: absolute;
+  top: 13px;
+  left: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: transparent;
 }
 
 .notification-item--unread .notification-item__indicator {
   background: #00a67e;
+}
+
+.notification-item__kind-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .notification-item__content {
@@ -427,8 +523,71 @@ function formatTime(value: number) {
 
 .notification-item__topline {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-item__kind,
+.notification-detail__kind {
+  width: fit-content;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.notification-item__kind {
+  flex: 0 0 auto;
+  padding: 0 5px;
+}
+
+.notification-detail__kind {
+  min-height: 24px;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.notification-item__kind-icon--primary,
+.notification-item__kind--primary,
+.notification-detail__kind--primary {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.notification-item__kind-icon--success,
+.notification-item__kind--success,
+.notification-detail__kind--success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.notification-item__kind-icon--warning,
+.notification-item__kind--warning,
+.notification-detail__kind--warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.notification-item__kind-icon--danger,
+.notification-item__kind--danger,
+.notification-detail__kind--danger {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.notification-item__kind-icon--info,
+.notification-item__kind--info,
+.notification-detail__kind--info {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
 }
 
 .notification-item__title {

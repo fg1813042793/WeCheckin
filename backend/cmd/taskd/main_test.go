@@ -89,15 +89,23 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 	text := string(source)
 	for _, want := range []string{
 		"signal.NotifyContext(",
-		"database.ConnectDatabase(",
+		"database.ConnectDatabaseWithOptions(",
+		"database.Options{",
+		"ConnectTimeout:",
+		"ReadTimeout:",
+		"WriteTimeout:",
 		"waitForDependency(ctx, \"database\"",
 		"waitForDependency(ctx, \"Redis\"",
-		"LogMode(gormlogger.Warn)",
+		"LogLevel:",
+		"gormlogger.Warn",
 		"redispkg.Init(",
 		"scheduledtaskruntime.NewScheduler(",
 		"RecoveryInterval:",
 		"scheduledtaskruntime.NewWorker(",
 		"scheduledtaskinfra.NewHandlerRegistry(",
+		"scheduledtaskinfra.NewNotificationOutboxDispatchJob(",
+		"notificationoutboxapp.NewService(",
+		"notificationoutboxinfra.NewWebhookChannel(",
 		"runRole(ctx, selectedRole, scheduler, worker)",
 	} {
 		if !strings.Contains(text, want) {
@@ -107,7 +115,7 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 	if strings.Index(text, "signal.NotifyContext(") > strings.Index(text, "waitForDependency(ctx, \"database\"") {
 		t.Fatal("taskd must create its cancellation context before waiting for the database")
 	}
-	for _, forbidden := range []string{"app/server", "server.Default(", ".Spin(", "database.InitDatabase("} {
+	for _, forbidden := range []string{"app/server", "server.Default(", ".Spin(", "server.WithHostPorts(", "database.InitDatabase(", ".LogMode("} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("taskd must not consume HTTP service resources: found %q", forbidden)
 		}

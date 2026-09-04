@@ -55,6 +55,27 @@ func TestCreateTaskRejectsInvalidHandlerConfigBeforePersistence(t *testing.T) {
 	}
 }
 
+func TestCreateTaskRejectsReservedSystemCode(t *testing.T) {
+	store := &fakeStore{}
+	service := newTestService(store, &fakeValidator{}, nil)
+	_, err := service.CreateTask(context.Background(), 7, CreateTaskRequest{Code: "system.custom", Name: "System task"})
+	if !errors.Is(err, ErrSystemTaskReadOnly) || store.createdTask != nil {
+		t.Fatalf("error=%v task=%#v", err, store.createdTask)
+	}
+}
+
+func TestUpdateSystemTaskIsReadOnly(t *testing.T) {
+	task := validTask()
+	task.Code = "system.notification-outbox-dispatch"
+	task.Version = 1
+	store := &fakeStore{task: task}
+	service := newTestService(store, &fakeValidator{}, nil)
+	_, err := service.UpdateTask(context.Background(), task.ID, 7, UpdateTaskRequest{Version: 1})
+	if !errors.Is(err, ErrSystemTaskReadOnly) {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestCreateScheduledRunAppliesConcurrencyPolicies(t *testing.T) {
 	now := time.Date(2026, time.September, 1, 1, 0, 0, 0, time.UTC)
 	for _, test := range []struct {

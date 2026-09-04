@@ -465,10 +465,11 @@ func TestCompileBPMNIncludesNotifyNodeAndNotificationAttributes(t *testing.T) {
 func TestApprovalResultNotificationSupportsResultPlaceholder(t *testing.T) {
 	definition := validLinearDefinition()
 	definition.Nodes[1].ResultNotification = &NotificationConfig{
-		Enabled:  true,
-		Channels: []string{NotificationChannelInApp, NotificationChannelDingTalkOA},
-		Title:    "{{workflowName}}审批结果",
-		Content:  "{{nodeName}}{{result}}",
+		Enabled:     true,
+		Channels:    []string{NotificationChannelInApp, NotificationChannelDingTalkOA},
+		Title:       "{{workflowName}}审批结果",
+		Content:     "{{nodeName}}{{result}}",
+		ResultTypes: []string{NotificationResultApproved, NotificationResultRejected, NotificationResultReturned},
 	}
 	if validationErrors := ValidateDefinition(definition); len(validationErrors) != 0 {
 		t.Fatalf("result notification validation errors = %#v", validationErrors)
@@ -483,9 +484,81 @@ func TestApprovalResultNotificationSupportsResultPlaceholder(t *testing.T) {
 		`flowable:resultNotificationEnabled="true"`,
 		`flowable:resultNotificationChannels="in_app,dingtalk_oa"`,
 		`flowable:resultNotificationContent="{{nodeName}}{{result}}"`,
+		`flowable:resultNotificationResultTypes="approved,rejected,returned"`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("generated result notification BPMN missing %q\n%s", expected, text)
+		}
+	}
+}
+
+func TestApprovalResultNotificationRejectsInvalidResultTypes(t *testing.T) {
+	for _, resultTypes := range [][]string{{}, {NotificationResultApproved, "cancelled"}} {
+		definition := validLinearDefinition()
+		definition.Nodes[1].ResultNotification = &NotificationConfig{
+			Enabled: true, Channels: []string{NotificationChannelInApp},
+			Title: "结果", Content: "{{result}}", ResultTypes: resultTypes,
+		}
+		if validationErrors := ValidateDefinition(definition); len(validationErrors) == 0 {
+			t.Fatalf("result types %#v should be invalid", resultTypes)
+		}
+	}
+}
+
+func TestDepartmentApprovalChainValidation(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Nodes[1].Assignee = &Assignee{Type: AssigneeTypeOrgIdentity, Value: "starter_department:department_leader"}
+	definition.Nodes[1].DepartmentApprovalChain = &DepartmentApprovalChainConfig{
+		Enabled: true, StopMode: DepartmentApprovalChainStopRoot,
+		MissingAssigneePolicy: DepartmentApprovalChainMissingSkip,
+	}
+	if validationErrors := ValidateDefinition(definition); len(validationErrors) != 0 {
+		t.Fatalf("department approval chain validation errors = %#v", validationErrors)
+	}
+
+	definition.Nodes[1].DepartmentApprovalChain.StopMode = DepartmentApprovalChainStopDepartment
+	definition.Nodes[1].DepartmentApprovalChain.StopDepartmentID = 0
+	if validationErrors := ValidateDefinition(definition); len(validationErrors) == 0 {
+		t.Fatal("specified department stop mode should require a department")
+	}
+
+	definition.Nodes[1].DepartmentApprovalChain = &DepartmentApprovalChainConfig{
+		Enabled: true, StopMode: DepartmentApprovalChainStopRoot,
+		MissingAssigneePolicy: DepartmentApprovalChainMissingSkip,
+	}
+	definition.Nodes[1].Assignee = &Assignee{Type: AssigneeTypeUser, Value: "7"}
+	if validationErrors := ValidateDefinition(definition); len(validationErrors) == 0 {
+		t.Fatal("department approval chain should require an organization identity assignee")
+	}
+
+	definition.Nodes[1].Assignee = &Assignee{Type: AssigneeTypeOrgIdentity, Value: "department:7:supervisor"}
+	if validationErrors := ValidateDefinition(definition); !hasValidationCode(validationErrors, ValidationDepartmentApprovalChain) {
+		t.Fatalf("department approval chain should require starter department scope, got %#v", validationErrors)
+	}
+}
+
+func TestCompileBPMNIncludesDepartmentApprovalChainAttributes(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Nodes[1].Assignee = &Assignee{Type: AssigneeTypeOrgIdentity, Value: "starter_department:supervisor"}
+	definition.Nodes[1].DepartmentApprovalChain = &DepartmentApprovalChainConfig{
+		Enabled: true, StopMode: DepartmentApprovalChainStopDepartment, StopDepartmentID: 8,
+		MissingAssigneePolicy: DepartmentApprovalChainMissingError, SkipStarter: true,
+	}
+
+	bpmn, err := CompileBPMN(definition)
+	if err != nil {
+		t.Fatalf("compile BPMN: %v", err)
+	}
+	text := string(bpmn)
+	for _, expected := range []string{
+		`flowable:departmentApprovalChain="true"`,
+		`flowable:departmentApprovalChainStopMode="department"`,
+		`flowable:departmentApprovalChainStopDepartmentId="8"`,
+		`flowable:departmentApprovalChainMissingPolicy="error"`,
+		`flowable:departmentApprovalChainSkipStarter="true"`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("generated department approval chain BPMN missing %q\n%s", expected, text)
 		}
 	}
 }

@@ -6,9 +6,9 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examservice "wecheckin/backend/internal/service/client/exam"
-	"wecheckin/backend/internal/service/admin/formkitadmin"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/admin/formkitadmin"
+	examservice "wecheckin/backend/internal/service/client/exam"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -93,7 +93,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 	}
 	var req ExamSaveReq
 	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.handler", "参数错误，请稍后重试", err)
 		return
 	}
 	if req.Title == "" {
@@ -107,7 +107,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 		var err error
 		deptID, err = formkitadmin.FirstAdminDeptIDContext(ctx, admin.ID)
 		if err != nil {
-			response.Fail(c, "获取部门失败: "+err.Error())
+			response.FailInternal(ctx, c, "admin.exam.handler", "获取部门失败，请稍后重试", err)
 			return
 		}
 		exam := model.Exam{
@@ -135,7 +135,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 		}
 		result, err := h.svc.CreateContext(ctx, exam)
 		if err != nil {
-			response.Fail(c, "创建失败: "+err.Error())
+			response.FailInternal(ctx, c, "admin.exam.handler", "创建失败，请稍后重试", err)
 			return
 		}
 		response.JSON(c, result)
@@ -162,7 +162,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 			"exam_status":       req.Status,
 		}
 		if err := h.svc.UpdateForAdminContext(ctx, req.ID, updates, admin.ID); err != nil {
-			response.Fail(c, "更新失败: "+err.Error())
+			response.FailInternal(ctx, c, "admin.exam.handler", "更新失败，请稍后重试", err)
 			return
 		}
 		response.JSON(c, examSaveResponse{ID: req.ID})
@@ -230,7 +230,7 @@ func (h *AdminExamHandler) Delete(ctx context.Context, c *app.RequestContext) {
 	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := h.svc.DeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.handler", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

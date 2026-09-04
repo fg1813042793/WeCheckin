@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/notificationstyle"
 )
 
 type fakeRepository struct {
@@ -20,6 +21,7 @@ type fakeRepository struct {
 	markReadID      uint
 	markReadUpdated bool
 	markAllUserID   string
+	styles          notificationstyle.Config
 }
 
 func (r *fakeRepository) List(_ context.Context, userID string, page, pageSize int) ([]model.Notify, int64, error) {
@@ -45,8 +47,15 @@ func (r *fakeRepository) MarkAllRead(_ context.Context, userID string) error {
 	return nil
 }
 
+func (r *fakeRepository) NotificationStyles(context.Context) (notificationstyle.Config, error) {
+	return r.styles, nil
+}
+
 func TestServiceListScopesToCurrentUserAndNormalizesPagination(t *testing.T) {
 	repository := &fakeRepository{
+		styles: notificationstyle.Config{Styles: []notificationstyle.Style{{
+			Type: notificationstyle.TypeWorkflow, Label: "自定义流程", Icon: "bell", Tone: notificationstyle.ToneWarning,
+		}}},
 		listItems: []model.Notify{{
 			ID:         7,
 			Title:      "待办提醒",
@@ -78,6 +87,9 @@ func TestServiceListScopesToCurrentUserAndNormalizesPagination(t *testing.T) {
 	item := result.List[0]
 	if item.ID != 7 || item.SourceType != "workflow_instance" || item.SourceID != "instance-1" {
 		t.Fatalf("notification dto = %#v", item)
+	}
+	if item.Style.Label != "自定义流程" || item.Style.Icon != "bell" || item.Style.Tone != notificationstyle.ToneWarning {
+		t.Fatalf("notification style = %#v", item.Style)
 	}
 }
 

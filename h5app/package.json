@@ -50,6 +50,7 @@
     "build:quickapp-webview-huawei": "uni build -p quickapp-webview-huawei",
     "build:quickapp-webview-union": "uni build -p quickapp-webview-union",
     "check:dingtalk-module": "node scripts/check-dingtalk-module.mjs",
+    "check:app-branding": "node scripts/check-app-branding.mjs",
     "check:ui-style": "node scripts/check-ui-style-guidelines.mjs",
     "check:workflow-module": "node scripts/check-workflow-module.mjs",
     "type-check": "vue-tsc --noEmit",

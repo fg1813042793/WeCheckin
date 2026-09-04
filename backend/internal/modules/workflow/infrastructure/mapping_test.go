@@ -241,6 +241,14 @@ func TestRenderNotificationPayloadRendersApprovalResult(t *testing.T) {
 	if rejectedPayload.Content != "你发起的流程在“主管审批”节点已驳回" {
 		t.Fatalf("rejected result payload = %#v", rejectedPayload)
 	}
+
+	returned := base
+	returned.Kind = workflowdomain.NotificationKindApprovalResultReturned
+	returned.TargetNodeName = "填写申请"
+	returnedPayload := renderNotificationPayload(state, returned, "Foster")
+	if returnedPayload.Content != "你发起的流程在“主管审批”节点已退回至“填写申请”" {
+		t.Fatalf("returned result payload = %#v", returnedPayload)
+	}
 }
 
 func TestCollectInstanceUserIDsIncludesFormUserFields(t *testing.T) {
@@ -282,6 +290,8 @@ func TestTaskModelRoundTripPreservesRuntimeStatus(t *testing.T) {
 				ID: "task-1", TokenID: "token-1", NodeID: "approve", NodeName: "审批",
 				GroupKey: "group-1", AssigneeID: "42", ApprovalMode: "countersign",
 				CompletionRate: 67, Sequence: 2, Total: 3, Status: status,
+				ApprovalChainKey: "chain-1", ApprovalLayer: 2, ApprovalLayerTotal: 4,
+				DepartmentID: 18, DepartmentName: "产品部",
 				Action: workflowdomain.TaskActionApprove, Comment: "同意",
 				Images: []workflowcore.FormAttachment{{
 					ID: "uploads/workflow/2026/09/04/approval.png", Name: "approval.png",
@@ -299,6 +309,9 @@ func TestTaskModelRoundTripPreservesRuntimeStatus(t *testing.T) {
 			}
 			if actual.CompletionRate != 67 {
 				t.Fatalf("completion rate = %d, want 67", actual.CompletionRate)
+			}
+			if actual.ApprovalChainKey != "chain-1" || actual.ApprovalLayer != 2 || actual.ApprovalLayerTotal != 4 || actual.DepartmentID != 18 || actual.DepartmentName != "产品部" {
+				t.Fatalf("approval chain metadata = %#v", actual)
 			}
 			if len(actual.Images) != 1 || actual.Images[0].Name != "approval.png" {
 				t.Fatalf("images = %#v", actual.Images)

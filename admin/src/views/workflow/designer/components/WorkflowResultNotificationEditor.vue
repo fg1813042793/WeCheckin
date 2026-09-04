@@ -6,7 +6,14 @@
     </div>
 
     <template v-if="enabled">
-      <label class="field-label">通知渠道</label>
+      <label class="field-label">通知结果</label>
+      <el-checkbox-group :model-value="config.resultTypes" :disabled="readonly" class="notification-channels" @change="updateResultTypes">
+        <el-checkbox value="approved">通过</el-checkbox>
+        <el-checkbox value="rejected">驳回</el-checkbox>
+        <el-checkbox value="returned">退回</el-checkbox>
+      </el-checkbox-group>
+
+      <label class="field-label spacing">通知渠道</label>
       <el-checkbox-group :model-value="config.channels" :disabled="readonly" class="notification-channels" @change="updateChannels">
         <el-checkbox value="in_app">站内通知</el-checkbox>
         <el-checkbox value="dingtalk_oa">钉钉 OA</el-checkbox>
@@ -36,7 +43,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { WorkflowNotificationChannel, WorkflowNotificationConfig } from '../../types'
+import type {
+  WorkflowNotificationChannel,
+  WorkflowNotificationConfig,
+  WorkflowNotificationResultType,
+} from '../../types'
 import { defaultResultNotificationConfig } from '../graph'
 
 const props = withDefaults(defineProps<{
@@ -51,12 +62,19 @@ const emit = defineEmits<{
 }>()
 
 const defaultConfig = defaultResultNotificationConfig()
+const legacyResultTypes: WorkflowNotificationResultType[] = ['approved', 'rejected']
 const enabled = computed(() => props.modelValue?.enabled === true)
-const config = computed(() => ({
-  ...defaultConfig,
-  ...(props.modelValue || {}),
-  channels: [...(props.modelValue?.channels || defaultConfig.channels)],
-}))
+const config = computed(() => {
+  const configuredResultTypes = props.modelValue?.resultTypes
+  return {
+    ...defaultConfig,
+    ...(props.modelValue || {}),
+    channels: [...(props.modelValue?.channels || defaultConfig.channels)],
+    resultTypes: [...(configuredResultTypes !== undefined
+      ? configuredResultTypes
+      : props.modelValue ? legacyResultTypes : defaultConfig.resultTypes || [])],
+  }
+})
 
 function update(patch: Partial<WorkflowNotificationConfig>) {
   emit('update:modelValue', { ...config.value, ...patch })
@@ -71,6 +89,13 @@ function updateChannels(value: unknown) {
   const channels = Array.from(new Set(Array.isArray(value) ? value : []))
     .filter((item): item is WorkflowNotificationChannel => allowed.has(item as WorkflowNotificationChannel))
   update({ channels })
+}
+
+function updateResultTypes(value: unknown) {
+  const allowed = new Set<WorkflowNotificationResultType>(['approved', 'rejected', 'returned'])
+  const resultTypes = Array.from(new Set(Array.isArray(value) ? value : []))
+    .filter((item): item is WorkflowNotificationResultType => allowed.has(item as WorkflowNotificationResultType))
+  update({ resultTypes })
 }
 
 function updateTitle(value: string) {

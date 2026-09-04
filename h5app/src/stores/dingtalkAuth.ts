@@ -23,7 +23,7 @@ import {
 } from '@/api/dingtalk-h5'
 import { createAppNavItems, flattenAppNav, normalizeAppMenus } from '@/config/app-navigation'
 import { DINGTALK_H5_BIND_REQUIRED_CODE, DINGTALK_H5_CONFIG } from '@/config/dingtalk-h5'
-import { isDingTalkRuntime, requestAuthCode, setNavigationTitle, waitForDingTalkJSAPI } from '@/utils/dingtalk'
+import { isDingTalkRuntime, requestAuthCode, setBrowserFavicon, setNavigationTitle, waitForDingTalkJSAPI } from '@/utils/dingtalk'
 
 function defaultAppConfig(): AppConfig {
   return {
@@ -182,6 +182,7 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
       appUrl: firstText(payload.appUrl, appConfig.value.appUrl),
     }
     setNavigationTitle(appConfig.value.appTitle)
+    setBrowserFavicon(appConfig.value.logoUrl)
   }
 
   function applyPublicConfig(payload: PublicConfigPayload = {}) {

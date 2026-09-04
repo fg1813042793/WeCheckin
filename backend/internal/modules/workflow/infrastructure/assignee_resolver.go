@@ -24,7 +24,10 @@ func NewAssigneeResolver(db *gorm.DB) *AssigneeResolver {
 	return &AssigneeResolver{db: db}
 }
 
-func (resolver *AssigneeResolver) Resolve(request workflowdomain.AssigneeRequest) ([]string, error) {
+func (resolver *AssigneeResolver) Resolve(ctx context.Context, request workflowdomain.AssigneeRequest) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if request.Node.Assignee == nil {
 		return nil, workflowdomain.ErrAssigneeUnavailable
 	}
@@ -37,20 +40,162 @@ func (resolver *AssigneeResolver) Resolve(request workflowdomain.AssigneeRequest
 	case workflowcore.AssigneeTypeVariable:
 		return variableAssignees(request.Variables, assignee.Value), nil
 	case workflowcore.AssigneeTypeManager:
-		return resolver.resolveManager(context.Background(), request, assignee.Value)
+		return resolver.resolveManager(ctx, request, assignee.Value)
 	case workflowcore.AssigneeTypeDepartmentLeader:
-		return resolver.resolveDepartmentLeader(context.Background(), request, assignee.Value)
+		return resolver.resolveDepartmentLeader(ctx, request, assignee.Value)
 	case workflowcore.AssigneeTypeRole:
-		return resolver.resolveRoles(context.Background(), assignee.Value)
+		return resolver.resolveRoles(ctx, assignee.Value)
 	case workflowcore.AssigneeTypeOrgIdentity:
-		return resolver.resolveOrgIdentity(context.Background(), request, assignee.Value)
+		return resolver.resolveOrgIdentity(ctx, request, assignee.Value)
 	default:
 		return nil, fmt.Errorf("不支持的审批人类型 %s", assignee.Type)
 	}
 }
 
+func (resolver *AssigneeResolver) ResolveApprovalLayers(ctx context.Context, request workflowdomain.AssigneeRequest) ([]workflowdomain.ApprovalLayer, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if resolver == nil || resolver.db == nil {
+		return nil, errors.New("逐级部门审批解析器未配置数据库")
+	}
+	if request.Node.Assignee == nil || request.Node.Assignee.Type != workflowcore.AssigneeTypeOrgIdentity || request.Node.DepartmentApprovalChain == nil {
+		return nil, errors.New("逐级部门审批配置无效")
+	}
+	_, _, identityCode := parseOrgIdentityValue(request.Node.Assignee.Value)
+	if identityCode == "" {
+		return nil, errors.New("逐级部门审批身份不能为空")
+	}
+
+	starterDepartmentIDs, err := resolver.starterDepartmentIDs(ctx, request.Instance.StarterID)
+	if err != nil {
+		return nil, err
+	}
+	startDepartmentID, err := approvalChainStartDepartmentID(request.Variables, starterDepartmentIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var departments []model.Department
+	if err := resolver.db.WithContext(ctx).
+		Select("id", "dept_name", "dept_parent_id").
+		Where("dept_status = ?", 1).
+		Order("id ASC").
+		Find(&departments).Error; err != nil {
+		return nil, err
+	}
+	config := request.Node.DepartmentApprovalChain
+	path, err := buildDepartmentApprovalPath(departments, startDepartmentID, config.StopMode, config.StopDepartmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	layers := make([]workflowdomain.ApprovalLayer, 0, len(path))
+	seenAssignees := make(map[string]struct{})
+	starterID := strings.TrimSpace(request.Instance.StarterID)
+	for _, department := range path {
+		assignees, resolveErr := resolver.resolveOrgIdentityAssignments(
+			ctx, model.OrgApproverSubjectTypeDepartment, []uint{department.ID}, identityCode,
+		)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		filtered := filterApprovalLayerAssignees(assignees, starterID, config.SkipStarter, seenAssignees)
+		if len(filtered) == 0 {
+			if len(assignees) == 0 && config.MissingAssigneePolicy == workflowcore.DepartmentApprovalChainMissingError {
+				return nil, fmt.Errorf("部门 %s 未配置可用的%s", department.Name, identityCode)
+			}
+			continue
+		}
+		layers = append(layers, workflowdomain.ApprovalLayer{
+			DepartmentID: department.ID, DepartmentName: department.Name, AssigneeIDs: filtered,
+		})
+	}
+	return layers, nil
+}
+
+func filterApprovalLayerAssignees(assignees []string, starterID string, skipStarter bool, seen map[string]struct{}) []string {
+	filtered := make([]string, 0, len(assignees))
+	for _, assigneeID := range assignees {
+		assigneeID = strings.TrimSpace(assigneeID)
+		if assigneeID == "" || (skipStarter && assigneeID == starterID) {
+			continue
+		}
+		if _, exists := seen[assigneeID]; exists {
+			continue
+		}
+		seen[assigneeID] = struct{}{}
+		filtered = append(filtered, assigneeID)
+	}
+	return filtered
+}
+
+func approvalChainStartDepartmentID(variables map[string]interface{}, starterDepartmentIDs []uint) (uint, error) {
+	if raw, exists := variables["businessDepartmentId"]; exists {
+		departmentID := parsePositiveUint(fmt.Sprint(raw))
+		if departmentID == 0 {
+			return 0, errors.New("流程变量 businessDepartmentId 无效")
+		}
+		for _, candidate := range starterDepartmentIDs {
+			if candidate == departmentID {
+				return departmentID, nil
+			}
+		}
+		return 0, errors.New("业务所属部门不在发起人的所属部门范围内")
+	}
+	if len(starterDepartmentIDs) == 0 {
+		return 0, errors.New("发起人未关联可用部门")
+	}
+	return starterDepartmentIDs[0], nil
+}
+
+func buildDepartmentApprovalPath(
+	departments []model.Department,
+	startDepartmentID uint,
+	stopMode string,
+	stopDepartmentID uint,
+) ([]model.Department, error) {
+	byID := make(map[uint]model.Department, len(departments))
+	for _, department := range departments {
+		byID[department.ID] = department
+	}
+	currentID := startDepartmentID
+	path := make([]model.Department, 0)
+	visited := make(map[uint]struct{})
+	for currentID > 0 {
+		if len(path) >= 100 {
+			return nil, errors.New("部门审批层级超过安全限制")
+		}
+		if _, exists := visited[currentID]; exists {
+			return nil, errors.New("部门层级存在循环引用")
+		}
+		visited[currentID] = struct{}{}
+		department, exists := byID[currentID]
+		if !exists {
+			return nil, fmt.Errorf("部门 %d 不存在或已停用", currentID)
+		}
+		path = append(path, department)
+		if stopMode == workflowcore.DepartmentApprovalChainStopDepartment && department.ID == stopDepartmentID {
+			return path, nil
+		}
+		currentID = department.ParentID
+	}
+	if stopMode == workflowcore.DepartmentApprovalChainStopDepartment {
+		return nil, fmt.Errorf("终止部门 %d 不在发起部门的上级链路中", stopDepartmentID)
+	}
+	return path, nil
+}
+
+func departmentPathIDs(path []model.Department) []uint {
+	result := make([]uint, 0, len(path))
+	for _, department := range path {
+		result = append(result, department.ID)
+	}
+	return result
+}
+
 func (resolver *AssigneeResolver) ResolveDisplayNames(ctx context.Context, request workflowdomain.AssigneeRequest) ([]string, error) {
-	assigneeIDs, err := resolver.Resolve(request)
+	assigneeIDs, err := resolver.Resolve(ctx, request)
 	if err != nil || len(assigneeIDs) == 0 {
 		return nil, err
 	}

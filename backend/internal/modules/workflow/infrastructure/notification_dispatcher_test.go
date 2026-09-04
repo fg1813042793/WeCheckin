@@ -79,11 +79,15 @@ func TestWorkflowInAppNotifyUsesInstanceSourceContract(t *testing.T) {
 	}
 
 	notify := workflowInAppNotify(record, 1234)
-	if notify.Type != "workflow" || notify.SourceType != "workflow_instance" || notify.SourceID != "instance-1" {
+	if notify.Type != workflowmodel.NotificationKindTaskArrived || notify.SourceType != "workflow_instance" || notify.SourceID != "instance-1" {
 		t.Fatalf("workflow notify source = type %q sourceType %q sourceID %q", notify.Type, notify.SourceType, notify.SourceID)
 	}
 	if notify.UserID != "7" || notify.Title != "待办" || notify.Content != "请处理" || notify.AddTime != 1234 {
 		t.Fatalf("workflow notify payload = %#v", notify)
+	}
+	legacy := workflowInAppNotify(application.NotificationRecord{InstanceID: "instance-2"}, 1234)
+	if legacy.Type != "workflow" {
+		t.Fatalf("legacy workflow notify type = %q", legacy.Type)
 	}
 }
 

@@ -25,7 +25,7 @@
         </el-table-column>
         <el-table-column label="任务节点" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.nodeName || row.nodeId }}
+            {{ taskNodeDisplay(row) }}
           </template>
         </el-table-column>
         <el-table-column label="审批方式" width="150">
@@ -215,6 +215,13 @@ function taskUserDisplay(task: WorkflowTaskSummary) {
     return task.handledByName?.trim() || task.handledBy?.trim() || '-'
   }
   return task.assigneeName?.trim() || task.assigneeId?.trim() || '-'
+}
+
+function taskNodeDisplay(task: WorkflowTaskSummary) {
+  const nodeName = task.nodeName || task.nodeId
+  if (!task.approvalLayer) return nodeName
+  const department = task.sourceDepartmentName || `部门 ${task.sourceDepartmentId || '-'}`
+  return `${nodeName} · ${department}（第 ${task.approvalLayer}/${task.approvalLayerTotal || task.approvalLayer} 级）`
 }
 
 function approvalModeLabel(mode: string) {

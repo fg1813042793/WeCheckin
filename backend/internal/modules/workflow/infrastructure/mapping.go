@@ -26,7 +26,10 @@ func taskToModel(instanceID string, task workflowdomain.Task, handledAt int64, a
 		NodeID: task.NodeID, NodeName: task.NodeName, GroupKey: task.GroupKey,
 		AssigneeID: task.AssigneeID, ApprovalMode: task.ApprovalMode,
 		CompletionRate: task.CompletionRate, Sequence: task.Sequence, Total: task.Total,
-		Status: string(task.Status), Action: string(task.Action), Comment: task.Comment,
+		ApprovalChainKey: task.ApprovalChainKey, ApprovalLayer: task.ApprovalLayer,
+		ApprovalLayerTotal: task.ApprovalLayerTotal, SourceDepartmentID: task.DepartmentID,
+		SourceDepartmentName: task.DepartmentName,
+		Status:               string(task.Status), Action: string(task.Action), Comment: task.Comment,
 		ImagesJSON: encodeWorkflowImages(task.Images),
 		HandledBy:  handledBy, HandledAt: handledAt,
 	}
@@ -41,7 +44,10 @@ func taskFromModel(model workflowmodel.ProcessTask) (workflowdomain.Task, error)
 		ID: model.ID, TokenID: model.TokenID, NodeID: model.NodeID, NodeName: model.NodeName,
 		GroupKey: model.GroupKey, AssigneeID: model.AssigneeID, ApprovalMode: model.ApprovalMode,
 		CompletionRate: model.CompletionRate, Sequence: model.Sequence, Total: model.Total,
-		Status: workflowdomain.TaskStatus(model.Status), Action: workflowdomain.TaskAction(model.Action),
+		ApprovalChainKey: model.ApprovalChainKey, ApprovalLayer: model.ApprovalLayer,
+		ApprovalLayerTotal: model.ApprovalLayerTotal, DepartmentID: model.SourceDepartmentID,
+		DepartmentName: model.SourceDepartmentName,
+		Status:         workflowdomain.TaskStatus(model.Status), Action: workflowdomain.TaskAction(model.Action),
 		Comment: model.Comment, Images: images,
 	}, nil
 }

@@ -163,26 +163,31 @@ type TokenSummary struct {
 }
 
 type TaskSummary struct {
-	ID             string                        `json:"id"`
-	InstanceID     string                        `json:"instanceId"`
-	NodeID         string                        `json:"nodeId"`
-	NodeName       string                        `json:"nodeName"`
-	DefinitionName string                        `json:"definitionName"`
-	StarterID      string                        `json:"starterId"`
-	StarterName    string                        `json:"starterName"`
-	AssigneeID     string                        `json:"assigneeId"`
-	AssigneeName   string                        `json:"assigneeName"`
-	ApprovalMode   string                        `json:"approvalMode"`
-	CompletionRate int                           `json:"completionRate"`
-	Sequence       int                           `json:"sequence"`
-	Total          int                           `json:"total"`
-	Status         string                        `json:"status"`
-	Action         string                        `json:"action"`
-	Comment        string                        `json:"comment"`
-	Images         []workflowcore.FormAttachment `json:"images,omitempty"`
-	HandledBy      string                        `json:"handledBy"`
-	HandledByName  string                        `json:"handledByName"`
-	HandledAt      int64                         `json:"handledAt"`
+	ID                   string                        `json:"id"`
+	InstanceID           string                        `json:"instanceId"`
+	NodeID               string                        `json:"nodeId"`
+	NodeName             string                        `json:"nodeName"`
+	DefinitionName       string                        `json:"definitionName"`
+	StarterID            string                        `json:"starterId"`
+	StarterName          string                        `json:"starterName"`
+	AssigneeID           string                        `json:"assigneeId"`
+	AssigneeName         string                        `json:"assigneeName"`
+	ApprovalMode         string                        `json:"approvalMode"`
+	CompletionRate       int                           `json:"completionRate"`
+	Sequence             int                           `json:"sequence"`
+	Total                int                           `json:"total"`
+	ApprovalChainKey     string                        `json:"approvalChainKey,omitempty"`
+	ApprovalLayer        int                           `json:"approvalLayer,omitempty"`
+	ApprovalLayerTotal   int                           `json:"approvalLayerTotal,omitempty"`
+	SourceDepartmentID   uint                          `json:"sourceDepartmentId,omitempty"`
+	SourceDepartmentName string                        `json:"sourceDepartmentName,omitempty"`
+	Status               string                        `json:"status"`
+	Action               string                        `json:"action"`
+	Comment              string                        `json:"comment"`
+	Images               []workflowcore.FormAttachment `json:"images,omitempty"`
+	HandledBy            string                        `json:"handledBy"`
+	HandledByName        string                        `json:"handledByName"`
+	HandledAt            int64                         `json:"handledAt"`
 }
 
 type HistorySummary struct {

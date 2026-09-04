@@ -14,6 +14,18 @@ type AdminSetupHandler struct{}
 
 func NewAdminSetupHandler() *AdminSetupHandler { return &AdminSetupHandler{} }
 
+type DebugTokenConfigResponse struct {
+	UserExpireSeconds       int    `json:"user_expire_seconds"`
+	UserExpireString        string `json:"user_expire_str"`
+	UserPrefix              string `json:"user_prefix"`
+	AdminExpireSeconds      int    `json:"admin_expire_seconds"`
+	AdminExpireString       string `json:"admin_expire_str"`
+	AdminPrefix             string `json:"admin_prefix"`
+	DingTalkH5ExpireSeconds int    `json:"dingtalk_h5_expire_seconds"`
+	DingTalkH5ExpireString  string `json:"dingtalk_h5_expire_str"`
+	DingTalkH5Prefix        string `json:"dingtalk_h5_prefix"`
+}
+
 // @Tags PC端-系统设置
 // @Summary 获取内容配置
 // @Param key query string true "设置键名"
@@ -41,12 +53,11 @@ func (h *AdminSetupHandler) SetSetup(ctx context.Context, c *app.RequestContext)
 	key := c.PostForm("key")
 	value := c.PostForm("value")
 	addIP := c.ClientIP()
-	err := setupservice.SetSetup(key, value, "", addIP)
+	err := setupservice.SetSetupContext(ctx, key, value, "", addIP)
 	if err != nil {
 		response.Fail(c, "设置失败")
 		return
 	}
-	tokenutil.InvalidateSetupCache()
 	response.JSON(c, nil)
 }
 
@@ -59,12 +70,11 @@ func (h *AdminSetupHandler) SetContentSetup(ctx context.Context, c *app.RequestC
 	key := c.PostForm("key")
 	value := c.PostForm("value")
 	addIP := c.ClientIP()
-	err := setupservice.SetContentSetup(key, value, addIP)
+	err := setupservice.SetContentSetupContext(ctx, key, value, addIP)
 	if err != nil {
 		response.Fail(c, "设置失败")
 		return
 	}
-	tokenutil.InvalidateSetupCache()
 	response.JSON(c, nil)
 }
 
@@ -78,18 +88,18 @@ func (h *AdminSetupHandler) GenMiniQr(ctx context.Context, c *app.RequestContext
 }
 
 func (h *AdminSetupHandler) DebugTokenConfig(ctx context.Context, c *app.RequestContext) {
-	userExpire, userPrefix := tokenutil.GetTokenConfig("user")
-	adminExpire, adminPrefix := tokenutil.GetTokenConfig("admin")
-	dingTalkH5Expire, dingTalkH5Prefix := tokenutil.GetTokenConfig("dingtalk_h5")
-	response.JSON(c, map[string]interface{}{
-		"user_expire_seconds":        int(userExpire.Seconds()),
-		"user_expire_str":            userExpire.String(),
-		"user_prefix":                userPrefix,
-		"admin_expire_seconds":       int(adminExpire.Seconds()),
-		"admin_expire_str":           adminExpire.String(),
-		"admin_prefix":               adminPrefix,
-		"dingtalk_h5_expire_seconds": int(dingTalkH5Expire.Seconds()),
-		"dingtalk_h5_expire_str":     dingTalkH5Expire.String(),
-		"dingtalk_h5_prefix":         dingTalkH5Prefix,
+	userExpire, userPrefix := tokenutil.GetTokenConfigContext(ctx, "user")
+	adminExpire, adminPrefix := tokenutil.GetTokenConfigContext(ctx, "admin")
+	dingTalkH5Expire, dingTalkH5Prefix := tokenutil.GetTokenConfigContext(ctx, "dingtalk_h5")
+	response.JSON(c, DebugTokenConfigResponse{
+		UserExpireSeconds:       int(userExpire.Seconds()),
+		UserExpireString:        userExpire.String(),
+		UserPrefix:              userPrefix,
+		AdminExpireSeconds:      int(adminExpire.Seconds()),
+		AdminExpireString:       adminExpire.String(),
+		AdminPrefix:             adminPrefix,
+		DingTalkH5ExpireSeconds: int(dingTalkH5Expire.Seconds()),
+		DingTalkH5ExpireString:  dingTalkH5Expire.String(),
+		DingTalkH5Prefix:        dingTalkH5Prefix,
 	})
 }

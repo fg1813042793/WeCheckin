@@ -62,11 +62,15 @@ uni-app 客户端使用 `frontend/.env` 中的 `VITE_API_BASE_URL` 作为后端�
 
 ## 后端配置
 
-首次部署建议从安全示例配置开始：
+本地开发需要覆盖数据库或 Redis 时，从安全示例配置开始：
 
 ```bash
-cp backend/config/config.example.yaml backend/config/config.yaml
+cp backend/config/config.local.example.yaml backend/config/config.local.yaml
+cd backend
+./bin/wecheckin -env local
 ```
+
+`backend/config/config.local.yaml` 和 `config.*.local.yaml` 已被 Git 忽略。生产环境不要复制本地文件，统一通过部署平台或 `WECHECKIN_*` 环境变量注入敏感值。
 
 至少检查以下配置：
 
@@ -99,6 +103,8 @@ WECHECKIN_CORS_ALLOW_ORIGINS='https://your-domain.example' \
 ```bash
 WECHECKIN_CORS_ALLOW_ORIGINS='https://admin.example.com,https://h5.example.com'
 ```
+
+如果数据库、Redis 或 OSS 凭据曾经写入 Git，应按已泄露处理：先在服务端轮换凭据，再更新部署环境变量并重启服务，最后验证旧凭据已经失效。删除当前配置文件中的明文不会清除 Git 历史，也不能替代凭据轮换。
 
 ## 后端部署
 

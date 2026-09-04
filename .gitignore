@@ -26,6 +26,8 @@ backend/logs/
 .env
 .env.local
 .env.*.local
+backend/config/config.local.yaml
+backend/config/config.*.local.yaml
 
 # Build
 *.tsbuildinfo

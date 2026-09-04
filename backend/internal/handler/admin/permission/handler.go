@@ -50,7 +50,7 @@ func (h *AdminPermissionHandler) GetPermissionList(ctx context.Context, c *app.R
 func (h *AdminPermissionHandler) AddPermission(ctx context.Context, c *app.RequestContext) {
 	req := permissionRequestFromForm(c)
 	if err := adminpermission.AddContext(ctx, req); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.permission.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -65,7 +65,7 @@ func (h *AdminPermissionHandler) EditPermission(ctx context.Context, c *app.Requ
 	key := firstNonEmpty(c.Param("key"), c.PostForm("originalKey"), c.PostForm("oldKey"), c.PostForm("key"))
 	req := permissionRequestFromForm(c)
 	if err := adminpermission.EditContext(ctx, key, req); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.permission.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

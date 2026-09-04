@@ -10,6 +10,7 @@ import (
 
 	"wecheckin/backend/internal/model"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
+	workflowhttperror "wecheckin/backend/internal/modules/workflow/transport/httperror"
 	workflowsummary "wecheckin/backend/internal/service/dingtalkh5/workflowsummary"
 	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/pkg/response"
@@ -37,7 +38,7 @@ func (handler *SummaryHandler) ListDefinitions(ctx context.Context, c *app.Reque
 	}
 	data, err := handler.service.ListDefinitions(ctx)
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.summary.list_definitions", err)
 		return
 	}
 	response.JSON(c, data)
@@ -50,7 +51,7 @@ func (handler *SummaryHandler) GetDefinition(ctx context.Context, c *app.Request
 	definitionID, _ := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
 	data, err := handler.service.GetDefinition(ctx, uint(definitionID))
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.summary.get_definition", err)
 		return
 	}
 	response.JSON(c, data)
@@ -77,7 +78,7 @@ func (handler *SummaryHandler) ListInstances(ctx context.Context, c *app.Request
 		PageSize:          queryInt(c, "pageSize"),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.summary.list_instances", err)
 		return
 	}
 	response.JSON(c, data)
@@ -90,7 +91,7 @@ func (handler *SummaryHandler) GetInstance(ctx context.Context, c *app.RequestCo
 	}
 	data, err := handler.service.GetInstance(ctx, user, strings.TrimSpace(c.Param("id")))
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.summary.get_instance", err)
 		return
 	}
 	response.JSON(c, data)
@@ -108,7 +109,7 @@ func (handler *SummaryHandler) Export(ctx context.Context, c *app.RequestContext
 		Format:       workflowsummary.ExportFormat(strings.ToLower(strings.TrimSpace(c.Query("format")))),
 	})
 	if err != nil {
-		response.Fail(c, err.Error())
+		workflowhttperror.Respond(ctx, c, "workflow.summary.export", err)
 		return
 	}
 	c.Header("Content-Type", data.ContentType)

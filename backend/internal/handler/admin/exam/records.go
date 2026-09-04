@@ -65,7 +65,7 @@ func (h *AdminExamHandler) RecordDel(ctx context.Context, c *app.RequestContext)
 	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := h.svc.RecordDeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.records", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -84,7 +84,7 @@ func (h *AdminExamHandler) RecordBatchDel(ctx context.Context, c *app.RequestCon
 		return
 	}
 	if err := h.svc.RecordBatchDeleteForAdminContext(ctx, ids, admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.records", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -104,7 +104,7 @@ func (h *AdminExamHandler) Statistics(ctx context.Context, c *app.RequestContext
 	}
 	data, err := h.svc.StatisticsForAdminContext(ctx, examId, admin.ID)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.records", "查询失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)

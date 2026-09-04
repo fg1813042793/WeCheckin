@@ -28,7 +28,7 @@ func (h *AdminExamHandler) ResourceUpload(ctx context.Context, c *app.RequestCon
 	admin := adminVal.(*model.Admin)
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.resource", "上传失败，请稍后重试", err)
 		return
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
@@ -63,7 +63,7 @@ func (h *AdminExamHandler) ResourceUpload(ctx context.Context, c *app.RequestCon
 		Now:      now,
 	})
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.resource", "上传失败，请稍后重试", err)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (h *AdminExamHandler) ResourceUpload(ctx context.Context, c *app.RequestCon
 	})
 	if err != nil {
 		storage.RemoveLocal(stored)
-		response.Fail(c, "保存记录失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.resource", "保存记录失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -129,7 +129,7 @@ func (h *AdminExamHandler) ResourceDelete(ctx context.Context, c *app.RequestCon
 		return
 	}
 	if err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.exam.resource", "删除失败，请稍后重试", err)
 		return
 	}
 	if filepath.IsAbs(res.Path) {

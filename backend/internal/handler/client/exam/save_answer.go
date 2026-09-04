@@ -39,7 +39,7 @@ func (h *ClientExamHandler) SaveAnswer(ctx context.Context, c *app.RequestContex
 			response.Fail(c, "记录不存在")
 			return
 		}
-		response.Fail(c, "保存失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.exam.save_answer", "保存失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

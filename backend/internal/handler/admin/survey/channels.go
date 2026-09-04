@@ -21,7 +21,7 @@ func (h *AdminSurveyHandler) ChannelList(ctx context.Context, c *app.RequestCont
 	surveyID, _ := strconv.Atoi(c.Query("surveyId"))
 	list, err := h.survey.ChannelListForAdminContext(ctx, uint(surveyID), admin.ID)
 	if err != nil {
-		response.Fail(c, "查询失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.channels", "查询失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, surveyChannelListResponse{List: list})
@@ -38,11 +38,11 @@ func (h *AdminSurveyHandler) ChannelInsert(ctx context.Context, c *app.RequestCo
 	admin := adminVal.(*model.Admin)
 	var ch model.SurveyChannel
 	if err := c.BindAndValidate(&ch); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.channels", "参数错误，请稍后重试", err)
 		return
 	}
 	if err := h.survey.ChannelCreateForAdminContext(ctx, &ch, admin.ID); err != nil {
-		response.Fail(c, "创建失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.channels", "创建失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, ch)
@@ -59,7 +59,7 @@ func (h *AdminSurveyHandler) ChannelDel(ctx context.Context, c *app.RequestConte
 	admin := adminVal.(*model.Admin)
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if err := h.survey.ChannelDeleteForAdminContext(ctx, uint(id), admin.ID); err != nil {
-		response.Fail(c, "删除失败: "+err.Error())
+		response.FailInternal(ctx, c, "admin.survey.channels", "删除失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

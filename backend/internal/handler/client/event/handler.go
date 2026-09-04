@@ -79,7 +79,7 @@ func (h *EventHandler) EventParticipate(ctx context.Context, c *app.RequestConte
 	addIP := c.ClientIP()
 	err := eventservice.EventParticipateContext(ctx, eventID, userID, forms, addIP)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "client.event.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

@@ -37,12 +37,17 @@ func TestStandaloneMaintenanceCommandExists(t *testing.T) {
 	for _, snippet := range []string{
 		"bootstrap.RunMaintenance",
 		"config.LoadConfig",
-		"database.InitDatabase",
+		"database.ConnectDatabaseWithOptions",
+		"ConnectTimeout:",
+		"MaxOpenConns:",
 		`flag.String("migrations"`,
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("maintenance command must include %s", snippet)
 		}
+	}
+	if strings.Contains(text, "database.InitDatabase") {
+		t.Fatal("maintenance command must use the shared explicit database options")
 	}
 }
 

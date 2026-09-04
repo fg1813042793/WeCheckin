@@ -22,7 +22,7 @@ func (h *Handler) Bootstrap(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.BootstrapContext(ctx, user)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.bootstrap.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -36,7 +36,7 @@ func (h *Handler) Workbench(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.WorkbenchStatsContext(ctx, user)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.bootstrap.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)

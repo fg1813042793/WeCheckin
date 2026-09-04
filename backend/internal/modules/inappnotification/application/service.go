@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"wecheckin/backend/internal/support/notificationstyle"
 )
 
 type Service struct {
@@ -76,6 +78,20 @@ func (service *Service) RecipientOptions(ctx context.Context) (RecipientOptions,
 	return service.store.RecipientOptions(ctx)
 }
 
+func (service *Service) NotificationStyles(ctx context.Context) (notificationstyle.Config, error) {
+	if service == nil || service.store == nil {
+		return notificationstyle.Config{}, fmt.Errorf("in-app notification store is not initialized")
+	}
+	return service.store.NotificationStyles(ctx)
+}
+
+func (service *Service) SaveNotificationStyles(ctx context.Context, config notificationstyle.Config) (notificationstyle.Config, error) {
+	if service == nil || service.store == nil {
+		return notificationstyle.Config{}, fmt.Errorf("in-app notification store is not initialized")
+	}
+	return service.store.SaveNotificationStyles(ctx, config)
+}
+
 func ValidateSendInput(input SendInput) error {
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
@@ -109,6 +125,9 @@ func ValidateSendInput(input SendInput) error {
 	if len(strings.TrimSpace(input.SourceID)) > 64 {
 		return ErrSourceTooLong
 	}
+	if value := strings.TrimSpace(input.NotificationType); value != "" && !notificationstyle.IsSupportedType(value) {
+		return ErrInvalidNotificationType
+	}
 	return nil
 }
 
@@ -122,6 +141,7 @@ func (service *Service) Send(ctx context.Context, input SendInput) (SendResult, 
 	input.Title = strings.TrimSpace(input.Title)
 	input.SourceType = strings.TrimSpace(input.SourceType)
 	input.SourceID = strings.TrimSpace(input.SourceID)
+	input.NotificationType = strings.TrimSpace(input.NotificationType)
 	rule := RecipientRule{
 		Scope:         input.Scope,
 		UserIDs:       normalizeIDs(input.UserIDs),
@@ -136,12 +156,13 @@ func (service *Service) Send(ctx context.Context, input SendInput) (SendResult, 
 		return SendResult{}, ErrNoRecipients
 	}
 	delivery, err := service.store.Deliver(ctx, DeliveryBatch{
-		Title:      input.Title,
-		Content:    input.Content,
-		Type:       notificationType(input.SourceType),
-		SourceType: input.SourceType,
-		SourceID:   input.SourceID,
-		UserIDs:    resolution.UserIDs,
+		Title:       input.Title,
+		Content:     input.Content,
+		Type:        notificationType(input.SourceType, input.NotificationType),
+		SourceType:  input.SourceType,
+		SourceID:    input.SourceID,
+		DeliveryKey: strings.TrimSpace(input.DeliveryKey),
+		UserIDs:     resolution.UserIDs,
 	})
 	if err != nil {
 		return SendResult{}, err
@@ -212,9 +233,15 @@ func normalizeIDs(values []uint) []uint {
 	return result
 }
 
-func notificationType(sourceType string) string {
+func notificationType(sourceType, explicitType string) string {
+	if explicitType = strings.TrimSpace(explicitType); explicitType != "" {
+		return explicitType
+	}
 	if sourceType == SourceScheduledTaskRun {
 		return TypeScheduledTask
+	}
+	if sourceType == SourceSurvey {
+		return TypeSurveyStat
 	}
 	return TypeAdminManual
 }

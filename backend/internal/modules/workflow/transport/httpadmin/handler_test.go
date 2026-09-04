@@ -2,6 +2,7 @@ package httpadmin
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -42,10 +43,14 @@ type runtimeServiceStub struct {
 	deleteTaskActorID      string
 	deleteTaskID           string
 	deleteTaskCalls        int
+	listDefinitionsErr     error
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error) {
 	stub.listDefinitions++
+	if stub.listDefinitionsErr != nil {
+		return nil, stub.listDefinitionsErr
+	}
 	return []workflowapp.PublishedDefinition{{
 		ID: 7, Key: "leave", Name: "请假审批", Version: 3,
 		Form: []workflowcore.FormField{{Key: "reason", Label: "申请原因", Type: workflowcore.FormFieldTypeTextarea}},
@@ -61,6 +66,19 @@ func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]wor
 		},
 		AvailabilityStatus: workflowcore.StartAvailabilityStateAvailable,
 	}}, nil
+}
+
+func TestListDefinitionsDoesNotExposeUnknownServiceError(t *testing.T) {
+	stub := &runtimeServiceStub{listDefinitionsErr: errors.New("SELECT password FROM admins: secret")}
+	handler := NewRuntimeHandler(stub)
+	c := newAdminContext(42)
+
+	handler.ListDefinitions(context.Background(), c)
+
+	body := string(c.Response.Body())
+	if !strings.Contains(body, "流程操作失败，请稍后重试") || strings.Contains(body, "password") || strings.Contains(body, "secret") {
+		t.Fatalf("unsafe workflow error response: %s", body)
+	}
 }
 
 func (stub *runtimeServiceStub) GetPublishedDefinition(_ context.Context, definitionID uint) (*workflowapp.PublishedDefinition, error) {

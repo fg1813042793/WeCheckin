@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"wecheckin/backend/internal/support/notificationstyle"
 )
 
 func TestValidateSendInput(t *testing.T) {
@@ -40,7 +42,7 @@ func TestServiceSendNormalizesRecipientsAndReturnsDeliveryResult(t *testing.T) {
 
 	result, err := service.Send(context.Background(), SendInput{
 		Title: "  系统通知  ", Content: "内容", Scope: ScopeUsers,
-		UserIDs: []uint{9, 4, 9, 0}, SourceType: SourceAdminManual, SourceID: "request-1",
+		UserIDs: []uint{9, 4, 9, 0}, SourceType: SourceAdminManual, SourceID: "request-1", DeliveryKey: "delivery-1",
 	})
 	if err != nil {
 		t.Fatalf("Send() error = %v", err)
@@ -48,11 +50,38 @@ func TestServiceSendNormalizesRecipientsAndReturnsDeliveryResult(t *testing.T) {
 	if !reflect.DeepEqual(store.rule.UserIDs, []uint{4, 9}) {
 		t.Fatalf("resolved user IDs = %v, want [4 9]", store.rule.UserIDs)
 	}
-	if store.batch.Title != "系统通知" || !reflect.DeepEqual(store.batch.UserIDs, []uint{4, 9}) {
+	if store.batch.Title != "系统通知" || store.batch.DeliveryKey != "delivery-1" || !reflect.DeepEqual(store.batch.UserIDs, []uint{4, 9}) {
 		t.Fatalf("delivery batch = %#v", store.batch)
 	}
 	if result.PlannedCount != 2 || result.SentCount != 2 || result.SkippedCount != 2 || result.Replayed {
 		t.Fatalf("send result = %#v", result)
+	}
+}
+
+func TestServiceSendUsesExplicitNotificationTypeForStylePreview(t *testing.T) {
+	store := &fakeStore{
+		resolution: RecipientResolution{UserIDs: []uint{4}},
+		delivery:   DeliveryResult{SentCount: 1},
+	}
+	_, err := NewService(store).Send(context.Background(), SendInput{
+		Title: "退回通知测试", Content: "测试正文", Scope: ScopeUsers, UserIDs: []uint{4},
+		SourceType: SourceAdminManual, SourceID: "request-style-1", NotificationType: "approval_result_returned",
+	})
+	if err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	if store.batch.Type != "approval_result_returned" {
+		t.Fatalf("delivery type = %q, want approval_result_returned", store.batch.Type)
+	}
+}
+
+func TestValidateSendInputRejectsUnsupportedExplicitNotificationType(t *testing.T) {
+	err := ValidateSendInput(SendInput{
+		Title: "title", Content: "content", Scope: ScopeAll,
+		SourceType: SourceAdminManual, SourceID: "request-1", NotificationType: "unknown_type",
+	})
+	if !errors.Is(err, ErrInvalidNotificationType) {
+		t.Fatalf("ValidateSendInput() error = %v, want ErrInvalidNotificationType", err)
 	}
 }
 
@@ -228,4 +257,12 @@ func (store *fakeStore) MarkAllRead(_ context.Context, userID string) error {
 
 func (store *fakeStore) RecipientOptions(context.Context) (RecipientOptions, error) {
 	return RecipientOptions{}, nil
+}
+
+func (store *fakeStore) NotificationStyles(context.Context) (notificationstyle.Config, error) {
+	return notificationstyle.DefaultConfig(), nil
+}
+
+func (store *fakeStore) SaveNotificationStyles(_ context.Context, config notificationstyle.Config) (notificationstyle.Config, error) {
+	return config, nil
 }

@@ -44,13 +44,13 @@ func (h *AdminWorkflowHandler) Create(ctx context.Context, c *app.RequestContext
 		request = workflowCreateRequestFromMultipart(c)
 		file, err := optionalWorkflowLogo(c)
 		if err != nil {
-			response.Fail(c, err.Error())
+			response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 			return
 		}
 		if file != nil {
 			uploaded, err = saveWorkflowLogo(ctx, file)
 			if err != nil {
-				response.Fail(c, err.Error())
+				response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 				return
 			}
 			request.LogoURL = uploaded.URL
@@ -62,7 +62,7 @@ func (h *AdminWorkflowHandler) Create(ctx context.Context, c *app.RequestContext
 	data, err := workflowservice.CreateContext(ctx, admin.ID, request)
 	if err != nil {
 		storage.RemoveLocal(uploaded)
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -85,13 +85,13 @@ func (h *AdminWorkflowHandler) Copy(ctx context.Context, c *app.RequestContext) 
 		request = workflowCopyRequestFromMultipart(c)
 		file, err := optionalWorkflowLogo(c)
 		if err != nil {
-			response.Fail(c, err.Error())
+			response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 			return
 		}
 		if file != nil {
 			uploaded, err = saveWorkflowLogo(ctx, file)
 			if err != nil {
-				response.Fail(c, err.Error())
+				response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 				return
 			}
 			request.LogoURL = uploaded.URL
@@ -103,7 +103,7 @@ func (h *AdminWorkflowHandler) Copy(ctx context.Context, c *app.RequestContext) 
 	data, err := workflowservice.CopyContext(ctx, admin.ID, sourceID, request)
 	if err != nil {
 		storage.RemoveLocal(uploaded)
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -117,7 +117,7 @@ func (h *AdminWorkflowHandler) Detail(ctx context.Context, c *app.RequestContext
 	}
 	data, err := workflowservice.GetDetailContext(ctx, id)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -140,13 +140,13 @@ func (h *AdminWorkflowHandler) Update(ctx context.Context, c *app.RequestContext
 		request = workflowUpdateRequestFromMultipart(c)
 		file, err := optionalWorkflowLogo(c)
 		if err != nil {
-			response.Fail(c, err.Error())
+			response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 			return
 		}
 		if file != nil {
 			uploaded, err = saveWorkflowLogo(ctx, file)
 			if err != nil {
-				response.Fail(c, err.Error())
+				response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 				return
 			}
 			request.LogoURL = &uploaded.URL
@@ -161,7 +161,7 @@ func (h *AdminWorkflowHandler) Update(ctx context.Context, c *app.RequestContext
 	data, err := workflowservice.UpdateContext(ctx, admin.ID, id, request)
 	if err != nil {
 		storage.RemoveLocal(uploaded)
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -174,7 +174,7 @@ func (h *AdminWorkflowHandler) Delete(ctx context.Context, c *app.RequestContext
 		return
 	}
 	if err := workflowservice.DeleteContext(ctx, id); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -188,7 +188,7 @@ func (h *AdminWorkflowHandler) Validate(ctx context.Context, c *app.RequestConte
 	}
 	data, err := workflowservice.ValidateContext(ctx, id)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -214,7 +214,7 @@ func (h *AdminWorkflowHandler) Publish(ctx context.Context, c *app.RequestContex
 	}
 	data, err := workflowservice.PublishContext(ctx, admin.ID, id, request)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -228,7 +228,7 @@ func (h *AdminWorkflowHandler) Versions(ctx context.Context, c *app.RequestConte
 	}
 	data, err := workflowservice.GetVersionsContext(ctx, id)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -256,7 +256,7 @@ func (h *AdminWorkflowHandler) VersionChanges(ctx context.Context, c *app.Reques
 	}
 	data, err := workflowservice.GetVersionChangesContext(ctx, id, version, compareTo)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -274,7 +274,7 @@ func (h *AdminWorkflowHandler) DeleteVersion(ctx context.Context, c *app.Request
 		return
 	}
 	if err := workflowservice.DeleteVersionContext(ctx, id, version); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -305,7 +305,7 @@ func (h *AdminWorkflowHandler) RollbackVersion(ctx context.Context, c *app.Reque
 	}
 	data, err := workflowservice.RollbackVersionContext(ctx, admin.ID, id, version, request)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -344,7 +344,7 @@ func (h *AdminWorkflowHandler) SaveOrgApproverAssignments(ctx context.Context, c
 		return
 	}
 	if err := workflowservice.SaveOrgApproverAssignmentsContext(ctx, request); err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

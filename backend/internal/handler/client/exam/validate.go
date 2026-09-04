@@ -42,7 +42,7 @@ func (h *ClientExamHandler) Validate(ctx context.Context, c *app.RequestContext)
 	clientIP := c.ClientIP()
 	msg, err := h.service().CheckLimitContext(ctx, e, uidStr, req.Device, req.DeviceID, clientIP)
 	if err != nil {
-		response.Fail(c, "校验失败: "+err.Error())
+		response.FailInternal(ctx, c, "client.exam.validate", "校验失败，请稍后重试", err)
 		return
 	}
 	if msg != "" {

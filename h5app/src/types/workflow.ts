@@ -255,6 +255,11 @@ export interface WorkflowTaskSummary {
   completionRate: number
   sequence: number
   total: number
+  approvalChainKey?: string
+  approvalLayer?: number
+  approvalLayerTotal?: number
+  sourceDepartmentId?: number
+  sourceDepartmentName?: string
   status: WorkflowTaskStatus
   action: string
   comment: string

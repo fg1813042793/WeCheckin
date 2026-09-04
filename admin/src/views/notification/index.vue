@@ -10,6 +10,7 @@
       </div>
       <div class="page-actions">
         <el-button v-if="unreadCount > 0 && canRead" :icon="CircleCheck" @click="markAllRead">全部已读</el-button>
+        <el-button v-if="canStyleList" :icon="Brush" @click="styleDialogVisible = true">消息样式</el-button>
         <el-button v-if="canSend" type="primary" :icon="Promotion" @click="openSendDialog('in_app')">发送站内信</el-button>
         <el-button v-if="canSendDingTalk" type="primary" plain :icon="ChatDotRound" @click="openSendDialog('dingtalk')">发送钉钉通知</el-button>
       </div>
@@ -112,11 +113,19 @@
         <el-button type="primary" :loading="sending" @click="sendNotification">发送</el-button>
       </template>
     </el-dialog>
+
+    <NotificationStyleDialog
+      v-model="styleDialogVisible"
+      :can-edit="canStyleEdit"
+      :can-send="canSend"
+      :can-send-ding-talk="canSendDingTalk"
+      @sent="handleStyleTestSent"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Bell, ChatDotRound, CircleCheck, Promotion } from '@element-plus/icons-vue'
+import { Bell, Brush, ChatDotRound, CircleCheck, Promotion } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api'
@@ -127,6 +136,7 @@ import type {
 } from '../../api/types'
 import { hasPerm } from '../../utils/permission'
 import WorkflowUserTreePicker from '../workflow/components/WorkflowUserTreePicker.vue'
+import NotificationStyleDialog from './components/NotificationStyleDialog.vue'
 
 const list = ref<InAppNotificationItem[]>([])
 const total = ref(0)
@@ -135,6 +145,7 @@ const pageSize = 20
 const loading = ref(false)
 const unreadCount = ref(0)
 const sendDialogVisible = ref(false)
+const styleDialogVisible = ref(false)
 const sending = ref(false)
 const sendRequestID = ref('')
 const sendChannel = ref<'in_app' | 'dingtalk'>('in_app')
@@ -157,6 +168,8 @@ const scopeOptions = [
 const canRead = computed(() => hasPerm('admin:menu:notification:read'))
 const canSend = computed(() => hasPerm('admin:menu:notification:send'))
 const canSendDingTalk = computed(() => hasPerm('admin:menu:notification:dingtalk-send'))
+const canStyleList = computed(() => hasPerm('admin:menu:notification:style:list'))
+const canStyleEdit = computed(() => hasPerm('admin:menu:notification:style:edit'))
 const sendDialogTitle = computed(() => sendChannel.value === 'dingtalk' ? '发送钉钉通知' : '发送站内信')
 const departmentModelValue = computed<number[]>({
   get: () => sendForm.departmentIds,
@@ -244,6 +257,10 @@ async function markRead(id: number) {
 async function markAllRead() {
   await adminApi.inAppNotificationMarkAllRead()
   await Promise.all([load(), loadUnreadCount()])
+}
+
+async function handleStyleTestSent(channel: 'in_app' | 'dingtalk') {
+  if (channel === 'in_app') await Promise.all([load(), loadUnreadCount()])
 }
 
 function resetSendForm() {

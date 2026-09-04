@@ -11,7 +11,11 @@ func TestDingTalkSettingsExposeSSOConfigWithoutSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	text := string(src)
+	dtoSrc, err := os.ReadFile("../../../service/admin/dingtalk/dto.go")
+	if err != nil {
+		t.Fatalf("read dingtalk dto.go: %v", err)
+	}
+	text := string(src) + string(dtoSrc)
 	for _, want := range []string{
 		"DINGTALK_H5_CORP_ID",
 		"DINGTALK_H5_APP_KEY",
@@ -48,7 +52,11 @@ func TestDingTalkSettingsExposeMultiCorpConfigsWithoutRawSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
 	}
-	text := string(src)
+	dtoSrc, err := os.ReadFile("../../../service/admin/dingtalk/dto.go")
+	if err != nil {
+		t.Fatalf("read dingtalk dto.go: %v", err)
+	}
+	text := string(src) + string(dtoSrc)
 	for _, want := range []string{
 		"corpConfigs",
 		"listDingTalkH5CorpConfigsContext",
@@ -73,16 +81,20 @@ func TestDingTalkSettingsExposeH5BrandConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
-	combined := string(src) + string(viewSrc)
+	dtoSrc, err := os.ReadFile("../../../service/admin/dingtalk/dto.go")
+	if err != nil {
+		t.Fatalf("read dingtalk dto.go: %v", err)
+	}
+	combined := string(src) + string(dtoSrc) + string(viewSrc)
 	for _, want := range []string{
 		"DINGTALK_H5_APP_NAME",
 		"DINGTALK_H5_LOGO_TEXT",
 		"DINGTALK_H5_LOGO_URL",
 		"DINGTALK_H5_APP_URL",
-		`"appName":`,
-		`"logoText":`,
-		`"logoUrl":`,
-		`"appUrl":`,
+		`json:"appName"`,
+		`json:"logoText"`,
+		`json:"logoUrl"`,
+		`json:"appUrl"`,
 		`<el-tabs v-model="activeTab"`,
 		`<el-tab-pane label="配置" name="app">`,
 		`form.appName`,
@@ -201,11 +213,15 @@ func TestDingTalkSettingsEnterpriseAppCarriesNotificationJumpURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read dingtalk setup page: %v", err)
 	}
-	combined := string(handlerSrc) + string(viewSrc)
+	dtoSrc, err := os.ReadFile("../../../service/admin/dingtalk/dto.go")
+	if err != nil {
+		t.Fatalf("read dingtalk dto.go: %v", err)
+	}
+	combined := string(handlerSrc) + string(dtoSrc) + string(viewSrc)
 	for _, want := range []string{
 		`AppURL        string ` + "`json:\"appUrl\"`",
 		`AppURL:        strings.TrimSpace(input.AppURL)`,
-		`"appUrl":        config.AppURL`,
+		`AppURL: config.AppURL`,
 		`corpConfig.appUrl`,
 		`appUrl: item.appUrl.trim()`,
 		`H5 应用地址`,

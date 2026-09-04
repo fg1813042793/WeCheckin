@@ -54,7 +54,7 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.workflowattachment.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	originalName := attachmentBaseName(file.Filename)
@@ -73,7 +73,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 
 	src, err := file.Open()
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.workflowattachment.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	header := make([]byte, 512)
@@ -97,7 +97,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 		Now:      now,
 	})
 	if err != nil {
-		response.Fail(c, "上传失败: "+err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.workflowattachment.handler", "上传失败，请稍后重试", err)
 		return
 	}
 

@@ -166,9 +166,14 @@ func TestOnlineServiceUsesDedicatedSubpackage(t *testing.T) {
 }
 
 func TestSurveyPostStatServiceUsesDedicatedSubpackage(t *testing.T) {
-	for _, file := range []string{"service.go", "submitter.go", "rules.go", "result.go", "webhook.go", "notify.go"} {
+	for _, file := range []string{"service.go", "submitter.go", "rules.go", "result.go", "dispatcher.go"} {
 		if _, err := os.Stat(filepath.Join("client", "poststat", file)); err != nil {
 			t.Fatalf("survey poststat implementation must keep %s split by responsibility: %v", file, err)
+		}
+	}
+	for _, removed := range []string{"webhook.go", "notify.go"} {
+		if _, err := os.Stat(filepath.Join("client", "poststat", removed)); !os.IsNotExist(err) {
+			t.Fatalf("survey poststat must not keep obsolete fire-and-forget file %s", removed)
 		}
 	}
 	for _, file := range []string{
@@ -492,7 +497,7 @@ func TestSurveySubmitPostStatUseRequestContext(t *testing.T) {
 		filepath.Join("client", "survey", "response_draft.go"),
 		filepath.Join("client", "poststat", "service.go"),
 		filepath.Join("client", "poststat", "submitter.go"),
-		filepath.Join("client", "poststat", "notify.go"),
+		filepath.Join("client", "poststat", "dispatcher.go"),
 	} {
 		src, err := os.ReadFile(file)
 		if err != nil {

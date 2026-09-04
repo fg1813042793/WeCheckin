@@ -16,6 +16,7 @@ import (
 
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/modules/inappnotification/application"
+	"wecheckin/backend/internal/support/notificationstyle"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -79,11 +80,19 @@ func (store *GormStore) Deliver(ctx context.Context, batch application.DeliveryB
 
 	db, cancel := store.withContext(ctx)
 	defer cancel()
+	deliverySourceID := strings.TrimSpace(batch.DeliveryKey)
+	if deliverySourceID == "" {
+		deliverySourceID = batch.SourceID
+	}
+	deliveryKeys := make([]string, 0, len(userIDs))
+	for _, userID := range userIDs {
+		deliveryKeys = append(deliveryKeys, deliveryKey(batch.SourceType, deliverySourceID, userID))
+	}
 	result := application.DeliveryResult{}
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var existing int64
 		if err := tx.Model(&model.Notify{}).
-			Where("notify_source_type = ? AND notify_source_id = ? AND notify_delivery_key IS NOT NULL", batch.SourceType, batch.SourceID).
+			Where("notify_delivery_key IN ?", deliveryKeys).
 			Count(&existing).Error; err != nil {
 			return err
 		}
@@ -98,8 +107,8 @@ func (store *GormStore) Deliver(ctx context.Context, batch application.DeliveryB
 		}
 		addTime := now().UnixMilli()
 		rows := make([]model.Notify, 0, len(userIDs))
-		for _, userID := range userIDs {
-			key := deliveryKey(batch.SourceType, batch.SourceID, userID)
+		for index, userID := range userIDs {
+			key := deliveryKeys[index]
 			rows = append(rows, model.Notify{
 				Title:       batch.Title,
 				Content:     batch.Content,
@@ -127,7 +136,7 @@ func (store *GormStore) Deliver(ctx context.Context, batch application.DeliveryB
 
 	var existing int64
 	if countErr := db.Model(&model.Notify{}).
-		Where("notify_source_type = ? AND notify_source_id = ? AND notify_delivery_key IS NOT NULL", batch.SourceType, batch.SourceID).
+		Where("notify_delivery_key IN ?", deliveryKeys).
 		Count(&existing).Error; countErr != nil {
 		return application.DeliveryResult{}, fmt.Errorf("verify replay after duplicate delivery: %w", countErr)
 	}
@@ -263,6 +272,20 @@ func (store *GormStore) RecipientOptions(ctx context.Context) (application.Recip
 	return application.RecipientOptions{
 		Users: userOptions, Departments: buildDepartmentOptions(departments),
 	}, nil
+}
+
+func (store *GormStore) NotificationStyles(ctx context.Context) (notificationstyle.Config, error) {
+	if store == nil {
+		return notificationstyle.Config{}, errors.New("in-app notification database is not initialized")
+	}
+	return notificationstyle.Load(ctx, store.db)
+}
+
+func (store *GormStore) SaveNotificationStyles(ctx context.Context, config notificationstyle.Config) (notificationstyle.Config, error) {
+	if store == nil {
+		return notificationstyle.Config{}, errors.New("in-app notification database is not initialized")
+	}
+	return notificationstyle.Save(ctx, store.db, config)
 }
 
 func activeUserIDs(db *gorm.DB, requested []uint) ([]uint, error) {

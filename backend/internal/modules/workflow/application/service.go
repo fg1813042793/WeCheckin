@@ -313,7 +313,7 @@ func (service *Service) StartInstance(ctx context.Context, request StartInstance
 				return ErrStartLimitExceeded
 			}
 		}
-		state, err = service.engine.Start(definition, workflowdomain.StartRequest{
+		state, err = service.engine.Start(ctx, definition, workflowdomain.StartRequest{
 			DefinitionID:      request.DefinitionID,
 			DefinitionVersion: publishedVersion,
 			BusinessType:      request.BusinessType,
@@ -491,7 +491,7 @@ func (service *Service) CompleteTask(ctx context.Context, request CompleteTaskRe
 		if err := workflowcore.ValidateNodeFormPatch(definition, taskNodeID, loaded.FormData, request.FormData); err != nil {
 			return err
 		}
-		if err := service.engine.Complete(definition, loaded, workflowdomain.CompleteRequest{
+		if err := service.engine.Complete(ctx, definition, loaded, workflowdomain.CompleteRequest{
 			TaskID: request.TaskID, ActorID: request.ActorID, Action: request.Action,
 			Comment: request.Comment, Images: request.Images, ReturnTargetNodeID: request.ReturnTargetNodeID,
 			Variables: request.Variables, FormData: request.FormData,
@@ -559,7 +559,7 @@ func (service *Service) ResumeTimers(ctx context.Context, instanceID, actorID st
 		if err != nil {
 			return err
 		}
-		advanced, err = service.engine.ResumeTimers(definition, loaded, time.Now().Unix())
+		advanced, err = service.engine.ResumeTimers(ctx, definition, loaded, time.Now().Unix())
 		if err != nil {
 			return err
 		}

@@ -121,12 +121,16 @@ func resultNotificationAttributes(config *NotificationConfig) []xml.Attr {
 	if config == nil {
 		return nil
 	}
-	return []xml.Attr{
+	attributes := []xml.Attr{
 		attr("flowable:resultNotificationEnabled", strconv.FormatBool(config.Enabled)),
 		attr("flowable:resultNotificationChannels", strings.Join(config.Channels, ",")),
 		attr("flowable:resultNotificationTitle", config.Title),
 		attr("flowable:resultNotificationContent", config.Content),
 	}
+	if config.ResultTypes != nil {
+		attributes = append(attributes, attr("flowable:resultNotificationResultTypes", strings.Join(config.ResultTypes, ",")))
+	}
+	return attributes
 }
 
 func encodeTimer(encoder *xml.Encoder, node Node, attributes []xml.Attr) error {
@@ -155,6 +159,15 @@ func encodeTimer(encoder *xml.Encoder, node Node, attributes []xml.Attr) error {
 }
 
 func encodeApproval(encoder *xml.Encoder, node Node, attributes []xml.Attr) error {
+	if config := node.DepartmentApprovalChain; config != nil && config.Enabled {
+		attributes = append(attributes,
+			attr("flowable:departmentApprovalChain", "true"),
+			attr("flowable:departmentApprovalChainStopMode", config.StopMode),
+			attr("flowable:departmentApprovalChainStopDepartmentId", strconv.FormatUint(uint64(config.StopDepartmentID), 10)),
+			attr("flowable:departmentApprovalChainMissingPolicy", config.MissingAssigneePolicy),
+			attr("flowable:departmentApprovalChainSkipStarter", strconv.FormatBool(config.SkipStarter)),
+		)
+	}
 	multiple := node.ApprovalMode != ApprovalModeSingle
 	if multiple {
 		attributes = append(attributes, attr("flowable:assignee", "${assignee}"))

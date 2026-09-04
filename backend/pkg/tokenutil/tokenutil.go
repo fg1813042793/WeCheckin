@@ -19,19 +19,41 @@ type setupCacheEntry struct {
 }
 
 var (
-	setupCacheMu sync.RWMutex
-	setupCache   = map[string]setupCacheEntry{}
+	setupCacheMu           sync.RWMutex
+	setupCache             = map[string]setupCacheEntry{}
+	querySetupValueContext = queryDBSetupValueContext
 )
 
 func getDBSetup(key string) string {
+	return getDBSetupContext(context.Background(), key)
+}
+
+func getDBSetupContext(ctx context.Context, key string) string {
 	setupCacheMu.RLock()
 	if e, ok := setupCache[key]; ok && time.Now().Before(e.expiresAt) {
 		setupCacheMu.RUnlock()
 		return e.value
 	}
 	setupCacheMu.RUnlock()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctx.Err() != nil {
+		return ""
+	}
+	value := querySetupValueContext(ctx, key)
+	if value == "" {
+		return ""
+	}
 
-	db, cancel := database.WithContext(context.Background())
+	setupCacheMu.Lock()
+	setupCache[key] = setupCacheEntry{value: value, expiresAt: time.Now().Add(setupCacheTTL)}
+	setupCacheMu.Unlock()
+	return value
+}
+
+func queryDBSetupValueContext(ctx context.Context, key string) string {
+	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	if db == nil {
 		return ""
@@ -40,10 +62,6 @@ func getDBSetup(key string) string {
 	if err := db.Where("setup_key = ?", key).First(&setup).Error; err != nil {
 		return ""
 	}
-
-	setupCacheMu.Lock()
-	setupCache[key] = setupCacheEntry{value: setup.Value, expiresAt: time.Now().Add(setupCacheTTL)}
-	setupCacheMu.Unlock()
 	return setup.Value
 }
 
@@ -55,11 +73,15 @@ func InvalidateSetupCache() {
 }
 
 func GetTokenConfig(role string) (expire time.Duration, redisPrefix string) {
+	return GetTokenConfigContext(context.Background(), role)
+}
+
+func GetTokenConfigContext(ctx context.Context, role string) (expire time.Duration, redisPrefix string) {
 	role = strings.ToLower(strings.TrimSpace(role))
 	roleUpper := strings.ToUpper(role)
 
-	expireStr := getDBSetup("TOKEN_" + roleUpper + "_EXPIRE")
-	redisPrefix = getDBSetup("TOKEN_" + roleUpper + "_REDIS_PREFIX")
+	expireStr := getDBSetupContext(ctx, "TOKEN_"+roleUpper+"_EXPIRE")
+	redisPrefix = getDBSetupContext(ctx, "TOKEN_"+roleUpper+"_REDIS_PREFIX")
 
 	if config.Cfg != nil {
 		if expireStr == "" {
@@ -106,26 +128,46 @@ func GetTokenConfig(role string) (expire time.Duration, redisPrefix string) {
 }
 
 func TokenAuthKey(role, token string) string {
-	_, prefix := GetTokenConfig(role)
+	return TokenAuthKeyContext(context.Background(), role, token)
+}
+
+func TokenAuthKeyContext(ctx context.Context, role, token string) string {
+	_, prefix := GetTokenConfigContext(ctx, role)
 	return prefix + "a:" + token
 }
 
 func TokenSetKey(role, id string) string {
-	_, prefix := GetTokenConfig(role)
+	return TokenSetKeyContext(context.Background(), role, id)
+}
+
+func TokenSetKeyContext(ctx context.Context, role, id string) string {
+	_, prefix := GetTokenConfigContext(ctx, role)
 	return prefix + "s:" + id
 }
 
 func IsAdminSingleLogin() bool {
-	val := getDBSetup("ADMIN_SINGLE_LOGIN")
+	return IsAdminSingleLoginContext(context.Background())
+}
+
+func IsAdminSingleLoginContext(ctx context.Context) bool {
+	val := getDBSetupContext(ctx, "ADMIN_SINGLE_LOGIN")
 	return val == "1" || val == "true"
 }
 
 func IsUserSingleLogin() bool {
-	val := getDBSetup("USER_SINGLE_LOGIN")
+	return IsUserSingleLoginContext(context.Background())
+}
+
+func IsUserSingleLoginContext(ctx context.Context) bool {
+	val := getDBSetupContext(ctx, "USER_SINGLE_LOGIN")
 	return val == "1" || val == "true"
 }
 
 func IsDingTalkH5SingleLogin() bool {
-	val := getDBSetup("DINGTALK_H5_SINGLE_LOGIN")
+	return IsDingTalkH5SingleLoginContext(context.Background())
+}
+
+func IsDingTalkH5SingleLoginContext(ctx context.Context) bool {
+	val := getDBSetupContext(ctx, "DINGTALK_H5_SINGLE_LOGIN")
 	return val == "1" || val == "true"
 }

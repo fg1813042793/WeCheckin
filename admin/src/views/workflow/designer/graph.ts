@@ -38,7 +38,8 @@ export function defaultResultNotificationConfig(): WorkflowNotificationConfig {
     enabled: true,
     channels: ['in_app', 'dingtalk_oa'],
     title: '{{workflowName}}审批结果',
-    content: '你发起的流程在“{{nodeName}}”节点{{result}}',
+    content: '{{starterName}}发起的流程在“{{nodeName}}”节点{{result}}',
+    resultTypes: ['approved', 'rejected', 'returned'],
   }
 }
 

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/passwordutil"
 	"wecheckin/backend/pkg/randutil"
@@ -124,7 +124,7 @@ func storeUserToken(user *model.User, token, addIP, device string) {
 }
 
 func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, device string) {
-	expire, prefix := tokenutil.GetTokenConfig("user")
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, "user")
 	if prefix == "" {
 		prefix = "user_token:"
 	}
@@ -137,7 +137,7 @@ func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, 
 	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 
-	if tokenutil.IsUserSingleLogin() {
+	if tokenutil.IsUserSingleLoginContext(ctx) {
 		if oldTokens, _ := rd.RDB.SMembers(redisCtx, keySet).Result(); len(oldTokens) > 0 {
 			for _, t := range oldTokens {
 				if t != token {

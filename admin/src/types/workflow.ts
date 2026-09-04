@@ -22,6 +22,7 @@ export type WorkflowStartLimitMode = 'unlimited' | 'limited'
 export type WorkflowStartLimitPeriod = 'total' | 'day' | 'week' | 'month' | 'availability'
 export type WorkflowEdgeHandle = 'top' | 'right' | 'bottom' | 'left'
 export type WorkflowNotificationChannel = 'in_app' | 'dingtalk_oa'
+export type WorkflowNotificationResultType = 'approved' | 'rejected' | 'returned'
 export type WorkflowValidationRuleType =
   | 'min_length' | 'max_length' | 'pattern' | 'number_range'
   | 'decimal_places' | 'selection_count' | 'compare_field' | 'column_sum' | 'conditional_required'
@@ -114,6 +115,17 @@ export interface WorkflowAssignee {
   value: string
 }
 
+export type WorkflowDepartmentApprovalChainStopMode = 'root' | 'department'
+export type WorkflowDepartmentApprovalChainMissingPolicy = 'skip' | 'error'
+
+export interface WorkflowDepartmentApprovalChain {
+  enabled: boolean
+  stopMode: WorkflowDepartmentApprovalChainStopMode
+  stopDepartmentId?: number
+  missingAssigneePolicy: WorkflowDepartmentApprovalChainMissingPolicy
+  skipStarter?: boolean
+}
+
 export interface WorkflowInitiatorConfig {
   scope: WorkflowInitiatorScope
   userIds?: number[]
@@ -184,6 +196,7 @@ export interface WorkflowNotificationConfig {
   channels: WorkflowNotificationChannel[]
   title: string
   content: string
+  resultTypes?: WorkflowNotificationResultType[]
 }
 
 export interface WorkflowNode {
@@ -193,6 +206,7 @@ export interface WorkflowNode {
   position?: WorkflowNodePosition
   approvalMode?: ApprovalMode
   assignee?: WorkflowAssignee
+  departmentApprovalChain?: WorkflowDepartmentApprovalChain
   completionRate?: number
   gatewayMode?: GatewayMode
   formPermissions?: WorkflowFieldPermission[]
@@ -365,6 +379,11 @@ export interface WorkflowTaskSummary {
   completionRate: number
   sequence: number
   total: number
+  approvalChainKey?: string
+  approvalLayer?: number
+  approvalLayerTotal?: number
+  sourceDepartmentId?: number
+  sourceDepartmentName?: string
   status: WorkflowTaskStatus
   action: WorkflowTaskAction | ''
   comment: string
@@ -392,6 +411,7 @@ export type WorkflowNotificationKind
     | 'instance_commented'
     | 'approval_result_approved'
     | 'approval_result_rejected'
+    | 'approval_result_returned'
 export type WorkflowNotificationStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'dead'
 
 export interface WorkflowNotificationPayload {

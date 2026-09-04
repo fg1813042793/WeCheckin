@@ -106,7 +106,7 @@ func (h *EnrollHandler) EnrollJoin(ctx context.Context, c *app.RequestContext) {
 	err := enrollservice.EnrollJoinContext(ctx, enrollID, userID, day, forms, addIP, 1)
 	if err != nil {
 		log.Printf("[EnrollJoin] 失败: enrollID=%s userID=%s day=%s err=%s", enrollID, userID, day, err.Error())
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "client.enroll.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	log.Printf("[EnrollJoin] 成功: enrollID=%s userID=%s day=%s", enrollID, userID, day)
@@ -133,7 +133,7 @@ func (h *EnrollHandler) EnrollUserSubmit(ctx context.Context, c *app.RequestCont
 	addIP := c.ClientIP()
 	err := enrollservice.EnrollUserSubmitContext(ctx, enrollID, userID, forms, addIP)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "client.enroll.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, nil)

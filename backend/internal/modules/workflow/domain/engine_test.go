@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -11,7 +12,7 @@ import (
 
 type staticResolver map[string][]string
 
-func (resolver staticResolver) Resolve(request AssigneeRequest) ([]string, error) {
+func (resolver staticResolver) Resolve(_ context.Context, request AssigneeRequest) ([]string, error) {
 	assignees := resolver[request.Node.ID]
 	if len(assignees) == 0 {
 		return nil, fmt.Errorf("node %s has no assignees", request.Node.ID)
@@ -30,7 +31,7 @@ func TestEngineStartsLinearApprovalAndCompletesInstance(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
 	engine := newTestEngine(staticResolver{"approve": {"user-7"}})
 
-	state, err := engine.Start(definition, StartRequest{
+	state, err := engine.Start(context.Background(), definition, StartRequest{
 		DefinitionID: 8, DefinitionVersion: 2, StarterID: "user-1",
 		BusinessType: "leave", BusinessKey: "leave-100",
 	})
@@ -42,7 +43,7 @@ func TestEngineStartsLinearApprovalAndCompletesInstance(t *testing.T) {
 		t.Fatalf("unexpected started state: instance=%#v tasks=%#v", state.Instance, pending)
 	}
 
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: pending[0].ID, ActorID: "user-7", Action: TaskActionApprove, Comment: "同意",
 	}); err != nil {
 		t.Fatalf("complete task: %v", err)
@@ -57,7 +58,7 @@ func TestEngineTaskCreatedHistoryUsesTriggeringActor(t *testing.T) {
 	engine := newTestEngine(staticResolver{
 		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
 	})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter", OperatorID: "operator"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter", OperatorID: "operator"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -76,7 +77,7 @@ func TestEngineTaskCreatedHistoryUsesTriggeringActor(t *testing.T) {
 func TestEngineRejectsTaskWithImages(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
 	engine := newTestEngine(staticResolver{"approve": {"user-7"}})
-	state, err := engine.Start(definition, StartRequest{DefinitionID: 8, DefinitionVersion: 2, StarterID: "user-1"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{DefinitionID: 8, DefinitionVersion: 2, StarterID: "user-1"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -85,7 +86,7 @@ func TestEngineRejectsTaskWithImages(t *testing.T) {
 		URL: "/uploads/workflow/2026/09/04/reject.png", MimeType: "image/png", Size: 1024,
 	}
 	taskID := state.PendingTasks()[0].ID
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: taskID, ActorID: "user-7", Action: TaskActionReject,
 		Comment: "材料不完整", Images: []workflowcore.FormAttachment{image},
 	}); err != nil {
@@ -111,7 +112,7 @@ func TestEngineReturnsApprovalToPreviousHumanNode(t *testing.T) {
 	engine := newTestEngine(staticResolver{
 		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
 	})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -123,7 +124,7 @@ func TestEngineReturnsApprovalToPreviousHumanNode(t *testing.T) {
 		ID: "uploads/workflow/2026/09/04/return.png", Name: "return.png",
 		URL: "/uploads/workflow/2026/09/04/return.png", MimeType: "image/png", Size: 1024,
 	}
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
 		Comment: "请主管重新确认", Images: []workflowcore.FormAttachment{image},
 	}); err != nil {
@@ -154,7 +155,7 @@ func TestEngineReturnsApprovalToSpecifiedVisitedHumanNode(t *testing.T) {
 	engine := newTestEngine(staticResolver{
 		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
 	})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -162,7 +163,7 @@ func TestEngineReturnsApprovalToSpecifiedVisitedHumanNode(t *testing.T) {
 	completePendingTask(t, engine, definition, state, "manager-1", TaskActionApprove)
 
 	current := state.PendingTasks()[0]
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
 		ReturnTargetNodeID: "draft", Comment: "请发起人修改",
 	}); err != nil {
@@ -179,14 +180,14 @@ func TestEngineRejectsInvalidReturnTargetWithoutMutatingState(t *testing.T) {
 	engine := newTestEngine(staticResolver{
 		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
 	})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
 	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
 	current := state.PendingTasks()[0]
 
-	err = engine.Complete(definition, state, CompleteRequest{
+	err = engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: current.ID, ActorID: "manager-1", Action: TaskActionReturn,
 		ReturnTargetNodeID: "hr", Comment: "非法目标",
 	})
@@ -214,13 +215,13 @@ func TestEngineRejectsReturnWithoutPreviousHumanNode(t *testing.T) {
 		},
 	}
 	engine := newTestEngine(staticResolver{"manager": {"manager-1"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
 	current := state.PendingTasks()[0]
 
-	err = engine.Complete(definition, state, CompleteRequest{
+	err = engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: current.ID, ActorID: "manager-1", Action: TaskActionReturn, Comment: "退回",
 	})
 	if !errors.Is(err, ErrReturnTargetUnavailable) {
@@ -236,7 +237,7 @@ func TestEngineRejectsReturnAfterParallelTraversalWithoutMutatingState(t *testin
 	engine := newTestEngine(staticResolver{
 		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
 	})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -245,7 +246,7 @@ func TestEngineRejectsReturnAfterParallelTraversalWithoutMutatingState(t *testin
 	state.Tokens[0].BranchGroup = "parallel-1"
 	state.Tokens[0].BranchTotal = 2
 
-	err = engine.Complete(definition, state, CompleteRequest{
+	err = engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: current.ID, ActorID: "manager-1", Action: TaskActionReturn,
 		ReturnTargetNodeID: "draft", Comment: "退回",
 	})
@@ -279,7 +280,7 @@ func TestEngineExclusiveGatewaySelectsConditionAndDefaultBranch(t *testing.T) {
 	}
 	resolver := staticResolver{"manager": {"manager-1"}, "finance": {"finance-1"}}
 
-	high, err := newTestEngine(resolver).Start(definition, StartRequest{StarterID: "u1", Variables: map[string]interface{}{"amount": 1200}})
+	high, err := newTestEngine(resolver).Start(context.Background(), definition, StartRequest{StarterID: "u1", Variables: map[string]interface{}{"amount": 1200}})
 	if err != nil {
 		t.Fatalf("start high amount: %v", err)
 	}
@@ -287,7 +288,7 @@ func TestEngineExclusiveGatewaySelectsConditionAndDefaultBranch(t *testing.T) {
 		t.Fatalf("high amount selected wrong branch: %#v", got)
 	}
 
-	low, err := newTestEngine(resolver).Start(definition, StartRequest{StarterID: "u1", Variables: map[string]interface{}{"amount": 99}})
+	low, err := newTestEngine(resolver).Start(context.Background(), definition, StartRequest{StarterID: "u1", Variables: map[string]interface{}{"amount": 99}})
 	if err != nil {
 		t.Fatalf("start low amount: %v", err)
 	}
@@ -295,7 +296,7 @@ func TestEngineExclusiveGatewaySelectsConditionAndDefaultBranch(t *testing.T) {
 		t.Fatalf("low amount did not select default branch: %#v", got)
 	}
 
-	missing, err := newTestEngine(resolver).Start(definition, StartRequest{StarterID: "u1"})
+	missing, err := newTestEngine(resolver).Start(context.Background(), definition, StartRequest{StarterID: "u1"})
 	if err != nil {
 		t.Fatalf("start workflow without condition value: %v", err)
 	}
@@ -329,7 +330,7 @@ func TestEngineExclusiveGatewayReadsConditionFromFormData(t *testing.T) {
 	}
 	resolver := staticResolver{"manager": {"manager-1"}, "finance": {"finance-1"}}
 
-	high, err := newTestEngine(resolver).Start(definition, StartRequest{
+	high, err := newTestEngine(resolver).Start(context.Background(), definition, StartRequest{
 		StarterID: "u1",
 		FormData:  map[string]interface{}{"amount": 1200},
 	})
@@ -340,7 +341,7 @@ func TestEngineExclusiveGatewayReadsConditionFromFormData(t *testing.T) {
 		t.Fatalf("form amount selected wrong branch: %#v", got)
 	}
 
-	low, err := newTestEngine(resolver).Start(definition, StartRequest{
+	low, err := newTestEngine(resolver).Start(context.Background(), definition, StartRequest{
 		StarterID: "u1",
 		FormData:  map[string]interface{}{"amount": 99},
 	})
@@ -379,7 +380,7 @@ func TestEngineExclusiveGatewayReadsUpdatedFormDataAfterApproval(t *testing.T) {
 	}
 	resolver := staticResolver{"fill": {"owner"}, "manager": {"manager-1"}, "finance": {"finance-1"}}
 	engine := newTestEngine(resolver)
-	state, err := engine.Start(definition, StartRequest{
+	state, err := engine.Start(context.Background(), definition, StartRequest{
 		StarterID: "u1",
 		FormData:  map[string]interface{}{"status": "draft"},
 	})
@@ -387,7 +388,7 @@ func TestEngineExclusiveGatewayReadsUpdatedFormDataAfterApproval(t *testing.T) {
 		t.Fatalf("start form workflow: %v", err)
 	}
 
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID:   state.PendingTasks()[0].ID,
 		ActorID:  "owner",
 		Action:   TaskActionApprove,
@@ -423,7 +424,7 @@ func TestEngineParallelJoinWaitsForEveryBranch(t *testing.T) {
 		},
 	}
 	engine := newTestEngine(staticResolver{"legal": {"legal-1"}, "finance": {"finance-1"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "u1"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "u1"})
 	if err != nil {
 		t.Fatalf("start parallel workflow: %v", err)
 	}
@@ -431,14 +432,14 @@ func TestEngineParallelJoinWaitsForEveryBranch(t *testing.T) {
 	if len(tasks) != 2 {
 		t.Fatalf("expected two parallel tasks, got %#v", tasks)
 	}
-	if err := engine.Complete(definition, state, CompleteRequest{TaskID: tasks[0].ID, ActorID: tasks[0].AssigneeID, Action: TaskActionApprove}); err != nil {
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: tasks[0].ID, ActorID: tasks[0].AssigneeID, Action: TaskActionApprove}); err != nil {
 		t.Fatalf("complete first branch: %v", err)
 	}
 	if state.Instance.Status != InstanceStatusRunning || len(state.PendingTasks()) != 1 {
 		t.Fatalf("parallel join did not wait: instance=%#v tasks=%#v", state.Instance, state.Tasks)
 	}
 	remaining := state.PendingTasks()[0]
-	if err := engine.Complete(definition, state, CompleteRequest{TaskID: remaining.ID, ActorID: remaining.AssigneeID, Action: TaskActionApprove}); err != nil {
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: remaining.ID, ActorID: remaining.AssigneeID, Action: TaskActionApprove}); err != nil {
 		t.Fatalf("complete second branch: %v", err)
 	}
 	if state.Instance.Status != InstanceStatusCompleted {
@@ -449,7 +450,7 @@ func TestEngineParallelJoinWaitsForEveryBranch(t *testing.T) {
 func TestEngineSequentialApprovalActivatesOneTaskAtATime(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSequential, 0)
 	engine := newTestEngine(staticResolver{"approve": {"u1", "u2", "u3"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start sequential workflow: %v", err)
 	}
@@ -458,7 +459,7 @@ func TestEngineSequentialApprovalActivatesOneTaskAtATime(t *testing.T) {
 		if len(pending) != 1 || pending[0].AssigneeID != assignee {
 			t.Fatalf("step %d expected %s, got %#v", index, assignee, pending)
 		}
-		if err := engine.Complete(definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: assignee, Action: TaskActionApprove}); err != nil {
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: assignee, Action: TaskActionApprove}); err != nil {
 			t.Fatalf("complete sequential task %d: %v", index, err)
 		}
 	}
@@ -470,7 +471,7 @@ func TestEngineSequentialApprovalActivatesOneTaskAtATime(t *testing.T) {
 func TestEngineCountersignCompletesAtThresholdAndCancelsRemainder(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeCountersign, 60)
 	engine := newTestEngine(staticResolver{"approve": {"u1", "u2", "u3"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start countersign workflow: %v", err)
 	}
@@ -479,7 +480,7 @@ func TestEngineCountersignCompletesAtThresholdAndCancelsRemainder(t *testing.T) 
 		t.Fatalf("expected three countersign tasks, got %#v", tasks)
 	}
 	for _, task := range tasks[:2] {
-		if err := engine.Complete(definition, state, CompleteRequest{TaskID: task.ID, ActorID: task.AssigneeID, Action: TaskActionApprove}); err != nil {
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: task.ID, ActorID: task.AssigneeID, Action: TaskActionApprove}); err != nil {
 			t.Fatalf("complete countersign task: %v", err)
 		}
 	}
@@ -500,11 +501,11 @@ func TestEngineCountersignCompletesAtThresholdAndCancelsRemainder(t *testing.T) 
 func TestEngineRejectsTaskFromDifferentActor(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
 	engine := newTestEngine(staticResolver{"approve": {"owner"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
-	err = engine.Complete(definition, state, CompleteRequest{TaskID: state.PendingTasks()[0].ID, ActorID: "other", Action: TaskActionApprove})
+	err = engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: state.PendingTasks()[0].ID, ActorID: "other", Action: TaskActionApprove})
 	if err == nil {
 		t.Fatal("expected assignee validation error")
 	}
@@ -513,7 +514,7 @@ func TestEngineRejectsTaskFromDifferentActor(t *testing.T) {
 func TestEngineKeepsAndUpdatesFormData(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
 	engine := newTestEngine(staticResolver{"approve": {"owner"}})
-	state, err := engine.Start(definition, StartRequest{
+	state, err := engine.Start(context.Background(), definition, StartRequest{
 		StarterID: "starter",
 		FormData:  map[string]interface{}{"reason": "出差", "amount": 100},
 	})
@@ -523,7 +524,7 @@ func TestEngineKeepsAndUpdatesFormData(t *testing.T) {
 	if state.FormData["reason"] != "出差" || state.FormData["amount"] != 100 {
 		t.Fatalf("form data was not kept: %#v", state.FormData)
 	}
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: state.PendingTasks()[0].ID, ActorID: "owner", Action: TaskActionApprove,
 		FormData: map[string]interface{}{"amount": 120},
 	}); err != nil {
@@ -537,7 +538,7 @@ func TestEngineKeepsAndUpdatesFormData(t *testing.T) {
 func TestEngineWithdrawsOnlyUntouchedInstanceByStarter(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
 	engine := newTestEngine(staticResolver{"approve": {"owner"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -574,12 +575,12 @@ func TestEngineRejectsWithdrawAfterTaskHandled(t *testing.T) {
 		},
 	}
 	engine := newTestEngine(staticResolver{"first": {"u1"}, "second": {"u2"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
 	first := state.PendingTasks()[0]
-	if err := engine.Complete(definition, state, CompleteRequest{TaskID: first.ID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: first.ID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
 		t.Fatalf("complete first task: %v", err)
 	}
 	if err := engine.Withdraw(state, "starter", "撤回"); !errors.Is(err, ErrInstanceAlreadyHandled) {
@@ -590,7 +591,7 @@ func TestEngineRejectsWithdrawAfterTaskHandled(t *testing.T) {
 func TestEngineAdminCancelTerminatesRunningInstance(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeParallel, 0)
 	engine := newTestEngine(staticResolver{"approve": {"u1", "u2"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start workflow: %v", err)
 	}
@@ -621,7 +622,7 @@ func TestEngineHandleTaskOnlyAcceptsSubmit(t *testing.T) {
 		},
 	}
 	engine := newTestEngine(staticResolver{"handle": {"user-9"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "admin-1"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "admin-1"})
 	if err != nil {
 		t.Fatalf("start handle workflow: %v", err)
 	}
@@ -629,10 +630,10 @@ func TestEngineHandleTaskOnlyAcceptsSubmit(t *testing.T) {
 	if len(pending) != 1 || pending[0].AssigneeID != "user-9" {
 		t.Fatalf("unexpected handle tasks: %#v", pending)
 	}
-	if err := engine.Complete(definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: "user-9", Action: TaskActionApprove}); !errors.Is(err, ErrInvalidTaskAction) {
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: "user-9", Action: TaskActionApprove}); !errors.Is(err, ErrInvalidTaskAction) {
 		t.Fatalf("approve handle task error = %v, want ErrInvalidTaskAction", err)
 	}
-	if err := engine.Complete(definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: "user-9", Action: TaskAction("submit")}); err != nil {
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: pending[0].ID, ActorID: "user-9", Action: TaskAction("submit")}); err != nil {
 		t.Fatalf("submit handle task: %v", err)
 	}
 	if state.Tasks[0].Status != TaskStatus("completed") || state.Instance.Status != InstanceStatusCompleted {
@@ -661,7 +662,7 @@ func TestEngineCCAndAutomationRunWithoutBlocking(t *testing.T) {
 			{ID: "e3", Source: "automation", Target: "end"},
 		},
 	}
-	state, err := newTestEngine(staticResolver{"cc": {"user-2", "user-3"}}).Start(definition, StartRequest{StarterID: "admin-1"})
+	state, err := newTestEngine(staticResolver{"cc": {"user-2", "user-3"}}).Start(context.Background(), definition, StartRequest{StarterID: "admin-1"})
 	if err != nil {
 		t.Fatalf("start automatic workflow: %v", err)
 	}
@@ -703,7 +704,7 @@ func TestEngineNotifyNodeCreatesMessageIntentWithoutParticipant(t *testing.T) {
 		},
 		Edges: []workflowcore.Edge{{ID: "e1", Source: "start", Target: "notify"}, {ID: "e2", Source: "notify", Target: "end"}},
 	}
-	state, err := newTestEngine(staticResolver{"notify": {"user-2", "user-2", "user-3"}}).Start(definition, StartRequest{StarterID: "starter"})
+	state, err := newTestEngine(staticResolver{"notify": {"user-2", "user-2", "user-3"}}).Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start notify workflow: %v", err)
 	}
@@ -724,7 +725,7 @@ func TestEngineTaskArrivalNotificationsFollowTaskActivation(t *testing.T) {
 	definition := linearDefinition(workflowcore.ApprovalModeSequential, 0)
 	definition.Nodes[1].Notification = notificationConfig("待办提醒", "请处理 {{nodeName}}")
 	engine := newTestEngine(staticResolver{"approve": {"u1", "u2", "u3"}})
-	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 	if err != nil {
 		t.Fatalf("start sequential workflow: %v", err)
 	}
@@ -732,7 +733,7 @@ func TestEngineTaskArrivalNotificationsFollowTaskActivation(t *testing.T) {
 		t.Fatalf("initial task notifications = %#v", state.NotificationIntents)
 	}
 	first := state.PendingTasks()[0]
-	if err := engine.Complete(definition, state, CompleteRequest{TaskID: first.ID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: first.ID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
 		t.Fatalf("complete first task: %v", err)
 	}
 	if len(state.NotificationIntents) != 2 || state.NotificationIntents[1].RecipientUserID != "u2" || state.NotificationIntents[1].Kind != NotificationKindTaskArrived {
@@ -749,7 +750,7 @@ func TestEngineApprovalResultNotificationsTargetStarter(t *testing.T) {
 			"你发起的流程在“{{nodeName}}”节点{{result}}",
 		)
 		engine := newTestEngine(staticResolver{"approve": assignees})
-		state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+		state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
 		if err != nil {
 			t.Fatalf("start workflow: %v", err)
 		}
@@ -759,7 +760,7 @@ func TestEngineApprovalResultNotificationsTargetStarter(t *testing.T) {
 	t.Run("approved", func(t *testing.T) {
 		definition, engine, state := newState(workflowcore.ApprovalModeSingle, []string{"approver"})
 		task := state.PendingTasks()[0]
-		if err := engine.Complete(definition, state, CompleteRequest{
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 			TaskID: task.ID, ActorID: task.AssigneeID, Action: TaskActionApprove,
 		}); err != nil {
 			t.Fatalf("approve task: %v", err)
@@ -770,7 +771,7 @@ func TestEngineApprovalResultNotificationsTargetStarter(t *testing.T) {
 	t.Run("rejected", func(t *testing.T) {
 		definition, engine, state := newState(workflowcore.ApprovalModeSingle, []string{"approver"})
 		task := state.PendingTasks()[0]
-		if err := engine.Complete(definition, state, CompleteRequest{
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 			TaskID: task.ID, ActorID: task.AssigneeID, Action: TaskActionReject, Comment: "材料不完整",
 		}); err != nil {
 			t.Fatalf("reject task: %v", err)
@@ -781,7 +782,7 @@ func TestEngineApprovalResultNotificationsTargetStarter(t *testing.T) {
 	t.Run("sequential waits for node completion", func(t *testing.T) {
 		definition, engine, state := newState(workflowcore.ApprovalModeSequential, []string{"approver-1", "approver-2"})
 		first := state.PendingTasks()[0]
-		if err := engine.Complete(definition, state, CompleteRequest{
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 			TaskID: first.ID, ActorID: first.AssigneeID, Action: TaskActionApprove,
 		}); err != nil {
 			t.Fatalf("approve first task: %v", err)
@@ -790,13 +791,102 @@ func TestEngineApprovalResultNotificationsTargetStarter(t *testing.T) {
 			t.Fatalf("partial sequential approval notifications = %#v", state.NotificationIntents)
 		}
 		second := state.PendingTasks()[0]
-		if err := engine.Complete(definition, state, CompleteRequest{
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 			TaskID: second.ID, ActorID: second.AssigneeID, Action: TaskActionApprove,
 		}); err != nil {
 			t.Fatalf("approve second task: %v", err)
 		}
 		assertApprovalResultNotification(t, state.NotificationIntents, NotificationKindApprovalResultApproved, "starter", second.ID)
 	})
+}
+
+func TestEngineReturnResultNotificationsTargetStarterAndActiveTargetHandlers(t *testing.T) {
+	newState := func() (workflowcore.Definition, *Engine, *State) {
+		t.Helper()
+		definition := returnableDefinition()
+		definition.Nodes[3].ResultNotification = notificationConfig(
+			"{{workflowName}}审批结果",
+			"{{starterName}}发起的流程在“{{nodeName}}”节点{{result}}",
+		)
+		definition.Nodes[3].ResultNotification.ResultTypes = []string{
+			workflowcore.NotificationResultApproved,
+			workflowcore.NotificationResultRejected,
+			workflowcore.NotificationResultReturned,
+		}
+		engine := newTestEngine(staticResolver{
+			"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+		})
+		state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
+		if err != nil {
+			t.Fatalf("start workflow: %v", err)
+		}
+		completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+		completePendingTask(t, engine, definition, state, "manager-1", TaskActionApprove)
+		return definition, engine, state
+	}
+
+	t.Run("notifies starter and returned node handler", func(t *testing.T) {
+		definition, engine, state := newState()
+		current := state.PendingTasks()[0]
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
+			TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
+			ReturnTargetNodeID: "manager", Comment: "请重新确认",
+		}); err != nil {
+			t.Fatalf("return task: %v", err)
+		}
+
+		recipients := make(map[string]bool)
+		for _, intent := range state.NotificationIntents {
+			if intent.Kind != NotificationKindApprovalResultReturned {
+				t.Fatalf("return notification kind = %q", intent.Kind)
+			}
+			if intent.NodeID != "hr" || intent.TaskID != current.ID || intent.TargetNodeName != "manager" {
+				t.Fatalf("return notification = %#v", intent)
+			}
+			recipients[intent.RecipientUserID] = true
+		}
+		if len(state.NotificationIntents) != 2 || !recipients["starter"] || !recipients["manager-1"] {
+			t.Fatalf("return notification recipients = %#v", state.NotificationIntents)
+		}
+	})
+
+	t.Run("deduplicates starter when starter handles returned node", func(t *testing.T) {
+		definition, engine, state := newState()
+		current := state.PendingTasks()[0]
+		if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
+			TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
+			ReturnTargetNodeID: "draft", Comment: "请发起人修改",
+		}); err != nil {
+			t.Fatalf("return task: %v", err)
+		}
+		if len(state.NotificationIntents) != 1 || state.NotificationIntents[0].RecipientUserID != "starter" {
+			t.Fatalf("deduplicated return notifications = %#v", state.NotificationIntents)
+		}
+	})
+}
+
+func TestEngineLegacyApprovalResultConfigDoesNotNotifyOnReturn(t *testing.T) {
+	definition := returnableDefinition()
+	definition.Nodes[3].ResultNotification = notificationConfig("结果", "{{result}}")
+	engine := newTestEngine(staticResolver{
+		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+	})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+	completePendingTask(t, engine, definition, state, "manager-1", TaskActionApprove)
+	current := state.PendingTasks()[0]
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
+		TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
+		ReturnTargetNodeID: "manager", Comment: "请重新确认",
+	}); err != nil {
+		t.Fatalf("return task: %v", err)
+	}
+	if len(state.NotificationIntents) != 0 {
+		t.Fatalf("legacy return notifications = %#v", state.NotificationIntents)
+	}
 }
 
 func TestEngineTimerWaitsUntilDueAndResumesOnce(t *testing.T) {
@@ -816,7 +906,7 @@ func TestEngineTimerWaitsUntilDueAndResumesOnce(t *testing.T) {
 	}
 	startedAt := time.Now().Unix()
 	engine := newTestEngine(staticResolver{})
-	state, err := engine.Start(definition, StartRequest{StarterID: "admin-1"})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "admin-1"})
 	if err != nil {
 		t.Fatalf("start timer workflow: %v", err)
 	}
@@ -824,20 +914,20 @@ func TestEngineTimerWaitsUntilDueAndResumesOnce(t *testing.T) {
 		t.Fatalf("timer did not wait: instance=%#v tokens=%#v", state.Instance, state.Tokens)
 	}
 	resumer, ok := interface{}(engine).(interface {
-		ResumeTimers(workflowcore.Definition, *State, int64) (int, error)
+		ResumeTimers(context.Context, workflowcore.Definition, *State, int64) (int, error)
 	})
 	if !ok {
 		t.Fatal("timer resume support missing")
 	}
-	advanced, err := resumer.ResumeTimers(definition, state, startedAt+29)
+	advanced, err := resumer.ResumeTimers(context.Background(), definition, state, startedAt+29)
 	if err != nil || advanced != 0 || state.Instance.Status != InstanceStatusRunning {
 		t.Fatalf("timer advanced before due: advanced=%d err=%v state=%#v", advanced, err, state.Instance)
 	}
-	advanced, err = resumer.ResumeTimers(definition, state, startedAt+31)
+	advanced, err = resumer.ResumeTimers(context.Background(), definition, state, startedAt+31)
 	if err != nil || advanced != 1 || state.Instance.Status != InstanceStatusCompleted {
 		t.Fatalf("timer did not advance after due: advanced=%d err=%v state=%#v", advanced, err, state.Instance)
 	}
-	advanced, err = resumer.ResumeTimers(definition, state, startedAt+60)
+	advanced, err = resumer.ResumeTimers(context.Background(), definition, state, startedAt+60)
 	if err != nil || advanced != 0 {
 		t.Fatalf("timer resumed twice: advanced=%d err=%v", advanced, err)
 	}
@@ -921,7 +1011,7 @@ func completePendingTask(
 	if len(pending) != 1 {
 		t.Fatalf("pending tasks = %#v, want one", pending)
 	}
-	if err := engine.Complete(definition, state, CompleteRequest{
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{
 		TaskID: pending[0].ID, ActorID: actorID, Action: action,
 	}); err != nil {
 		t.Fatalf("complete task %s: %v", pending[0].ID, err)

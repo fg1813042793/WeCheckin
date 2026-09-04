@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -73,9 +74,9 @@ func TestSaveMultipartFileStoresAliyunUploadWithRelativeResourcePath(t *testing.
 	}}
 	t.Cleanup(func() { config.Cfg = oldCfg })
 
-	oldClient := http.DefaultClient
+	oldClient := aliyunHTTPClient
 	var uploadURL string
-	http.DefaultClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	aliyunHTTPClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		uploadURL = req.URL.String()
 		if req.Method != http.MethodPut {
 			t.Fatalf("method = %s, want PUT", req.Method)
@@ -91,7 +92,7 @@ func TestSaveMultipartFileStoresAliyunUploadWithRelativeResourcePath(t *testing.
 			Request:    req,
 		}, nil
 	})}
-	t.Cleanup(func() { http.DefaultClient = oldClient })
+	t.Cleanup(func() { aliyunHTTPClient = oldClient })
 
 	file := multipartFileHeader(t, "avatar.png", "hello")
 	stored, err := SaveMultipartFile(context.Background(), file, SaveOptions{
@@ -116,6 +117,67 @@ func TestSaveMultipartFileStoresAliyunUploadWithRelativeResourcePath(t *testing.
 	if uploadURL != "https://demo-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/2026/08/06/avatar.png" {
 		t.Fatalf("upload URL = %q", uploadURL)
 	}
+}
+
+func TestAliyunHTTPClientHasFiniteTimeout(t *testing.T) {
+	if aliyunHTTPClient == nil || aliyunHTTPClient.Timeout != 30*time.Second {
+		t.Fatalf("aliyun HTTP client timeout = %v, want 30s", aliyunHTTPClient)
+	}
+}
+
+func TestSaveAliyunHonorsCanceledContextWithoutSendingRequest(t *testing.T) {
+	withAliyunTestConfig(t)
+	calls := 0
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("request should not be sent")
+	})}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := saveAliyunWithClient(ctx, client, strings.NewReader("body"), "uploads/test.txt", "test.txt", "text/plain")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("saveAliyunWithClient() error = %v, want context cancellation", err)
+	}
+	if calls != 0 {
+		t.Fatalf("round trip calls = %d, want 0", calls)
+	}
+}
+
+func TestSaveAliyunDoesNotExposeUpstreamResponseBody(t *testing.T) {
+	withAliyunTestConfig(t)
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadGateway,
+			Status:     "502 Bad Gateway",
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("upstream-secret-detail")),
+			Request:    req,
+		}, nil
+	})}
+
+	_, err := saveAliyunWithClient(context.Background(), client, strings.NewReader("body"), "uploads/test.txt", "test.txt", "text/plain")
+	if err == nil {
+		t.Fatal("saveAliyunWithClient() error = nil")
+	}
+	if strings.Contains(err.Error(), "upstream-secret-detail") {
+		t.Fatalf("OSS error leaked upstream response body: %v", err)
+	}
+}
+
+func withAliyunTestConfig(t *testing.T) {
+	t.Helper()
+	oldCfg := config.Cfg
+	config.Cfg = &config.Config{OSS: config.OSSConfig{
+		Type: "aliyun",
+		Aliyun: config.AliyunOSSConfig{
+			AccessKeyID:     "ak",
+			AccessKeySecret: "sk",
+			Endpoint:        "oss-cn-hangzhou.aliyuncs.com",
+			Bucket:          "demo-bucket",
+		},
+	}}
+	t.Cleanup(func() { config.Cfg = oldCfg })
 }
 
 func multipartFileHeader(t *testing.T, filename, content string) *multipart.FileHeader {

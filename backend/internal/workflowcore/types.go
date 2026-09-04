@@ -28,10 +28,24 @@ const (
 )
 
 const (
+	NotificationResultApproved = "approved"
+	NotificationResultRejected = "rejected"
+	NotificationResultReturned = "returned"
+)
+
+const (
 	ApprovalModeSingle      = "single"
 	ApprovalModeSequential  = "sequential"
 	ApprovalModeParallel    = "parallel"
 	ApprovalModeCountersign = "countersign"
+)
+
+const (
+	DepartmentApprovalChainStopRoot       = "root"
+	DepartmentApprovalChainStopDepartment = "department"
+
+	DepartmentApprovalChainMissingSkip  = "skip"
+	DepartmentApprovalChainMissingError = "error"
 )
 
 const (
@@ -177,6 +191,7 @@ const (
 	ValidationAssigneeRequired         = "assignee_required"
 	ValidationApprovalMode             = "approval_mode_invalid"
 	ValidationCompletionRate           = "completion_rate_invalid"
+	ValidationDepartmentApprovalChain  = "department_approval_chain_invalid"
 	ValidationAutomation               = "automation_invalid"
 	ValidationTimer                    = "timer_invalid"
 	ValidationNotification             = "notification_invalid"
@@ -299,29 +314,46 @@ type FieldPermission struct {
 }
 
 type Node struct {
-	ID                 string                   `json:"id"`
-	Type               string                   `json:"type"`
-	Name               string                   `json:"name"`
-	Position           *Position                `json:"position,omitempty"`
-	ApprovalMode       string                   `json:"approvalMode,omitempty"`
-	Assignee           *Assignee                `json:"assignee,omitempty"`
-	CompletionRate     int                      `json:"completionRate,omitempty"`
-	GatewayMode        string                   `json:"gatewayMode,omitempty"`
-	FormPermissions    []FieldPermission        `json:"formPermissions,omitempty"`
-	Automation         *AutomationConfig        `json:"automation,omitempty"`
-	Timer              *TimerConfig             `json:"timer,omitempty"`
-	Notification       *NotificationConfig      `json:"notification,omitempty"`
-	ResultNotification *NotificationConfig      `json:"resultNotification,omitempty"`
-	Initiator          *InitiatorConfig         `json:"initiator,omitempty"`
-	Availability       *StartAvailabilityConfig `json:"availability,omitempty"`
-	StartLimit         *StartLimitConfig        `json:"startLimit,omitempty"`
+	ID                      string                         `json:"id"`
+	Type                    string                         `json:"type"`
+	Name                    string                         `json:"name"`
+	Position                *Position                      `json:"position,omitempty"`
+	ApprovalMode            string                         `json:"approvalMode,omitempty"`
+	Assignee                *Assignee                      `json:"assignee,omitempty"`
+	DepartmentApprovalChain *DepartmentApprovalChainConfig `json:"departmentApprovalChain,omitempty"`
+	CompletionRate          int                            `json:"completionRate,omitempty"`
+	GatewayMode             string                         `json:"gatewayMode,omitempty"`
+	FormPermissions         []FieldPermission              `json:"formPermissions,omitempty"`
+	Automation              *AutomationConfig              `json:"automation,omitempty"`
+	Timer                   *TimerConfig                   `json:"timer,omitempty"`
+	Notification            *NotificationConfig            `json:"notification,omitempty"`
+	ResultNotification      *NotificationConfig            `json:"resultNotification,omitempty"`
+	Initiator               *InitiatorConfig               `json:"initiator,omitempty"`
+	Availability            *StartAvailabilityConfig       `json:"availability,omitempty"`
+	StartLimit              *StartLimitConfig              `json:"startLimit,omitempty"`
 }
 
 type NotificationConfig struct {
-	Enabled  bool     `json:"enabled"`
-	Channels []string `json:"channels,omitempty"`
-	Title    string   `json:"title,omitempty"`
-	Content  string   `json:"content,omitempty"`
+	Enabled     bool     `json:"enabled"`
+	Channels    []string `json:"channels,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Content     string   `json:"content,omitempty"`
+	ResultTypes []string `json:"resultTypes,omitempty"`
+}
+
+func NotificationResultEnabled(config *NotificationConfig, resultType string) bool {
+	if config == nil || !config.Enabled {
+		return false
+	}
+	if config.ResultTypes == nil {
+		return resultType == NotificationResultApproved || resultType == NotificationResultRejected
+	}
+	for _, configured := range config.ResultTypes {
+		if configured == resultType {
+			return true
+		}
+	}
+	return false
 }
 
 type InitiatorConfig struct {
@@ -374,6 +406,14 @@ type Position struct {
 type Assignee struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`
+}
+
+type DepartmentApprovalChainConfig struct {
+	Enabled               bool   `json:"enabled"`
+	StopMode              string `json:"stopMode"`
+	StopDepartmentID      uint   `json:"stopDepartmentId,omitempty"`
+	MissingAssigneePolicy string `json:"missingAssigneePolicy"`
+	SkipStarter           bool   `json:"skipStarter,omitempty"`
 }
 
 type Edge struct {

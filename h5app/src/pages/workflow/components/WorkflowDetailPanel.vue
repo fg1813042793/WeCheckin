@@ -32,6 +32,7 @@ import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-
 import { isWorkflowTaskAssignedToUser } from '../workflow-task'
 import WorkflowImagePicker from './WorkflowImagePicker.vue'
 import WorkflowNodeProgressList from './WorkflowNodeProgressList.vue'
+import WorkflowParticipantSelect from './WorkflowParticipantSelect.vue'
 import WorkflowReadOnlyGraph from './WorkflowReadOnlyGraph.vue'
 import WorkflowRuntimeForm from './WorkflowRuntimeForm.vue'
 import WorkflowTextarea from './WorkflowTextarea.vue'
@@ -1629,24 +1630,12 @@ async function deleteApplication() {
         <text class="workflow-comment-notification__label">
           通知对象
         </text>
-        <scroll-view scroll-y class="workflow-comment-notification__users">
-          <u-checkbox-group v-model="commentNotificationUserIds" wrap>
-            <view v-for="group in commentNotificationGroups" :key="group.nodeId" class="workflow-comment-notification__group">
-              <text class="workflow-comment-notification__node">
-                {{ group.nodeName }}
-              </text>
-              <view class="workflow-comment-notification__options">
-                <u-checkbox
-                  v-for="user in group.users"
-                  :key="user.userId"
-                  :value="user.userId"
-                  :label="user.userName"
-                  :disabled="commentSubmitting"
-                />
-              </view>
-            </view>
-          </u-checkbox-group>
-        </scroll-view>
+        <WorkflowParticipantSelect
+          v-model="commentNotificationUserIds"
+          :groups="commentNotificationGroups"
+          :disabled="commentSubmitting"
+          placeholder="请选择需要通知的流程参与人"
+        />
         <text class="workflow-comment-notification__label workflow-comment-notification__label--channels">
           通知方式
         </text>
@@ -2432,8 +2421,7 @@ async function deleteApplication() {
   border-top: 1px solid #edf0f3;
 }
 
-.workflow-comment-notification__label,
-.workflow-comment-notification__node {
+.workflow-comment-notification__label {
   display: block;
 }
 
@@ -2447,29 +2435,16 @@ async function deleteApplication() {
   margin-top: 14px;
 }
 
-.workflow-comment-notification__users {
-  max-height: 172px;
+.workflow-comment-notification :deep(.workflow-participant-select) {
   margin-top: 8px;
 }
 
-.workflow-comment-notification__group + .workflow-comment-notification__group {
-  margin-top: 12px;
-}
-
-.workflow-comment-notification__node {
-  margin-bottom: 7px;
-  color: #86909c;
-  font-size: 12px;
-}
-
-.workflow-comment-notification__options,
 .workflow-comment-notification__channels {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
 }
 
-.workflow-comment-notification__options :deep(.u-checkbox),
 .workflow-comment-notification__channels :deep(.u-checkbox) {
   margin: 0;
 }

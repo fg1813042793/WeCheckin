@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -16,31 +17,35 @@ import (
 )
 
 type runtimeServiceStub struct {
-	startRequest     workflowapp.StartInstanceRequest
-	completeRequest  workflowapp.CompleteTaskRequest
-	withdrawRequest  workflowapp.WithdrawInstanceRequest
-	commentRequest   workflowapp.CommentInstanceRequest
-	remindRequest    workflowapp.RemindInstanceRequest
-	instanceQuery    workflowapp.InstanceQuery
-	taskQuery        workflowapp.TaskQuery
-	actorID          string
-	instanceID       string
-	startCalls       int
-	completeCalls    int
-	withdrawCalls    int
-	commentCalls     int
-	remindCalls      int
-	saveDraftRequest workflowapp.SaveStartDraftRequest
-	draft            *workflowapp.StartDraft
-	deleteDraftID    uint
-	deleteDraftActor string
-	deleteInstanceID string
-	deleteActorID    string
-	instanceDetail   *workflowapp.InstanceDetail
+	startRequest       workflowapp.StartInstanceRequest
+	completeRequest    workflowapp.CompleteTaskRequest
+	withdrawRequest    workflowapp.WithdrawInstanceRequest
+	commentRequest     workflowapp.CommentInstanceRequest
+	remindRequest      workflowapp.RemindInstanceRequest
+	instanceQuery      workflowapp.InstanceQuery
+	taskQuery          workflowapp.TaskQuery
+	actorID            string
+	instanceID         string
+	startCalls         int
+	completeCalls      int
+	withdrawCalls      int
+	commentCalls       int
+	remindCalls        int
+	saveDraftRequest   workflowapp.SaveStartDraftRequest
+	draft              *workflowapp.StartDraft
+	deleteDraftID      uint
+	deleteDraftActor   string
+	deleteInstanceID   string
+	deleteActorID      string
+	instanceDetail     *workflowapp.InstanceDetail
+	listDefinitionsErr error
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitionsForStarter(_ context.Context, actorID string) ([]workflowapp.PublishedDefinition, error) {
 	stub.actorID = actorID
+	if stub.listDefinitionsErr != nil {
+		return nil, stub.listDefinitionsErr
+	}
 	return []workflowapp.PublishedDefinition{{
 		ID: 7, Key: "leave", Name: "请假审批", Version: 3,
 		Initiator: workflowcore.InitiatorConfig{
@@ -51,6 +56,19 @@ func (stub *runtimeServiceStub) ListPublishedDefinitionsForStarter(_ context.Con
 		},
 		AvailabilityStatus: workflowcore.StartAvailabilityStateOutsideWindow,
 	}}, nil
+}
+
+func TestListDefinitionsDoesNotExposeUnknownServiceError(t *testing.T) {
+	stub := &runtimeServiceStub{listDefinitionsErr: errors.New("SELECT password FROM users: secret")}
+	handler := NewRuntimeHandler(stub)
+	c := newUserContext(42)
+
+	handler.ListDefinitions(context.Background(), c)
+
+	body := string(c.Response.Body())
+	if !strings.Contains(body, "流程操作失败，请稍后重试") || strings.Contains(body, "password") || strings.Contains(body, "secret") {
+		t.Fatalf("unsafe workflow error response: %s", body)
+	}
 }
 
 func (stub *runtimeServiceStub) GetPublishedDefinitionForStarter(_ context.Context, definitionID uint, actorID string) (*workflowapp.PublishedDefinition, error) {

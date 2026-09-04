@@ -1,14 +1,22 @@
 package swagger
 
 import (
+	formkitschema "wecheckin/backend/internal/formkit/schema"
+	adminsetuphandler "wecheckin/backend/internal/handler/admin/setup"
+	adminsurveyhandler "wecheckin/backend/internal/handler/admin/survey"
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
+	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	workflowservice "wecheckin/backend/internal/service/admin/workflow"
 	"wecheckin/backend/pkg/response"
 )
 
 var _ response.Resp
+var _ adminsetuphandler.DebugTokenConfigResponse
+var _ adminsurveyhandler.EvalExprResponse
 var _ scheduledtaskapp.CreateTaskRequest
+var _ admindingtalkservice.SettingsResponse
 var _ workflowservice.PublishRequest
+var _ formkitschema.FormSchema
 
 // @Tags API v2-公开接口-首页
 // @Summary 查询 /api/v2/home
@@ -757,7 +765,7 @@ func swaggerV2AdminSettingsMiniQrGet76() {}
 // @Tags API v2-后台管理-系统设置
 // @Summary 查询 /api/v2/admin/settings/debug-token
 // @Security AdminToken
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=adminsetuphandler.DebugTokenConfigResponse}
 // @Router /api/v2/admin/settings/debug-token [get]
 func swaggerV2AdminSettingsDebugTokenGet77() {}
 
@@ -773,7 +781,7 @@ func swaggerV2AdminUploadsPost() {}
 // @Tags API v2-后台管理-钉钉集成
 // @Summary 查询 /api/v2/admin/dingtalk/settings
 // @Security AdminToken
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=admindingtalkservice.SettingsResponse}
 // @Router /api/v2/admin/dingtalk/settings [get]
 func swaggerV2AdminDingTalkSettingsGet() {}
 
@@ -821,7 +829,7 @@ func swaggerV2AdminDingTalkSettingsNotificationTestPost() {}
 // @Param corpId query string false "企业 ID"
 // @Param keyword query string false "关键词"
 // @Param enabled query string false "是否启用"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=admindingtalkservice.UserBindingList}
 // @Router /api/v2/admin/dingtalk/user-bindings [get]
 func swaggerV2AdminDingTalkUserBindingsGet() {}
 
@@ -862,7 +870,7 @@ func swaggerV2AdminDingTalkUserBindingsIDDelete() {}
 // @Security AdminToken
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=admindingtalkservice.PerfReviewList}
 // @Router /api/v2/admin/dingtalk/perf-reviews [get]
 func swaggerV2AdminDingTalkPerfReviewsGet() {}
 
@@ -879,7 +887,7 @@ func swaggerV2AdminDingTalkPerfReviewsDelete() {}
 // @Summary 查询 /api/v2/admin/dingtalk/perf-reviews/{id}
 // @Security AdminToken
 // @Param id path int true "id"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=admindingtalkservice.PerfReviewDetail}
 // @Router /api/v2/admin/dingtalk/perf-reviews/{id} [get]
 func swaggerV2AdminDingTalkPerfReviewsIDGet() {}
 
@@ -900,7 +908,7 @@ func swaggerV2AdminDingTalkPerfReviewsIDDelete() {}
 // @Param reviewNo query string false "绩效单号"
 // @Param byAccount query string false "操作账号"
 // @Param action query string false "操作类型"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=admindingtalkservice.PerfHistoryList}
 // @Router /api/v2/admin/dingtalk/perf-histories [get]
 func swaggerV2AdminDingTalkPerfHistoriesGet() {}
 
@@ -2061,7 +2069,7 @@ func swaggerV2AdminSurveyTypesGet171() {}
 // @Security AdminToken
 // @Accept application/x-www-form-urlencoded
 // @Param schema formData string true "Schema JSON"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=formkitschema.FormSchema}
 // @Router /api/v2/admin/survey-schema/parse [post]
 func swaggerV2AdminSurveySchemaParsePost172() {}
 
@@ -2072,7 +2080,7 @@ func swaggerV2AdminSurveySchemaParsePost172() {}
 // @Param expr formData string true "表达式"
 // @Param env formData string false "环境变量JSON"
 // @Param asBool formData bool false "是否返回布尔值"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=adminsurveyhandler.EvalExprResponse}
 // @Router /api/v2/admin/survey-expressions/evaluate [post]
 func swaggerV2AdminSurveyExpressionsEvaluatePost173() {}
 
@@ -3127,6 +3135,40 @@ func swaggerV2AdminDingTalkNotificationsRecipientOptionsGet() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/dingtalk-notifications [post]
 func swaggerV2AdminDingTalkNotificationsPost() {}
+
+// @Tags API v2-后台管理-通知样式
+// @Summary 查询通知消息样式
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/notification-styles [get]
+func swaggerV2AdminNotificationStylesGet() {}
+
+// @Tags API v2-后台管理-通知样式
+// @Summary 保存通知消息样式
+// @Security AdminToken
+// @Accept application/json
+// @Param body body NotificationStyleConfigRequest true "完整的通知样式配置"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/notification-styles [put]
+func swaggerV2AdminNotificationStylesPut() {}
+
+// @Tags API v2-后台管理-通知样式
+// @Summary 向指定用户发送站内信样式测试
+// @Security AdminToken
+// @Accept application/json
+// @Param body body NotificationStyleTestRequest true "测试消息类型、内容与收件人"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/notification-styles/test/in-app [post]
+func swaggerV2AdminNotificationStylesTestInAppPost() {}
+
+// @Tags API v2-后台管理-通知样式
+// @Summary 向指定用户发送钉钉样式测试
+// @Security AdminToken
+// @Accept application/json
+// @Param body body NotificationStyleTestRequest true "测试消息类型、内容与收件人"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/notification-styles/test/dingtalk [post]
+func swaggerV2AdminNotificationStylesTestDingTalkPost() {}
 
 // @Tags API v2-客户端-OA流程
 // @Summary 查询已发布的 OA 流程

@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"errors"
+
+	"wecheckin/backend/internal/support/notificationstyle"
 )
 
 type RecipientScope string
@@ -15,9 +17,11 @@ const (
 	SourceAdminManual         = "admin_manual"
 	SourceAdminManualDingTalk = "admin_manual_dingtalk"
 	SourceScheduledTaskRun    = "scheduled_task_run"
+	SourceSurvey              = "survey"
 
 	TypeAdminManual   = "admin_manual"
 	TypeScheduledTask = "scheduled_task"
+	TypeSurveyStat    = "survey_stat"
 )
 
 var (
@@ -33,6 +37,7 @@ var (
 	ErrSourceTooLong               = errors.New("notification source ID must not exceed 64 characters")
 	ErrNoRecipients                = errors.New("notification has no active recipients")
 	ErrDingTalkDeliveryUnavailable = errors.New("DingTalk notification delivery is unavailable")
+	ErrInvalidNotificationType     = errors.New("notification type is invalid")
 )
 
 type RecipientRule struct {
@@ -42,13 +47,15 @@ type RecipientRule struct {
 }
 
 type SendInput struct {
-	Title         string         `json:"title"`
-	Content       string         `json:"content"`
-	Scope         RecipientScope `json:"scope"`
-	UserIDs       []uint         `json:"userIds,omitempty"`
-	DepartmentIDs []uint         `json:"departmentIds,omitempty"`
-	SourceType    string         `json:"-"`
-	SourceID      string         `json:"-"`
+	Title            string         `json:"title"`
+	Content          string         `json:"content"`
+	Scope            RecipientScope `json:"scope"`
+	UserIDs          []uint         `json:"userIds,omitempty"`
+	DepartmentIDs    []uint         `json:"departmentIds,omitempty"`
+	NotificationType string         `json:"notificationType,omitempty"`
+	SourceType       string         `json:"-"`
+	SourceID         string         `json:"-"`
+	DeliveryKey      string         `json:"-"`
 }
 
 type RecipientResolution struct {
@@ -57,12 +64,13 @@ type RecipientResolution struct {
 }
 
 type DeliveryBatch struct {
-	Title      string
-	Content    string
-	Type       string
-	SourceType string
-	SourceID   string
-	UserIDs    []uint
+	Title       string
+	Content     string
+	Type        string
+	SourceType  string
+	SourceID    string
+	DeliveryKey string
+	UserIDs     []uint
 }
 
 type DeliveryResult struct {
@@ -140,4 +148,6 @@ type Store interface {
 	MarkRead(context.Context, string, uint) (bool, error)
 	MarkAllRead(context.Context, string) error
 	RecipientOptions(context.Context) (RecipientOptions, error)
+	NotificationStyles(context.Context) (notificationstyle.Config, error)
+	SaveNotificationStyles(context.Context, notificationstyle.Config) (notificationstyle.Config, error)
 }

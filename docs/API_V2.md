@@ -1,6 +1,6 @@
 # API v2 接口说明
 
-最后更新：2026-09-02
+最后更新：2026-09-04
 
 ## 当前状态
 
@@ -9,6 +9,7 @@
 - PC 管理后台：`admin/src/api/index.ts`
 - uni-app 客户端：`frontend/api/index.js`
 - uni-app 内置移动端管理页：`frontend/api/admin.js`
+- 钉钉 H5：`h5app/src/api/`，`h5app/` 是当前权威源码目录。
 
 后台管理只使用 `/api/v2/admin/*` 路由和统一权限体系；旧版 `/admin/*` 后台路由已不再作为兼容入口。`/passport/*`、`/home/*`、`/survey/*`、`/exam/*` 等历史客户端路由如仍存在，仅用于兼容旧页面和小程序旧代码。新增页面和新增接口调用必须使用 `/api/v2`。已有单点 MySQL 部署升级时，同时参考 [单点 MySQL 部署兼容升级说明](SINGLE_NODE_MYSQL_UPGRADE.md)。
 
@@ -19,6 +20,7 @@
 - Swagger JSON：`http://localhost:8083/swagger/doc.json`
 - 客户端 API 前缀：`/api/v2`
 - 后台 API 前缀：`/api/v2/admin`
+- 钉钉 H5 API 前缀：`/api/v2/dingtalk/h5`
 
 请求认证：
 
@@ -34,6 +36,8 @@
   "data": {}
 }
 ```
+
+稳定接口的 `data` 使用命名 DTO 并在 Swagger 中声明。服务端错误在 HTTP 边界转换为稳定的公开文案；SQL、堆栈、本地路径和下游错误链只记入内部日志，不直接返回客户端。
 
 ## 客户端公开接口
 
@@ -201,6 +205,7 @@
 - PC 管理后台：`admin/src/api/index.ts`
 - uni-app 客户端：`frontend/api/index.js`
 - uni-app 移动端管理页：`frontend/api/admin.js`
+- 钉钉 H5：`h5app/src/api/`
 
 不要在页面中手写旧路径，例如：
 

@@ -36,7 +36,7 @@ func (h *ClientSurveyHandler) Submit(ctx context.Context, c *app.RequestContext)
 		DeviceID   string                 `json:"deviceId"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		response.Fail(c, "参数错误: "+err.Error())
+		response.FailInternal(ctx, c, "client.survey.submit", "参数错误，请稍后重试", err)
 		return
 	}
 	sv2, err2 := h.survey.Get(req.SurveyID)
@@ -55,7 +55,7 @@ func (h *ClientSurveyHandler) Submit(ctx context.Context, c *app.RequestContext)
 	}
 	token := string(c.Request.Header.Peek("Authorization"))
 	if token != "" {
-		_, prefix := tokenutil.GetTokenConfig("user")
+		_, prefix := tokenutil.GetTokenConfigContext(ctx, "user")
 		redisCtx, cancel := rd.OperationContext(ctx)
 		defer cancel()
 		jsonStr, err := rd.RDB.Get(redisCtx, prefix+"a:"+token).Result()
@@ -75,7 +75,7 @@ func (h *ClientSurveyHandler) Submit(ctx context.Context, c *app.RequestContext)
 			response.Fail(c, "请登录")
 			return
 		}
-		_, prefix := tokenutil.GetTokenConfig("user")
+		_, prefix := tokenutil.GetTokenConfigContext(ctx, "user")
 		redisCtx, cancel := rd.OperationContext(ctx)
 		defer cancel()
 		jsonStr, err := rd.RDB.Get(redisCtx, prefix+"a:"+token).Result()
@@ -100,7 +100,7 @@ func (h *ClientSurveyHandler) Submit(ctx context.Context, c *app.RequestContext)
 	resp, err := h.responses.Submit(req.SurveyID, uid, req.Nickname, req.StartTime, req.Answers, ip, req.Device, req.AutoSubmit, req.DeviceID)
 	if err != nil {
 		logger.Logger.Printf("[SurveySubmit] 失败 surveyId=%d uid=%d err=%s ip=%s device=%s", req.SurveyID, uid, err.Error(), ip, req.Device)
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "client.survey.submit", "操作失败，请稍后重试", err)
 		return
 	}
 	logger.Logger.Printf("[SurveySubmit] 成功 surveyId=%d uid=%d respId=%d ip=%s device=%s", req.SurveyID, uid, resp.ID, ip, req.Device)

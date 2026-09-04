@@ -18,7 +18,7 @@ if (!routes.includes("path: 'survey/notify', name: 'SurveyNotify', component: ()
 }
 
 const api = read('src/api/index.ts')
-for (const method of ['inAppNotificationList', 'inAppNotificationUnreadCount', 'inAppNotificationMarkRead', 'inAppNotificationMarkAllRead', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend']) {
+for (const method of ['inAppNotificationList', 'inAppNotificationUnreadCount', 'inAppNotificationMarkRead', 'inAppNotificationMarkAllRead', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest']) {
   if (!api.includes(`${method}(`)) throw new Error(`in-app notification API missing ${method}`)
 }
 if (!api.includes('/in-app-notifications')) throw new Error('in-app notification API must use the canonical admin endpoint')
@@ -40,6 +40,23 @@ for (const snippet of [
   'sendRequestID.value = newRequestID()',
   'requestId: sendRequestID.value',
   "sendChannel.value === 'dingtalk'",
+  'NotificationStyleDialog',
+  "消息样式",
+  "hasPerm('admin:menu:notification:style:list')",
 ]) {
   if (!page.includes(snippet)) throw new Error(`in-app notification page missing ${snippet}`)
+}
+
+const styleDialog = read('src/views/notification/components/NotificationStyleDialog.vue')
+for (const snippet of [
+  '实时预览',
+  '测试收件人',
+  '保存并发送站内信测试',
+  '保存并发送钉钉测试',
+  'notificationType: selectedStyle.value.type',
+  'adminApi.notificationStylesSave',
+  'adminApi.notificationStyleInAppTest',
+  'adminApi.notificationStyleDingTalkTest',
+]) {
+  if (!styleDialog.includes(snippet)) throw new Error(`notification style dialog missing ${snippet}`)
 }

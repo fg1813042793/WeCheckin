@@ -17,7 +17,7 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Template(ctx context.Context, c *app.RequestContext) {
 	data, err := dingtalkh5service.TemplateContext(ctx)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.template.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)
@@ -36,7 +36,7 @@ func (h *Handler) SaveTemplate(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := dingtalkh5service.SaveTemplateContext(ctx, user, req)
 	if err != nil {
-		response.Fail(c, err.Error())
+		response.FailInternal(ctx, c, "dingtalkh5.performance.template.handler", "操作失败，请稍后重试", err)
 		return
 	}
 	response.JSON(c, data)

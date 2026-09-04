@@ -181,6 +181,40 @@ type DingTalkNotificationSendRequest struct {
 	DepartmentIDs []uint `json:"departmentIds" example:"3,5"`
 }
 
+// NotificationStyleTestRequest describes a notification style test sent to selected users.
+type NotificationStyleTestRequest struct {
+	// RequestID 是客户端生成的幂等请求标识；为空时由服务端生成。
+	RequestID string `json:"requestId" example:"8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"`
+	// NotificationType 是需要测试的已注册消息类型。
+	NotificationType string `json:"notificationType" example:"approval_result_returned"`
+	// Title 是测试通知标题，服务端会自动添加测试标识。
+	Title string `json:"title" example:"退回结果通知"`
+	// Content 是测试通知正文。
+	Content string `json:"content" example:"这是一条退回结果通知样式测试消息。"`
+	// UserIDs 是测试消息的指定收件用户 ID。
+	UserIDs []uint `json:"userIds" example:"66,67"`
+}
+
+// NotificationStyleConfigRequest describes the complete notification style configuration.
+type NotificationStyleConfigRequest struct {
+	// Version 是样式配置结构版本。
+	Version int `json:"version" example:"1"`
+	// Styles 是所有支持的消息类型样式。
+	Styles []NotificationStyleRequest `json:"styles"`
+}
+
+// NotificationStyleRequest describes one notification type's visual style.
+type NotificationStyleRequest struct {
+	// Type 是稳定的消息类型编码。
+	Type string `json:"type" example:"task_arrived"`
+	// Label 是在通知列表与详情中显示的类型标签。
+	Label string `json:"label" example:"待处理"`
+	// Icon 是 uView Pro 图标名称。
+	Icon string `json:"icon" example:"clock"`
+	// Tone 是样式语义色。
+	Tone string `json:"tone" enums:"primary,success,warning,danger,info" example:"warning"`
+}
+
 // SurveyQuestionBankRequest describes a reusable survey question.
 type SurveyQuestionBankRequest struct {
 	// Title 是题目标题。
