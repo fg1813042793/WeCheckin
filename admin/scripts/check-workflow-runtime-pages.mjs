@@ -25,6 +25,7 @@ const logoPickerPath = resolve(srcDir, 'views/workflow/components/WorkflowLogoPi
 const userTreePickerPath = resolve(srcDir, 'views/workflow/components/WorkflowUserTreePicker.vue')
 const flowConfigPath = resolve(srcDir, 'views/workflow/designer/components/WorkflowStartConfig.vue')
 const formPreviewDialogPath = resolve(srcDir, 'views/workflow/designer/components/WorkflowFormPreviewDialog.vue')
+const workflowStatusPath = resolve(srcDir, 'views/workflow/workflowStatus.ts')
 
 if (!existsSync(instancePagePath)) {
   throw new Error('workflow instance page missing: src/views/workflow/instances/index.vue')
@@ -53,9 +54,12 @@ if (!existsSync(flowConfigPath)) {
 if (!existsSync(formPreviewDialogPath)) {
   throw new Error('workflow form preview dialog missing: src/views/workflow/designer/components/WorkflowFormPreviewDialog.vue')
 }
+if (!existsSync(workflowStatusPath)) {
+  throw new Error('workflow status mapping missing: src/views/workflow/workflowStatus.ts')
+}
 
 const api = read('api/index.ts')
-const workflowTypes = read('views/workflow/types.ts')
+const workflowTypes = read('types/workflow.ts')
 const routes = read('router/adminRoutes.ts')
 const instances = read('views/workflow/instances/index.vue')
 const tasks = read('views/workflow/tasks/index.vue')
@@ -66,6 +70,37 @@ const logoPicker = read('views/workflow/components/WorkflowLogoPicker.vue')
 const userTreePicker = read('views/workflow/components/WorkflowUserTreePicker.vue')
 const flowConfig = read('views/workflow/designer/components/WorkflowStartConfig.vue')
 const formPreviewDialog = read('views/workflow/designer/components/WorkflowFormPreviewDialog.vue')
+const workflowStatus = read('views/workflow/workflowStatus.ts')
+
+for (const snippet of [
+  'workflowDefinitionCopy(id: ID, data: FormPayload | FormData)',
+  '`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/copy`',
+]) {
+  requireSnippet(api, snippet, 'workflow definition copy API')
+}
+
+for (const snippet of [
+  'workflowInstanceStatusMeta',
+  'workflowTaskStatusMeta',
+  "running: { label: '审批中', type: 'warning' }",
+  "waiting: { label: '待激活', type: 'warning' }",
+  "pending: { label: '待处理', type: 'warning' }",
+  "completed: { label: '已完成', type: 'success' }",
+  "rejected: { label: '已驳回', type: 'danger' }",
+  "cancelled: { label: '已取消', type: 'info' }",
+]) {
+  requireSnippet(workflowStatus, snippet, 'workflow status mapping')
+}
+
+for (const [source, label, snippets] of [
+  [instances, 'workflow instance page', ['workflowInstanceStatusMeta', 'workflowTaskStatusMeta']],
+  [tasks, 'workflow task page', ['workflowTaskStatusMeta']],
+]) {
+  for (const snippet of snippets) requireSnippet(source, snippet, label)
+}
+
+assert.ok(!/function\s+instanceStatusMeta\s*\(/.test(instances), 'workflow instance page must use shared instance status mapping')
+assert.ok(!/function\s+taskStatusMeta\s*\(/.test(tasks), 'workflow task page must use shared task status mapping')
 
 requireSnippet(designer, "if (selectedNode.value.type === 'start') return '开始节点'", 'workflow start node inspector title')
 
@@ -103,8 +138,11 @@ for (const snippet of [
   'workflowInstanceStart(',
   'workflowInstanceDetail(',
   'workflowInstanceResume(',
+	'workflowInstanceDelete(',
+	'workflowInstanceBatchDelete(',
   'workflowTaskList(',
   'workflowTaskComplete(',
+	'workflowTaskDelete(',
   'workflowPublishedDefinitionList(',
   'workflowPublishedDefinitionDetail(',
   'workflowUserOptions(',
@@ -130,6 +168,7 @@ for (const snippet of [
 for (const snippet of [
   "hasPerm('admin:menu:workflow:instance:start')",
   "hasPerm('admin:menu:workflow:instance:detail')",
+	"hasPerm('admin:menu:workflow:instance:delete')",
   'WorkflowRuntimeForm',
   'workflowFieldActionMap',
   'selectedStartDefinition',
@@ -164,6 +203,24 @@ for (const snippet of [
   'failedUserIds',
   'workflowInstanceResume',
   'workflowInstanceDetail',
+	'workflowInstanceDelete',
+	'workflowInstanceBatchDelete',
+	'ElMessageBox.confirm',
+	'type="selection"',
+	'@selection-change="handleSelectionChange"',
+	':selectable="canSelectInstance"',
+	'detailExpandedSections',
+	'<el-collapse',
+	'name="form"',
+	'name="variables"',
+	'name="history"',
+	':user-name-map="detail.userNames || {}"',
+	'starterName',
+	'operatorName',
+	'assigneeName',
+	'handledByName',
+	'actorName',
+	'recipientUserName',
   "hasPerm('admin:menu:workflow:notification:list')",
   "hasPerm('admin:menu:workflow:notification:retry')",
   'workflowNotificationList',
@@ -177,7 +234,7 @@ for (const snippet of [
   "'dead'",
   '通知投递',
   '投递到期通知',
-  '重试',
+	'重发',
   "node_cc: '已记录抄送'",
   "node_notify: '通知节点已触发'",
   'class="admin-pagination"',
@@ -190,7 +247,11 @@ requireSnippet(instances, 'definitionId: undefined', 'workflow start form empty 
 
 for (const snippet of [
   "hasPerm('admin:menu:workflow:task:complete')",
+	"hasPerm('admin:menu:workflow:task:delete')",
   'WorkflowRuntimeForm',
+  'taskUserDisplay',
+  'assigneeName',
+  'handledByName',
   'workflowFieldActionMap',
   'activeInstanceDetail',
   'completeFormData',
@@ -202,6 +263,11 @@ for (const snippet of [
   'formData: writableWorkflowFormData',
   'workflowTaskList',
   'workflowTaskComplete',
+	'workflowTaskDelete',
+	'canDeleteTask',
+	'deleteTask(row)',
+	'确认删除流程任务',
+	'deletingTaskId',
   'approve',
   'reject',
   'submit',
@@ -210,6 +276,14 @@ for (const snippet of [
 ]) {
   requireSnippet(tasks, snippet, 'workflow task page')
 }
+
+assert.match(
+  tasks,
+  /<el-table-column\s+label="审批方式"[^>]*>[\s\S]*?approvalModeLabel\(row\.approvalMode\)[\s\S]*?<\/el-table-column>/,
+  'workflow task page must render approval mode in its own table column',
+)
+assert.ok(!tasks.includes('class="task-node"'), 'workflow task node must not use a stacked two-line layout')
+assert.ok(!tasks.includes('label="处理人 ID"'), 'workflow task page must display the handler name instead of an ID-only field')
 
 for (const snippet of [
   '@click="openEdit(row)"',
@@ -231,23 +305,46 @@ for (const snippet of [
   requireSnippet(definitions, snippet, 'workflow definition metadata edit')
 }
 
+for (const snippet of [
+  '@click="openCopy(row)"',
+  'title="复制流程"',
+  'v-model="copyForm.name"',
+  'v-model="copyForm.key"',
+  'v-model="copyForm.category"',
+  'v-model="copyForm.description"',
+  'v-model:file="copyLogoFile"',
+  'workflowDefinitionCopy(copyTarget.value.id',
+  '流程复制成功',
+]) {
+  requireSnippet(definitions, snippet, 'workflow definition copy')
+}
+
 for (const snippet of ['accept="image/png,image/jpeg,image/webp"', 'icon="Upload"', 'icon="Delete"', 'workflow-logo-picker__preview']) {
   requireSnippet(logoPicker, snippet, 'workflow logo picker')
 }
 
 for (const snippet of [
   'workflow-user-picker__selection',
-  'visibleSelectedUsers',
-  'hiddenSelectedUsers',
+  'visibleSelectedItems',
+  'hiddenSelectedItems',
   'workflow-user-picker__overflow',
   '<el-tooltip',
   'ResizeObserver',
+  'departmentModelValue?: number[]',
+  'selectDepartmentRules?: boolean',
+  "'update:departmentModelValue'",
+  ':check-strictly="selectDepartmentRules"',
 ]) {
   requireSnippet(userTreePicker, snippet, 'workflow user tree picker compact selection')
 }
 assert.ok(
   !userTreePicker.includes('workflow-user-picker__selected'),
   'workflow user tree picker must not render selected users below the input',
+)
+assert.match(
+  userTreePicker,
+  /\.workflow-user-picker__selection\s*\{[^}]*box-sizing:\s*border-box;/s,
+  'workflow user tree picker selection must include padding and border inside its declared width',
 )
 
 requireSnippet(workflowTypes, 'logoUrl: string', 'workflow definition logo type')
@@ -256,11 +353,13 @@ for (const snippet of [
   'workflowDefinitionPublish(id: ID, data:',
   'initiator?: WorkflowInitiatorConfig',
   'departmentIds?: number[]',
+  'excludedUserIds?: number[]',
 ]) {
   requireSnippet(api, snippet, 'workflow publish API')
 }
 
 requireSnippet(workflowTypes, 'departmentIds?: number[]', 'workflow initiator type')
+requireSnippet(workflowTypes, 'excludedUserIds?: number[]', 'workflow initiator type')
 requireSnippet(workflowTypes, 'export interface WorkflowStartAvailabilityConfig', 'workflow start availability type')
 requireSnippet(workflowTypes, 'availability?: WorkflowStartAvailabilityConfig', 'workflow start availability type')
 
@@ -279,11 +378,13 @@ for (const snippet of [
   '允许发起时间',
   '全部用户',
   '指定范围',
-  '允许发起部门',
-  '额外允许用户',
-  '<el-tree-select',
+  'label="允许发起范围"',
+  'label="排除用户"',
+  ':department-model-value="departmentIds"',
+  'select-department-rules',
+  'excludedUserIds',
+  'updateExcludedUserIds',
   'multiple',
-  'check-strictly',
   '长期有效',
   '指定时间段',
   '每周周期开放',
@@ -295,19 +396,30 @@ for (const snippet of [
   'border-radius: 8px',
   'background: #fff',
   'box-shadow: 0 2px 10px',
+  'display: flex',
+  'flex-wrap: wrap',
+  'flex: 1 1 380px',
+  'max-width: 520px',
+  'box-sizing: border-box',
+  '.availability-mode { display: grid;',
   'grid-template-columns: repeat(2, minmax(0, 1fr))',
-  'width: min(1040px, 100%)',
-  'justify-content: start',
-  '@media (max-width: 1100px)',
 ]) {
   requireSnippet(flowConfig, snippet, 'workflow start config')
+}
+
+for (const forbidden of ['允许发起部门', '额外允许用户', '<el-tree-select']) {
+  assert.ok(!flowConfig.includes(forbidden), `workflow start config must use one organization tree: ${forbidden}`)
+}
+
+for (const snippet of ['eligibleInitiatorUsers', 'excludedUserIds']) {
+  requireSnippet(instances, snippet, 'workflow instance initiator exclusions')
 }
 
 for (const snippet of [
   'title="发布流程"',
   '发布版本',
   '流程配置将随本次版本一起发布',
-  'workflowDefinitionPublish(publishTarget.value.id)',
+  'workflowDefinitionPublish(publishTarget.value.id,',
 ]) {
   requireSnippet(publishDialog, snippet, 'workflow publish initiator dialog')
 }

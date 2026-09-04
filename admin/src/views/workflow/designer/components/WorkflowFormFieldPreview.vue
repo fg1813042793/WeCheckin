@@ -48,7 +48,7 @@
       :model-value="stringDefault"
       :placeholder="field.placeholder || '请输入内容'"
       type="textarea"
-      :rows="2"
+      :autosize="textareaAutosize(field, 3, 8)"
       resize="none"
       disabled
     />
@@ -59,7 +59,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import type { WorkflowFormField } from '../../types'
-import { flattenWorkflowOptions, normalizeWorkflowOptions } from '../../runtimeForm'
+import { flattenWorkflowOptions, normalizeWorkflowOptions, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
 
 const props = defineProps<{ field: WorkflowFormField }>()
 const optionTreeProps = { label: 'label', value: 'value', children: 'children' }

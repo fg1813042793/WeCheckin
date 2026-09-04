@@ -16,6 +16,8 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 
 	"wecheckin/backend/internal/config"
+	inappnotificationapp "wecheckin/backend/internal/modules/inappnotification/application"
+	inappnotificationinfra "wecheckin/backend/internal/modules/inappnotification/infrastructure"
 	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
 	scheduledtaskruntime "wecheckin/backend/internal/modules/scheduledtask/runtime"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
@@ -223,11 +225,14 @@ func run() error {
 		notificationDispatcher,
 	)
 	taskStore := scheduledtaskinfra.NewGormStore(db)
+	notificationStore := inappnotificationinfra.NewGormStore(db)
+	notificationService := inappnotificationapp.NewService(notificationStore)
 	registry, err := scheduledtaskinfra.NewHandlerRegistry(
 		cfg.ScheduledTask,
 		workflowRuntime,
 		scheduledtaskinfra.NewCleanupJob(taskStore, cfg.ScheduledTask.RunRetentionDays, cfg.ScheduledTask.LogRetentionDays, nil),
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
+		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
 	)
 	if err != nil {
 		return fmt.Errorf("initialize handlers: %w", err)

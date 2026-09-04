@@ -44,6 +44,7 @@ var normalizeUserIDRegexp = regexp.MustCompile(`[^a-z0-9_.-]+`)
 type UserDTO struct {
 	ID                     string   `json:"id"`
 	Account                string   `json:"account"`
+	WorkflowActorID        string   `json:"workflowActorId"`
 	Name                   string   `json:"name"`
 	Avatar                 string   `json:"avatar"`
 	Position               string   `json:"position"`
@@ -390,6 +391,7 @@ func bootstrapUserDTO(response *bootstrapsvc.BootstrapResponse) UserDTO {
 	return UserDTO{
 		ID:                     user.ID,
 		Account:                user.Account,
+		WorkflowActorID:        user.WorkflowActorID,
 		Name:                   user.Name,
 		Avatar:                 user.Avatar,
 		Position:               user.Position,

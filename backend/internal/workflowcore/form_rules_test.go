@@ -161,6 +161,144 @@ func TestValidateDefinitionRejectsInvalidStructuredRules(t *testing.T) {
 	}
 }
 
+func TestValidateDefinitionSupportsCompatibleCrossFieldRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		owner    FormField
+		target   FormField
+		operator string
+	}{
+		{
+			name:     "number and amount ordering",
+			owner:    FormField{Key: "actual", Label: "实际金额", Type: FormFieldTypeAmount},
+			target:   FormField{Key: "budget", Label: "预算", Type: FormFieldTypeNumber},
+			operator: FormRuleOperatorLTE,
+		},
+		{
+			name:     "text equality",
+			owner:    FormField{Key: "confirmEmail", Label: "确认邮箱", Type: FormFieldTypeText},
+			target:   FormField{Key: "email", Label: "邮箱", Type: FormFieldTypeEmail},
+			operator: FormRuleOperatorEQ,
+		},
+		{
+			name:     "select and radio equality",
+			owner:    FormField{Key: "result", Label: "复核结果", Type: FormFieldTypeSelect, Options: crossFieldOptions()},
+			target:   FormField{Key: "grade", Label: "上级分档", Type: FormFieldTypeRadio, Options: crossFieldOptions()},
+			operator: FormRuleOperatorEQ,
+		},
+		{
+			name:     "boolean inequality",
+			owner:    FormField{Key: "confirmed", Label: "已确认", Type: FormFieldTypeBoolean},
+			target:   FormField{Key: "approved", Label: "已同意", Type: FormFieldTypeBoolean},
+			operator: FormRuleOperatorNE,
+		},
+		{
+			name:     "user equality",
+			owner:    FormField{Key: "reviewer", Label: "复核人", Type: FormFieldTypeUser},
+			target:   FormField{Key: "applicant", Label: "申请人", Type: FormFieldTypeUser},
+			operator: FormRuleOperatorNE,
+		},
+		{
+			name:     "date ordering",
+			owner:    FormField{Key: "endDate", Label: "结束日期", Type: FormFieldTypeDate},
+			target:   FormField{Key: "startDate", Label: "开始日期", Type: FormFieldTypeDate},
+			operator: FormRuleOperatorGTE,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			definition := validLinearDefinition()
+			test.owner.Rules = []FormValidationRule{{
+				ID: "cross_field", Type: FormRuleCompareField,
+				Field: test.target.Key, Operator: test.operator,
+			}}
+			definition.Form = []FormField{test.target, test.owner}
+			if errors := ValidateDefinition(definition); hasValidationCode(errors, ValidationFormFieldRules) {
+				t.Fatalf("compatible cross-field rule rejected: %#v", errors)
+			}
+		})
+	}
+}
+
+func TestValidateDefinitionRejectsIncompatibleCrossFieldRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		owner    FormField
+		target   FormField
+		operator string
+	}{
+		{
+			name:     "select ordering",
+			owner:    FormField{Key: "result", Label: "复核结果", Type: FormFieldTypeSelect, Options: crossFieldOptions()},
+			target:   FormField{Key: "grade", Label: "上级分档", Type: FormFieldTypeRadio, Options: crossFieldOptions()},
+			operator: FormRuleOperatorGT,
+		},
+		{
+			name:     "user and department",
+			owner:    FormField{Key: "reviewer", Label: "复核人", Type: FormFieldTypeUser},
+			target:   FormField{Key: "department", Label: "部门", Type: FormFieldTypeDepartment},
+			operator: FormRuleOperatorEQ,
+		},
+		{
+			name:     "select and text",
+			owner:    FormField{Key: "result", Label: "复核结果", Type: FormFieldTypeSelect, Options: crossFieldOptions()},
+			target:   FormField{Key: "remark", Label: "备注", Type: FormFieldTypeText},
+			operator: FormRuleOperatorEQ,
+		},
+		{
+			name:     "date and datetime",
+			owner:    FormField{Key: "endDate", Label: "结束日期", Type: FormFieldTypeDate},
+			target:   FormField{Key: "startAt", Label: "开始时间", Type: FormFieldTypeDateTime},
+			operator: FormRuleOperatorGTE,
+		},
+		{
+			name:     "attachments",
+			owner:    FormField{Key: "receipts", Label: "票据", Type: FormFieldTypeAttachment},
+			target:   FormField{Key: "contracts", Label: "合同", Type: FormFieldTypeAttachment},
+			operator: FormRuleOperatorEQ,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			definition := validLinearDefinition()
+			test.owner.Rules = []FormValidationRule{{
+				ID: "cross_field", Type: FormRuleCompareField,
+				Field: test.target.Key, Operator: test.operator,
+			}}
+			definition.Form = []FormField{test.target, test.owner}
+			if errors := ValidateDefinition(definition); !hasValidationCode(errors, ValidationFormFieldRules) {
+				t.Fatalf("incompatible cross-field rule should be rejected: %#v", errors)
+			}
+		})
+	}
+}
+
+func TestValidateFormDataComparesChoiceValuesAsStrings(t *testing.T) {
+	fields := []FormField{
+		{Key: "grade", Label: "上级分档", Type: FormFieldTypeRadio, Options: []FormOption{{Label: "01", Value: "01"}, {Label: "1", Value: "1"}}},
+		{
+			Key: "result", Label: "复核结果", Type: FormFieldTypeSelect,
+			Options: []FormOption{{Label: "01", Value: "01"}, {Label: "1", Value: "1"}},
+			Rules: []FormValidationRule{{
+				ID: "same_grade", Type: FormRuleCompareField, Field: "grade", Operator: FormRuleOperatorEQ,
+			}},
+		},
+	}
+
+	if err := ValidateFormData(fields, map[string]interface{}{"grade": "1", "result": "01"}, false); err == nil {
+		t.Fatal("choice values 01 and 1 must not compare as equal numbers")
+	}
+	if err := ValidateFormData(fields, map[string]interface{}{"grade": "01", "result": "01"}, false); err != nil {
+		t.Fatalf("identical choice values should compare as equal: %v", err)
+	}
+}
+
+func crossFieldOptions() []FormOption {
+	return []FormOption{{Label: "A", Value: "a"}, {Label: "B", Value: "b"}}
+}
+
 func detailColumnSumField() FormField {
 	return FormField{
 		Key: "objectives", Label: "我的目标", Type: FormFieldTypeDetailList, RowKey: "id",

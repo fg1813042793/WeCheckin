@@ -35,15 +35,23 @@ func Declarations() []Declaration {
 		{"enroll:add", "报名创建接口"},
 		{"enroll:edit", "报名编辑接口"},
 		{"enroll:del", "报名删除接口"},
+		{"enroll:status", "报名状态管理接口"},
+		{"enroll:vouch", "报名推荐接口"},
+		{"enroll:export", "报名导出接口"},
+		{"enroll:users", "报名参与用户接口"},
 		{"news:list", "通知查看接口"},
 		{"news:add", "通知创建接口"},
 		{"news:edit", "通知编辑接口"},
 		{"news:del", "通知删除接口"},
+		{"news:status", "通知状态管理接口"},
+		{"news:vouch", "通知推荐接口"},
 		{"mgr:list", "管理员查看接口"},
 		{"mgr:add", "管理员创建接口"},
 		{"mgr:edit", "管理员编辑接口"},
 		{"mgr:del", "管理员删除接口"},
+		{"setup:list", "系统设置查看接口"},
 		{"setup:edit", "系统设置接口"},
+		{"upload:create", "后台文件上传接口"},
 		{"dingtalk:settings:list", "钉钉配置查看接口"},
 		{"dingtalk:settings:edit", "钉钉配置保存接口"},
 		{"dingtalk:bindings:list", "钉钉用户绑定查看接口"},
@@ -63,6 +71,10 @@ func Declarations() []Declaration {
 		{"event:add", "赛事活动创建接口"},
 		{"event:edit", "赛事活动编辑接口"},
 		{"event:del", "赛事活动删除接口"},
+		{"event:status", "赛事活动状态管理接口"},
+		{"event:vouch", "赛事活动推荐接口"},
+		{"event:top", "赛事活动置顶接口"},
+		{"event:users", "赛事活动参与用户接口"},
 		{"dept:list", "部门查看接口"},
 		{"dept:add", "部门创建接口"},
 		{"dept:edit", "部门编辑接口"},
@@ -105,8 +117,10 @@ func Declarations() []Declaration {
 		{"workflow:instance:start", "流程实例发起接口"},
 		{"workflow:instance:detail", "流程实例详情接口"},
 		{"workflow:instance:cancel", "流程实例取消接口"},
+		{"workflow:instance:delete", "流程实例删除接口"},
 		{"workflow:task:list", "流程任务查看接口"},
 		{"workflow:task:complete", "流程任务处理接口"},
+		{"workflow:task:delete", "流程任务删除接口"},
 		{"workflow:notification:list", "流程通知查看接口"},
 		{"workflow:notification:retry", "流程通知重试接口"},
 		{"workflow:org-approver:list", "组织审批身份查看接口"},
@@ -125,6 +139,10 @@ func Declarations() []Declaration {
 		{"scheduled-task:shell", "定时任务 Shell 处理器配置接口"},
 		{"scheduled-task:sql:read", "定时任务 SQL 查询配置接口"},
 		{"scheduled-task:sql:write", "定时任务 SQL 写入配置接口"},
+		{"notification:list", "站内信查看接口"},
+		{"notification:read", "站内信已读接口"},
+		{"notification:send", "站内信发送接口"},
+		{"notification:dingtalk:send", "钉钉通知发送接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -154,6 +172,7 @@ func Categories() []Category {
 		{Key: "admin:api-category:exam", Name: "考试管理", Sort: 70},
 		{Key: "admin:api-category:workflow", Name: "流程管理", Sort: 75},
 		{Key: "admin:api-category:scheduled-task", Name: "定时任务", Sort: 80},
+		{Key: "admin:api-category:notification", Name: "通知", Sort: 85},
 	}
 }
 
@@ -185,6 +204,8 @@ func categoryForPerms(categories map[string]Category, perms string) Category {
 		key = "admin:api-category:workflow"
 	case "scheduled-task":
 		key = "admin:api-category:scheduled-task"
+	case "notification":
+		key = "admin:api-category:notification"
 	}
 	if item, ok := categories[key]; ok {
 		return item
@@ -224,15 +245,23 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"enroll:add":                   {method: "POST", path: "/api/v2/admin/enrollments"},
 	"enroll:edit":                  {method: "PUT", path: "/api/v2/admin/enrollments/:id"},
 	"enroll:del":                   {method: "DELETE", path: "/api/v2/admin/enrollments/:id"},
+	"enroll:status":                {method: "PATCH", path: "/api/v2/admin/enrollments/:id/status"},
+	"enroll:vouch":                 {method: "PATCH", path: "/api/v2/admin/enrollments/:id/recommendation"},
+	"enroll:export":                {method: "GET", path: "/api/v2/admin/enrollments/:id/export"},
+	"enroll:users":                 {method: "GET", path: "/api/v2/admin/enrollments/:id/users"},
 	"news:list":                    {method: "GET", path: "/api/v2/admin/news"},
 	"news:add":                     {method: "POST", path: "/api/v2/admin/news"},
 	"news:edit":                    {method: "PUT", path: "/api/v2/admin/news/:id"},
 	"news:del":                     {method: "DELETE", path: "/api/v2/admin/news/:id"},
+	"news:status":                  {method: "PATCH", path: "/api/v2/admin/news/:id/status"},
+	"news:vouch":                   {method: "PATCH", path: "/api/v2/admin/news/:id/recommendation"},
 	"mgr:list":                     {method: "GET", path: "/api/v2/admin/managers"},
 	"mgr:add":                      {method: "POST", path: "/api/v2/admin/managers"},
 	"mgr:edit":                     {method: "PUT", path: "/api/v2/admin/managers/:id"},
 	"mgr:del":                      {method: "DELETE", path: "/api/v2/admin/managers/:id"},
+	"setup:list":                   {method: "GET", path: "/api/v2/admin/settings/content"},
 	"setup:edit":                   {method: "PUT", path: "/api/v2/admin/settings"},
+	"upload:create":                {method: "POST", path: "/api/v2/admin/uploads"},
 	"dingtalk:settings:list":       {method: "GET", path: "/api/v2/admin/dingtalk/settings"},
 	"dingtalk:settings:edit":       {method: "PUT", path: "/api/v2/admin/dingtalk/settings"},
 	"dingtalk:bindings:list":       {method: "GET", path: "/api/v2/admin/dingtalk/user-bindings"},
@@ -252,6 +281,10 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"event:add":                    {method: "POST", path: "/api/v2/admin/events"},
 	"event:edit":                   {method: "PUT", path: "/api/v2/admin/events/:id"},
 	"event:del":                    {method: "DELETE", path: "/api/v2/admin/events/:id"},
+	"event:status":                 {method: "PATCH", path: "/api/v2/admin/events/:id/status"},
+	"event:vouch":                  {method: "PATCH", path: "/api/v2/admin/events/:id/recommendation"},
+	"event:top":                    {method: "PATCH", path: "/api/v2/admin/events/:id/top"},
+	"event:users":                  {method: "GET", path: "/api/v2/admin/events/:id/participants"},
 	"dept:list":                    {method: "GET", path: "/api/v2/admin/departments/tree"},
 	"dept:add":                     {method: "POST", path: "/api/v2/admin/departments"},
 	"dept:edit":                    {method: "PUT", path: "/api/v2/admin/departments/:id"},
@@ -294,8 +327,10 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"workflow:instance:start":      {method: "POST", path: "/api/v2/admin/workflow-instances"},
 	"workflow:instance:detail":     {method: "GET", path: "/api/v2/admin/workflow-instances/:id"},
 	"workflow:instance:cancel":     {method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel"},
+	"workflow:instance:delete":     {method: "DELETE", path: "/api/v2/admin/workflow-instances/:id"},
 	"workflow:task:list":           {method: "GET", path: "/api/v2/admin/workflow-tasks"},
 	"workflow:task:complete":       {method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete"},
+	"workflow:task:delete":         {method: "DELETE", path: "/api/v2/admin/workflow-tasks/:id"},
 	"workflow:notification:list":   {method: "GET", path: "/api/v2/admin/workflow-notifications"},
 	"workflow:notification:retry":  {method: "POST", path: "/api/v2/admin/workflow-notifications/:id/retry"},
 	"workflow:org-approver:list":   {method: "GET", path: "/api/v2/admin/workflow-org-approver-identities"},
@@ -314,4 +349,8 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"scheduled-task:shell":         {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
 	"scheduled-task:sql:read":      {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
 	"scheduled-task:sql:write":     {method: "POST", path: "/api/v2/admin/scheduled-tasks"},
+	"notification:list":            {method: "GET", path: "/api/v2/admin/in-app-notifications"},
+	"notification:read":            {method: "PATCH", path: "/api/v2/admin/in-app-notifications/:id/read"},
+	"notification:send":            {method: "POST", path: "/api/v2/admin/in-app-notifications"},
+	"notification:dingtalk:send":   {method: "POST", path: "/api/v2/admin/dingtalk-notifications"},
 }

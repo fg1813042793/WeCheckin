@@ -24,12 +24,16 @@ function loadTypeScriptModule(relativePath) {
   return module.exports
 }
 
-const typeSource = read('src/views/workflow/types.ts')
+const typeSource = read('src/types/workflow.ts')
 const designerSource = read('src/views/workflow/designer/index.vue')
 const formDesignerSource = read('src/views/workflow/designer/components/WorkflowFormDesigner.vue')
 const fieldPreviewSource = read('src/views/workflow/designer/components/WorkflowFormFieldPreview.vue')
 const validationRulesSource = read('src/views/workflow/designer/components/WorkflowValidationRulesEditor.vue')
 const permissionSource = read('src/views/workflow/designer/components/WorkflowFieldPermissions.vue')
+const validationRuleUtilsPath = 'src/views/workflow/workflowValidationRules.ts'
+if (!fs.existsSync(path.join(root, validationRuleUtilsPath))) {
+  throw new Error('表单设计器缺少跨字段校验兼容矩阵')
+}
 const {
   insertWorkflowField,
   moveWorkflowDetailColumn,
@@ -39,6 +43,61 @@ const {
   workflowDataFields,
   workflowFieldByKey,
 } = loadTypeScriptModule('src/views/workflow/formLayout.ts')
+const {
+  workflowCompareFieldCompatible,
+  workflowCompareOperators,
+} = loadTypeScriptModule(validationRuleUtilsPath)
+
+for (const [left, right] of [
+  ['number', 'amount'],
+  ['text', 'email'],
+  ['select', 'radio'],
+  ['boolean', 'boolean'],
+  ['user', 'user'],
+  ['department', 'department'],
+  ['date', 'date'],
+]) {
+  if (!workflowCompareFieldCompatible(left, right)) {
+    throw new Error(`应允许 ${left} 与 ${right} 字段比较`)
+  }
+}
+
+for (const [left, right] of [
+  ['user', 'department'],
+  ['select', 'text'],
+  ['date', 'datetime'],
+  ['attachment', 'attachment'],
+  ['multi_select', 'multi_select'],
+  ['detail_list', 'detail_list'],
+]) {
+  if (workflowCompareFieldCompatible(left, right)) {
+    throw new Error(`不应允许 ${left} 与 ${right} 字段比较`)
+  }
+}
+
+if (workflowCompareOperators('select').join(',') !== 'eq,ne') {
+  throw new Error('单选和下拉字段只应支持等于、不等于')
+}
+if (workflowCompareOperators('boolean').join(',') !== 'eq,ne') {
+  throw new Error('布尔字段只应支持等于、不等于')
+}
+if (workflowCompareOperators('amount').join(',') !== 'eq,ne,gt,gte,lt,lte') {
+  throw new Error('数字与金额字段应支持全部大小比较关系')
+}
+if (workflowCompareOperators('date').join(',') !== 'eq,ne,gt,gte,lt,lte') {
+  throw new Error('日期与时间字段应支持全部大小比较关系')
+}
+
+for (const [snippet, message] of [
+  ['grid-template-columns: 320px minmax(480px, 1fr) 440px', '宽屏下字段属性面板应扩大为 440px'],
+  ['grid-template-columns: 200px minmax(420px, 1fr) 380px', '中等屏幕字段属性面板应保留 380px'],
+  ['grid-template-columns: 176px minmax(360px, 1fr) 320px', '窄屏字段属性面板应保留 320px'],
+  ['workflowCompareFieldCompatible', '高级校验未按字段类型筛选可比较字段'],
+  ['fieldCompareOperators', '高级校验未按当前字段限制比较关系'],
+]) {
+  const source = snippet.startsWith('grid-template-columns') ? formDesignerSource : validationRulesSource
+  if (!source.includes(snippet)) throw new Error(message)
+}
 
 const groupedFields = [{
   key: 'basic_group',
@@ -121,6 +180,62 @@ if (!moveWorkflowDetailColumn(detailColumnOrder, 2, 0) || detailColumnOrder.map(
 }
 if (moveWorkflowDetailColumn(detailColumnOrder, 1, 2)) {
   throw new Error('明细列拖入原位置不应触发变更')
+}
+
+for (const hiddenRangeDefault of [
+  'field.min = 0',
+  "field.max = type === 'amount' ? 1000000 : 100",
+  'column.min ??= 0',
+  "column.max ??= column.type === 'amount' ? 1000000 : 100",
+]) {
+  if (formDesignerSource.includes(hiddenRangeDefault)) {
+    throw new Error(`数字字段不应自动写入隐藏范围：${hiddenRangeDefault}`)
+  }
+}
+
+const detailColumnFactorySource = formDesignerSource.slice(
+  formDesignerSource.indexOf('function buildDetailColumn'),
+  formDesignerSource.indexOf('function addDetailColumn'),
+)
+if (detailColumnFactorySource.includes('maxLength')) {
+  throw new Error('新增明细列不应自动写入最大长度')
+}
+if (formDesignerSource.includes('column.maxLength ??=')) {
+  throw new Error('切换明细列类型不应自动写入最大长度')
+}
+
+for (const [snippet, message] of [
+  ['class="detail-column-range"', '明细数字列缺少范围设置区域'],
+  ["updateDetailColumnRange(column, 'min', $event)", '明细数字列缺少最小值更新入口'],
+  ["updateDetailColumnRange(column, 'max', $event)", '明细数字列缺少最大值更新入口'],
+  ['delete column[key]', '清空明细数字范围时应删除对应属性'],
+  ['class="detail-column-max-length"', '明细文本列缺少最大长度设置'],
+  ['updateDetailColumnMaxLength(column, $event)', '明细文本列缺少最大长度清空入口'],
+  ['textarea-visible-rows', '多行文本字段缺少显示行数设置区域'],
+  ['.textarea-visible-rows { grid-column: 1 / -1;', '明细多行文本显示行数设置未占满属性区域'],
+  ['.textarea-visible-rows :deep(.el-form-item) { min-width: 0;', '多行文本显示行数输入框缺少收缩保护'],
+  ['label="最小显示行数"', '多行文本字段缺少最小显示行数设置'],
+  ['label="最大显示行数"', '多行文本字段缺少最大显示行数设置'],
+  ["updateTextareaVisibleRows(selectedField, 'minVisibleRows', $event, 3, 8)", '普通多行文本缺少最小显示行数更新逻辑'],
+  ["updateTextareaVisibleRows(column, 'maxVisibleRows', $event, 2, 6)", '明细多行文本缺少最大显示行数更新逻辑'],
+  ['field.minVisibleRows = 3', '新建多行文本缺少默认最小显示行数'],
+  ['field.maxVisibleRows = 8', '新建多行文本缺少默认最大显示行数'],
+  ['minVisibleRows: 2, maxVisibleRows: 6', '默认明细多行列缺少显示行数配置'],
+  ['delete column.minVisibleRows', '明细列切换为非多行类型时应清理最小显示行数'],
+  ['delete column.maxVisibleRows', '明细列切换为非多行类型时应清理最大显示行数'],
+]) {
+  if (!formDesignerSource.includes(snippet)) throw new Error(message)
+}
+
+for (const property of ['minVisibleRows?: number', 'maxVisibleRows?: number']) {
+  if (!typeSource.includes(property)) throw new Error(`流程字段类型缺少属性：${property}`)
+}
+
+for (const [source, snippet, message] of [
+  [formDesignerSource, ':autosize="textareaAutosize(field, 3, 8)"', '根级多行文本预览未读取显示行数'],
+  [fieldPreviewSource, ':autosize="textareaAutosize(field, 3, 8)"', '分组内多行文本预览未读取显示行数'],
+]) {
+  if (!source.includes(snippet)) throw new Error(message)
 }
 
 const detailPreviewRequirements = [
@@ -236,7 +351,7 @@ const requirements = [
   [validationRulesSource, "rule.type === 'column_sum'", '明细列表缺少列合计规则配置'],
   [validationRulesSource, "label: '列合计'", '明细列表缺少列合计规则类型'],
   [validationRulesSource, 'summableColumns', '列合计规则缺少数字和金额列筛选'],
-  [validationRulesSource, 'isComparableScalarFieldType', '普通字段比较未限制为可比较标量字段'],
+  [validationRulesSource, 'workflowCompareFieldCompatible', '普通字段比较未使用兼容类型矩阵'],
   [validationRulesSource, "rule.field = ''", '新增字段比较规则不应默认关联目标字段'],
   [formDesignerSource, 'WorkflowValidationRulesEditor', '表单设计器未接入高级校验规则编辑器'],
   [formDesignerSource, 'grid-template-columns: repeat(24, minmax(0, 1fr))', '表单画布缺少 24 列栅格'],

@@ -21,23 +21,31 @@ type dictItemsCacheEntry struct {
 
 var (
 	dictServiceCacheMu sync.RWMutex
-	dictTypesCache     dictTypesCacheEntry
+	dictTypesCache     = map[bool]dictTypesCacheEntry{}
 	dictItemsCache     = map[string]dictItemsCacheEntry{}
 )
 
 func getDictTypesCache(now time.Time) ([]TypeSummary, bool) {
+	return getScopedDictTypesCache(false, now)
+}
+
+func getScopedDictTypesCache(activeOnly bool, now time.Time) ([]TypeSummary, bool) {
 	dictServiceCacheMu.RLock()
-	entry := dictTypesCache
+	entry, ok := dictTypesCache[activeOnly]
 	dictServiceCacheMu.RUnlock()
-	if entry.expiresAt.IsZero() || now.After(entry.expiresAt) {
+	if !ok || entry.expiresAt.IsZero() || now.After(entry.expiresAt) {
 		return nil, false
 	}
 	return append([]TypeSummary(nil), entry.items...), true
 }
 
 func setDictTypesCache(items []TypeSummary, now time.Time) {
+	setScopedDictTypesCache(false, items, now)
+}
+
+func setScopedDictTypesCache(activeOnly bool, items []TypeSummary, now time.Time) {
 	dictServiceCacheMu.Lock()
-	dictTypesCache = dictTypesCacheEntry{
+	dictTypesCache[activeOnly] = dictTypesCacheEntry{
 		items:     append([]TypeSummary(nil), items...),
 		expiresAt: now.Add(dictServiceCacheTTL),
 	}
@@ -45,8 +53,19 @@ func setDictTypesCache(items []TypeSummary, now time.Time) {
 }
 
 func getDictItemsCache(typeCode string, now time.Time) ([]model.SysDict, bool) {
+	return getScopedDictItemsCache(typeCode, false, now)
+}
+
+func dictItemsCacheKey(typeCode string, activeOnly bool) string {
+	if activeOnly {
+		return "active:" + typeCode
+	}
+	return "all:" + typeCode
+}
+
+func getScopedDictItemsCache(typeCode string, activeOnly bool, now time.Time) ([]model.SysDict, bool) {
 	dictServiceCacheMu.RLock()
-	entry, ok := dictItemsCache[typeCode]
+	entry, ok := dictItemsCache[dictItemsCacheKey(typeCode, activeOnly)]
 	dictServiceCacheMu.RUnlock()
 	if !ok || now.After(entry.expiresAt) {
 		return nil, false
@@ -55,8 +74,12 @@ func getDictItemsCache(typeCode string, now time.Time) ([]model.SysDict, bool) {
 }
 
 func setDictItemsCache(typeCode string, items []model.SysDict, now time.Time) {
+	setScopedDictItemsCache(typeCode, false, items, now)
+}
+
+func setScopedDictItemsCache(typeCode string, activeOnly bool, items []model.SysDict, now time.Time) {
 	dictServiceCacheMu.Lock()
-	dictItemsCache[typeCode] = dictItemsCacheEntry{
+	dictItemsCache[dictItemsCacheKey(typeCode, activeOnly)] = dictItemsCacheEntry{
 		items:     append([]model.SysDict(nil), items...),
 		expiresAt: now.Add(dictServiceCacheTTL),
 	}
@@ -65,7 +88,7 @@ func setDictItemsCache(typeCode string, items []model.SysDict, now time.Time) {
 
 func invalidateDictServiceCache() {
 	dictServiceCacheMu.Lock()
-	dictTypesCache = dictTypesCacheEntry{}
+	dictTypesCache = map[bool]dictTypesCacheEntry{}
 	dictItemsCache = map[string]dictItemsCacheEntry{}
 	dictServiceCacheMu.Unlock()
 }

@@ -20,6 +20,9 @@
 - `src/utils/`：请求层、纯函数和稳定基础工具。
 - `src/constants/`：跨页面枚举、常量和契约 key；不放会随请求变化的运行时数据。
 - `src/styles/`：全局样式、变量和可复用样式基础，业务页面样式留在组件内。
+- `src/styles/admin-ui-tokens.css`：新 Admin UI 基础层的颜色、间距、控件高度、容器尺寸、圆角和断点契约。
+- `src/components/admin-ui/`：新页面共用的页面壳、标题、搜索栏、表格容器、弹窗和抽屉；不承载业务字段、权限和请求。
+- `src/examples/admin-ui/`：不注册路由、不挂菜单、不请求接口的 Admin UI 样板页。
 
 ## 4. Vue 与 TypeScript
 
@@ -29,6 +32,7 @@
 - 外部不可信数据先用 `unknown` 承接并收窄，不新增无边界 `any`。
 - 复杂派生状态放在 `computed`，副作用保持在显式函数或生命周期中，模板不承载多层业务判断。
 - 组件只在能形成稳定输入/输出契约时拆分，不为拆文件而制造大量透传 props。
+- 已登记的遗留大组件执行“只减不增”预算，`npm run check:component-complexity` 会阻止继续增长；新增 API、类型、纯逻辑或独立交互应拆入 `src/api`、`src/types`、同业务目录组件或 composable。
 
 ## 5. API 与错误处理
 
@@ -41,18 +45,42 @@
 ## 6. 路由、菜单与权限
 
 - 新页面同时核对路由、菜单、面包屑、页签标题、刷新恢复和深链接访问。
+- 新业务路由必须声明 `meta.adminUi`，并使用新 Admin UI 公共组件：
+
+```ts
+meta: {
+  title: '示例列表',
+  menuPath: '/example',
+  adminUi: {
+    version: 1,
+    pattern: 'filter-list',
+  },
+}
+```
+
+- `adminUi.pattern` 只允许 `list`、`filter-list`、`form`、`detail`、`workspace`。
+- 新路由页面必须从 `@/components/admin-ui` 导入并渲染 `AdminPageShell`。
+- `scripts/admin-ui-legacy-routes.json` 只记录当前旧路由基线；不得将新路由加入基线以绕过 UI 契约检查。
 - 菜单/按钮权限与 API 权限是不同契约。控件可见性、disabled 状态和事件处理使用同一业务权限条件。
 - 页面不认为“按钮隐藏”就完成授权，后端路由权限必须同步。
 - 权限 key 或前缀变更时，同步后端声明、SQL 迁移、权限树筛选和页面硬编码判断。
 
 ## 7. Element Plus 与 UI
 
+- Admin UI 的完整结构、尺寸和交互规则见 [Admin UI 开发规范](./ui-guidelines.md)，新页面必须同时遵守本章和该文档。
 - 表单、表格、弹窗、消息、加载和常见操作优先复用 Element Plus 和项目已有组件。
+- 新页面使用 `AdminPageShell`、`AdminPageHeader`、`AdminSearchBar`、`AdminTablePanel`、`AdminDialog` 和 `AdminDrawer` 组合页面结构，不重写页面级容器 CSS。
+- 公共组件负责布局、间距、高度、滚动和响应式；业务页面只负责字段、列、权限、请求、业务校验和业务状态。
+- 颜色、间距、控件高度、表头高度、圆角、页面边距和容器宽度优先使用 `admin-ui-tokens.css` 中的变量，不在业务页面重复声明。
+- 断点契约为：`>= 1200px` 标准 PC、`768px - 1199px` 窄屏 PC/平板、`< 768px` 移动端。
 - 页面必须覆盖加载、空数据、请求失败、无权限、表单校验、提交中和成功反馈。
 - 表格稳定列宽、操作列和滚动范围；长文本使用折行、截断加 tooltip 或详情查看，不覆盖相邻内容。
+- 搜索栏的查询与重置行为由 `AdminSearchBar` 统一；普通列表优先 1-3 个条件，复杂筛选可折叠。
+- 短表单和小型详情使用 `AdminDialog`，较长详情和需保留列表上下文的操作使用 `AdminDrawer`；移动端复杂交互优先独立路由页。
 - 设计器、表单编辑器和图形工具需要稳定容器尺寸，动态内容不得造成工具栏或画布跳动。
 - 涉及重要数据的删除、发布、撤回和完成操作需要明确确认和可理解反馈。
 - UI 改动至少检查主流桌面宽度和窄窗口，复杂交互使用浏览器手动冒烟。
+- 参考 `src/examples/admin-ui/SimpleListExample.vue` 和 `AdvancedFilterListExample.vue`；样板只用于参考，不得挂载到路由或菜单。
 
 ## 8. 性能与依赖
 
@@ -69,7 +97,16 @@ cd admin
 npm run check:all
 ```
 
-`check:all` 包含请求/API v2、构建配置、导航、权限、重要页面结构、TypeScript 构建和 bundle 预算等检查。局部改动可先运行对应 `check:*`，交付前根据风险扩大到 `check:all`。
+`check:all` 包含请求/API v2、构建配置、导航、权限、组件复杂度、重要页面结构、TypeScript 构建和 bundle 预算等检查。局部改动可先运行对应 `check:*`，交付前根据风险扩大到 `check:all`。
+
+新页面或路由的 Admin UI 契约可单独检查：
+
+```bash
+cd admin
+npm run check:admin-ui-contract
+```
+
+该检查只对比旧路由基线之后的新路由，不扫描或要求改造旧业务页面。新路由缺少 `meta.adminUi` 或未使用 `AdminPageShell` 时，`check:all` 失败。
 
 单独构建：
 
@@ -85,5 +122,7 @@ npm run build
 1. API 调用集中在 `src/api` 和请求层，不扩散历史路径。
 2. TypeScript strict 下通过构建，没有用新 `any` 掉过契约问题。
 3. 路由、菜单、按钮、事件处理和后端权限已联动。
-4. 加载、空、错误、禁用、无权限和成功状态已处理。
-5. 已运行相关 `check:*`、构建和必要的浏览器冒烟，结果如实报告。
+4. 新路由已声明 `meta.adminUi`，页面已使用 `AdminPageShell` 和适用的 Admin UI 公共组件。
+5. 页面级布局和尺寸来自公共组件与 token，业务页面未重复实现基础结构。
+6. 加载、空、错误、禁用、无权限和成功状态已处理。
+7. 已运行相关 `check:*`、构建和必要的浏览器冒烟，结果如实报告。

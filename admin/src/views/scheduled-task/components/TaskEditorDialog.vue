@@ -41,11 +41,53 @@
 
         <template v-if="form.handlerType === 'go'">
           <el-form-item label="注册任务" required>
-            <el-select v-model="handlerConfig.handlerKey" filterable style="width: 100%" placeholder="选择服务端注册任务">
-              <el-option v-for="key in schemaEnum('go', 'handlerKey')" :key="key" :label="key" :value="key" />
+            <el-select v-model="handlerConfig.handlerKey" filterable style="width: 100%" placeholder="选择服务端注册任务" @change="handleGoJobChange">
+              <el-option
+                v-for="option in goJobOptions"
+                :key="option.value"
+                :label="option.label === option.value ? option.value : `${option.label}（${option.value}）`"
+                :value="option.value"
+              />
             </el-select>
+            <div v-if="selectedGoJob" class="registered-job-meta">
+              <span>中文名称：{{ selectedGoJob.label }}</span>
+              <code>注册键：{{ selectedGoJob.value }}</code>
+            </div>
           </el-form-item>
-          <el-form-item label="任务参数 JSON">
+          <template v-if="isInAppNotificationJob">
+            <el-form-item label="通知标题" required>
+              <el-input v-model="notificationParams.title" maxlength="255" show-word-limit placeholder="请输入通知标题" />
+            </el-form-item>
+            <el-form-item label="通知正文" required>
+              <el-input v-model="notificationParams.content" type="textarea" :rows="6" maxlength="5000" show-word-limit resize="vertical" placeholder="请输入通知正文" />
+            </el-form-item>
+            <el-form-item label="收件范围" required>
+              <el-segmented v-model="notificationParams.scope" :options="notificationScopeOptions" block />
+            </el-form-item>
+            <el-form-item v-if="notificationParams.scope === 'departments'" label="指定部门" required>
+              <WorkflowUserTreePicker
+                v-model="notificationEmptyUserSelection"
+                v-model:department-model-value="notificationDepartmentModelValue"
+                :departments="notificationRecipientOptions.departments"
+                :users="[]"
+                :multiple="true"
+                :select-department-rules="true"
+                :disabled="notificationOptionsLoading"
+                placeholder="请选择一个或多个部门"
+              />
+            </el-form-item>
+            <el-form-item v-if="notificationParams.scope === 'users'" label="指定用户" required>
+              <WorkflowUserTreePicker
+                v-model="notificationParams.userIds"
+                :departments="notificationRecipientOptions.departments"
+                :users="notificationRecipientOptions.users"
+                :multiple="true"
+                :disabled="notificationOptionsLoading"
+                placeholder="请选择一个或多个用户"
+              />
+            </el-form-item>
+          </template>
+          <el-form-item v-else label="任务参数 JSON">
             <el-input v-model="jsonFields.params" type="textarea" :rows="4" spellcheck="false" />
           </el-form-item>
         </template>
@@ -213,6 +255,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../../api'
+import type { InAppNotificationRecipientOptions, InAppNotificationScope } from '../../../api/types'
 import { hasPerm } from '../../../utils/permission'
 import WorkflowUserTreePicker from '../../workflow/components/WorkflowUserTreePicker.vue'
 import type { WorkflowAssigneeUser, WorkflowPublishedDefinition } from '../../workflow/types'
@@ -237,6 +280,19 @@ const workflowOptionsLoaded = ref(false)
 const workflowDefinitions = ref<WorkflowPublishedDefinition[]>([])
 const workflowUsers = ref<WorkflowAssigneeUser[]>([])
 const workflowDepartments = ref<DepartmentNode[]>([])
+const notificationOptionsLoading = ref(false)
+const notificationOptionsLoaded = ref(false)
+const notificationEmptyUserSelection = ref<number[]>([])
+const notificationRecipientOptions = reactive<InAppNotificationRecipientOptions>({ users: [], departments: [] })
+const notificationParams = reactive({
+  title: '', content: '', scope: 'all' as InAppNotificationScope,
+  userIds: [] as number[], departmentIds: [] as number[],
+})
+const notificationScopeOptions = [
+  { label: '全部用户', value: 'all' },
+  { label: '指定部门', value: 'departments' },
+  { label: '指定用户', value: 'users' },
+]
 const form = reactive({
   code: '', name: '', description: '', handlerType: 'go' as HandlerType,
   cronExpression: '0 * * * *', cronPrecision: 'minute' as const, timezone: 'Asia/Shanghai', enabled: true,
@@ -253,24 +309,39 @@ const canHTTP = computed(() => hasPerm('admin:menu:scheduled-task:http'))
 const canShell = computed(() => hasPerm('admin:menu:scheduled-task:shell'))
 const canSQLRead = computed(() => hasPerm('admin:menu:scheduled-task:sql:read'))
 const canSQLWrite = computed(() => hasPerm('admin:menu:scheduled-task:sql:write'))
+const canNotificationSend = computed(() => hasPerm('admin:menu:notification:send'))
 const availableHandlers = computed(() => props.handlers.filter(item => {
   if (item.type === 'http') return canHTTP.value
   if (item.type === 'shell') return canShell.value
   if (item.type === 'sql') return canSQLRead.value || canSQLWrite.value
   return true
 }))
+const goJobOptions = computed(() => {
+  const property = schemaProperty('go', 'handlerKey')
+  const labels = property?.['x-enum-labels'] || {}
+  return (property?.enum || []).filter(value => value !== 'notification.in_app.send' || canNotificationSend.value).map(value => ({
+    value,
+    label: labels[value]?.trim() || value,
+  }))
+})
+const selectedGoJob = computed(() => (
+  goJobOptions.value.find(option => option.value === handlerConfig.handlerKey) || null
+))
+const isInAppNotificationJob = computed(() => handlerConfig.handlerKey === 'notification.in_app.send')
 const selectedWorkflowDefinition = computed(() => (
   workflowDefinitions.value.find(definition => Number(definition.id) === Number(handlerConfig.definitionId)) || null
 ))
 const eligibleWorkflowUsers = computed(() => {
   const initiator = selectedWorkflowDefinition.value?.initiator
-  if (initiator?.scope !== 'specified') return workflowUsers.value
-  const allowedUserIDs = new Set((initiator.userIds || []).map(Number))
-  const allowedDepartmentIDs = new Set((initiator.departmentIds || []).map(Number))
-  return workflowUsers.value.filter(user => (
-    allowedUserIDs.has(Number(user.id))
-    || (user.deptIds || []).some(departmentID => allowedDepartmentIDs.has(Number(departmentID)))
-  ))
+  const excludedUserIds = new Set((initiator?.excludedUserIds || []).map(Number))
+  const allowedUserIDs = new Set((initiator?.userIds || []).map(Number))
+  const allowedDepartmentIDs = new Set((initiator?.departmentIds || []).map(Number))
+  return workflowUsers.value.filter((user) => {
+    if (excludedUserIds.has(Number(user.id))) return false
+    if (initiator?.scope !== 'specified') return true
+    return allowedUserIDs.has(Number(user.id))
+      || (user.deptIds || []).some(departmentID => allowedDepartmentIDs.has(Number(departmentID)))
+  })
 })
 const workflowStarterIds = computed<number[]>({
   get() {
@@ -284,11 +355,16 @@ const workflowStarterIds = computed<number[]>({
     delete handlerConfig.starterId
   },
 })
+const notificationDepartmentModelValue = computed<number[]>({
+  get: () => notificationParams.departmentIds,
+  set: values => { notificationParams.departmentIds = normalizeIDs(values) },
+})
 
 watch(() => props.modelValue, async visible => {
   if (!visible) return
   loadTask(props.task)
   if (form.handlerType === 'workflow') await loadWorkflowOptions()
+  if (isInAppNotificationJob.value) await loadNotificationOptions()
 }, { immediate: true })
 
 function clearObject(target: Record<string, any>) {
@@ -337,11 +413,43 @@ function resetHandlerConfig(existing?: Record<string, any>) {
   jsonFields.args = formatJSON(value.args ?? [])
   jsonFields.env = formatJSON(value.env ?? {})
   jsonFields.parameters = formatJSON(value.parameters ?? [])
+  resetNotificationParams(value.params)
 }
 
 async function handleHandlerTypeChange() {
   resetHandlerConfig()
   if (form.handlerType === 'workflow') await loadWorkflowOptions()
+  if (isInAppNotificationJob.value) await loadNotificationOptions()
+}
+
+async function handleGoJobChange() {
+  resetNotificationParams()
+  jsonFields.params = '{}'
+  if (isInAppNotificationJob.value) await loadNotificationOptions()
+}
+
+function resetNotificationParams(value: Record<string, unknown> = {}) {
+  notificationParams.title = String(value.title || '')
+  notificationParams.content = String(value.content || '')
+  notificationParams.scope = ['all', 'departments', 'users'].includes(String(value.scope))
+    ? String(value.scope) as InAppNotificationScope
+    : 'all'
+  notificationParams.userIds = normalizeIDs(Array.isArray(value.userIds) ? value.userIds as Array<number | string> : [])
+  notificationParams.departmentIds = normalizeIDs(Array.isArray(value.departmentIds) ? value.departmentIds as Array<number | string> : [])
+  notificationEmptyUserSelection.value = []
+}
+
+async function loadNotificationOptions() {
+  if (notificationOptionsLoaded.value || !canNotificationSend.value) return
+  notificationOptionsLoading.value = true
+  try {
+    const response = await adminApi.inAppNotificationRecipientOptions()
+    notificationRecipientOptions.users = Array.isArray(response.data?.users) ? response.data.users : []
+    notificationRecipientOptions.departments = Array.isArray(response.data?.departments) ? response.data.departments : []
+    notificationOptionsLoaded.value = true
+  } finally {
+    notificationOptionsLoading.value = false
+  }
 }
 
 async function loadWorkflowOptions() {
@@ -376,7 +484,11 @@ function normalizeIDs(values: Array<number | string>) {
 }
 
 function schemaEnum(type: HandlerType, property: string) {
-  return props.handlers.find(item => item.type === type)?.configSchema?.properties?.[property]?.enum || []
+  return schemaProperty(type, property)?.enum || []
+}
+
+function schemaProperty(type: HandlerType, property: string) {
+  return props.handlers.find(item => item.type === type)?.configSchema?.properties?.[property]
 }
 
 function riskMeta(level: HandlerMetadata['riskLevel']) {
@@ -405,7 +517,15 @@ function requiredJSON<T>(label: string, text: string, type: 'object' | 'array'):
 
 function buildHandlerConfig() {
   const value = { ...handlerConfig }
-  if (form.handlerType === 'go') value.params = requiredJSON('任务参数', jsonFields.params, 'object')
+  if (form.handlerType === 'go') {
+    value.params = isInAppNotificationJob.value ? {
+      title: notificationParams.title.trim(),
+      content: notificationParams.content,
+      scope: notificationParams.scope,
+      userIds: notificationParams.scope === 'users' ? normalizeIDs(notificationParams.userIds) : undefined,
+      departmentIds: notificationParams.scope === 'departments' ? normalizeIDs(notificationParams.departmentIds) : undefined,
+    } : requiredJSON('任务参数', jsonFields.params, 'object')
+  }
   if (form.handlerType === 'workflow') {
     value.starterIds = workflowStarterIds.value
     delete value.starterId
@@ -440,6 +560,11 @@ async function save() {
   if (form.handlerType === 'workflow' && !selectedWorkflowDefinition.value) return ElMessage.warning('请选择当前已发布的流程定义')
   if (form.handlerType === 'workflow' && workflowStarterIds.value.length === 0) return ElMessage.warning('请选择流程发起人')
   if (form.handlerType === 'workflow' && workflowStarterIds.value.length > 100) return ElMessage.warning('流程发起人最多选择 100 人')
+  if (isInAppNotificationJob.value && !canNotificationSend.value) return ElMessage.error('缺少站内信发送权限')
+  if (isInAppNotificationJob.value && !notificationParams.title.trim()) return ElMessage.warning('请输入通知标题')
+  if (isInAppNotificationJob.value && !notificationParams.content.trim()) return ElMessage.warning('请输入通知正文')
+  if (isInAppNotificationJob.value && notificationParams.scope === 'departments' && notificationParams.departmentIds.length === 0) return ElMessage.warning('请选择收件部门')
+  if (isInAppNotificationJob.value && notificationParams.scope === 'users' && notificationParams.userIds.length === 0) return ElMessage.warning('请选择收件用户')
   if (form.handlerType === 'sql' && handlerConfig.mode === 'write' && !canSQLWrite.value) return ElMessage.error('缺少 SQL 写入任务权限')
   let config: Record<string, unknown>
   try { config = buildHandlerConfig() } catch (error) { return ElMessage.error((error as Error).message) }
@@ -474,10 +599,13 @@ async function save() {
 .editor-grid--method { grid-template-columns: 140px minmax(0, 1fr); }
 .editor-grid--cron { grid-template-columns: 160px minmax(220px, 1fr) 180px; }
 .handler-option { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; }
+.registered-job-meta { display: flex; width: 100%; min-width: 0; justify-content: space-between; gap: 12px; margin-top: 6px; color: var(--admin-muted); font-size: 12px; line-height: 18px; }
+.registered-job-meta code { overflow: hidden; color: var(--admin-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .cron-preview { display: grid; gap: 6px; padding: 10px 12px; margin: -4px 0 16px; background: #f7f8fa; border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-muted); font-size: 13px; }
 .el-alert { margin-bottom: 16px; }
 @media (max-width: 720px) {
   :global(.task-editor-dialog .el-dialog__body) { padding: 8px 16px 12px; }
   .editor-grid--two, .editor-grid--three, .editor-grid--method, .editor-grid--cron { grid-template-columns: 1fr; }
+  .registered-job-meta { display: grid; gap: 2px; }
 }
 </style>

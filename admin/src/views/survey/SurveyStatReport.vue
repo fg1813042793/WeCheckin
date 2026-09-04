@@ -147,6 +147,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../api'
+import { showRequestError } from '../../utils/request'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -214,7 +215,7 @@ async function loadResponses() {
     const data = res.data || res
     responses.value = (data.list || data.rows || data.data || []).filter((r: any) => r.forms)
     expanded.value = {}
-  } catch { ElMessage.error('加载答卷失败') }
+  } catch (error) { showRequestError(error, '加载答卷失败') }
 }
 
 function toggleResp(i: number) {
@@ -310,8 +311,8 @@ async function load() {
     if (viewMode.value === 'perResponse') {
       await loadResponses()
     }
-  } catch (e) {
-    ElMessage.error('加载失败')
+  } catch (error) {
+    showRequestError(error, '加载失败')
   }
 }
 

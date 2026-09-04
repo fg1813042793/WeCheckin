@@ -135,6 +135,25 @@ func TestDingTalkOAPIClientSendsAgentOANotification(t *testing.T) {
 	}
 }
 
+func TestDingTalkAgentNotificationMessageUsesActionCardWhenRequested(t *testing.T) {
+	message := dingTalkAgentNotificationMessage(DingTalkWorkNotificationPayload{
+		MessageType: DingTalkMessageTypeActionCard,
+		Title:       "《绩效考评单》有新评论",
+		Content:     "David 在“上级评价”评论：请关注本次评分",
+		URL:         "https://oa.example.com/h5?view=workflow%3Ainstance%3Ainstance-1",
+	})
+	if message["msgtype"] != DingTalkMessageTypeActionCard {
+		t.Fatalf("msgtype = %#v, want action_card", message["msgtype"])
+	}
+	card, _ := message["action_card"].(map[string]string)
+	if card["title"] != "《绩效考评单》有新评论" || card["markdown"] == "" {
+		t.Fatalf("action_card = %#v", card)
+	}
+	if card["single_title"] != "查看流程" || card["single_url"] == "" {
+		t.Fatalf("action_card button = %#v", card)
+	}
+}
+
 func TestDingTalkOAPIClientDoesNotFallbackToRobotWhenAgentModeIsStrict(t *testing.T) {
 	agentAttempts := 0
 	robotAttempts := 0
@@ -434,6 +453,28 @@ func TestDingTalkOAPIClientSendsRobotLinkNotification(t *testing.T) {
 	}
 	if msgParam["sourceName"] != "钉米-OKR" {
 		t.Fatalf("sourceName = %q, want 钉米-OKR", msgParam["sourceName"])
+	}
+}
+
+func TestDingTalkRobotNotificationMessageUsesActionCardWhenRequested(t *testing.T) {
+	msgKey, rawMsgParam := dingTalkRobotNotificationMessage(DingTalkWorkNotificationPayload{
+		MessageType: DingTalkMessageTypeActionCard,
+		Title:       "《绩效考评单》有新评论",
+		Content:     "David 在“上级评价”评论：请关注本次评分",
+		URL:         "https://oa.example.com/h5?view=workflow%3Ainstance%3Ainstance-1",
+	})
+	if msgKey != "sampleActionCard" {
+		t.Fatalf("msgKey = %q, want sampleActionCard", msgKey)
+	}
+	var msgParam map[string]string
+	if err := json.Unmarshal([]byte(rawMsgParam), &msgParam); err != nil {
+		t.Fatalf("decode msgParam: %v", err)
+	}
+	if msgParam["title"] == "" || msgParam["text"] == "" {
+		t.Fatalf("action card content = %#v", msgParam)
+	}
+	if msgParam["singleTitle"] != "查看流程" || msgParam["singleURL"] == "" {
+		t.Fatalf("action card button = %#v", msgParam)
 	}
 }
 

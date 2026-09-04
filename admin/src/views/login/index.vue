@@ -45,8 +45,8 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminApi } from '../../api'
-import { setPerms } from '../../utils/permission'
 import { clearAdminSession } from '../../utils/adminSession'
+import { invalidateAdminAccessSnapshot, loadAdminAccessSnapshot } from '../../router/adminAccess'
 import type { FormInstance } from 'element-plus'
 
 const router = useRouter()
@@ -65,12 +65,15 @@ async function login() {
   try {
     clearAdminSession()
     const res = await adminApi.login({ name: form.name, password: form.password })
-    const d = res.data || {}
+    const d = res.data
     localStorage.setItem('admin_token', d.token || '')
     localStorage.setItem('admin_info', JSON.stringify(d))
-    const permRes = await adminApi.adminPerms()
-    setPerms(permRes.data || [])
-    router.push('/dashboard')
+    invalidateAdminAccessSnapshot()
+    await loadAdminAccessSnapshot()
+    const redirect = typeof router.currentRoute.value.query.redirect === 'string'
+      ? router.currentRoute.value.query.redirect
+      : '/'
+    router.push(redirect)
   } finally {
     loading.value = false
   }

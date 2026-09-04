@@ -28,6 +28,7 @@ const (
 	TaskStatusCompleted TaskStatus = "completed"
 	TaskStatusApproved  TaskStatus = "approved"
 	TaskStatusRejected  TaskStatus = "rejected"
+	TaskStatusReturned  TaskStatus = "returned"
 	TaskStatusCancelled TaskStatus = "cancelled"
 )
 
@@ -36,6 +37,7 @@ type TaskAction string
 const (
 	TaskActionApprove TaskAction = "approve"
 	TaskActionReject  TaskAction = "reject"
+	TaskActionReturn  TaskAction = "return"
 	TaskActionSubmit  TaskAction = "submit"
 )
 
@@ -47,6 +49,7 @@ const (
 	HistoryTaskActivated     HistoryEventType = "task_activated"
 	HistoryTaskApproved      HistoryEventType = "task_approved"
 	HistoryTaskRejected      HistoryEventType = "task_rejected"
+	HistoryTaskReturned      HistoryEventType = "task_returned"
 	HistoryTaskSubmitted     HistoryEventType = "task_submitted"
 	HistoryTaskCancelled     HistoryEventType = "task_cancelled"
 	HistoryNodeCC            HistoryEventType = "node_cc"
@@ -58,6 +61,8 @@ const (
 	HistoryInstanceRejected  HistoryEventType = "instance_rejected"
 	HistoryInstanceWithdrawn HistoryEventType = "instance_withdrawn"
 	HistoryInstanceCancelled HistoryEventType = "instance_cancelled"
+	HistoryInstanceCommented HistoryEventType = "instance_commented"
+	HistoryInstanceReminded  HistoryEventType = "instance_reminded"
 )
 
 type ParticipantRole string
@@ -67,9 +72,13 @@ const ParticipantRoleCC ParticipantRole = "cc"
 type NotificationKind string
 
 const (
-	NotificationKindNodeCC      NotificationKind = "node_cc"
-	NotificationKindNodeNotify  NotificationKind = "node_notify"
-	NotificationKindTaskArrived NotificationKind = "task_arrived"
+	NotificationKindNodeCC            NotificationKind = "node_cc"
+	NotificationKindNodeNotify        NotificationKind = "node_notify"
+	NotificationKindTaskArrived       NotificationKind = "task_arrived"
+	NotificationKindTaskReminder      NotificationKind = "task_reminder"
+	NotificationKindInstanceCommented NotificationKind = "instance_commented"
+	NotificationKindApprovalResultApproved NotificationKind = "approval_result_approved"
+	NotificationKindApprovalResultRejected NotificationKind = "approval_result_rejected"
 )
 
 type ProcessInstance struct {
@@ -82,6 +91,7 @@ type ProcessInstance struct {
 	StarterID         string
 	OperatorID        string
 	Status            InstanceStatus
+	StartTime         int64
 }
 
 type Token struct {
@@ -106,15 +116,18 @@ type Task struct {
 	Status         TaskStatus
 	Action         TaskAction
 	Comment        string
+	Images         []workflowcore.FormAttachment
 }
 
 type HistoryEvent struct {
-	ID      string
-	Type    HistoryEventType
-	NodeID  string
-	TaskID  string
-	ActorID string
-	Message string
+	ID        string
+	Type      HistoryEventType
+	NodeID    string
+	TaskID    string
+	ActorID   string
+	Message   string
+	Images    []workflowcore.FormAttachment
+	EventTime int64
 }
 
 type Participant struct {
@@ -133,6 +146,7 @@ type NotificationIntent struct {
 	RecipientUserID string
 	WorkflowName    string
 	Config          workflowcore.NotificationConfig
+	DedupeKeySuffix string
 }
 
 type State struct {
@@ -163,17 +177,20 @@ type StartRequest struct {
 	BusinessKey       string
 	StarterID         string
 	OperatorID        string
+	StartTime         int64
 	Variables         map[string]interface{}
 	FormData          map[string]interface{}
 }
 
 type CompleteRequest struct {
-	TaskID    string
-	ActorID   string
-	Action    TaskAction
-	Comment   string
-	Variables map[string]interface{}
-	FormData  map[string]interface{}
+	TaskID             string
+	ActorID            string
+	Action             TaskAction
+	Comment            string
+	Images             []workflowcore.FormAttachment
+	ReturnTargetNodeID string
+	Variables          map[string]interface{}
+	FormData           map[string]interface{}
 }
 
 type AssigneeRequest struct {

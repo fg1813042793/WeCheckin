@@ -1119,6 +1119,7 @@ import { ref, computed, reactive, watch, onMounted, onBeforeUnmount, nextTick } 
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'
+import { showRequestError } from '../../utils/request'
 import DraggableList from './formkit/DraggableList.vue'
 import QuestionIcon from './formkit/QuestionIcon.vue'
 
@@ -1514,8 +1515,8 @@ async function confirmUploadBank() {
     ElMessage.success('已上传到题库')
     bankDialog.visible = false
     loadBank()
-  } catch (e: any) {
-    ElMessage.error(e?.msg || '上传失败')
+  } catch (error) {
+    showRequestError(error, '上传失败')
   } finally {
     bankDialog.saving = false
   }
@@ -1827,7 +1828,7 @@ async function saveLogicRules() {
   try {
     await adminApi.examSave(payload)
     ElMessage.success('逻辑规则已保存')
-  } catch { ElMessage.error('保存失败') }
+  } catch (error) { showRequestError(error, '保存失败') }
 }
 
 async function loadBank() {
@@ -2281,7 +2282,7 @@ async function load() {
     loadResources()
     await loadAdminTree()
     await loadDeptTree()
-  } catch { ElMessage.error('加载失败') }
+  } catch (error) { showRequestError(error, '加载失败') }
 }
 
 function downloadJson() {
@@ -2407,8 +2408,8 @@ async function save(showMessage: boolean | Event = true) {
   const r: any = await adminApi.examSave(payload)
   if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
   if (shouldShowMessage) ElMessage.success('已保存')
-} catch {
-  if (shouldShowMessage) ElMessage.error('保存失败')
+} catch (error) {
+  if (shouldShowMessage) showRequestError(error, '保存失败')
 }
 finally { saving.value = false }
 }

@@ -24,7 +24,9 @@ type RuntimeService interface {
 	ResumeTimers(context.Context, string, string) (*workflowdomain.State, int, error)
 	ListInstances(context.Context, workflowapp.InstanceQuery) (*workflowapp.InstanceList, error)
 	GetInstance(context.Context, string) (*workflowapp.InstanceDetail, error)
+	DeleteInstances(context.Context, string, []string) (int, error)
 	ListTasks(context.Context, workflowapp.TaskQuery) (*workflowapp.TaskList, error)
+	DeleteTask(context.Context, string, string) error
 	ListNotifications(context.Context, workflowapp.NotificationQuery) (*workflowapp.NotificationList, error)
 	RetryNotification(context.Context, string) error
 	DispatchDueNotifications(context.Context, int) (int, error)
@@ -49,10 +51,11 @@ type startInstanceBody struct {
 }
 
 type completeTaskBody struct {
-	Action    workflowdomain.TaskAction `json:"action"`
-	Comment   string                    `json:"comment"`
-	Variables map[string]interface{}    `json:"variables"`
-	FormData  map[string]interface{}    `json:"formData"`
+	Action             workflowdomain.TaskAction `json:"action"`
+	Comment            string                    `json:"comment"`
+	ReturnTargetNodeID string                    `json:"returnTargetNodeId"`
+	Variables          map[string]interface{}    `json:"variables"`
+	FormData           map[string]interface{}    `json:"formData"`
 }
 
 type cancelInstanceBody struct {
@@ -61,6 +64,10 @@ type cancelInstanceBody struct {
 
 type dispatchDueNotificationsBody struct {
 	Limit int `json:"limit"`
+}
+
+type deleteInstancesBody struct {
+	IDs []string `json:"ids"`
 }
 
 type mutationResponse struct {
@@ -162,7 +169,8 @@ func (handler *RuntimeHandler) CompleteTask(ctx context.Context, c *app.RequestC
 	}
 	state, err := handler.service.CompleteTask(ctx, workflowapp.CompleteTaskRequest{
 		TaskID: taskID, ActorID: actorID, Action: body.Action,
-		Comment: body.Comment, Variables: body.Variables, FormData: body.FormData,
+		Comment: body.Comment, ReturnTargetNodeID: body.ReturnTargetNodeID,
+		Variables: body.Variables, FormData: body.FormData,
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
@@ -221,13 +229,18 @@ func (handler *RuntimeHandler) ResumeTimers(ctx context.Context, c *app.RequestC
 func (handler *RuntimeHandler) ListInstances(ctx context.Context, c *app.RequestContext) {
 	definitionID, _ := strconv.ParseUint(c.Query("definitionId"), 10, 64)
 	data, err := handler.service.ListInstances(ctx, workflowapp.InstanceQuery{
-		DefinitionID: uint(definitionID),
-		Status:       strings.TrimSpace(c.Query("status")),
-		BusinessType: strings.TrimSpace(c.Query("businessType")),
-		BusinessKey:  strings.TrimSpace(c.Query("businessKey")),
-		StarterID:    strings.TrimSpace(c.Query("starterId")),
-		Page:         queryInt(c, "page"),
-		PageSize:     queryInt(c, "pageSize"),
+		DefinitionID:       uint(definitionID),
+		DefinitionCategory: strings.TrimSpace(c.Query("definitionCategory")),
+		Status:             strings.TrimSpace(c.Query("status")),
+		BusinessType:       strings.TrimSpace(c.Query("businessType")),
+		BusinessKey:        strings.TrimSpace(c.Query("businessKey")),
+		StarterID:          strings.TrimSpace(c.Query("starterId")),
+		StartTimeFrom:      queryInt64(c, "startTimeFrom"),
+		StartTimeTo:        queryInt64(c, "startTimeTo"),
+		EndTimeFrom:        queryInt64(c, "endTimeFrom"),
+		EndTimeTo:          queryInt64(c, "endTimeTo"),
+		Page:               queryInt(c, "page"),
+		PageSize:           queryInt(c, "pageSize"),
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
@@ -250,19 +263,76 @@ func (handler *RuntimeHandler) GetInstance(ctx context.Context, c *app.RequestCo
 	response.JSON(c, data)
 }
 
+func (handler *RuntimeHandler) DeleteInstance(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	deleted, err := handler.service.DeleteInstances(ctx, actorID, []string{instanceID})
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, map[string]int{"deleted": deleted})
+}
+
+func (handler *RuntimeHandler) DeleteInstances(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	var body deleteInstancesBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	deleted, err := handler.service.DeleteInstances(ctx, actorID, body.IDs)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, map[string]int{"deleted": deleted})
+}
+
 func (handler *RuntimeHandler) ListTasks(ctx context.Context, c *app.RequestContext) {
 	data, err := handler.service.ListTasks(ctx, workflowapp.TaskQuery{
-		InstanceID: strings.TrimSpace(c.Query("instanceId")),
-		AssigneeID: strings.TrimSpace(c.Query("assigneeId")),
-		Status:     strings.TrimSpace(c.Query("status")),
-		Page:       queryInt(c, "page"),
-		PageSize:   queryInt(c, "pageSize"),
+		InstanceID:       strings.TrimSpace(c.Query("instanceId")),
+		AssigneeID:       strings.TrimSpace(c.Query("assigneeId")),
+		Status:           strings.TrimSpace(c.Query("status")),
+		HideAdminDeleted: true,
+		Page:             queryInt(c, "page"),
+		PageSize:         queryInt(c, "pageSize"),
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
 	}
 	response.JSON(c, data)
+}
+
+func (handler *RuntimeHandler) DeleteTask(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	taskID := strings.TrimSpace(c.Param("id"))
+	if taskID == "" {
+		response.Fail(c, "流程任务不能为空")
+		return
+	}
+	if err := handler.service.DeleteTask(ctx, actorID, taskID); err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, map[string]string{"id": taskID})
 }
 
 func (handler *RuntimeHandler) ListNotifications(ctx context.Context, c *app.RequestContext) {
@@ -344,6 +414,11 @@ func decodeJSONBody(c *app.RequestContext, target interface{}) error {
 
 func queryInt(c *app.RequestContext, key string) int {
 	value, _ := strconv.Atoi(c.Query(key))
+	return value
+}
+
+func queryInt64(c *app.RequestContext, key string) int64 {
+	value, _ := strconv.ParseInt(c.Query(key), 10, 64)
 	return value
 }
 

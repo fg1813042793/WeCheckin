@@ -92,6 +92,8 @@ V1 要求并行分支使用成对的 `split` 与 `join`，不支持跨层交叉�
 - `POST /api/v2/admin/workflow-instances`：按流程定义启动实例；`starterId` 指定业务发起人，登录管理员记录为 `operatorId`。
 - `GET /api/v2/admin/workflow-instances`：分页查询实例。
 - `GET /api/v2/admin/workflow-instances/:id`：查询实例、当前任务和历史。
+- `DELETE /api/v2/admin/workflow-instances/:id`：软删除单个终态实例，保留审计数据。
+- `DELETE /api/v2/admin/workflow-instances`：批量软删除终态实例，单次最多 100 个。
 - `GET /api/v2/admin/workflow-tasks`：查询当前用户或指定实例的待办。
 - `POST /api/v2/admin/workflow-tasks/:id/complete`：通过或拒绝任务。
 

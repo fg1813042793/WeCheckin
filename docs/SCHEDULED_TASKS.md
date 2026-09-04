@@ -53,10 +53,11 @@ docker compose up -d --build mysql redis backend taskd
 
 ## 3. 内置任务
 
-Go 任务不能填写函数名，只能选择服务端注册键。首版内置：
+Go 任务不能填写函数名，只能选择服务端注册键。当前内置：
 
 - `scheduled-task.cleanup`：按服务端运行记录和日志保留天数分批清理历史。
 - `workflow.notification.dispatch_due`：派发已经到期的通用流程通知。
+- `notification.in_app.send`：按任务执行时的组织数据向启用用户发送站内信。
 
 建议为这两个任务分别建立定义，例如：
 
@@ -66,6 +67,22 @@ Go 任务不能填写函数名，只能选择服务端注册键。首版内置�
   "params": { "limit": 100 }
 }
 ```
+
+站内信任务支持全部用户、指定部门和指定用户。指定部门包含当前所有子部门，例如：
+
+```json
+{
+  "handlerKey": "notification.in_app.send",
+  "params": {
+    "title": "系统维护通知",
+    "content": "今日 20:00 开始系统维护。",
+    "scope": "departments",
+    "departmentIds": [10, 11]
+  }
+}
+```
+
+任务保存接收范围规则，执行时重新解析当前启用用户；同一运行 ID 重试不会重复投递。创建或编辑该任务的管理员除定时任务管理权限外，还必须具有 `notification:send` 权限。运行日志只记录计划、发送、跳过和重放数量，不记录通知正文或完整收件人列表。
 
 ## 4. 安全配置
 

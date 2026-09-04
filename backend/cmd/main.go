@@ -6,58 +6,6 @@
 //	@host			localhost:8083
 //	@BasePath		/
 //	@schemes		http
-// @tag.name		PC端-用户管理
-// @tag.description	后台管理用户相关接口
-// @tag.name		PC端-通知公告
-// @tag.description	后台管理通知公告相关接口
-// @tag.name		PC端-赛事活动管理
-// @tag.description	后台管理赛事活动相关接口
-// @tag.name		PC端-打卡管理
-// @tag.description	后台管理打卡相关接口
-// @tag.name		PC端-菜单管理
-// @tag.description	后台管理菜单相关接口
-// @tag.name		PC端-角色管理
-// @tag.description	后台管理角色相关接口
-// @tag.name		PC端-字典管理
-// @tag.description	后台管理字典相关接口
-// @tag.name		PC端-部门管理
-// @tag.description	后台管理部门相关接口
-// @tag.name		PC端-管理员管理
-// @tag.description	后台管理管理员相关接口
-// @tag.name		PC端-系统设置
-// @tag.description	后台系统设置相关接口
-// @tag.name		PC端-管理后台首页
-// @tag.description	后台首页数据接口
-// @tag.name		PC端-考试管理
-// @tag.description	后台管理考试相关接口
-// @tag.name		PC端-问卷管理
-// @tag.description	后台管理问卷相关接口
-// @tag.name		PC端-表单工具
-// @tag.description	后台表单工具相关接口
-// @tag.name		PC端-在线用户
-// @tag.description	在线用户管理接口
-// @tag.name		PC端-在线管理员
-// @tag.description	在线管理员管理接口
-// @tag.name		客户端-通行证
-// @tag.description	客户端用户认证相关接口
-// @tag.name		客户端-打卡
-// @tag.description	客户端打卡相关接口
-// @tag.name		客户端-赛事活动
-// @tag.description	客户端赛事活动相关接口
-// @tag.name		客户端-考试
-// @tag.description	客户端考试相关接口
-// @tag.name		客户端-问卷
-// @tag.description	客户端问卷相关接口
-// @tag.name		客户端-地理编码
-// @tag.description	客户端地理编码相关接口
-// @tag.name		客户端-通知公告
-// @tag.description	客户端通知公告相关接口
-// @tag.name		客户端-首页
-// @tag.description	客户端首页数据接口
-// @tag.name		客户端-收藏
-// @tag.description	客户端收藏相关接口
-// @tag.name		客户端-表单工具
-// @tag.description	客户端表单工具相关接口
 //
 //	@securityDefinitions.apikey	AdminToken
 //	@in							header
@@ -68,6 +16,11 @@
 //	@in							header
 //	@name						Authorization
 //	@description				用户 Token，格式: "Bearer {token}"
+//
+//	@securityDefinitions.apikey	H5AppToken
+//	@in							header
+//	@name						Authorization
+//	@description				H5App Token，格式: "Bearer {token}"
 
 //go:generate sh -c "cd .. && swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger"
 package main

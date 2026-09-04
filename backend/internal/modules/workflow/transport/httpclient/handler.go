@@ -13,17 +13,23 @@ import (
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 	"wecheckin/backend/internal/support/dingtalkh5session"
+	"wecheckin/backend/internal/workflowcore"
 	"wecheckin/backend/pkg/response"
 )
 
 type RuntimeService interface {
 	ListPublishedDefinitionsForStarter(context.Context, string) ([]workflowapp.PublishedDefinition, error)
+	ListPublishedDefinitionCategories(context.Context) ([]string, error)
 	GetPublishedDefinitionForStarter(context.Context, uint, string) (*workflowapp.PublishedDefinition, error)
 	GetStartDraft(context.Context, uint, string) (*workflowapp.StartDraft, error)
 	SaveStartDraft(context.Context, workflowapp.SaveStartDraftRequest) (*workflowapp.StartDraft, error)
+	DeleteStartDraft(context.Context, uint, string) error
 	StartInstance(context.Context, workflowapp.StartInstanceRequest) (*workflowdomain.State, error)
 	CompleteTask(context.Context, workflowapp.CompleteTaskRequest) (*workflowdomain.State, error)
 	WithdrawInstance(context.Context, workflowapp.WithdrawInstanceRequest) (*workflowdomain.State, error)
+	CommentInstance(context.Context, workflowapp.CommentInstanceRequest) error
+	RemindInstance(context.Context, workflowapp.RemindInstanceRequest) (*workflowapp.RemindInstanceResult, error)
+	DeleteMyInstance(context.Context, string, string) error
 	ListMyInstances(context.Context, string, workflowapp.InstanceQuery) (*workflowapp.InstanceList, error)
 	GetMyInstance(context.Context, string, string) (*workflowapp.InstanceDetail, error)
 	ListMyTasks(context.Context, string, workflowapp.TaskQuery) (*workflowapp.TaskList, error)
@@ -52,14 +58,26 @@ type saveStartDraftBody struct {
 }
 
 type completeTaskBody struct {
-	Action    workflowdomain.TaskAction `json:"action"`
-	Comment   string                    `json:"comment"`
-	Variables map[string]interface{}    `json:"variables"`
-	FormData  map[string]interface{}    `json:"formData"`
+	Action             workflowdomain.TaskAction     `json:"action"`
+	Comment            string                        `json:"comment"`
+	Images             []workflowcore.FormAttachment `json:"images"`
+	ReturnTargetNodeID string                        `json:"returnTargetNodeId"`
+	Variables          map[string]interface{}        `json:"variables"`
+	FormData           map[string]interface{}        `json:"formData"`
 }
 
 type withdrawInstanceBody struct {
 	Reason string `json:"reason"`
+}
+
+type commentInstanceBody struct {
+	Comment      string                                  `json:"comment"`
+	Images       []workflowcore.FormAttachment           `json:"images"`
+	Notification *workflowapp.CommentNotificationRequest `json:"notification"`
+}
+
+type remindInstanceBody struct {
+	NodeID string `json:"nodeId"`
 }
 
 type mutationResponse struct {
@@ -85,6 +103,19 @@ func (handler *RuntimeHandler) ListDefinitions(ctx context.Context, c *app.Reque
 		return
 	}
 	data, err := handler.service.ListPublishedDefinitionsForStarter(ctx, actorID)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (handler *RuntimeHandler) ListDefinitionCategories(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedActorID(c); !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	data, err := handler.service.ListPublishedDefinitionCategories(ctx)
 	if err != nil {
 		response.Fail(c, err.Error())
 		return
@@ -157,6 +188,24 @@ func (handler *RuntimeHandler) SaveStartDraft(ctx context.Context, c *app.Reques
 	response.JSON(c, draft)
 }
 
+func (handler *RuntimeHandler) DeleteStartDraft(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	definitionID, ok := parseDefinitionID(c, "definitionId")
+	if !ok {
+		response.Fail(c, "流程定义无效")
+		return
+	}
+	if err := handler.service.DeleteStartDraft(ctx, definitionID, actorID); err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, nil)
+}
+
 func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.RequestContext) {
 	actorID, ok := authenticatedActorID(c)
 	if !ok {
@@ -190,10 +239,20 @@ func (handler *RuntimeHandler) ListMyInstances(ctx context.Context, c *app.Reque
 	}
 	definitionID, _ := strconv.ParseUint(c.Query("definitionId"), 10, 64)
 	data, err := handler.service.ListMyInstances(ctx, actorID, workflowapp.InstanceQuery{
-		DefinitionID: uint(definitionID), Status: strings.TrimSpace(c.Query("status")),
-		BusinessType: strings.TrimSpace(c.Query("businessType")), BusinessKey: strings.TrimSpace(c.Query("businessKey")),
-		Scope: strings.TrimSpace(c.Query("scope")),
-		Page:  queryInt(c, "page"), PageSize: queryInt(c, "pageSize"),
+		DefinitionID:       uint(definitionID),
+		DefinitionName:     strings.TrimSpace(c.Query("definitionName")),
+		DefinitionCategory: strings.TrimSpace(c.Query("definitionCategory")),
+		StarterName:        strings.TrimSpace(c.Query("starterName")),
+		Status:             strings.TrimSpace(c.Query("status")),
+		BusinessType:       strings.TrimSpace(c.Query("businessType")),
+		BusinessKey:        strings.TrimSpace(c.Query("businessKey")),
+		Scope:              strings.TrimSpace(c.Query("scope")),
+		StartTimeFrom:      queryInt64(c, "startTimeFrom"),
+		StartTimeTo:        queryInt64(c, "startTimeTo"),
+		EndTimeFrom:        queryInt64(c, "endTimeFrom"),
+		EndTimeTo:          queryInt64(c, "endTimeTo"),
+		Page:               queryInt(c, "page"),
+		PageSize:           queryInt(c, "pageSize"),
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
@@ -219,6 +278,24 @@ func (handler *RuntimeHandler) GetMyInstance(ctx context.Context, c *app.Request
 		return
 	}
 	response.JSON(c, data)
+}
+
+func (handler *RuntimeHandler) DeleteMyInstance(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	if err := handler.service.DeleteMyInstance(ctx, actorID, instanceID); err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, nil)
 }
 
 func (handler *RuntimeHandler) WithdrawInstance(ctx context.Context, c *app.RequestContext) {
@@ -249,6 +326,58 @@ func (handler *RuntimeHandler) WithdrawInstance(ctx context.Context, c *app.Requ
 	response.JSON(c, newMutationResponse(state))
 }
 
+func (handler *RuntimeHandler) CommentInstance(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	var body commentInstanceBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	if err := handler.service.CommentInstance(ctx, workflowapp.CommentInstanceRequest{
+		InstanceID: instanceID, ActorID: actorID, Comment: body.Comment, Images: body.Images,
+		Notification: body.Notification,
+	}); err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, nil)
+}
+
+func (handler *RuntimeHandler) RemindInstance(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	var body remindInstanceBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	result, err := handler.service.RemindInstance(ctx, workflowapp.RemindInstanceRequest{
+		InstanceID: instanceID, ActorID: actorID, NodeID: body.NodeID,
+	})
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, result)
+}
+
 func (handler *RuntimeHandler) ListMyTasks(ctx context.Context, c *app.RequestContext) {
 	actorID, ok := authenticatedActorID(c)
 	if !ok {
@@ -256,8 +385,15 @@ func (handler *RuntimeHandler) ListMyTasks(ctx context.Context, c *app.RequestCo
 		return
 	}
 	data, err := handler.service.ListMyTasks(ctx, actorID, workflowapp.TaskQuery{
-		InstanceID: strings.TrimSpace(c.Query("instanceId")), Status: strings.TrimSpace(c.Query("status")),
-		Page: queryInt(c, "page"), PageSize: queryInt(c, "pageSize"),
+		InstanceID:         strings.TrimSpace(c.Query("instanceId")),
+		Status:             strings.TrimSpace(c.Query("status")),
+		DefinitionName:     strings.TrimSpace(c.Query("definitionName")),
+		DefinitionCategory: strings.TrimSpace(c.Query("definitionCategory")),
+		StarterName:        strings.TrimSpace(c.Query("starterName")),
+		StartTimeFrom:      queryInt64(c, "startTimeFrom"),
+		StartTimeTo:        queryInt64(c, "startTimeTo"),
+		Page:               queryInt(c, "page"),
+		PageSize:           queryInt(c, "pageSize"),
 	})
 	if err != nil {
 		response.Fail(c, err.Error())
@@ -284,6 +420,7 @@ func (handler *RuntimeHandler) CompleteTask(ctx context.Context, c *app.RequestC
 	}
 	state, err := handler.service.CompleteTask(ctx, workflowapp.CompleteTaskRequest{
 		TaskID: taskID, ActorID: actorID, Action: body.Action, Comment: body.Comment,
+		Images: body.Images, ReturnTargetNodeID: body.ReturnTargetNodeID,
 		Variables: body.Variables, FormData: body.FormData,
 	})
 	if err != nil {
@@ -319,6 +456,11 @@ func decodeJSONBody(c *app.RequestContext, target interface{}) error {
 
 func queryInt(c *app.RequestContext, key string) int {
 	value, _ := strconv.Atoi(c.Query(key))
+	return value
+}
+
+func queryInt64(c *app.RequestContext, key string) int64 {
+	value, _ := strconv.ParseInt(c.Query(key), 10, 64)
 	return value
 }
 

@@ -1,6 +1,7 @@
 import { get, post, put, patch, del } from '../utils/request'
 
-const ADMIN_V2 = '/api/v2/admin'
+const API_V2 = '/api/v2'
+const ADMIN_V2 = `${API_V2}/admin`
 
 function valueOf(source, keys = ['id'], fallback = '') {
   if (source === null || source === undefined) return fallback
@@ -18,7 +19,7 @@ function pathParam(source, keys = ['id'], fallback = '') {
 
 export const dictApi = {
   items(typeCode) {
-    return get(`${ADMIN_V2}/dict/items`, { typeCode })
+    return get(`${API_V2}/dict/items`, { typeCode })
   }
 }
 

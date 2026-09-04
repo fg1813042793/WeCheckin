@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -136,6 +137,89 @@ func TestBackendPortReferencesUse8083(t *testing.T) {
 				t.Fatalf("%s must not contain %q", path, snippet)
 			}
 		}
+	}
+}
+
+func TestSwaggerPublishesOnlyV2GroupsAndPaths(t *testing.T) {
+	mainSource, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+	for _, line := range strings.Split(string(mainSource), "\n") {
+		if strings.Contains(line, "@tag.name") && isLegacySwaggerTag(line) {
+			t.Fatalf("main.go must not declare legacy Swagger tag: %s", strings.TrimSpace(line))
+		}
+	}
+	if !strings.Contains(string(mainSource), "H5AppToken") {
+		t.Fatal("main.go must declare the H5App Swagger security scheme")
+	}
+
+	swaggerSource, err := os.ReadFile("../docs/swagger/swagger.json")
+	if err != nil {
+		t.Fatalf("read generated Swagger JSON: %v", err)
+	}
+	var document struct {
+		Paths map[string]map[string]struct {
+			Tags []string `json:"tags"`
+		} `json:"paths"`
+		Tags []struct {
+			Name string `json:"name"`
+		} `json:"tags"`
+	}
+	if err := json.Unmarshal(swaggerSource, &document); err != nil {
+		t.Fatalf("parse generated Swagger JSON: %v", err)
+	}
+	if len(document.Paths) == 0 {
+		t.Fatal("generated Swagger must publish API v2 paths")
+	}
+	h5AppOperations := 0
+	for path, operations := range document.Paths {
+		if !strings.HasPrefix(path, "/api/v2/") {
+			t.Fatalf("generated Swagger must only publish API v2 paths, found %q", path)
+		}
+		for method, operation := range operations {
+			for _, tag := range operation.Tags {
+				if isLegacySwaggerTag(tag) {
+					t.Fatalf("generated Swagger operation %s %s must not publish legacy group %q", strings.ToUpper(method), path, tag)
+				}
+				if isGenericSwaggerTag(tag) {
+					t.Fatalf("generated Swagger operation %s %s must use a business category instead of %q", strings.ToUpper(method), path, tag)
+				}
+			}
+			if strings.HasPrefix(path, "/api/v2/dingtalk/h5/") && len(operation.Tags) > 0 {
+				h5AppOperations++
+				for _, tag := range operation.Tags {
+					if !strings.HasPrefix(tag, "API v2-H5App-") {
+						t.Fatalf("generated Swagger operation %s %s must use an H5App category, found %q", strings.ToUpper(method), path, tag)
+					}
+				}
+			}
+		}
+	}
+	if h5AppOperations == 0 {
+		t.Fatal("generated Swagger must publish H5App operations")
+	}
+	for _, tag := range document.Tags {
+		if isLegacySwaggerTag(tag.Name) {
+			t.Fatalf("generated Swagger must not publish legacy group %q", tag.Name)
+		}
+		if isGenericSwaggerTag(tag.Name) {
+			t.Fatalf("generated Swagger must not publish generic group %q", tag.Name)
+		}
+	}
+}
+
+func isLegacySwaggerTag(tag string) bool {
+	return strings.Contains(tag, "PC端-") ||
+		(strings.Contains(tag, "客户端-") && !strings.Contains(tag, "API v2-客户端-"))
+}
+
+func isGenericSwaggerTag(tag string) bool {
+	switch tag {
+	case "API v2-后台管理", "API v2-客户端", "API v2-公开接口":
+		return true
+	default:
+		return false
 	}
 }
 

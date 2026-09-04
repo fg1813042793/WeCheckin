@@ -29,14 +29,39 @@ func TestGoHandlerUsesOnlyRegisteredTaskKeys(t *testing.T) {
 	}
 }
 
+func TestGoHandlerMetadataIncludesRegisteredTaskNames(t *testing.T) {
+	handler := NewGoHandler()
+	if err := handler.Register(&fakeGoJob{key: "scheduled-task.cleanup", name: "清理定时任务历史"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var schema struct {
+		Properties map[string]struct {
+			Enum       []string          `json:"enum"`
+			EnumLabels map[string]string `json:"x-enum-labels"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(handler.Metadata().ConfigSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	handlerKey := schema.Properties["handlerKey"]
+	if len(handlerKey.Enum) != 1 || handlerKey.Enum[0] != "scheduled-task.cleanup" {
+		t.Fatalf("handlerKey enum = %#v", handlerKey.Enum)
+	}
+	if got := handlerKey.EnumLabels["scheduled-task.cleanup"]; got != "清理定时任务历史" {
+		t.Fatalf("handlerKey label = %q", got)
+	}
+}
+
 type fakeGoJob struct {
 	key    string
+	name   string
 	runID  string
 	params json.RawMessage
 }
 
 func (job *fakeGoJob) Key() string                                     { return job.key }
-func (job *fakeGoJob) Name() string                                    { return "Cleanup" }
+func (job *fakeGoJob) Name() string                                    { return job.name }
 func (job *fakeGoJob) ConfigSchema() json.RawMessage                   { return json.RawMessage(`{"type":"object"}`) }
 func (job *fakeGoJob) Validate(context.Context, json.RawMessage) error { return nil }
 func (job *fakeGoJob) Execute(_ context.Context, runID string, params json.RawMessage, _ application.RunLogger) (application.HandlerResult, error) {

@@ -1,6 +1,6 @@
 # 权限编码与前端同步说明
 
-更新时间：2026-07-30
+更新时间：2026-09-03
 
 本文说明当后台或后端调整权限编码时，前端需要同步修改哪些地方。权限编码是前后端共同使用的契约，不建议只在后台“权限管理”页面直接修改内置权限编码。
 
@@ -57,6 +57,20 @@
 ## 管理后台前端怎么改
 
 角色编辑和用户编辑中的“应用权限”配置主要按后端返回的树渲染，不会写死每个具体权限编码。
+
+管理后台页面路由还会使用当前管理员的菜单树进行深链接校验。页面路由的 `meta.menuPath` 必须指向一个后端可见菜单路径；仅持有有效 token、但菜单树中没有该路径时，应进入无权访问页。按钮显示、事件处理和 API 路由分别使用相同业务动作语义的菜单权限与 API 权限。
+
+内容运营动作目前按操作拆分，不能继续用 `edit` 或 `list` 代替：
+
+| 模块 | 操作权限 |
+| --- | --- |
+| 打卡 | `enroll:status`、`enroll:vouch`、`enroll:export`、`enroll:users` |
+| 内容 | `news:status`、`news:vouch` |
+| 赛事 | `event:status`、`event:vouch`、`event:top`、`event:users` |
+| 系统配置读取 | `setup:list` |
+| 后台上传 | `upload:create` |
+
+迁移 `20260902150000_split_admin_content_action_permissions.sql` 会根据历史粗粒度授权回填上述新 API 权限，避免升级后原有角色突然失去已有能力；新角色仍应按最小权限显式配置。
 
 需要注意的是前缀筛选：
 
@@ -152,6 +166,30 @@ function canEditTemplate() {
 5. 有授权用户访问对应接口成功。
 6. 无授权用户访问对应接口返回“无权限访问”。
 7. 数据库 `permission_grants.grant_permission_key` 不再残留旧编码。
+
+## 钉钉 H5 流程汇总权限组合
+
+流程管理人员使用汇总页时需要组合配置，而不是只授予一个前端菜单：
+
+- `dingtalk_h5:menu:workflow`：进入流程审批模块。
+- `dingtalk_h5:button:workflow:summary`：显示单个流程页面内的“汇总”页签。
+- `dingtalk_h5:api:workflow:summary`：读取汇总流程定义、列表和管理详情。
+- `dingtalk_h5:api:workflow:export`：下载 PDF、Excel、Word 或批量 ZIP。
+- `data:all`、`data:dept`、`data:self`、`data:custom`、`data:extra`：按流程发起人限制实际可见实例。
+
+按钮权限的父级是 `dingtalk_h5:menu:workflow`，不会把流程菜单改成新的导航目录。只有菜单/按钮/API 权限而没有有效数据权限时，汇总列表为空；导出接口会再次校验每个实例，不能通过构造实例 ID 绕过范围。
+
+## 钉钉 H5 流程催办权限
+
+- `dingtalk_h5:api:workflow:remind`：允许流程发起人在“我的申请”详情中催办当前待处理节点。
+- 该权限通过 `backend/migrations/20260903130000_add_workflow_instance_reminder_permission.sql` 注册，迁移不会自动给现有角色或用户授权。
+- 后端仍会校验实例发起人、运行状态、当前节点和限频，不依赖前端按钮隐藏保护接口。
+
+## 钉钉 H5 流程附件权限
+
+- `dingtalk_h5:api:workflow:attachment`：允许在流程发起表单或可填写节点上传附件。
+- 迁移 `20260903140000_add_workflow_attachment_permission.sql` 会给已有 `dingtalk_h5:api:workflow:start` 或 `dingtalk_h5:api:workflow:handle` 允许授权的角色和用户回填附件上传权限，避免升级后原有流程填写能力中断。
+- 上传接口仍经过钉钉 H5 登录态和 API 权限校验；表单字段写权限继续由流程定义和当前节点控制。
 
 ## 建议
 

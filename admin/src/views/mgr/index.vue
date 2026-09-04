@@ -78,7 +78,7 @@
     <el-dialog v-model="formDialog.visible" :title="formDialog.title" width="500px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" label-width="80px">
         <el-form-item label="头像">
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleAvatarSuccess" :headers="{ Authorization: token }" accept="image/*" style="display:inline-block">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleAvatarSuccess" accept="image/*" style="display:inline-block">
             <el-avatar :src="form.pic" size="medium" style="cursor:pointer">{{ form.name?.[0] }}</el-avatar>
           </el-upload>
         </el-form-item>
@@ -151,6 +151,7 @@
 <script lang="ts" setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { adminApi } from '../../api'
+import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 
@@ -165,7 +166,6 @@ const deptTreeData = ref<any[]>([])
 const deptTreeRef = ref<any>(null)
 const keyword = ref('')
 const selected = ref<any[]>([])
-const token = localStorage.getItem('admin_token') || ''
 const SUPER_ADMIN_ROLE_NAME = '超级管理员'
 
 function handleAvatarSuccess(res: any) {

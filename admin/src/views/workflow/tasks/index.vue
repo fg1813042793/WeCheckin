@@ -23,18 +23,22 @@
         <el-table-column prop="instanceId" label="实例 ID" min-width="190" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono-text">{{ row.instanceId }}</span></template>
         </el-table-column>
-        <el-table-column label="任务节点" min-width="170">
+        <el-table-column label="任务节点" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">
-            <div class="task-node">
-              <strong>{{ row.nodeName || row.nodeId }}</strong>
-              <small>{{ approvalModeLabel(row.approvalMode) }}<template v-if="row.total > 1"> · {{ row.sequence }}/{{ row.total }}</template></small>
-            </div>
+            {{ row.nodeName || row.nodeId }}
           </template>
         </el-table-column>
-        <el-table-column prop="assigneeId" label="处理人 ID" width="120" />
+        <el-table-column label="审批方式" width="150">
+          <template #default="{ row }">
+            {{ approvalModeLabel(row.approvalMode) }}<template v-if="row.total > 1">（{{ row.sequence }}/{{ row.total }}）</template>
+          </template>
+        </el-table-column>
+        <el-table-column label="处理人" width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ taskUserDisplay(row) }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="taskStatusMeta(row.status).type" size="small">{{ taskStatusMeta(row.status).label }}</el-tag>
+            <el-tag :type="workflowTaskStatusMeta(row.status).type" size="small">{{ workflowTaskStatusMeta(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="处理结果" width="100">
@@ -52,6 +56,14 @@
               type="primary"
               @click="openCompleteDialog(row)"
             >处理</el-button>
+            <el-button
+              v-else-if="canDeleteTask(row)"
+              size="small"
+              type="danger"
+              plain
+              :loading="deletingTaskId === row.id"
+              @click="deleteTask(row)"
+            >删除</el-button>
             <span v-else class="muted-text">-</span>
           </template>
         </el-table-column>
@@ -73,7 +85,7 @@
     <el-dialog v-model="completeDialog" title="处理流程任务" width="700px" destroy-on-close>
       <el-descriptions v-if="activeTask" :column="2" border class="task-summary">
         <el-descriptions-item label="任务节点">{{ activeTask.nodeName || activeTask.nodeId }}</el-descriptions-item>
-        <el-descriptions-item label="处理人 ID">{{ activeTask.assigneeId }}</el-descriptions-item>
+        <el-descriptions-item label="处理人">{{ taskUserDisplay(activeTask) }}</el-descriptions-item>
         <el-descriptions-item label="实例 ID" :span="2"><span class="mono-text">{{ activeTask.instanceId }}</span></el-descriptions-item>
       </el-descriptions>
       <section v-loading="taskDetailLoading" class="complete-runtime-form">
@@ -125,18 +137,24 @@ import { hasPerm } from '../../../utils/permission'
 import WorkflowRuntimeForm from '../components/WorkflowRuntimeForm.vue'
 import { initialWorkflowFormData, workflowFieldActionMap, workflowFieldAccessMap, writableWorkflowFormData } from '../runtimeForm'
 import type { WorkflowInstanceDetail, WorkflowTaskAction, WorkflowTaskStatus, WorkflowTaskSummary } from '../types'
+import { workflowTaskStatusMeta } from '../workflowStatus'
 
 const statusOptions = [
   { label: '待激活', value: 'waiting' },
   { label: '待处理', value: 'pending' },
-  { label: '已提交', value: 'completed' },
+  { label: '已完成', value: 'completed' },
   { label: '已通过', value: 'approved' },
   { label: '已驳回', value: 'rejected' },
+  { label: '已退回', value: 'returned' },
   { label: '已取消', value: 'cancelled' },
 ]
 
+const terminalTaskStatuses = new Set<WorkflowTaskStatus>(['completed', 'approved', 'rejected', 'returned', 'cancelled'])
+
 const canComplete = computed(() => hasPerm('admin:menu:workflow:task:complete'))
+const canDelete = computed(() => hasPerm('admin:menu:workflow:task:delete'))
 const loading = ref(false)
+const deletingTaskId = ref('')
 const list = ref<WorkflowTaskSummary[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -184,21 +202,19 @@ const activeTaskFieldActions = computed(() => {
   )
 })
 
-function taskStatusMeta(status: WorkflowTaskStatus) {
-  const values = {
-    waiting: { label: '待激活', type: 'info' as const }, pending: { label: '待处理', type: 'warning' as const },
-    completed: { label: '已提交', type: 'success' as const },
-    approved: { label: '已通过', type: 'success' as const }, rejected: { label: '已驳回', type: 'danger' as const },
-    cancelled: { label: '已取消', type: 'info' as const },
-  }
-  return values[status] || { label: status || '未知', type: 'info' as const }
-}
-
 function actionLabel(action: WorkflowTaskAction | '') {
   if (action === 'approve') return '通过'
   if (action === 'reject') return '驳回'
+  if (action === 'return') return '退回'
   if (action === 'submit') return '提交'
   return '-'
+}
+
+function taskUserDisplay(task: WorkflowTaskSummary) {
+  if (task.handledBy || task.handledByName) {
+    return task.handledByName?.trim() || task.handledBy?.trim() || '-'
+  }
+  return task.assigneeName?.trim() || task.assigneeId?.trim() || '-'
 }
 
 function approvalModeLabel(mode: string) {
@@ -245,6 +261,35 @@ function handlePageSizeChange(size: number) {
   pageSize.value = size
   page.value = 1
   loadList()
+}
+
+function canDeleteTask(row: WorkflowTaskSummary) {
+  return canDelete.value && terminalTaskStatuses.has(row.status)
+}
+
+async function deleteTask(row: WorkflowTaskSummary) {
+  try {
+    await ElMessageBox.confirm(
+      `删除后任务“${row.nodeName || row.nodeId}”将不再出现在管理列表中，流程审计记录仍会保留。确认删除？`,
+      '确认删除流程任务',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+  deletingTaskId.value = row.id
+  try {
+    await adminApi.workflowTaskDelete(row.id)
+    if (list.value.length === 1 && page.value > 1) page.value -= 1
+    ElMessage.success('流程任务已删除')
+    await loadList()
+  } finally {
+    deletingTaskId.value = ''
+  }
 }
 
 async function openCompleteDialog(row: WorkflowTaskSummary) {
@@ -312,8 +357,6 @@ onMounted(loadList)
 <style scoped>
 .workflow-runtime-filters { margin-bottom: 4px; }
 .mono-text { color: #475569; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.task-node strong { display: block; color: #1f2937; font-weight: 600; }
-.task-node small { display: block; margin-top: 3px; color: #94a3b8; font-size: 12px; }
 .muted-text { color: #c0c4cc; }
 .task-summary { margin-bottom: 20px; }
 .complete-runtime-form { margin-bottom: 18px; padding-bottom: 2px; }

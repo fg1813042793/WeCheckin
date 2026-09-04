@@ -43,12 +43,14 @@ func ValidateDefinition(definition Definition) []ValidationError {
 			startIDs = append(startIDs, node.ID)
 			errors = append(errors, validateInitiator(node)...)
 			errors = append(errors, validateStartAvailability(node)...)
+			errors = append(errors, validateStartLimit(node)...)
 			errors = append(errors, validateFieldPermissions(node, formFields)...)
 		case NodeTypeEnd:
 			endIDs = append(endIDs, node.ID)
 		case NodeTypeApproval:
 			errors = append(errors, validateApproval(node)...)
 			errors = append(errors, validateOptionalNotification(node)...)
+			errors = append(errors, validateOptionalResultNotification(node)...)
 			errors = append(errors, validateFieldPermissions(node, formFields)...)
 		case NodeTypeHandle:
 			errors = append(errors, validateNodeAssignee(node, "办理节点")...)
@@ -154,13 +156,15 @@ func validateInitiator(node Node) []ValidationError {
 	}
 	switch strings.TrimSpace(node.Initiator.Scope) {
 	case InitiatorScopeAll:
-		if len(node.Initiator.UserIDs) == 0 && len(node.Initiator.DepartmentIDs) == 0 {
+		if len(node.Initiator.UserIDs) == 0 && len(node.Initiator.DepartmentIDs) == 0 &&
+			validInitiatorIDs(node.Initiator.ExcludedUserIDs) {
 			return nil
 		}
 	case InitiatorScopeSpecified:
 		if len(node.Initiator.UserIDs)+len(node.Initiator.DepartmentIDs) > 0 &&
 			validInitiatorIDs(node.Initiator.UserIDs) &&
-			validInitiatorIDs(node.Initiator.DepartmentIDs) {
+			validInitiatorIDs(node.Initiator.DepartmentIDs) &&
+			validInitiatorIDs(node.Initiator.ExcludedUserIDs) {
 			return nil
 		}
 	}
@@ -186,6 +190,13 @@ func validateStartAvailability(node Node) []ValidationError {
 		return nil
 	}
 	return []ValidationError{{Code: ValidationStartAvailability, Message: "开始节点允许发起时间配置无效", NodeID: node.ID}}
+}
+
+func validateStartLimit(node Node) []ValidationError {
+	if validStartLimitConfig(node.StartLimit, node.Availability) {
+		return nil
+	}
+	return []ValidationError{{Code: ValidationStartLimit, Message: "开始节点发起次数限制配置无效", NodeID: node.ID}}
 }
 
 func validateFormSchema(fields []FormField) (map[string]FormField, []ValidationError) {
@@ -294,6 +305,12 @@ func validateFormSchemaFields(fields []FormField, context formSchemaContext, lay
 		if field.MaxLength < 0 || (field.Min != nil && field.Max != nil && *field.Min > *field.Max) {
 			errors = append(errors, ValidationError{Code: ValidationFormFieldRange, Message: "表单字段约束无效：" + field.Key})
 		}
+		visibleRowsConfigured := field.MinVisibleRows != 0 || field.MaxVisibleRows != 0
+		if visibleRowsConfigured && (field.Type != FormFieldTypeTextarea ||
+			field.MinVisibleRows < 1 || field.MaxVisibleRows < 1 ||
+			field.MinVisibleRows > field.MaxVisibleRows || field.MaxVisibleRows > 30) {
+			errors = append(errors, ValidationError{Code: ValidationFormFieldVisibleRows, Message: "多行文本显示行数配置无效：" + field.Key})
+		}
 		if field.Type == FormFieldTypeDetailList {
 			rowKey := detailListRowKey(field)
 			if !formFieldKeyPattern.MatchString(rowKey) {
@@ -313,7 +330,7 @@ func validateFormSchemaFields(fields []FormField, context formSchemaContext, lay
 			}
 		}
 		if field.Default != nil {
-			if err := validateFieldValue(field, field.Default); err != nil {
+			if err := validateFieldValue(field, field.Default, false); err != nil {
 				errors = append(errors, ValidationError{Code: ValidationFormFieldType, Message: "表单字段默认值无效：" + field.Key})
 			}
 		}
@@ -389,7 +406,8 @@ func validateFieldRuleSchema(field FormField, fieldByKey map[string]FormField) [
 			valid = valid && isSelectionRuleField(field.Type) && validRuleIntegerBounds(rule.Min, rule.Max, false, false)
 		case FormRuleCompareField:
 			target, exists := fieldByKey[rule.Field]
-			valid = valid && exists && rule.Field != field.Key && isCompareRuleField(field.Type) && comparableRuleFields(field.Type, target.Type) && validCompareOperator(rule.Operator)
+			valid = valid && exists && rule.Field != field.Key && isCompareRuleField(field.Type) &&
+				comparableRuleFields(field.Type, target.Type) && validCompareOperatorForFields(field.Type, target.Type, rule.Operator)
 		case FormRuleColumnSum:
 			column, exists := detailListColumn(field, rule.Column)
 			valid = valid && field.Type == FormFieldTypeDetailList && exists && isNumberRuleField(column.Type) &&
@@ -461,12 +479,44 @@ func isSelectionRuleField(fieldType string) bool {
 }
 
 func isCompareRuleField(fieldType string) bool {
-	return isTextRuleField(fieldType) || isNumberRuleField(fieldType) || fieldType == FormFieldTypeDate ||
-		fieldType == FormFieldTypeDateTime || fieldType == FormFieldTypeTime
+	return compareRuleFieldFamily(fieldType) != ""
 }
 
 func comparableRuleFields(left, right string) bool {
-	return (isNumberRuleField(left) && isNumberRuleField(right)) || left == right
+	leftFamily := compareRuleFieldFamily(left)
+	return leftFamily != "" && leftFamily == compareRuleFieldFamily(right)
+}
+
+func validCompareOperatorForFields(left, right, operator string) bool {
+	if !comparableRuleFields(left, right) || !validCompareOperator(operator) {
+		return false
+	}
+	if operator == FormRuleOperatorEQ || operator == FormRuleOperatorNE {
+		return true
+	}
+	return isOrderedCompareRuleField(left) && isOrderedCompareRuleField(right)
+}
+
+func compareRuleFieldFamily(fieldType string) string {
+	switch {
+	case isNumberRuleField(fieldType):
+		return "number"
+	case isTextRuleField(fieldType):
+		return "text"
+	case fieldType == FormFieldTypeSelect || fieldType == FormFieldTypeRadio:
+		return "choice"
+	case fieldType == FormFieldTypeDate || fieldType == FormFieldTypeDateTime || fieldType == FormFieldTypeTime:
+		return "temporal:" + fieldType
+	case fieldType == FormFieldTypeBoolean || fieldType == FormFieldTypeUser || fieldType == FormFieldTypeDepartment:
+		return fieldType
+	default:
+		return ""
+	}
+}
+
+func isOrderedCompareRuleField(fieldType string) bool {
+	return isNumberRuleField(fieldType) || fieldType == FormFieldTypeDate ||
+		fieldType == FormFieldTypeDateTime || fieldType == FormFieldTypeTime
 }
 
 func detailListColumn(field FormField, key string) (FormField, bool) {
@@ -675,7 +725,14 @@ func validateOptionalNotification(node Node) []ValidationError {
 	if node.Notification == nil || !node.Notification.Enabled {
 		return nil
 	}
-	return validateNotification(node)
+	return validateNotificationConfig(node, node.Notification, false)
+}
+
+func validateOptionalResultNotification(node Node) []ValidationError {
+	if node.ResultNotification == nil || !node.ResultNotification.Enabled {
+		return nil
+	}
+	return validateNotificationConfig(node, node.ResultNotification, true)
 }
 
 func validateRequiredNotification(node Node) []ValidationError {
@@ -686,7 +743,10 @@ func validateRequiredNotification(node Node) []ValidationError {
 }
 
 func validateNotification(node Node) []ValidationError {
-	config := node.Notification
+	return validateNotificationConfig(node, node.Notification, false)
+}
+
+func validateNotificationConfig(node Node, config *NotificationConfig, allowResult bool) []ValidationError {
 	if config == nil {
 		return []ValidationError{{Code: ValidationNotification, Message: "通知配置不能为空", NodeID: node.ID}}
 	}
@@ -709,15 +769,22 @@ func validateNotification(node Node) []ValidationError {
 	if title == "" || utf8.RuneCountInString(title) > 256 || content == "" || utf8.RuneCountInString(content) > 2000 {
 		return []ValidationError{{Code: ValidationNotification, Message: "通知标题或正文长度无效", NodeID: node.ID}}
 	}
-	if !validNotificationTemplate(title) || !validNotificationTemplate(content) {
+	extraTokens := []string(nil)
+	if allowResult {
+		extraTokens = append(extraTokens, "result")
+	}
+	if !validNotificationTemplate(title, extraTokens...) || !validNotificationTemplate(content, extraTokens...) {
 		return []ValidationError{{Code: ValidationNotification, Message: "通知模板包含不支持的占位符", NodeID: node.ID}}
 	}
 	return nil
 }
 
-func validNotificationTemplate(value string) bool {
+func validNotificationTemplate(value string, extraTokens ...string) bool {
 	allowed := map[string]struct{}{
 		"workflowName": {}, "nodeName": {}, "starterName": {}, "instanceId": {}, "taskId": {},
+	}
+	for _, token := range extraTokens {
+		allowed[token] = struct{}{}
 	}
 	valid := true
 	remainder := notificationTemplateTokenPattern.ReplaceAllStringFunc(value, func(token string) string {

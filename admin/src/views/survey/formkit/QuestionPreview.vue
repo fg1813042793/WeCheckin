@@ -375,6 +375,7 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { Html5Qrcode } from 'html5-qrcode'
 import '../../../utils/quill-image-resize'
+import { uploadAdminFile } from '../../../api/upload'
 import type { FormKitQuestion } from '../../formkit/shared/types'
 
 const props = defineProps<{ q: FormKitQuestion; editing?: boolean }>()
@@ -462,11 +463,8 @@ function setupImageHandler(quill: any) {
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
-      const fd = new FormData()
-      fd.append('file', file)
       try {
-        const resp = await fetch('/upload', { method: 'POST', body: fd })
-        const json = await resp.json()
+        const json = await uploadAdminFile(file)
         if (json.code === 0 && json.data?.url) {
           const fullUrl = (json.data.domain || '') + json.data.url
           const range = quill.getSelection(true)

@@ -1,5 +1,6 @@
 import type {
   WorkflowDetailRowAction,
+  WorkflowAttachment,
   WorkflowFieldAccess,
   WorkflowFieldPermission,
   WorkflowFormField,
@@ -11,6 +12,7 @@ import type {
   WorkflowValidationRule,
 } from './types'
 import { isWorkflowDataField, workflowDataFields } from './formLayout'
+import { workflowCompareFieldCompatible, workflowCompareOperators } from './workflowValidationRules'
 
 export type WorkflowFormData = Record<string, unknown>
 export type WorkflowFieldAccessMap = Record<string, WorkflowFieldAccess>
@@ -18,6 +20,7 @@ export type WorkflowFieldActionMap = Record<string, { add: boolean; delete: bool
 export type WorkflowNodeFieldPermissions = Record<string, WorkflowFieldPermission[] | undefined>
 export type WorkflowDefaultFieldActions = Partial<Record<WorkflowDetailRowAction, boolean>>
 export type WorkflowFormValidationErrors = Record<string, string>
+type WorkflowFieldMap = ReadonlyMap<string, WorkflowFormField>
 
 const arrayFieldTypes = new Set<WorkflowFormFieldType>([
   'multi_select',
@@ -28,6 +31,21 @@ const arrayFieldTypes = new Set<WorkflowFormFieldType>([
   'attachment',
   'detail_list',
 ])
+
+export function workflowTextareaAutosize(
+  field: Pick<WorkflowFormField, 'minVisibleRows' | 'maxVisibleRows'>,
+  defaultMinRows = 3,
+  defaultMaxRows = 8,
+) {
+  const configuredMin = Number(field.minVisibleRows)
+  const configuredMax = Number(field.maxVisibleRows)
+  const minRows = Number.isInteger(configuredMin) && configuredMin > 0 ? configuredMin : defaultMinRows
+  const maxRows = Number.isInteger(configuredMax) && configuredMax > 0 ? configuredMax : defaultMaxRows
+  return {
+    minRows,
+    maxRows: Math.max(minRows, maxRows),
+  }
+}
 
 export function normalizeWorkflowOptions(options: unknown, source?: Partial<WorkflowOptionSource>): WorkflowFormOption[] {
   if (!Array.isArray(options)) return []
@@ -182,6 +200,7 @@ export function visibleWorkflowFormFields(fields: WorkflowFormField[], accessByF
 export function normalizeWorkflowFormValue(field: WorkflowFormField, value: unknown): unknown {
   if (value === undefined) return value
   if (field.type === 'detail_list') return normalizeDetailRows(field, value)
+  if (field.type === 'attachment') return normalizeWorkflowAttachments(value)
   if (!isArrayWorkflowField(field)) return value
   if (Array.isArray(value)) return value.map((item) => String(item)).filter((item) => item.trim() !== '')
   if (typeof value === 'string') {
@@ -191,6 +210,46 @@ export function normalizeWorkflowFormValue(field: WorkflowFormField, value: unkn
       .filter(Boolean)
   }
   return []
+}
+
+export function normalizeWorkflowAttachments(value: unknown): WorkflowAttachment[] {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(/\r?\n/)
+      : []
+  const result: WorkflowAttachment[] = []
+  for (const item of source) {
+    if (typeof item === 'string') {
+      const url = item.trim()
+      if (!url) continue
+      result.push({ id: url, name: workflowAttachmentName(url), url, mimeType: '', size: 0 })
+      continue
+    }
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const record = item as Record<string, unknown>
+    const url = String(record.url || '').trim()
+    if (!url) continue
+    const size = Number(record.size)
+    result.push({
+      id: String(record.id || url).trim() || url,
+      name: String(record.name || '').trim() || workflowAttachmentName(url),
+      url,
+      mimeType: String(record.mimeType || '').trim(),
+      size: Number.isFinite(size) && size >= 0 ? size : 0,
+    })
+  }
+  return result
+}
+
+function workflowAttachmentName(url: string) {
+  const path = url.split(/[?#]/, 1)[0]
+  const rawName = path.slice(path.lastIndexOf('/') + 1) || '附件'
+  try {
+    return decodeURIComponent(rawName)
+  } catch {
+    return rawName
+  }
 }
 
 export function workflowDetailRowKey(field?: Pick<WorkflowFormField, 'rowKey'>): string {
@@ -241,18 +300,26 @@ export function writableWorkflowFormData(
   return result
 }
 
-export function validateWorkflowFormData(fields: WorkflowFormField[], values: WorkflowFormData): WorkflowFormValidationErrors {
+export function validateWorkflowFormData(
+  fields: WorkflowFormField[],
+  values: WorkflowFormData,
+  accessByField?: WorkflowFieldAccessMap,
+): WorkflowFormValidationErrors {
   const errors: WorkflowFormValidationErrors = {}
-  for (const field of workflowDataFields(fields)) {
+  const dataFields = workflowDataFields(fields)
+  const fieldByKey = new Map(dataFields.map(field => [field.key, field]))
+  for (const field of dataFields) {
+    if (accessByField && accessByField[field.key] !== 'write') continue
     const value = values[field.key]
     const isDetailList = field.type === 'detail_list'
-    const message = validateWorkflowField(field, value, values, !isDetailList)
+    const message = validateWorkflowField(field, value, values, fieldByKey, !isDetailList)
     if (message) {
       errors[field.key] = message
       continue
     }
     if (!isDetailList) continue
     const rows = Array.isArray(value) ? value as Array<Record<string, unknown>> : []
+    const columnByKey = new Map((field.columns || []).map(column => [column.key, column]))
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
       const row = rows[rowIndex]
       if (!row || typeof row !== 'object' || Array.isArray(row)) {
@@ -260,7 +327,7 @@ export function validateWorkflowFormData(fields: WorkflowFormField[], values: Wo
         break
       }
       for (const column of field.columns || []) {
-        const columnMessage = validateWorkflowField(column, row[column.key], row)
+        const columnMessage = validateWorkflowField(column, row[column.key], row, columnByKey)
         if (columnMessage) {
           errors[field.key] = `${field.label || field.key}第${rowIndex + 1}行：${columnMessage}`
           break
@@ -269,7 +336,7 @@ export function validateWorkflowFormData(fields: WorkflowFormField[], values: Wo
       if (errors[field.key]) break
     }
     if (errors[field.key]) continue
-    const ruleMessage = validateWorkflowRules(field, value, values)
+    const ruleMessage = validateWorkflowRules(field, value, values, fieldByKey)
     if (ruleMessage) errors[field.key] = ruleMessage
   }
   return errors
@@ -280,7 +347,13 @@ export function workflowFieldIsRequired(field: WorkflowFormField, values: Workfl
   return (field.rules || []).some(rule => rule.type === 'conditional_required' && (!rule.when || workflowConditionMatches(rule.when, values)))
 }
 
-function validateWorkflowField(field: WorkflowFormField, value: unknown, values: WorkflowFormData, includeRules = true): string {
+function validateWorkflowField(
+  field: WorkflowFormField,
+  value: unknown,
+  values: WorkflowFormData,
+  fieldByKey: WorkflowFieldMap,
+  includeRules = true,
+): string {
   const label = field.label || field.key
   if (field.required && isEmptyWorkflowValue(value)) return `${label}不能为空`
   if (isEmptyWorkflowValue(value)) {
@@ -289,7 +362,7 @@ function validateWorkflowField(field: WorkflowFormField, value: unknown, values:
       if (field.minRows && rowCount < field.minRows) return `${label}至少需要${field.minRows}行`
       if (field.maxRows && rowCount > field.maxRows) return `${label}最多允许${field.maxRows}行`
     }
-    return includeRules ? validateWorkflowRules(field, value, values) : ''
+    return includeRules ? validateWorkflowRules(field, value, values, fieldByKey) : ''
   }
   if (typeof value === 'string') {
     if (field.maxLength && Array.from(value).length > field.maxLength) return `${label}长度不能超过${field.maxLength}`
@@ -312,20 +385,31 @@ function validateWorkflowField(field: WorkflowFormField, value: unknown, values:
     if (field.minRows && value.length < field.minRows) return `${label}至少需要${field.minRows}行`
     if (field.maxRows && value.length > field.maxRows) return `${label}最多允许${field.maxRows}行`
   }
-  return includeRules ? validateWorkflowRules(field, value, values) : ''
+  return includeRules ? validateWorkflowRules(field, value, values, fieldByKey) : ''
 }
 
-function validateWorkflowRules(field: WorkflowFormField, value: unknown, values: WorkflowFormData): string {
+function validateWorkflowRules(
+  field: WorkflowFormField,
+  value: unknown,
+  values: WorkflowFormData,
+  fieldByKey: WorkflowFieldMap,
+): string {
   for (const rule of field.rules || []) {
     if (rule.when && !workflowConditionMatches(rule.when, values)) continue
     if (isEmptyWorkflowValue(value) && !['conditional_required', 'selection_count', 'column_sum'].includes(rule.type)) continue
-    const message = validateWorkflowRule(field, value, rule, values)
+    const message = validateWorkflowRule(field, value, rule, values, fieldByKey)
     if (message) return message
   }
   return ''
 }
 
-function validateWorkflowRule(field: WorkflowFormField, value: unknown, rule: WorkflowValidationRule, values: WorkflowFormData): string {
+function validateWorkflowRule(
+  field: WorkflowFormField,
+  value: unknown,
+  rule: WorkflowValidationRule,
+  values: WorkflowFormData,
+  fieldByKey: WorkflowFieldMap,
+): string {
   const label = field.label || field.key
   let failed = false
   let defaultMessage = `${label}校验不通过`
@@ -373,7 +457,8 @@ function validateWorkflowRule(field: WorkflowFormField, value: unknown, rule: Wo
     case 'compare_field': {
       const other = rule.field ? values[rule.field] : undefined
       if (isEmptyWorkflowValue(value) || isEmptyWorkflowValue(other)) return ''
-      failed = !workflowOperatorMatches(value, other, rule.operator || 'eq')
+      const targetField = rule.field ? fieldByKey.get(rule.field) : undefined
+      failed = !targetField || !workflowFieldOperatorMatches(field.type, targetField.type, value, other, rule.operator || 'eq')
       defaultMessage = `${label}与${rule.field || '目标字段'}的关系不符合要求`
       break
     }
@@ -402,6 +487,23 @@ function validateWorkflowRule(field: WorkflowFormField, value: unknown, rule: Wo
   return failed ? rule.message?.trim() || defaultMessage : ''
 }
 
+function workflowFieldOperatorMatches(
+  leftType: WorkflowFormFieldType,
+  rightType: WorkflowFormFieldType,
+  left: unknown,
+  right: unknown,
+  operator: WorkflowValidationOperator,
+): boolean {
+  if (!workflowCompareFieldCompatible(leftType, rightType) || !workflowCompareOperators(leftType).includes(operator)) return false
+  if (leftType === 'number' || leftType === 'amount') {
+    const leftNumber = workflowNumber(left)
+    const rightNumber = workflowNumber(right)
+    return leftNumber !== undefined && rightNumber !== undefined && workflowNumberOperatorMatches(leftNumber, rightNumber, operator)
+  }
+  const comparison = compareWorkflowScalarValues(left, right)
+  return comparison !== undefined && workflowComparisonMatches(comparison, operator)
+}
+
 function workflowConditionMatches(condition: WorkflowValidationCondition, values: WorkflowFormData): boolean {
   const value = values[condition.field]
   if (condition.operator === 'empty') return isEmptyWorkflowValue(value)
@@ -410,7 +512,10 @@ function workflowConditionMatches(condition: WorkflowValidationCondition, values
 }
 
 function workflowOperatorMatches(left: unknown, right: unknown, operator: WorkflowValidationOperator): boolean {
-  const comparison = compareWorkflowValues(left, right)
+  return workflowComparisonMatches(compareWorkflowValues(left, right), operator)
+}
+
+function workflowComparisonMatches(comparison: number | undefined, operator: WorkflowValidationOperator): boolean {
   if (comparison === undefined) return operator === 'ne'
   if (operator === 'eq') return comparison === 0
   if (operator === 'ne') return comparison !== 0
@@ -448,6 +553,10 @@ function compareWorkflowValues(left: unknown, right: unknown): number | undefine
   const leftNumber = workflowNumber(left)
   const rightNumber = workflowNumber(right)
   if (leftNumber !== undefined && rightNumber !== undefined) return Math.sign(leftNumber - rightNumber)
+  return compareWorkflowScalarValues(left, right)
+}
+
+function compareWorkflowScalarValues(left: unknown, right: unknown): number | undefined {
   if (typeof left === 'string' && typeof right === 'string') return left === right ? 0 : left < right ? -1 : 1
   if (typeof left === 'boolean' && typeof right === 'boolean') return left === right ? 0 : left ? 1 : -1
   return undefined

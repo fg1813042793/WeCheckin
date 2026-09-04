@@ -14,6 +14,7 @@ for (const path of [
   'src/views/workflow/components/WorkflowUserTreePicker.vue',
   'src/views/scheduled-task/handlerLabels.ts',
   'src/views/scheduled-task/types.ts',
+  'src/types/scheduledTask.ts',
 ]) {
   if (!existsSync(resolve(root, path))) throw new Error(`scheduled task UI missing ${path}`)
 }
@@ -35,7 +36,7 @@ const editor = read('src/views/scheduled-task/components/TaskEditorDialog.vue')
 for (const handlerType of ['go', 'workflow', 'http', 'shell', 'sql']) {
   if (!editor.includes(`'${handlerType}'`)) throw new Error(`task editor missing ${handlerType} handler`)
 }
-for (const snippet of ['<el-dialog', 'class="task-editor-dialog"', 'width="min(960px, 94vw)"', ':close-on-click-modal="false"', 'append-to-body', ':global(.task-editor-dialog .el-dialog__body)', 'cronPreview', 'admin:menu:scheduled-task:shell', 'admin:menu:scheduled-task:sql:write', 'WorkflowUserTreePicker', 'workflowPublishedDefinitionList', 'workflowUserOptions', 'workflowDepartmentOptions', 'handlerConfig.starterIds', ':multiple="true"', '请选择已发布流程']) {
+for (const snippet of ['<el-dialog', 'class="task-editor-dialog"', 'width="min(960px, 94vw)"', ':close-on-click-modal="false"', 'append-to-body', ':global(.task-editor-dialog .el-dialog__body)', 'cronPreview', 'admin:menu:scheduled-task:shell', 'admin:menu:scheduled-task:sql:write', 'WorkflowUserTreePicker', 'workflowPublishedDefinitionList', 'workflowUserOptions', 'workflowDepartmentOptions', 'handlerConfig.starterIds', ':multiple="true"', '请选择已发布流程', 'excludedUserIds', 'goJobOptions', 'selectedGoJob', 'registered-job-meta', 'notification.in_app.send', 'inAppNotificationRecipientOptions', 'notificationParams', 'notificationDepartmentModelValue', 'admin:menu:notification:send']) {
   if (!editor.includes(snippet)) throw new Error(`task editor missing ${snippet}`)
 }
 if (/workflow:\s*\{\s*definitionId:\s*0\b/.test(editor)) {
@@ -48,7 +49,8 @@ if (editor.includes('<el-drawer')) throw new Error('task editor must use a dialo
 
 const workflowUserPicker = read('src/views/workflow/components/WorkflowUserTreePicker.vue')
 for (const snippet of [
-  'buildUserTree(props.departments || [], availableUsers.value, Boolean(props.multiple))',
+  'buildUserTree(',
+  'Boolean(props.selectDepartmentRules)',
   'disabled: !selectDepartments',
   'collectDescendantUserIDs',
   "if (data.type === 'dept')",
@@ -64,6 +66,11 @@ for (const snippet of ['admin:menu:scheduled-task:add', 'admin:menu:scheduled-ta
 const handlerLabels = read('src/views/scheduled-task/handlerLabels.ts')
 for (const label of ['Go 注册任务', '发起流程', 'HTTP / Webhook 请求', '受控 Shell 命令', '受控 SQL 任务']) {
   if (!handlerLabels.includes(label)) throw new Error(`scheduled task handler label missing ${label}`)
+}
+
+const scheduledTaskTypes = read('src/types/scheduledTask.ts')
+if (!scheduledTaskTypes.includes("'x-enum-labels'?: Record<string, string>")) {
+  throw new Error('scheduled task metadata type missing x-enum-labels')
 }
 for (const [source, label] of [[editor, 'task editor'], [tasks, 'task list']]) {
   if (!source.includes('handlerTypeLabel(item.type)')) throw new Error(`${label} must display localized handler labels`)

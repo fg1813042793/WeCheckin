@@ -15,7 +15,7 @@ func TestBuildTransitionPayloadCarriesAppName(t *testing.T) {
 		CorpID:     "ding-corp",
 		NotifyMode: "robot",
 		AgentID:    "123456",
-	}, review, nil)
+	}, review, nil, "")
 	if got.SourceName != configsvc.DefaultDingTalkH5AppName {
 		t.Fatalf("sourceName = %q, want %q", got.SourceName, configsvc.DefaultDingTalkH5AppName)
 	}
@@ -93,7 +93,7 @@ func TestBuildNotificationPayloadUsesEnterpriseAppURL(t *testing.T) {
 		AgentID:      "123456",
 		UnifiedAppID: "dingmi-okr-app",
 		AppURL:       "https://okr.example.com/dingtalk-h5/?corpId=ding-corp",
-	}, review, nil)
+	}, review, nil, "")
 
 	parsed, err := url.Parse(got.URL)
 	if err != nil {
@@ -153,6 +153,18 @@ func TestBuildNotificationURLFallsBackToRawDeepLinkWithoutDingTalkAppID(t *testi
 	}
 	if parsed.Query().Get("reviewNo") != "lip-2026-07" {
 		t.Fatalf("reviewNo = %q, want lip-2026-07", parsed.Query().Get("reviewNo"))
+	}
+}
+
+func TestBuildTransitionContentUsesResolvedEmployeeName(t *testing.T) {
+	review := reviewModelForURL("114-2026-09", "2026-09", reviewStatusHRBPReview)
+	review.EmployeeAccount = "114"
+	actor := &model.DingTalkH5PerfUser{Account: "manager-1", Name: "Alice"}
+
+	got := buildTransitionContent(review, actor, "Phoebe")
+	want := "Alice 已将 Phoebe 的 2026-09 月度考评流转到「HRBP评价」，请及时处理。"
+	if got != want {
+		t.Fatalf("content = %q, want %q", got, want)
 	}
 }
 

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -128,6 +129,22 @@ func TestLoadConfigDefaultsToBackendPort(t *testing.T) {
 	if cfg.Server.Port != "8083" {
 		t.Fatalf("default server port = %q, want 8083", cfg.Server.Port)
 	}
+}
+
+func TestLoadConfigDefaultCORSMethodsIncludePatch(t *testing.T) {
+	withTempWorkingDir(t)
+
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	for _, method := range cfg.CORS.AllowMethods {
+		if strings.EqualFold(method, "PATCH") {
+			return
+		}
+	}
+	t.Fatalf("default CORS methods = %#v, want PATCH", cfg.CORS.AllowMethods)
 }
 
 func TestLoadConfigAllowsEnvironmentOverrides(t *testing.T) {

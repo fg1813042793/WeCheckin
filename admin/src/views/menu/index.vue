@@ -156,6 +156,7 @@ import { ElMessage } from 'element-plus'
 import IconPicker from '../../components/IconPicker.vue'
 import { resolveAdminIcon } from '../../icons'
 import { hasPerm } from '../../utils/permission'
+import { showRequestError } from '../../utils/request'
 import '../../styles/uview-iconfont.css'
 import {
   DINGTALK_H5_ICON_OPTIONS,
@@ -350,7 +351,7 @@ async function handleSave() {
     dialog.visible = false
     permissionScope.value = scopeValueForPermission(form.platform, form.type)
     await loadTree()
-  } catch { ElMessage.error('操作失败') }
+  } catch (error) { showRequestError(error, '操作失败') }
   saving.value = false
 }
 
@@ -425,7 +426,7 @@ async function handleDel(row: any) {
     await adminApi.permissionDel({ key: row.key })
     ElMessage.success('删除成功')
     await loadTree()
-  } catch { ElMessage.error('删除失败') }
+  } catch (error) { showRequestError(error, '删除失败') }
 }
 
 function toggleExpand() {

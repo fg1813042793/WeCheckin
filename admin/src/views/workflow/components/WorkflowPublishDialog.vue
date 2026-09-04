@@ -20,6 +20,16 @@
           <span>流程配置将随本次版本一起发布</span>
         </div>
       </el-form-item>
+      <el-form-item label="发布说明">
+        <el-input
+          v-model="publishNote"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="可选，说明本次流程调整内容"
+        />
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button :disabled="publishing" @click="$emit('update:modelValue', false)">取消</el-button>
@@ -29,7 +39,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../../api'
 import type {
@@ -46,13 +56,18 @@ const emit = defineEmits<{
 }>()
 
 const publishing = ref(false)
+const publishNote = ref('')
 const publishTarget = computed(() => props.definition)
+
+watch(() => props.modelValue, (visible) => {
+  if (visible) publishNote.value = ''
+})
 
 async function confirmPublish() {
   if (!publishTarget.value) return
   publishing.value = true
   try {
-    const response = await adminApi.workflowDefinitionPublish(publishTarget.value.id)
+    const response = await adminApi.workflowDefinitionPublish(publishTarget.value.id, { note: publishNote.value.trim() })
     const version = Number(response.data?.version || 0)
     ElMessage.success(`已发布 v${version}`)
     emit('update:modelValue', false)

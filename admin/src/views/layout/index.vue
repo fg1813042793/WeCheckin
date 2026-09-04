@@ -153,9 +153,12 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick, defineComponent, h, markRaw } from 'vue'
 import type { Component } from 'vue'
 import { adminApi } from '../../api'
-import { setPerms } from '../../utils/permission'
 import { ADMIN_ROUTE_TABS_STORAGE_KEY, clearAdminSession } from '../../utils/adminSession'
-import request from '../../utils/request'
+import {
+  canAccessAdminRoute,
+  invalidateAdminAccessSnapshot,
+  loadAdminAccessSnapshot,
+} from '../../router/adminAccess'
 import {
   ADMIN_FRONTEND_CONFIG_CHANGED_EVENT,
   ADMIN_FRONTEND_CONFIG_SETUP_KEY,
@@ -175,12 +178,6 @@ interface VisitedTab {
 }
 
 const affixTabPaths = new Set(['/dashboard'])
-const defaultVisitedTab: VisitedTab = {
-  title: '控制台',
-  path: '/dashboard',
-  fullPath: '/dashboard',
-  name: 'Dashboard',
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -271,20 +268,17 @@ function findMenuTrail(items: AdminMenuItem[], path: string, parents: AdminMenuI
 function loadVisitedTabs(): VisitedTab[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(ADMIN_ROUTE_TABS_STORAGE_KEY) || '[]')
-    if (!Array.isArray(parsed)) return [defaultVisitedTab]
+    if (!Array.isArray(parsed)) return []
     const tabs = parsed.filter((item: any) => item?.title && item?.path && item?.fullPath)
     return normalizeVisitedTabs(tabs)
   } catch {
-    return [defaultVisitedTab]
+    return []
   }
 }
 
 function normalizeVisitedTabs(tabs: VisitedTab[]) {
-  const next = tabs.some(tab => tab.path === defaultVisitedTab.path)
-    ? [...tabs]
-    : [defaultVisitedTab, ...tabs]
   const seen = new Set<string>()
-  return next.filter(tab => {
+  return tabs.filter(tab => {
     if (seen.has(tab.fullPath)) return false
     seen.add(tab.fullPath)
     return true
@@ -296,7 +290,7 @@ function persistVisitedTabs() {
 }
 
 function routeToVisitedTab(target: RouteLocationNormalizedLoaded): VisitedTab | null {
-  if (target.path === '/login') return null
+  if (target.path === '/login' || target.path === '/forbidden') return null
   const title = String(target.meta?.title || '')
   if (!title) return null
   return {
@@ -334,8 +328,8 @@ function closeVisitedTab(tab: VisitedTab) {
   syncRouteTabsAfterRender(false)
   if (tab.fullPath !== route.fullPath) return
 
-  const nextTab = visitedTabs.value[closingIndex] || visitedTabs.value[closingIndex - 1] || defaultVisitedTab
-  router.push(nextTab.fullPath)
+  const nextTab = visitedTabs.value[closingIndex] || visitedTabs.value[closingIndex - 1]
+  router.push(nextTab?.fullPath || '/')
 }
 
 function getRouteTabsScrollWrap(): HTMLElement | null {
@@ -412,26 +406,25 @@ function toggleSidebar() {
   window.setTimeout(updateRouteTabsScrollState, 240)
 }
 
-async function loadPerms() {
-  try {
-    const res = await adminApi.adminPerms()
-    setPerms(res.data || [])
-  } catch { /* ignore */ }
-  permsReady.value = true
-}
-
-async function loadMenus() {
+async function loadAccess() {
   menuLoading.value = true
   menuError.value = ''
   try {
-    const res = await adminApi.adminMenus()
-    const data = Array.isArray(res.data) ? res.data : []
-    menuTree.value = data.filter((m: any) => m.type !== 2)
+    const snapshot = await loadAdminAccessSnapshot()
+    menuTree.value = snapshot.menus.filter(item => item.type !== 2)
+    visitedTabs.value = normalizeVisitedTabs(visitedTabs.value.filter(tab => {
+      const resolved = router.resolve(tab.fullPath)
+      return canAccessAdminRoute(resolved.meta, snapshot)
+    }))
+    persistVisitedTabs()
+    return snapshot
   } catch {
     menuTree.value = []
     menuError.value = '菜单加载失败，请稍后重试'
+    return null
   } finally {
     menuLoading.value = false
+    permsReady.value = true
   }
 }
 
@@ -439,7 +432,7 @@ async function loadFrontendConfig() {
   const cached = loadCachedAdminFrontendConfig()
   tabCacheEnabled.value = cached.tabCacheEnabled === 1
   try {
-    const res = await request.get('/api/v2/home/setup', { params: { key: ADMIN_FRONTEND_CONFIG_SETUP_KEY } })
+    const res = await adminApi.setupGetContent(ADMIN_FRONTEND_CONFIG_SETUP_KEY)
     const config = normalizeAdminFrontendConfig(res.data)
     cacheAdminFrontendConfig(config)
     tabCacheEnabled.value = config.tabCacheEnabled === 1
@@ -467,14 +460,17 @@ async function handleCommand(cmd: string) {
   if (cmd === 'logout') {
     try { await adminApi.adminLogout() } catch { /* ignore */ }
     clearAdminSession()
+    invalidateAdminAccessSnapshot()
     router.push('/login')
   }
 }
 
 onMounted(() => {
-  loadFrontendConfig()
-  loadPerms()
-  loadMenus()
+  void loadAccess().then(snapshot => {
+    if (snapshot?.permissions.includes('admin:api:setup:list')) {
+      void loadFrontendConfig()
+    }
+  })
   nextTick(() => {
     setupRouteTabsResizeObserver()
     updateRouteTabsScrollState()

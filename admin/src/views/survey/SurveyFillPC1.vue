@@ -177,6 +177,7 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import QuestionField from './components/QuestionField.vue'
 import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
+import { publicFormApi } from '../../api/public'
 
 const route = useRoute()
 const survey = ref<any>(null)
@@ -539,8 +540,6 @@ function clearSignature(id: string) {
   answers.value[id] = ''
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || ''
-
 function getStoredUserInfo(): any {
   for (const key of ['user_info', 'userInfo']) {
     try {
@@ -569,7 +568,7 @@ function setStoredUserInfo(userInfo: any) {
 async function doLogin() {
   loginLoading.value = true
   try {
-    const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
+    const res = await publicFormApi.login(loginForm.name, loginForm.password)
     if (res.code === 0) {
       localStorage.setItem('user_token', res.data.token)
       setStoredUserInfo(res.data.userInfo)
@@ -579,28 +578,13 @@ async function doLogin() {
   finally { loginLoading.value = false }
 }
 
-async function apiGet(path: string) {
-  const token = localStorage.getItem('user_token')
-  const headers: Record<string, string> = {}
-  if (token) headers['Authorization'] = token
-  const res = await fetch(`${API_BASE}${path}`, { headers })
-  return res.json()
-}
-async function apiPost(path: string, data: any) {
-  const token = localStorage.getItem('user_token')
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = token
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: JSON.stringify(data), headers })
-  return res.json()
-}
-
 async function load() {
-  const id = route.params.id
+  const id = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
   if (!id) { error.value = '参数错误'; loading.value = false; return }
   session.value = localStorage.getItem('survey_session_' + id) || ''
   userDeptId = getUserDeptId(getStoredUserInfo())
   try {
-    const res = await apiGet(`/survey/view?id=${id}&session=${session.value}`)
+    const res = await publicFormApi.surveyDetail(id, session.value)
     if (res.code !== 0) {
       if (res.msg === '请先登录') { showLogin.value = true; loading.value = false; return }
       error.value = res.msg || '加载失败'; loading.value = false; return
@@ -705,14 +689,14 @@ async function onSubmit(skipConfirm = false) {
   if (!skipConfirm) {
     if (!validateRequired()) return
     try {
-      const vr = await apiPost('/survey/validate', { surveyId: id, answers: submitAnswers, device: navigator.userAgent, deviceId: getDeviceId() })
+      const vr = await publicFormApi.surveyValidate({ surveyId: id, answers: submitAnswers, device: navigator.userAgent, deviceId: getDeviceId() })
       if (vr.data && !vr.data.valid) { ElMessage.warning((vr.data.errors || []).map((e: any) => e.message).join('; ') || '请检查填写内容'); return }
     } catch {}
   }
   if (skipConfirm) {
     submitting.value = true
     try {
-      const res = await apiPost('/survey/submit', { surveyId: id, answers: submitAnswers, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
+      const res = await publicFormApi.surveySubmit(id, { surveyId: id, answers: submitAnswers, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
       if (res.code !== 0) { ElMessage.error(res.msg || '提交失败') }
       else { stopCountdown(); clearDraft(); localStorage.removeItem('survey_session_' + id); handleSubmitSuccess(res.data) }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
@@ -722,7 +706,7 @@ async function onSubmit(skipConfirm = false) {
   ElMessageBox.confirm('确认提交？提交后不可修改', '提示', { type: 'info' }).then(async () => {
     submitting.value = true
     try {
-      const res = await apiPost('/survey/submit', { surveyId: id, answers: submitAnswers, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
+      const res = await publicFormApi.surveySubmit(id, { surveyId: id, answers: submitAnswers, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) { ElMessage.error(res.msg || '提交失败') }
       else { stopCountdown(); clearDraft(); localStorage.removeItem('survey_session_' + id); handleSubmitSuccess(res.data) }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }

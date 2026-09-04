@@ -51,6 +51,7 @@ func autoMigrate(enableExam bool) error {
 		&model.Log{},
 		&model.Setup{},
 		&model.Role{},
+		&model.SysDictType{},
 		&model.SysDict{},
 		&model.Department{},
 		&model.Position{},

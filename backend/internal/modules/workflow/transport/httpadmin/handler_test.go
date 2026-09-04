@@ -2,6 +2,7 @@ package httpadmin
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -35,6 +36,12 @@ type runtimeServiceStub struct {
 	retryNotificationCalls int
 	dispatchDueLimit       int
 	dispatchDueCalls       int
+	deleteActorID          string
+	deleteInstanceIDs      []string
+	deleteCalls            int
+	deleteTaskActorID      string
+	deleteTaskID           string
+	deleteTaskCalls        int
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error) {
@@ -47,7 +54,7 @@ func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]wor
 		},
 		StartNodeID: "start",
 		Initiator: workflowcore.InitiatorConfig{
-			Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3, 5},
+			Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3, 5}, ExcludedUserIDs: []uint{9},
 		},
 		Availability: workflowcore.StartAvailabilityConfig{
 			Mode: workflowcore.StartAvailabilityWeekly, Timezone: "Asia/Shanghai", Weekdays: []int{1, 3, 5}, DailyStartTime: "09:00", DailyEndTime: "18:00",
@@ -67,7 +74,7 @@ func (stub *runtimeServiceStub) GetPublishedDefinition(_ context.Context, defini
 		},
 		StartNodeID: "start",
 		Initiator: workflowcore.InitiatorConfig{
-			Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3, 5},
+			Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3, 5}, ExcludedUserIDs: []uint{9},
 		},
 		Availability: workflowcore.StartAvailabilityConfig{
 			Mode: workflowcore.StartAvailabilityWeekly, Timezone: "Asia/Shanghai", Weekdays: []int{1, 3, 5}, DailyStartTime: "09:00", DailyEndTime: "18:00",
@@ -133,6 +140,20 @@ func (stub *runtimeServiceStub) DispatchDueNotifications(_ context.Context, limi
 	return 3, nil
 }
 
+func (stub *runtimeServiceStub) DeleteInstances(_ context.Context, actorID string, instanceIDs []string) (int, error) {
+	stub.deleteCalls++
+	stub.deleteActorID = actorID
+	stub.deleteInstanceIDs = append([]string(nil), instanceIDs...)
+	return len(instanceIDs), nil
+}
+
+func (stub *runtimeServiceStub) DeleteTask(_ context.Context, actorID, taskID string) error {
+	stub.deleteTaskCalls++
+	stub.deleteTaskActorID = actorID
+	stub.deleteTaskID = taskID
+	return nil
+}
+
 func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
 	stub := &runtimeServiceStub{}
 	handler := NewRuntimeHandler(stub)
@@ -146,7 +167,7 @@ func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
 	body := string(c.Response.Body())
 	for _, snippet := range []string{
 		`"key":"leave"`, `"form"`, `"reason"`, `"fieldPermissions"`, `"startNodeId":"start"`,
-		`"initiator":{"scope":"specified","userIds":[7],"departmentIds":[3,5]}`,
+		`"initiator":{"scope":"specified","userIds":[7],"departmentIds":[3,5],"excludedUserIds":[9]}`,
 		`"availability":{"mode":"weekly","timezone":"Asia/Shanghai"`, `"availabilityStatus":"available"`,
 	} {
 		if !strings.Contains(body, snippet) {
@@ -216,8 +237,9 @@ func TestCompleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
 	c.Request.SetBodyString(`{
 		"taskId": "forged-task",
 		"actorId": "forged-user",
-		"action": "approve",
-		"comment": "同意",
+			"action": "return",
+			"comment": "同意",
+			"returnTargetNodeId": "draft",
 		"variables": {"approvedAmount": 100}
 	}`)
 
@@ -231,6 +253,9 @@ func TestCompleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
 	}
 	if stub.completeRequest.ActorID != "42" {
 		t.Fatalf("actor must come from authenticated admin, got %q", stub.completeRequest.ActorID)
+	}
+	if stub.completeRequest.ReturnTargetNodeID != "draft" {
+		t.Fatalf("return target node = %q, want draft", stub.completeRequest.ReturnTargetNodeID)
 	}
 }
 
@@ -267,6 +292,59 @@ func TestResumeTimersUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 
 	if stub.resumeCalls != 1 || stub.resumeInstanceID != "instance-1001" || stub.resumeActorID != "42" {
 		t.Fatalf("resume must use route instance and authenticated actor: calls=%d instance=%q actor=%q", stub.resumeCalls, stub.resumeInstanceID, stub.resumeActorID)
+	}
+}
+
+func TestDeleteInstancesUsesAuthenticatedAdminAndStableIDs(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+
+	single := newAdminContext(42)
+	single.Params = append(single.Params, param.Param{Key: "id", Value: "instance-route"})
+	single.Request.SetBodyString(`{"ids":["forged"]}`)
+	handler.DeleteInstance(context.Background(), single)
+	if stub.deleteCalls != 1 || stub.deleteActorID != "42" || len(stub.deleteInstanceIDs) != 1 || stub.deleteInstanceIDs[0] != "instance-route" {
+		t.Fatalf("single delete = calls %d actor %q ids %#v", stub.deleteCalls, stub.deleteActorID, stub.deleteInstanceIDs)
+	}
+
+	batch := newAdminContext(43)
+	batch.Request.SetBodyString(`{"ids":["instance-1","instance-2"]}`)
+	handler.DeleteInstances(context.Background(), batch)
+	if stub.deleteCalls != 2 || stub.deleteActorID != "43" || strings.Join(stub.deleteInstanceIDs, ",") != "instance-1,instance-2" {
+		t.Fatalf("batch delete = calls %d actor %q ids %#v", stub.deleteCalls, stub.deleteActorID, stub.deleteInstanceIDs)
+	}
+	if !strings.Contains(string(batch.Response.Body()), `"deleted":2`) {
+		t.Fatalf("batch delete response = %s", batch.Response.Body())
+	}
+
+	unauthenticated := app.NewContext(1)
+	unauthenticated.Request.SetBodyString(`{"ids":["instance-3"]}`)
+	handler.DeleteInstances(context.Background(), unauthenticated)
+	if stub.deleteCalls != 2 {
+		t.Fatalf("unauthenticated delete calls = %d", stub.deleteCalls)
+	}
+}
+
+func TestDeleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+
+	request := newAdminContext(42)
+	request.Params = append(request.Params, param.Param{Key: "id", Value: "task-route"})
+	request.Request.SetBodyString(`{"id":"task-forged"}`)
+	handler.DeleteTask(context.Background(), request)
+	if stub.deleteTaskCalls != 1 || stub.deleteTaskActorID != "42" || stub.deleteTaskID != "task-route" {
+		t.Fatalf("task delete = calls %d actor %q task %q", stub.deleteTaskCalls, stub.deleteTaskActorID, stub.deleteTaskID)
+	}
+	if !strings.Contains(string(request.Response.Body()), `"id":"task-route"`) {
+		t.Fatalf("task delete response = %s", request.Response.Body())
+	}
+
+	unauthenticated := app.NewContext(1)
+	unauthenticated.Params = append(unauthenticated.Params, param.Param{Key: "id", Value: "task-other"})
+	handler.DeleteTask(context.Background(), unauthenticated)
+	if stub.deleteTaskCalls != 1 {
+		t.Fatalf("unauthenticated task delete calls = %d", stub.deleteTaskCalls)
 	}
 }
 
@@ -311,16 +389,17 @@ func TestListInstancesParsesStableFilters(t *testing.T) {
 	stub := &runtimeServiceStub{}
 	handler := NewRuntimeHandler(stub)
 	c := app.NewContext(1)
-	c.Request.SetRequestURI("/api/v2/admin/workflow-instances?definitionId=7&status=running&businessType=leave&businessKey=LEAVE-1001&starterId=42&page=2&pageSize=40")
+	c.Request.SetRequestURI("/api/v2/admin/workflow-instances?definitionId=7&definitionCategory=performance&status=running&businessType=leave&businessKey=LEAVE-1001&starterId=42&startTimeFrom=1000&startTimeTo=1999&endTimeFrom=2000&endTimeTo=2999&page=2&pageSize=40")
 
 	handler.ListInstances(context.Background(), c)
 
 	want := workflowapp.InstanceQuery{
-		DefinitionID: 7,
-		Status:       "running", BusinessType: "leave", BusinessKey: "LEAVE-1001", StarterID: "42",
+		DefinitionID: 7, DefinitionCategory: "performance",
+		Status: "running", BusinessType: "leave", BusinessKey: "LEAVE-1001", StarterID: "42",
+		StartTimeFrom: 1000, StartTimeTo: 1999, EndTimeFrom: 2000, EndTimeTo: 2999,
 		Page: 2, PageSize: 40,
 	}
-	if stub.instanceQuery != want {
+	if !reflect.DeepEqual(stub.instanceQuery, want) {
 		t.Fatalf("unexpected instance query: got %+v want %+v", stub.instanceQuery, want)
 	}
 }
@@ -334,7 +413,7 @@ func TestListTasksParsesStableFilters(t *testing.T) {
 	handler.ListTasks(context.Background(), c)
 
 	want := workflowapp.TaskQuery{
-		InstanceID: "instance-1", AssigneeID: "42", Status: "pending", Page: 3, PageSize: 15,
+		InstanceID: "instance-1", AssigneeID: "42", Status: "pending", HideAdminDeleted: true, Page: 3, PageSize: 15,
 	}
 	if stub.taskQuery != want {
 		t.Fatalf("unexpected task query: got %+v want %+v", stub.taskQuery, want)

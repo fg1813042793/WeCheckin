@@ -25,6 +25,14 @@ type CreateRequest struct {
 	Draft       json.RawMessage `json:"draft"`
 }
 
+type CopyRequest struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	LogoURL     string `json:"-"`
+}
+
 type UpdateRequest struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
@@ -74,15 +82,7 @@ type PublishResponse struct {
 
 type PublishRequest struct {
 	Initiator *workflowcore.InitiatorConfig `json:"initiator,omitempty"`
-}
-
-type VersionSummary struct {
-	ID           uint   `json:"id"`
-	DefinitionID uint   `json:"definitionId"`
-	Version      int    `json:"version"`
-	DeploymentID string `json:"deploymentId"`
-	PublishedBy  uint   `json:"publishedBy"`
-	PublishedAt  int64  `json:"publishedAt"`
+	Note      string                        `json:"note"`
 }
 
 func GetListContext(ctx context.Context, keyword, category string, status, page, pageSize int) (*ListResponse, error) {
@@ -182,24 +182,55 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	if duplicate > 0 {
 		return nil, errors.New("流程编码已存在")
 	}
-	now := database.Now()
-	item := model.WorkflowDefinition{
-		Key:         request.Key,
-		Name:        request.Name,
-		Description: strings.TrimSpace(request.Description),
-		Category:    strings.TrimSpace(request.Category),
-		LogoURL:     logoURL,
-		Status:      model.DefinitionStatusDraft,
-		DraftJSON:   encoded,
-		AddUserID:   adminID,
-		EditUserID:  adminID,
-		AddTime:     now,
-		EditTime:    now,
-	}
+	item := definitionModelForCreate(adminID, request, encoded, logoURL, database.Now())
 	if err := db.Create(&item).Error; err != nil {
 		return nil, err
 	}
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
+}
+
+func CopyContext(ctx context.Context, adminID, sourceID uint, request CopyRequest) (*DefinitionDetail, error) {
+	if sourceID == 0 {
+		return nil, errors.New("源流程定义 ID 无效")
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var source model.WorkflowDefinition
+	if err := db.First(&source, sourceID).Error; err != nil {
+		return nil, definitionError(err)
+	}
+	if len(bytes.TrimSpace([]byte(source.DraftJSON))) == 0 {
+		return nil, errors.New("源流程设计数据为空")
+	}
+	return CreateContext(ctx, adminID, createRequestForCopy(source, request))
+}
+
+func createRequestForCopy(source model.WorkflowDefinition, request CopyRequest) CreateRequest {
+	return CreateRequest{
+		Key:         request.Key,
+		Name:        request.Name,
+		Description: request.Description,
+		Category:    request.Category,
+		LogoURL:     request.LogoURL,
+		Draft:       json.RawMessage(source.DraftJSON),
+	}
+}
+
+func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, logoURL string, now int64) model.WorkflowDefinition {
+	return model.WorkflowDefinition{
+		Key:            request.Key,
+		Name:           request.Name,
+		Description:    strings.TrimSpace(request.Description),
+		Category:       strings.TrimSpace(request.Category),
+		LogoURL:        logoURL,
+		Status:         model.DefinitionStatusDraft,
+		CurrentVersion: 0,
+		DraftJSON:      draftJSON,
+		AddUserID:      adminID,
+		EditUserID:     adminID,
+		AddTime:        now,
+		EditTime:       now,
+	}
 }
 
 func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest) (*DefinitionDetail, error) {
@@ -328,8 +359,12 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	note, err := normalizeVersionPublishNote(request.Note)
+	if err != nil {
+		return nil, err
+	}
 	var result PublishResponse
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		var item model.WorkflowDefinition
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
@@ -348,20 +383,28 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 		if err != nil {
 			return err
 		}
-		validationJSON, err := json.Marshal([]workflowcore.ValidationError{})
-		if err != nil {
-			return err
-		}
 		version := item.CurrentVersion + 1
 		now := database.Now()
-		versionItem := model.WorkflowDefinitionVersion{
-			DefinitionID:   item.ID,
-			Version:        version,
-			SourceJSON:     encoded,
-			BPMNXML:        string(bpmn),
-			ValidationJSON: string(validationJSON),
-			PublishedBy:    adminID,
-			PublishedAt:    now,
+		currentSnapshot := versionSnapshot{Metadata: metadataFromDefinition(item), Definition: draft}
+		var previousSnapshot versionSnapshot
+		if item.CurrentVersion > 0 {
+			var previous model.WorkflowDefinitionVersion
+			if err := tx.First(&previous, "definition_id = ? AND definition_version = ?", item.ID, item.CurrentVersion).Error; err != nil {
+				return versionError(err)
+			}
+			var metadataRecorded bool
+			previousSnapshot, metadataRecorded, err = versionSnapshotFromModel(previous, metadataFromDefinition(item))
+			if err != nil {
+				return err
+			}
+			if metadataRecorded && jsonEqual(previousSnapshot, currentSnapshot) {
+				return errors.New("流程内容没有变化，无需重复发布")
+			}
+		}
+		summary := buildVersionChangeSummary(item.CurrentVersion, previousSnapshot, currentSnapshot)
+		versionItem, err := newDefinitionVersionModel(item.ID, version, adminID, now, encoded, string(bpmn), currentSnapshot, summary, note, 0)
+		if err != nil {
+			return err
 		}
 		if err := tx.Create(&versionItem).Error; err != nil {
 			return err
@@ -401,32 +444,13 @@ func applyPublishInitiator(definition *workflowcore.Definition, requested *workf
 			initiator = &workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeAll}
 		}
 		definition.Nodes[index].Initiator = &workflowcore.InitiatorConfig{
-			Scope:         strings.TrimSpace(initiator.Scope),
-			UserIDs:       append([]uint(nil), initiator.UserIDs...),
-			DepartmentIDs: append([]uint(nil), initiator.DepartmentIDs...),
+			Scope:           strings.TrimSpace(initiator.Scope),
+			UserIDs:         append([]uint(nil), initiator.UserIDs...),
+			DepartmentIDs:   append([]uint(nil), initiator.DepartmentIDs...),
+			ExcludedUserIDs: append([]uint(nil), initiator.ExcludedUserIDs...),
 		}
 		return
 	}
-}
-
-func GetVersionsContext(ctx context.Context, id uint) ([]VersionSummary, error) {
-	if id == 0 {
-		return nil, errors.New("流程定义 ID 无效")
-	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	var rows []model.WorkflowDefinitionVersion
-	if err := db.Select("id", "definition_id", "definition_version", "definition_deployment_id", "definition_published_by", "definition_published_at").Where("definition_id = ?", id).Order("definition_version DESC").Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	result := make([]VersionSummary, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, VersionSummary{
-			ID: row.ID, DefinitionID: row.DefinitionID, Version: row.Version,
-			DeploymentID: row.DeploymentID, PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt,
-		})
-	}
-	return result, nil
 }
 
 func DeleteContext(ctx context.Context, id uint) error {
@@ -459,6 +483,7 @@ func newDefaultDefinition(key, name string) workflowcore.Definition {
 				Availability: &workflowcore.StartAvailabilityConfig{
 					Mode: workflowcore.StartAvailabilityAlways, Timezone: workflowcore.DefaultStartAvailabilityTimezone,
 				},
+				StartLimit: &workflowcore.StartLimitConfig{Mode: workflowcore.StartLimitModeUnlimited},
 			},
 			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
 		},
@@ -487,6 +512,7 @@ func normalizeDraft(raw json.RawMessage, key, name string) (workflowcore.Definit
 				initiator := *input.LegacyInitiator
 				initiator.UserIDs = append([]uint(nil), input.LegacyInitiator.UserIDs...)
 				initiator.DepartmentIDs = append([]uint(nil), input.LegacyInitiator.DepartmentIDs...)
+				initiator.ExcludedUserIDs = append([]uint(nil), input.LegacyInitiator.ExcludedUserIDs...)
 				definition.Nodes[index].Initiator = &initiator
 			}
 			break

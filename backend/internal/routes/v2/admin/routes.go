@@ -22,9 +22,13 @@ import (
 	adminrole "wecheckin/backend/internal/handler/admin/role"
 	adminsetup "wecheckin/backend/internal/handler/admin/setup"
 	adminsurvey "wecheckin/backend/internal/handler/admin/survey"
+	adminupload "wecheckin/backend/internal/handler/admin/upload"
 	adminuser "wecheckin/backend/internal/handler/admin/user"
 	adminworkflow "wecheckin/backend/internal/handler/admin/workflow"
 	adminmw "wecheckin/backend/internal/middleware/admin"
+	inappnotificationapp "wecheckin/backend/internal/modules/inappnotification/application"
+	inappnotificationinfra "wecheckin/backend/internal/modules/inappnotification/infrastructure"
+	inappnotificationhttp "wecheckin/backend/internal/modules/inappnotification/transport/httpadmin"
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
 	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
 	scheduledtaskhttp "wecheckin/backend/internal/modules/scheduledtask/transport/httpadmin"
@@ -47,7 +51,25 @@ func Register(h *server.Hertz) {
 	registerSurveyRoutes(admin)
 	registerExamRoutes(admin)
 	workflowRuntime := registerWorkflowRoutes(admin)
-	registerScheduledTaskRoutes(admin, workflowRuntime)
+	notificationService := registerNotificationRoutes(admin)
+	registerScheduledTaskRoutes(admin, workflowRuntime, notificationService)
+}
+
+func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.Service {
+	db := database.GetDB()
+	store := inappnotificationinfra.NewGormStore(db)
+	service := inappnotificationapp.NewServiceWithDingTalk(store, inappnotificationinfra.NewDingTalkDelivery(db, nil))
+	handler := inappnotificationhttp.NewHandler(service)
+
+	admin.GET("/in-app-notifications", handler.List)
+	admin.GET("/in-app-notifications/unread-count", handler.UnreadCount)
+	admin.GET("/in-app-notifications/recipient-options", handler.RecipientOptions)
+	admin.POST("/in-app-notifications", handler.Send)
+	admin.GET("/dingtalk-notifications/recipient-options", handler.RecipientOptions)
+	admin.POST("/dingtalk-notifications", handler.SendDingTalk)
+	admin.PATCH("/in-app-notifications/read-all", handler.MarkAllRead)
+	admin.PATCH("/in-app-notifications/:id/read", handler.MarkRead)
+	return service
 }
 
 func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
@@ -72,12 +94,16 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 
 	admin.GET("/workflow-definitions", aWorkflow.List)
 	admin.POST("/workflow-definitions", aWorkflow.Create)
+	admin.POST("/workflow-definitions/:id/copy", aWorkflow.Copy)
 	admin.GET("/workflow-definitions/:id", aWorkflow.Detail)
 	admin.PUT("/workflow-definitions/:id", aWorkflow.Update)
 	admin.DELETE("/workflow-definitions/:id", aWorkflow.Delete)
 	admin.POST("/workflow-definitions/:id/validate", aWorkflow.Validate)
 	admin.POST("/workflow-definitions/:id/publish", aWorkflow.Publish)
 	admin.GET("/workflow-definitions/:id/versions", aWorkflow.Versions)
+	admin.GET("/workflow-definitions/:id/versions/:version/changes", aWorkflow.VersionChanges)
+	admin.DELETE("/workflow-definitions/:id/versions/:version", aWorkflow.DeleteVersion)
+	admin.POST("/workflow-definitions/:id/versions/:version/rollback", aWorkflow.RollbackVersion)
 	admin.GET("/workflow-org-approver-identities", aWorkflow.OrgApproverIdentities)
 	admin.GET("/workflow-org-approver-assignments", aWorkflow.OrgApproverAssignments)
 	admin.PUT("/workflow-org-approver-assignments", aWorkflow.SaveOrgApproverAssignments)
@@ -87,18 +113,21 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	admin.GET("/workflow-department-options", aDept.GetDeptTree)
 	admin.GET("/workflow-instances", runtimeHandler.ListInstances)
 	admin.POST("/workflow-instances", runtimeHandler.StartInstance)
+	admin.DELETE("/workflow-instances", runtimeHandler.DeleteInstances)
 	admin.GET("/workflow-instances/:id", runtimeHandler.GetInstance)
+	admin.DELETE("/workflow-instances/:id", runtimeHandler.DeleteInstance)
 	admin.POST("/workflow-instances/:id/resume", runtimeHandler.ResumeTimers)
 	admin.POST("/workflow-instances/:id/cancel", runtimeHandler.CancelInstance)
 	admin.GET("/workflow-tasks", runtimeHandler.ListTasks)
 	admin.POST("/workflow-tasks/:id/complete", runtimeHandler.CompleteTask)
+	admin.DELETE("/workflow-tasks/:id", runtimeHandler.DeleteTask)
 	admin.GET("/workflow-notifications", runtimeHandler.ListNotifications)
 	admin.POST("/workflow-notifications/dispatch-due", runtimeHandler.DispatchDueNotifications)
 	admin.POST("/workflow-notifications/:id/retry", runtimeHandler.RetryNotification)
 	return runtimeService
 }
 
-func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *workflowapp.Service) {
+func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *workflowapp.Service, notificationService *inappnotificationapp.Service) {
 	db := database.GetDB()
 	taskStore := scheduledtaskinfra.NewGormStore(db)
 	registry, err := scheduledtaskinfra.NewHandlerRegistry(
@@ -106,6 +135,7 @@ func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *work
 		workflowRuntime,
 		scheduledtaskinfra.NewCleanupJob(taskStore, config.Cfg.ScheduledTask.RunRetentionDays, config.Cfg.ScheduledTask.LogRetentionDays, nil),
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
+		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
 	)
 	if err != nil {
 		panic(fmt.Sprintf("initialize scheduled task handlers: %v", err))
@@ -145,6 +175,7 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	aSetup := adminsetup.NewAdminSetupHandler()
 	aUser := adminuser.NewAdminUserHandler()
 	aDingTalk := admindingtalk.NewAdminDingTalkHandler()
+	aUpload := adminupload.NewHandler()
 
 	admin.GET("/home", aHome.AdminHome)
 	admin.DELETE("/home/recommendations", aHome.ClearVouchData)
@@ -167,10 +198,12 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	admin.DELETE("/logs", aMgr.ClearLog)
 
 	admin.PUT("/settings", aSetup.SetSetup)
+	admin.GET("/settings/content", aSetup.GetContentSetup)
 	admin.PUT("/settings/content", aSetup.SetContentSetup)
 	admin.GET("/settings/mini-qr", aSetup.GenMiniQr)
 	admin.GET("/settings/debug-token", aSetup.DebugTokenConfig)
 	admin.GET("/dingtalk/settings", aDingTalk.GetSettings)
+	admin.POST("/uploads", aUpload.Upload)
 	admin.PUT("/dingtalk/settings", aDingTalk.SaveSettings)
 	admin.POST("/dingtalk/settings/notification-test", aDingTalk.TestNotification)
 	admin.GET("/dingtalk/user-bindings", aDingTalk.GetUserBindings)
@@ -278,11 +311,14 @@ func registerSystemRoutes(admin *route.RouterGroup) {
 	aPermission := adminpermission.NewAdminPermissionHandler()
 
 	admin.GET("/dict/types", aDict.GetDictTypes)
+	admin.POST("/dict/types", aDict.AddDictType)
 	admin.GET("/dict/items", aDict.GetDictByType)
 	admin.POST("/dict/items", aDict.AddDictItem)
 	admin.PUT("/dict/items/:id", routeparam.WithFormID(aDict.EditDictItem))
 	admin.DELETE("/dict/items/:id", routeparam.WithFormID(aDict.DelDictItem))
 	admin.DELETE("/dict/types/:typeCode/items", routeparam.WithFormParam("typeCode", "typeCode", aDict.DelDictByType))
+	admin.PUT("/dict/types/:typeCode", aDict.EditDictType)
+	admin.DELETE("/dict/types/:typeCode", aDict.DelDictType)
 	admin.PATCH("/dict/types/:typeCode", routeparam.WithFormParam("oldTypeCode", "typeCode", aDict.EditDictTypeName))
 
 	admin.GET("/departments/tree", aDept.GetDeptTree)

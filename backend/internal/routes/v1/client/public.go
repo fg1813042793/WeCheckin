@@ -38,6 +38,6 @@ func registerPublicRoutes(h *server.Hertz) {
 	h.POST("/passport/register", pp.Register)
 	h.GET("/geo/reverse", geo.ReverseGeocode)
 
-	h.GET("/dict/types", aDict.GetDictTypes)
-	h.GET("/dict/items", aDict.GetDictByType)
+	h.GET("/dict/types", aDict.GetPublicDictTypes)
+	h.GET("/dict/items", aDict.GetPublicDictByType)
 }

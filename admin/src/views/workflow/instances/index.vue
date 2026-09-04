@@ -17,39 +17,58 @@
       <div class="admin-toolbar">
         <div class="admin-toolbar__left">
           <el-button v-if="canStart" type="primary" icon="Plus" @click="openStartDialog">发起流程</el-button>
+          <el-button
+            v-if="canDelete"
+            type="danger"
+            plain
+            icon="Delete"
+            :disabled="selectedInstances.length === 0"
+            :loading="batchDeleting"
+            @click="deleteSelectedInstances"
+          >批量删除</el-button>
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" :loading="loading" @click="loadList" />
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="list" stripe>
+      <el-table v-loading="loading" :data="list" row-key="id" stripe @selection-change="handleSelectionChange">
+        <el-table-column v-if="canDelete" type="selection" width="48" :selectable="canSelectInstance" />
         <el-table-column prop="id" label="实例 ID" min-width="190" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="mono-text">{{ row.id }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="流程定义" min-width="170">
+        <el-table-column prop="definitionName" label="流程名称" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
-            <div class="definition-cell">
-              <strong>{{ row.definitionKey || `#${row.definitionId}` }}</strong>
-              <small>定义 {{ row.definitionId }} · v{{ row.definitionVersion }}</small>
-            </div>
+            {{ row.definitionName || row.definitionKey || `#${row.definitionId}` }}
           </template>
         </el-table-column>
-        <el-table-column label="业务关联" min-width="220">
+        <el-table-column prop="definitionKey" label="流程编码" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
-            <div class="definition-cell">
-              <strong>{{ row.businessType || '-' }}</strong>
-              <small>{{ row.businessKey || '-' }}</small>
-            </div>
+            <span class="mono-text">{{ row.definitionKey || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="starterId" label="发起人 ID" width="120" />
-        <el-table-column prop="operatorId" label="操作人 ID" width="120" />
+        <el-table-column label="版本号" width="90" align="center">
+          <template #default="{ row }">v{{ row.definitionVersion }}</template>
+        </el-table-column>
+        <el-table-column prop="businessType" label="业务类型" min-width="130" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.businessType || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="businessKey" label="业务标识" min-width="210" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="mono-text">{{ row.businessKey || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="发起人" width="120">
+          <template #default="{ row }">{{ userDisplay(row.starterName, row.starterId) }}</template>
+        </el-table-column>
+        <el-table-column label="操作人" width="120">
+          <template #default="{ row }">{{ userDisplay(row.operatorName, row.operatorId) }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="instanceStatusMeta(row.status).type" size="small">{{ instanceStatusMeta(row.status).label }}</el-tag>
+            <el-tag :type="workflowInstanceStatusMeta(row.status).type" size="small">{{ workflowInstanceStatusMeta(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="开始时间" width="170">
@@ -58,9 +77,18 @@
         <el-table-column label="结束时间" width="170">
           <template #default="{ row }">{{ formatTime(row.endTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="canViewDetail" size="small" type="primary" plain @click="openDetail(row)">详情</el-button>
+            <el-button v-if="canViewDetail" link type="primary" @click="openDetail(row)">详情</el-button>
+            <el-button
+              v-if="canDelete"
+              link
+              type="danger"
+              :disabled="!canSelectInstance(row)"
+              :loading="deletingInstanceId === row.id"
+              :title="canSelectInstance(row) ? '删除实例' : '审批中的实例不能删除'"
+              @click="deleteInstance(row)"
+            >删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -155,13 +183,13 @@
           <el-descriptions :column="3" border>
             <el-descriptions-item label="实例 ID" :span="2"><span class="mono-text">{{ detail.instance.id }}</span></el-descriptions-item>
             <el-descriptions-item label="状态">
-              <el-tag :type="instanceStatusMeta(detail.instance.status).type" size="small">{{ instanceStatusMeta(detail.instance.status).label }}</el-tag>
+              <el-tag :type="workflowInstanceStatusMeta(detail.instance.status).type" size="small">{{ workflowInstanceStatusMeta(detail.instance.status).label }}</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="流程定义">{{ detail.instance.definitionKey }} · v{{ detail.instance.definitionVersion }}</el-descriptions-item>
             <el-descriptions-item label="业务类型">{{ detail.instance.businessType }}</el-descriptions-item>
             <el-descriptions-item label="业务标识">{{ detail.instance.businessKey }}</el-descriptions-item>
-            <el-descriptions-item label="发起人 ID">{{ detail.instance.starterId }}</el-descriptions-item>
-            <el-descriptions-item label="操作人 ID">{{ detail.instance.operatorId }}</el-descriptions-item>
+            <el-descriptions-item label="发起人">{{ userDisplay(detail.instance.starterName, detail.instance.starterId) }}</el-descriptions-item>
+            <el-descriptions-item label="操作人">{{ userDisplay(detail.instance.operatorName, detail.instance.operatorId) }}</el-descriptions-item>
             <el-descriptions-item label="开始时间">{{ formatTime(detail.instance.startTime) }}</el-descriptions-item>
             <el-descriptions-item label="结束时间">{{ formatTime(detail.instance.endTime) }}</el-descriptions-item>
           </el-descriptions>
@@ -171,28 +199,41 @@
           </div>
 
           <section class="detail-section">
-            <h3>流程表单</h3>
-            <WorkflowRuntimeForm
-              :model-value="detail.formData || {}"
-              :fields="detail.form || []"
-              :field-access="detailFieldAccess"
-              readonly
-              empty-text="该实例没有流程表单数据"
-            />
+            <el-collapse v-model="detailExpandedSections.form" class="detail-collapse">
+              <el-collapse-item name="form">
+                <template #title><span class="detail-collapse__title">流程表单</span></template>
+                <WorkflowRuntimeForm
+                  :model-value="detail.formData || {}"
+                  :fields="detail.form || []"
+                  :field-access="detailFieldAccess"
+                  :user-name-map="detail.userNames || {}"
+                  readonly
+                  empty-text="该实例没有流程表单数据"
+                />
+              </el-collapse-item>
+            </el-collapse>
           </section>
 
           <section class="detail-section">
-            <h3>流程变量</h3>
-            <pre class="json-viewer">{{ formatJSON(detail.variables) }}</pre>
+            <el-collapse v-model="detailExpandedSections.variables" class="detail-collapse">
+              <el-collapse-item name="variables">
+                <template #title><span class="detail-collapse__title">流程变量</span></template>
+                <pre class="json-viewer">{{ formatJSON(detail.variables) }}</pre>
+              </el-collapse-item>
+            </el-collapse>
           </section>
 
           <section class="detail-section">
             <h3>任务记录</h3>
             <el-table :data="detail.tasks" size="small" border>
               <el-table-column prop="nodeName" label="节点" min-width="140" />
-              <el-table-column prop="assigneeId" label="处理人 ID" width="120" />
+              <el-table-column label="处理人" width="120">
+                <template #default="{ row }">{{ taskUserDisplay(row) }}</template>
+              </el-table-column>
               <el-table-column label="状态" width="100">
-                <template #default="{ row }">{{ taskStatusLabel(row.status) }}</template>
+                <template #default="{ row }">
+                  <el-tag :type="workflowTaskStatusMeta(row.status).type" size="small">{{ workflowTaskStatusMeta(row.status).label }}</el-tag>
+                </template>
               </el-table-column>
               <el-table-column label="动作" width="90">
                 <template #default="{ row }">{{ actionLabel(row.action) }}</template>
@@ -217,7 +258,9 @@
               >投递到期通知</el-button>
             </div>
             <el-table v-loading="notificationsLoading" :data="notifications" size="small" border empty-text="该实例暂无通知投递记录">
-              <el-table-column prop="recipientUserId" label="接收人 ID" width="110" />
+              <el-table-column label="接收人" width="110">
+                <template #default="{ row }">{{ userDisplay(row.recipientUserName, row.recipientUserId) }}</template>
+              </el-table-column>
               <el-table-column label="事件" width="110">
                 <template #default="{ row }">{{ notificationKindLabel(row.kind) }}</template>
               </el-table-column>
@@ -244,21 +287,25 @@
                     type="primary"
                     :loading="retryingNotificationId === row.id"
                     @click="retryNotification(row)"
-                  >重试</el-button>
+                  >重发</el-button>
                 </template>
               </el-table-column>
             </el-table>
           </section>
 
           <section class="detail-section">
-            <h3>流转历史</h3>
-            <el-timeline class="history-timeline">
-              <el-timeline-item v-for="event in detail.history" :key="event.id" :timestamp="formatTime(event.eventTime)">
-                <strong>{{ historyEventLabel(event.eventType) }}</strong>
-                <span v-if="event.actorId"> · 操作人 {{ event.actorId }}</span>
-                <p v-if="event.message">{{ event.message }}</p>
-              </el-timeline-item>
-            </el-timeline>
+            <el-collapse v-model="detailExpandedSections.history" class="detail-collapse">
+              <el-collapse-item name="history">
+                <template #title><span class="detail-collapse__title">流转历史</span></template>
+                <el-timeline class="history-timeline">
+                  <el-timeline-item v-for="event in detail.history" :key="event.id" :timestamp="formatTime(event.eventTime)">
+                    <strong>{{ historyEventLabel(event.eventType) }}</strong>
+                    <span v-if="event.actorId"> · 操作人 {{ userDisplay(event.actorName, event.actorId) }}</span>
+                    <p v-if="event.message">{{ event.message }}</p>
+                  </el-timeline-item>
+                </el-timeline>
+              </el-collapse-item>
+            </el-collapse>
           </section>
         </template>
       </div>
@@ -268,7 +315,7 @@
 
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../../api'
 import type { AdminUser } from '../../../api/types'
 import { hasPerm } from '../../../utils/permission'
@@ -277,7 +324,6 @@ import WorkflowUserTreePicker from '../components/WorkflowUserTreePicker.vue'
 import { initialWorkflowFormData, workflowFieldActionMap, workflowFieldAccessMap, writableWorkflowFormData } from '../runtimeForm'
 import type {
   WorkflowInstanceDetail,
-  WorkflowInstanceStatus,
   WorkflowInstanceSummary,
   WorkflowNotificationChannel,
   WorkflowNotificationKind,
@@ -285,11 +331,12 @@ import type {
   WorkflowNotificationStatus,
   WorkflowPublishedDefinition,
   WorkflowTaskAction,
-  WorkflowTaskStatus,
+  WorkflowTaskSummary,
 } from '../types'
+import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflowStatus'
 
 const statusOptions = [
-  { label: '运行中', value: 'running' },
+  { label: '审批中', value: 'running' },
   { label: '已完成', value: 'completed' },
   { label: '已驳回', value: 'rejected' },
   { label: '已取消', value: 'cancelled' },
@@ -297,6 +344,7 @@ const statusOptions = [
 
 const canStart = computed(() => hasPerm('admin:menu:workflow:instance:start'))
 const canViewDetail = computed(() => hasPerm('admin:menu:workflow:instance:detail'))
+const canDelete = computed(() => hasPerm('admin:menu:workflow:instance:delete'))
 const canViewNotifications = computed(() => hasPerm('admin:menu:workflow:notification:list'))
 const canRetryNotifications = computed(() => hasPerm('admin:menu:workflow:notification:retry'))
 const loading = ref(false)
@@ -305,6 +353,9 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const filters = reactive({ businessType: '', businessKey: '', status: '', starterId: '' })
+const selectedInstances = ref<WorkflowInstanceSummary[]>([])
+const deletingInstanceId = ref('')
+const batchDeleting = ref(false)
 
 const startDialog = ref(false)
 const starting = ref(false)
@@ -337,6 +388,11 @@ const notifications = ref<WorkflowNotificationRecord[]>([])
 const notificationsLoading = ref(false)
 const dispatchingDueNotifications = ref(false)
 const retryingNotificationId = ref('')
+const detailExpandedSections = reactive<{ form: string[]; variables: string[]; history: string[] }>({
+  form: [],
+  variables: [],
+  history: [],
+})
 
 const notificationStatusOptions = [
   { value: 'pending' as const, label: '待投递', type: 'info' as const },
@@ -352,9 +408,15 @@ const selectedStartDefinition = computed(() => (
 
 const eligibleInitiatorUsers = computed(() => {
   const initiator = selectedStartDefinition.value?.initiator
-  if (initiator?.scope !== 'specified') return initiatorUsers.value
-  const allowed = new Set((initiator.userIds || []).map(id => Number(id)))
-  return initiatorUsers.value.filter(user => allowed.has(Number(user.id)))
+  const excludedUserIds = new Set((initiator?.excludedUserIds || []).map(Number))
+  const allowedUserIds = new Set((initiator?.userIds || []).map(Number))
+  const allowedDepartmentIds = new Set((initiator?.departmentIds || []).map(Number))
+  return initiatorUsers.value.filter((user) => {
+    if (excludedUserIds.has(Number(user.id))) return false
+    if (initiator?.scope !== 'specified') return true
+    return allowedUserIds.has(Number(user.id))
+      || (user.deptIds || []).some(departmentId => allowedDepartmentIds.has(Number(departmentId)))
+  })
 })
 
 const startFieldAccess = computed(() => {
@@ -384,16 +446,6 @@ const detailFieldAccess = computed(() => {
   return Object.fromEntries(fields.map((field) => [field.key, 'read' as const]))
 })
 
-function instanceStatusMeta(status: WorkflowInstanceStatus) {
-  const values = {
-    running: { label: '运行中', type: 'primary' as const },
-    completed: { label: '已完成', type: 'success' as const },
-    rejected: { label: '已驳回', type: 'danger' as const },
-    cancelled: { label: '已取消', type: 'info' as const },
-  }
-  return values[status] || { label: status || '未知', type: 'info' as const }
-}
-
 function availabilityStatusLabel(status: WorkflowPublishedDefinition['availabilityStatus']) {
   const values = {
     available: '可发起',
@@ -408,21 +460,35 @@ function canStartDefinition(definition: WorkflowPublishedDefinition) {
   return definition.availabilityStatus === 'available'
 }
 
-function taskStatusLabel(status: WorkflowTaskStatus) {
-  return { waiting: '等待中', pending: '待处理', completed: '已提交', approved: '已通过', rejected: '已驳回', cancelled: '已取消' }[status] || status || '-'
-}
-
 function actionLabel(action: WorkflowTaskAction | '') {
   if (action === 'approve') return '通过'
   if (action === 'reject') return '驳回'
+  if (action === 'return') return '退回'
   if (action === 'submit') return '提交'
   return '-'
+}
+
+function userDisplay(name: string | undefined, id: string | undefined) {
+  return name?.trim() || id?.trim() || '-'
+}
+
+function taskUserDisplay(task: WorkflowTaskSummary) {
+  if (task.handledBy || task.handledByName) return userDisplay(task.handledByName, task.handledBy)
+  return userDisplay(task.assigneeName, task.assigneeId)
+}
+
+function canSelectInstance(instance: WorkflowInstanceSummary) {
+  return instance.status !== 'running'
+}
+
+function handleSelectionChange(rows: WorkflowInstanceSummary[]) {
+  selectedInstances.value = rows
 }
 
 function historyEventLabel(type: string) {
   return {
     instance_started: '流程已发起', task_created: '任务已创建', task_activated: '任务已激活',
-    task_approved: '任务已通过', task_rejected: '任务已驳回', task_submitted: '任务已提交', task_cancelled: '任务已取消',
+    task_approved: '任务已通过', task_rejected: '任务已驳回', task_returned: '任务已退回', task_submitted: '任务已提交', task_cancelled: '任务已取消',
     node_cc: '已记录抄送', node_notify: '通知节点已触发', node_automated: '自动动作已执行', timer_waiting: '定时节点等待中', timer_resumed: '定时节点已推进',
     instance_completed: '流程已完成', instance_rejected: '流程已驳回',
   }[type] || type
@@ -467,6 +533,7 @@ async function loadList() {
     })
     list.value = Array.isArray(response.data?.list) ? response.data.list : []
     total.value = Number(response.data?.total || 0)
+    selectedInstances.value = []
   } finally {
     loading.value = false
   }
@@ -618,6 +685,9 @@ async function openDetail(row: WorkflowInstanceSummary) {
   detail.value = null
   notifications.value = []
   detailDialog.value = true
+  detailExpandedSections.form = []
+  detailExpandedSections.variables = []
+  detailExpandedSections.history = []
   detailLoading.value = true
   try {
     const [response] = await Promise.all([
@@ -627,6 +697,54 @@ async function openDetail(row: WorkflowInstanceSummary) {
     detail.value = response.data as WorkflowInstanceDetail
   } finally {
     detailLoading.value = false
+  }
+}
+
+async function deleteInstance(instance: WorkflowInstanceSummary) {
+  if (!canSelectInstance(instance)) {
+    ElMessage.warning('审批中的流程实例不能删除，请先取消或等待流程结束')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除流程实例「${instance.businessKey || instance.id}」？删除后将从管理列表隐藏，审计数据仍会保留。`,
+      '删除流程实例',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  deletingInstanceId.value = instance.id
+  try {
+    await adminApi.workflowInstanceDelete(instance.id)
+    ElMessage.success('流程实例已删除')
+    if (list.value.length === 1 && page.value > 1) page.value -= 1
+    await loadList()
+  } finally {
+    deletingInstanceId.value = ''
+  }
+}
+
+async function deleteSelectedInstances() {
+  const ids = selectedInstances.value.filter(canSelectInstance).map(instance => instance.id)
+  if (ids.length === 0) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${ids.length} 个流程实例？删除后将从管理列表隐藏，审计数据仍会保留。`,
+      '批量删除流程实例',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  batchDeleting.value = true
+  try {
+    const response = await adminApi.workflowInstanceBatchDelete(ids)
+    ElMessage.success(`已删除 ${Number(response.data?.deleted || ids.length)} 个流程实例`)
+    if (ids.length >= list.value.length && page.value > 1) page.value -= 1
+    await loadList()
+  } finally {
+    batchDeleting.value = false
   }
 }
 
@@ -648,7 +766,7 @@ async function retryNotification(notification: WorkflowNotificationRecord) {
   retryingNotificationId.value = notification.id
   try {
     await adminApi.workflowNotificationRetry(notification.id)
-    ElMessage.success('已执行通知重试')
+    ElMessage.success('通知已重发')
     await loadNotifications(notification.instanceId)
   } finally {
     retryingNotificationId.value = ''
@@ -692,8 +810,6 @@ onMounted(loadList)
 <style scoped>
 .workflow-runtime-filters { margin-bottom: 4px; }
 .mono-text { color: #475569; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.definition-cell strong { display: block; color: #1f2937; font-weight: 600; }
-.definition-cell small { display: block; margin-top: 3px; color: #94a3b8; font-size: 12px; }
 .form-help { margin-top: 6px; color: #94a3b8; font-size: 12px; line-height: 1.5; }
 .dialog-section { margin-top: 6px; padding-top: 14px; border-top: 1px solid #ebeef5; }
 .dialog-section h3 { margin: 0 0 12px; color: #303133; font-size: 15px; font-weight: 600; }
@@ -703,6 +819,8 @@ onMounted(loadList)
 .detail-section h3 { margin: 0 0 12px; color: #303133; font-size: 15px; font-weight: 600; }
 .detail-section__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .detail-section__heading h3 { margin: 0; }
+.detail-collapse { border-top: 0; }
+.detail-collapse__title { color: #303133; font-size: 15px; font-weight: 600; }
 .json-viewer { max-height: 240px; margin: 0; padding: 14px; overflow: auto; border: 1px solid #e4e7ed; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 12px; line-height: 1.6; }
 .history-timeline { padding-top: 6px; }
 .history-timeline p { margin: 4px 0 0; color: #8492a6; }

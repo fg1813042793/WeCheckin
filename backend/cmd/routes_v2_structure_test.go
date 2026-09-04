@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -86,6 +87,7 @@ func TestSwaggerIncludesAllV2RouteOperations(t *testing.T) {
 	routeFiles := []string{
 		"../internal/routes/v2/admin/routes.go",
 		"../internal/routes/v2/client/routes.go",
+		"../internal/routes/v2/dingtalkh5/routes.go",
 	}
 	var routeSrc strings.Builder
 	for _, path := range routeFiles {
@@ -129,4 +131,61 @@ func TestSwaggerIncludesAllV2RouteOperations(t *testing.T) {
 	if got != want {
 		t.Fatalf("swagger v2 operation count = %d, want %d; rerun swag init after changing v2 routes", got, want)
 	}
+}
+
+func TestSwaggerIncludesEveryDingTalkH5RouteOperation(t *testing.T) {
+	routeSrc, err := os.ReadFile("../internal/routes/v2/dingtalkh5/routes.go")
+	if err != nil {
+		t.Fatalf("read dingtalk h5 routes: %v", err)
+	}
+
+	docSrc, err := os.ReadFile("../docs/swagger/swagger.json")
+	if err != nil {
+		t.Fatalf("read swagger.json: %v", err)
+	}
+	var doc struct {
+		Paths map[string]map[string]struct {
+			Tags     []string              `json:"tags"`
+			Security []map[string][]string `json:"security"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(docSrc, &doc); err != nil {
+		t.Fatalf("parse swagger.json: %v", err)
+	}
+
+	routePattern := regexp.MustCompile(`\.(GET|POST|PUT|DELETE|PATCH)\("([^"]+)"`)
+	paramPattern := regexp.MustCompile(`:([A-Za-z][A-Za-z0-9]*)`)
+	matches := routePattern.FindAllStringSubmatch(string(routeSrc), -1)
+	if len(matches) == 0 {
+		t.Fatal("dingtalk h5 routes must register operations")
+	}
+	publicPaths := map[string]bool{
+		"/api/v2/dingtalk/h5/public-config": true,
+		"/api/v2/dingtalk/h5/login":         true,
+		"/api/v2/dingtalk/h5/sso-login":     true,
+		"/api/v2/dingtalk/h5/bind-self":     true,
+	}
+	for _, match := range matches {
+		method := strings.ToLower(match[1])
+		path := "/api/v2/dingtalk/h5" + paramPattern.ReplaceAllString(match[2], `{$1}`)
+		operation, ok := doc.Paths[path][method]
+		if !ok {
+			t.Fatalf("swagger missing dingtalk h5 operation %s %s", match[1], path)
+		}
+		if len(operation.Tags) != 1 || !strings.HasPrefix(operation.Tags[0], "API v2-H5App-") {
+			t.Fatalf("swagger operation %s %s must use one H5App category, got %v", match[1], path, operation.Tags)
+		}
+		if !publicPaths[path] && !hasSwaggerSecurity(operation.Security, "H5AppToken") {
+			t.Fatalf("swagger operation %s %s must require H5AppToken", match[1], path)
+		}
+	}
+}
+
+func hasSwaggerSecurity(security []map[string][]string, name string) bool {
+	for _, requirement := range security {
+		if _, ok := requirement[name]; ok {
+			return true
+		}
+	}
+	return false
 }

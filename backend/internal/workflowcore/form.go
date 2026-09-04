@@ -28,12 +28,12 @@ func ValidateFormData(fields []FormField, data map[string]interface{}, partial b
 		if !ok {
 			return fmt.Errorf("%w：字段 %s 未在流程表单中定义", ErrFormDataInvalid, key)
 		}
-		if err := validateFieldValue(field, value); err != nil {
+		if err := validateFieldValue(field, value, partial); err != nil {
 			return err
 		}
 	}
 	if partial {
-		return validateSubmittedFormRules(dataFields, data, true)
+		return nil
 	}
 	for _, field := range dataFields {
 		if !field.Required {
@@ -44,13 +44,30 @@ func ValidateFormData(fields []FormField, data map[string]interface{}, partial b
 			return fmt.Errorf("%w：%s不能为空", ErrFormDataInvalid, field.Label)
 		}
 	}
-	return validateSubmittedFormRules(dataFields, data, false)
+	return validateSubmittedFormRules(dataFields, data, false, fieldByKey)
+}
+
+func ValidateStartFormData(definition Definition, data map[string]interface{}) error {
+	var startNode *Node
+	for index := range definition.Nodes {
+		if definition.Nodes[index].Type == NodeTypeStart {
+			startNode = &definition.Nodes[index]
+			break
+		}
+	}
+	if startNode == nil {
+		return fmt.Errorf("%w：发起节点不存在", ErrFormDataInvalid)
+	}
+	writableFields := nodeWritableFormFields(definition.Form, startNode, true)
+	for field := range data {
+		if _, ok := writableFields[field]; !ok {
+			return fmt.Errorf("%w：发起节点无权修改字段 %s", ErrFormDataInvalid, field)
+		}
+	}
+	return validateSelectedFormData(definition.Form, data, writableFields, false)
 }
 
 func ValidateNodeFormPatch(definition Definition, nodeID string, current, patch map[string]interface{}) error {
-	if len(patch) == 0 {
-		return nil
-	}
 	var node *Node
 	for index := range definition.Nodes {
 		if definition.Nodes[index].ID == nodeID {
@@ -61,6 +78,7 @@ func ValidateNodeFormPatch(definition Definition, nodeID string, current, patch 
 	if node == nil || (node.Type != NodeTypeApproval && node.Type != NodeTypeHandle) {
 		return fmt.Errorf("%w：人工任务节点 %s 不存在", ErrFormDataInvalid, nodeID)
 	}
+	writableFields := nodeWritableFormFields(definition.Form, node, false)
 	permissionByField := make(map[string]FieldPermission, len(node.FormPermissions))
 	for _, permission := range node.FormPermissions {
 		permissionByField[permission.Field] = permission
@@ -71,10 +89,10 @@ func ValidateNodeFormPatch(definition Definition, nodeID string, current, patch 
 		fieldByKey[field.Key] = field
 	}
 	for field := range patch {
-		permission, ok := permissionByField[field]
-		if !ok || permission.Access != FieldAccessWrite {
+		if _, ok := writableFields[field]; !ok {
 			return fmt.Errorf("%w：当前节点无权修改字段 %s", ErrFormDataInvalid, field)
 		}
+		permission := permissionByField[field]
 		formField, ok := fieldByKey[field]
 		if ok && formField.Type == FormFieldTypeDetailList {
 			if err := validateDetailListPatchActions(formField, current[field], patch[field], permission); err != nil {
@@ -82,10 +100,58 @@ func ValidateNodeFormPatch(definition Definition, nodeID string, current, patch 
 			}
 		}
 	}
-	if err := ValidateFormData(definition.Form, patch, true); err != nil {
+	if err := validateSelectedFormData(definition.Form, patch, writableFields, true); err != nil {
 		return err
 	}
-	return ValidateFormData(definition.Form, MergeFormData(current, patch), false)
+	return validateSelectedFormData(definition.Form, MergeFormData(current, patch), writableFields, false)
+}
+
+func nodeWritableFormFields(fields []FormField, node *Node, defaultWrite bool) map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, field := range dataFormFields(fields) {
+		if defaultWrite {
+			result[field.Key] = struct{}{}
+		}
+	}
+	if node == nil {
+		return result
+	}
+	for _, permission := range node.FormPermissions {
+		if permission.Access == FieldAccessWrite {
+			result[permission.Field] = struct{}{}
+		} else {
+			delete(result, permission.Field)
+		}
+	}
+	return result
+}
+
+func validateSelectedFormData(fields []FormField, data map[string]interface{}, selected map[string]struct{}, partial bool) error {
+	dataFields := dataFormFields(fields)
+	fieldByKey := make(map[string]FormField, len(dataFields))
+	for _, field := range dataFields {
+		fieldByKey[field.Key] = field
+	}
+	selectedFields := make([]FormField, 0, len(selected))
+	for _, field := range dataFields {
+		if _, ok := selected[field.Key]; !ok {
+			continue
+		}
+		selectedFields = append(selectedFields, field)
+		value, submitted := data[field.Key]
+		if partial && !submitted {
+			continue
+		}
+		if submitted {
+			if err := validateFieldValue(field, value, partial); err != nil {
+				return err
+			}
+		}
+		if !partial && field.Required && (!submitted || isEmptyFormValue(value)) {
+			return fmt.Errorf("%w：%s不能为空", ErrFormDataInvalid, field.Label)
+		}
+	}
+	return validateSubmittedFormRules(selectedFields, data, partial, fieldByKey)
 }
 
 func dataFormFields(fields []FormField) []FormField {
@@ -114,9 +180,9 @@ func MergeFormData(current, patch map[string]interface{}) map[string]interface{}
 	return result
 }
 
-func validateFieldValue(field FormField, value interface{}) error {
+func validateFieldValue(field FormField, value interface{}, partial bool) error {
 	if field.Type == FormFieldTypeDetailList {
-		return validateDetailListValue(field, value)
+		return validateDetailListValue(field, value, partial)
 	}
 	if value == nil || isEmptyFormValue(value) {
 		return nil
@@ -158,7 +224,11 @@ func validateFieldValue(field FormField, value interface{}) error {
 		if field.Max != nil && number > *field.Max {
 			return fmt.Errorf("%w：%s不能大于%v", ErrFormDataInvalid, field.Label, *field.Max)
 		}
-	case FormFieldTypeMultiSelect, FormFieldTypeAttachment, FormFieldTypeCheckbox,
+	case FormFieldTypeAttachment:
+		if _, ok := attachmentSlice(value); !ok {
+			return fieldTypeError(field)
+		}
+	case FormFieldTypeMultiSelect, FormFieldTypeCheckbox,
 		FormFieldTypeDateRange, FormFieldTypeUserMulti, FormFieldTypeDepartmentMulti:
 		values, ok := stringSlice(value)
 		if !ok {
@@ -184,7 +254,7 @@ func validateFieldValue(field FormField, value interface{}) error {
 	return nil
 }
 
-func validateSubmittedFormRules(fields []FormField, data map[string]interface{}, partial bool) error {
+func validateSubmittedFormRules(fields []FormField, data map[string]interface{}, partial bool, fieldByKey map[string]FormField) error {
 	for _, field := range fields {
 		value, submitted := data[field.Key]
 		if partial && !submitted {
@@ -194,7 +264,7 @@ func validateSubmittedFormRules(fields []FormField, data map[string]interface{},
 			if rule.When != nil && !formRuleConditionMatches(*rule.When, data) {
 				continue
 			}
-			if err := validateSubmittedFormRule(field, value, rule, data); err != nil {
+			if err := validateSubmittedFormRule(field, value, rule, data, fieldByKey); err != nil {
 				return err
 			}
 		}
@@ -202,7 +272,13 @@ func validateSubmittedFormRules(fields []FormField, data map[string]interface{},
 	return nil
 }
 
-func validateSubmittedFormRule(field FormField, value interface{}, rule FormValidationRule, data map[string]interface{}) error {
+func validateSubmittedFormRule(
+	field FormField,
+	value interface{},
+	rule FormValidationRule,
+	data map[string]interface{},
+	fieldByKey map[string]FormField,
+) error {
 	failed := false
 	message := strings.TrimSpace(rule.Message)
 	switch rule.Type {
@@ -267,14 +343,14 @@ func validateSubmittedFormRule(field FormField, value interface{}, rule FormVali
 			message = fmt.Sprintf("%s小数位不能超过%d位", field.Label, *rule.Precision)
 		}
 	case FormRuleSelectionCount:
-		values, ok := stringSlice(value)
+		count, ok := selectionValueCount(field, value)
 		failed = !ok
-		if ok && rule.Min != nil && len(values) < int(*rule.Min) {
+		if ok && rule.Min != nil && count < int(*rule.Min) {
 			failed = true
 			if message == "" {
 				message = fmt.Sprintf("%s至少选择%d项", field.Label, int(*rule.Min))
 			}
-		} else if ok && rule.Max != nil && len(values) > int(*rule.Max) {
+		} else if ok && rule.Max != nil && count > int(*rule.Max) {
 			failed = true
 			if message == "" {
 				message = fmt.Sprintf("%s最多选择%d项", field.Label, int(*rule.Max))
@@ -285,7 +361,8 @@ func validateSubmittedFormRule(field FormField, value interface{}, rule FormVali
 		if isEmptyFormValue(value) || isEmptyFormValue(other) {
 			return nil
 		}
-		failed = !formRuleOperatorMatches(value, other, rule.Operator)
+		targetField, exists := fieldByKey[rule.Field]
+		failed = !exists || !formRuleFieldOperatorMatches(field.Type, targetField.Type, value, other, rule.Operator)
 		if message == "" {
 			message = fmt.Sprintf("%s与%s的关系不符合要求", field.Label, rule.Field)
 		}
@@ -344,6 +421,23 @@ func formRuleConditionMatches(condition FormRuleCondition, data map[string]inter
 
 func formRuleOperatorMatches(left, right interface{}, operator string) bool {
 	comparison, comparable := compareFormRuleValues(left, right)
+	return formRuleComparisonMatches(comparison, comparable, operator)
+}
+
+func formRuleFieldOperatorMatches(leftType, rightType string, left, right interface{}, operator string) bool {
+	if !validCompareOperatorForFields(leftType, rightType, operator) {
+		return false
+	}
+	if isNumberRuleField(leftType) {
+		leftNumber, leftOK := formNumber(left)
+		rightNumber, rightOK := formNumber(right)
+		return leftOK && rightOK && formRuleNumberOperatorMatches(leftNumber, rightNumber, operator)
+	}
+	comparison, comparable := compareFormRuleScalarValues(left, right)
+	return comparable && formRuleComparisonMatches(comparison, true, operator)
+}
+
+func formRuleComparisonMatches(comparison int, comparable bool, operator string) bool {
 	switch operator {
 	case FormRuleOperatorEQ:
 		return comparable && comparison == 0
@@ -418,6 +512,10 @@ func compareFormRuleValues(left, right interface{}) (int, bool) {
 			}
 		}
 	}
+	return compareFormRuleScalarValues(left, right)
+}
+
+func compareFormRuleScalarValues(left, right interface{}) (int, bool) {
 	leftText, leftOK := left.(string)
 	rightText, rightOK := right.(string)
 	if leftOK && rightOK {
@@ -457,12 +555,12 @@ func formDecimalPlaces(value interface{}) (int, bool) {
 	return len(strings.TrimRight(text[separator+1:], "0")), true
 }
 
-func validateDetailListValue(field FormField, value interface{}) error {
+func validateDetailListValue(field FormField, value interface{}, partial bool) error {
 	rows, ok := detailListRows(value)
 	if !ok {
 		return fieldTypeError(field)
 	}
-	if field.MinRows > 0 && len(rows) < field.MinRows {
+	if !partial && field.MinRows > 0 && len(rows) < field.MinRows {
 		return fmt.Errorf("%w：%s至少需要%d行", ErrFormDataInvalid, field.Label, field.MinRows)
 	}
 	if field.MaxRows > 0 && len(rows) > field.MaxRows {
@@ -493,7 +591,7 @@ func validateDetailListValue(field FormField, value interface{}) error {
 			}
 			rowData[key] = item
 		}
-		if err := ValidateFormData(field.Columns, rowData, false); err != nil {
+		if err := ValidateFormData(field.Columns, rowData, partial); err != nil {
 			return err
 		}
 	}
@@ -702,4 +800,91 @@ func stringSlice(value interface{}) ([]string, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func selectionValueCount(field FormField, value interface{}) (int, bool) {
+	if field.Type == FormFieldTypeAttachment {
+		attachments, ok := attachmentSlice(value)
+		return len(attachments), ok
+	}
+	values, ok := stringSlice(value)
+	return len(values), ok
+}
+
+func attachmentSlice(value interface{}) ([]FormAttachment, bool) {
+	switch typed := value.(type) {
+	case []FormAttachment:
+		for _, attachment := range typed {
+			if !validFormAttachment(attachment) {
+				return nil, false
+			}
+		}
+		return typed, true
+	case []string:
+		result := make([]FormAttachment, 0, len(typed))
+		for _, item := range typed {
+			item = strings.TrimSpace(item)
+			if item == "" {
+				return nil, false
+			}
+			result = append(result, FormAttachment{ID: item, Name: item, URL: item})
+		}
+		return result, true
+	case []interface{}:
+		result := make([]FormAttachment, 0, len(typed))
+		for _, item := range typed {
+			attachment, ok := formAttachment(item)
+			if !ok {
+				return nil, false
+			}
+			result = append(result, attachment)
+		}
+		return result, true
+	default:
+		return nil, false
+	}
+}
+
+func formAttachment(value interface{}) (FormAttachment, bool) {
+	if text, ok := value.(string); ok {
+		text = strings.TrimSpace(text)
+		return FormAttachment{ID: text, Name: text, URL: text}, text != ""
+	}
+	if attachment, ok := value.(FormAttachment); ok {
+		return attachment, validFormAttachment(attachment)
+	}
+	record, ok := value.(map[string]interface{})
+	if !ok {
+		return FormAttachment{}, false
+	}
+	attachment := FormAttachment{
+		ID:       formAttachmentText(record["id"]),
+		Name:     formAttachmentText(record["name"]),
+		URL:      formAttachmentText(record["url"]),
+		MimeType: formAttachmentText(record["mimeType"]),
+	}
+	if rawSize, exists := record["size"]; exists {
+		size, valid := formNumber(rawSize)
+		if !valid || size < 0 || math.Trunc(size) != size || size > math.MaxInt64 {
+			return FormAttachment{}, false
+		}
+		attachment.Size = int64(size)
+	}
+	return attachment, validFormAttachment(attachment)
+}
+
+func formAttachmentText(value interface{}) string {
+	text, _ := value.(string)
+	return strings.TrimSpace(text)
+}
+
+func validFormAttachment(attachment FormAttachment) bool {
+	if attachment.ID == "" || attachment.Name == "" || attachment.URL == "" || attachment.Size < 0 {
+		return false
+	}
+	if len([]rune(attachment.ID)) > 1024 || len([]rune(attachment.Name)) > 255 || len([]rune(attachment.URL)) > 2048 || len([]rune(attachment.MimeType)) > 255 {
+		return false
+	}
+	lowerURL := strings.ToLower(attachment.URL)
+	return !strings.HasPrefix(lowerURL, "javascript:") && !strings.HasPrefix(lowerURL, "data:") && !strings.HasPrefix(lowerURL, "file:") && !strings.HasPrefix(lowerURL, "//") && !strings.ContainsAny(attachment.URL, "\r\n\x00")
 }

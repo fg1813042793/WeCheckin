@@ -110,6 +110,21 @@ const (
 )
 
 const (
+	StartLimitModeUnlimited = "unlimited"
+	StartLimitModeLimited   = "limited"
+)
+
+const (
+	StartLimitPeriodTotal        = "total"
+	StartLimitPeriodDay          = "day"
+	StartLimitPeriodWeek         = "week"
+	StartLimitPeriodMonth        = "month"
+	StartLimitPeriodAvailability = "availability"
+)
+
+const MaxStartLimitCount = 10000
+
+const (
 	StartAvailabilityStateAvailable     = "available"
 	StartAvailabilityStateNotStarted    = "not_started"
 	StartAvailabilityStateExpired       = "expired"
@@ -179,6 +194,7 @@ const (
 	ValidationFormFieldSpan            = "form_field_span_invalid"
 	ValidationFormFieldColumns         = "form_field_columns_invalid"
 	ValidationFormFieldRows            = "form_field_rows_invalid"
+	ValidationFormFieldVisibleRows     = "form_field_visible_rows_invalid"
 	ValidationFormFieldLayout          = "form_field_layout_invalid"
 	ValidationFormFieldHelp            = "form_field_help_invalid"
 	ValidationFormFieldRules           = "form_field_rules_invalid"
@@ -188,6 +204,7 @@ const (
 	ValidationFieldPermissionDuplicate = "field_permission_duplicate"
 	ValidationInitiator                = "initiator_invalid"
 	ValidationStartAvailability        = "start_availability_invalid"
+	ValidationStartLimit               = "start_limit_invalid"
 )
 
 type Definition struct {
@@ -200,26 +217,36 @@ type Definition struct {
 }
 
 type FormField struct {
-	Key          string               `json:"key"`
-	Label        string               `json:"label"`
-	Type         string               `json:"type"`
-	Required     bool                 `json:"required,omitempty"`
-	Default      interface{}          `json:"default,omitempty"`
-	Placeholder  string               `json:"placeholder,omitempty"`
-	MaxLength    int                  `json:"maxLength,omitempty"`
-	Min          *float64             `json:"min,omitempty"`
-	Max          *float64             `json:"max,omitempty"`
-	Options      []FormOption         `json:"options,omitempty"`
-	OptionSource *FormOptionSource    `json:"optionSource,omitempty"`
-	Span         int                  `json:"span,omitempty"`
-	RowKey       string               `json:"rowKey,omitempty"`
-	Columns      []FormField          `json:"columns,omitempty"`
-	Fields       []FormField          `json:"fields,omitempty"`
-	Content      string               `json:"content,omitempty"`
-	Help         *FormHelp            `json:"help,omitempty"`
-	MinRows      int                  `json:"minRows,omitempty"`
-	MaxRows      int                  `json:"maxRows,omitempty"`
-	Rules        []FormValidationRule `json:"rules,omitempty"`
+	Key            string               `json:"key"`
+	Label          string               `json:"label"`
+	Type           string               `json:"type"`
+	Required       bool                 `json:"required,omitempty"`
+	Default        interface{}          `json:"default,omitempty"`
+	Placeholder    string               `json:"placeholder,omitempty"`
+	MaxLength      int                  `json:"maxLength,omitempty"`
+	Min            *float64             `json:"min,omitempty"`
+	Max            *float64             `json:"max,omitempty"`
+	Options        []FormOption         `json:"options,omitempty"`
+	OptionSource   *FormOptionSource    `json:"optionSource,omitempty"`
+	Span           int                  `json:"span,omitempty"`
+	RowKey         string               `json:"rowKey,omitempty"`
+	Columns        []FormField          `json:"columns,omitempty"`
+	Fields         []FormField          `json:"fields,omitempty"`
+	Content        string               `json:"content,omitempty"`
+	Help           *FormHelp            `json:"help,omitempty"`
+	MinRows        int                  `json:"minRows,omitempty"`
+	MaxRows        int                  `json:"maxRows,omitempty"`
+	MinVisibleRows int                  `json:"minVisibleRows,omitempty"`
+	MaxVisibleRows int                  `json:"maxVisibleRows,omitempty"`
+	Rules          []FormValidationRule `json:"rules,omitempty"`
+}
+
+type FormAttachment struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	MimeType string `json:"mimeType"`
+	Size     int64  `json:"size"`
 }
 
 type FormValidationRule struct {
@@ -284,8 +311,10 @@ type Node struct {
 	Automation      *AutomationConfig        `json:"automation,omitempty"`
 	Timer           *TimerConfig             `json:"timer,omitempty"`
 	Notification    *NotificationConfig      `json:"notification,omitempty"`
+	ResultNotification *NotificationConfig   `json:"resultNotification,omitempty"`
 	Initiator       *InitiatorConfig         `json:"initiator,omitempty"`
 	Availability    *StartAvailabilityConfig `json:"availability,omitempty"`
+	StartLimit      *StartLimitConfig        `json:"startLimit,omitempty"`
 }
 
 type NotificationConfig struct {
@@ -296,9 +325,10 @@ type NotificationConfig struct {
 }
 
 type InitiatorConfig struct {
-	Scope         string `json:"scope"`
-	UserIDs       []uint `json:"userIds,omitempty"`
-	DepartmentIDs []uint `json:"departmentIds,omitempty"`
+	Scope           string `json:"scope"`
+	UserIDs         []uint `json:"userIds,omitempty"`
+	DepartmentIDs   []uint `json:"departmentIds,omitempty"`
+	ExcludedUserIDs []uint `json:"excludedUserIds,omitempty"`
 }
 
 type StartAvailabilityConfig struct {
@@ -313,6 +343,18 @@ type StartAvailabilityConfig struct {
 	LastDayOfMonth     bool   `json:"lastDayOfMonth,omitempty"`
 	DailyStartTime     string `json:"dailyStartTime,omitempty"`
 	DailyEndTime       string `json:"dailyEndTime,omitempty"`
+}
+
+type StartLimitConfig struct {
+	Mode     string `json:"mode"`
+	Period   string `json:"period,omitempty"`
+	MaxCount int    `json:"maxCount,omitempty"`
+}
+
+type StartLimitWindow struct {
+	PeriodKey string
+	StartsAt  int64
+	EndsAt    int64
 }
 
 type AutomationConfig struct {

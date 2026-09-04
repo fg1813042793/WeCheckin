@@ -16,6 +16,7 @@
             :field-access="props.fieldAccess"
             :field-actions="props.fieldActions"
             :readonly="readonly"
+            :user-name-map="props.userNameMap"
             embedded
             :show-errors="errorsVisible"
             @update:model-value="emit('update:modelValue', $event)"
@@ -54,7 +55,12 @@
           </span>
         </template>
         <el-input
-          v-if="['text', 'phone', 'email', 'user', 'department'].includes(field.type)"
+          v-if="field.type === 'user' && fieldReadonly(field)"
+          :model-value="userDisplayName(stringValue(field))"
+          readonly
+        />
+        <el-input
+          v-else-if="['text', 'phone', 'email', 'user', 'department'].includes(field.type)"
           :model-value="stringValue(field)"
           :placeholder="field.placeholder || placeholderFor(field)"
           :maxlength="field.maxLength || undefined"
@@ -69,8 +75,9 @@
           :maxlength="field.maxLength || undefined"
           :readonly="fieldReadonly(field)"
           type="textarea"
-          :rows="3"
-          resize="vertical"
+          :autosize="workflowTextareaAutosize(field, 3, 8)"
+          :show-word-limit="Boolean(field.maxLength)"
+          resize="none"
           @update:model-value="updateField(field, $event)"
         />
         <el-input-number
@@ -215,7 +222,12 @@
                     <i v-if="column.required">*</i>
                   </span>
                   <el-input
-                    v-if="['text', 'phone', 'email', 'user', 'department'].includes(column.type)"
+                    v-if="column.type === 'user' && fieldReadonly(field)"
+                    :model-value="userDisplayName(detailStringValue(row, column))"
+                    readonly
+                  />
+                  <el-input
+                    v-else-if="['text', 'phone', 'email', 'user', 'department'].includes(column.type)"
                     :model-value="detailStringValue(row, column)"
                     :placeholder="column.placeholder || placeholderFor(column)"
                     :maxlength="column.maxLength || undefined"
@@ -230,8 +242,9 @@
                     :maxlength="column.maxLength || undefined"
                     :readonly="fieldReadonly(field)"
                     type="textarea"
-                    :rows="2"
-                    resize="vertical"
+                    :autosize="workflowTextareaAutosize(column, 2, 6)"
+                    :show-word-limit="Boolean(column.maxLength)"
+                    resize="none"
                     @update:model-value="updateDetailCell(field, index, column, $event)"
                   />
                   <el-input-number
@@ -335,6 +348,11 @@
                     style="width: 100%"
                     @update:model-value="updateDetailCell(field, index, column, $event || [])"
                   />
+                  <el-input
+                    v-else-if="column.type === 'user_multi' && fieldReadonly(field)"
+                    :model-value="userDisplayNames(detailArrayValue(row, column))"
+                    readonly
+                  />
                   <el-select
                     v-else-if="column.type === 'user_multi' || column.type === 'department_multi'"
                     :model-value="detailArrayValue(row, column)"
@@ -349,7 +367,7 @@
                   />
                   <el-input
                     v-else-if="column.type === 'attachment'"
-                    :model-value="detailArrayTextValue(row, column)"
+                    :model-value="detailAttachmentTextModel(row, column)"
                     :placeholder="column.placeholder || '每行填写一个附件地址或标识'"
                     :readonly="fieldReadonly(field)"
                     type="textarea"
@@ -369,6 +387,11 @@
           </div>
           <el-empty v-else :image-size="48" description="暂无明细" />
         </div>
+        <el-input
+          v-else-if="field.type === 'user_multi' && fieldReadonly(field)"
+          :model-value="userDisplayNames(arrayValue(field))"
+          readonly
+        />
         <el-select
           v-else-if="field.type === 'user_multi' || field.type === 'department_multi'"
           :model-value="arrayValue(field)"
@@ -383,7 +406,7 @@
         />
         <el-input
           v-else-if="field.type === 'attachment'"
-          :model-value="arrayTextValue(field)"
+          :model-value="attachmentTextModel(field)"
           :placeholder="field.placeholder || '每行填写一个附件地址或标识'"
           :readonly="fieldReadonly(field)"
           type="textarea"
@@ -418,11 +441,13 @@ import {
   hasWorkflowOptionChildren,
   initialWorkflowFormData,
   normalizeWorkflowFormValue,
+  normalizeWorkflowAttachments,
   normalizeWorkflowOptions,
   optionPathValue,
   visibleWorkflowFormFields,
   validateWorkflowFormData,
   workflowFieldIsRequired,
+  workflowTextareaAutosize,
   workflowDetailRowKey,
   type WorkflowFieldActionMap,
   type WorkflowFieldAccessMap,
@@ -438,11 +463,13 @@ const props = withDefaults(defineProps<{
   emptyText?: string
   embedded?: boolean
   showErrors?: boolean
+  userNameMap?: Record<string, string>
 }>(), {
   readonly: false,
   emptyText: '暂无流程表单',
   embedded: false,
   showErrors: false,
+  userNameMap: () => ({}),
 })
 
 const emit = defineEmits<{
@@ -467,7 +494,7 @@ const accessMap = computed<WorkflowFieldAccessMap>(() => {
 })
 
 const visibleFields = computed(() => visibleWorkflowFormFields(props.fields || [], accessMap.value))
-const validationErrors = computed(() => validateWorkflowFormData(props.fields || [], props.modelValue || {}))
+const validationErrors = computed(() => validateWorkflowFormData(props.fields || [], props.modelValue || {}, accessMap.value))
 const errorsVisible = computed(() => props.showErrors || showValidationErrors.value)
 
 const remoteOptionSignature = computed(() => {
@@ -525,6 +552,15 @@ function stringValue(field: WorkflowFormField) {
   return typeof value === 'string' ? value : ''
 }
 
+function userDisplayName(value: string) {
+  const userID = value.trim()
+  return props.userNameMap?.[userID]?.trim() || userID
+}
+
+function userDisplayNames(values: string[]) {
+  return values.map(userDisplayName).filter(Boolean).join('、')
+}
+
 function numberValue(field: WorkflowFormField) {
   const value = fieldValue(field)
   return typeof value === 'number' ? value : undefined
@@ -539,8 +575,8 @@ function arrayValue(field: WorkflowFormField): string[] {
   return Array.isArray(value) ? value.map((item) => String(item)) : []
 }
 
-function arrayTextValue(field: WorkflowFormField) {
-  return arrayValue(field).join('\n')
+function attachmentTextModel(field: WorkflowFormField) {
+  return normalizeWorkflowAttachments(fieldValue(field)).map((attachment) => attachment.name || attachment.url).join('\n')
 }
 
 function detailColumns(field: WorkflowFormField) {
@@ -701,8 +737,8 @@ function detailArrayValue(row: Record<string, unknown>, column: WorkflowFormFiel
   return Array.isArray(value) ? value.map((item) => String(item)) : []
 }
 
-function detailArrayTextValue(row: Record<string, unknown>, column: WorkflowFormField) {
-  return detailArrayValue(row, column).join('\n')
+function detailAttachmentTextModel(row: Record<string, unknown>, column: WorkflowFormField) {
+  return normalizeWorkflowAttachments(detailCellValue(row, column)).map((attachment) => attachment.name || attachment.url).join('\n')
 }
 
 function detailActions(field: WorkflowFormField) {

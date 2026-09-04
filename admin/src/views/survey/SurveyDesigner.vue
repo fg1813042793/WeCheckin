@@ -1516,7 +1516,7 @@ import { ref, computed, reactive, onMounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'
-import request from '../../utils/request'
+import request, { showRequestError } from '../../utils/request'
 import { normalizeQuestions, importFromSurveyKing, exportToSurveyKing, isSurveyKingFormat, toSkType, toWcType } from '../../utils/surveyKingBridge'
 import DraggableList from './formkit/DraggableList.vue'
 
@@ -2133,8 +2133,8 @@ async function confirmUploadBank() {
     ElMessage.success('已上传到题库')
     bankDialog.visible = false
     loadBank()
-  } catch (e: any) {
-    ElMessage.error(e?.msg || '上传失败')
+  } catch (error) {
+    showRequestError(error, '上传失败')
   } finally {
     bankDialog.saving = false
   }
@@ -2633,7 +2633,7 @@ async function saveLogicRules(showMsg = true) {
     const r: any = await adminApi.surveyEdit(payload)
     if (!form.id) { form.id = r.id || r.data?.id; router.replace({ query: { id: String(form.id) } }) }
     if (showMsg) ElMessage.success('已保存')
-  } catch { if (showMsg) ElMessage.error('保存失败') }
+  } catch (error) { if (showMsg) showRequestError(error, '保存失败') }
   finally { saving.value = false }
 }
 
@@ -2854,7 +2854,7 @@ async function deleteResponse(id: number) {
     responseTotal.value--
     stats.totalCount = responseTotal.value
     responseRows.value = responseSource.value
-  } catch { ElMessage.error('删除失败') }
+  } catch (error) { showRequestError(error, '删除失败') }
 }
 
 const showTrash = ref(false)
@@ -3548,7 +3548,7 @@ async function load() {
     }
     await nextTick()
     dataLoaded = true
-  } catch { ElMessage.error('加载失败') }
+  } catch (error) { showRequestError(error, '加载失败') }
 }
 
 async function save(showMessage: boolean | Event = true) {
@@ -3572,8 +3572,8 @@ async function save(showMessage: boolean | Event = true) {
     }
     await loadAdminTree()
     return true
-  } catch {
-    if (shouldShowMessage) ElMessage.error('保存失败')
+  } catch (error) {
+    if (shouldShowMessage) showRequestError(error, '保存失败')
     return false
   }
   finally { saving.value = false }

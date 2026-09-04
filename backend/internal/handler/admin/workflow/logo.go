@@ -42,6 +42,15 @@ func workflowCreateRequestFromMultipart(c *app.RequestContext) workflowservice.C
 	}
 }
 
+func workflowCopyRequestFromMultipart(c *app.RequestContext) workflowservice.CopyRequest {
+	return workflowservice.CopyRequest{
+		Key:         string(c.FormValue("key")),
+		Name:        string(c.FormValue("name")),
+		Description: string(c.FormValue("description")),
+		Category:    string(c.FormValue("category")),
+	}
+}
+
 func workflowUpdateRequestFromMultipart(c *app.RequestContext) workflowservice.UpdateRequest {
 	return workflowservice.UpdateRequest{
 		Name:        string(c.FormValue("name")),

@@ -7,7 +7,7 @@ const source = readFileSync(resolve(currentDir, '../src/utils/request.ts'), 'utf
 
 const requiredSnippets = [
   "import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'",
-  'export interface ApiResponse<T = any>',
+  'export interface ApiResponse<T = unknown>',
   'export type ApiRequest',
   'const request = axiosInstance as ApiRequest',
   "import { clearAdminSession } from './adminSession'",

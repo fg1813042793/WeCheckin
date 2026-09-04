@@ -32,11 +32,13 @@
                 <img v-if="row.logoUrl" :src="row.logoUrl" :alt="row.name" />
                 <el-icon v-else><Share /></el-icon>
               </span>
-              <div>
-                <strong>{{ row.name }}</strong>
-                <small>{{ row.key }}</small>
-              </div>
+              <strong>{{ row.name }}</strong>
             </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="key" label="流程编码" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="workflow-code">{{ row.key }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="category" label="分类" min-width="120">
@@ -54,10 +56,11 @@
         <el-table-column label="更新时间" width="170">
           <template #default="{ row }">{{ formatTime(row.editTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="390" fixed="right">
+        <el-table-column label="操作" width="450" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
               <el-button v-if="canEdit" size="small" icon="EditPen" @click="openEdit(row)">修改</el-button>
+              <el-button v-if="canAdd" size="small" icon="CopyDocument" @click="openCopy(row)">复制</el-button>
               <el-button v-if="canEdit" size="small" type="primary" @click="openDesigner(row)">设计</el-button>
               <el-button size="small" @click="openVersions(row)">版本</el-button>
               <el-button v-if="canPublish" size="small" type="success" plain @click="publish(row)">发布</el-button>
@@ -147,18 +150,38 @@
       </template>
     </el-dialog>
 
-    <el-drawer v-model="versionDrawer" title="发布版本" size="520px">
-      <div v-loading="versionsLoading" class="version-list">
-        <el-empty v-if="!versionsLoading && versions.length === 0" description="暂未发布版本" />
-        <div v-for="version in versions" :key="version.id" class="version-item">
-          <span class="version-item__badge">v{{ version.version }}</span>
-          <div>
-            <strong>{{ activeDefinition?.name }}</strong>
-            <p>{{ formatTime(version.publishedAt) }} · 发布人 ID {{ version.publishedBy || '-' }}</p>
-          </div>
-        </div>
-      </div>
-    </el-drawer>
+    <el-dialog v-model="copyDialog" title="复制流程" width="520px" destroy-on-close>
+      <el-form label-width="86px" @submit.prevent>
+        <el-form-item label="流程名称" required>
+          <el-input v-model="copyForm.name" maxlength="80" placeholder="请输入新流程名称" />
+        </el-form-item>
+        <el-form-item label="流程编码" required>
+          <el-input v-model="copyForm.key" maxlength="80" placeholder="请输入新流程编码" />
+          <div class="form-help">编码需保持唯一，且发布后不建议再调整。</div>
+        </el-form-item>
+        <el-form-item label="流程分类">
+          <el-input v-model="copyForm.category" maxlength="50" placeholder="例如：行政审批" />
+        </el-form-item>
+        <el-form-item label="流程说明">
+          <el-input v-model="copyForm.description" type="textarea" :rows="3" maxlength="300" show-word-limit />
+        </el-form-item>
+        <el-form-item label="流程 Logo">
+          <WorkflowLogoPicker v-model:file="copyLogoFile" :disabled="copying" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="copyDialog = false">取消</el-button>
+        <el-button type="primary" :loading="copying" @click="copyDefinition">复制并设计</el-button>
+      </template>
+    </el-dialog>
+
+    <WorkflowVersionDrawer
+      v-model="versionDrawer"
+      :definition="activeDefinition"
+      :can-publish="canPublish"
+      :can-delete="canDelete"
+      @changed="handleVersionChanged"
+    />
   </div>
 </template>
 
@@ -170,7 +193,8 @@ import { adminApi } from '../../api'
 import { hasPerm } from '../../utils/permission'
 import WorkflowLogoPicker from './components/WorkflowLogoPicker.vue'
 import WorkflowPublishDialog from './components/WorkflowPublishDialog.vue'
-import type { WorkflowDefinitionDetail, WorkflowDefinitionSummary, WorkflowVersion } from './types'
+import WorkflowVersionDrawer from './components/WorkflowVersionDrawer.vue'
+import type { WorkflowDefinitionDetail, WorkflowDefinitionSummary } from './types'
 
 const router = useRouter()
 const loading = ref(false)
@@ -189,6 +213,11 @@ const createDialog = ref(false)
 const creating = ref(false)
 const createForm = reactive({ name: '', key: '', category: '', description: '' })
 const createLogoFile = ref<File | null>(null)
+const copyDialog = ref(false)
+const copying = ref(false)
+const copyTarget = ref<WorkflowDefinitionSummary | null>(null)
+const copyForm = reactive({ name: '', key: '', category: '', description: '' })
+const copyLogoFile = ref<File | null>(null)
 const editDialog = ref(false)
 const editing = ref(false)
 const editTarget = ref<WorkflowDefinitionSummary | null>(null)
@@ -198,8 +227,6 @@ const editLogoRemoved = ref(false)
 const publishDialog = ref(false)
 const publishTarget = ref<WorkflowDefinitionSummary | null>(null)
 const versionDrawer = ref(false)
-const versionsLoading = ref(false)
-const versions = ref<WorkflowVersion[]>([])
 const activeDefinition = ref<WorkflowDefinitionSummary | null>(null)
 
 function statusMeta(status: number) {
@@ -252,6 +279,13 @@ function openCreate() {
   Object.assign(createForm, { name: '', key: '', category: '', description: '' })
   createLogoFile.value = null
   createDialog.value = true
+}
+
+function openCopy(row: WorkflowDefinitionSummary) {
+  copyTarget.value = row
+  Object.assign(copyForm, { name: '', key: '', category: '', description: '' })
+  copyLogoFile.value = null
+  copyDialog.value = true
 }
 
 function openEdit(row: WorkflowDefinitionSummary) {
@@ -343,6 +377,36 @@ async function createDefinition() {
   }
 }
 
+async function copyDefinition() {
+  if (!copyTarget.value) return
+  const name = copyForm.name.trim()
+  const key = copyForm.key.trim()
+  if (!name || !key) {
+    ElMessage.warning('请填写流程名称和流程编码')
+    return
+  }
+  if (!/^[A-Za-z][A-Za-z0-9_\-]*$/.test(key)) {
+    ElMessage.warning('流程编码需以字母开头，仅支持字母、数字、下划线和短横线')
+    return
+  }
+  copying.value = true
+  try {
+    const formData = buildWorkflowDefinitionFormData({
+      name,
+      key,
+      category: copyForm.category.trim(),
+      description: copyForm.description.trim(),
+    }, copyLogoFile.value)
+    const response = await adminApi.workflowDefinitionCopy(copyTarget.value.id, formData)
+    const detail = response.data
+    copyDialog.value = false
+    ElMessage.success('流程复制成功')
+    await router.push(`/workflow/definitions/${detail.id}/designer`)
+  } finally {
+    copying.value = false
+  }
+}
+
 function openDesigner(row: WorkflowDefinitionSummary) {
   router.push(`/workflow/definitions/${row.id}/designer`)
 }
@@ -359,17 +423,14 @@ async function remove(row: WorkflowDefinitionSummary) {
   await loadList()
 }
 
-async function openVersions(row: WorkflowDefinitionSummary) {
+function openVersions(row: WorkflowDefinitionSummary) {
   activeDefinition.value = row
-  versions.value = []
   versionDrawer.value = true
-  versionsLoading.value = true
-  try {
-    const response = await adminApi.workflowDefinitionVersions(row.id)
-    versions.value = Array.isArray(response.data) ? response.data : []
-  } finally {
-    versionsLoading.value = false
-  }
+}
+
+async function handleVersionChanged() {
+  await loadList()
+  activeDefinition.value = list.value.find(item => item.id === activeDefinition.value?.id) || activeDefinition.value
 }
 
 onMounted(loadList)
@@ -380,10 +441,6 @@ onMounted(loadList)
 .workflow-name__icon { display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 7px; color: #0f766e; background: #e9f8f5; }
 .workflow-name__icon img { width: 100%; height: 100%; object-fit: cover; }
 .workflow-name strong { display: block; color: #1f2937; font-weight: 600; }
-.workflow-name small { display: block; margin-top: 3px; color: #94a3b8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.workflow-code { color: #64748b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .form-help { margin-top: 6px; color: #94a3b8; font-size: 12px; line-height: 1.5; }
-.version-list { min-height: 180px; }
-.version-item { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0f5; }
-.version-item__badge { display: grid; place-items: center; width: 42px; height: 32px; border-radius: 6px; color: #0f766e; background: #e9f8f5; font-weight: 700; }
-.version-item p { margin: 4px 0 0; color: #8492a6; font-size: 12px; }
 </style>

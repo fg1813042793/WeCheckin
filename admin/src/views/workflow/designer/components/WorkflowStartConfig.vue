@@ -18,35 +18,32 @@
             </el-radio-group>
           </el-form-item>
 
-          <div v-if="scope === 'specified'" class="config-grid">
-            <el-form-item label="允许发起部门">
-              <el-tree-select
-                :model-value="departmentIds"
-                :data="departments"
-                :props="{ label: 'name', children: 'children' }"
-                node-key="id"
-                multiple
-                check-strictly
-                clearable
-                collapse-tags
-                collapse-tags-tooltip
-                :render-after-expand="false"
-                :disabled="readonly"
-                placeholder="请选择允许发起该流程的部门"
-                style="width: 100%"
-                @update:model-value="updateDepartmentIds"
-              />
-            </el-form-item>
-            <el-form-item label="额外允许用户">
+          <div :class="['config-grid', { 'config-grid--single': scope === 'all' }]">
+            <el-form-item v-if="scope === 'specified'" label="允许发起范围" required>
               <WorkflowUserTreePicker
                 :model-value="userIds"
+                :department-model-value="departmentIds"
+                :departments="departments"
+                :users="users"
+                multiple
+                select-department-rules
+                :disabled="readonly"
+                placeholder="请选择允许发起的部门或用户"
+                @update:model-value="updateUserIds"
+                @update:department-model-value="updateDepartmentIds"
+              />
+            </el-form-item>
+            <el-form-item label="排除用户">
+              <WorkflowUserTreePicker
+                :model-value="excludedUserIds"
                 :departments="departments"
                 :users="users"
                 multiple
                 :disabled="readonly"
-                placeholder="请选择允许发起该流程的用户"
-                @update:model-value="updateUserIds"
+                placeholder="请选择不允许发起该流程的用户"
+                @update:model-value="updateExcludedUserIds"
               />
+              <div class="form-help">排除用户优先级最高，在全部用户和指定范围下都会生效。</div>
             </el-form-item>
           </div>
         </el-form>
@@ -140,6 +137,47 @@
           </template>
         </el-form>
       </section>
+
+      <section class="config-section">
+        <div class="config-section__heading">
+          <div>
+            <span class="config-section__index">03</span>
+            <h3>发起次数限制</h3>
+          </div>
+          <el-tag size="small" type="info">{{ startLimitSummary }}</el-tag>
+        </div>
+
+        <el-form label-position="top" @submit.prevent>
+          <el-form-item label="限制方式" required>
+            <el-radio-group :model-value="startLimitMode" class="limit-mode" :disabled="readonly" @change="updateStartLimitMode">
+              <el-radio-button value="unlimited">不限次数</el-radio-button>
+              <el-radio-button value="limited">限制次数</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+
+          <template v-if="startLimitMode === 'limited'">
+            <div class="config-grid">
+              <el-form-item label="统计周期" required>
+                <el-select :model-value="startLimitPeriod" :disabled="readonly" @change="updateStartLimitPeriod">
+                  <el-option v-for="option in startLimitPeriodOptions" :key="option.value" :label="option.label" :value="option.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="每人最多发起" required>
+                <el-input-number
+                  :model-value="startLimitMaxCount"
+                  :min="1"
+                  :max="10000"
+                  :step="1"
+                  controls-position="right"
+                  :disabled="readonly"
+                  @change="updateStartLimitMaxCount"
+                />
+              </el-form-item>
+            </div>
+            <div class="form-help">草稿不计次数；提交成功后计入。管理员代发时，次数归属所选员工。</div>
+          </template>
+        </el-form>
+      </section>
     </div>
   </div>
 </template>
@@ -153,6 +191,8 @@ import type {
   WorkflowInitiatorScope,
   WorkflowStartAvailabilityConfig,
   WorkflowStartAvailabilityMode,
+  WorkflowStartLimitMode,
+  WorkflowStartLimitPeriod,
 } from '../../types'
 
 type DepartmentNode = {
@@ -185,6 +225,7 @@ const startNode = computed(() => props.draft.nodes.find(node => node.type === 's
 const scope = computed<WorkflowInitiatorScope>(() => startNode.value?.initiator?.scope === 'specified' ? 'specified' : 'all')
 const userIds = computed(() => normalizeIDs(startNode.value?.initiator?.userIds || []))
 const departmentIds = computed(() => normalizeIDs(startNode.value?.initiator?.departmentIds || []))
+const excludedUserIds = computed(() => normalizeIDs(startNode.value?.initiator?.excludedUserIds || []))
 const availabilityMode = computed<WorkflowStartAvailabilityMode>(() => {
   const mode = startNode.value?.availability?.mode
   return mode === 'fixed' || mode === 'weekly' || mode === 'monthly' ? mode : 'always'
@@ -192,6 +233,29 @@ const availabilityMode = computed<WorkflowStartAvailabilityMode>(() => {
 const weekdays = computed(() => normalizeDays(startNode.value?.availability?.weekdays || [], 7))
 const monthDays = computed(() => normalizeDays(startNode.value?.availability?.monthDays || [], 31))
 const lastDayOfMonth = computed(() => Boolean(startNode.value?.availability?.lastDayOfMonth))
+const startLimitMode = computed<WorkflowStartLimitMode>(() => startNode.value?.startLimit?.mode === 'limited' ? 'limited' : 'unlimited')
+const startLimitPeriod = computed<WorkflowStartLimitPeriod>(() => {
+  const period = startNode.value?.startLimit?.period
+  if (period === 'total' || period === 'day' || period === 'week' || period === 'month') return period
+  if (period === 'availability' && availabilityMode.value !== 'always') return period
+  return availabilityMode.value === 'always' ? 'month' : 'availability'
+})
+const startLimitMaxCount = computed(() => {
+  const count = Number(startNode.value?.startLimit?.maxCount)
+  return Number.isInteger(count) && count >= 1 && count <= 10000 ? count : 1
+})
+const startLimitPeriodOptions = computed<Array<{ label: string, value: WorkflowStartLimitPeriod }>>(() => [
+  { label: '累计', value: 'total' },
+  { label: '每天', value: 'day' },
+  { label: '每周', value: 'week' },
+  { label: '每月', value: 'month' },
+  ...(availabilityMode.value === 'always' ? [] : [{ label: '每个开放期', value: 'availability' as const }]),
+])
+const startLimitSummary = computed(() => {
+  if (startLimitMode.value === 'unlimited') return '不限次数'
+  const periodLabel = startLimitPeriodOptions.value.find(option => option.value === startLimitPeriod.value)?.label || '当前周期'
+  return `${periodLabel} ${startLimitMaxCount.value} 次`
+})
 
 const fixedRange = computed<[number, number] | null>({
   get() {
@@ -242,23 +306,29 @@ function updateScope(value: string | number | boolean | undefined) {
   const node = startNode.value
   if (!node || props.readonly) return
   node.initiator = value === 'specified'
-    ? { scope: 'specified', userIds: userIds.value, departmentIds: departmentIds.value }
-    : { scope: 'all' }
+    ? { scope: 'specified', userIds: userIds.value, departmentIds: departmentIds.value, excludedUserIds: excludedUserIds.value }
+    : { scope: 'all', excludedUserIds: excludedUserIds.value }
   emit('change')
 }
 
 function updateUserIds(values: number[]) {
-  updateInitiatorIDs(normalizeIDs(values), departmentIds.value)
+  updateInitiator(normalizeIDs(values), departmentIds.value, excludedUserIds.value)
 }
 
 function updateDepartmentIds(values: unknown) {
-  updateInitiatorIDs(userIds.value, normalizeIDs(Array.isArray(values) ? values : []))
+  updateInitiator(userIds.value, normalizeIDs(Array.isArray(values) ? values : []), excludedUserIds.value)
 }
 
-function updateInitiatorIDs(nextUserIds: number[], nextDepartmentIds: number[]) {
+function updateExcludedUserIds(values: number[]) {
+  updateInitiator(userIds.value, departmentIds.value, normalizeIDs(values))
+}
+
+function updateInitiator(nextUserIds: number[], nextDepartmentIds: number[], nextExcludedUserIds: number[]) {
   const node = startNode.value
   if (!node || props.readonly) return
-  node.initiator = { scope: 'specified', userIds: nextUserIds, departmentIds: nextDepartmentIds }
+  node.initiator = scope.value === 'specified'
+    ? { scope: 'specified', userIds: nextUserIds, departmentIds: nextDepartmentIds, excludedUserIds: nextExcludedUserIds }
+    : { scope: 'all', excludedUserIds: nextExcludedUserIds }
   emit('change')
 }
 
@@ -313,6 +383,41 @@ function updateAvailability(config: WorkflowStartAvailabilityConfig) {
   const node = startNode.value
   if (!node || props.readonly) return
   node.availability = config
+  if (config.mode === 'always' && node.startLimit?.mode === 'limited' && node.startLimit.period === 'availability') {
+    node.startLimit = { ...node.startLimit, period: 'month' }
+  }
+  emit('change')
+}
+
+function updateStartLimitMode(value: string | number | boolean | undefined) {
+  const node = startNode.value
+  if (!node || props.readonly) return
+  if (value !== 'limited') {
+    node.startLimit = { mode: 'unlimited' }
+  }
+  else {
+    node.startLimit = {
+      mode: 'limited',
+      period: availabilityMode.value === 'always' ? 'month' : 'availability',
+      maxCount: 1,
+    }
+  }
+  emit('change')
+}
+
+function updateStartLimitPeriod(value: string) {
+  const node = startNode.value
+  if (!node || props.readonly) return
+  const period: WorkflowStartLimitPeriod = value === 'total' || value === 'day' || value === 'week' || value === 'availability' ? value : 'month'
+  node.startLimit = { mode: 'limited', period, maxCount: startLimitMaxCount.value }
+  emit('change')
+}
+
+function updateStartLimitMaxCount(value: number | undefined) {
+  const node = startNode.value
+  if (!node || props.readonly) return
+  const normalized = Math.min(10000, Math.max(1, Math.trunc(Number(value) || 1)))
+  node.startLimit = { mode: 'limited', period: startLimitPeriod.value, maxCount: normalized }
   emit('change')
 }
 
@@ -327,31 +432,31 @@ function normalizeDays(values: unknown[], maximum: number) {
 
 <style scoped>
 .workflow-start-config { width: 100%; min-width: 0; overflow: auto; background: #f7f9fc; }
-.workflow-start-config__content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; width: min(1040px, 100%); margin: 10px; padding: 28px 0 48px; }
-.config-section { padding: 24px 28px 28px; border: 1px solid #dfe5ec; border-radius: 8px; background: #fff; box-shadow: 0 2px 10px rgb(15 23 42 / 5%); }
+.workflow-start-config__content { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; width: calc(100% - 20px); margin: 10px; padding: 28px 0 48px; }
+.config-section { box-sizing: border-box; flex: 1 1 380px; max-width: 520px; min-width: 0; padding: 24px 28px 28px; border: 1px solid #dfe5ec; border-radius: 8px; background: #fff; box-shadow: 0 2px 10px rgb(15 23 42 / 5%); }
 .config-section__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -2px 0 22px; padding-bottom: 16px; border-bottom: 1px solid #edf1f5; }
 .config-section__heading > div { display: flex; align-items: center; gap: 10px; }
 .config-section__heading h3 { margin: 0; color: #1f2937; font-size: 17px; font-weight: 650; }
 .config-section__index { display: grid; width: 30px; height: 24px; place-items: center; border-radius: 4px; color: #0f766e; background: #dff5f1; font-size: 11px; font-weight: 700; }
-.scope-mode, .availability-mode { display: flex; width: 100%; }
-.scope-mode :deep(.el-radio-button), .availability-mode :deep(.el-radio-button) { flex: 1; }
-.scope-mode :deep(.el-radio-button__inner), .availability-mode :deep(.el-radio-button__inner) { width: 100%; }
+.scope-mode, .limit-mode { display: flex; width: 100%; }
+.availability-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+.scope-mode :deep(.el-radio-button), .availability-mode :deep(.el-radio-button), .limit-mode :deep(.el-radio-button) { flex: 1; }
+.scope-mode :deep(.el-radio-button__inner), .availability-mode :deep(.el-radio-button__inner), .limit-mode :deep(.el-radio-button__inner) { width: 100%; }
+.availability-mode :deep(.el-radio-button__inner) { border: 1px solid var(--el-border-color); }
 .config-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+.config-grid--single { grid-template-columns: minmax(0, 1fr); }
 .config-grid--schedule { align-items: start; }
+.form-help { margin-top: 6px; color: #8492a6; font-size: 12px; line-height: 1.5; }
 .weekday-options { display: flex; width: 100%; }
 .weekday-options :deep(.el-checkbox-button) { flex: 1; }
 .weekday-options :deep(.el-checkbox-button__inner) { width: 100%; padding-inline: 8px; }
 .month-day-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; }
 .month-day-row .el-select { width: 100%; }
 .config-section :deep(.el-form-item:last-child) { margin-bottom: 0; }
-@media (max-width: 1100px) {
-  .workflow-start-config__content { grid-template-columns: minmax(0, 500px); justify-content: start; width: 100%; }
-}
+.config-section :deep(.el-select), .config-section :deep(.el-input-number) { width: 100%; }
 @media (max-width: 900px) {
   .workflow-start-config__content { gap: 14px; padding: 16px 0 28px; }
   .config-section { padding: 20px 16px 22px; }
   .config-grid { grid-template-columns: 1fr; gap: 0; }
-  .availability-mode { display: grid; grid-template-columns: 1fr 1fr; }
-  .availability-mode :deep(.el-radio-button__inner) { border: 1px solid var(--el-border-color); }
 }
 </style>

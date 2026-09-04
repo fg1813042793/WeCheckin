@@ -134,6 +134,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
+import { showRequestError } from '../../utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -249,7 +250,7 @@ async function exportCSV() {
     const a = document.createElement('a')
     a.href = url; a.download = `survey_${surveyId}.csv`; a.click()
     URL.revokeObjectURL(url)
-  } catch (e) { ElMessage.error('导出失败') }
+  } catch (error) { showRequestError(error, '导出失败') }
 }
 
 async function del(row: any) {

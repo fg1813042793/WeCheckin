@@ -126,7 +126,7 @@
                   </el-row>
                   <div class="corp-config-notify">
                     <div class="corp-config-notify__main">
-                      <span class="corp-config-notify__label">绩效流程通知</span>
+                      <span class="corp-config-notify__label">钉钉通知</span>
                       <el-switch
                         v-model="corpConfig.notifyEnabled"
                         :active-value="1"
@@ -136,7 +136,7 @@
                         inline-prompt
                       />
                     </div>
-                    <span class="settings-help">开启后，员工提交自评会通过该企业应用提醒直属上级。</span>
+                    <span class="settings-help">开启后，可通过该企业应用发送流程提醒和管理后台手动通知。</span>
                   </div>
                   <div class="corp-config-enabled">
                     <span class="corp-config-enabled__label">企业应用状态</span>
@@ -298,6 +298,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../../utils/request'
+import type { DingTalkSettings } from '../../api/types'
 import { hasPerm } from '../../utils/permission'
 
 const defaultAppName = 'OA管理'
@@ -442,7 +443,7 @@ async function removeCorpConfig(index: number) {
 async function loadSettings() {
   loading.value = true
   try {
-    const res = await request.get('/api/v2/admin/dingtalk/settings')
+    const res = await request.get<DingTalkSettings>('/api/v2/admin/dingtalk/settings')
     const data = res.data || {}
     form.corpId = data.corpId || ''
     form.appKey = data.appKey || ''

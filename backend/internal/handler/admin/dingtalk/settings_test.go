@@ -140,7 +140,7 @@ func TestDingTalkSettingsCorpDeleteRequiresConfirmation(t *testing.T) {
 	}
 }
 
-func TestDingTalkSettingsExposePerformanceNotificationConfig(t *testing.T) {
+func TestDingTalkSettingsExposeNotificationConfig(t *testing.T) {
 	handlerSrc, err := os.ReadFile("handler.go")
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
@@ -163,18 +163,19 @@ func TestDingTalkSettingsExposePerformanceNotificationConfig(t *testing.T) {
 		"agentId",
 		"corpConfig.notifyEnabled",
 		"notifyEnabled: item.notifyEnabled",
-			"绩效流程通知",
-			"默认通知方式",
-			"App ID 只用于通知点击打开应用",
-			"AgentId + OA",
-			"agent_fallback",
-			"旧版优先，失败兜底新版",
-			"sampleLink",
-			"新版机器人通知",
-			"旧版工作通知",
-		} {
+		"钉钉通知",
+		"流程提醒和管理后台手动通知",
+		"默认通知方式",
+		"App ID 只用于通知点击打开应用",
+		"AgentId + OA",
+		"agent_fallback",
+		"旧版优先，失败兜底新版",
+		"sampleLink",
+		"新版机器人通知",
+		"旧版工作通知",
+	} {
 		if !strings.Contains(combined, want) {
-			t.Fatalf("dingtalk settings should expose performance notification config with %q", want)
+			t.Fatalf("dingtalk settings should expose notification config with %q", want)
 		}
 	}
 	if strings.Contains(combined, "form.notifyEnabled") {
@@ -186,8 +187,8 @@ func TestDingTalkSettingsExposePerformanceNotificationConfig(t *testing.T) {
 		t.Fatalf("dingtalk setup app tab not found")
 	}
 	appPane := viewText[appStart:]
-	if strings.Contains(appPane, "绩效流程通知") {
-		t.Fatalf("app brand config tab should not contain performance notification switch")
+	if strings.Contains(appPane, "corpConfig.notifyEnabled") {
+		t.Fatalf("app brand config tab should not contain enterprise notification switch")
 	}
 }
 

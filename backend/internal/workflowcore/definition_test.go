@@ -52,6 +52,8 @@ func TestValidateDefinitionAcceptsInitiatorDepartments(t *testing.T) {
 		{name: "specified users", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, UserIDs: []uint{7, 8}}},
 		{name: "specified departments", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, DepartmentIDs: []uint{3, 5}}},
 		{name: "users and departments", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, UserIDs: []uint{7}, DepartmentIDs: []uint{3}}},
+		{name: "all users with exclusions", initiator: InitiatorConfig{Scope: InitiatorScopeAll, ExcludedUserIDs: []uint{9}}},
+		{name: "specified range with exclusions", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, UserIDs: []uint{7}, ExcludedUserIDs: []uint{7, 9}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -73,6 +75,8 @@ func TestValidateDefinitionRejectsInvalidInitiatorRanges(t *testing.T) {
 		{name: "zero department id", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, DepartmentIDs: []uint{0}}},
 		{name: "duplicate department id", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, DepartmentIDs: []uint{3, 3}}},
 		{name: "all users with departments", initiator: InitiatorConfig{Scope: InitiatorScopeAll, DepartmentIDs: []uint{3}}},
+		{name: "zero excluded user id", initiator: InitiatorConfig{Scope: InitiatorScopeAll, ExcludedUserIDs: []uint{0}}},
+		{name: "duplicate excluded user id", initiator: InitiatorConfig{Scope: InitiatorScopeSpecified, UserIDs: []uint{7}, ExcludedUserIDs: []uint{9, 9}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -458,6 +462,34 @@ func TestCompileBPMNIncludesNotifyNodeAndNotificationAttributes(t *testing.T) {
 	}
 }
 
+func TestApprovalResultNotificationSupportsResultPlaceholder(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Nodes[1].ResultNotification = &NotificationConfig{
+		Enabled: true,
+		Channels: []string{NotificationChannelInApp, NotificationChannelDingTalkOA},
+		Title: "{{workflowName}}审批结果",
+		Content: "{{nodeName}}{{result}}",
+	}
+	if validationErrors := ValidateDefinition(definition); len(validationErrors) != 0 {
+		t.Fatalf("result notification validation errors = %#v", validationErrors)
+	}
+
+	bpmn, err := CompileBPMN(definition)
+	if err != nil {
+		t.Fatalf("compile BPMN: %v", err)
+	}
+	text := string(bpmn)
+	for _, expected := range []string{
+		`flowable:resultNotificationEnabled="true"`,
+		`flowable:resultNotificationChannels="in_app,dingtalk_oa"`,
+		`flowable:resultNotificationContent="{{nodeName}}{{result}}"`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("generated result notification BPMN missing %q\n%s", expected, text)
+		}
+	}
+}
+
 func TestCompileBPMNUsesGoResolvedVariablesForMultiApprovers(t *testing.T) {
 	definition := validLinearDefinition()
 	definition.Nodes[1].ID = "manager-review.1"
@@ -637,6 +669,96 @@ func TestValidateDefinitionAcceptsFormLayoutComponents(t *testing.T) {
 
 	if errors := ValidateDefinition(definition); len(errors) != 0 {
 		t.Fatalf("expected layout form to be valid, got %#v", errors)
+	}
+}
+
+func TestDefinitionPreservesTextareaVisibleRows(t *testing.T) {
+	payload, err := json.Marshal(validLinearDefinition())
+	if err != nil {
+		t.Fatalf("marshal base definition: %v", err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		t.Fatalf("decode base definition: %v", err)
+	}
+	raw["form"] = []interface{}{
+		map[string]interface{}{
+			"key": "reason", "label": "申请原因", "type": FormFieldTypeTextarea,
+			"minVisibleRows": 3, "maxVisibleRows": 8,
+		},
+	}
+	payload, err = json.Marshal(raw)
+	if err != nil {
+		t.Fatalf("marshal textarea definition: %v", err)
+	}
+	var definition Definition
+	if err := json.Unmarshal(payload, &definition); err != nil {
+		t.Fatalf("decode textarea definition: %v", err)
+	}
+	payload, err = json.Marshal(definition)
+	if err != nil {
+		t.Fatalf("marshal decoded definition: %v", err)
+	}
+	encoded := string(payload)
+	if !strings.Contains(encoded, `"minVisibleRows":3`) || !strings.Contains(encoded, `"maxVisibleRows":8`) {
+		t.Fatalf("textarea visible row bounds were not preserved: %s", encoded)
+	}
+}
+
+func TestValidateDefinitionRejectsInvalidTextareaVisibleRows(t *testing.T) {
+	tests := []struct {
+		name string
+		form []interface{}
+	}{
+		{
+			name: "reversed bounds",
+			form: []interface{}{map[string]interface{}{
+				"key": "reason", "label": "申请原因", "type": FormFieldTypeTextarea,
+				"minVisibleRows": 9, "maxVisibleRows": 3,
+			}},
+		},
+		{
+			name: "bounds on text field",
+			form: []interface{}{map[string]interface{}{
+				"key": "reason", "label": "申请原因", "type": FormFieldTypeText,
+				"minVisibleRows": 3, "maxVisibleRows": 8,
+			}},
+		},
+		{
+			name: "detail textarea column exceeds limit",
+			form: []interface{}{map[string]interface{}{
+				"key": "items", "label": "明细", "type": FormFieldTypeDetailList,
+				"columns": []interface{}{map[string]interface{}{
+					"key": "remark", "label": "备注", "type": FormFieldTypeTextarea,
+					"minVisibleRows": 2, "maxVisibleRows": 31,
+				}},
+			}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload, err := json.Marshal(validLinearDefinition())
+			if err != nil {
+				t.Fatalf("marshal base definition: %v", err)
+			}
+			var raw map[string]interface{}
+			if err := json.Unmarshal(payload, &raw); err != nil {
+				t.Fatalf("decode base definition: %v", err)
+			}
+			raw["form"] = test.form
+			payload, err = json.Marshal(raw)
+			if err != nil {
+				t.Fatalf("marshal invalid definition: %v", err)
+			}
+			var definition Definition
+			if err := json.Unmarshal(payload, &definition); err != nil {
+				t.Fatalf("decode invalid definition: %v", err)
+			}
+			if errors := ValidateDefinition(definition); !hasValidationCode(errors, "form_field_visible_rows_invalid") {
+				t.Fatalf("expected textarea visible rows error, got %#v", errors)
+			}
+		})
 	}
 }
 
@@ -844,6 +966,30 @@ func TestValidateNodeFormPatchSupportsGroupedFields(t *testing.T) {
 	}
 }
 
+func TestValidateStartFormDataOnlyRequiresWritableFields(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Form = []FormField{
+		{Key: "reason", Label: "申请原因", Type: FormFieldTypeText, Required: true},
+		{Key: "managerComment", Label: "主管意见", Type: FormFieldTypeTextarea, Required: true},
+		{Key: "internalCode", Label: "内部编码", Type: FormFieldTypeText, Required: true},
+	}
+	definition.Nodes[0].FormPermissions = []FieldPermission{
+		{Field: "reason", Access: FieldAccessWrite},
+		{Field: "managerComment", Access: FieldAccessRead},
+		{Field: "internalCode", Access: FieldAccessHidden},
+	}
+
+	if err := ValidateStartFormData(definition, map[string]interface{}{"reason": "出差"}); err != nil {
+		t.Fatalf("read-only and hidden required fields must not block start: %v", err)
+	}
+	if err := ValidateStartFormData(definition, map[string]interface{}{}); err == nil {
+		t.Fatal("writable required field must still be validated")
+	}
+	if err := ValidateStartFormData(definition, map[string]interface{}{"reason": "出差", "managerComment": "伪造"}); err == nil {
+		t.Fatal("start form must reject submitted read-only fields")
+	}
+}
+
 func TestValidateFormDataSupportsTreeOptionsAndRemoteOptionFields(t *testing.T) {
 	fields := []FormField{
 		{
@@ -891,8 +1037,8 @@ func TestValidateFormDataSupportsDetailListFields(t *testing.T) {
 	if err := ValidateFormData(fields, valid, false); err != nil {
 		t.Fatalf("valid detail list data rejected: %v", err)
 	}
-	if err := ValidateFormData(fields, map[string]interface{}{"objectives": []interface{}{}}, true); err == nil {
-		t.Fatal("submitted detail list below min rows must be rejected")
+	if err := ValidateFormData(fields, map[string]interface{}{"objectives": []interface{}{}}, true); err != nil {
+		t.Fatalf("partial detail list below min rows rejected: %v", err)
 	}
 	if err := ValidateFormData(fields, map[string]interface{}{"objectives": []interface{}{map[string]interface{}{"id": "obj-1", "weight": 40}}}, false); err == nil {
 		t.Fatal("detail row missing required column must be rejected")
@@ -992,6 +1138,36 @@ func TestValidateNodeFormPatchOnlyAllowsWritableFields(t *testing.T) {
 	}
 	if err := ValidateNodeFormPatch(definition, "manager", nil, map[string]interface{}{"reason": "changed"}); err == nil {
 		t.Fatal("read-only field patch must be rejected")
+	}
+}
+
+func TestValidateNodeFormPatchSkipsReadOnlyRequiredFields(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Form = []FormField{
+		{Key: "reason", Label: "申请原因", Type: FormFieldTypeText, Required: true},
+		{Key: "opinion", Label: "审批意见", Type: FormFieldTypeTextarea, Required: true},
+	}
+	definition.Nodes[1].FormPermissions = []FieldPermission{
+		{Field: "reason", Access: FieldAccessRead},
+		{Field: "opinion", Access: FieldAccessWrite},
+	}
+
+	err := ValidateNodeFormPatch(
+		definition,
+		"manager",
+		map[string]interface{}{"reason": ""},
+		map[string]interface{}{"opinion": "同意"},
+	)
+	if err != nil {
+		t.Fatalf("read-only required field must not block task completion: %v", err)
+	}
+	if err := ValidateNodeFormPatch(
+		definition,
+		"manager",
+		map[string]interface{}{"reason": "出差"},
+		nil,
+	); err == nil {
+		t.Fatal("omitted writable required field must block task completion")
 	}
 }
 

@@ -54,15 +54,16 @@ type Favorite struct {
 }
 
 type Notify struct {
-	ID         uint   `gorm:"primaryKey;column:notify_id" json:"id"`
-	Title      string `gorm:"column:notify_title;size:255" json:"title"`
-	Content    string `gorm:"column:notify_content;type:text" json:"content"`
-	Type       string `gorm:"column:notify_type;size:32;index" json:"type"`
-	SourceID   string `gorm:"column:notify_source_id;size:64;index" json:"sourceId"`
-	SourceType string `gorm:"column:notify_source_type;size:32;index" json:"sourceType"`
-	UserID     string `gorm:"column:notify_user_id;size:128;index" json:"userId"`
-	IsRead     int    `gorm:"column:notify_is_read;default:0" json:"isRead"`
-	AddTime    int64  `gorm:"column:notify_add_time" json:"addTime"`
+	ID          uint    `gorm:"primaryKey;column:notify_id" json:"id"`
+	Title       string  `gorm:"column:notify_title;size:255" json:"title"`
+	Content     string  `gorm:"column:notify_content;type:text" json:"content"`
+	Type        string  `gorm:"column:notify_type;size:32;index" json:"type"`
+	SourceID    string  `gorm:"column:notify_source_id;size:64;index" json:"sourceId"`
+	SourceType  string  `gorm:"column:notify_source_type;size:32;index" json:"sourceType"`
+	UserID      string  `gorm:"column:notify_user_id;size:128;index" json:"userId"`
+	DeliveryKey *string `gorm:"column:notify_delivery_key;size:64;uniqueIndex:uk_notify_delivery_key" json:"-"`
+	IsRead      int     `gorm:"column:notify_is_read;default:0" json:"isRead"`
+	AddTime     int64   `gorm:"column:notify_add_time" json:"addTime"`
 }
 
 func (Notify) TableName() string { return "notify" }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
+	"wecheckin/backend/internal/workflowcore"
 )
 
 func TestStartInstanceIdempotentReturnsExistingBusinessInstance(t *testing.T) {
@@ -12,6 +13,9 @@ func TestStartInstanceIdempotentReturnsExistingBusinessInstance(t *testing.T) {
 		ID: "instance-existing", BusinessType: "scheduled_task", BusinessKey: "run-42",
 	}}
 	base := &fakeStore{definition: simpleDefinition(), publishedVersion: 1}
+	base.definition.Nodes[0].StartLimit = &workflowcore.StartLimitConfig{
+		Mode: workflowcore.StartLimitModeLimited, Period: workflowcore.StartLimitPeriodTotal, MaxCount: 1,
+	}
 	store := &idempotentStore{fakeStore: base, existing: existing}
 	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
 
@@ -24,6 +28,9 @@ func TestStartInstanceIdempotentReturnsExistingBusinessInstance(t *testing.T) {
 	}
 	if state != existing || base.createdState != nil {
 		t.Fatalf("state/created = %#v / %#v", state, base.createdState)
+	}
+	if base.startQuotaConsumeCalls != 0 {
+		t.Fatalf("quota consume calls = %d, want 0 for idempotent replay", base.startQuotaConsumeCalls)
 	}
 }
 

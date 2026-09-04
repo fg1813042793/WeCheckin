@@ -49,6 +49,53 @@ func (resolver *AssigneeResolver) Resolve(request workflowdomain.AssigneeRequest
 	}
 }
 
+func (resolver *AssigneeResolver) ResolveDisplayNames(ctx context.Context, request workflowdomain.AssigneeRequest) ([]string, error) {
+	assigneeIDs, err := resolver.Resolve(request)
+	if err != nil || len(assigneeIDs) == 0 {
+		return nil, err
+	}
+	if resolver == nil || resolver.db == nil {
+		return nil, nil
+	}
+	userIDs := make([]uint, 0, len(assigneeIDs))
+	for _, assigneeID := range assigneeIDs {
+		if userID := parsePositiveUint(assigneeID); userID > 0 {
+			userIDs = append(userIDs, userID)
+		}
+	}
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	var users []model.User
+	if err := resolver.db.WithContext(ctx).Select("id", "user_name", "user_account").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return resolvedAssigneeDisplayNames(assigneeIDs, users), nil
+}
+
+func resolvedAssigneeDisplayNames(assigneeIDs []string, users []model.User) []string {
+	labels := make(map[uint]string, len(users))
+	for _, user := range users {
+		labels[user.ID] = firstPublishedLabel(user.Name, user.Account)
+	}
+	result := make([]string, 0, len(assigneeIDs))
+	seen := make(map[uint]struct{}, len(assigneeIDs))
+	for _, assigneeID := range assigneeIDs {
+		userID := parsePositiveUint(assigneeID)
+		if userID == 0 {
+			continue
+		}
+		if _, exists := seen[userID]; exists {
+			continue
+		}
+		seen[userID] = struct{}{}
+		if label := strings.TrimSpace(labels[userID]); label != "" {
+			result = append(result, label)
+		}
+	}
+	return result
+}
+
 func (resolver *AssigneeResolver) resolveManager(ctx context.Context, request workflowdomain.AssigneeRequest, rawKey string) ([]string, error) {
 	for _, key := range managerVariableKeys(rawKey) {
 		if values := variableAssignees(request.Variables, key); len(values) > 0 {

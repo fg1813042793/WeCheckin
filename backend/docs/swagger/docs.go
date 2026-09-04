@@ -23,7 +23,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "查询 /api/v2/admin/admin-sessions",
                 "responses": {
@@ -43,10 +43,27 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "提交 /api/v2/admin/admin-sessions/batch-force-offline",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌列表",
+                        "name": "tokens",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -64,8 +81,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "提交 /api/v2/admin/admin-sessions/{id}/force-offline",
                 "parameters": [
@@ -75,6 +95,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌",
+                        "name": "token",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -89,10 +115,35 @@ const docTemplate = `{
         },
         "/api/v2/admin/auth/login": {
             "post": {
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-认证"
                 ],
                 "summary": "提交 /api/v2/admin/auth/login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "密码",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "密码（兼容参数）",
+                        "name": "pwd",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -111,7 +162,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-认证"
                 ],
                 "summary": "提交 /api/v2/admin/auth/logout",
                 "responses": {
@@ -131,10 +182,34 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "提交 /api/v2/admin/departments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "部门名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "父部门ID",
+                        "name": "parentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -153,7 +228,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "查询 /api/v2/admin/departments/tree",
                 "responses": {
@@ -173,8 +248,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "更新 /api/v2/admin/departments/{id}",
                 "parameters": [
@@ -184,6 +262,31 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "父部门ID",
+                        "name": "parentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -202,7 +305,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "删除 /api/v2/admin/departments/{id}",
                 "parameters": [
@@ -232,9 +335,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "查询 /api/v2/admin/dict/items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型编码",
+                        "name": "typeCode",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -250,10 +362,51 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "提交 /api/v2/admin/dict/items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "字典类型编码",
+                        "name": "typeCode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典类型名称",
+                        "name": "typeName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典项显示名称",
+                        "name": "label",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典项值",
+                        "name": "value",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -271,8 +424,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "更新 /api/v2/admin/dict/items/{id}",
                 "parameters": [
@@ -282,6 +438,30 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典项显示名称",
+                        "name": "label",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典项值",
+                        "name": "value",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -300,7 +480,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "删除 /api/v2/admin/dict/items/{id}",
                 "parameters": [
@@ -330,9 +510,51 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "查询 /api/v2/admin/dict/types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "tags": [
+                    "API v2-后台管理-字典管理"
+                ],
+                "summary": "新增字典类型",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "字典类型编码",
+                        "name": "typeCode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典类型名称",
+                        "name": "typeName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -344,14 +566,88 @@ const docTemplate = `{
             }
         },
         "/api/v2/admin/dict/types/{typeCode}": {
-            "patch": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "tags": [
+                    "API v2-后台管理-字典管理"
+                ],
+                "summary": "更新字典类型",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "typeCode",
+                        "name": "typeCode",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典类型名称",
+                        "name": "typeName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "AdminToken": []
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
+                ],
+                "summary": "删除字典类型及其数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "typeCode",
+                        "name": "typeCode",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "tags": [
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "变更 /api/v2/admin/dict/types/{typeCode}",
                 "parameters": [
@@ -361,6 +657,12 @@ const docTemplate = `{
                         "name": "typeCode",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "字典类型名称",
+                        "name": "typeName",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -381,7 +683,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-字典管理"
                 ],
                 "summary": "删除 /api/v2/admin/dict/types/{typeCode}/items",
                 "parameters": [
@@ -403,6 +705,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/dingtalk-notifications": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-钉钉通知"
+                ],
+                "summary": "手动发送钉钉通知",
+                "parameters": [
+                    {
+                        "description": "钉钉通知内容与收件范围",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.DingTalkNotificationSendRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk-notifications/recipient-options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-钉钉通知"
+                ],
+                "summary": "查询可选钉钉通知收件范围",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/dingtalk/perf-histories": {
             "get": {
                 "security": [
@@ -411,9 +769,47 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "查询 /api/v2/admin/dingtalk/perf-histories",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "绩效单号",
+                        "name": "reviewNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作账号",
+                        "name": "byAccount",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作类型",
+                        "name": "action",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -429,10 +825,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "批量删除 /api/v2/admin/dingtalk/perf-histories",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -451,7 +858,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "删除 /api/v2/admin/dingtalk/perf-histories/{id}",
                 "parameters": [
@@ -481,9 +888,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "查询 /api/v2/admin/dingtalk/perf-reviews",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -499,10 +920,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "批量删除 /api/v2/admin/dingtalk/perf-reviews",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -521,7 +953,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "查询 /api/v2/admin/dingtalk/perf-reviews/{id}",
                 "parameters": [
@@ -549,7 +981,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "删除 /api/v2/admin/dingtalk/perf-reviews/{id}",
                 "parameters": [
@@ -579,7 +1011,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "查询 /api/v2/admin/dingtalk/settings",
                 "responses": {
@@ -597,10 +1029,123 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "更新 /api/v2/admin/dingtalk/settings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "保存范围",
+                        "name": "scope",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "令牌有效期（秒）",
+                        "name": "tokenExpire",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Redis 键前缀",
+                        "name": "redisPrefix",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否限制单点登录",
+                        "name": "singleLogin",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否允许用户自助绑定",
+                        "name": "selfBind",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "应用名称",
+                        "name": "appName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "应用标识文字",
+                        "name": "logoText",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "应用 Logo 地址",
+                        "name": "logoUrl",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "应用访问地址",
+                        "name": "appUrl",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "企业 ID",
+                        "name": "corpId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉应用 AppKey",
+                        "name": "appKey",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉应用 AppSecret",
+                        "name": "appSecret",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉应用 AgentId",
+                        "name": "agentId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "统一应用 ID",
+                        "name": "unifiedAppId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "通知方式",
+                        "name": "notifyMode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉机器人编码",
+                        "name": "robotCode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否启用通知",
+                        "name": "notifyEnabled",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "多企业配置（JSON）",
+                        "name": "corpConfigs",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -618,10 +1163,27 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "提交 /api/v2/admin/dingtalk/settings/notification-test",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "企业 ID",
+                        "name": "corpId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉用户 ID",
+                        "name": "dingTalkUserId",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -640,9 +1202,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "查询 /api/v2/admin/dingtalk/user-bindings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "企业 ID",
+                        "name": "corpId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否启用",
+                        "name": "enabled",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -658,10 +1252,51 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "提交 /api/v2/admin/dingtalk/user-bindings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "企业 ID",
+                        "name": "corpId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉用户 ID",
+                        "name": "dingTalkUserId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "钉钉 UnionId",
+                        "name": "unionId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "userId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否启用",
+                        "name": "enabled",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -680,7 +1315,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "删除 /api/v2/admin/dingtalk/user-bindings/{id}",
                 "parameters": [
@@ -709,8 +1344,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-钉钉集成"
                 ],
                 "summary": "更新 /api/v2/admin/dingtalk/user-bindings/{id}/status",
                 "parameters": [
@@ -720,6 +1358,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否启用",
+                        "name": "enabled",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -740,9 +1384,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "查询 /api/v2/admin/enrollments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -758,10 +1434,99 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "提交 /api/v2/admin/enrollments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类 ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "封面地址",
+                        "name": "cover",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单定义（JSON）",
+                        "name": "joinForms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "打卡表单定义（JSON）",
+                        "name": "enrollForms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否允许重复打卡",
+                        "name": "allowRepeat",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每日次数上限",
+                        "name": "dailyLimit",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门 ID 列表",
+                        "name": "publishDeptIds",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -777,10 +1542,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -799,7 +1575,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "查询 /api/v2/admin/enrollments/{id}",
                 "parameters": [
@@ -826,8 +1602,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "更新 /api/v2/admin/enrollments/{id}",
                 "parameters": [
@@ -837,6 +1616,90 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "封面图URL",
+                        "name": "cover",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否允许重复打卡",
+                        "name": "allowRepeat",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每日次数上限",
+                        "name": "dailyLimit",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单定义（JSON）",
+                        "name": "joinForms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "打卡表单定义（JSON）",
+                        "name": "enrollForms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门 ID 列表",
+                        "name": "publishDeptIds",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -855,7 +1718,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments/{id}",
                 "parameters": [
@@ -885,7 +1748,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "提交 /api/v2/admin/enrollments/{id}/clear",
                 "parameters": [
@@ -915,7 +1778,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "查询 /api/v2/admin/enrollments/{id}/export",
                 "parameters": [
@@ -943,7 +1806,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "提交 /api/v2/admin/enrollments/{id}/export",
                 "parameters": [
@@ -953,6 +1816,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -971,7 +1846,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments/{id}/export",
                 "parameters": [
@@ -1000,8 +1875,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "变更 /api/v2/admin/enrollments/{id}/forms",
                 "parameters": [
@@ -1011,6 +1889,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据",
+                        "name": "forms",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1031,7 +1915,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "查询 /api/v2/admin/enrollments/{id}/joins",
                 "parameters": [
@@ -1041,6 +1925,30 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1058,8 +1966,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments/{id}/joins",
                 "parameters": [
@@ -1069,6 +1980,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1089,7 +2006,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments/{id}/joins/{joinId}",
                 "parameters": [
@@ -1125,8 +2042,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "变更 /api/v2/admin/enrollments/{id}/recommendation",
                 "parameters": [
@@ -1135,6 +2055,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "推荐值",
+                        "name": "vouch",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1155,8 +2082,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "变更 /api/v2/admin/enrollments/{id}/sort",
                 "parameters": [
@@ -1165,6 +2095,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1186,7 +2123,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "查询 /api/v2/admin/enrollments/{id}/stats",
                 "parameters": [
@@ -1196,6 +2133,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1215,8 +2164,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "变更 /api/v2/admin/enrollments/{id}/status",
                 "parameters": [
@@ -1225,6 +2177,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1246,7 +2205,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "查询 /api/v2/admin/enrollments/{id}/users",
                 "parameters": [
@@ -1256,6 +2215,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1273,8 +2238,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments/{id}/users",
                 "parameters": [
@@ -1284,6 +2252,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户 ID 列表",
+                        "name": "userIds",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1304,7 +2278,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "删除 /api/v2/admin/enrollments/{id}/users/{userId}",
                 "parameters": [
@@ -1340,8 +2314,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-报名管理"
                 ],
                 "summary": "更新 /api/v2/admin/enrollments/{id}/users/{userId}/forms",
                 "parameters": [
@@ -1358,6 +2335,12 @@ const docTemplate = `{
                         "name": "userId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据（JSON）",
+                        "name": "forms",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1378,9 +2361,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "查询 /api/v2/admin/event-dept-users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "部门ID列表(逗号分隔)",
+                        "name": "deptIds",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1399,9 +2391,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "查询 /api/v2/admin/events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1417,10 +2441,130 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "提交 /api/v2/admin/events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动类型(1=活动 2=赛事)",
+                        "name": "type",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名开始时间(时间戳)",
+                        "name": "regStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名结束时间(时间戳)",
+                        "name": "regEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动开始时间(时间戳)",
+                        "name": "eventStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动结束时间(时间戳)",
+                        "name": "eventEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分字段(JSON)",
+                        "name": "scoreFields",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "二维码URL",
+                        "name": "qr",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展对象(JSON)",
+                        "name": "obj",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门IDs(逗号分隔)",
+                        "name": "publishDeptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "所属部门ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "组织者列表(JSON或逗号分隔)",
+                        "name": "organizers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "协助者列表(JSON或逗号分隔)",
+                        "name": "assistants",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "裁判列表(JSON或逗号分隔)",
+                        "name": "referees",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1436,10 +2580,22 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "删除 /api/v2/admin/events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1458,7 +2614,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "查询 /api/v2/admin/events/{id}",
                 "parameters": [
@@ -1485,8 +2641,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "更新 /api/v2/admin/events/{id}",
                 "parameters": [
@@ -1496,6 +2655,120 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名开始时间(时间戳)",
+                        "name": "regStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "报名结束时间(时间戳)",
+                        "name": "regEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动开始时间(时间戳)",
+                        "name": "eventStart",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "活动结束时间(时间戳)",
+                        "name": "eventEnd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分字段(JSON)",
+                        "name": "scoreFields",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "二维码URL",
+                        "name": "qr",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展对象(JSON)",
+                        "name": "obj",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门IDs(逗号分隔)",
+                        "name": "publishDeptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "所属部门ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "组织者列表(JSON或逗号分隔)",
+                        "name": "organizers",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "协助者列表(JSON或逗号分隔)",
+                        "name": "assistants",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "裁判列表(JSON或逗号分隔)",
+                        "name": "referees",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1514,7 +2787,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "删除 /api/v2/admin/events/{id}",
                 "parameters": [
@@ -1544,7 +2817,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "查询 /api/v2/admin/events/{id}/dynamics",
                 "parameters": [
@@ -1571,8 +2844,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "提交 /api/v2/admin/events/{id}/dynamics",
                 "parameters": [
@@ -1582,6 +2858,30 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片列表(JSON)",
+                        "name": "images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "视频列表(JSON)",
+                        "name": "videos",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1599,8 +2899,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "删除 /api/v2/admin/events/{id}/dynamics",
                 "parameters": [
@@ -1609,6 +2912,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1629,8 +2939,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "更新 /api/v2/admin/events/{id}/dynamics/{dynamicId}",
                 "parameters": [
@@ -1647,6 +2960,30 @@ const docTemplate = `{
                         "name": "dynamicId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片列表(JSON)",
+                        "name": "images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "视频列表(JSON)",
+                        "name": "videos",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1665,7 +3002,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "删除 /api/v2/admin/events/{id}/dynamics/{dynamicId}",
                 "parameters": [
@@ -1702,7 +3039,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "查询 /api/v2/admin/events/{id}/participants",
                 "parameters": [
@@ -1729,8 +3066,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "删除 /api/v2/admin/events/{id}/participants",
                 "parameters": [
@@ -1739,6 +3079,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "参与记录ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1759,8 +3106,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "更新 /api/v2/admin/events/{id}/participants/{participantId}",
                 "parameters": [
@@ -1777,6 +3127,12 @@ const docTemplate = `{
                         "name": "participantId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据(JSON)",
+                        "name": "forms",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1795,7 +3151,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "删除 /api/v2/admin/events/{id}/participants/{participantId}",
                 "parameters": [
@@ -1831,8 +3187,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "变更 /api/v2/admin/events/{id}/recommendation",
                 "parameters": [
@@ -1841,6 +3200,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "推荐(1=推荐 0=取消)",
+                        "name": "vouch",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1862,7 +3228,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "查询 /api/v2/admin/events/{id}/scores",
                 "parameters": [
@@ -1889,8 +3255,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "提交 /api/v2/admin/events/{id}/scores",
                 "parameters": [
@@ -1900,6 +3269,19 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分",
+                        "name": "score",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "参赛者ID(新增时必填)",
+                        "name": "participantId",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1919,8 +3301,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "更新 /api/v2/admin/events/{id}/scores/{scoreId}",
                 "parameters": [
@@ -1937,6 +3322,25 @@ const docTemplate = `{
                         "name": "scoreId",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分",
+                        "name": "score",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动ID(新增时必填)",
+                        "name": "eventId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "参赛者ID(新增时必填)",
+                        "name": "participantId",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1956,8 +3360,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "变更 /api/v2/admin/events/{id}/status",
                 "parameters": [
@@ -1966,6 +3373,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -1986,8 +3400,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-赛事活动"
                 ],
                 "summary": "变更 /api/v2/admin/events/{id}/top",
                 "parameters": [
@@ -1996,6 +3413,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "置顶(1=置顶 0=取消)",
+                        "name": "top",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -2017,9 +3441,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exam-question-bank",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2035,10 +3491,58 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "提交 /api/v2/admin/exam-question-bank",
+                "parameters": [
+                    {
+                        "description": "题干",
+                        "name": "title",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "题型",
+                        "name": "type",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "完整 formkit JSON",
+                        "name": "schema",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "分类",
+                        "name": "category",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2057,7 +3561,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exam-question-bank/categories",
                 "responses": {
@@ -2077,8 +3581,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "更新 /api/v2/admin/exam-question-bank/{id}",
                 "parameters": [
@@ -2088,6 +3595,46 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "题干",
+                        "name": "title",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "题型",
+                        "name": "type",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "formkit JSON",
+                        "name": "schema",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "分类",
+                        "name": "category",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -2106,7 +3653,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "删除 /api/v2/admin/exam-question-bank/{id}",
                 "parameters": [
@@ -2135,10 +3682,36 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "提交 /api/v2/admin/exam-resources",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "examId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "资源类型: bg/header",
+                        "name": "resType",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2157,7 +3730,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "删除 /api/v2/admin/exam-resources/{id}",
                 "parameters": [
@@ -2187,9 +3760,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exams",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2205,10 +3810,130 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "提交 /api/v2/admin/exams",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可见性",
+                        "name": "visibility",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "允许多次",
+                        "name": "allowMulti",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "匿名",
+                        "name": "anonymous",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "显示结果",
+                        "name": "showResult",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最大答卷数",
+                        "name": "maxResponse",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "答题时长",
+                        "name": "duration",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最大次数",
+                        "name": "maxAttempts",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "显示分数",
+                        "name": "showScore",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "题目JSON",
+                        "name": "schema",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID",
+                        "name": "deptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模式",
+                        "name": "mode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "设置JSON",
+                        "name": "settings",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2227,7 +3952,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exams/{id}",
                 "parameters": [
@@ -2254,8 +3979,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "更新 /api/v2/admin/exams/{id}",
                 "parameters": [
@@ -2265,6 +3993,121 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签",
+                        "name": "tags",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "可见性",
+                        "name": "visibility",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "允许多次",
+                        "name": "allowMulti",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "匿名",
+                        "name": "anonymous",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "显示结果",
+                        "name": "showResult",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最大答卷数",
+                        "name": "maxResponse",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "答题时长",
+                        "name": "duration",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "最大次数",
+                        "name": "maxAttempts",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "显示分数",
+                        "name": "showScore",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "题目JSON",
+                        "name": "schema",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID",
+                        "name": "deptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模式",
+                        "name": "mode",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "设置JSON",
+                        "name": "settings",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -2283,7 +4126,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "删除 /api/v2/admin/exams/{id}",
                 "parameters": [
@@ -2313,7 +4156,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exams/{id}/records",
                 "parameters": [
@@ -2323,6 +4166,24 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2340,8 +4201,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "删除 /api/v2/admin/exams/{id}/records",
                 "parameters": [
@@ -2350,6 +4214,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "逗号分隔的记录ID",
+                        "name": "ids",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -2371,7 +4242,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exams/{id}/records/{recordId}",
                 "parameters": [
@@ -2406,7 +4277,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "删除 /api/v2/admin/exams/{id}/records/{recordId}",
                 "parameters": [
@@ -2443,7 +4314,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exams/{id}/resources",
                 "parameters": [
@@ -2453,6 +4324,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "资源类型: bg/header",
+                        "name": "resType",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2473,7 +4350,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "查询 /api/v2/admin/exams/{id}/statistics",
                 "parameters": [
@@ -2502,8 +4379,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-考试管理"
                 ],
                 "summary": "变更 /api/v2/admin/exams/{id}/status",
                 "parameters": [
@@ -2512,6 +4392,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -2533,7 +4420,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-首页"
                 ],
                 "summary": "查询 /api/v2/admin/home",
                 "responses": {
@@ -2554,9 +4441,170 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-首页"
                 ],
                 "summary": "删除 /api/v2/admin/home/recommendations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/in-app-notifications": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-站内信"
+                ],
+                "summary": "查询当前管理员站内信",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-站内信"
+                ],
+                "summary": "手动发送站内信",
+                "parameters": [
+                    {
+                        "description": "站内信内容与收件范围",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.InAppNotificationSendRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/in-app-notifications/read-all": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-站内信"
+                ],
+                "summary": "标记当前管理员的全部站内信为已读",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/in-app-notifications/recipient-options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-站内信"
+                ],
+                "summary": "查询可选站内信收件范围",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/in-app-notifications/unread-count": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-站内信"
+                ],
+                "summary": "查询当前管理员未读站内信数量",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/in-app-notifications/{id}/read": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-站内信"
+                ],
+                "summary": "标记当前管理员的一条站内信为已读",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "站内信 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2575,9 +4623,29 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-日志"
                 ],
                 "summary": "查询 /api/v2/admin/logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2593,10 +4661,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-日志"
                 ],
                 "summary": "删除 /api/v2/admin/logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2615,9 +4694,29 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "查询 /api/v2/admin/managers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2633,10 +4732,53 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "提交 /api/v2/admin/managers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "密码",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "phone",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "角色 ID",
+                        "name": "roleId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID 列表",
+                        "name": "deptIds",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2652,10 +4794,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "删除 /api/v2/admin/managers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2674,7 +4827,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "查询 /api/v2/admin/managers/{id}",
                 "parameters": [
@@ -2701,8 +4854,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "更新 /api/v2/admin/managers/{id}",
                 "parameters": [
@@ -2712,6 +4868,48 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "phone",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片地址",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "密码",
+                        "name": "password",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "角色 ID",
+                        "name": "roleId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID 列表",
+                        "name": "deptIds",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -2730,7 +4928,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "删除 /api/v2/admin/managers/{id}",
                 "parameters": [
@@ -2759,8 +4957,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "变更 /api/v2/admin/managers/{id}/password",
                 "parameters": [
@@ -2770,6 +4971,19 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新密码",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原密码",
+                        "name": "oldPassword",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -2789,8 +5003,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "变更 /api/v2/admin/managers/{id}/status",
                 "parameters": [
@@ -2799,6 +5016,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -2820,7 +5044,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "查询 /api/v2/admin/me/menus",
                 "responses": {
@@ -2840,10 +5064,35 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-管理员"
                 ],
                 "summary": "变更 /api/v2/admin/me/password",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "管理员ID",
+                        "name": "id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新密码",
+                        "name": "password",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原密码",
+                        "name": "oldPassword",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2862,7 +5111,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "查询 /api/v2/admin/me/perms",
                 "responses": {
@@ -2883,9 +5132,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "查询 /api/v2/admin/news",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2901,10 +5182,75 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "提交 /api/v2/admin/news",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类 ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片地址",
+                        "name": "img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值（兼容参数）",
+                        "name": "sortOrder",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门 ID 列表",
+                        "name": "publishDeptIds",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2920,10 +5266,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "删除 /api/v2/admin/news",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2942,7 +5299,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "查询 /api/v2/admin/news/{id}",
                 "parameters": [
@@ -2969,8 +5326,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "更新 /api/v2/admin/news/{id}",
                 "parameters": [
@@ -2980,6 +5340,66 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "描述",
+                        "name": "desc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类 ID",
+                        "name": "cateId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "cateName",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片地址",
+                        "name": "img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "order",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值（兼容参数）",
+                        "name": "sortOrder",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID",
+                        "name": "deptId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发布部门 ID 列表",
+                        "name": "publishDeptIds",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -2998,7 +5418,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "删除 /api/v2/admin/news/{id}",
                 "parameters": [
@@ -3027,8 +5447,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "变更 /api/v2/admin/news/{id}/content",
                 "parameters": [
@@ -3038,6 +5461,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "内容",
+                        "name": "content",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3057,8 +5486,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "变更 /api/v2/admin/news/{id}/forms",
                 "parameters": [
@@ -3068,6 +5500,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据",
+                        "name": "forms",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3087,8 +5525,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "变更 /api/v2/admin/news/{id}/picture",
                 "parameters": [
@@ -3098,6 +5539,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片数据",
+                        "name": "pic",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3117,8 +5564,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "变更 /api/v2/admin/news/{id}/recommendation",
                 "parameters": [
@@ -3127,6 +5577,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "推荐(1=推荐 0=取消)",
+                        "name": "vouch",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -3147,8 +5604,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "变更 /api/v2/admin/news/{id}/sort",
                 "parameters": [
@@ -3157,6 +5617,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -3177,8 +5644,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-通知公告"
                 ],
                 "summary": "变更 /api/v2/admin/news/{id}/status",
                 "parameters": [
@@ -3187,6 +5657,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -3208,9 +5685,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "查询 /api/v2/admin/permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "平台",
+                        "name": "platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限类型，逗号分隔",
+                        "name": "types",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3226,10 +5717,85 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "提交 /api/v2/admin/permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "权限键",
+                        "name": "key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "所属平台",
+                        "name": "platform",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限类型",
+                        "name": "type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "父权限键",
+                        "name": "parentKey",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "受保护资源路径",
+                        "name": "resourcePath",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "菜单或路由路径",
+                        "name": "path",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限标识",
+                        "name": "perms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图标名称",
+                        "name": "icon",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3248,9 +5814,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "查询 /api/v2/admin/permissions/tree",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "平台",
+                        "name": "platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限类型，逗号分隔",
+                        "name": "types",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3268,8 +5848,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "更新 /api/v2/admin/permissions/{key}",
                 "parameters": [
@@ -3279,6 +5862,81 @@ const docTemplate = `{
                         "name": "key",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原权限键",
+                        "name": "originalKey",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "原权限键（兼容参数）",
+                        "name": "oldKey",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "所属平台",
+                        "name": "platform",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限类型",
+                        "name": "type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "父权限键",
+                        "name": "parentKey",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "受保护资源路径",
+                        "name": "resourcePath",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "菜单或路由路径",
+                        "name": "path",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "权限标识",
+                        "name": "perms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图标名称",
+                        "name": "icon",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3297,7 +5955,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "删除 /api/v2/admin/permissions/{key}",
                 "parameters": [
@@ -3327,9 +5985,29 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "查询 /api/v2/admin/positions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3345,10 +6023,27 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "提交 /api/v2/admin/positions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3366,8 +6061,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "更新 /api/v2/admin/positions/{id}",
                 "parameters": [
@@ -3377,6 +6075,24 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3395,7 +6111,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-组织管理"
                 ],
                 "summary": "删除 /api/v2/admin/positions/{id}",
                 "parameters": [
@@ -3425,9 +6141,29 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "查询 /api/v2/admin/roles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3443,10 +6179,88 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "提交 /api/v2/admin/roles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "数据权限范围(1=全部 2=本部门及子部门 3=本人 4=自定义部门)",
+                        "name": "dataScope",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台权限编码列表(逗号分隔)",
+                        "name": "adminPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台接口权限编码列表(逗号分隔)",
+                        "name": "adminApiPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID列表(逗号分隔)",
+                        "name": "deptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否允许登录管理后台",
+                        "name": "allowAdminLogin",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端菜单键列表",
+                        "name": "clientMenuKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "H5App 菜单键列表",
+                        "name": "dingtalkH5MenuKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 API 权限键列表",
+                        "name": "clientApiPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "H5App API 权限键列表",
+                        "name": "dingtalkH5ApiPermissionKeys",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3462,10 +6276,22 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "删除 /api/v2/admin/roles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "角色ID列表(逗号分隔)",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3484,7 +6310,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "查询 /api/v2/admin/roles/application-permissions",
                 "responses": {
@@ -3504,8 +6330,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "更新 /api/v2/admin/roles/{id}",
                 "parameters": [
@@ -3515,6 +6344,85 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "角色名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "备注",
+                        "name": "remark",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "排序",
+                        "name": "sort",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(1=启用 0=禁用)",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "数据权限范围(1=全部 2=本部门及子部门 3=本人 4=自定义部门)",
+                        "name": "dataScope",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台权限编码列表(逗号分隔)",
+                        "name": "adminPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "后台接口权限编码列表(逗号分隔)",
+                        "name": "adminApiPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门ID列表(逗号分隔)",
+                        "name": "deptIds",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否允许登录管理后台",
+                        "name": "allowAdminLogin",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端菜单键列表",
+                        "name": "clientMenuKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "H5App 菜单键列表",
+                        "name": "dingtalkH5MenuKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 API 权限键列表",
+                        "name": "clientApiPermissionKeys",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "H5App API 权限键列表",
+                        "name": "dingtalkH5ApiPermissionKeys",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3533,7 +6441,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-角色权限"
                 ],
                 "summary": "删除 /api/v2/admin/roles/{id}",
                 "parameters": [
@@ -3587,6 +6495,56 @@ const docTemplate = `{
                     "API v2-后台管理-定时任务"
                 ],
                 "summary": "查询定时任务运行记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "定时任务 ID",
+                        "name": "taskId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "触发类型",
+                        "name": "triggerType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "执行节点 ID",
+                        "name": "workerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "endTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3719,6 +6677,38 @@ const docTemplate = `{
                     "API v2-后台管理-定时任务"
                 ],
                 "summary": "查询定时任务列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "处理器类型",
+                        "name": "handlerType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否启用",
+                        "name": "enabled",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3733,6 +6723,9 @@ const docTemplate = `{
                     {
                         "AdminToken": []
                     }
+                ],
+                "consumes": [
+                    "application/json"
                 ],
                 "tags": [
                     "API v2-后台管理-定时任务"
@@ -3766,10 +6759,24 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-定时任务"
                 ],
                 "summary": "预览 Cron 执行时间",
+                "parameters": [
+                    {
+                        "description": "Cron 表达式、时区与预览数量",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ScheduledTaskCronPreviewRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3814,6 +6821,9 @@ const docTemplate = `{
                     {
                         "AdminToken": []
                     }
+                ],
+                "consumes": [
+                    "application/json"
                 ],
                 "tags": [
                     "API v2-后台管理-定时任务"
@@ -3912,6 +6922,9 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-定时任务"
                 ],
@@ -3923,6 +6936,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "启用状态与当前版本号",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ScheduledTaskStatusRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -3942,10 +6964,29 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-系统设置"
                 ],
                 "summary": "更新 /api/v2/admin/settings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设置键名",
+                        "name": "key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "设置值",
+                        "name": "value",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3957,16 +6998,63 @@ const docTemplate = `{
             }
         },
         "/api/v2/admin/settings/content": {
-            "put": {
+            "get": {
                 "security": [
                     {
                         "AdminToken": []
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-系统设置"
+                ],
+                "summary": "查询 /api/v2/admin/settings/content",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设置键名",
+                        "name": "key",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "tags": [
+                    "API v2-后台管理-系统设置"
                 ],
                 "summary": "更新 /api/v2/admin/settings/content",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设置键名",
+                        "name": "key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "设置值",
+                        "name": "value",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3985,7 +7073,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-系统设置"
                 ],
                 "summary": "查询 /api/v2/admin/settings/debug-token",
                 "responses": {
@@ -4006,9 +7094,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-系统设置"
                 ],
                 "summary": "查询 /api/v2/admin/settings/mini-qr",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面路径",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "场景值",
+                        "name": "scene",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4027,7 +7129,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "删除 /api/v2/admin/survey-channels/{id}",
                 "parameters": [
@@ -4056,10 +7158,34 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/survey-expressions/evaluate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "表达式",
+                        "name": "expr",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "环境变量JSON",
+                        "name": "env",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否返回布尔值",
+                        "name": "asBool",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4078,9 +7204,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-notifications",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源类型",
+                        "name": "sourceType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源业务 ID",
+                        "name": "sourceId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "userId",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4099,9 +7257,17 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-notifications/unread-count",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "userId",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4119,8 +7285,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "变更 /api/v2/admin/survey-notifications/{id}/read",
                 "parameters": [
@@ -4130,6 +7299,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "是否将全部通知标记为已读",
+                        "name": "all",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "userId",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -4150,9 +7331,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-question-bank",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4168,10 +7381,24 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/survey-question-bank",
+                "parameters": [
+                    {
+                        "description": "题库题目",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.SurveyQuestionBankRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4190,7 +7417,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-question-bank/categories",
                 "responses": {
@@ -4210,8 +7437,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "更新 /api/v2/admin/survey-question-bank/{id}",
                 "parameters": [
@@ -4221,6 +7451,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "题库题目",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.SurveyQuestionBankRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -4239,7 +7478,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "删除 /api/v2/admin/survey-question-bank/{id}",
                 "parameters": [
@@ -4269,9 +7508,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-report/enroll",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "打卡项目ID",
+                        "name": "enrollId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4290,9 +7538,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-report/enroll/export",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "打卡项目ID",
+                        "name": "enrollId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4311,9 +7568,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-report/event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4332,9 +7598,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-report/event/export",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "活动ID",
+                        "name": "eventId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4353,9 +7628,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-report/survey",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4374,9 +7658,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-report/survey/export",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4394,10 +7687,36 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/survey-resources",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "问卷ID",
+                        "name": "surveyId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "资源类型: bg/header",
+                        "name": "resType",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4416,7 +7735,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "删除 /api/v2/admin/survey-resources/{id}",
                 "parameters": [
@@ -4445,10 +7764,22 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "删除 /api/v2/admin/survey-responses",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "逗号分隔的答卷ID",
+                        "name": "ids",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4467,7 +7798,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-responses/{id}",
                 "parameters": [
@@ -4495,7 +7826,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "删除 /api/v2/admin/survey-responses/{id}",
                 "parameters": [
@@ -4524,10 +7855,22 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/survey-schema/parse",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Schema JSON",
+                        "name": "schema",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4546,7 +7889,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-template-presets",
                 "responses": {
@@ -4564,10 +7907,24 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "更新 /api/v2/admin/survey-template-presets",
+                "parameters": [
+                    {
+                        "description": "模板预设列表",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.SurveyTemplatePresetsRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4586,7 +7943,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/survey-types",
                 "responses": {
@@ -4607,9 +7964,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(0草稿 1发布)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4625,10 +8014,24 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/surveys",
+                "parameters": [
+                    {
+                        "description": "问卷数据",
+                        "name": "survey",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Survey"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4647,7 +8050,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys/{id}",
                 "parameters": [
@@ -4674,8 +8077,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "更新 /api/v2/admin/surveys/{id}",
                 "parameters": [
@@ -4685,6 +8091,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "问卷数据（需包含ID）",
+                        "name": "survey",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Survey"
+                        }
                     }
                 ],
                 "responses": {
@@ -4703,7 +8118,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "删除 /api/v2/admin/surveys/{id}",
                 "parameters": [
@@ -4733,7 +8148,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys/{id}/channels",
                 "parameters": [
@@ -4760,8 +8175,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/surveys/{id}/channels",
                 "parameters": [
@@ -4771,6 +8189,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "渠道数据",
+                        "name": "channel",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SurveyChannel"
+                        }
                     }
                 ],
                 "responses": {
@@ -4791,7 +8218,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "提交 /api/v2/admin/surveys/{id}/copy",
                 "parameters": [
@@ -4821,7 +8248,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys/{id}/resources",
                 "parameters": [
@@ -4831,6 +8258,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "资源类型: bg/header，为空则返回全部",
+                        "name": "resType",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4851,7 +8284,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys/{id}/responses",
                 "parameters": [
@@ -4861,6 +8294,24 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4881,7 +8332,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys/{id}/responses/export",
                 "parameters": [
@@ -4911,7 +8362,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "查询 /api/v2/admin/surveys/{id}/statistics",
                 "parameters": [
@@ -4940,8 +8391,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-问卷管理"
                 ],
                 "summary": "变更 /api/v2/admin/surveys/{id}/status",
                 "parameters": [
@@ -4950,6 +8404,46 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态(0草稿 1发布)",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/uploads": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-后台管理-文件上传"
+                ],
+                "summary": "上传后台图片或视频",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "图片或视频文件（最大 20MB）",
+                        "name": "file",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -4971,7 +8465,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/user-sessions",
                 "responses": {
@@ -4991,10 +8485,27 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "提交 /api/v2/admin/user-sessions/batch-force-offline",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌列表",
+                        "name": "tokens",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5012,8 +8523,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "提交 /api/v2/admin/user-sessions/{id}/force-offline",
                 "parameters": [
@@ -5023,6 +8537,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌",
+                        "name": "token",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -5043,9 +8563,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5061,10 +8613,58 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "提交 /api/v2/admin/users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "岗位ID",
+                        "name": "positionId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "直属上级用户ID",
+                        "name": "managerUserId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "头像URL",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展表单数据JSON",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID 列表",
+                        "name": "deptIds",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5080,10 +8680,21 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "删除 /api/v2/admin/users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID 列表，多个值用逗号分隔",
+                        "name": "ids",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5102,7 +8713,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/users/by-openid/{openid}",
                 "parameters": [
@@ -5132,7 +8743,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/users/data",
                 "responses": {
@@ -5153,7 +8764,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/users/data/export",
                 "responses": {
@@ -5174,7 +8785,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "删除 /api/v2/admin/users/data/{id}",
                 "parameters": [
@@ -5204,7 +8815,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/users/form-fields",
                 "responses": {
@@ -5222,10 +8833,22 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "更新 /api/v2/admin/users/form-fields",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "字段JSON数组",
+                        "name": "fields",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5244,7 +8867,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "查询 /api/v2/admin/users/{id}",
                 "parameters": [
@@ -5271,8 +8894,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "更新 /api/v2/admin/users/{id}",
                 "parameters": [
@@ -5282,6 +8908,48 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户名",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "岗位ID",
+                        "name": "positionId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "直属上级用户ID",
+                        "name": "managerUserId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "头像URL",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "扩展表单数据JSON",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID 列表",
+                        "name": "deptIds",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -5300,7 +8968,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "删除 /api/v2/admin/users/{id}",
                 "parameters": [
@@ -5330,7 +8998,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "变更 /api/v2/admin/users/{id}/password",
                 "parameters": [
@@ -5359,8 +9027,11 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-后台管理"
+                    "API v2-后台管理-用户管理"
                 ],
                 "summary": "变更 /api/v2/admin/users/{id}/status",
                 "parameters": [
@@ -5370,6 +9041,19 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原因",
+                        "name": "reason",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -5393,6 +9077,38 @@ const docTemplate = `{
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "查询工作流定义列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5408,10 +9124,54 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "同时兼容 application/json；上传流程图标时使用 multipart/form-data",
+                "consumes": [
+                    "multipart/form-data"
+                ],
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "新建工作流定义",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程编码",
+                        "name": "key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程分类",
+                        "name": "category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程草稿定义（JSON）",
+                        "name": "draft",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "流程图标（PNG、JPG、JPEG 或 WebP，最大 2MB）",
+                        "name": "logo",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5457,6 +9217,10 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "同时兼容 application/json；上传流程图标时使用 multipart/form-data",
+                "consumes": [
+                    "multipart/form-data"
+                ],
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
@@ -5468,6 +9232,48 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程名称",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程分类",
+                        "name": "category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流程状态",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程草稿定义（JSON）",
+                        "name": "draft",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "流程图标（PNG、JPG、JPEG 或 WebP，最大 2MB）",
+                        "name": "logo",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "是否移除流程图标",
+                        "name": "removeLogo",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -5508,12 +9314,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/workflow-definitions/{id}/copy": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "仅复制源流程当前设计草稿；名称、编码、分类、说明和图标使用本次请求，发布版本和版本历史不复制。兼容 application/json",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "复制工作流定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "源流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新流程编码",
+                        "name": "key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新流程名称",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新流程描述",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "新流程分类",
+                        "name": "category",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "新流程图标（PNG、JPG、JPEG 或 WebP，最大 2MB）",
+                        "name": "logo",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-definitions/{id}/publish": {
             "post": {
                 "security": [
                     {
                         "AdminToken": []
                     }
+                ],
+                "consumes": [
+                    "application/json"
                 ],
                 "tags": [
                     "API v2-后台管理-工作流"
@@ -5607,6 +9482,134 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/workflow-definitions/{id}/versions/{version}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "删除未被引用的历史工作流版本",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "待删除版本",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}/versions/{version}/changes": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "查询工作流版本变更内容",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "目标版本",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "对比版本；不传时使用发布时基准版本",
+                        "name": "compareTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}/versions/{version}/rollback": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "回滚工作流版本并生成新发布版本",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "回滚来源版本",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "回滚说明",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/workflowservice.RollbackRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-department-options": {
             "get": {
                 "security": [
@@ -5639,6 +9642,80 @@ const docTemplate = `{
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "查询工作流实例列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程定义分类",
+                        "name": "definitionCategory",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务类型",
+                        "name": "businessType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务键",
+                        "name": "businessKey",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发起人 ID",
+                        "name": "starterId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间起始值（毫秒）",
+                        "name": "startTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间截止值（毫秒）",
+                        "name": "startTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间起始值（毫秒）",
+                        "name": "endTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间截止值（毫秒）",
+                        "name": "endTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5655,10 +9732,58 @@ const docTemplate = `{
                     }
                 ],
                 "description": "starterId 为业务发起人，实际操作人从管理员登录态获取并保存为 operatorId",
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "启动工作流实例",
+                "parameters": [
+                    {
+                        "description": "流程定义、业务标识与表单数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.AdminWorkflowStartInstanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "仅允许删除已完成、已驳回或已取消的实例；删除后保留审计数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "批量删除终态工作流实例",
+                "parameters": [
+                    {
+                        "description": "流程实例 ID 列表",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.AdminWorkflowInstanceDeleteRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5697,6 +9822,35 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "仅允许删除已完成、已驳回或已取消的实例；删除后保留审计数据",
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "删除单个终态工作流实例",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
             }
         },
         "/api/v2/admin/workflow-instances/{id}/cancel": {
@@ -5705,6 +9859,9 @@ const docTemplate = `{
                     {
                         "AdminToken": []
                     }
+                ],
+                "consumes": [
+                    "application/json"
                 ],
                 "tags": [
                     "API v2-后台管理-工作流"
@@ -5717,6 +9874,14 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "取消原因",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowReasonRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -5800,6 +9965,18 @@ const docTemplate = `{
                         "description": "投递状态",
                         "name": "status",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5819,10 +9996,23 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "投递到期的工作流通知",
+                "parameters": [
+                    {
+                        "description": "单次投递上限",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowDispatchDueRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5874,6 +10064,32 @@ const docTemplate = `{
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "查询组织审批身份人员配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "组织主体 ID",
+                        "name": "subjectId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "组织主体类型",
+                        "name": "subjectType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "部门 ID（兼容参数）",
+                        "name": "departmentId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "审批身份编码",
+                        "name": "identityCode",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5889,10 +10105,24 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "保存组织审批身份人员配置",
+                "parameters": [
+                    {
+                        "description": "组织主体、审批身份与关联用户",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workflowservice.SaveOrgApproverAssignmentsRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5986,6 +10216,68 @@ const docTemplate = `{
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "查询工作流任务列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "instanceId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "处理人 ID",
+                        "name": "assigneeId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-tasks/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "删除工作流任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6003,6 +10295,10 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "reject 会终止整个流程；return 会退回至已执行过的上游人工节点并继续运行，未传 returnTargetNodeId 时默认上一人工节点",
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
@@ -6014,6 +10310,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "审批动作、意见与表单数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowCompleteTaskRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -6037,6 +10342,38 @@ const docTemplate = `{
                     "API v2-后台管理-工作流"
                 ],
                 "summary": "查询工作流可选用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序值",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6049,10 +10386,22 @@ const docTemplate = `{
         },
         "/api/v2/auth/login": {
             "post": {
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-认证"
                 ],
                 "summary": "提交 /api/v2/auth/login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6065,10 +10414,29 @@ const docTemplate = `{
         },
         "/api/v2/auth/password-login": {
             "post": {
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-认证"
                 ],
                 "summary": "提交 /api/v2/auth/password-login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户名/手机号",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "密码",
+                        "name": "pwd",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6081,10 +10449,48 @@ const docTemplate = `{
         },
         "/api/v2/auth/register": {
             "post": {
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-认证"
                 ],
                 "summary": "提交 /api/v2/auth/register",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "姓名",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "头像",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据（JSON）",
+                        "name": "forms",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6098,9 +10504,18 @@ const docTemplate = `{
         "/api/v2/dict/items": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-字典"
                 ],
                 "summary": "查询 /api/v2/dict/items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型编码",
+                        "name": "typeCode",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6114,9 +10529,1999 @@ const docTemplate = `{
         "/api/v2/dict/types": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-字典"
                 ],
                 "summary": "查询 /api/v2/dict/types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/account/avatar": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-H5App-账户"
+                ],
+                "summary": "上传 H5App 用户头像",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "头像文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/account/password": {
+            "patch": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-账户"
+                ],
+                "summary": "修改 H5App 账户密码",
+                "parameters": [
+                    {
+                        "description": "密码信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/account/profile": {
+            "patch": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-账户"
+                ],
+                "summary": "更新 H5App 账户资料",
+                "parameters": [
+                    {
+                        "description": "账户资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.AccountProfilePayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/bind-self": {
+            "post": {
+                "tags": [
+                    "API v2-H5App-认证"
+                ],
+                "summary": "H5App 绑定本地账号",
+                "parameters": [
+                    {
+                        "description": "绑定信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppBindSelfRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/bootstrap": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-工作台"
+                ],
+                "summary": "查询 H5App 启动数据和权限",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/login": {
+            "post": {
+                "tags": [
+                    "API v2-H5App-认证"
+                ],
+                "summary": "H5App 账号密码登录",
+                "parameters": [
+                    {
+                        "description": "登录信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/logout": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-认证"
+                ],
+                "summary": "H5App 退出登录",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/notifications": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-站内信"
+                ],
+                "summary": "查询当前用户站内信",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/notifications/read-all": {
+            "patch": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-站内信"
+                ],
+                "summary": "标记当前用户全部站内信为已读",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/notifications/unread-count": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-站内信"
+                ],
+                "summary": "查询当前用户未读站内信数量",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/notifications/{id}/read": {
+            "patch": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-站内信"
+                ],
+                "summary": "标记当前用户指定站内信为已读",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "站内信 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/public-config": {
+            "get": {
+                "tags": [
+                    "API v2-H5App-认证"
+                ],
+                "summary": "查询 H5App 公开配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "查询绩效考核列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "数据范围",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "考核状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "考核周期",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "创建绩效考核",
+                "parameters": [
+                    {
+                        "description": "绩效考核数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/export": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "导出绩效考核",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "数据范围",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "考核状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "考核周期",
+                        "name": "period",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "查询绩效考核详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "删除绩效考核",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/confirm-result": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "确认绩效结果",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "确认数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/dispute-result": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "申诉绩效结果",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "申诉数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/finalize": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "归档绩效考核",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "归档数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/return-employee": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "退回员工自评",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "退回信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/return-hrbp": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "退回 HRBP 评审",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "退回信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/return-manager": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "退回上级评审",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "退回信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/save-self": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "保存员工自评",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "自评数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/submit-hrbp": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "提交 HRBP 评审",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "评审数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/submit-manager": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "提交上级评审",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "评审数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/submit-self": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "提交员工自评",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "自评数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/reviews/{id}/withdraw": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效考核"
+                ],
+                "summary": "撤回绩效考核",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "考核编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "撤回信息",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/performance.ReviewPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/sso-login": {
+            "post": {
+                "tags": [
+                    "API v2-H5App-认证"
+                ],
+                "summary": "H5App 钉钉免登",
+                "parameters": [
+                    {
+                        "description": "免登信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppSSOLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/template": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效模板"
+                ],
+                "summary": "查询绩效模板",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效模板"
+                ],
+                "summary": "保存绩效模板",
+                "parameters": [
+                    {
+                        "description": "绩效模板",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.TemplateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/users": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效用户"
+                ],
+                "summary": "查询绩效用户",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效用户"
+                ],
+                "summary": "创建绩效用户",
+                "parameters": [
+                    {
+                        "description": "用户数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.UserPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/users/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效用户"
+                ],
+                "summary": "更新绩效用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户账号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "用户数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/performance.UserPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-绩效用户"
+                ],
+                "summary": "删除绩效用户",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户账号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workbench": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-工作台"
+                ],
+                "summary": "查询 H5App 工作台统计",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/attachments": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-H5App-流程审批"
+                ],
+                "summary": "上传 H5App 流程附件",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "附件文件，单文件最大20MB",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/categories": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 流程分类",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/definitions": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 可发起流程",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/definitions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 流程定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/drafts/{definitionId}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 流程发起草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "保存 H5App 流程发起草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "草稿数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowSaveDraftRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "删除 H5App 流程发起草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 我的 OA 流程",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "范围: started, handled, copied",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程名称关键字（模糊匹配，最多 50 个字符）",
+                        "name": "definitionName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程定义分类",
+                        "name": "definitionCategory",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发起人用户名关键字",
+                        "name": "starterName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务类型",
+                        "name": "businessType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务键",
+                        "name": "businessKey",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间起始值（毫秒）",
+                        "name": "startTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始时间截止值（毫秒）",
+                        "name": "startTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间起始值（毫秒）",
+                        "name": "endTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束时间截止值（毫秒）",
+                        "name": "endTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "H5App 发起 OA 流程",
+                "parameters": [
+                    {
+                        "description": "流程发起数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowStartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App OA 流程详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅发起人可删除已结束流程；流程运行数据和审计记录仍由后台保留",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "从 H5App 我的申请中删除已结束流程",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}/comments": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "流程发起人、处理人和抄送人可以添加评论，支持文字或最多 9 张已上传的流程图片",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "评论 H5App OA 流程",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "评论内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowCommentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}/reminders": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-流程审批"
+                ],
+                "summary": "提醒当前节点处理人",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例编号",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "催办节点",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowRemindRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}/withdraw": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "撤回 H5App OA 流程",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "撤回信息",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowWithdrawRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/summary/definitions": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询可汇总的已发布流程定义",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/summary/definitions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询可汇总的流程定义详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/summary/export": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "单个实例直接返回文件；批量 PDF/Word 返回 ZIP，批量 Excel 返回每实例一个工作表的 XLSX",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "导出流程汇总表单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "当前页选中的流程实例 ID，逗号分隔，最多 50 个",
+                        "name": "instanceIds",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "pdf",
+                            "xlsx",
+                            "docx"
+                        ],
+                        "type": "string",
+                        "description": "导出格式",
+                        "name": "format",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/summary/instances": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "按发起人应用调用者的统一数据权限，覆盖指定流程定义的全部历史发布版本",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询流程汇总实例",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "实例绑定的流程版本",
+                        "name": "definitionVersion",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发起人用户名关键字",
+                        "name": "starterName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "发起时间起始值（毫秒）",
+                        "name": "startTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "发起时间截止值（毫秒）",
+                        "name": "startTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "完成时间起始值（毫秒）",
+                        "name": "endTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "完成时间截止值（毫秒）",
+                        "name": "endTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，仅支持 20 或 50",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/summary/instances/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "使用实例绑定的发布版本还原只读表单和完整节点进度，并校验发起人数据范围",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询流程汇总实例详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 待办任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "instanceId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "任务状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程名称关键字（模糊匹配，最多 50 个字符）",
+                        "name": "definitionName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程定义分类",
+                        "name": "definitionCategory",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发起人用户名关键字",
+                        "name": "starterName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流程提交时间起始值（毫秒）",
+                        "name": "startTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流程提交时间截止值（毫秒）",
+                        "name": "startTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/tasks/{id}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "reject 会终止整个流程；return 会退回至已执行过的上游人工节点并继续运行，未传 returnTargetNodeId 时默认上一人工节点。reject 和 return 均需填写处理意见，可附加最多 9 张已上传的流程图片",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "完成 H5App OA 流程任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "任务处理数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowCompleteTaskRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6135,9 +12540,35 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/enrollments",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6156,7 +12587,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/enrollments/{id}",
                 "parameters": [
@@ -6166,6 +12597,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6186,7 +12623,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/enrollments/{id}/join-days",
                 "parameters": [
@@ -6196,6 +12633,26 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "打卡ID",
+                        "name": "enroll_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "日期",
+                        "name": "day",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6215,8 +12672,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "提交 /api/v2/enrollments/{id}/joins",
                 "parameters": [
@@ -6226,6 +12686,37 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "日期",
+                        "name": "day",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名项目 ID",
+                        "name": "enrollId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌",
+                        "name": "token",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -6245,8 +12736,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "提交 /api/v2/enrollments/{id}/submissions",
                 "parameters": [
@@ -6256,6 +12750,31 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "打卡表单数据JSON",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名项目 ID",
+                        "name": "enrollId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌",
+                        "name": "token",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -6271,9 +12790,41 @@ const docTemplate = `{
         "/api/v2/events": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-赛事活动"
                 ],
                 "summary": "查询 /api/v2/events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6287,7 +12838,7 @@ const docTemplate = `{
         "/api/v2/events/{id}": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-赛事活动"
                 ],
                 "summary": "查询 /api/v2/events/{id}",
                 "parameters": [
@@ -6297,6 +12848,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6317,7 +12874,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/events/{id}/dynamics",
                 "parameters": [
@@ -6327,6 +12884,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6344,8 +12913,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "提交 /api/v2/events/{id}/dynamics",
                 "parameters": [
@@ -6355,6 +12927,37 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态标题",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动态内容",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片列表(JSON)",
+                        "name": "images",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "视频列表(JSON)",
+                        "name": "videos",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -6375,7 +12978,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/events/{id}/participants",
                 "parameters": [
@@ -6402,8 +13005,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "提交 /api/v2/events/{id}/participants",
                 "parameters": [
@@ -6413,6 +13019,25 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名表单数据(JSON)",
+                        "name": "forms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话令牌",
+                        "name": "token",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -6433,7 +13058,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/events/{id}/scores",
                 "parameters": [
@@ -6443,6 +13068,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6460,8 +13097,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "提交 /api/v2/events/{id}/scores",
                 "parameters": [
@@ -6470,6 +13110,27 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "参赛者ID",
+                        "name": "participant_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "评分",
+                        "name": "score",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "评委ID",
+                        "name": "judge_id",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -6491,7 +13152,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-考试"
                 ],
                 "summary": "查询 /api/v2/exam-records/{id}",
                 "parameters": [
@@ -6520,8 +13181,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-考试"
                 ],
                 "summary": "更新 /api/v2/exam-records/{id}/answers",
                 "parameters": [
@@ -6530,6 +13194,13 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "答案JSON",
+                        "name": "answers",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -6546,9 +13217,17 @@ const docTemplate = `{
         "/api/v2/exam-results": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-考试"
                 ],
                 "summary": "查询 /api/v2/exam-results",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话标识",
+                        "name": "session",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6562,9 +13241,35 @@ const docTemplate = `{
         "/api/v2/exams": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-考试"
                 ],
                 "summary": "查询 /api/v2/exams",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "设备标识",
+                        "name": "deviceId",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6578,7 +13283,7 @@ const docTemplate = `{
         "/api/v2/exams/{id}": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-考试"
                 ],
                 "summary": "查询 /api/v2/exams/{id}",
                 "parameters": [
@@ -6588,6 +13293,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话标识",
+                        "name": "session",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6608,7 +13319,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-考试"
                 ],
                 "summary": "提交 /api/v2/exams/{id}/start",
                 "parameters": [
@@ -6618,6 +13329,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "设备标识",
+                        "name": "deviceId",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6632,8 +13349,11 @@ const docTemplate = `{
         },
         "/api/v2/exams/{id}/submissions": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-考试"
                 ],
                 "summary": "提交 /api/v2/exams/{id}/submissions",
                 "parameters": [
@@ -6643,6 +13363,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "考试答案与会话信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.PublicExamSubmissionRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -6657,8 +13386,11 @@ const docTemplate = `{
         },
         "/api/v2/exams/{id}/validation": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-考试"
                 ],
                 "summary": "提交 /api/v2/exams/{id}/validation",
                 "parameters": [
@@ -6668,6 +13400,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "待校验的考试答案",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.PublicExamValidationRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -6683,9 +13424,25 @@ const docTemplate = `{
         "/api/v2/geo/reverse": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-地理编码"
                 ],
                 "summary": "查询 /api/v2/geo/reverse",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "纬度",
+                        "name": "lat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "经度",
+                        "name": "lng",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6699,9 +13456,17 @@ const docTemplate = `{
         "/api/v2/home": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-首页"
                 ],
                 "summary": "查询 /api/v2/home",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6715,9 +13480,18 @@ const docTemplate = `{
         "/api/v2/home/setup": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-首页"
                 ],
                 "summary": "查询 /api/v2/home/setup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设置键名",
+                        "name": "key",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6736,9 +13510,17 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-账户"
                 ],
                 "summary": "查询 /api/v2/me",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6754,10 +13536,45 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-账户"
                 ],
                 "summary": "更新 /api/v2/me",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "姓名",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "头像",
+                        "name": "pic",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "表单数据（JSON）",
+                        "name": "forms",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6776,7 +13593,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-账户"
                 ],
                 "summary": "查询 /api/v2/me/bootstrap",
                 "responses": {
@@ -6797,9 +13614,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/me/enrollment-calendar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "年月 (2026-06)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6818,9 +13649,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/me/enrollment-day-records",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "日期 (2026-06-01)",
+                        "name": "day",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6839,9 +13684,29 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/me/enrollment-records",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6860,9 +13725,17 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/me/enrollment-users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6881,9 +13754,41 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/me/enrollments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "报名项目 ID",
+                        "name": "enrollId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6902,9 +13807,18 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/me/event-roles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6923,9 +13837,42 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/me/events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6944,7 +13891,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-考试"
                 ],
                 "summary": "查询 /api/v2/me/exam-records",
                 "responses": {
@@ -6965,9 +13912,23 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-收藏"
                 ],
                 "summary": "查询 /api/v2/me/favorites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类型",
+                        "name": "typ",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -6983,10 +13944,48 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-收藏"
                 ],
                 "summary": "提交 /api/v2/me/favorites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "标题",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "对象ID",
+                        "name": "oid",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型",
+                        "name": "typ",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "路径",
+                        "name": "path",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7005,9 +14004,31 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-收藏"
                 ],
                 "summary": "查询 /api/v2/me/favorites/check",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "对象ID",
+                        "name": "oid",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型",
+                        "name": "typ",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7025,8 +14046,11 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-收藏"
                 ],
                 "summary": "删除 /api/v2/me/favorites/{oid}",
                 "parameters": [
@@ -7036,6 +14060,12 @@ const docTemplate = `{
                         "name": "oid",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -7056,7 +14086,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-账户"
                 ],
                 "summary": "提交 /api/v2/me/logout",
                 "responses": {
@@ -7077,9 +14107,48 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/me/managed-events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7097,10 +14166,22 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-账户"
                 ],
                 "summary": "提交 /api/v2/me/phone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "云ID",
+                        "name": "cloud_id",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7119,9 +14200,17 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-问卷"
                 ],
                 "summary": "查询 /api/v2/me/survey-responses",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7140,7 +14229,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-问卷"
                 ],
                 "summary": "查询 /api/v2/me/survey-responses/{id}",
                 "parameters": [
@@ -7150,6 +14239,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7170,9 +14265,35 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-通知公告"
                 ],
                 "summary": "查询 /api/v2/news",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户 ID",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7191,7 +14312,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-通知公告"
                 ],
                 "summary": "查询 /api/v2/news/categories",
                 "responses": {
@@ -7212,7 +14333,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-客户端"
+                    "API v2-客户端-通知公告"
                 ],
                 "summary": "查询 /api/v2/news/{id}",
                 "parameters": [
@@ -7236,10 +14357,24 @@ const docTemplate = `{
         },
         "/api/v2/survey/apply": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-问卷"
                 ],
                 "summary": "提交 /api/v2/survey/apply",
+                "parameters": [
+                    {
+                        "description": "表单 Schema 与当前答案",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.PublicSurveyApplyRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7252,10 +14387,24 @@ const docTemplate = `{
         },
         "/api/v2/survey/validate": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-问卷"
                 ],
                 "summary": "提交 /api/v2/survey/validate",
+                "parameters": [
+                    {
+                        "description": "问卷或表单校验数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.PublicSurveyValidateRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7269,9 +14418,41 @@ const docTemplate = `{
         "/api/v2/surveys": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-问卷"
                 ],
                 "summary": "查询 /api/v2/surveys",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "设备标识",
+                        "name": "deviceId",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7285,7 +14466,7 @@ const docTemplate = `{
         "/api/v2/surveys/{id}": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-问卷"
                 ],
                 "summary": "查询 /api/v2/surveys/{id}",
                 "parameters": [
@@ -7295,6 +14476,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "会话标识",
+                        "name": "session",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7309,8 +14496,11 @@ const docTemplate = `{
         },
         "/api/v2/surveys/{id}/responses": {
             "post": {
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-问卷"
                 ],
                 "summary": "提交 /api/v2/surveys/{id}/responses",
                 "parameters": [
@@ -7320,6 +14510,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "问卷答案与会话信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.PublicSurveySubmissionRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -7335,7 +14534,7 @@ const docTemplate = `{
         "/api/v2/user-form-fields": {
             "get": {
                 "tags": [
-                    "API v2-公开接口"
+                    "API v2-公开接口-表单"
                 ],
                 "summary": "查询 /api/v2/user-form-fields",
                 "responses": {
@@ -7434,10 +14633,50 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-客户端-OA流程"
                 ],
                 "summary": "保存我的 OA 流程发起草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "发布版本与表单草稿",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowStartDraftRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-OA流程"
+                ],
+                "summary": "删除我的 OA 流程发起草稿",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7475,6 +14714,72 @@ const docTemplate = `{
                         "description": "查询范围: started, handled, copied",
                         "name": "scope",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程定义 ID",
+                        "name": "definitionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "流程定义分类",
+                        "name": "definitionCategory",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务类型",
+                        "name": "businessType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务键",
+                        "name": "businessKey",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间起始值（毫秒）",
+                        "name": "startTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间截止值（毫秒）",
+                        "name": "startTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间起始值（毫秒）",
+                        "name": "endTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间截止值（毫秒）",
+                        "name": "endTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7492,10 +14797,24 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-客户端-OA流程"
                 ],
                 "summary": "发起 OA 流程",
+                "parameters": [
+                    {
+                        "description": "流程定义、业务标识与表单数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowStartInstanceRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7543,6 +14862,9 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-客户端-OA流程"
                 ],
@@ -7554,6 +14876,14 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "撤回原因",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowReasonRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -7577,6 +14907,32 @@ const docTemplate = `{
                     "API v2-客户端-OA流程"
                 ],
                 "summary": "查询我的 OA 流程任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "instanceId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7594,10 +14950,14 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "description": "reject 会终止整个流程；return 会退回至已执行过的上游人工节点并继续运行，未传 returnTargetNodeId 时默认上一人工节点",
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-客户端-OA流程"
                 ],
-                "summary": "审批或拒绝我的 OA 流程任务",
+                "summary": "处理我的 OA 流程任务",
                 "parameters": [
                     {
                         "type": "string",
@@ -7605,6 +14965,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "审批动作、意见与表单数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowCompleteTaskRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -7734,6 +15103,287 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Survey": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "allowMulti": {
+                    "type": "integer"
+                },
+                "anonymous": {
+                    "type": "integer"
+                },
+                "category": {
+                    "description": "分类",
+                    "type": "string"
+                },
+                "cover": {
+                    "description": "封面",
+                    "type": "string"
+                },
+                "createBy": {
+                    "type": "integer"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "deptIds": {
+                    "type": "string"
+                },
+                "description": {
+                    "description": "描述",
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "endTime": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "maxResponse": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "qr": {
+                    "type": "string"
+                },
+                "settings": {
+                    "type": "string"
+                },
+                "showResult": {
+                    "type": "integer"
+                },
+                "startTime": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "description": "标签 (逗号)",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "标题",
+                    "type": "string"
+                },
+                "updateBy": {
+                    "type": "integer"
+                },
+                "updateDeptId": {
+                    "type": "integer"
+                },
+                "visibility": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.SurveyChannel": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "extra": {
+                    "description": "渠道额外参数",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "submitCnt": {
+                    "type": "integer"
+                },
+                "surveyId": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "link/qr/embed/shorturl",
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "visitCnt": {
+                    "type": "integer"
+                }
+            }
+        },
+        "performance.AccountProfilePayload": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string"
+                },
+                "avatar": {
+                    "type": "string"
+                },
+                "currentPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "performance.ReviewPayload": {
+            "type": "object",
+            "properties": {
+                "employeeConfirmComment": {
+                    "type": "string"
+                },
+                "employeeId": {
+                    "type": "string"
+                },
+                "employeeIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "finalGrade": {
+                    "type": "string"
+                },
+                "finalNote": {
+                    "type": "string"
+                },
+                "hrbpComment": {
+                    "type": "string"
+                },
+                "hrbpGrade": {
+                    "type": "string"
+                },
+                "managerComment": {
+                    "type": "string"
+                },
+                "managerGrade": {
+                    "type": "string"
+                },
+                "nextObjectives": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/review.NextObjective"
+                    }
+                },
+                "nextPeriod": {
+                    "type": "string"
+                },
+                "objectives": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/review.Objective"
+                    }
+                },
+                "period": {
+                    "type": "string"
+                },
+                "returnReason": {
+                    "type": "string"
+                },
+                "selfSummary": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/review.ValueScore"
+                    }
+                }
+            }
+        },
+        "performance.TemplateDTO": {
+            "type": "object",
+            "properties": {
+                "gradeLevels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.GradeLevel"
+                    }
+                },
+                "nextObjectiveDefaults": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.NextObjective"
+                    }
+                },
+                "objectiveDefaults": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.NextObjective"
+                    }
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.ValueTemplate"
+                    }
+                }
+            }
+        },
+        "performance.UserPayload": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string"
+                },
+                "avatar": {
+                    "type": "string"
+                },
+                "department": {
+                    "type": "string"
+                },
+                "departmentLevel1": {
+                    "type": "string"
+                },
+                "departmentLevel2": {
+                    "type": "string"
+                },
+                "departmentLevel3": {
+                    "type": "string"
+                },
+                "departmentLevel4": {
+                    "type": "string"
+                },
+                "departmentLevels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "hrbpId": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "managerId": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "string"
+                },
+                "responsibleDepartments": {}
+            }
+        },
         "response.Resp": {
             "type": "object",
             "properties": {
@@ -7746,10 +15396,819 @@ const docTemplate = `{
                 }
             }
         },
-        "workflow.InitiatorConfig": {
+        "review.NextObjective": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "review.Objective": {
+            "type": "object",
+            "properties": {
+                "completion": {},
+                "id": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "review.ValueRubric": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "review.ValueScore": {
+            "type": "object",
+            "properties": {
+                "definition": {
+                    "type": "string"
+                },
+                "hr": {},
+                "hrbp": {},
+                "id": {
+                    "type": "string"
+                },
+                "manager": {},
+                "name": {
+                    "type": "string"
+                },
+                "rubric": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/review.ValueRubric"
+                    }
+                },
+                "self": {}
+            }
+        },
+        "swagger.AdminWorkflowInstanceDeleteRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "description": "IDs 是待删除的终态流程实例 ID，单次最多 100 个。",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "instance-1",
+                        "instance-2"
+                    ]
+                }
+            }
+        },
+        "swagger.AdminWorkflowStartInstanceRequest": {
+            "type": "object",
+            "properties": {
+                "businessKey": {
+                    "description": "BusinessKey 是关联业务唯一键。",
+                    "type": "string",
+                    "example": "review-202609"
+                },
+                "businessType": {
+                    "description": "BusinessType 是关联业务类型。",
+                    "type": "string",
+                    "example": "performance_review"
+                },
+                "definitionId": {
+                    "description": "DefinitionID 是流程定义 ID。",
+                    "type": "integer",
+                    "example": 1
+                },
+                "definitionVersion": {
+                    "description": "DefinitionVersion 是发起时使用的流程发布版本。",
+                    "type": "integer",
+                    "example": 1
+                },
+                "formData": {
+                    "description": "FormData 是流程发起表单数据。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "starterId": {
+                    "description": "StarterID 是业务发起人用户 ID。",
+                    "type": "string",
+                    "example": "1001"
+                },
+                "variables": {
+                    "description": "Variables 是流程运行变量。",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "swagger.DingTalkNotificationSendRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content 是钉钉通知正文。",
+                    "type": "string",
+                    "example": "系统将于今晚 22:00 进行维护。"
+                },
+                "departmentIds": {
+                    "description": "DepartmentIDs 是指定部门范围下的部门 ID，执行时包含下级部门。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        3,
+                        5
+                    ]
+                },
+                "scope": {
+                    "description": "Scope 是收件范围。",
+                    "type": "string",
+                    "enum": [
+                        "all",
+                        "departments",
+                        "users"
+                    ],
+                    "example": "departments"
+                },
+                "title": {
+                    "description": "Title 是钉钉通知标题。",
+                    "type": "string",
+                    "example": "系统维护通知"
+                },
+                "userIds": {
+                    "description": "UserIDs 是指定用户范围下的用户 ID。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        66,
+                        67
+                    ]
+                }
+            }
+        },
+        "swagger.H5AppBindSelfRequest": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string"
+                },
+                "bindTicket": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.H5AppChangePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "confirmPassword": {
+                    "type": "string"
+                },
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.H5AppLoginRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.H5AppSSOLoginRequest": {
+            "type": "object",
+            "properties": {
+                "authCode": {
+                    "type": "string"
+                },
+                "corpId": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.H5AppWorkflowCommentRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/swagger.H5AppWorkflowImage"
+                    }
+                }
+            }
+        },
+        "swagger.H5AppWorkflowCompleteTaskRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "approve",
+                        "reject",
+                        "return",
+                        "submit"
+                    ]
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "formData": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/swagger.H5AppWorkflowImage"
+                    }
+                },
+                "returnTargetNodeId": {
+                    "type": "string"
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "swagger.H5AppWorkflowImage": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "uploads/workflow/2026/09/04/comment.png"
+                },
+                "mimeType": {
+                    "type": "string",
+                    "example": "image/png"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "comment.png"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 2048
+                },
+                "url": {
+                    "type": "string",
+                    "example": "/uploads/workflow/2026/09/04/comment.png"
+                }
+            }
+        },
+        "swagger.H5AppWorkflowRemindRequest": {
+            "type": "object",
+            "properties": {
+                "nodeId": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.H5AppWorkflowSaveDraftRequest": {
+            "type": "object",
+            "properties": {
+                "definitionVersion": {
+                    "type": "integer"
+                },
+                "formData": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "swagger.H5AppWorkflowStartRequest": {
+            "type": "object",
+            "properties": {
+                "businessKey": {
+                    "type": "string"
+                },
+                "businessType": {
+                    "type": "string"
+                },
+                "definitionId": {
+                    "type": "integer"
+                },
+                "definitionVersion": {
+                    "type": "integer"
+                },
+                "formData": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "swagger.H5AppWorkflowWithdrawRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.InAppNotificationSendRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content 是通知正文。",
+                    "type": "string",
+                    "example": "系统将于今晚 22:00 进行维护。"
+                },
+                "departmentIds": {
+                    "description": "DepartmentIDs 是指定部门范围下的部门 ID，执行时包含下级部门。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        3,
+                        5
+                    ]
+                },
+                "requestId": {
+                    "description": "RequestID 是客户端生成的幂等请求标识；为空时由服务端生成。",
+                    "type": "string",
+                    "example": "8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"
+                },
+                "scope": {
+                    "description": "Scope 是收件范围。",
+                    "type": "string",
+                    "enum": [
+                        "all",
+                        "departments",
+                        "users"
+                    ],
+                    "example": "departments"
+                },
+                "title": {
+                    "description": "Title 是通知标题。",
+                    "type": "string",
+                    "example": "系统维护通知"
+                },
+                "userIds": {
+                    "description": "UserIDs 是指定用户范围下的用户 ID。",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        66,
+                        67
+                    ]
+                }
+            }
+        },
+        "swagger.PublicExamSubmissionRequest": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "description": "Answers 是以题目 ID 为键的答案。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "autoSubmit": {
+                    "description": "AutoSubmit 表示是否由超时机制自动提交。",
+                    "type": "boolean",
+                    "example": false
+                },
+                "device": {
+                    "description": "Device 是设备类型。",
+                    "type": "string",
+                    "example": "h5"
+                },
+                "deviceId": {
+                    "description": "DeviceID 是设备唯一标识。",
+                    "type": "string",
+                    "example": "device-001"
+                },
+                "recordId": {
+                    "description": "RecordID 是已开始考试的答题记录 ID。",
+                    "type": "integer",
+                    "example": 1
+                },
+                "session": {
+                    "description": "Session 是匿名考试会话标识。",
+                    "type": "string",
+                    "example": "exam-session"
+                }
+            }
+        },
+        "swagger.PublicExamValidationRequest": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "description": "Answers 是待校验的考试答案。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "device": {
+                    "description": "Device 是设备类型。",
+                    "type": "string",
+                    "example": "h5"
+                },
+                "deviceId": {
+                    "description": "DeviceID 是设备唯一标识。",
+                    "type": "string",
+                    "example": "device-001"
+                }
+            }
+        },
+        "swagger.PublicSurveyApplyRequest": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "description": "Answers 是以字段 ID 为键的当前答案。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "schema": {
+                    "description": "Schema 是表单 Schema JSON。",
+                    "type": "string",
+                    "example": "{\"questions\":[]}"
+                }
+            }
+        },
+        "swagger.PublicSurveySubmissionRequest": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "description": "Answers 是以题目 ID 为键的答案。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "autoSubmit": {
+                    "description": "AutoSubmit 表示是否由超时机制自动提交。",
+                    "type": "boolean",
+                    "example": false
+                },
+                "device": {
+                    "description": "Device 是设备或 User-Agent 信息。",
+                    "type": "string",
+                    "example": "h5"
+                },
+                "deviceId": {
+                    "description": "DeviceID 是设备唯一标识。",
+                    "type": "string",
+                    "example": "device-001"
+                },
+                "nickname": {
+                    "description": "Nickname 是匿名答题人昵称。",
+                    "type": "string",
+                    "example": "匿名用户"
+                },
+                "session": {
+                    "description": "Session 是匿名答题会话标识。",
+                    "type": "string",
+                    "example": "survey-session"
+                },
+                "startTime": {
+                    "description": "StartTime 是开始答题时间的 Unix 毫秒时间戳。",
+                    "type": "integer",
+                    "example": 1788316800000
+                }
+            }
+        },
+        "swagger.PublicSurveyValidateRequest": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "description": "Answers 是待校验的答案。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "device": {
+                    "description": "Device 是设备类型。",
+                    "type": "string",
+                    "example": "h5"
+                },
+                "deviceId": {
+                    "description": "DeviceID 是设备唯一标识。",
+                    "type": "string",
+                    "example": "device-001"
+                },
+                "schema": {
+                    "description": "Schema 是未指定问卷 ID 时使用的表单 Schema JSON。",
+                    "type": "string",
+                    "example": "{\"questions\":[]}"
+                },
+                "surveyId": {
+                    "description": "SurveyID 是已发布问卷 ID；传入后优先使用问卷保存的 Schema。",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "swagger.ScheduledTaskCronPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "afterMillis": {
+                    "description": "AfterMillis 是预览起点的 Unix 毫秒时间戳。",
+                    "type": "integer",
+                    "example": 1788316800000
+                },
+                "count": {
+                    "description": "Count 是需要返回的未来执行时间数量。",
+                    "type": "integer",
+                    "example": 5
+                },
+                "expression": {
+                    "description": "Expression 是 Cron 表达式。",
+                    "type": "string",
+                    "example": "0 */5 * * * *"
+                },
+                "precision": {
+                    "description": "Precision 是表达式精度。",
+                    "type": "string",
+                    "enum": [
+                        "second",
+                        "minute"
+                    ],
+                    "example": "second"
+                },
+                "timezone": {
+                    "description": "Timezone 是 IANA 时区名称。",
+                    "type": "string",
+                    "example": "Asia/Shanghai"
+                }
+            }
+        },
+        "swagger.ScheduledTaskStatusRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled 表示是否启用定时任务。",
+                    "type": "boolean",
+                    "example": true
+                },
+                "version": {
+                    "description": "Version 是用于乐观锁校验的当前版本号。",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "swagger.SurveyQuestionBankRequest": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "Category 是题目分类。",
+                    "type": "string",
+                    "example": "通用"
+                },
+                "schema": {
+                    "description": "Schema 是题目配置 JSON。",
+                    "type": "string",
+                    "example": "{}"
+                },
+                "tags": {
+                    "description": "Tags 是逗号分隔的题目标签。",
+                    "type": "string",
+                    "example": "满意度,通用"
+                },
+                "title": {
+                    "description": "Title 是题目标题。",
+                    "type": "string",
+                    "example": "满意度"
+                },
+                "type": {
+                    "description": "Type 是题目组件类型。",
+                    "type": "string",
+                    "example": "radio"
+                }
+            }
+        },
+        "swagger.SurveyTemplatePresetsRequest": {
+            "type": "object",
+            "properties": {
+                "presets": {
+                    "description": "Presets 是当前管理员的模板预设列表。",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "swagger.WorkflowCompleteTaskRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action 是任务处理动作；reject 终止整个流程，return 将流程退回至已执行过的上游人工节点并继续运行。",
+                    "type": "string",
+                    "enum": [
+                        "approve",
+                        "reject",
+                        "return",
+                        "submit"
+                    ],
+                    "example": "approve"
+                },
+                "comment": {
+                    "description": "Comment 是处理意见；reject 和 return 动作必填。",
+                    "type": "string",
+                    "example": "同意"
+                },
+                "formData": {
+                    "description": "FormData 是本次节点填写或更新的表单数据。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "returnTargetNodeId": {
+                    "description": "ReturnTargetNodeID 是退回目标节点 ID；return 动作省略时默认退回上一人工节点。",
+                    "type": "string",
+                    "example": "manager_review"
+                },
+                "variables": {
+                    "description": "Variables 是本次处理更新的流程变量。",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "swagger.WorkflowDispatchDueRequest": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "description": "Limit 是本次最多投递的通知数量。",
+                    "type": "integer",
+                    "example": 100
+                }
+            }
+        },
+        "swagger.WorkflowReasonRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "description": "Reason 是撤回或取消原因。",
+                    "type": "string",
+                    "example": "业务申请撤销"
+                }
+            }
+        },
+        "swagger.WorkflowStartDraftRequest": {
+            "type": "object",
+            "properties": {
+                "definitionVersion": {
+                    "description": "DefinitionVersion 是草稿对应的流程发布版本。",
+                    "type": "integer",
+                    "example": 1
+                },
+                "formData": {
+                    "description": "FormData 是流程发起表单数据。",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "swagger.WorkflowStartInstanceRequest": {
+            "type": "object",
+            "properties": {
+                "businessKey": {
+                    "description": "BusinessKey 是关联业务唯一键。",
+                    "type": "string",
+                    "example": "review-202609"
+                },
+                "businessType": {
+                    "description": "BusinessType 是关联业务类型。",
+                    "type": "string",
+                    "example": "performance_review"
+                },
+                "definitionId": {
+                    "description": "DefinitionID 是流程定义 ID。",
+                    "type": "integer",
+                    "example": 1
+                },
+                "definitionVersion": {
+                    "description": "DefinitionVersion 是发起时使用的流程发布版本。",
+                    "type": "integer",
+                    "example": 1
+                },
+                "formData": {
+                    "description": "FormData 是流程发起表单数据。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "variables": {
+                    "description": "Variables 是流程运行变量。",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "template.GradeLevel": {
+            "type": "object",
+            "properties": {
+                "coefficient": {
+                    "type": "number"
+                },
+                "grade": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "template.NextObjective": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "template.ValueRubric": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "template.ValueTemplate": {
+            "type": "object",
+            "properties": {
+                "definition": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "rubric": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.ValueRubric"
+                    }
+                }
+            }
+        },
+        "workflowcore.InitiatorConfig": {
             "type": "object",
             "properties": {
                 "departmentIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "excludedUserIds": {
                     "type": "array",
                     "items": {
                         "type": "integer"
@@ -7770,7 +16229,41 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "initiator": {
-                    "$ref": "#/definitions/workflow.InitiatorConfig"
+                    "$ref": "#/definitions/workflowcore.InitiatorConfig"
+                },
+                "note": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowservice.RollbackRequest": {
+            "type": "object",
+            "properties": {
+                "note": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowservice.SaveOrgApproverAssignmentsRequest": {
+            "type": "object",
+            "properties": {
+                "departmentId": {
+                    "type": "integer"
+                },
+                "identityCode": {
+                    "type": "string"
+                },
+                "subjectId": {
+                    "type": "integer"
+                },
+                "subjectType": {
+                    "type": "string"
+                },
+                "userIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         }
@@ -7787,114 +16280,14 @@ const docTemplate = `{
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
+        },
+        "H5AppToken": {
+            "description": "H5App Token，格式: \"Bearer {token}\"",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
-    },
-    "tags": [
-        {
-            "description": "后台管理用户相关接口",
-            "name": "PC端-用户管理"
-        },
-        {
-            "description": "后台管理通知公告相关接口",
-            "name": "PC端-通知公告"
-        },
-        {
-            "description": "后台管理赛事活动相关接口",
-            "name": "PC端-赛事活动管理"
-        },
-        {
-            "description": "后台管理打卡相关接口",
-            "name": "PC端-打卡管理"
-        },
-        {
-            "description": "后台管理菜单相关接口",
-            "name": "PC端-菜单管理"
-        },
-        {
-            "description": "后台管理角色相关接口",
-            "name": "PC端-角色管理"
-        },
-        {
-            "description": "后台管理字典相关接口",
-            "name": "PC端-字典管理"
-        },
-        {
-            "description": "后台管理部门相关接口",
-            "name": "PC端-部门管理"
-        },
-        {
-            "description": "后台管理管理员相关接口",
-            "name": "PC端-管理员管理"
-        },
-        {
-            "description": "后台系统设置相关接口",
-            "name": "PC端-系统设置"
-        },
-        {
-            "description": "后台首页数据接口",
-            "name": "PC端-管理后台首页"
-        },
-        {
-            "description": "后台管理考试相关接口",
-            "name": "PC端-考试管理"
-        },
-        {
-            "description": "后台管理问卷相关接口",
-            "name": "PC端-问卷管理"
-        },
-        {
-            "description": "后台表单工具相关接口",
-            "name": "PC端-表单工具"
-        },
-        {
-            "description": "在线用户管理接口",
-            "name": "PC端-在线用户"
-        },
-        {
-            "description": "在线管理员管理接口",
-            "name": "PC端-在线管理员"
-        },
-        {
-            "description": "客户端用户认证相关接口",
-            "name": "客户端-通行证"
-        },
-        {
-            "description": "客户端打卡相关接口",
-            "name": "客户端-打卡"
-        },
-        {
-            "description": "客户端赛事活动相关接口",
-            "name": "客户端-赛事活动"
-        },
-        {
-            "description": "客户端考试相关接口",
-            "name": "客户端-考试"
-        },
-        {
-            "description": "客户端问卷相关接口",
-            "name": "客户端-问卷"
-        },
-        {
-            "description": "客户端地理编码相关接口",
-            "name": "客户端-地理编码"
-        },
-        {
-            "description": "客户端通知公告相关接口",
-            "name": "客户端-通知公告"
-        },
-        {
-            "description": "客户端首页数据接口",
-            "name": "客户端-首页"
-        },
-        {
-            "description": "客户端收藏相关接口",
-            "name": "客户端-收藏"
-        },
-        {
-            "description": "客户端表单工具相关接口",
-            "name": "客户端-表单工具"
-        }
-    ]
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it

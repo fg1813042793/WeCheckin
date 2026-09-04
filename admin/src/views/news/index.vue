@@ -38,13 +38,13 @@
           <template #default="{ row }">
             <div class="admin-table-actions">
               <el-button v-if="hasPerm('admin:menu:news:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <el-button v-if="(row.status === '1') && hasPerm('admin:menu:news:edit')" size="small" type="warning" @click="toggleStatus(row, '0')">停用</el-button>
-              <el-button v-else-if="hasPerm('admin:menu:news:edit')" size="small" type="success" @click="toggleStatus(row, '1')">启用</el-button>
-              <el-dropdown v-if="hasPerm('admin:menu:news:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+              <el-button v-if="row.status === 1 && hasPerm('admin:menu:news:status')" size="small" type="warning" @click="toggleStatus(row, 0)">停用</el-button>
+              <el-button v-else-if="hasPerm('admin:menu:news:status')" size="small" type="success" @click="toggleStatus(row, 1)">启用</el-button>
+              <el-dropdown v-if="hasPerm('admin:menu:news:vouch') || hasPerm('admin:menu:news:del')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item :command="row.vouch === 1 ? 'unvouch' : 'vouch'">
+                    <el-dropdown-item v-if="hasPerm('admin:menu:news:vouch')" :command="row.vouch === 1 ? 'unvouch' : 'vouch'">
                       {{ row.vouch === 1 ? '取消推荐' : '推荐首页' }}
                     </el-dropdown-item>
                     <el-dropdown-item v-if="hasPerm('admin:menu:news:del')" command="del" divided>删除</el-dropdown-item>
@@ -89,7 +89,7 @@
           <el-input v-model="form.content" type="textarea" :rows="6" />
         </el-form-item>
         <el-form-item label="封面图片">
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleCoverSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="{ Authorization: token }" accept="image/*">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleCoverSuccess" accept="image/*">
             <div class="cover-upload">
               <el-image v-if="form.img" :src="form.img" class="cover-preview" />
               <div v-else class="cover-placeholder">+</div>
@@ -134,6 +134,7 @@ import SortPopover from '../../components/SortPopover.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { Delete, ArrowDown } from '@element-plus/icons-vue'
 import { adminApi } from '../../api'
+import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 
@@ -147,7 +148,6 @@ const saving = ref(false)
 const categories = ref<any[]>([])
 const deptTree = ref<any[]>([])
 const deptTreeRef = ref()
-const token = localStorage.getItem('admin_token') || ''
 const selected = ref<any[]>([])
 const sortRules = ref<{field:string;order:string}[]>([])
 const sortColumns = [
@@ -182,7 +182,7 @@ function getDeptNames(ids: string): string {
 
 async function loadCategories() {
   try {
-    const res = await adminApi.dictItems('content_type')
+    const res = await adminApi.dictActiveItems('content_type')
     categories.value = (res.data || []).map((d: any) => ({ label: d.label, value: d.value }))
   } catch { categories.value = [] }
 }
@@ -258,20 +258,24 @@ async function saveNews() {
   } finally { saving.value = false }
 }
 
-async function toggleStatus(row: any, status: string) {
+async function toggleStatus(row: any, status: number) {
+  if (!hasPerm('admin:menu:news:status')) return
   await adminApi.newsStatus({ id: row.id, status })
-  ElMessage.success(status === '1' ? '已启用' : '已停用')
+  ElMessage.success(status === 1 ? '已启用' : '已停用')
   load()
 }
 
 async function handleMore(cmd: string, row: any) {
   if (cmd === 'vouch') {
+    if (!hasPerm('admin:menu:news:vouch')) return
     await adminApi.newsVouch({ id: row.id, isVouch: '1' })
     ElMessage.success('已推荐'); load()
   } else if (cmd === 'unvouch') {
+    if (!hasPerm('admin:menu:news:vouch')) return
     await adminApi.newsVouch({ id: row.id, isVouch: '0' })
     ElMessage.success('已取消推荐'); load()
   } else if (cmd === 'del') {
+    if (!hasPerm('admin:menu:news:del')) return
     try {
       await ElMessageBox.confirm('确定删除该通知？', '提示')
       await adminApi.newsDel({ id: row.id })

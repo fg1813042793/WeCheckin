@@ -178,7 +178,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.dbname", "wecheckin")
 
 	v.SetDefault("cors.allow_origins", []string{"*"})
-	v.SetDefault("cors.allow_methods", []string{"get", "post", "put", "delete", "options"})
+	v.SetDefault("cors.allow_methods", []string{"get", "post", "put", "patch", "delete", "options"})
 	v.SetDefault("cors.allow_headers", []string{"Origin", "Content-Type", "Accept", "Authorization"})
 
 	v.SetDefault("log.dir", "./logs")

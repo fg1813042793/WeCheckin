@@ -15,6 +15,24 @@ type AdminSetupHandler struct{}
 func NewAdminSetupHandler() *AdminSetupHandler { return &AdminSetupHandler{} }
 
 // @Tags PC端-系统设置
+// @Summary 获取内容配置
+// @Param key query string true "设置键名"
+// @Success 200 {object} response.Resp
+func (h *AdminSetupHandler) GetContentSetup(ctx context.Context, c *app.RequestContext) {
+	key := c.Query("key")
+	if key == "" {
+		response.Fail(c, "key 必填")
+		return
+	}
+	setup, err := setupservice.GetSetupContext(ctx, key)
+	if err != nil || setup == nil {
+		response.JSON(c, nil)
+		return
+	}
+	response.JSON(c, setup.Value)
+}
+
+// @Tags PC端-系统设置
 // @Summary 设置系统配置
 // @Param key formData string true "设置键名"
 // @Param value formData string true "设置值"

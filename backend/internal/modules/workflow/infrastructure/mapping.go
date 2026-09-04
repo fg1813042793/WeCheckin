@@ -7,6 +7,7 @@ import (
 
 	workflowmodel "wecheckin/backend/internal/model/workflow"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
+	"wecheckin/backend/internal/workflowcore"
 )
 
 func taskToModel(instanceID string, task workflowdomain.Task, handledAt int64, actorByTask map[string]string) workflowmodel.ProcessTask {
@@ -14,10 +15,10 @@ func taskToModel(instanceID string, task workflowdomain.Task, handledAt int64, a
 	if actorByTask != nil {
 		handledBy = actorByTask[task.ID]
 	}
-	if handledBy == "" && (task.Status == workflowdomain.TaskStatusCompleted || task.Status == workflowdomain.TaskStatusApproved || task.Status == workflowdomain.TaskStatusRejected) {
+	if handledBy == "" && (task.Status == workflowdomain.TaskStatusCompleted || task.Status == workflowdomain.TaskStatusApproved || task.Status == workflowdomain.TaskStatusRejected || task.Status == workflowdomain.TaskStatusReturned) {
 		handledBy = task.AssigneeID
 	}
-	if task.Status != workflowdomain.TaskStatusCompleted && task.Status != workflowdomain.TaskStatusApproved && task.Status != workflowdomain.TaskStatusRejected {
+	if task.Status != workflowdomain.TaskStatusCompleted && task.Status != workflowdomain.TaskStatusApproved && task.Status != workflowdomain.TaskStatusRejected && task.Status != workflowdomain.TaskStatusReturned {
 		handledAt = 0
 	}
 	return workflowmodel.ProcessTask{
@@ -26,18 +27,42 @@ func taskToModel(instanceID string, task workflowdomain.Task, handledAt int64, a
 		AssigneeID: task.AssigneeID, ApprovalMode: task.ApprovalMode,
 		CompletionRate: task.CompletionRate, Sequence: task.Sequence, Total: task.Total,
 		Status: string(task.Status), Action: string(task.Action), Comment: task.Comment,
-		HandledBy: handledBy, HandledAt: handledAt,
+		ImagesJSON: encodeWorkflowImages(task.Images),
+		HandledBy:  handledBy, HandledAt: handledAt,
 	}
 }
 
-func taskFromModel(model workflowmodel.ProcessTask) workflowdomain.Task {
+func taskFromModel(model workflowmodel.ProcessTask) (workflowdomain.Task, error) {
+	images, err := decodeWorkflowImages(model.ImagesJSON)
+	if err != nil {
+		return workflowdomain.Task{}, err
+	}
 	return workflowdomain.Task{
 		ID: model.ID, TokenID: model.TokenID, NodeID: model.NodeID, NodeName: model.NodeName,
 		GroupKey: model.GroupKey, AssigneeID: model.AssigneeID, ApprovalMode: model.ApprovalMode,
 		CompletionRate: model.CompletionRate, Sequence: model.Sequence, Total: model.Total,
 		Status: workflowdomain.TaskStatus(model.Status), Action: workflowdomain.TaskAction(model.Action),
-		Comment: model.Comment,
+		Comment: model.Comment, Images: images,
+	}, nil
+}
+
+func encodeWorkflowImages(images []workflowcore.FormAttachment) string {
+	if len(images) == 0 {
+		return "[]"
 	}
+	encoded, _ := json.Marshal(images)
+	return string(encoded)
+}
+
+func decodeWorkflowImages(raw string) ([]workflowcore.FormAttachment, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var images []workflowcore.FormAttachment
+	if err := json.Unmarshal([]byte(raw), &images); err != nil {
+		return nil, err
+	}
+	return images, nil
 }
 
 func decodeVariable(raw string) (interface{}, error) {
@@ -87,7 +112,7 @@ func stateFromModels(
 			DefinitionVersion: instance.DefinitionVersion, DefinitionKey: instance.DefinitionKey,
 			BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
 			StarterID: instance.StarterID, OperatorID: instance.OperatorID,
-			Status: workflowdomain.InstanceStatus(instance.Status),
+			Status: workflowdomain.InstanceStatus(instance.Status), StartTime: instance.StartTime,
 		},
 		Variables: make(map[string]interface{}, len(variables)),
 		FormData:  make(map[string]interface{}),
@@ -107,7 +132,11 @@ func stateFromModels(
 		})
 	}
 	for _, item := range tasks {
-		state.Tasks = append(state.Tasks, taskFromModel(item))
+		task, err := taskFromModel(item)
+		if err != nil {
+			return nil, err
+		}
+		state.Tasks = append(state.Tasks, task)
 	}
 	for _, item := range variables {
 		value, err := decodeVariable(item.ValueJSON)
@@ -117,9 +146,13 @@ func stateFromModels(
 		state.Variables[item.Key] = value
 	}
 	for _, item := range history {
+		images, err := decodeWorkflowImages(item.ImagesJSON)
+		if err != nil {
+			return nil, err
+		}
 		state.History = append(state.History, workflowdomain.HistoryEvent{
 			ID: item.ID, Type: workflowdomain.HistoryEventType(item.EventType), NodeID: item.NodeID,
-			TaskID: item.TaskID, ActorID: item.ActorID, Message: item.Message,
+			TaskID: item.TaskID, ActorID: item.ActorID, Message: item.Message, Images: images, EventTime: item.EventTime,
 		})
 	}
 	return state, nil
@@ -131,7 +164,7 @@ func handledActors(history []workflowdomain.HistoryEvent) map[string]string {
 		if strings.TrimSpace(event.TaskID) == "" {
 			continue
 		}
-		if event.Type == workflowdomain.HistoryTaskSubmitted || event.Type == workflowdomain.HistoryTaskApproved || event.Type == workflowdomain.HistoryTaskRejected {
+		if event.Type == workflowdomain.HistoryTaskSubmitted || event.Type == workflowdomain.HistoryTaskApproved || event.Type == workflowdomain.HistoryTaskRejected || event.Type == workflowdomain.HistoryTaskReturned {
 			result[event.TaskID] = event.ActorID
 		}
 	}

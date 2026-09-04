@@ -7,7 +7,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf
 const apiTypesSource = read('src/api/types.ts')
 const apiSource = read('src/api/index.ts')
 const userPageSource = read('src/views/user/index.vue')
-const workflowTypesSource = read('src/views/workflow/types.ts')
+const workflowTypesSource = read('src/types/workflow.ts')
 const workflowDesignerSource = read('src/views/workflow/designer/index.vue')
 const nodeInspectorSource = read('src/views/workflow/designer/components/NodeInspector.vue')
 const nodeCardSource = read('src/views/workflow/designer/components/WorkflowNodeCard.vue')

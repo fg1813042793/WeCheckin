@@ -32,6 +32,7 @@ type PermissionGrant = permissionmodel.PermissionGrant
 
 type Setup = systemmodel.Setup
 type SysDict = systemmodel.SysDict
+type SysDictType = systemmodel.SysDictType
 
 type News = contentmodel.News
 type Favorite = contentmodel.Favorite
@@ -70,6 +71,7 @@ type WorkflowDefinition = workflowmodel.Definition
 type WorkflowDefinitionVersion = workflowmodel.DefinitionVersion
 type WorkflowProcessInstance = workflowmodel.ProcessInstance
 type WorkflowStartDraft = workflowmodel.StartDraft
+type WorkflowStartQuotaUsage = workflowmodel.StartQuotaUsage
 type WorkflowProcessToken = workflowmodel.ProcessToken
 type WorkflowProcessTask = workflowmodel.ProcessTask
 type WorkflowProcessVariable = workflowmodel.ProcessVariable

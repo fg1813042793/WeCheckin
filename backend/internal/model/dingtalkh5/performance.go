@@ -52,7 +52,7 @@ type DingTalkH5CorpConfig struct {
 	AgentID       string    `json:"agentId" gorm:"size:80;column:agent_id;comment:钉钉内部应用AgentId"`
 	UnifiedAppID  string    `json:"unifiedAppId" gorm:"size:120;column:unified_app_id;comment:钉钉新版应用统一ID"`
 	AppURL        string    `json:"appUrl" gorm:"size:500;column:app_url;comment:H5应用访问地址"`
-	NotifyEnabled int       `json:"notifyEnabled" gorm:"default:0;column:notify_enabled;comment:是否开启绩效流程通知"`
+	NotifyEnabled int       `json:"notifyEnabled" gorm:"default:0;column:notify_enabled;comment:是否开启钉钉通知"`
 	NotifyMode    string    `json:"notifyMode" gorm:"size:30;column:notify_mode;comment:通知模式:agent/robot"`
 	RobotCode     string    `json:"robotCode" gorm:"size:160;column:robot_code;comment:钉钉机器人编码"`
 	Enabled       int       `json:"enabled" gorm:"default:1;index;column:enabled;comment:是否启用"`

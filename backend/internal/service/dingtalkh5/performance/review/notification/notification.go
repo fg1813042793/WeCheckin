@@ -79,7 +79,7 @@ func sendReviewTransitionContext(ctx context.Context, client configsvc.DingTalkW
 		logTransitionResult(notifyResultSkippedPrefix, notifySkippedMessage, event, review, nextAccount, "no_next_handler", nil)
 		return nil
 	}
-	recipient, err := resolveRecipientContext(ctx, review.EmployeeAccount, nextAccount)
+	recipient, employeeName, err := resolveRecipientContext(ctx, review.EmployeeAccount, nextAccount)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func sendReviewTransitionContext(ctx context.Context, client configsvc.DingTalkW
 		logTransitionResult(notifyResultSkippedPrefix, notifySkippedMessage, event, review, nextAccount, "disabled", nil)
 		return nil
 	}
-	notification := buildTransitionPayloadContext(ctx, recipient.Config, review, actor)
+	notification := buildTransitionPayloadContext(ctx, recipient.Config, review, actor, employeeName)
 	logSendConfig(event, review, nextAccount, recipient, notification)
 	if err := client.SendWorkNotificationContext(ctx, recipient.Config, []string{recipient.DingTalkUserID}, notification); err != nil {
 		return err
@@ -187,36 +187,41 @@ func NextHandlerAccount(review model.DingTalkH5PerfReview) string {
 	}
 }
 
-func resolveRecipientContext(ctx context.Context, employeeAccount, handlerAccount string) (recipient, error) {
+func resolveRecipientContext(ctx context.Context, employeeAccount, handlerAccount string) (recipient, string, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	if db == nil {
-		return recipient{}, fmt.Errorf("database is not initialized")
+		return recipient{}, "", fmt.Errorf("database is not initialized")
 	}
-	handlerID, err := perfUserIDByAccountDB(db, handlerAccount)
+	handler, err := perfUserIdentityByAccountDB(db, handlerAccount)
 	if err != nil {
-		return recipient{}, fmt.Errorf("下一步处理人未绑定有效用户：%w", err)
+		return recipient{}, "", fmt.Errorf("下一步处理人未绑定有效用户：%w", err)
 	}
 	corpID := ""
-	if employeeID, err := perfUserIDByAccountDB(db, employeeAccount); err == nil {
-		corpID = firstEnabledCorpIDByUserIDDB(db, employeeID)
+	employeeName := ""
+	if employee, err := perfUserIdentityByAccountDB(db, employeeAccount); err == nil {
+		employeeName = strings.TrimSpace(employee.Name)
+		corpID = firstEnabledCorpIDByUserIDDB(db, employee.ID)
 	}
-	binding, err := firstEnabledBindingByUserIDDB(db, handlerID, corpID)
+	binding, err := firstEnabledBindingByUserIDDB(db, handler.ID, corpID)
 	if err != nil {
-		return recipient{}, fmt.Errorf("下一步处理人未绑定钉钉账号：%w", err)
+		return recipient{}, "", fmt.Errorf("下一步处理人未绑定钉钉账号：%w", err)
 	}
 	config, err := configsvc.LoadDingTalkH5CorpConfigContext(ctx, binding.CorpID)
 	if err != nil {
-		return recipient{}, err
+		return recipient{}, "", err
 	}
 	if configsvc.NormalizeDingTalkH5NotifyMode(config.NotifyMode, config.AgentID, config.RobotCode) != "robot" && strings.TrimSpace(config.AgentID) == "" {
-		return recipient{}, fmt.Errorf("请先配置钉钉内部应用 AgentId")
+		return recipient{}, "", fmt.Errorf("请先配置钉钉内部应用 AgentId")
 	}
-	return recipient{Config: config, DingTalkUserID: binding.DingTalkUserID}, nil
+	return recipient{Config: config, DingTalkUserID: binding.DingTalkUserID}, employeeName, nil
 }
 
-func buildTransitionContent(review model.DingTalkH5PerfReview, actor *model.DingTalkH5PerfUser) string {
-	employeeName := strings.TrimSpace(review.EmployeeAccount)
+func buildTransitionContent(review model.DingTalkH5PerfReview, actor *model.DingTalkH5PerfUser, resolvedEmployeeName string) string {
+	employeeName := strings.TrimSpace(resolvedEmployeeName)
+	if employeeName == "" {
+		employeeName = strings.TrimSpace(review.EmployeeAccount)
+	}
 	actorName := ""
 	if actor != nil && strings.TrimSpace(actor.Name) != "" {
 		actorName = strings.TrimSpace(actor.Name)
@@ -240,10 +245,10 @@ func buildTransitionContent(review model.DingTalkH5PerfReview, actor *model.Ding
 	return fmt.Sprintf("%s 已将 %s 的 %s 月度考评流转到「%s」，请及时处理。", actorName, employeeName, period, stage)
 }
 
-func buildTransitionPayloadContext(ctx context.Context, config configsvc.DingTalkH5CorpConfig, review model.DingTalkH5PerfReview, actor *model.DingTalkH5PerfUser) configsvc.DingTalkWorkNotificationPayload {
+func buildTransitionPayloadContext(ctx context.Context, config configsvc.DingTalkH5CorpConfig, review model.DingTalkH5PerfReview, actor *model.DingTalkH5PerfUser, employeeName string) configsvc.DingTalkWorkNotificationPayload {
 	return configsvc.DingTalkWorkNotificationPayload{
 		Title:      buildTransitionTitle(review),
-		Content:    buildTransitionContent(review, actor),
+		Content:    buildTransitionContent(review, actor, employeeName),
 		URL:        buildNotificationURL(appURLContext(ctx, config), config, review),
 		SourceName: appNameContext(ctx),
 		PicURL:     logoURLContext(ctx),
@@ -402,16 +407,16 @@ func notifyStageName(status string) string {
 	}
 }
 
-func perfUserIDByAccountDB(db *gorm.DB, account string) (uint, error) {
+func perfUserIdentityByAccountDB(db *gorm.DB, account string) (*model.DingTalkH5PerfUser, error) {
 	account = usersvc.NormalizeUserID(account)
 	if account == "" {
-		return 0, gorm.ErrRecordNotFound
+		return nil, gorm.ErrRecordNotFound
 	}
 	var user model.DingTalkH5PerfUser
-	if err := db.Select("`id`").Where("`user_mini_openid` = ? AND `user_status` = 1", account).Take(&user).Error; err != nil {
-		return 0, err
+	if err := db.Select("`id`, `user_name`").Where("`user_mini_openid` = ? AND `user_status` = 1", account).Take(&user).Error; err != nil {
+		return nil, err
 	}
-	return user.ID, nil
+	return &user, nil
 }
 
 func firstEnabledCorpIDByUserIDDB(db *gorm.DB, userID uint) string {

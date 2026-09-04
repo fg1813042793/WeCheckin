@@ -137,6 +137,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../../api'
+import { showRequestError } from '../../../utils/request'
 import DraggableList from './DraggableList.vue'
 import OptionsEditor from './OptionsEditor.vue'
 import ValidateEditor from './ValidateEditor.vue'
@@ -212,8 +213,8 @@ onMounted(async () => {
   try {
     const res = await adminApi.formkitTypes()
     types.value = res.data || []
-  } catch (e) {
-    ElMessage.error('加载题型列表失败')
+  } catch (error) {
+    showRequestError(error, '加载题型列表失败')
   }
 })
 
@@ -316,8 +317,8 @@ const onUploadBank = async (id: string) => {
     const { _existing, ...rest } = q
     await adminApi.formkitSaveToBank(rest)
     ElMessage.success('已上传到题库')
-  } catch (e: any) {
-    ElMessage.error(e?.msg || '上传失败')
+  } catch (error) {
+    showRequestError(error, '上传失败')
   }
 }
 
@@ -368,8 +369,8 @@ const doImport = async () => {
     idCounter = questions.value.length
     importDialogVisible.value = false
     ElMessage.success('导入成功')
-  } catch (e: any) {
-    ElMessage.error(e?.msg || '解析失败')
+  } catch (error) {
+    showRequestError(error, '解析失败')
   } finally {
     validating.value = false
   }
@@ -384,8 +385,8 @@ const validateSchema = async () => {
     })
     await adminApi.formkitParseSchema(json)
     ElMessage.success('Schema 校验通过')
-  } catch (e: any) {
-    ElMessage.error(e?.msg || '校验失败')
+  } catch (error) {
+    showRequestError(error, '校验失败')
   } finally {
     validating.value = false
   }

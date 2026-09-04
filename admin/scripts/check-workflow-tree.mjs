@@ -28,10 +28,10 @@ function assert(condition, message) {
 }
 
 const graph = loadTypeScriptModule('src/views/workflow/designer/graph.ts')
-const workflowTypes = loadTypeScriptModule('src/views/workflow/types.ts')
+const workflowTypes = loadTypeScriptModule('src/types/workflow.ts')
 const tree = loadTypeScriptModule('src/views/workflow/designer/flowTree.ts', { './graph': graph })
 const layout = loadTypeScriptModule('src/views/workflow/designer/layout.ts')
-const typeSource = fs.readFileSync(path.join(root, 'src/views/workflow/types.ts'), 'utf8')
+const typeSource = fs.readFileSync(path.join(root, 'src/types/workflow.ts'), 'utf8')
 const insertSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/FlowInsertButton.vue'), 'utf8')
 const inspectorSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/NodeInspector.vue'), 'utf8')
 const cardSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowNodeCard.vue'), 'utf8')

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -32,6 +33,7 @@ var normalizeUserIDRegexp = regexp.MustCompile(`[^a-z0-9_.-]+`)
 type UserDTO struct {
 	ID                     string   `json:"id"`
 	Account                string   `json:"account"`
+	WorkflowActorID        string   `json:"workflowActorId"`
 	Name                   string   `json:"name"`
 	Avatar                 string   `json:"avatar"`
 	Position               string   `json:"position"`
@@ -741,6 +743,7 @@ func userDTO(user *model.DingTalkH5PerfUser) UserDTO {
 	return UserDTO{
 		ID:                     user.Account,
 		Account:                user.Account,
+		WorkflowActorID:        strconv.FormatUint(uint64(user.ID), 10),
 		Name:                   user.Name,
 		Avatar:                 user.Pic,
 		Position:               user.Position,

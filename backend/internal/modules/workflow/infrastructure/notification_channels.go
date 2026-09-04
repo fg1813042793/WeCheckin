@@ -66,8 +66,11 @@ func (channel *DingTalkNotificationChannel) Deliver(ctx context.Context, notific
 			continue
 		}
 		payload := configsvc.DingTalkWorkNotificationPayload{
-			Title: notification.Payload.Title, Content: notification.Payload.Content,
-			URL: target.Config.AppURL, SourceName: "WeCheckin 流程",
+			MessageType: notification.Payload.MessageType,
+			Title:       notification.Payload.Title,
+			Content:     notification.Payload.Content,
+			URL:         target.Config.AppURL,
+			SourceName:  "WeCheckin 流程",
 		}
 		key := dingTalkNotificationGroupKey(target.Config.CorpID, payload)
 		group, exists := groups[key]
@@ -244,7 +247,7 @@ func dingTalkNotificationConfigFromModel(row model.DingTalkH5CorpConfig) configs
 
 func dingTalkNotificationGroupKey(corpID string, payload configsvc.DingTalkWorkNotificationPayload) string {
 	return strings.Join([]string{
-		strings.TrimSpace(corpID), strings.TrimSpace(payload.Title), strings.TrimSpace(payload.Content),
+		strings.TrimSpace(corpID), strings.TrimSpace(payload.MessageType), strings.TrimSpace(payload.Title), strings.TrimSpace(payload.Content),
 		strings.TrimSpace(payload.URL), strings.TrimSpace(payload.SourceName), strings.TrimSpace(payload.PicURL),
 	}, "\x00")
 }

@@ -4,9 +4,23 @@ import (
 	"reflect"
 	"testing"
 
+	"wecheckin/backend/internal/model"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 	"wecheckin/backend/internal/workflowcore"
 )
+
+func TestResolvedAssigneeDisplayNamesPreserveResolverOrder(t *testing.T) {
+	actual := resolvedAssigneeDisplayNames(
+		[]string{"9", "7", "9", "invalid"},
+		[]model.User{
+			{ID: 7, Name: "主管张三", Account: "zhangsan"},
+			{ID: 9, Name: "主管李四", Account: "lisi"},
+		},
+	)
+	if !reflect.DeepEqual(actual, []string{"主管李四", "主管张三"}) {
+		t.Fatalf("resolved display names = %#v", actual)
+	}
+}
 
 func TestResolveVariableAssigneesSupportsCommonValueShapes(t *testing.T) {
 	tests := []struct {

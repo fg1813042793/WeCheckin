@@ -31,6 +31,10 @@ if (legacyCalls.length) {
 
 const apiIndex = readFileSync(resolve(root, 'api/index.js'), 'utf8')
 const adminApi = readFileSync(resolve(root, 'api/admin.js'), 'utf8')
+const dictApiSource = adminApi.match(/export const dictApi = \{[\s\S]*?\n\}/)?.[0] || ''
+if (!dictApiSource.includes('`${API_V2}/dict/items`') || dictApiSource.includes('`${ADMIN_V2}/dict/items`')) {
+  throw new Error('mobile dictionary consumers must use the enabled public /api/v2/dict/items endpoint')
+}
 const requestLayer = readFileSync(resolve(root, 'utils/request.js'), 'utf8')
 
 function sourceIncludesEndpoint(source, endpoint) {

@@ -88,6 +88,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../api'
+import { showRequestError } from '../../utils/request'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -116,7 +117,7 @@ async function load() {
     const raw = detail?.schema
     const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
     questions.value = (sch.questions || []).filter((q: any) => !skipTypes.includes(q.type))
-  } catch { ElMessage.error('加载失败') }
+  } catch (error) { showRequestError(error, '加载失败') }
 }
 
 const dailyOption = computed(() => {

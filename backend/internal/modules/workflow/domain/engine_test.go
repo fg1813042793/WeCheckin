@@ -52,6 +52,211 @@ func TestEngineStartsLinearApprovalAndCompletesInstance(t *testing.T) {
 	}
 }
 
+func TestEngineTaskCreatedHistoryUsesTriggeringActor(t *testing.T) {
+	definition := returnableDefinition()
+	engine := newTestEngine(staticResolver{
+		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+	})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter", OperatorID: "operator"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	created := historyByType(state.History, HistoryTaskCreated)
+	if created == nil || created.ActorID != "operator" {
+		t.Fatalf("initial task-created history = %#v, want operator", created)
+	}
+
+	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+	created = lastHistoryByType(state.History, HistoryTaskCreated)
+	if created == nil || created.ActorID != "starter" {
+		t.Fatalf("next task-created history = %#v, want starter", created)
+	}
+}
+
+func TestEngineRejectsTaskWithImages(t *testing.T) {
+	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
+	engine := newTestEngine(staticResolver{"approve": {"user-7"}})
+	state, err := engine.Start(definition, StartRequest{DefinitionID: 8, DefinitionVersion: 2, StarterID: "user-1"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	image := workflowcore.FormAttachment{
+		ID: "uploads/workflow/2026/09/04/reject.png", Name: "reject.png",
+		URL: "/uploads/workflow/2026/09/04/reject.png", MimeType: "image/png", Size: 1024,
+	}
+	taskID := state.PendingTasks()[0].ID
+	if err := engine.Complete(definition, state, CompleteRequest{
+		TaskID: taskID, ActorID: "user-7", Action: TaskActionReject,
+		Comment: "材料不完整", Images: []workflowcore.FormAttachment{image},
+	}); err != nil {
+		t.Fatalf("reject task: %v", err)
+	}
+	if len(state.Tasks[0].Images) != 1 || state.Tasks[0].Images[0].ID != image.ID {
+		t.Fatalf("task images = %#v", state.Tasks[0].Images)
+	}
+	var rejected *HistoryEvent
+	for index := range state.History {
+		if state.History[index].Type == HistoryTaskRejected {
+			rejected = &state.History[index]
+			break
+		}
+	}
+	if rejected == nil || len(rejected.Images) != 1 || rejected.Images[0].URL != image.URL {
+		t.Fatalf("rejected history = %#v", rejected)
+	}
+}
+
+func TestEngineReturnsApprovalToPreviousHumanNode(t *testing.T) {
+	definition := returnableDefinition()
+	engine := newTestEngine(staticResolver{
+		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+	})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+	completePendingTask(t, engine, definition, state, "manager-1", TaskActionApprove)
+
+	current := state.PendingTasks()[0]
+	image := workflowcore.FormAttachment{
+		ID: "uploads/workflow/2026/09/04/return.png", Name: "return.png",
+		URL: "/uploads/workflow/2026/09/04/return.png", MimeType: "image/png", Size: 1024,
+	}
+	if err := engine.Complete(definition, state, CompleteRequest{
+		TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
+		Comment: "请主管重新确认", Images: []workflowcore.FormAttachment{image},
+	}); err != nil {
+		t.Fatalf("return task: %v", err)
+	}
+
+	if state.Instance.Status != InstanceStatusRunning {
+		t.Fatalf("instance status = %q, want running", state.Instance.Status)
+	}
+	returned := taskByID(state.Tasks, current.ID)
+	if returned == nil || returned.Status != TaskStatusReturned || returned.Action != TaskActionReturn {
+		t.Fatalf("returned task = %#v", returned)
+	}
+	if len(returned.Images) != 1 || returned.Images[0].ID != image.ID {
+		t.Fatalf("returned task images = %#v", returned.Images)
+	}
+	pending := state.PendingTasks()
+	if len(pending) != 1 || pending[0].NodeID != "manager" || pending[0].AssigneeID != "manager-1" || pending[0].ID == current.ID {
+		t.Fatalf("pending tasks after return = %#v", pending)
+	}
+	if countHistoryType(state.History, HistoryTaskReturned) != 1 {
+		t.Fatalf("returned history = %#v", state.History)
+	}
+}
+
+func TestEngineReturnsApprovalToSpecifiedVisitedHumanNode(t *testing.T) {
+	definition := returnableDefinition()
+	engine := newTestEngine(staticResolver{
+		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+	})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+	completePendingTask(t, engine, definition, state, "manager-1", TaskActionApprove)
+
+	current := state.PendingTasks()[0]
+	if err := engine.Complete(definition, state, CompleteRequest{
+		TaskID: current.ID, ActorID: "hr-1", Action: TaskActionReturn,
+		ReturnTargetNodeID: "draft", Comment: "请发起人修改",
+	}); err != nil {
+		t.Fatalf("return task to specified node: %v", err)
+	}
+	pending := state.PendingTasks()
+	if len(pending) != 1 || pending[0].NodeID != "draft" || pending[0].AssigneeID != "starter" {
+		t.Fatalf("pending tasks after specified return = %#v", pending)
+	}
+}
+
+func TestEngineRejectsInvalidReturnTargetWithoutMutatingState(t *testing.T) {
+	definition := returnableDefinition()
+	engine := newTestEngine(staticResolver{
+		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+	})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+	current := state.PendingTasks()[0]
+
+	err = engine.Complete(definition, state, CompleteRequest{
+		TaskID: current.ID, ActorID: "manager-1", Action: TaskActionReturn,
+		ReturnTargetNodeID: "hr", Comment: "非法目标",
+	})
+	if !errors.Is(err, ErrReturnTargetInvalid) {
+		t.Fatalf("return error = %v, want ErrReturnTargetInvalid", err)
+	}
+	if state.Instance.Status != InstanceStatusRunning || len(state.PendingTasks()) != 1 || state.PendingTasks()[0].ID != current.ID {
+		t.Fatalf("invalid return mutated state: %#v", state)
+	}
+}
+
+func TestEngineRejectsReturnWithoutPreviousHumanNode(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "first_approval",
+		Name:          "首节点审批",
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			approvalNode("manager", workflowcore.ApprovalModeSingle, 0),
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "manager"},
+			{ID: "e2", Source: "manager", Target: "end"},
+		},
+	}
+	engine := newTestEngine(staticResolver{"manager": {"manager-1"}})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	current := state.PendingTasks()[0]
+
+	err = engine.Complete(definition, state, CompleteRequest{
+		TaskID: current.ID, ActorID: "manager-1", Action: TaskActionReturn, Comment: "退回",
+	})
+	if !errors.Is(err, ErrReturnTargetUnavailable) {
+		t.Fatalf("return error = %v, want ErrReturnTargetUnavailable", err)
+	}
+	if state.Instance.Status != InstanceStatusRunning || len(state.PendingTasks()) != 1 || state.PendingTasks()[0].ID != current.ID {
+		t.Fatalf("unavailable return mutated state: %#v", state)
+	}
+}
+
+func TestEngineRejectsReturnAfterParallelTraversalWithoutMutatingState(t *testing.T) {
+	definition := returnableDefinition()
+	engine := newTestEngine(staticResolver{
+		"draft": {"starter"}, "manager": {"manager-1"}, "hr": {"hr-1"},
+	})
+	state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	completePendingTask(t, engine, definition, state, "starter", TaskActionSubmit)
+	current := state.PendingTasks()[0]
+	state.Tokens[0].BranchGroup = "parallel-1"
+	state.Tokens[0].BranchTotal = 2
+
+	err = engine.Complete(definition, state, CompleteRequest{
+		TaskID: current.ID, ActorID: "manager-1", Action: TaskActionReturn,
+		ReturnTargetNodeID: "draft", Comment: "退回",
+	})
+	if !errors.Is(err, ErrReturnParallelUnsupported) {
+		t.Fatalf("return error = %v, want ErrReturnParallelUnsupported", err)
+	}
+	if state.Instance.Status != InstanceStatusRunning || len(state.PendingTasks()) != 1 || state.PendingTasks()[0].ID != current.ID {
+		t.Fatalf("parallel return mutated state: %#v", state)
+	}
+}
+
 func TestEngineExclusiveGatewaySelectsConditionAndDefaultBranch(t *testing.T) {
 	definition := workflowcore.Definition{
 		SchemaVersion: workflowcore.CurrentSchemaVersion,
@@ -535,6 +740,65 @@ func TestEngineTaskArrivalNotificationsFollowTaskActivation(t *testing.T) {
 	}
 }
 
+func TestEngineApprovalResultNotificationsTargetStarter(t *testing.T) {
+	newState := func(mode string, assignees []string) (workflowcore.Definition, *Engine, *State) {
+		t.Helper()
+		definition := linearDefinition(mode, 0)
+		definition.Nodes[1].ResultNotification = notificationConfig(
+			"{{workflowName}}审批结果",
+			"你发起的流程在“{{nodeName}}”节点{{result}}",
+		)
+		engine := newTestEngine(staticResolver{"approve": assignees})
+		state, err := engine.Start(definition, StartRequest{StarterID: "starter"})
+		if err != nil {
+			t.Fatalf("start workflow: %v", err)
+		}
+		return definition, engine, state
+	}
+
+	t.Run("approved", func(t *testing.T) {
+		definition, engine, state := newState(workflowcore.ApprovalModeSingle, []string{"approver"})
+		task := state.PendingTasks()[0]
+		if err := engine.Complete(definition, state, CompleteRequest{
+			TaskID: task.ID, ActorID: task.AssigneeID, Action: TaskActionApprove,
+		}); err != nil {
+			t.Fatalf("approve task: %v", err)
+		}
+		assertApprovalResultNotification(t, state.NotificationIntents, NotificationKindApprovalResultApproved, "starter", task.ID)
+	})
+
+	t.Run("rejected", func(t *testing.T) {
+		definition, engine, state := newState(workflowcore.ApprovalModeSingle, []string{"approver"})
+		task := state.PendingTasks()[0]
+		if err := engine.Complete(definition, state, CompleteRequest{
+			TaskID: task.ID, ActorID: task.AssigneeID, Action: TaskActionReject, Comment: "材料不完整",
+		}); err != nil {
+			t.Fatalf("reject task: %v", err)
+		}
+		assertApprovalResultNotification(t, state.NotificationIntents, NotificationKindApprovalResultRejected, "starter", task.ID)
+	})
+
+	t.Run("sequential waits for node completion", func(t *testing.T) {
+		definition, engine, state := newState(workflowcore.ApprovalModeSequential, []string{"approver-1", "approver-2"})
+		first := state.PendingTasks()[0]
+		if err := engine.Complete(definition, state, CompleteRequest{
+			TaskID: first.ID, ActorID: first.AssigneeID, Action: TaskActionApprove,
+		}); err != nil {
+			t.Fatalf("approve first task: %v", err)
+		}
+		if len(state.NotificationIntents) != 0 {
+			t.Fatalf("partial sequential approval notifications = %#v", state.NotificationIntents)
+		}
+		second := state.PendingTasks()[0]
+		if err := engine.Complete(definition, state, CompleteRequest{
+			TaskID: second.ID, ActorID: second.AssigneeID, Action: TaskActionApprove,
+		}); err != nil {
+			t.Fatalf("approve second task: %v", err)
+		}
+		assertApprovalResultNotification(t, state.NotificationIntents, NotificationKindApprovalResultApproved, "starter", second.ID)
+	})
+}
+
 func TestEngineTimerWaitsUntilDueAndResumesOnce(t *testing.T) {
 	definition := workflowcore.Definition{
 		SchemaVersion: workflowcore.CurrentSchemaVersion,
@@ -620,6 +884,77 @@ func linearDefinition(mode string, completionRate int) workflowcore.Definition {
 	}
 }
 
+func returnableDefinition() workflowcore.Definition {
+	return workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "returnable_review",
+		Name:          "可退回审批",
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{
+				ID: "draft", Type: workflowcore.NodeTypeHandle, Name: "填写申请",
+				Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeInitiator},
+			},
+			approvalNode("manager", workflowcore.ApprovalModeSingle, 0),
+			approvalNode("hr", workflowcore.ApprovalModeSingle, 0),
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "draft"},
+			{ID: "e2", Source: "draft", Target: "manager"},
+			{ID: "e3", Source: "manager", Target: "hr"},
+			{ID: "e4", Source: "hr", Target: "end"},
+		},
+	}
+}
+
+func completePendingTask(
+	t *testing.T,
+	engine *Engine,
+	definition workflowcore.Definition,
+	state *State,
+	actorID string,
+	action TaskAction,
+) {
+	t.Helper()
+	pending := state.PendingTasks()
+	if len(pending) != 1 {
+		t.Fatalf("pending tasks = %#v, want one", pending)
+	}
+	if err := engine.Complete(definition, state, CompleteRequest{
+		TaskID: pending[0].ID, ActorID: actorID, Action: action,
+	}); err != nil {
+		t.Fatalf("complete task %s: %v", pending[0].ID, err)
+	}
+}
+
+func taskByID(tasks []Task, taskID string) *Task {
+	for index := range tasks {
+		if tasks[index].ID == taskID {
+			return &tasks[index]
+		}
+	}
+	return nil
+}
+
+func historyByType(history []HistoryEvent, eventType HistoryEventType) *HistoryEvent {
+	for index := range history {
+		if history[index].Type == eventType {
+			return &history[index]
+		}
+	}
+	return nil
+}
+
+func lastHistoryByType(history []HistoryEvent, eventType HistoryEventType) *HistoryEvent {
+	for index := len(history) - 1; index >= 0; index-- {
+		if history[index].Type == eventType {
+			return &history[index]
+		}
+	}
+	return nil
+}
+
 func approvalNode(id, mode string, completionRate int) workflowcore.Node {
 	return workflowcore.Node{
 		ID: id, Type: workflowcore.NodeTypeApproval, Name: id,
@@ -632,5 +967,24 @@ func notificationConfig(title, content string) *workflowcore.NotificationConfig 
 	return &workflowcore.NotificationConfig{
 		Enabled: true, Channels: []string{workflowcore.NotificationChannelInApp, workflowcore.NotificationChannelDingTalkOA},
 		Title: title, Content: content,
+	}
+}
+
+func assertApprovalResultNotification(
+	t *testing.T,
+	intents []NotificationIntent,
+	wantKind NotificationKind,
+	wantRecipient, wantTaskID string,
+) {
+	t.Helper()
+	if len(intents) != 1 {
+		t.Fatalf("approval result notifications = %#v", intents)
+	}
+	intent := intents[0]
+	if intent.Kind != wantKind || intent.RecipientUserID != wantRecipient || intent.TaskID != wantTaskID || intent.NodeID != "approve" {
+		t.Fatalf("approval result notification = %#v", intent)
+	}
+	if !intent.Config.Enabled || len(intent.Config.Channels) != 2 || intent.Config.Content != "你发起的流程在“{{nodeName}}”节点{{result}}" {
+		t.Fatalf("approval result notification config = %#v", intent.Config)
 	}
 }

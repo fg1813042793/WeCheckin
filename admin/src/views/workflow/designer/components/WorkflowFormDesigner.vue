@@ -175,7 +175,7 @@
                     :model-value="stringDefault(field.default)"
                     :placeholder="field.placeholder || '请输入内容'"
                     type="textarea"
-                    :rows="2"
+                    :autosize="textareaAutosize(field, 3, 8)"
                     resize="none"
                     disabled
                   />
@@ -373,9 +373,31 @@
               @change="emitChange"
             />
           </el-form-item>
+          <div v-if="selectedField.type === 'textarea'" class="textarea-visible-rows number-range">
+            <el-form-item label="最小显示行数">
+              <el-input-number
+                :model-value="textareaAutosize(selectedField, 3, 8).minRows"
+                :min="1"
+                :max="30"
+                :disabled="readonly"
+                controls-position="right"
+                @change="updateTextareaVisibleRows(selectedField, 'minVisibleRows', $event, 3, 8)"
+              />
+            </el-form-item>
+            <el-form-item label="最大显示行数">
+              <el-input-number
+                :model-value="textareaAutosize(selectedField, 3, 8).maxRows"
+                :min="1"
+                :max="30"
+                :disabled="readonly"
+                controls-position="right"
+                @change="updateTextareaVisibleRows(selectedField, 'maxVisibleRows', $event, 3, 8)"
+              />
+            </el-form-item>
+          </div>
           <div class="number-range">
-            <el-form-item v-if="selectedField.type === 'number' || selectedField.type === 'amount'" label="最小值"><el-input-number v-model="selectedField.min" :disabled="readonly" controls-position="right" @change="emitChange" /></el-form-item>
-            <el-form-item v-if="selectedField.type === 'number' || selectedField.type === 'amount'" label="最大值"><el-input-number v-model="selectedField.max" :disabled="readonly" controls-position="right" @change="emitChange" /></el-form-item>
+            <el-form-item v-if="selectedField.type === 'number' || selectedField.type === 'amount'" label="最小值"><el-input-number v-model="selectedField.min" placeholder="不限制" :disabled="readonly" controls-position="right" @change="emitChange" /></el-form-item>
+            <el-form-item v-if="selectedField.type === 'number' || selectedField.type === 'amount'" label="最大值"><el-input-number v-model="selectedField.max" placeholder="不限制" :disabled="readonly" controls-position="right" @change="emitChange" /></el-form-item>
           </div>
           <WorkflowValidationRulesEditor
             :field="selectedField"
@@ -556,6 +578,59 @@
                 <span>必填</span>
                 <el-switch v-model="column.required" :disabled="readonly" @change="emitChange" />
               </div>
+              <div v-if="column.type === 'number' || column.type === 'amount'" class="detail-column-range">
+                <el-form-item label="最小值">
+                  <el-input-number
+                    :model-value="column.min"
+                    placeholder="不限制"
+                    :disabled="readonly"
+                    controls-position="right"
+                    @change="updateDetailColumnRange(column, 'min', $event)"
+                  />
+                </el-form-item>
+                <el-form-item label="最大值">
+                  <el-input-number
+                    :model-value="column.max"
+                    placeholder="不限制"
+                    :disabled="readonly"
+                    controls-position="right"
+                    @change="updateDetailColumnRange(column, 'max', $event)"
+                  />
+                </el-form-item>
+              </div>
+              <el-form-item v-if="['text', 'textarea', 'phone', 'email'].includes(column.type)" class="detail-column-max-length" label="最大长度">
+                <el-input-number
+                  :model-value="column.maxLength"
+                  :min="1"
+                  :max="100000"
+                  placeholder="不限制"
+                  :disabled="readonly"
+                  controls-position="right"
+                  @change="updateDetailColumnMaxLength(column, $event)"
+                />
+              </el-form-item>
+              <div v-if="column.type === 'textarea'" class="textarea-visible-rows number-range">
+                <el-form-item label="最小显示行数">
+                  <el-input-number
+                    :model-value="textareaAutosize(column, 2, 6).minRows"
+                    :min="1"
+                    :max="30"
+                    :disabled="readonly"
+                    controls-position="right"
+                    @change="updateTextareaVisibleRows(column, 'minVisibleRows', $event, 2, 6)"
+                  />
+                </el-form-item>
+                <el-form-item label="最大显示行数">
+                  <el-input-number
+                    :model-value="textareaAutosize(column, 2, 6).maxRows"
+                    :min="1"
+                    :max="30"
+                    :disabled="readonly"
+                    controls-position="right"
+                    @change="updateTextareaVisibleRows(column, 'maxVisibleRows', $event, 2, 6)"
+                  />
+                </el-form-item>
+              </div>
               <div class="detail-column-layout">
                 <span>列宽</span>
                 <el-radio-group :model-value="fieldSpan(column)" size="small" :disabled="readonly" @change="updateDetailColumnSpan(column, $event)">
@@ -601,7 +676,7 @@ import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { WorkflowFormField, WorkflowFormFieldSpan, WorkflowFormFieldType, WorkflowFormOption, WorkflowOptionSourceType } from '../../types'
 import { insertWorkflowField, isWorkflowDataField, moveWorkflowDetailColumn, moveWorkflowField, removeWorkflowField, workflowFieldByKey } from '../../formLayout'
-import { flattenWorkflowOptions, hasWorkflowOptionChildren, normalizeWorkflowOptions } from '../../runtimeForm'
+import { flattenWorkflowOptions, hasWorkflowOptionChildren, normalizeWorkflowOptions, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
 import WorkflowFormFieldPreview from './WorkflowFormFieldPreview.vue'
 import WorkflowValidationRulesEditor from './WorkflowValidationRulesEditor.vue'
 
@@ -701,9 +776,9 @@ function buildField(type: WorkflowFormFieldType): WorkflowFormField {
   if (type === 'text' || type === 'textarea' || type === 'phone' || type === 'email') {
     field.maxLength = type === 'textarea' ? 2000 : type === 'email' ? 254 : type === 'phone' ? 20 : 200
   }
-  if (type === 'number' || type === 'amount') {
-    field.min = 0
-    field.max = type === 'amount' ? 1000000 : 100
+  if (type === 'textarea') {
+    field.minVisibleRows = 3
+    field.maxVisibleRows = 8
   }
   if (['select', 'multi_select', 'radio', 'checkbox'].includes(type)) {
     field.options = [
@@ -717,9 +792,9 @@ function buildField(type: WorkflowFormFieldType): WorkflowFormField {
     field.minRows = 0
     field.maxRows = 20
     field.columns = [
-      { key: 'target', label: '目标', type: 'textarea', required: true, maxLength: 200, span: 24 },
+      { key: 'target', label: '目标', type: 'textarea', required: true, maxLength: 200, minVisibleRows: 2, maxVisibleRows: 6, span: 24 },
       { key: 'weight', label: '权重', type: 'number', min: 0, max: 100, span: 12 },
-      { key: 'result', label: '结果', type: 'textarea', maxLength: 500, span: 24 },
+      { key: 'result', label: '结果', type: 'textarea', maxLength: 500, minVisibleRows: 2, maxVisibleRows: 6, span: 24 },
     ]
   }
   return field
@@ -962,7 +1037,6 @@ function buildDetailColumn(field: WorkflowFormField): WorkflowFormField {
     label: `明细列${detailColumns(field).length + 1}`,
     type: 'text',
     required: false,
-    maxLength: 200,
     span: 12,
   }
 }
@@ -1034,6 +1108,46 @@ function moveDetailColumnByOffset(index: number, offset: -1 | 1) {
   if (moveWorkflowDetailColumn(columns, index, targetIndex)) emitChange()
 }
 
+function updateDetailColumnRange(column: WorkflowFormField, key: 'min' | 'max', value: number | undefined) {
+  if (props.readonly) return
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    column[key] = value
+  } else {
+    delete column[key]
+  }
+  emitChange()
+}
+
+function updateDetailColumnMaxLength(column: WorkflowFormField, value: number | undefined) {
+  if (props.readonly) return
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    column.maxLength = value
+  } else {
+    delete column.maxLength
+  }
+  emitChange()
+}
+
+function updateTextareaVisibleRows(
+  field: WorkflowFormField,
+  key: 'minVisibleRows' | 'maxVisibleRows',
+  value: number | undefined,
+  defaultMinRows: number,
+  defaultMaxRows: number,
+) {
+  if (props.readonly) return
+  const current = textareaAutosize(field, defaultMinRows, defaultMaxRows)
+  const nextValue = Math.min(30, Math.max(1, Math.floor(Number(value) || (key === 'minVisibleRows' ? current.minRows : current.maxRows))))
+  if (key === 'minVisibleRows') {
+    field.minVisibleRows = nextValue
+    field.maxVisibleRows = Math.max(nextValue, current.maxRows)
+  } else {
+    field.maxVisibleRows = nextValue
+    field.minVisibleRows = Math.min(current.minRows, nextValue)
+  }
+  emitChange()
+}
+
 function updateDetailColumnSpan(column: WorkflowFormField, value: string | number | boolean | undefined) {
   if (props.readonly) return
   const span = Number(value)
@@ -1049,17 +1163,19 @@ function handleDetailColumnTypeChange(column: WorkflowFormField) {
     delete column.options
     delete column.optionSource
   }
-  if (column.type === 'number' || column.type === 'amount') {
-    column.min ??= 0
-    column.max ??= column.type === 'amount' ? 1000000 : 100
-  } else {
+  if (column.type !== 'number' && column.type !== 'amount') {
     delete column.min
     delete column.max
   }
-  if (['text', 'textarea', 'phone', 'email'].includes(column.type)) {
-    column.maxLength ??= column.type === 'textarea' ? 2000 : column.type === 'email' ? 254 : column.type === 'phone' ? 20 : 200
-  } else {
+  if (!['text', 'textarea', 'phone', 'email'].includes(column.type)) {
     delete column.maxLength
+  }
+  if (column.type === 'textarea') {
+    column.minVisibleRows ??= 2
+    column.maxVisibleRows ??= 6
+  } else {
+    delete column.minVisibleRows
+    delete column.maxVisibleRows
   }
   emitChange()
 }
@@ -1166,7 +1282,7 @@ function emitChange() {
 </script>
 
 <style scoped>
-.form-designer { display: grid; grid-template-columns: 320px minmax(480px, 1fr) 360px; width: 100%; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: #f2f5f8; }
+.form-designer { display: grid; grid-template-columns: 320px minmax(480px, 1fr) 440px; width: 100%; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: #f2f5f8; }
 .field-palette, .property-panel { display: flex; min-width: 0; min-height: 0; overflow: hidden; flex-direction: column; background: #fff; }
 .field-palette { border-right: 1px solid #dfe6ee; }
 .property-panel { border-left: 1px solid #dfe6ee; }
@@ -1294,6 +1410,8 @@ function emitChange() {
 .layout-setting > p { margin: -3px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.6; }
 .required-setting { display: flex; align-items: center; justify-content: space-between; min-height: 34px; margin-bottom: 12px; color: #475569; font-size: 12px; }
 .number-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.textarea-visible-rows { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
+.textarea-visible-rows :deep(.el-form-item) { min-width: 0; }
 .option-editor__heading { display: flex; align-items: center; justify-content: space-between; min-height: 32px; }
 .option-editor__heading h3 { margin-bottom: 0; }
 .option-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 28px; align-items: center; gap: 7px; margin-top: 10px; }
@@ -1326,6 +1444,9 @@ function emitChange() {
 .detail-column-tail-drop.active { border-color: #1677ff; color: #1677ff; background: #edf5ff; }
 .detail-column-row__inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .detail-column-validation { grid-column: 1 / -1; }
+.detail-column-range { display: grid; grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: 8px; }
+.detail-column-range :deep(.el-form-item) { margin-bottom: 0; }
+.detail-column-max-length { grid-column: 1 / -1; }
 .detail-column-layout { display: grid; grid-column: 1 / -1; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 32px; color: #475569; font-size: 12px; }
 .detail-column-layout :deep(.el-radio-group) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
 .detail-column-layout :deep(.el-radio-button),
@@ -1343,11 +1464,11 @@ function emitChange() {
   font-size: 12px;
 }
 @media (max-width: 1380px) {
-  .form-designer { grid-template-columns: 200px minmax(420px, 1fr) 320px; }
+  .form-designer { grid-template-columns: 200px minmax(420px, 1fr) 380px; }
   .canvas-stage { padding-right: 16px; padding-left: 16px; }
 }
 @media (max-width: 1120px) {
-  .form-designer { grid-template-columns: 176px minmax(360px, 1fr) 286px; }
+  .form-designer { grid-template-columns: 176px minmax(360px, 1fr) 320px; }
   .palette-grid { grid-template-columns: 1fr; }
   .option-row__inputs, .detail-column-row__inputs { grid-template-columns: 1fr; }
   .field-preview { margin-left: 0; }

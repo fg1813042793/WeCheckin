@@ -12,9 +12,10 @@
 
 ## File Map
 
-- Create `backend/migrations/20260903130000_add_workflow_task_admin_delete.sql`: task audit columns and permission catalog rows.
+- Create `backend/migrations/20260903133000_add_workflow_task_admin_delete.sql`: task audit columns and permission catalog rows.
 - Create `backend/test/internal/bootstrap/migrations/workflow_task_admin_delete_migration_test.go`: migration contract.
 - Modify `backend/internal/model/workflow/runtime.go`: persistence-only soft-delete fields.
+- Modify `backend/internal/modules/workflow/application/types.go`: explicit Admin-list soft-delete filter flag.
 - Modify `backend/internal/modules/workflow/application/service.go`: store contracts, errors, and terminal-state validation.
 - Modify `backend/internal/modules/workflow/application/service_test.go`: service red/green coverage and fake store support.
 - Modify `backend/internal/modules/workflow/infrastructure/gorm_store.go`: locked lookup, soft-delete update, and Admin list filter.
@@ -36,7 +37,7 @@
 
 **Files:**
 - Create: `backend/test/internal/bootstrap/migrations/workflow_task_admin_delete_migration_test.go`
-- Create: `backend/migrations/20260903130000_add_workflow_task_admin_delete.sql`
+- Create: `backend/migrations/20260903133000_add_workflow_task_admin_delete.sql`
 - Modify: `backend/internal/model/workflow/runtime.go`
 
 - [ ] **Step 1: Write the failing migration contract test**
@@ -93,6 +94,7 @@ Expected: PASS.
 
 **Files:**
 - Modify: `backend/internal/modules/workflow/application/service.go`
+- Modify: `backend/internal/modules/workflow/application/types.go`
 - Modify: `backend/internal/modules/workflow/application/service_test.go`
 - Modify: `backend/internal/modules/workflow/infrastructure/gorm_store.go`
 - Create: `backend/internal/modules/workflow/infrastructure/task_admin_delete_filter_test.go`
@@ -179,14 +181,18 @@ func (service *Service) DeleteTask(ctx context.Context, actorID, taskID string) 
 - [ ] **Step 4: Add the Admin list SQL test and verify RED**
 
 ```go
-func TestApplyTaskFiltersHidesAdminDeletedTasks(t *testing.T) {
+func TestApplyTaskFiltersHidesAdminDeletedTasksOnlyForAdminList(t *testing.T) {
 	db, err := gorm.Open(mysql.New(mysql.Config{Conn: &sql.DB{}, SkipInitializeWithVersion: true}), &gorm.Config{DryRun: true, DisableAutomaticPing: true})
 	if err != nil { t.Fatalf("open dry-run database: %v", err) }
-	statement := applyTaskFilters(db.Model(&workflowmodel.ProcessTask{}), application.TaskQuery{}).Find(&[]workflowmodel.ProcessTask{}).Statement
-	if !strings.Contains(statement.SQL.String(), "admin_deleted_at = ?") {
+	statement := applyTaskFilters(db.Model(&workflowmodel.ProcessTask{}), application.TaskQuery{HideAdminDeleted: true}).Find(&[]workflowmodel.ProcessTask{}).Statement
+	if !strings.Contains(statement.SQL.String(), "workflow_process_tasks.admin_deleted_at = ?") {
 		t.Fatalf("Admin task query must hide soft-deleted rows: %s", statement.SQL.String())
 	}
 	if !reflect.DeepEqual(statement.Vars, []interface{}{int64(0)}) { t.Fatalf("unexpected vars: %#v", statement.Vars) }
+	statement = applyTaskFilters(db.Model(&workflowmodel.ProcessTask{}), application.TaskQuery{}).Find(&[]workflowmodel.ProcessTask{}).Statement
+	if strings.Contains(statement.SQL.String(), "workflow_process_tasks.admin_deleted_at") {
+		t.Fatalf("runtime task query must retain audit rows: %s", statement.SQL.String())
+	}
 }
 ```
 
@@ -222,7 +228,7 @@ func (store *GormStore) SoftDeleteTask(ctx context.Context, taskID, actorID stri
 }
 ```
 
-Start `applyTaskFilters` with `db.Where("admin_deleted_at = ?", int64(0))`. Do not add this predicate to `loadStateRecords` or `loadInstanceDetail`.
+Add `HideAdminDeleted bool` to `TaskQuery`. When it is true, start `applyTaskFilters` with `db.Where("workflow_process_tasks.admin_deleted_at = ?", int64(0))`; otherwise do not apply that predicate. Set this flag only in the Admin HTTP task-list handler. Do not add the predicate to `ListMyTasks`, `loadStateRecords`, or `loadInstanceDetail`.
 
 - [ ] **Step 6: Run application and infrastructure tests**
 

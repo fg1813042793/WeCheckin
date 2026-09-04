@@ -29,17 +29,23 @@ type Definition struct {
 func (Definition) TableName() string { return "workflow_definitions" }
 
 type DefinitionVersion struct {
-	ID             uint      `json:"id" gorm:"primaryKey;comment:流程版本ID"`
-	DefinitionID   uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:idx_workflow_definition_version;index;comment:流程定义ID"`
-	Version        int       `json:"version" gorm:"column:definition_version;uniqueIndex:idx_workflow_definition_version;comment:版本号"`
-	SourceJSON     string    `json:"sourceJson" gorm:"type:mediumtext;column:definition_source_json;comment:发布时设计器JSON"`
-	BPMNXML        string    `json:"bpmnXml" gorm:"type:longtext;column:definition_bpmn_xml;comment:Flowable BPMN XML"`
-	ValidationJSON string    `json:"validationJson" gorm:"type:mediumtext;column:definition_validation_json;comment:发布校验结果"`
-	DeploymentID   string    `json:"deploymentId" gorm:"size:100;column:definition_deployment_id;index;comment:Flowable部署ID"`
-	PublishedBy    uint      `json:"publishedBy" gorm:"column:definition_published_by;index;comment:发布人"`
-	PublishedAt    int64     `json:"publishedAt" gorm:"column:definition_published_at;comment:发布时间"`
-	CreatedAt      time.Time `json:"-"`
-	UpdatedAt      time.Time `json:"-"`
+	ID                  uint      `json:"id" gorm:"primaryKey;comment:流程版本ID"`
+	DefinitionID        uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:idx_workflow_definition_version;index;comment:流程定义ID"`
+	Version             int       `json:"version" gorm:"column:definition_version;uniqueIndex:idx_workflow_definition_version;comment:版本号"`
+	SourceJSON          string    `json:"sourceJson" gorm:"type:mediumtext;column:definition_source_json;comment:发布时设计器JSON"`
+	MetadataJSON        string    `json:"metadataJson" gorm:"type:mediumtext;column:definition_metadata_json;comment:发布时流程元数据JSON"`
+	ChangeBaseVersion   int       `json:"changeBaseVersion" gorm:"column:definition_change_base_version;comment:变更对比基准版本"`
+	ChangeSummaryJSON   string    `json:"changeSummaryJson" gorm:"type:mediumtext;column:definition_change_summary_json;comment:结构化变更摘要JSON"`
+	PublishNote         string    `json:"publishNote" gorm:"size:500;column:definition_publish_note;comment:发布说明"`
+	ContentHash         string    `json:"contentHash" gorm:"size:64;column:definition_content_hash;comment:版本内容SHA256"`
+	RollbackFromVersion int       `json:"rollbackFromVersion" gorm:"column:definition_rollback_from_version;comment:回滚来源版本"`
+	BPMNXML             string    `json:"bpmnXml" gorm:"type:longtext;column:definition_bpmn_xml;comment:Flowable BPMN XML"`
+	ValidationJSON      string    `json:"validationJson" gorm:"type:mediumtext;column:definition_validation_json;comment:发布校验结果"`
+	DeploymentID        string    `json:"deploymentId" gorm:"size:100;column:definition_deployment_id;index;comment:Flowable部署ID"`
+	PublishedBy         uint      `json:"publishedBy" gorm:"column:definition_published_by;index;comment:发布人"`
+	PublishedAt         int64     `json:"publishedAt" gorm:"column:definition_published_at;comment:发布时间"`
+	CreatedAt           time.Time `json:"-"`
+	UpdatedAt           time.Time `json:"-"`
 }
 
 func (DefinitionVersion) TableName() string { return "workflow_definition_versions" }

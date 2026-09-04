@@ -1,0 +1,62 @@
+:root {
+  color-scheme: light;
+
+  --admin-ui-color-page: #f4f6f8;
+  --admin-ui-color-surface: #ffffff;
+  --admin-ui-color-surface-muted: #f8fafc;
+  --admin-ui-color-border: #dfe4ea;
+  --admin-ui-color-border-strong: #cbd3dc;
+  --admin-ui-color-text: #20262e;
+  --admin-ui-color-text-secondary: #596575;
+  --admin-ui-color-text-muted: #8792a2;
+  --admin-ui-color-primary: #2878d0;
+  --admin-ui-color-primary-soft: #edf5ff;
+  --admin-ui-color-success: #16845b;
+  --admin-ui-color-warning: #b76a08;
+  --admin-ui-color-danger: #c53b3f;
+  --admin-ui-color-focus: rgba(40, 120, 208, 0.24);
+  --admin-ui-color-mask: rgba(20, 27, 36, 0.48);
+
+  --admin-ui-space-1: 4px;
+  --admin-ui-space-2: 8px;
+  --admin-ui-space-3: 12px;
+  --admin-ui-space-4: 16px;
+  --admin-ui-space-5: 20px;
+  --admin-ui-space-6: 24px;
+  --admin-ui-space-8: 32px;
+
+  --admin-ui-control-height-sm: 28px;
+  --admin-ui-control-height: 32px;
+  --admin-ui-control-height-lg: 40px;
+  --admin-ui-table-header-height: 44px;
+  --admin-ui-table-row-height: 48px;
+  --admin-ui-page-gutter: 24px;
+  --admin-ui-page-gutter-mobile: 12px;
+  --admin-ui-section-gap: 16px;
+
+  --admin-ui-radius-sm: 4px;
+  --admin-ui-radius: 6px;
+  --admin-ui-radius-lg: 8px;
+  --admin-ui-shadow-dialog: 0 16px 48px rgba(31, 41, 55, 0.18);
+
+  --admin-ui-page-max-wide: 1600px;
+  --admin-ui-page-max-form: 960px;
+  --admin-ui-dialog-width-sm: 480px;
+  --admin-ui-dialog-width-md: 640px;
+  --admin-ui-dialog-width-lg: 880px;
+  --admin-ui-drawer-width-sm: 420px;
+  --admin-ui-drawer-width-md: 560px;
+  --admin-ui-drawer-width-lg: 720px;
+
+  --admin-ui-breakpoint-sm: 480px;
+  --admin-ui-breakpoint-md: 768px;
+  --admin-ui-breakpoint-lg: 1200px;
+  --admin-ui-breakpoint-xl: 1600px;
+
+  --admin-ui-font-size-title: 20px;
+  --admin-ui-font-size-section: 16px;
+  --admin-ui-font-size-body: 14px;
+  --admin-ui-font-size-caption: 12px;
+  --admin-ui-line-height-title: 28px;
+  --admin-ui-line-height-body: 22px;
+}

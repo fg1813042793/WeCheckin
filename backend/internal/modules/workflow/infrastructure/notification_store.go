@@ -64,7 +64,11 @@ func (repository *GormNotificationRepository) List(ctx context.Context, query ap
 	if err := statement.Order("add_time DESC").Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	records, err := notificationRecordsFromModels(rows)
+	users, err := loadWorkflowUsers(db, notificationRecipientUserIDs(rows))
+	if err != nil {
+		return nil, err
+	}
+	records, err := notificationRecordsFromModelsWithUsers(rows, users)
 	if err != nil {
 		return nil, err
 	}
@@ -282,15 +286,30 @@ func notificationRecordFromModel(row workflowmodel.NotificationOutbox) (applicat
 }
 
 func notificationRecordsFromModels(rows []workflowmodel.NotificationOutbox) ([]application.NotificationRecord, error) {
+	return notificationRecordsFromModelsWithUsers(rows, nil)
+}
+
+func notificationRecordsFromModelsWithUsers(rows []workflowmodel.NotificationOutbox, users []model.User) ([]application.NotificationRecord, error) {
+	names := workflowUserNames(users)
 	records := make([]application.NotificationRecord, 0, len(rows))
 	for _, row := range rows {
 		record, err := notificationRecordFromModel(row)
 		if err != nil {
 			return nil, err
 		}
+		record.RecipientUserName = names[strings.TrimSpace(record.RecipientUserID)]
 		records = append(records, record)
 	}
 	return records, nil
+}
+
+func notificationRecipientUserIDs(rows []workflowmodel.NotificationOutbox) []uint {
+	ids := make([]uint, 0, len(rows))
+	seen := make(map[uint]struct{}, len(rows))
+	for _, row := range rows {
+		appendWorkflowUserID(&ids, seen, row.RecipientUserID)
+	}
+	return ids
 }
 
 func normalizeNotificationPage(page, pageSize int) (int, int) {

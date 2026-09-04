@@ -268,6 +268,14 @@ func (handler *Handler) authorizeRisk(ctx context.Context, c *app.RequestContext
 
 func riskPermission(handlerType string, raw json.RawMessage) string {
 	switch strings.TrimSpace(handlerType) {
+	case scheduledtaskmodel.HandlerTypeGo:
+		var value struct {
+			HandlerKey string `json:"handlerKey"`
+		}
+		if json.Unmarshal(raw, &value) == nil && strings.TrimSpace(value.HandlerKey) == "notification.in_app.send" {
+			return "notification:send"
+		}
+		return ""
 	case scheduledtaskmodel.HandlerTypeHTTP:
 		return "scheduled-task:http"
 	case scheduledtaskmodel.HandlerTypeShell:

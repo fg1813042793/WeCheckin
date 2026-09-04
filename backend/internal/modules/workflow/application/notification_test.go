@@ -1,8 +1,11 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +24,9 @@ type notificationRepositoryStub struct {
 	dueLimit         int
 	listed           NotificationQuery
 	inAppErr         error
+	claimErr         error
+	markSentErr      error
+	markFailedErr    error
 }
 
 type notificationFailure struct {
@@ -39,7 +45,7 @@ func (stub *notificationRepositoryStub) List(_ context.Context, query Notificati
 func (stub *notificationRepositoryStub) ClaimByIDs(_ context.Context, _ []string, now, staleBefore int64) ([]NotificationRecord, error) {
 	stub.claimNow = now
 	stub.claimStaleBefore = staleBefore
-	return append([]NotificationRecord(nil), stub.claimed...), nil
+	return append([]NotificationRecord(nil), stub.claimed...), stub.claimErr
 }
 
 func (stub *notificationRepositoryStub) ClaimDue(_ context.Context, now, staleBefore int64, limit int) ([]NotificationRecord, error) {
@@ -56,12 +62,12 @@ func (stub *notificationRepositoryStub) DeliverInApp(_ context.Context, notifica
 
 func (stub *notificationRepositoryStub) MarkSent(_ context.Context, id, _ string, _ int64) error {
 	stub.sent = append(stub.sent, id)
-	return nil
+	return stub.markSentErr
 }
 
 func (stub *notificationRepositoryStub) MarkFailed(_ context.Context, id string, attempts int, status string, nextRetryAt int64, message string, _ int64) error {
 	stub.failed = append(stub.failed, notificationFailure{id: id, attempts: attempts, status: status, nextRetryAt: nextRetryAt, message: message})
-	return nil
+	return stub.markFailedErr
 }
 
 func (stub *notificationRepositoryStub) ResetForRetry(_ context.Context, id string, _ int64) error {
@@ -180,6 +186,124 @@ func TestNotificationRetryBackoffSchedule(t *testing.T) {
 	for attempts, duration := range want {
 		if got := notificationRetryDelay(attempts + 1); got != duration {
 			t.Fatalf("attempt %d delay = %s, want %s", attempts+1, got, duration)
+		}
+	}
+}
+
+func TestNotificationDispatcherLogsDeliveryOutcomesWithoutPayload(t *testing.T) {
+	now := time.Date(2026, 9, 2, 10, 30, 0, 0, time.Local)
+	repository := &notificationRepositoryStub{claimed: []NotificationRecord{
+		{
+			ID: "in-app-1", InstanceID: "instance-1", NodeID: "handle-1", TaskID: "task-1",
+			RecipientUserID: "7", Kind: "task_arrived", Channel: workflowcore.NotificationChannelInApp,
+			Payload: NotificationPayload{Title: "sensitive title", Content: "sensitive content"},
+		},
+		{
+			ID: "ding-1", InstanceID: "instance-1", NodeID: "approval-1", TaskID: "task-2",
+			RecipientUserID: "8", Kind: "task_arrived", Channel: workflowcore.NotificationChannelDingTalkOA,
+			Payload: NotificationPayload{Title: "sensitive title", Content: "sensitive content"},
+		},
+	}}
+	dingTalk := &notificationChannelStub{
+		name: workflowcore.NotificationChannelDingTalkOA,
+		errByID: map[string]error{
+			"ding-1": errors.New("dingtalk unavailable: upstream timeout"),
+		},
+	}
+	var output bytes.Buffer
+	dispatcher := newNotificationDispatcherWithClockAndLogger(
+		repository,
+		func() time.Time { return now },
+		log.New(&output, "", 0),
+		dingTalk,
+	)
+
+	if _, err := dispatcher.Dispatch(context.Background(), []string{"in-app-1", "ding-1"}); err != nil {
+		t.Fatalf("Dispatch() error = %v", err)
+	}
+
+	logs := output.String()
+	for _, want := range []string{
+		"[WorkflowNotification] delivery_sent notificationId=in-app-1 instanceId=instance-1 nodeId=handle-1 taskId=task-1 recipientUserId=7 kind=task_arrived channel=in_app failedAttempts=0 sentAt=",
+		"[WorkflowNotification] delivery_failed notificationId=ding-1 instanceId=instance-1 nodeId=approval-1 taskId=task-2 recipientUserId=8 kind=task_arrived channel=dingtalk_oa status=failed failedAttempts=1 nextRetryAt=",
+		"err=dingtalk unavailable: upstream timeout",
+	} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("notification logs missing %q:\n%s", want, logs)
+		}
+	}
+	for _, forbidden := range []string{"sensitive title", "sensitive content"} {
+		if strings.Contains(logs, forbidden) {
+			t.Fatalf("notification logs leaked payload %q:\n%s", forbidden, logs)
+		}
+	}
+}
+
+func TestNotificationDispatcherLogsClaimFailure(t *testing.T) {
+	repository := &notificationRepositoryStub{claimErr: errors.New("outbox unavailable")}
+	var output bytes.Buffer
+	dispatcher := newNotificationDispatcherWithClockAndLogger(
+		repository,
+		func() time.Time { return time.Date(2026, 9, 2, 10, 30, 0, 0, time.Local) },
+		log.New(&output, "", 0),
+	)
+
+	_, err := dispatcher.Dispatch(context.Background(), []string{"notification-1"})
+	if err == nil {
+		t.Fatal("Dispatch() error = nil, want claim failure")
+	}
+	if want := "[WorkflowNotification] claim_failed mode=immediate requested=1 err=outbox unavailable"; !strings.Contains(output.String(), want) {
+		t.Fatalf("notification logs missing %q:\n%s", want, output.String())
+	}
+}
+
+func TestNotificationDispatcherLogsStateUpdateFailure(t *testing.T) {
+	repository := &notificationRepositoryStub{
+		claimed: []NotificationRecord{{
+			ID: "ding-1", InstanceID: "instance-1", NodeID: "approval-1", TaskID: "task-1",
+			RecipientUserID: "8", Kind: "task_arrived", Channel: workflowcore.NotificationChannelDingTalkOA,
+		}},
+		markSentErr: errors.New("outbox update failed"),
+	}
+	dingTalk := &notificationChannelStub{name: workflowcore.NotificationChannelDingTalkOA, errByID: map[string]error{}}
+	var output bytes.Buffer
+	dispatcher := newNotificationDispatcherWithClockAndLogger(
+		repository,
+		func() time.Time { return time.Date(2026, 9, 2, 10, 30, 0, 0, time.Local) },
+		log.New(&output, "", 0),
+		dingTalk,
+	)
+
+	_, err := dispatcher.Dispatch(context.Background(), []string{"ding-1"})
+	if err == nil {
+		t.Fatal("Dispatch() error = nil, want state update failure")
+	}
+	for _, want := range []string{
+		"[WorkflowNotification] state_update_failed notificationId=ding-1 instanceId=instance-1 nodeId=approval-1 taskId=task-1 recipientUserId=8 kind=task_arrived channel=dingtalk_oa targetStatus=sent",
+		"err=outbox update failed",
+	} {
+		if !strings.Contains(output.String(), want) {
+			t.Fatalf("notification logs missing %q:\n%s", want, output.String())
+		}
+	}
+}
+
+func TestTruncateNotificationErrorRedactsCredentials(t *testing.T) {
+	err := errors.New(`Post "https://oapi.example.com/send?access_token=token-secret&lang=zh": Authorization: Bearer bearer-secret appSecret=app-secret`)
+	message := truncateNotificationError(err)
+
+	for _, want := range []string{
+		"access_token=[REDACTED]",
+		"Authorization: Bearer [REDACTED]",
+		"appSecret=[REDACTED]",
+	} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("redacted notification error missing %q: %s", want, message)
+		}
+	}
+	for _, forbidden := range []string{"token-secret", "bearer-secret", "app-secret"} {
+		if strings.Contains(message, forbidden) {
+			t.Fatalf("redacted notification error leaked %q: %s", forbidden, message)
 		}
 	}
 }

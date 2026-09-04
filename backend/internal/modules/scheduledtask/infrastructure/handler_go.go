@@ -44,15 +44,21 @@ func (handler *GoHandler) Type() string { return "go" }
 func (handler *GoHandler) Metadata() application.HandlerMetadata {
 	handler.mu.RLock()
 	keys := make([]string, 0, len(handler.jobs))
-	for key := range handler.jobs {
+	labels := make(map[string]string, len(handler.jobs))
+	for key, job := range handler.jobs {
 		keys = append(keys, key)
+		name := strings.TrimSpace(job.Name())
+		if name == "" {
+			name = key
+		}
+		labels[key] = name
 	}
 	handler.mu.RUnlock()
 	sort.Strings(keys)
 	schema, _ := json.Marshal(map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"handlerKey": map[string]interface{}{"type": "string", "enum": keys},
+			"handlerKey": map[string]interface{}{"type": "string", "enum": keys, "x-enum-labels": labels},
 			"params":     map[string]interface{}{"type": "object"},
 		},
 		"required": []string{"handlerKey"},

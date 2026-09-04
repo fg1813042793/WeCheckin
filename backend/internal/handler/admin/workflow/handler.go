@@ -68,6 +68,47 @@ func (h *AdminWorkflowHandler) Create(ctx context.Context, c *app.RequestContext
 	response.JSON(c, data)
 }
 
+func (h *AdminWorkflowHandler) Copy(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	sourceID, ok := routeID(c)
+	if !ok {
+		response.Fail(c, "源流程定义 ID 无效")
+		return
+	}
+	var request workflowservice.CopyRequest
+	var uploaded *storage.StoredFile
+	if isWorkflowMultipart(c) {
+		request = workflowCopyRequestFromMultipart(c)
+		file, err := optionalWorkflowLogo(c)
+		if err != nil {
+			response.Fail(c, err.Error())
+			return
+		}
+		if file != nil {
+			uploaded, err = saveWorkflowLogo(ctx, file)
+			if err != nil {
+				response.Fail(c, err.Error())
+				return
+			}
+			request.LogoURL = uploaded.URL
+		}
+	} else if err := c.BindAndValidate(&request); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	data, err := workflowservice.CopyContext(ctx, admin.ID, sourceID, request)
+	if err != nil {
+		storage.RemoveLocal(uploaded)
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
 func (h *AdminWorkflowHandler) Detail(ctx context.Context, c *app.RequestContext) {
 	id, ok := routeID(c)
 	if !ok {
@@ -193,6 +234,83 @@ func (h *AdminWorkflowHandler) Versions(ctx context.Context, c *app.RequestConte
 	response.JSON(c, data)
 }
 
+func (h *AdminWorkflowHandler) VersionChanges(ctx context.Context, c *app.RequestContext) {
+	id, ok := routeID(c)
+	if !ok {
+		response.Fail(c, "流程定义 ID 无效")
+		return
+	}
+	version, ok := routeVersion(c)
+	if !ok {
+		response.Fail(c, "流程版本参数无效")
+		return
+	}
+	compareTo := 0
+	if raw := c.Query("compareTo"); raw != "" {
+		var err error
+		compareTo, err = strconv.Atoi(raw)
+		if err != nil || compareTo <= 0 {
+			response.Fail(c, "对比版本参数无效")
+			return
+		}
+	}
+	data, err := workflowservice.GetVersionChangesContext(ctx, id, version, compareTo)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *AdminWorkflowHandler) DeleteVersion(ctx context.Context, c *app.RequestContext) {
+	id, ok := routeID(c)
+	if !ok {
+		response.Fail(c, "流程定义 ID 无效")
+		return
+	}
+	version, ok := routeVersion(c)
+	if !ok {
+		response.Fail(c, "流程版本参数无效")
+		return
+	}
+	if err := workflowservice.DeleteVersionContext(ctx, id, version); err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, nil)
+}
+
+func (h *AdminWorkflowHandler) RollbackVersion(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	id, ok := routeID(c)
+	if !ok {
+		response.Fail(c, "流程定义 ID 无效")
+		return
+	}
+	version, ok := routeVersion(c)
+	if !ok {
+		response.Fail(c, "流程版本参数无效")
+		return
+	}
+	var request workflowservice.RollbackRequest
+	if len(bytes.TrimSpace(c.Request.Body())) > 0 {
+		if err := c.BindAndValidate(&request); err != nil {
+			response.Fail(c, "回滚配置格式无效")
+			return
+		}
+	}
+	data, err := workflowservice.RollbackVersionContext(ctx, admin.ID, id, version, request)
+	if err != nil {
+		response.Fail(c, err.Error())
+		return
+	}
+	response.JSON(c, data)
+}
+
 func (h *AdminWorkflowHandler) OrgApproverIdentities(ctx context.Context, c *app.RequestContext) {
 	data, err := workflowservice.ListOrgApproverIdentitiesContext(ctx)
 	if err != nil {
@@ -244,4 +362,9 @@ func currentAdmin(c *app.RequestContext) (*model.Admin, bool) {
 func routeID(c *app.RequestContext) (uint, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	return uint(id), err == nil && id > 0
+}
+
+func routeVersion(c *app.RequestContext) (int, bool) {
+	version, err := strconv.Atoi(c.Param("version"))
+	return version, err == nil && version > 0
 }

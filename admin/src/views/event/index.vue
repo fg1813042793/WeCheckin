@@ -52,16 +52,16 @@
           <template #default="{ row }">
             <div class="admin-table-actions">
               <el-button v-if="hasPerm('admin:menu:event:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
-              <el-button v-if="hasPerm('admin:menu:event:list')" size="small" @click="showParticipants(row)">参与者</el-button>
+              <el-button v-if="hasPerm('admin:menu:event:users')" size="small" @click="showParticipants(row)">参与者</el-button>
               <el-button v-if="hasPerm('admin:menu:event:list')" size="small" @click="showDynamics(row)">动态</el-button>
-              <el-dropdown v-if="hasPerm('admin:menu:event:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+              <el-dropdown v-if="hasPerm('admin:menu:event:status') || hasPerm('admin:menu:event:vouch') || hasPerm('admin:menu:event:top') || hasPerm('admin:menu:event:list') || hasPerm('admin:menu:event:del')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item command="enable" :disabled="row.status===1">启用</el-dropdown-item>
-                      <el-dropdown-item command="disable" :disabled="row.status===0">停用</el-dropdown-item>
-                      <el-dropdown-item :command="row.vouch ? 'unvouch' : 'vouch'">{{ row.vouch ? '取消推荐' : '推荐首页' }}</el-dropdown-item>
-                      <el-dropdown-item :command="row.isTop ? 'untop' : 'top'">{{ row.isTop ? '取消置顶' : '置顶' }}</el-dropdown-item>
+                      <el-dropdown-item v-if="hasPerm('admin:menu:event:status')" command="enable" :disabled="row.status===1">启用</el-dropdown-item>
+                      <el-dropdown-item v-if="hasPerm('admin:menu:event:status')" command="disable" :disabled="row.status===0">停用</el-dropdown-item>
+                      <el-dropdown-item v-if="hasPerm('admin:menu:event:vouch')" :command="row.vouch ? 'unvouch' : 'vouch'">{{ row.vouch ? '取消推荐' : '推荐首页' }}</el-dropdown-item>
+                      <el-dropdown-item v-if="hasPerm('admin:menu:event:top')" :command="row.isTop ? 'untop' : 'top'">{{ row.isTop ? '取消置顶' : '置顶' }}</el-dropdown-item>
                       <el-dropdown-item command="scores" v-if="row.type===2 && hasPerm('admin:menu:event:list')">成绩</el-dropdown-item>
                       <el-dropdown-item v-if="hasPerm('admin:menu:event:del')" command="del" divided>删除</el-dropdown-item>
                     </el-dropdown-menu>
@@ -89,7 +89,7 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="封面">
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleCoverSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="{ Authorization: token }" accept="image/*">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleCoverSuccess" accept="image/*">
             <div class="cover-upload">
               <el-image v-if="form.cover" :src="form.cover" class="cover-preview" />
               <div v-else class="cover-placeholder">+</div>
@@ -341,7 +341,7 @@
               <div style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:rgba(0,0,0,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer" @click="dynEditForm.imageList.splice(j,1)">✕</div>
             </div>
           </div>
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleDynImageSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="{ Authorization: token }" accept="image/*">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleDynImageSuccess" accept="image/*">
             <div class="dyn-upload-btn">+</div>
           </el-upload>
         </el-form-item>
@@ -352,7 +352,7 @@
               <div style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:rgba(0,0,0,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer" @click="dynEditForm.videoList.splice(j,1)">✕</div>
             </div>
           </div>
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleDynVideoSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="{ Authorization: token }" accept="video/*">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleDynVideoSuccess" accept="video/*">
             <div class="dyn-upload-btn">+</div>
           </el-upload>
         </el-form-item>
@@ -431,6 +431,8 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { Delete, ArrowDown } from '@element-plus/icons-vue'
 import SortPopover from '../../components/SortPopover.vue'
 import { adminApi } from '../../api'
+import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
+import { showRequestError } from '../../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 
@@ -458,7 +460,6 @@ const sortColumns = [
   { label: '活动结束', field: 'eventEnd' },
   { label: '创建时间', field: 'addTime' },
 ]
-const token = localStorage.getItem('admin_token') || ''
 
 function handleCoverSuccess(res: any) {
   if (res.data?.url) form.cover = res.data.url
@@ -651,6 +652,7 @@ const partSelected = ref<any[]>([])
 let partEventId = ''
 
 async function showParticipants(row: any) {
+  if (!hasPerm('admin:menu:event:users')) return
   partDialog.title = '参与者 - ' + row.title
   partEventId = row.id
   partDialog.visible = true
@@ -816,7 +818,7 @@ async function saveDynamicEdit() {
     const res = await adminApi.eventDynamics({ eventId: dynEventId })
     const list = res.data?.list
     dynList.value = Array.isArray(list) ? list : []
-  } catch { ElMessage.error('保存失败') }
+  } catch (error) { showRequestError(error, '保存失败') }
   dynEditSaving.value = false
 }
 
@@ -860,7 +862,7 @@ async function loadScoreFields(eventId: string) {
   try {
     const res = await adminApi.eventDetail(eventId)
     if (res.data) {
-      let sf = res.data.scoreFields
+      let sf: unknown = res.data.scoreFields
       if (typeof sf === 'string') { try { sf = JSON.parse(sf) } catch { sf = [] } }
       scoreEditFields.value = Array.isArray(sf) ? sf : []
     }
@@ -938,7 +940,7 @@ async function saveScoreEdit() {
       try { const t = JSON.parse(s.score); if (Array.isArray(t)) _parsed = t } catch {}
       return { ...s, _parsed }
     })
-  } catch { ElMessage.error('保存失败') }
+  } catch (error) { showRequestError(error, '保存失败') }
   scoreEditSaving.value = false
 }
 
@@ -1011,30 +1013,38 @@ function exportScores() {
 // More actions
 async function handleMore(cmd: string, row: any) {
   if (cmd === 'enable') {
+    if (!hasPerm('admin:menu:event:status')) return
     await adminApi.eventStatus({ id: row.id, status: '1' })
     ElMessage.success('已启用'); load()
   } else if (cmd === 'disable') {
+    if (!hasPerm('admin:menu:event:status')) return
     await adminApi.eventStatus({ id: row.id, status: '0' })
     ElMessage.success('已停用'); load()
   } else if (cmd === 'del') {
+    if (!hasPerm('admin:menu:event:del')) return
     try {
       await ElMessageBox.confirm('确定删除？', '提示')
       await adminApi.eventDel({ id: row.id })
       ElMessage.success('已删除'); load()
     } catch {}
   } else if (cmd === 'vouch') {
+    if (!hasPerm('admin:menu:event:vouch')) return
     await adminApi.eventVouch({ id: row.id, vouch: '1' })
     ElMessage.success('已推荐到首页'); load()
   } else if (cmd === 'unvouch') {
+    if (!hasPerm('admin:menu:event:vouch')) return
     await adminApi.eventVouch({ id: row.id, vouch: '0' })
     ElMessage.success('已取消推荐'); load()
   } else if (cmd === 'top') {
+    if (!hasPerm('admin:menu:event:top')) return
     await adminApi.eventTop({ id: row.id, top: '1' })
     ElMessage.success('已置顶'); load()
   } else if (cmd === 'untop') {
+    if (!hasPerm('admin:menu:event:top')) return
     await adminApi.eventTop({ id: row.id, top: '0' })
     ElMessage.success('已取消置顶'); load()
   } else if (cmd === 'scores') {
+    if (!hasPerm('admin:menu:event:list')) return
     showScores(row)
   }
 }
@@ -1090,7 +1100,7 @@ function fmtTime(ts: number) {
 
 async function loadCategories(dictKey: string) {
   try {
-    const res = await adminApi.dictItems(dictKey)
+    const res = await adminApi.dictActiveItems(dictKey)
     categories.value = (res.data || []).map((d: any) => ({ label: d.label, value: d.value }))
   } catch { categories.value = [] }
 }

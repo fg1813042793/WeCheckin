@@ -128,18 +128,13 @@
       </template>
     </el-drawer>
 
-    <el-drawer v-model="versionDrawer" title="发布版本" size="520px" append-to-body>
-      <div v-loading="versionsLoading" class="version-list">
-        <el-empty v-if="!versionsLoading && versions.length === 0" description="暂未发布版本" />
-        <div v-for="version in versions" :key="version.id" class="version-item">
-          <span class="version-item__badge">v{{ version.version }}</span>
-          <div>
-            <strong>{{ detail?.name }}</strong>
-            <p>{{ formatTime(version.publishedAt) }} · 发布人 ID {{ version.publishedBy || '-' }}</p>
-          </div>
-        </div>
-      </div>
-    </el-drawer>
+    <WorkflowVersionDrawer
+      v-model="versionDrawer"
+      :definition="detail"
+      :can-publish="canPublish"
+      :can-delete="canDelete"
+      @changed="loadDetail"
+    />
 
     <WorkflowPublishDialog
       v-model="publishDialog"
@@ -169,6 +164,7 @@ import WorkflowFieldPermissions from './components/WorkflowFieldPermissions.vue'
 import WorkflowStartConfig from './components/WorkflowStartConfig.vue'
 import WorkflowFormPreviewDialog from './components/WorkflowFormPreviewDialog.vue'
 import WorkflowPublishDialog from '../components/WorkflowPublishDialog.vue'
+import WorkflowVersionDrawer from '../components/WorkflowVersionDrawer.vue'
 import { addBranch, insertNodeAtEdge, removeBranch, removeNode } from './graph'
 import type {
   WorkflowDefinitionDetail,
@@ -177,7 +173,6 @@ import type {
   WorkflowOrgApproverIdentity,
   WorkflowValidationError,
   WorkflowValidationResult,
-  WorkflowVersion,
 } from '../types'
 import { cloneDraft } from '../types'
 import { workflowDataFields } from '../formLayout'
@@ -197,8 +192,6 @@ const metadataDrawer = ref(false)
 const publishDialog = ref(false)
 const formPreviewDialog = ref(false)
 const versionDrawer = ref(false)
-const versionsLoading = ref(false)
-const versions = ref<WorkflowVersion[]>([])
 const activeDesignerTab = ref<'form' | 'process' | 'permissions' | 'config'>('process')
 const workflowDepartments = ref<any[]>([])
 const workflowAssigneeUsers = ref<WorkflowAssigneeUser[]>([])
@@ -206,6 +199,7 @@ const workflowOrgApproverIdentities = ref<WorkflowOrgApproverIdentity[]>([])
 
 const canEdit = computed(() => hasPerm('admin:menu:workflow:edit'))
 const canPublish = computed(() => hasPerm('admin:menu:workflow:publish'))
+const canDelete = computed(() => hasPerm('admin:menu:workflow:del'))
 const selectedNode = computed(() => detail.value?.draft.nodes.find(item => item.id === selectedNodeId.value))
 const selectedNodeTitle = computed(() => {
   if (!selectedNode.value) return '节点配置'
@@ -219,11 +213,6 @@ const statusMeta = computed(() => {
   if (detail.value?.status === 0) return { label: '已停用', type: 'info' as const }
   return { label: '草稿', type: 'warning' as const }
 })
-
-function formatTime(timestamp: number) {
-  if (!timestamp) return '-'
-  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false })
-}
 
 async function loadDetail() {
   if (!definitionId.value) {
@@ -442,17 +431,9 @@ async function saveMetadata() {
   if (await saveDraft()) metadataDrawer.value = false
 }
 
-async function openVersions() {
+function openVersions() {
   if (!detail.value) return
-  versions.value = []
   versionDrawer.value = true
-  versionsLoading.value = true
-  try {
-    const response = await adminApi.workflowDefinitionVersions(detail.value.id)
-    versions.value = Array.isArray(response.data) ? response.data : []
-  } finally {
-    versionsLoading.value = false
-  }
 }
 
 function backToList() {
@@ -499,9 +480,6 @@ onMounted(async () => {
 .validation-panel > button { display: flex; width: 100%; gap: 10px; padding: 10px 12px; border: 0; border-bottom: 1px solid #f1f3f6; background: #fff; color: #475569; text-align: left; cursor: pointer; }
 .validation-panel > button:hover { background: #fafbfc; }
 .validation-panel > button code { color: #b42318; font-size: 11px; }
-.version-item { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0f5; }
-.version-item__badge { display: grid; place-items: center; width: 42px; height: 32px; border-radius: 6px; color: #0f766e; background: #e9f8f5; font-weight: 700; }
-.version-item p { margin: 4px 0 0; color: #8492a6; font-size: 12px; }
 @media (max-width: 1180px) {
   .designer-header { align-items: flex-start; flex-direction: column; padding: 12px 16px; }
   .designer-header__actions { width: 100%; overflow-x: auto; padding-bottom: 2px; }

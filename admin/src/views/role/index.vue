@@ -258,6 +258,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { adminApi } from '../../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
+import { showRequestError } from '../../utils/request'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -380,12 +381,12 @@ async function loadApplicationPermissionTree() {
     }
     await nextTick()
     if (dialog.visible) setApplicationPermissionTreeKeys()
-  } catch {
+  } catch (error) {
     clientMenuTreeData.value = []
     dingtalkH5MenuTreeData.value = []
     clientApiTreeData.value = []
     dingtalkH5ApiTreeData.value = []
-    ElMessage.error('应用权限加载失败')
+    showRequestError(error, '应用权限加载失败')
   }
 }
 
@@ -544,7 +545,7 @@ async function handleSave() {
     }
     dialog.visible = false
     await loadList()
-  } catch { ElMessage.error('操作失败') }
+  } catch (error) { showRequestError(error, '操作失败') }
   saving.value = false
 }
 
@@ -553,7 +554,7 @@ async function handleDel(row: any) {
     await adminApi.roleDel({ id: row.id })
     ElMessage.success('删除成功')
     await loadList()
-  } catch { ElMessage.error('删除失败') }
+  } catch (error) { showRequestError(error, '删除失败') }
 }
 
 async function delSelected() {

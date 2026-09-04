@@ -56,6 +56,22 @@ func TestNotificationRecordFromModelDecodesPayloadSnapshot(t *testing.T) {
 	}
 }
 
+func TestNotificationRecordsUseRecipientNamesWithoutIDFallback(t *testing.T) {
+	rows := []workflowmodel.NotificationOutbox{
+		{ID: "named", RecipientUserID: "7", PayloadJSON: `{}`},
+		{ID: "missing", RecipientUserID: "404", PayloadJSON: `{}`},
+	}
+	users := []model.User{{ID: 7, Name: " 张三 "}}
+
+	records, err := notificationRecordsFromModelsWithUsers(rows, users)
+	if err != nil {
+		t.Fatalf("notificationRecordsFromModelsWithUsers() error = %v", err)
+	}
+	if records[0].RecipientUserName != "张三" || records[1].RecipientUserName != "" {
+		t.Fatalf("notification recipient names = %#v", records)
+	}
+}
+
 func TestWorkflowInAppNotifyUsesInstanceSourceContract(t *testing.T) {
 	record := application.NotificationRecord{
 		ID: "outbox-1", InstanceID: "instance-1", Kind: workflowmodel.NotificationKindTaskArrived,
@@ -121,8 +137,8 @@ func TestDingTalkNotificationChannelBatchesSameCorpAndPayload(t *testing.T) {
 	client := &dingTalkNotificationClientStub{}
 	channel := newDingTalkNotificationChannel(client, resolver)
 	notifications := []application.NotificationRecord{
-		{ID: "outbox-1", Channel: workflowcore.NotificationChannelDingTalkOA, Payload: application.NotificationPayload{Title: "待办", Content: "请审批"}},
-		{ID: "outbox-2", Channel: workflowcore.NotificationChannelDingTalkOA, Payload: application.NotificationPayload{Title: "待办", Content: "请审批"}},
+		{ID: "outbox-1", Channel: workflowcore.NotificationChannelDingTalkOA, Payload: application.NotificationPayload{Title: "待办", Content: "请审批", MessageType: configsvc.DingTalkMessageTypeActionCard}},
+		{ID: "outbox-2", Channel: workflowcore.NotificationChannelDingTalkOA, Payload: application.NotificationPayload{Title: "待办", Content: "请审批", MessageType: configsvc.DingTalkMessageTypeActionCard}},
 		{ID: "outbox-bad", Channel: workflowcore.NotificationChannelDingTalkOA},
 	}
 
@@ -134,7 +150,7 @@ func TestDingTalkNotificationChannelBatchesSameCorpAndPayload(t *testing.T) {
 	if !reflect.DeepEqual(call.userIDs, []string{"ding-1", "ding-2"}) {
 		t.Fatalf("batched user IDs = %#v", call.userIDs)
 	}
-	if call.payload.Title != "待办" || call.payload.Content != "请审批" || call.payload.URL != config.AppURL || call.payload.SourceName != "WeCheckin 流程" {
+	if call.payload.Title != "待办" || call.payload.Content != "请审批" || call.payload.URL != config.AppURL || call.payload.SourceName != "WeCheckin 流程" || call.payload.MessageType != configsvc.DingTalkMessageTypeActionCard {
 		t.Fatalf("payload = %#v", call.payload)
 	}
 	if len(results) != 3 || results[0].Err != nil || results[1].Err != nil || results[2].Err == nil {

@@ -70,6 +70,7 @@ func CompileBPMN(definition Definition) ([]byte, error) {
 func encodeNode(encoder *xml.Encoder, node Node, defaultFlow string) error {
 	attributes := []xml.Attr{attr("id", node.ID), attr("name", node.Name)}
 	attributes = append(attributes, notificationAttributes(node.Notification)...)
+	attributes = append(attributes, resultNotificationAttributes(node.ResultNotification)...)
 	switch node.Type {
 	case NodeTypeStart:
 		return encodeEmpty(encoder, startElement("startEvent", attributes...))
@@ -113,6 +114,18 @@ func notificationAttributes(config *NotificationConfig) []xml.Attr {
 		attr("flowable:notificationChannels", strings.Join(config.Channels, ",")),
 		attr("flowable:notificationTitle", config.Title),
 		attr("flowable:notificationContent", config.Content),
+	}
+}
+
+func resultNotificationAttributes(config *NotificationConfig) []xml.Attr {
+	if config == nil {
+		return nil
+	}
+	return []xml.Attr{
+		attr("flowable:resultNotificationEnabled", strconv.FormatBool(config.Enabled)),
+		attr("flowable:resultNotificationChannels", strings.Join(config.Channels, ",")),
+		attr("flowable:resultNotificationTitle", config.Title),
+		attr("flowable:resultNotificationContent", config.Content),
 	}
 }
 

@@ -18,13 +18,17 @@ const (
 	TaskStatusCompleted = "completed"
 	TaskStatusApproved  = "approved"
 	TaskStatusRejected  = "rejected"
+	TaskStatusReturned  = "returned"
 	TaskStatusCancelled = "cancelled"
 
 	ParticipantRoleCC = "cc"
 
-	NotificationKindNodeCC      = "node_cc"
-	NotificationKindNodeNotify  = "node_notify"
-	NotificationKindTaskArrived = "task_arrived"
+	NotificationKindNodeCC       = "node_cc"
+	NotificationKindNodeNotify   = "node_notify"
+	NotificationKindTaskArrived  = "task_arrived"
+	NotificationKindTaskReminder = "task_reminder"
+	NotificationKindApprovalResultApproved = "approval_result_approved"
+	NotificationKindApprovalResultRejected = "approval_result_rejected"
 
 	NotificationChannelInApp      = "in_app"
 	NotificationChannelDingTalkOA = "dingtalk_oa"
@@ -40,17 +44,20 @@ const (
 // Business modules only associate through BusinessType and BusinessKey.
 type ProcessInstance struct {
 	ID                string    `json:"id" gorm:"size:64;primaryKey;comment:流程实例ID"`
-	DefinitionID      uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:idx_workflow_instance_business;index:idx_workflow_instances_definition_status,priority:1;comment:流程定义ID"`
+	DefinitionID      uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:idx_workflow_instance_business;index:idx_workflow_instances_definition_status,priority:1;index:idx_workflow_instances_definition_starter_time,priority:1;comment:流程定义ID"`
 	DefinitionVersion int       `json:"definitionVersion" gorm:"column:definition_version;comment:流程定义版本"`
 	DefinitionKey     string    `json:"definitionKey" gorm:"size:100;column:definition_key;comment:流程定义编码"`
 	BusinessType      string    `json:"businessType" gorm:"size:100;column:business_type;uniqueIndex:idx_workflow_instance_business;comment:业务类型"`
 	BusinessKey       string    `json:"businessKey" gorm:"size:160;column:business_key;uniqueIndex:idx_workflow_instance_business;comment:业务唯一标识"`
-	StarterID         string    `json:"starterId" gorm:"size:64;column:starter_id;index:idx_workflow_instances_starter_status,priority:1;comment:发起人ID"`
+	StarterID         string    `json:"starterId" gorm:"size:64;column:starter_id;index:idx_workflow_instances_starter_status,priority:1;index:idx_workflow_instances_starter_deleted_time,priority:1;index:idx_workflow_instances_definition_starter_time,priority:2;comment:发起人ID"`
 	OperatorID        string    `json:"operatorId" gorm:"size:64;column:operator_id;index:idx_workflow_instances_operator_status,priority:1;comment:实际发起操作人ID"`
 	Status            string    `json:"status" gorm:"size:24;column:instance_status;default:running;index:idx_workflow_instances_definition_status,priority:2;index:idx_workflow_instances_starter_status,priority:2;index:idx_workflow_instances_operator_status,priority:2;comment:实例状态"`
 	FormDataJSON      string    `json:"formDataJson" gorm:"type:mediumtext;column:form_data_json;comment:流程表单数据JSON"`
-	StartTime         int64     `json:"startTime" gorm:"column:start_time;comment:开始时间"`
+	StartTime         int64     `json:"startTime" gorm:"column:start_time;index:idx_workflow_instances_starter_deleted_time,priority:3;index:idx_workflow_instances_definition_starter_time,priority:3;comment:开始时间"`
 	EndTime           int64     `json:"endTime" gorm:"column:end_time;comment:结束时间"`
+	StarterDeletedAt  int64     `json:"-" gorm:"column:starter_deleted_at;index:idx_workflow_instances_starter_deleted_time,priority:2;comment:发起人从我的申请删除时间"`
+	AdminDeletedAt    int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_instances_admin_deleted_time,priority:1;comment:管理员删除时间"`
+	AdminDeletedBy    string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
 	CreatedAt         time.Time `json:"-"`
 	UpdatedAt         time.Time `json:"-"`
 }
@@ -69,6 +76,18 @@ type StartDraft struct {
 }
 
 func (StartDraft) TableName() string { return "workflow_start_drafts" }
+
+type StartQuotaUsage struct {
+	ID           uint      `json:"id" gorm:"primaryKey;comment:流程发起额度记录ID"`
+	DefinitionID uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:uk_workflow_start_quota_period,priority:1;comment:流程定义ID"`
+	StarterID    string    `json:"starterId" gorm:"size:64;column:starter_id;uniqueIndex:uk_workflow_start_quota_period,priority:2;index:idx_workflow_start_quota_starter,priority:1;comment:业务发起人ID"`
+	PeriodKey    string    `json:"periodKey" gorm:"size:100;column:period_key;uniqueIndex:uk_workflow_start_quota_period,priority:3;comment:额度周期唯一标识"`
+	UsedCount    int       `json:"usedCount" gorm:"column:used_count;default:0;comment:已使用次数快照"`
+	CreatedAt    time.Time `json:"-"`
+	UpdatedAt    time.Time `json:"-"`
+}
+
+func (StartQuotaUsage) TableName() string { return "workflow_start_quota_usage" }
 
 type ProcessToken struct {
 	ID          string    `json:"id" gorm:"size:64;primaryKey;comment:流程令牌ID"`
@@ -100,8 +119,11 @@ type ProcessTask struct {
 	Status         string    `json:"status" gorm:"size:24;column:task_status;default:pending;index:idx_workflow_tasks_assignee_status,priority:2;index:idx_workflow_tasks_instance_status,priority:2;index:idx_workflow_tasks_group_status,priority:2;comment:任务状态"`
 	Action         string    `json:"action" gorm:"size:24;column:task_action;comment:处理动作"`
 	Comment        string    `json:"comment" gorm:"size:1000;column:task_comment;comment:处理意见"`
+	ImagesJSON     string    `json:"-" gorm:"type:mediumtext;column:task_images_json;comment:处理图片JSON"`
 	HandledBy      string    `json:"handledBy" gorm:"size:64;column:handled_by;comment:实际处理人ID"`
 	HandledAt      int64     `json:"handledAt" gorm:"column:handled_at;comment:处理时间"`
+	AdminDeletedAt int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_tasks_admin_deleted_time,priority:1;comment:管理员删除时间"`
+	AdminDeletedBy string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
 	CreatedAt      time.Time `json:"-"`
 	UpdatedAt      time.Time `json:"-"`
 }
@@ -127,6 +149,7 @@ type ProcessHistory struct {
 	TaskID     string    `json:"taskId" gorm:"size:64;column:task_id;index:idx_workflow_history_task;comment:任务ID"`
 	ActorID    string    `json:"actorId" gorm:"size:64;column:actor_id;comment:操作人ID"`
 	Message    string    `json:"message" gorm:"size:1000;column:event_message;comment:事件说明"`
+	ImagesJSON string    `json:"-" gorm:"type:mediumtext;column:event_images_json;comment:事件图片JSON"`
 	EventTime  int64     `json:"eventTime" gorm:"column:event_time;index:idx_workflow_history_instance_time,priority:2;comment:事件时间"`
 	CreatedAt  time.Time `json:"-"`
 }

@@ -9,26 +9,26 @@
           :aria-disabled="disabled"
           tabindex="0"
         >
-          <span v-if="!selectedUsers.length" class="workflow-user-picker__placeholder">
+          <span v-if="!selectedItems.length" class="workflow-user-picker__placeholder">
             {{ placeholder || (multiple ? '请选择一个或多个用户' : '请选择一个用户') }}
           </span>
           <span v-else class="workflow-user-picker__value">
-            <span v-if="visibleSelectedUsers.length" class="workflow-user-picker__names">
-              {{ visibleSelectedUsers.map(user => user.name || String(user.id)).join('、') }}
+            <span v-if="visibleSelectedItems.length" class="workflow-user-picker__names">
+              {{ visibleSelectedItems.map(item => item.label).join('、') }}
             </span>
             <el-tooltip
-              v-if="hiddenSelectedUsers.length"
+              v-if="hiddenSelectedItems.length"
               placement="top"
               popper-class="workflow-user-picker__overflow-tooltip"
             >
               <template #content>
                 <div class="workflow-user-picker__overflow-list">
-                  <span v-for="user in hiddenSelectedUsers" :key="user.id">
-                    {{ user.name || user.id }}
+                  <span v-for="item in hiddenSelectedItems" :key="item.key">
+                    {{ item.label }}
                   </span>
                 </div>
               </template>
-              <span class="workflow-user-picker__overflow">+{{ hiddenSelectedUsers.length }}</span>
+              <span class="workflow-user-picker__overflow">+{{ hiddenSelectedItems.length }}</span>
             </el-tooltip>
           </span>
           <el-icon class="workflow-user-picker__arrow"><ArrowDown /></el-icon>
@@ -49,6 +49,7 @@
           :filter-node-method="filterNode"
           show-checkbox
           check-on-click-node
+          :check-strictly="selectDepartmentRules"
           node-key="key"
           :default-checked-keys="checkedNodeKeys"
           @check="onCheck"
@@ -87,16 +88,28 @@ type UserTreeNode = {
   children?: UserTreeNode[]
 }
 
+type SelectionItem = {
+  key: string
+  type: 'dept' | 'user'
+  id: number
+  label: string
+}
+
 const props = defineProps<{
   modelValue: number[]
+  departmentModelValue?: number[]
   departments?: DepartmentNode[]
   users?: WorkflowAssigneeUser[]
   multiple?: boolean
+  selectDepartmentRules?: boolean
   disabled?: boolean
   placeholder?: string
 }>()
 
-const emit = defineEmits<{ 'update:modelValue': [value: number[]] }>()
+const emit = defineEmits<{
+  'update:modelValue': [value: number[]]
+  'update:departmentModelValue': [value: number[]]
+}>()
 const treeRef = ref<any>()
 const selectionRef = ref<HTMLElement>()
 const keyword = ref('')
@@ -105,18 +118,37 @@ let selectionResizeObserver: ResizeObserver | undefined
 let textMeasureContext: CanvasRenderingContext2D | null = null
 
 const normalizedValue = computed(() => normalizeIDs(props.modelValue || []))
+const normalizedDepartmentValue = computed(() => normalizeIDs(props.departmentModelValue || []))
 const availableUsers = computed(() => (props.users || []).filter(user => user.status === undefined || Number(user.status) === 1))
-const treeData = computed(() => buildUserTree(props.departments || [], availableUsers.value, Boolean(props.multiple)))
+const treeData = computed(() => buildUserTree(
+  props.departments || [],
+  availableUsers.value,
+  Boolean(props.multiple),
+  Boolean(props.selectDepartmentRules),
+))
 const selectedUsers = computed(() => {
   const usersByID = new Map((props.users || []).map(user => [Number(user.id), user]))
   return normalizedValue.value.map(id => usersByID.get(id) || { id, name: String(id) })
 })
-const visibleSelectedUsers = computed(() => selectedUsers.value.slice(0, visibleSelectionCount.value))
-const hiddenSelectedUsers = computed(() => selectedUsers.value.slice(visibleSelectionCount.value))
-const checkedNodeKeys = computed(() => checkedKeys(normalizedValue.value, treeData.value))
+const selectedDepartments = computed(() => {
+  const departmentsByID = new Map<number, DepartmentNode>()
+  walkDepartments(props.departments || [], department => departmentsByID.set(Number(department.id), department))
+  return normalizedDepartmentValue.value.map(id => departmentsByID.get(id) || { id, name: String(id) })
+})
+const selectedItems = computed<SelectionItem[]>(() => [
+  ...selectedDepartments.value.map(department => ({
+    key: `dept:${department.id}`, type: 'dept' as const, id: Number(department.id), label: department.name || String(department.id),
+  })),
+  ...selectedUsers.value.map(user => ({
+    key: `user:${user.id}`, type: 'user' as const, id: Number(user.id), label: user.name || String(user.id),
+  })),
+])
+const visibleSelectedItems = computed(() => selectedItems.value.slice(0, visibleSelectionCount.value))
+const hiddenSelectedItems = computed(() => selectedItems.value.slice(visibleSelectionCount.value))
+const checkedNodeKeys = computed(() => checkedKeys(normalizedValue.value, normalizedDepartmentValue.value, treeData.value))
 
-watch([normalizedValue, treeData], () => nextTick(syncTreeKeys), { immediate: true })
-watch(selectedUsers, () => nextTick(updateVisibleSelection), { immediate: true })
+watch([normalizedValue, normalizedDepartmentValue, treeData], () => nextTick(syncTreeKeys), { immediate: true })
+watch(selectedItems, () => nextTick(updateVisibleSelection), { immediate: true })
 
 onMounted(() => {
   updateVisibleSelection()
@@ -137,7 +169,12 @@ function normalizeIDs(values: Array<number | string>) {
   return Array.from(new Set(values.map(value => Number(value)).filter(value => Number.isInteger(value) && value > 0)))
 }
 
-function buildUserTree(departments: DepartmentNode[], users: WorkflowAssigneeUser[], selectDepartments: boolean) {
+function buildUserTree(
+  departments: DepartmentNode[],
+  users: WorkflowAssigneeUser[],
+  selectDepartments: boolean,
+  selectDepartmentRules: boolean,
+) {
   const usersByDepartment = new Map<number, WorkflowAssigneeUser[]>()
   const usersWithoutDepartment: WorkflowAssigneeUser[] = []
   users.forEach((user) => {
@@ -166,7 +203,7 @@ function buildUserTree(departments: DepartmentNode[], users: WorkflowAssigneeUse
     const childDepartments = (department.children || []).map(child => departmentNode(child, path)).filter(Boolean) as UserTreeNode[]
     const departmentUsers = (usersByDepartment.get(id) || []).map(user => userNode(user, `dept-${id}`, path.join('/')))
     const children = [...childDepartments, ...departmentUsers]
-    if (!children.length) return null
+    if (!children.length && !selectDepartmentRules) return null
     return {
       key: `dept:${id}`,
       type: 'dept',
@@ -184,7 +221,7 @@ function buildUserTree(departments: DepartmentNode[], users: WorkflowAssigneeUse
       key: 'dept:unassigned',
       type: 'dept',
       label: '未分配部门',
-      disabled: !selectDepartments,
+      disabled: selectDepartmentRules || !selectDepartments,
       children: usersWithoutDepartment.map(user => userNode(user, 'unassigned', '未分配部门')),
     })
   }
@@ -199,11 +236,18 @@ function buildUserTree(departments: DepartmentNode[], users: WorkflowAssigneeUse
       key: 'dept:unmatched',
       type: 'dept',
       label: '未匹配部门',
-      disabled: !selectDepartments,
+      disabled: selectDepartmentRules || !selectDepartments,
       children: unmatched.map(user => userNode(user, 'unmatched', '未匹配部门')),
     })
   }
   return result
+}
+
+function walkDepartments(departments: DepartmentNode[], visit: (department: DepartmentNode) => void) {
+  departments.forEach((department) => {
+    visit(department)
+    walkDepartments(department.children || [], visit)
+  })
 }
 
 function walkTree(nodes: UserTreeNode[], visit: (node: UserTreeNode) => void) {
@@ -213,11 +257,13 @@ function walkTree(nodes: UserTreeNode[], visit: (node: UserTreeNode) => void) {
   })
 }
 
-function checkedKeys(userIDs: number[], nodes: UserTreeNode[]) {
-  const selected = new Set(userIDs)
+function checkedKeys(userIDs: number[], departmentIDs: number[], nodes: UserTreeNode[]) {
+  const selectedUsers = new Set(userIDs)
+  const selectedDepartments = new Set(departmentIDs)
   const result: string[] = []
   walkTree(nodes, (node) => {
-    if (node.type === 'user' && node.id && selected.has(node.id)) result.push(node.key)
+    if (node.type === 'user' && node.id && selectedUsers.has(node.id)) result.push(node.key)
+    if (node.type === 'dept' && node.id && selectedDepartments.has(node.id)) result.push(node.key)
   })
   return result
 }
@@ -232,12 +278,20 @@ function collectDescendantUserIDs(node: UserTreeNode) {
 
 function onCheck(data: UserTreeNode) {
   nextTick(() => {
-    const checkedKeys = treeRef.value?.getCheckedKeys?.() || []
-    const isChecked = checkedKeys.includes(data.key)
+    const eventCheckedKeys: string[] = treeRef.value?.getCheckedKeys?.() || []
+    const isChecked = eventCheckedKeys.includes(data.key)
     const selected = new Set(normalizedValue.value)
 
     if (data.type === 'dept') {
       if (!props.multiple) return
+      if (props.selectDepartmentRules && data.id) {
+        const selectedDepartments = new Set(normalizedDepartmentValue.value)
+        if (isChecked) selectedDepartments.add(Number(data.id))
+        else selectedDepartments.delete(Number(data.id))
+        emit('update:departmentModelValue', Array.from(selectedDepartments))
+        nextTick(syncTreeKeys)
+        return
+      }
       collectDescendantUserIDs(data).forEach((userID) => {
         if (isChecked) selected.add(userID)
         else selected.delete(userID)
@@ -263,7 +317,7 @@ function syncTreeKeys() {
 
 function updateVisibleSelection() {
   const element = selectionRef.value
-  const labels = selectedUsers.value.map(user => user.name || String(user.id))
+  const labels = selectedItems.value.map(item => item.label)
   if (!element || labels.length === 0) {
     visibleSelectionCount.value = labels.length
     return
@@ -315,7 +369,7 @@ function filterNode(value: string, data: UserTreeNode) {
 
 <style scoped>
 .workflow-user-picker { width: 100%; }
-.workflow-user-picker__selection { display: flex; width: 100%; min-width: 0; height: 32px; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--el-border-color); border-radius: var(--el-border-radius-base); background: var(--el-fill-color-blank); color: var(--el-text-color-regular); cursor: pointer; transition: var(--el-transition-border); }
+.workflow-user-picker__selection { display: flex; box-sizing: border-box; width: 100%; min-width: 0; height: 32px; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--el-border-color); border-radius: var(--el-border-radius-base); background: var(--el-fill-color-blank); color: var(--el-text-color-regular); cursor: pointer; transition: var(--el-transition-border); }
 .workflow-user-picker__selection:hover { border-color: var(--el-border-color-hover); }
 .workflow-user-picker__selection:focus-visible { border-color: var(--el-color-primary); outline: none; box-shadow: 0 0 0 1px var(--el-color-primary) inset; }
 .workflow-user-picker__selection.is-disabled { border-color: var(--el-disabled-border-color); background: var(--el-disabled-bg-color); color: var(--el-disabled-text-color); cursor: not-allowed; }

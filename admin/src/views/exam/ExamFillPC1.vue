@@ -209,6 +209,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import QuestionField from '../survey/components/QuestionField.vue'
+import { publicFormApi } from '../../api/public'
 
 const route = useRoute()
 const exam = ref<any>(null)
@@ -545,12 +546,10 @@ function clearSignature(id: string) {
   answers.value[id] = ''
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || ''
-
 async function doLogin() {
   loginLoading.value = true
   try {
-    const res = await apiPost('/passport/login_pwd', { name: loginForm.name, pwd: loginForm.password })
+    const res = await publicFormApi.login(loginForm.name, loginForm.password)
     if (res.code === 0) {
       localStorage.setItem('user_token', res.data.token)
       userDeptId = res.data.userInfo?.deptId || 0
@@ -560,30 +559,15 @@ async function doLogin() {
   finally { loginLoading.value = false }
 }
 
-async function apiGet(path: string) {
-  const token = localStorage.getItem('user_token')
-  const headers: Record<string, string> = {}
-  if (token) headers['Authorization'] = token
-  const res = await fetch(`${API_BASE}${path}`, { headers })
-  return res.json()
-}
-async function apiPost(path: string, data: any) {
-  const token = localStorage.getItem('user_token')
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = token
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: JSON.stringify(data), headers })
-  return res.json()
-}
-
 async function load() {
-  const id = route.params.id
+  const id = Array.isArray(route.params.id) ? route.params.id[0] : route.params.id
   if (!id) { error.value = '参数错误'; loading.value = false; return }
 
   // 检查是否为结果模式
   const resultSession = route.query.session as string
   if (resultSession) {
     try {
-      const res = await apiGet(`/exam/result?session=${resultSession}`)
+      const res = await publicFormApi.examResult(resultSession)
       if (res.code === 0 && res.data) {
         exam.value = res.data.exam
         questions.value = res.data.questions || []
@@ -608,7 +592,7 @@ async function load() {
 
   session.value = localStorage.getItem('exam_session_' + id) || ''
   try {
-    const res = await apiGet(`/exam/view?id=${id}&session=${session.value}`)
+    const res = await publicFormApi.examDetail(id, session.value)
     if (res.code !== 0) {
       if (res.msg === '请先登录') { showLogin.value = true; loading.value = false; return }
       if (res.msg === '考试未开始' && res.data) {
@@ -736,14 +720,14 @@ async function onSubmit(skipConfirm = false) {
       }
     }
     try {
-      const vr = await apiPost('/exam/validate', { examId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
+      const vr = await publicFormApi.examValidate(id, { examId: id, answers: answers.value, device: navigator.userAgent, deviceId: getDeviceId() })
       if (vr.data && !vr.data.valid) { ElMessage.warning((vr.data.errors || []).map((e: any) => e.message).join('; ') || '请检查填写内容'); return }
     } catch {}
   }
   if (skipConfirm) {
     submitting.value = true
     try {
-      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
+      const res = await publicFormApi.examSubmit(id, { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value, autoSubmit: true, deviceId: getDeviceId() })
       if (res.code !== 0) { ElMessage.error(res.msg || '交卷失败') }
       else { stopCountdown(); clearDraft(); localStorage.removeItem('exam_session_' + id); handleSubmitSuccess(res.data) }
     } catch (e: any) { ElMessage.error(e.msg || '交卷失败') }
@@ -753,7 +737,7 @@ async function onSubmit(skipConfirm = false) {
   ElMessageBox.confirm('确认交卷？交卷后不可修改', '提示', { type: 'info' }).then(async () => {
     submitting.value = true
     try {
-      const res = await apiPost('/exam/submit', { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
+      const res = await publicFormApi.examSubmit(id, { examId: id, answers: answers.value, device: navigator.userAgent, session: session.value, deviceId: getDeviceId() })
       if (res.code !== 0) { ElMessage.error(res.msg || '交卷失败') }
       else { stopCountdown(); clearDraft(); localStorage.removeItem('exam_session_' + id); handleSubmitSuccess(res.data) }
     } catch (e: any) { ElMessage.error(e.msg || '交卷失败') }

@@ -24,6 +24,15 @@ func TestDictServiceCacheReturnsDefensiveCopiesAndExpires(t *testing.T) {
 	if _, ok := getDictTypesCache(now.Add(dictServiceCacheTTL + time.Second)); ok {
 		t.Fatalf("expired dict types cache should miss")
 	}
+	setScopedDictTypesCache(true, []TypeSummary{{TypeCode: "active", Status: 1}}, now)
+	activeTypes, ok := getScopedDictTypesCache(true, now.Add(time.Second))
+	if !ok || len(activeTypes) != 1 || activeTypes[0].TypeCode != "active" {
+		t.Fatalf("active dictionary type cache = %#v, %v", activeTypes, ok)
+	}
+	adminTypes, ok := getDictTypesCache(now.Add(time.Second))
+	if !ok || len(adminTypes) != 1 || adminTypes[0].TypeCode != "gender" {
+		t.Fatalf("admin and public dictionary type caches must be isolated: %#v, %v", adminTypes, ok)
+	}
 
 	setDictItemsCache("gender", []model.SysDict{{TypeCode: "gender", Label: "男"}}, now)
 	items, ok := getDictItemsCache("gender", now.Add(dictServiceCacheTTL/2))
@@ -34,6 +43,11 @@ func TestDictServiceCacheReturnsDefensiveCopiesAndExpires(t *testing.T) {
 	itemsAgain, ok := getDictItemsCache("gender", now.Add(dictServiceCacheTTL/2))
 	if !ok || itemsAgain[0].Label != "男" {
 		t.Fatalf("dict item cache should return defensive copies, got %#v ok=%v", itemsAgain, ok)
+	}
+	setScopedDictItemsCache("gender", true, []model.SysDict{{TypeCode: "gender", Label: "启用项"}}, now)
+	activeItems, ok := getScopedDictItemsCache("gender", true, now.Add(time.Second))
+	if !ok || len(activeItems) != 1 || activeItems[0].Label != "启用项" {
+		t.Fatalf("active dictionary item cache = %#v, %v", activeItems, ok)
 	}
 
 	invalidateDictServiceCache()

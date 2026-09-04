@@ -67,6 +67,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../../api'
+import { showRequestError } from '../../../utils/request'
 
 const route = useRoute()
 const type = computed(() => (route.query.type as string) || 'enroll')
@@ -111,8 +112,8 @@ const loadReport = async () => {
       }
       return obj
     })
-  } catch (e: any) {
-    ElMessage.error(e?.msg || '加载失败')
+  } catch (error) {
+    showRequestError(error, '加载失败')
   } finally {
     loading.value = false
   }

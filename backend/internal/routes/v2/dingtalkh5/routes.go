@@ -9,6 +9,7 @@ import (
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpclient"
 	"wecheckin/backend/internal/routes/v2/routeparam"
+	workflowsummary "wecheckin/backend/internal/service/dingtalkh5/workflowsummary"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -29,6 +30,7 @@ func Register(h *server.Hertz) {
 		workflowNotificationDispatcher,
 	)
 	workflowHandler := workflowhttp.NewRuntimeHandler(workflowService)
+	workflowSummaryHandler := workflowhttp.NewSummaryHandler(workflowsummary.NewService(db, workflowService))
 	group := h.Group("/api/v2/dingtalk/h5")
 	group.GET("/public-config", handler.Auth.PublicConfig)
 	group.POST("/login", handler.Auth.Login)
@@ -40,6 +42,10 @@ func Register(h *server.Hertz) {
 	authed.POST("/account/avatar", handler.Account.UploadAvatar)
 	authed.PATCH("/account/profile", handler.Account.UpdateProfile)
 	authed.PATCH("/account/password", handler.Account.ChangePassword)
+	authed.GET("/notifications", handler.Notification.List)
+	authed.GET("/notifications/unread-count", handler.Notification.UnreadCount)
+	authed.PATCH("/notifications/read-all", handler.Notification.MarkAllRead)
+	authed.PATCH("/notifications/:id/read", handler.Notification.MarkRead)
 
 	auth := group.Group("", dingtalkh5mw.DingTalkH5Auth(), dingtalkh5mw.DingTalkH5Perm())
 	auth.GET("/bootstrap", handler.Bootstrap.Bootstrap)
@@ -66,14 +72,25 @@ func Register(h *server.Hertz) {
 	auth.DELETE("/users/:id", handler.User.DeleteUser)
 	auth.GET("/template", handler.Template.Template)
 	auth.PUT("/template", handler.Template.SaveTemplate)
+	auth.GET("/workflows/categories", workflowHandler.ListDefinitionCategories)
 	auth.GET("/workflows/definitions", workflowHandler.ListDefinitions)
 	auth.GET("/workflows/definitions/:id", workflowHandler.GetDefinition)
+	auth.POST("/workflows/attachments", handler.WorkflowAttachment.Upload)
 	auth.GET("/workflows/drafts/:definitionId", workflowHandler.GetStartDraft)
 	auth.PUT("/workflows/drafts/:definitionId", workflowHandler.SaveStartDraft)
+	auth.DELETE("/workflows/drafts/:definitionId", workflowHandler.DeleteStartDraft)
 	auth.POST("/workflows/instances", workflowHandler.StartInstance)
 	auth.GET("/workflows/instances", workflowHandler.ListMyInstances)
 	auth.GET("/workflows/instances/:id", workflowHandler.GetMyInstance)
+	auth.DELETE("/workflows/instances/:id", workflowHandler.DeleteMyInstance)
 	auth.POST("/workflows/instances/:id/withdraw", workflowHandler.WithdrawInstance)
+	auth.POST("/workflows/instances/:id/comments", workflowHandler.CommentInstance)
+	auth.POST("/workflows/instances/:id/reminders", workflowHandler.RemindInstance)
 	auth.GET("/workflows/tasks", workflowHandler.ListMyTasks)
 	auth.POST("/workflows/tasks/:id/complete", workflowHandler.CompleteTask)
+	auth.GET("/workflows/summary/definitions", workflowSummaryHandler.ListDefinitions)
+	auth.GET("/workflows/summary/definitions/:id", workflowSummaryHandler.GetDefinition)
+	auth.GET("/workflows/summary/instances", workflowSummaryHandler.ListInstances)
+	auth.GET("/workflows/summary/instances/:id", workflowSummaryHandler.GetInstance)
+	auth.GET("/workflows/summary/export", workflowSummaryHandler.Export)
 }

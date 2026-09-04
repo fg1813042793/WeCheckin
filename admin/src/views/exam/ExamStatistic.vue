@@ -84,6 +84,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../api'
+import { showRequestError } from '../../utils/request'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -103,7 +104,7 @@ async function load() {
   try {
     const res: any = await adminApi.examStatistics(examId)
     stat.value = res.data || res
-  } catch { ElMessage.error('加载失败') }
+  } catch (error) { showRequestError(error, '加载失败') }
 }
 
 const dailyOption = computed(() => {

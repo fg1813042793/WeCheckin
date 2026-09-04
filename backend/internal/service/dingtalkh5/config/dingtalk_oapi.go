@@ -33,12 +33,15 @@ type DingTalkWorkNotificationClient interface {
 	SendWorkNotificationContext(ctx context.Context, config DingTalkH5CorpConfig, userIDs []string, notification DingTalkWorkNotificationPayload) error
 }
 
+const DingTalkMessageTypeActionCard = "action_card"
+
 type DingTalkWorkNotificationPayload struct {
-	Title      string
-	Content    string
-	URL        string
-	SourceName string
-	PicURL     string
+	MessageType string
+	Title       string
+	Content     string
+	URL         string
+	SourceName  string
+	PicURL      string
 }
 
 type defaultDingTalkIdentityClient struct {
@@ -185,6 +188,7 @@ func (client defaultDingTalkIdentityClient) sendRobotWorkNotificationContext(ctx
 }
 
 func normalizeDingTalkWorkNotificationPayload(notification DingTalkWorkNotificationPayload) DingTalkWorkNotificationPayload {
+	notification.MessageType = strings.ToLower(strings.TrimSpace(notification.MessageType))
 	notification.Title = strings.TrimSpace(notification.Title)
 	notification.Content = strings.TrimSpace(notification.Content)
 	notification.URL = strings.TrimSpace(notification.URL)
@@ -197,6 +201,17 @@ func normalizeDingTalkWorkNotificationPayload(notification DingTalkWorkNotificat
 }
 
 func dingTalkAgentNotificationMessage(notification DingTalkWorkNotificationPayload) map[string]interface{} {
+	if notification.MessageType == DingTalkMessageTypeActionCard && notification.URL != "" {
+		return map[string]interface{}{
+			"msgtype": DingTalkMessageTypeActionCard,
+			"action_card": map[string]string{
+				"title":        notification.Title,
+				"markdown":     notification.Content,
+				"single_title": "查看流程",
+				"single_url":   notification.URL,
+			},
+		}
+	}
 	if notification.URL != "" {
 		headText := strings.TrimSpace(notification.SourceName)
 		if headText == "" {
@@ -231,6 +246,15 @@ func dingTalkAgentNotificationMessage(notification DingTalkWorkNotificationPaylo
 }
 
 func dingTalkRobotNotificationMessage(notification DingTalkWorkNotificationPayload) (string, string) {
+	if notification.MessageType == DingTalkMessageTypeActionCard && notification.URL != "" {
+		msgParam, _ := json.Marshal(map[string]string{
+			"title":       notification.Title,
+			"text":        notification.Content,
+			"singleTitle": "查看流程",
+			"singleURL":   notification.URL,
+		})
+		return "sampleActionCard", string(msgParam)
+	}
 	if notification.URL != "" {
 		params := map[string]string{
 			"title":      notification.Title,

@@ -43,12 +43,23 @@ const {
   flattenWorkflowOptions,
   initialWorkflowFormData,
   normalizeWorkflowOptions,
+  normalizeWorkflowAttachments,
   validateWorkflowFormData,
   visibleWorkflowFormFields,
   workflowFieldActionMap,
   workflowFieldAccessMap,
   writableWorkflowFormData,
+  workflowTextareaAutosize,
 } = loadTypeScriptModule('src/views/workflow/runtimeForm.ts')
+
+assert(
+  JSON.stringify(workflowTextareaAutosize({ minVisibleRows: 4, maxVisibleRows: 10 })) === JSON.stringify({ minRows: 4, maxRows: 10 }),
+  '运行时应读取多行文本显示行数配置',
+)
+assert(
+  JSON.stringify(workflowTextareaAutosize({}, 2, 6)) === JSON.stringify({ minRows: 2, maxRows: 6 }),
+  '旧明细多行文本应使用兼容默认显示行数',
+)
 
 const fields = [
   { key: 'reason', label: '申请原因', type: 'textarea', required: true, default: '出差' },
@@ -109,6 +120,12 @@ assert(initial.amount === 100, 'field defaults should seed missing form values')
 assert(initial.region === '', 'tree select fields should default to an empty string')
 assert(Array.isArray(initial.department), 'remote multi-select fields should default to an empty array')
 assert(Array.isArray(initial.attachments), 'attachment fields should default to an empty array')
+const structuredAttachments = normalizeWorkflowAttachments([
+  { id: 'uploads/receipt.pdf', name: '报销凭证.pdf', url: '/uploads/receipt.pdf', mimeType: 'application/pdf', size: 1024 },
+  '/uploads/legacy.pdf',
+])
+assert(structuredAttachments[0].name === '报销凭证.pdf', '结构化附件元数据应保持不变')
+assert(structuredAttachments[1].url === '/uploads/legacy.pdf', '历史字符串附件应转换为可预览对象')
 assert(Array.isArray(initial.objectives), 'detail list fields should default to an empty row array')
 
 const normalizedTreeOptions = normalizeWorkflowOptions([
@@ -141,6 +158,34 @@ assert(startActions.objectives.add === true && startActions.objectives.delete ==
 assert(visibleWorkflowFormFields(fields, startAccess).length === 6, 'hidden fields should not render')
 const startPayload = writableWorkflowFormData(fields, initial, startAccess)
 assert(!('internalNote' in startPayload), 'start form payload must not include hidden fields')
+const permissionValidationFields = [
+  { key: 'reason', label: '申请原因', type: 'textarea', required: true },
+  { key: 'managerComment', label: '主管意见', type: 'textarea', required: true },
+  { key: 'internalCode', label: '内部编码', type: 'text', required: true },
+]
+const permissionValidationAccess = {
+  reason: 'write',
+  managerComment: 'read',
+  internalCode: 'hidden',
+}
+const permissionErrors = validateWorkflowFormData(
+  permissionValidationFields,
+  { reason: '', managerComment: '', internalCode: '' },
+  permissionValidationAccess,
+)
+assert(permissionErrors.reason === '申请原因不能为空', 'writable required fields must still be validated')
+assert(!permissionErrors.managerComment, 'read-only required fields must not be validated')
+assert(!permissionErrors.internalCode, 'hidden required fields must not be validated')
+assert(
+  Object.keys(validateWorkflowFormData(permissionValidationFields, { reason: '出差' }, permissionValidationAccess)).length === 0,
+  'only writable fields should participate in form validation',
+)
+assert(
+  runtimeSource.includes('validateWorkflowFormData(props.fields || [], props.modelValue || {}, accessMap.value)'),
+  'runtime form must pass the effective field access map into validation',
+)
+assert(runtimeSource.includes('userNameMap?: Record<string, string>'), '运行时表单应支持用户名映射')
+assert(runtimeSource.includes('userDisplayName'), '只读用户字段应显示用户名')
 
 const managerAccess = workflowFieldAccessMap(fields, permissions, 'manager', 'read')
 const managerActions = workflowFieldActionMap(fields, permissions, 'manager')
@@ -155,7 +200,8 @@ const payload = writableWorkflowFormData(fields, {
 }, managerAccess)
 assert(!('reason' in payload), 'read-only fields must not be submitted as a task form patch')
 assert(payload.amount === 120, 'writable scalar field should be submitted')
-assert(Array.isArray(payload.attachments) && payload.attachments[0] === 'receipt.pdf', 'writable array field should be submitted')
+assert(Array.isArray(payload.attachments) && payload.attachments[0].url === 'receipt.pdf', 'writable attachment field should submit normalized metadata')
+assert(runtimeSource.includes('attachmentTextModel'), '运行时表单应以附件名称或地址显示结构化附件')
 assert(!('internalNote' in payload), 'hidden fields must not be submitted')
 assert(Array.isArray(payload.objectives) && payload.objectives[0].target === '提升续费率', 'detail list payload should preserve row objects')
 
@@ -206,6 +252,17 @@ assert(validateWorkflowFormData(ruleFields, { ...validRuleData, amount: 100.123 
 assert(validateWorkflowFormData(ruleFields, { ...validRuleData, attachments: [] }).attachments === '附件至少选择1项', '数量规则应生效')
 assert(validateWorkflowFormData(ruleFields, { ...validRuleData, endDate: '2026-08-31' }).endDate === '结束日期不能早于开始日期', '字段比较规则应生效')
 assert(Object.keys(validateWorkflowFormData(ruleFields, { ...validRuleData, expenseType: 'travel', reason: '' })).length === 0, '未满足条件时不应执行条件必填')
+
+const choiceCompareFields = [
+  { key: 'grade', label: '上级分档', type: 'radio', options: [{ label: '01', value: '01' }, { label: '1', value: '1' }] },
+  {
+    key: 'result', label: '复核结果', type: 'select',
+    options: [{ label: '01', value: '01' }, { label: '1', value: '1' }],
+    rules: [{ id: 'same_grade', type: 'compare_field', field: 'grade', operator: 'eq' }],
+  },
+]
+assert(Boolean(validateWorkflowFormData(choiceCompareFields, { grade: '1', result: '01' }).result), '选项值 01 与 1 不应按数值判定为相等')
+assert(Object.keys(validateWorkflowFormData(choiceCompareFields, { grade: '01', result: '01' })).length === 0, '完全相同的选项值应通过字段比较')
 
 const detailSumField = {
   key: 'objectives',
@@ -275,6 +332,10 @@ for (const [snippet, message] of [
   ['white-space: pre-wrap', '说明对话框未保留换行'],
   ['defineExpose({ validate', '运行时表单缺少提交前校验入口'],
   [':error="fieldError(field)"', '运行时表单缺少字段行内错误提示'],
+  [':autosize="workflowTextareaAutosize(field, 3, 8)"', '普通多行文本未应用显示行数配置'],
+  [':autosize="workflowTextareaAutosize(column, 2, 6)"', '明细多行文本未应用显示行数配置'],
+  [':show-word-limit="Boolean(field.maxLength)"', '普通多行文本未显示字数统计'],
+  [':show-word-limit="Boolean(column.maxLength)"', '明细多行文本未显示字数统计'],
 ]) {
   assert(runtimeSource.includes(snippet), message)
 }

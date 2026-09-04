@@ -18,16 +18,19 @@ const maxAutomaticTransitions = 1000
 const timerDueVariablePrefix = "__workflow_timer_due."
 
 var (
-	ErrTaskNotFound            = errors.New("工作流任务不存在")
-	ErrTaskAlreadyHandled      = errors.New("工作流任务已处理")
-	ErrTaskActorMismatch       = errors.New("当前用户不是任务审批人")
-	ErrInvalidTaskAction       = errors.New("工作流任务操作无效")
-	ErrInstanceNotRunning      = errors.New("工作流实例已结束")
-	ErrInstanceStarterMismatch = errors.New("当前用户不是流程发起人")
-	ErrInstanceAlreadyHandled  = errors.New("流程任务已被处理，不能撤回")
-	ErrNoMatchingBranch        = errors.New("排他网关没有命中条件且未配置默认分支")
-	ErrTransitionLimit         = errors.New("流程自动流转次数超过限制")
-	ErrAssigneeUnavailable     = errors.New("流程节点未解析到处理人")
+	ErrTaskNotFound              = errors.New("工作流任务不存在")
+	ErrTaskAlreadyHandled        = errors.New("工作流任务已处理")
+	ErrTaskActorMismatch         = errors.New("当前用户不是任务审批人")
+	ErrInvalidTaskAction         = errors.New("工作流任务操作无效")
+	ErrInstanceNotRunning        = errors.New("工作流实例已结束")
+	ErrInstanceStarterMismatch   = errors.New("当前用户不是流程发起人")
+	ErrInstanceAlreadyHandled    = errors.New("流程任务已被处理，不能撤回")
+	ErrNoMatchingBranch          = errors.New("排他网关没有命中条件且未配置默认分支")
+	ErrTransitionLimit           = errors.New("流程自动流转次数超过限制")
+	ErrAssigneeUnavailable       = errors.New("流程节点未解析到处理人")
+	ErrReturnTargetUnavailable   = errors.New("当前任务没有可退回的上一节点")
+	ErrReturnTargetInvalid       = errors.New("退回目标必须是已执行过的上游人工节点")
+	ErrReturnParallelUnsupported = errors.New("并行流程暂不支持退回")
 )
 
 type Engine struct {
@@ -59,6 +62,7 @@ func (engine *Engine) Start(definition workflowcore.Definition, request StartReq
 			DefinitionVersion: request.DefinitionVersion, DefinitionKey: definition.Key,
 			BusinessType: request.BusinessType, BusinessKey: request.BusinessKey,
 			StarterID: request.StarterID, OperatorID: request.OperatorID, Status: InstanceStatusRunning,
+			StartTime: request.StartTime,
 		},
 		Variables: cloneVariables(request.Variables),
 		FormData:  cloneVariables(request.FormData),
@@ -94,8 +98,17 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 		if request.Action != TaskActionSubmit {
 			return ErrInvalidTaskAction
 		}
-	} else if node.Type != workflowcore.NodeTypeApproval || (request.Action != TaskActionApprove && request.Action != TaskActionReject) {
+	} else if node.Type != workflowcore.NodeTypeApproval ||
+		(request.Action != TaskActionApprove && request.Action != TaskActionReject && request.Action != TaskActionReturn) {
 		return ErrInvalidTaskAction
+	}
+	var returnTarget workflowcore.Node
+	if request.Action == TaskActionReturn {
+		var err error
+		returnTarget, err = resolveReturnTarget(definition, state, taskIndex, request.ReturnTargetNodeID)
+		if err != nil {
+			return err
+		}
 	}
 	for key, value := range request.Variables {
 		state.Variables[key] = value
@@ -105,9 +118,10 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 	}
 	task.Action = request.Action
 	task.Comment = request.Comment
+	task.Images = cloneWorkflowImages(request.Images)
 	if node.Type == workflowcore.NodeTypeHandle {
 		task.Status = TaskStatusCompleted
-		engine.addHistory(state, HistoryTaskSubmitted, task.NodeID, task.ID, request.ActorID, request.Comment)
+		engine.addHistoryWithImages(state, HistoryTaskSubmitted, task.NodeID, task.ID, request.ActorID, request.Comment, request.Images)
 		tokenIndex := findTokenIndex(state.Tokens, task.TokenID)
 		if tokenIndex < 0 {
 			return errors.New("办理任务对应的流程令牌不存在")
@@ -117,13 +131,23 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 	}
 	if request.Action == TaskActionReject {
 		task.Status = TaskStatusRejected
-		engine.addHistory(state, HistoryTaskRejected, task.NodeID, task.ID, request.ActorID, request.Comment)
+		engine.addHistoryWithImages(state, HistoryTaskRejected, task.NodeID, task.ID, request.ActorID, request.Comment, request.Images)
 		engine.rejectInstance(state, request.ActorID)
+		engine.addApprovalResultNotificationIntent(state, definition.Name, node, *task, NotificationKindApprovalResultRejected)
 		return nil
+	}
+	if request.Action == TaskActionReturn {
+		task.Status = TaskStatusReturned
+		message := fmt.Sprintf("退回至“%s”", returnTarget.Name)
+		if request.Comment != "" {
+			message += "：" + request.Comment
+		}
+		engine.addHistoryWithImages(state, HistoryTaskReturned, task.NodeID, task.ID, request.ActorID, message, request.Images)
+		return engine.returnToNode(definition, state, returnTarget, request.ActorID)
 	}
 
 	task.Status = TaskStatusApproved
-	engine.addHistory(state, HistoryTaskApproved, task.NodeID, task.ID, request.ActorID, request.Comment)
+	engine.addHistoryWithImages(state, HistoryTaskApproved, task.NodeID, task.ID, request.ActorID, request.Comment, request.Images)
 	shouldAdvance := false
 	switch task.ApprovalMode {
 	case workflowcore.ApprovalModeSingle:
@@ -154,7 +178,11 @@ func (engine *Engine) Complete(definition workflowcore.Definition, state *State,
 		return errors.New("审批任务对应的流程令牌不存在")
 	}
 	state.Tokens[tokenIndex].Status = TokenStatusActive
-	return engine.leaveNode(definition, state, tokenIndex, 0)
+	if err := engine.leaveNode(definition, state, tokenIndex, 0); err != nil {
+		return err
+	}
+	engine.addApprovalResultNotificationIntent(state, definition.Name, node, *task, NotificationKindApprovalResultApproved)
+	return nil
 }
 
 func (engine *Engine) Withdraw(state *State, actorID, reason string) error {
@@ -260,7 +288,7 @@ func (engine *Engine) createHandleTask(workflowName string, state *State, tokenI
 		CompletionRate: 100, Sequence: 1, Total: 1, Status: TaskStatusPending,
 	}
 	state.Tasks = append(state.Tasks, task)
-	engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, task.AssigneeID, "办理任务已创建")
+	engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, taskCreationActorID(state), "办理任务已创建")
 	engine.addTaskNotificationIntent(state, workflowName, node, task)
 	state.Tokens[tokenIndex].Status = TokenStatusWaiting
 	return nil
@@ -420,7 +448,7 @@ func (engine *Engine) createApprovalTasks(workflowName string, state *State, tok
 			Total: len(assignees), Status: status,
 		}
 		state.Tasks = append(state.Tasks, task)
-		engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, task.AssigneeID, "审批任务已创建")
+		engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, taskCreationActorID(state), "审批任务已创建")
 		if task.Status == TaskStatusPending {
 			engine.addTaskNotificationIntent(state, workflowName, node, task)
 		}
@@ -437,8 +465,35 @@ func (engine *Engine) addNotificationIntent(state *State, workflowName string, n
 	if node.Notification == nil || !node.Notification.Enabled {
 		return
 	}
-	config := *node.Notification
-	config.Channels = append([]string(nil), node.Notification.Channels...)
+	engine.appendNotificationIntent(state, workflowName, node, taskID, recipientID, kind, *node.Notification)
+}
+
+func (engine *Engine) addApprovalResultNotificationIntent(
+	state *State,
+	workflowName string,
+	node workflowcore.Node,
+	task Task,
+	kind NotificationKind,
+) {
+	if node.ResultNotification == nil || !node.ResultNotification.Enabled {
+		return
+	}
+	recipientID := strings.TrimSpace(state.Instance.StarterID)
+	if recipientID == "" {
+		return
+	}
+	engine.appendNotificationIntent(state, workflowName, node, task.ID, recipientID, kind, *node.ResultNotification)
+}
+
+func (engine *Engine) appendNotificationIntent(
+	state *State,
+	workflowName string,
+	node workflowcore.Node,
+	taskID, recipientID string,
+	kind NotificationKind,
+	config workflowcore.NotificationConfig,
+) {
+	config.Channels = append([]string(nil), config.Channels...)
 	state.NotificationIntents = append(state.NotificationIntents, NotificationIntent{
 		ID: engine.ids.NewID("notification"), Kind: kind, NodeID: node.ID, NodeName: node.Name,
 		TaskID: taskID, RecipientUserID: recipientID, WorkflowName: workflowName, Config: config,
@@ -507,6 +562,58 @@ func (engine *Engine) rejectInstance(state *State, actorID string) {
 	engine.addHistory(state, HistoryInstanceRejected, "", "", actorID, "流程实例已拒绝")
 }
 
+func (engine *Engine) returnToNode(definition workflowcore.Definition, state *State, target workflowcore.Node, actorID string) error {
+	reason := fmt.Sprintf("流程已退回至“%s”", target.Name)
+	for index := range state.Tasks {
+		if state.Tasks[index].Status == TaskStatusPending || state.Tasks[index].Status == TaskStatusWaiting {
+			state.Tasks[index].Status = TaskStatusCancelled
+			engine.addHistory(state, HistoryTaskCancelled, state.Tasks[index].NodeID, state.Tasks[index].ID, actorID, reason)
+		}
+	}
+	for index := range state.Tokens {
+		if state.Tokens[index].Status == TokenStatusActive || state.Tokens[index].Status == TokenStatusWaiting {
+			state.Tokens[index].Status = TokenStatusCancelled
+		}
+	}
+	state.Tokens = append(state.Tokens, Token{
+		ID: engine.ids.NewID("token"), NodeID: target.ID, Status: TokenStatusActive,
+	})
+	return engine.advanceToken(definition, state, len(state.Tokens)-1, 0)
+}
+
+func resolveReturnTarget(
+	definition workflowcore.Definition,
+	state *State,
+	currentTaskIndex int,
+	targetNodeID string,
+) (workflowcore.Node, error) {
+	for _, token := range state.Tokens {
+		if token.BranchGroup != "" || token.BranchTotal > 1 {
+			return workflowcore.Node{}, ErrReturnParallelUnsupported
+		}
+	}
+	targetNodeID = strings.TrimSpace(targetNodeID)
+	currentNodeID := state.Tasks[currentTaskIndex].NodeID
+	for index := currentTaskIndex - 1; index >= 0; index-- {
+		task := state.Tasks[index]
+		if task.NodeID == currentNodeID || (task.Status != TaskStatusCompleted && task.Status != TaskStatusApproved) {
+			continue
+		}
+		if targetNodeID != "" && task.NodeID != targetNodeID {
+			continue
+		}
+		node, ok := findNode(definition, task.NodeID)
+		if !ok || (node.Type != workflowcore.NodeTypeApproval && node.Type != workflowcore.NodeTypeHandle) {
+			continue
+		}
+		return node, nil
+	}
+	if targetNodeID == "" {
+		return workflowcore.Node{}, ErrReturnTargetUnavailable
+	}
+	return workflowcore.Node{}, ErrReturnTargetInvalid
+}
+
 func (engine *Engine) cancelGroupTasks(state *State, groupKey, actorID string) {
 	for index := range state.Tasks {
 		if state.Tasks[index].GroupKey == groupKey && (state.Tasks[index].Status == TaskStatusPending || state.Tasks[index].Status == TaskStatusWaiting) {
@@ -527,10 +634,47 @@ func (engine *Engine) completeInstanceIfIdle(state *State) {
 }
 
 func (engine *Engine) addHistory(state *State, eventType HistoryEventType, nodeID, taskID, actorID, message string) {
+	engine.addHistoryWithImages(state, eventType, nodeID, taskID, actorID, message, nil)
+}
+
+func taskCreationActorID(state *State) string {
+	if state == nil {
+		return ""
+	}
+	for index := len(state.History) - 1; index >= 0; index-- {
+		event := state.History[index]
+		switch event.Type {
+		case HistoryInstanceStarted, HistoryTaskApproved, HistoryTaskReturned, HistoryTaskSubmitted:
+			if actorID := strings.TrimSpace(event.ActorID); actorID != "" {
+				return actorID
+			}
+		case HistoryTimerResumed:
+			return ""
+		}
+	}
+	if operatorID := strings.TrimSpace(state.Instance.OperatorID); operatorID != "" {
+		return operatorID
+	}
+	return strings.TrimSpace(state.Instance.StarterID)
+}
+
+func (engine *Engine) addHistoryWithImages(
+	state *State,
+	eventType HistoryEventType,
+	nodeID, taskID, actorID, message string,
+	images []workflowcore.FormAttachment,
+) {
 	state.History = append(state.History, HistoryEvent{
 		ID: engine.ids.NewID("history"), Type: eventType, NodeID: nodeID,
-		TaskID: taskID, ActorID: actorID, Message: message,
+		TaskID: taskID, ActorID: actorID, Message: message, Images: cloneWorkflowImages(images),
 	})
+}
+
+func cloneWorkflowImages(images []workflowcore.FormAttachment) []workflowcore.FormAttachment {
+	if len(images) == 0 {
+		return nil
+	}
+	return append([]workflowcore.FormAttachment(nil), images...)
 }
 
 func findStartNode(definition workflowcore.Definition) (workflowcore.Node, bool) {

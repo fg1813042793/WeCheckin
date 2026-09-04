@@ -131,7 +131,7 @@
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="min(920px, 92vw)" :close-on-click-modal="false" class="permission-dialog">
       <el-form ref="formRef" :model="form" label-width="100px">
         <el-form-item label="头像" class="avatar-form-item">
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleAvatarSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="{ Authorization: token }" accept="image/*">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleAvatarSuccess" accept="image/*">
             <div class="avatar-upload">
               <el-avatar v-if="form.pic" :src="form.pic" size="large" />
               <div v-else class="avatar-placeholder">+</div>
@@ -544,8 +544,10 @@
 import SortPopover from '../../components/SortPopover.vue'
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { adminApi } from '../../api'
+import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
+import { showRequestError } from '../../utils/request'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -555,7 +557,6 @@ const page = ref(1)
 const pageSize = ref(20)
 const keyword = ref('')
 const selected = ref<any[]>([])
-const token = localStorage.getItem('admin_token') || ''
 const sortRules = ref<{field:string;order:string}[]>([])
 const userApplicationPermissionExpanded = ref(false)
 const sortColumns = [
@@ -1067,12 +1068,12 @@ async function loadApplicationPermissionTree() {
     }
     await nextTick()
     if (dialog.visible) setUserApplicationPermissionTreeKeys()
-  } catch {
+  } catch (error) {
     clientMenuTreeData.value = []
     dingtalkH5MenuTreeData.value = []
     clientApiTreeData.value = []
     dingtalkH5ApiTreeData.value = []
-    ElMessage.error('应用权限加载失败')
+    showRequestError(error, '应用权限加载失败')
   }
 }
 

@@ -24,6 +24,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     proxy: {
+      '/swagger': {
+        target: 'http://localhost:8083',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:8083',
         changeOrigin: true

@@ -65,15 +65,20 @@
 
       <div v-else-if="rule.type === 'compare_field'" class="validation-rule-grid">
         <el-form-item label="目标字段">
-          <el-select v-model="rule.field" :disabled="readonly" @change="emitChange">
-            <el-option v-for="item in compareFields" :key="item.key" :label="item.label" :value="item.key" />
+          <el-select v-model="rule.field" :disabled="readonly" placeholder="选择同表单字段" @change="handleCompareFieldChange(rule)">
+            <el-option v-for="item in compareFields" :key="item.key" :label="`${item.label}（${item.key}）`" :value="item.key" />
           </el-select>
         </el-form-item>
         <el-form-item label="比较关系">
           <el-select v-model="rule.operator" :disabled="readonly" @change="emitChange">
-            <el-option v-for="item in compareOperators" :key="item.value" :label="item.label" :value="item.value" />
+            <el-option v-for="item in fieldCompareOperators" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+        <p class="validation-rule-relation">
+          <strong>{{ field.label || field.key }}</strong>
+          <span>{{ compareOperatorLabel(rule.operator) }}</span>
+          <strong>{{ compareFieldLabel(rule) }}</strong>
+        </p>
       </div>
 
       <div v-else-if="rule.type === 'column_sum'" class="validation-rule-grid">
@@ -145,6 +150,7 @@ import type {
 } from '../../types'
 import { workflowDataFields } from '../../formLayout'
 import { flattenWorkflowOptions, normalizeWorkflowOptions } from '../../runtimeForm'
+import { workflowCompareFieldCompatible, workflowCompareOperators } from '../../workflowValidationRules'
 
 const props = withDefaults(defineProps<{
   field: WorkflowFormField
@@ -183,7 +189,11 @@ const rules = computed(() => {
 })
 
 const conditionFields = computed(() => workflowDataFields(props.fields).filter(item => item.key !== props.field.key))
-const compareFields = computed(() => conditionFields.value.filter(item => comparableFieldTypes(props.field.type, item.type)))
+const compareFields = computed(() => conditionFields.value.filter(item => workflowCompareFieldCompatible(props.field.type, item.type)))
+const fieldCompareOperators = computed(() => {
+  const allowed = new Set(workflowCompareOperators(props.field.type))
+  return compareOperators.filter(item => allowed.has(item.value))
+})
 const summableColumns = computed(() => (props.field.columns || []).filter(item => item.type === 'number' || item.type === 'amount'))
 const ruleTypeOptions = computed(() => {
   const result: Array<{ label: string; value: WorkflowValidationRuleType }> = []
@@ -241,7 +251,7 @@ function buildRule(type: WorkflowValidationRuleType, existingID?: string): Workf
   }
   if (type === 'compare_field') {
     rule.field = ''
-    rule.operator = 'gte'
+    rule.operator = workflowCompareOperators(props.field.type).includes('gte') ? 'gte' : 'eq'
   }
   if (type === 'column_sum') {
     rule.column = summableColumns.value[0]?.key || ''
@@ -280,6 +290,23 @@ function conditionField(rule: WorkflowValidationRule) {
   return conditionFields.value.find(item => item.key === rule.when?.field)
 }
 
+function handleCompareFieldChange(rule: WorkflowValidationRule) {
+  const allowed = workflowCompareOperators(props.field.type)
+  if (!rule.operator || !allowed.includes(rule.operator)) {
+    rule.operator = allowed.includes('gte') ? 'gte' : 'eq'
+  }
+  emitChange()
+}
+
+function compareFieldLabel(rule: WorkflowValidationRule) {
+  const target = compareFields.value.find(item => item.key === rule.field)
+  return target?.label || '请选择目标字段'
+}
+
+function compareOperatorLabel(operator?: WorkflowValidationOperator) {
+  return compareOperators.find(item => item.value === operator)?.label || '比较'
+}
+
 function conditionFieldOptions(rule: WorkflowValidationRule) {
   const field = conditionField(rule)
   return field ? flattenWorkflowOptions(normalizeWorkflowOptions(field.options || [], field.optionSource)) : []
@@ -302,16 +329,6 @@ function conditionNeedsValue(rule: WorkflowValidationRule) {
   return rule.when?.operator !== 'empty' && rule.when?.operator !== 'not_empty'
 }
 
-function comparableFieldTypes(left: string, right: string) {
-  if (!isComparableScalarFieldType(left) || !isComparableScalarFieldType(right)) return false
-  const numbers = ['number', 'amount']
-  return (numbers.includes(left) && numbers.includes(right)) || left === right
-}
-
-function isComparableScalarFieldType(fieldType: string) {
-  return ['text', 'textarea', 'phone', 'email', 'number', 'amount', 'date', 'datetime', 'time'].includes(fieldType)
-}
-
 function emitChange() {
   emit('change')
 }
@@ -323,6 +340,8 @@ function emitChange() {
 .validation-rule-item { margin-top: 10px; padding: 10px; border: 1px solid #e3e8ef; border-radius: 6px; background: #fbfdff; }
 .validation-rule-item > header { display: flex; align-items: center; justify-content: space-between; min-height: 28px; margin-bottom: 8px; color: #64748b; font-size: 11px; }
 .validation-rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.validation-rule-relation { display: flex; grid-column: 1 / -1; align-items: center; min-width: 0; margin: -2px 0 8px; padding: 8px 10px; border-radius: 4px; gap: 6px; color: #64748b; background: #f1f5f9; font-size: 11px; line-height: 1.5; }
+.validation-rule-relation strong { min-width: 0; overflow-wrap: anywhere; color: #334155; }
 .validation-rules-editor :deep(.el-form-item) { margin-bottom: 10px; }
 .validation-rules-editor--compact { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
 @media (max-width: 1200px) { .validation-rule-grid { grid-template-columns: minmax(0, 1fr); } }

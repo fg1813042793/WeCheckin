@@ -14,7 +14,7 @@
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" @click="load" />
-          <el-button circle icon="Download" title="导出" @click="exportData" />
+          <el-button v-if="hasPerm('admin:menu:enroll:export')" circle icon="Download" title="导出" @click="exportData" />
           <SortPopover :columns="sortColumns" v-model="sortRules" @change="onSortChange" />
         </div>
       </div>
@@ -37,15 +37,15 @@
             <div class="admin-table-actions">
               <el-button v-if="hasPerm('admin:menu:enroll:edit')" size="small" type="primary" @click="showEdit(row)">编辑</el-button>
               <el-button v-if="hasPerm('admin:menu:enroll:list')" size="small" @click="showJoins(row)">打卡记录</el-button>
-              <el-button v-if="hasPerm('admin:menu:enroll:list')" size="small" @click="showUsers(row)">参与用户</el-button>
+              <el-button v-if="hasPerm('admin:menu:enroll:users')" size="small" @click="showUsers(row)">参与用户</el-button>
               <el-button v-if="hasPerm('admin:menu:enroll:list')" size="small" @click="showStats(row)">统计</el-button>
-              <el-dropdown v-if="hasPerm('admin:menu:enroll:edit')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
+              <el-dropdown v-if="hasPerm('admin:menu:enroll:status') || hasPerm('admin:menu:enroll:vouch') || hasPerm('admin:menu:enroll:del')" trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
                 <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                  <el-dropdown-item command="enable" :disabled="row.status===1">启用</el-dropdown-item>
-                  <el-dropdown-item command="disable" :disabled="row.status===0">停用</el-dropdown-item>
-                    <el-dropdown-item :command="row.vouch ? 'unvouch' : 'vouch'">{{ row.vouch ? '取消推荐' : '推荐首页' }}</el-dropdown-item>
+                  <el-dropdown-item v-if="hasPerm('admin:menu:enroll:status')" command="enable" :disabled="row.status===1">启用</el-dropdown-item>
+                  <el-dropdown-item v-if="hasPerm('admin:menu:enroll:status')" command="disable" :disabled="row.status===0">停用</el-dropdown-item>
+                    <el-dropdown-item v-if="hasPerm('admin:menu:enroll:vouch')" :command="row.vouch ? 'unvouch' : 'vouch'">{{ row.vouch ? '取消推荐' : '推荐首页' }}</el-dropdown-item>
                     <el-dropdown-item v-if="hasPerm('admin:menu:enroll:del')" command="del" divided>删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -74,7 +74,7 @@
           <el-input v-model="form.title" placeholder="必填" />
         </el-form-item>
         <el-form-item label="封面">
-          <el-upload action="/upload" :show-file-list="false" :on-success="handleCoverSuccess" :on-error="()=>ElMessage.error('上传失败')" :headers="{ Authorization: token }" accept="image/*">
+          <el-upload :http-request="adminUploadRequest" :disabled="!canUploadAdminFile()" :show-file-list="false" :on-success="handleCoverSuccess" accept="image/*">
             <div class="cover-upload">
               <el-image v-if="form.cover" :src="form.cover" class="cover-preview" />
               <div v-else class="cover-placeholder">+</div>
@@ -186,7 +186,7 @@
         </div>
         <div class="admin-toolbar__right">
           <el-date-picker v-model="joinExportRange" type="daterange" range-separator="~" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width:240px" />
-          <el-button type="primary" size="small" @click="exportJoins">导出</el-button>
+          <el-button v-if="hasPerm('admin:menu:enroll:export')" type="primary" size="small" @click="exportJoins">导出</el-button>
         </div>
       </div>
       <el-table :data="joinList" v-loading="joinLoading" stripe @selection-change="joinSelected = $event">
@@ -245,7 +245,7 @@
           <el-button type="danger" :disabled="userSelected.length === 0" @click="delSelectedUsers">批量移除</el-button>
         </div>
         <div class="admin-toolbar__right">
-          <el-button circle icon="Download" title="导出 CSV" @click="exportUsers" />
+          <el-button v-if="hasPerm('admin:menu:enroll:export')" circle icon="Download" title="导出 CSV" @click="exportUsers" />
         </div>
       </div>
       <el-table :data="userList" v-loading="userLoading" stripe @selection-change="userSelected = $event">
@@ -305,6 +305,8 @@ import SortPopover from '../../components/SortPopover.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { Delete, ArrowDown } from '@element-plus/icons-vue'
 import { adminApi } from '../../api'
+import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
+import { showRequestError } from '../../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 
@@ -318,7 +320,6 @@ const saving = ref(false)
 const categories = ref<any[]>([])
 const deptTree = ref<any[]>([])
 const deptTreeRef = ref()
-const token = localStorage.getItem('admin_token') || ''
 const selected = ref<any[]>([])
 const sortRules = ref<{field:string;order:string}[]>([])
 const sortColumns = [
@@ -446,21 +447,26 @@ function confirmFormEditor() {
 // 更多操作
 async function handleMore(cmd: string, row: any) {
   if (cmd === 'enable') {
+    if (!hasPerm('admin:menu:enroll:status')) return
     await adminApi.enrollStatus({ id: row.id, status: '1' })
     ElMessage.success('已启用'); load()
   } else if (cmd === 'disable') {
+    if (!hasPerm('admin:menu:enroll:status')) return
     await adminApi.enrollStatus({ id: row.id, status: '0' })
     ElMessage.success('已停用'); load()
   } else if (cmd === 'del') {
+    if (!hasPerm('admin:menu:enroll:del')) return
     try {
       await ElMessageBox.confirm('确定删除该打卡项目？', '提示')
       await adminApi.enrollDel({ id: row.id })
       ElMessage.success('已删除'); load()
     } catch {}
   } else if (cmd === 'vouch') {
+    if (!hasPerm('admin:menu:enroll:vouch')) return
     await adminApi.enrollVouch({ id: row.id, vouch: '1' })
     ElMessage.success('已推荐到首页'); load()
   } else if (cmd === 'unvouch') {
+    if (!hasPerm('admin:menu:enroll:vouch')) return
     await adminApi.enrollVouch({ id: row.id, vouch: '0' })
     ElMessage.success('已取消推荐'); load()
   }
@@ -479,6 +485,7 @@ async function delSelected() {
 }
 
 function exportData() {
+  if (!hasPerm('admin:menu:enroll:export')) return
   const rows = [['标题', '分类', '状态', '开始时间', '结束时间', '参与人数', '打卡数']]
   list.value.forEach((r: any) => {
     rows.push([r.title, r.cateName || '', r.status === 1 ? '正常' : '停用', fmtDate(r.regStart), fmtDate(r.regEnd), String(r.userCnt || 0), String(r.joinCount || 0)])
@@ -567,6 +574,7 @@ async function delSelectedJoins() {
 }
 
 async function exportJoins() {
+  if (!hasPerm('admin:menu:enroll:export')) return
   try {
     const params: any = { enrollId: joinEnrollId }
     if (joinExportRange.value) {
@@ -577,7 +585,7 @@ async function exportJoins() {
     if (res.data) {
       window.open(res.data, '_blank')
     }
-  } catch { ElMessage.error('导出失败') }
+  } catch (error) { showRequestError(error, '导出失败') }
 }
 
 // 参与用户
@@ -597,6 +605,7 @@ async function loadUsers() {
   userLoading.value = false
 }
 async function showUsers(row: any) {
+  if (!hasPerm('admin:menu:enroll:users')) return
   userEnrollId = row.id
   userKeyword.value = ''
   userDialog.title = '参与用户 - ' + row.title
@@ -620,6 +629,7 @@ async function delSelectedUsers() {
   } catch {}
 }
 function exportUsers() {
+  if (!hasPerm('admin:menu:enroll:export')) return
   const rows = [['用户', '部门', '顶级部门', '打卡次数', '打卡天数', '最后打卡', '参与时间']]
   userList.value.forEach((r: any) => {
     rows.push([
@@ -692,7 +702,7 @@ function fmtTime(ts: number) {
 
 async function loadCategories() {
   try {
-    const res = await adminApi.dictItems('check_type')
+    const res = await adminApi.dictActiveItems('check_type')
     categories.value = (res.data || []).map((d: any) => ({ label: d.label, value: d.value }))
   } catch { categories.value = [] }
 }
