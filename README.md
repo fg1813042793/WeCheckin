@@ -1,6 +1,6 @@
 # MY打卡 - 多功能打卡应用
 
-一个包含移动端、小程序端、PC 管理台和 Go 后端的打卡/活动/问卷/考试系统。
+一个包含移动端、小程序端、钉钉 H5、PC 管理台和 Go 后端的打卡、活动、问卷、考试与流程协作系统。
 
 ## 项目结构
 
@@ -9,6 +9,8 @@ WeCheckin/
 ├── backend/                 # Go 后端服务
 │   ├── cmd/main.go          # 服务入口
 │   ├── cmd/maintenance/     # 初始化/迁移维护入口
+│   ├── cmd/taskd/           # 定时任务调度与执行入口
+│   ├── go.mod               # 后端 Go module
 │   ├── config/              # 运行配置，默认端口 8083
 │   ├── internal/            # 业务模块、模型、处理器、中间件
 │   ├── docs/swagger/        # Swagger 文档产物
@@ -29,10 +31,11 @@ WeCheckin/
 │   ├── pages.json
 │   ├── manifest.json
 │   └── package.json
+├── h5app/                   # 当前钉钉 H5 前端，uni-app + Vue 3 + TypeScript
 ├── docs/                    # 使用和调试文档
 ├── openspec/                # 规格驱动变更记录
 ├── scripts/                 # 本地质量门禁和部署配置检查
-├── go.mod                   # 后端 Go module
+├── package.json             # 根级检查与辅助脚本
 └── README.md
 ```
 
@@ -44,6 +47,8 @@ WeCheckin/
 - 赛事活动、参与用户、动态和成绩管理
 - 问卷系统、答卷、统计报表、题库和资源管理
 - 在线考试、考试记录、题库和资源管理
+- 通用 OA 流程设计、发起、审批、抄送、通知和汇总
+- 通用定时任务调度、执行、重试和运行记录
 - PC 管理台的用户、部门、岗位、角色和统一权限管理
 
 ## 技术栈
@@ -76,27 +81,52 @@ WeCheckin/
 
 ### 后端服务
 
-默认配置文件位于 `backend/config/config.yaml`，默认监听端口为 `8083`。
+默认配置文件位于 `backend/config/config.yaml`，默认监听端口为 `8083`。传入 `-env=<环境名>` 时，程序先读取基础配置，再合并 `backend/config/config.<环境名>.yaml`，最后应用 `WECHECKIN_*` 环境变量覆盖。
+
+`-env` 接收环境名而不是任意文件路径。例如 `-env=prod` 对应 `config/config.prod.yaml`，`-env=local` 对应 `config/config.local.yaml`。
 
 首次部署或版本升级需要先执行一次初始化/迁移脚本。脚本会按 `backend/migrations` 文件名顺序执行 SQL，并通过 `schema_migrations` 记录已执行任务，重复执行时会自动跳过历史任务。
 
 ```bash
 cd backend
+
+# 使用 config/config.yaml
 bash init.sh
+
+# config/config.yaml + config/config.prod.yaml
+bash init.sh -env=prod
+
+# config/config.yaml + config/config.local.yaml
+bash init.sh -env=local
 ```
+
+启动 HTTP 服务：
 
 ```bash
 cd backend
-go mod download
-go run ./cmd
-```
 
-也可以使用启动脚本：
-
-```bash
-cd backend
+# 使用 config/config.yaml
 bash start.sh
+
+# 使用对应的环境覆盖配置
+bash start.sh -env=prod
+bash start.sh -env=local
 ```
+
+启动独立定时任务服务。该进程不监听 HTTP 端口，单实例部署默认使用 `all`：
+
+```bash
+cd backend
+
+# Scheduler 与 Worker 同进程运行
+bash start-taskd.sh -env=prod --role=all
+
+# 拆分部署
+bash start-taskd.sh -env=prod --role=scheduler
+bash start-taskd.sh -env=prod --role=worker --worker-id=worker-01
+```
+
+更多定时任务部署和运行说明见 [通用定时任务运维说明](docs/SCHEDULED_TASKS.md)。
 
 Swagger 入口：
 
@@ -142,12 +172,31 @@ npm run build:app
 npm run build:mp-weixin
 ```
 
+### 钉钉 H5
+
+`h5app` 是当前钉钉 H5 前端的权威实现，后端接口前缀为 `/api/v2/dingtalk/h5`。
+
+```bash
+cd h5app
+pnpm install
+pnpm dev:h5
+```
+
+构建与检查：
+
+```bash
+pnpm build:h5
+pnpm lint
+pnpm type-check
+```
+
 ## 配置说明
 
 - `backend/config/config.yaml`：后端默认配置。
-- `backend/config/config.dev.yaml`：开发环境覆盖配置，可在 `backend` 目录通过 `go run ./cmd -env dev` 合并读取。
-- `backend/config/config.example.yaml`：安全示例配置，适合复制为新环境的起点。
+- `backend/config/config.prod.yaml`：生产环境覆盖配置，通过 `-env=prod` 合并读取。
+- `backend/config/config.local.example.yaml`：本地敏感配置示例；复制为被 Git 忽略的 `config.local.yaml` 后，通过 `-env=local` 合并读取。
 - `frontend/config/index.js`：uni-app 客户端 API 地址、版本和缓存配置。
+- `h5app/.env*`：钉钉 H5 的 `VITE_API_BASE_URL` 等构建环境配置。
 - `admin/vite.config.ts`：管理台开发代理配置。
 - `docs/API_V2.md`：当前 `/api/v2` RESTful 接口、调用入口和 Swagger 更新说明。
 
