@@ -14,6 +14,9 @@ const requiredFiles = [
   'src/pages/feedback/feedback.routes.ts',
   'src/pages/feedback/feedback.menu.ts',
   'src/pages/feedback/feedback-status.ts',
+  'src/pages/feedback/components/FeedbackCenter.vue',
+  'src/pages/feedback/components/FeedbackStatusOverview.vue',
+  'src/pages/feedback/components/FeedbackList.vue',
 ]
 
 for (const file of requiredFiles) {
@@ -546,6 +549,101 @@ try {
 }
 finally {
   delete globalThis.__feedbackContractUni
+}
+
+assertContains('src/pages/feedback/feedback.routes.ts', [
+  `import FeedbackCenter from './components/FeedbackCenter.vue'`,
+  '[FEEDBACK_CONTENT_KEY]: FeedbackCenter',
+])
+
+assertContains('src/pages/feedback/components/FeedbackCenter.vue', [
+  'useLocale(\'feedback\')',
+  'getUserFeedbackOverview',
+  'listUserFeedbacks',
+  'FeedbackStatusOverview',
+  'FeedbackList',
+  'FEEDBACK_CREATE_CONTENT_KEY',
+  'feedbackDetailContentKey',
+  'appContent.openDynamicTab',
+  'appContent.refreshTick',
+  `appContent.currentKey === FEEDBACK_CONTENT_KEY`,
+  'document.addEventListener(\'visibilitychange\'',
+  'document.removeEventListener(\'visibilitychange\'',
+  'document.visibilityState === \'visible\'',
+  'loadOverview()',
+  'loadFeedbacks()',
+  '@select="selectStatus"',
+  '@retry="loadOverview"',
+  '@retry="loadFeedbacks"',
+])
+
+assertContains('src/pages/feedback/components/FeedbackStatusOverview.vue', [
+  'pending: \'warning\'',
+  'processing: \'warning\'',
+  'resolved: \'success\'',
+  'closed: \'info\'',
+  'emit(\'select\', item.status)',
+  'u-loading',
+  'u-icon name="reload"',
+  't(\'overviewFailed\')',
+])
+
+assertContains('src/pages/feedback/components/FeedbackList.vue', [
+  'feedbackNo',
+  'summary',
+  'imageCount',
+  'lastActivityAt',
+  'feedbackStatusMeta',
+  'u-pagination',
+  'emit(\'retry\')',
+  'emit(\'open\', item)',
+  'u-loading',
+])
+
+for (const componentFile of [
+  'src/pages/feedback/components/FeedbackCenter.vue',
+  'src/pages/feedback/components/FeedbackStatusOverview.vue',
+  'src/pages/feedback/components/FeedbackList.vue',
+]) {
+  assert.doesNotMatch(source(componentFile), /[\u3400-\u9FFF]/, `${componentFile} must read visible copy from locale`)
+}
+
+const feedbackCenterSource = source('src/pages/feedback/components/FeedbackCenter.vue')
+assert.equal(/setInterval|setTimeout\s*\([^,]+,\s*\d+\s*\)/.test(feedbackCenterSource), false, 'feedback center must not poll')
+assert.match(feedbackCenterSource, /watch\s*\([\s\S]*appContent\.currentKey[\s\S]*appContent\.refreshTick/)
+assert.match(feedbackCenterSource, /function\s+openCreate[\s\S]*FEEDBACK_CREATE_CONTENT_KEY[\s\S]*openDynamicTab/)
+assert.match(feedbackCenterSource, /function\s+openFeedback[\s\S]*feedbackDetailContentKey[\s\S]*openDynamicTab/)
+assert.match(feedbackCenterSource, /function\s+selectStatus[\s\S]*loadOverview[\s\S]*loadFeedbacks/)
+assert.match(feedbackCenterSource, /computed\([\s\S]*sort\([\s\S]*lastActivityAt/)
+
+for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.json']) {
+  const locale = JSON.parse(source(localeFile))
+  assert.deepEqual(Object.keys(locale.feedback.statuses).sort(), ['closed', 'pending', 'processing', 'resolved'])
+  for (const key of [
+    'title',
+    'description',
+    'create',
+    'keyword',
+    'keywordPlaceholder',
+    'status',
+    'allStatuses',
+    'search',
+    'reset',
+    'loading',
+    'empty',
+    'loadFailed',
+    'overviewFailed',
+    'retry',
+    'feedbackNo',
+    'summary',
+    'images',
+    'lastActivity',
+    'view',
+    'previousPage',
+    'nextPage',
+  ]) {
+    assert.equal(typeof locale.feedback[key], 'string', `${localeFile} missing feedback.${key}`)
+  }
 }
 
 console.log('user feedback contracts ok')

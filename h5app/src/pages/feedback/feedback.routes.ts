@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import FeedbackCenter from './components/FeedbackCenter.vue'
 import {
   FEEDBACK_CONTENT_KEY,
   FEEDBACK_CREATE_CONTENT_KEY,
@@ -17,7 +18,7 @@ export {
 } from './feedback-route-keys'
 
 export const feedbackContentRoutes: Record<string, Component> = {
-  [FEEDBACK_CONTENT_KEY]: FeedbackContractPlaceholder,
+  [FEEDBACK_CONTENT_KEY]: FeedbackCenter,
 }
 
 export function resolveFeedbackContentComponent(key: string): Component | undefined {
