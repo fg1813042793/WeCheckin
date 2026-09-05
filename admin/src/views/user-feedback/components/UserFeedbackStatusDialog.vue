@@ -11,6 +11,12 @@ export function isVersionConflict(error: unknown): boolean {
     && error.msg === '反馈已更新，请刷新后重试',
   )
 }
+
+export function closeStatusDialog(submitting: boolean, done: () => void): boolean {
+  if (submitting) return false
+  done()
+  return true
+}
 </script>
 
 <script setup lang="ts">
@@ -70,6 +76,10 @@ function handleVisibleChange(value: boolean) {
   visible.value = value
 }
 
+function beforeClose(done: () => void) {
+  closeStatusDialog(submitting.value, done)
+}
+
 async function submit() {
   if (!canHandleUserFeedback()) {
     ElMessage.warning('当前账号没有反馈处理权限')
@@ -125,6 +135,7 @@ defineExpose({ open })
     confirm-text="确认更新"
     append-to-body
     :destroy-on-close="false"
+    :before-close="beforeClose"
     @update:model-value="handleVisibleChange"
     @confirm="submit"
   >

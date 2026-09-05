@@ -39,6 +39,7 @@ export interface UserFeedbackSummary {
   submitterName?: string
   summary: string
   imageCount: number
+  firstImageUrl?: string
   status: UserFeedbackStatus
   handlerId?: number
   handlerName?: string

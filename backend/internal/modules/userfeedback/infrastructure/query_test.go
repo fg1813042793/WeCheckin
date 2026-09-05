@@ -50,9 +50,9 @@ func listQueryScript(size int) *databaseScript {
 		case strings.Contains(sqlText, "FROM `user_feedback_attachments`"):
 			rows := make([][]driver.Value, 0, size)
 			for index := 1; index <= size; index++ {
-				rows = append(rows, []driver.Value{int64(index), int64(index + 1)})
+				rows = append(rows, []driver.Value{int64(index), int64(index + 1), fmt.Sprintf("feedback/%d-first.jpg", index)})
 			}
-			return queryResult{Columns: []string{"feedback_id", "image_count"}, Rows: rows}
+			return queryResult{Columns: []string{"feedback_id", "image_count", "first_object_key"}, Rows: rows}
 		case strings.Contains(sqlText, "FROM `users`"):
 			return queryResult{Columns: []string{"id", "user_name"}, Rows: [][]driver.Value{{int64(3), "管理员"}, {int64(7), "提交人"}}}
 		default:
@@ -95,7 +95,7 @@ func timelineKeywordScript(t *testing.T, keyword string, admin bool, fixture fee
 				Rows:    [][]driver.Value{{int64(1), fixture.initial}},
 			}
 		case strings.Contains(sqlText, "FROM `user_feedback_attachments`"):
-			return queryResult{Columns: []string{"feedback_id", "image_count"}}
+			return queryResult{Columns: []string{"feedback_id", "image_count", "first_object_key"}}
 		case strings.Contains(sqlText, "FROM `users`"):
 			return queryResult{Columns: []string{"id", "user_name"}, Rows: [][]driver.Value{
 				{int64(3), "管理员"}, {int64(7), fixture.submitterName},
@@ -555,7 +555,8 @@ func TestAdminListUsesFixedBatchQueriesAndAllFilters(t *testing.T) {
 				t.Fatalf("list result = %#v", result)
 			}
 			if result.List[0].SubmitterName != "提交人" || result.List[0].HandlerName != "管理员" ||
-				result.List[0].Summary != "第1条 初始 内容" || result.List[0].ImageCount != 2 {
+				result.List[0].Summary != "第1条 初始 内容" || result.List[0].ImageCount != 2 ||
+				!strings.HasSuffix(result.List[0].FirstImageURL, "/feedback/1-first.jpg") {
 				t.Fatalf("enriched first row = %#v", result.List[0])
 			}
 			queries, _ := script.statements()
@@ -573,6 +574,14 @@ func TestAdminListUsesFixedBatchQueriesAndAllFilters(t *testing.T) {
 			}
 			if !containsNamedValue(queries[1].Args, "%研发!%!_!!%") {
 				t.Fatalf("escaped keyword missing from %#v", namedValues(queries[1].Args))
+			}
+			imageSQL := normalizeSQL(queries[3].SQL)
+			for _, fragment := range []string{
+				"COUNT(*) AS image_count", "first_attachment.object_key", "ORDER BY first_attachment.sort_order ASC, first_attachment.id ASC", "LIMIT 1",
+			} {
+				if !strings.Contains(imageSQL, fragment) {
+					t.Fatalf("image summary SQL missing %q: %s", fragment, imageSQL)
+				}
 			}
 		})
 	}

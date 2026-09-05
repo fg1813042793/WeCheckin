@@ -40,6 +40,7 @@ type FeedbackSummary struct {
 	SubmitterName  string        `json:"submitterName,omitempty"`
 	Summary        string        `json:"summary"`
 	ImageCount     int64         `json:"imageCount"`
+	FirstImageURL  string        `json:"firstImageUrl,omitempty"`
 	Status         domain.Status `json:"status"`
 	HandlerID      *uint         `json:"handlerId,omitempty"`
 	HandlerName    string        `json:"handlerName,omitempty"`

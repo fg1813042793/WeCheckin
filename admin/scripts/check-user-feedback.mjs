@@ -218,7 +218,7 @@ assertInterface('UserFeedbackMessage', {
 })
 assertInterface('UserFeedbackSummary', {
   id: required('number'), feedbackNo: required('string'), submitterId: required('number'), submitterName: optional('string'),
-  summary: required('string'), imageCount: required('number'), status: required('UserFeedbackStatus'),
+  summary: required('string'), imageCount: required('number'), firstImageUrl: optional('string'), status: required('UserFeedbackStatus'),
   handlerId: optional('number'), handlerName: optional('string'), version: required('number'),
   lastActivityAt: required('number'), resolvedAt: optional('number'), closedAt: optional('number'),
   createdAt: required('number'), updatedAt: required('number'),
@@ -410,6 +410,13 @@ function assertPageTemplate() {
   assert.ok(pagination, 'feedback table must render pagination')
   assert.ok(directiveExpression(pagination, 'current-page', 'model'), 'pagination must bind current page')
   assert.ok(directiveExpression(pagination, 'page-size', 'model'), 'pagination must bind page size')
+
+  const thumbnail = elements(view.template, 'el-image')[0]
+  assert.ok(thumbnail, 'feedback list must render the first image with el-image')
+  assert.match(directiveExpression(thumbnail, 'if', 'if'), /row\.firstImageUrl/, 'thumbnail must only render when firstImageUrl exists')
+  assert.equal(directiveExpression(thumbnail, 'src', 'bind'), 'row.firstImageUrl')
+  assert.match(directiveExpression(thumbnail, 'preview-src-list', 'bind'), /row\.firstImageUrl/, 'thumbnail must support image preview')
+  assert.equal(attributeValue(thumbnail, 'preview-teleported'), true, 'thumbnail preview must be teleported')
 }
 
 assertPageTemplate()
@@ -421,13 +428,32 @@ function assertPageRefreshRuntime() {
   assertCalls(view.scriptFile, 'handleOverviewSelect', ['refreshOverviewAndList'])
   assertCalls(view.scriptFile, 'handleVisibilityChange', ['refreshOverviewAndList'])
   assertCalls(view.scriptFile, 'mountPage', ['refreshOverviewAndList', 'document.addEventListener'])
-  assertCalls(view.scriptFile, 'unmountPage', ['document.removeEventListener'])
+  assertCalls(view.scriptFile, 'unmountPage', ['invalidateFeedbackRequestSequences', 'document.removeEventListener'])
   assertCalls(view.scriptFile, 'handleStatusSuccess', ['loadOverview', 'loadList'])
   assert.match(functionNode(view.scriptFile, 'handleStatusSuccess').getText(view.scriptFile), /detailDrawerRef\.value\?\.refresh\(\)/)
   const openStatusGuard = firstStatement(view.scriptFile, 'openStatusDialog')
   assert.ok(ts.isIfStatement(openStatusGuard), 'page status dialog handler must start with a permission guard')
   assert.match(openStatusGuard.getText(view.scriptFile), /canHandleUserFeedback\(\)/)
   assert.doesNotMatch(view.script, /\bsetInterval\s*\(/, 'feedback page must not poll on an interval')
+
+  for (const functionName of ['loadOverview', 'loadList']) {
+    const failed = catchClause(view.scriptFile, functionName).getText(view.scriptFile)
+    assert.match(failed, /applyIfFeedbackRequestCurrent/, `${functionName} must suppress stale error side effects`)
+    assert.match(failed, /showRequestError/, `${functionName} must retain current-request error feedback`)
+  }
+
+  const exported = executeTypeScriptModule(view.descriptor.script?.content || '', `${paths.view}.module.ts`)
+  const sequences = { overview: 4, list: 9 }
+  const staleOverview = sequences.overview
+  const staleList = sequences.list
+  exported.invalidateFeedbackRequestSequences(sequences)
+  assert.deepEqual(sequences, { overview: 5, list: 10 }, 'unmount invalidation must advance both request sequences')
+  let staleEffects = 0
+  assert.equal(exported.applyIfFeedbackRequestCurrent(sequences, 'overview', staleOverview, () => { staleEffects += 1 }), false)
+  assert.equal(exported.applyIfFeedbackRequestCurrent(sequences, 'list', staleList, () => { staleEffects += 1 }), false)
+  assert.equal(staleEffects, 0, 'stale responses must not update state or show global errors after unmount')
+  assert.equal(exported.applyIfFeedbackRequestCurrent(sequences, 'list', sequences.list, () => { staleEffects += 1 }), true)
+  assert.equal(staleEffects, 1, 'the current request must still apply its side effects')
 }
 
 assertPageRefreshRuntime()
@@ -446,8 +472,26 @@ function assertFilterQueryRuntime() {
   assert.equal(query.handlerId, 17)
   assert.equal(query.page, 3)
   assert.equal(query.pageSize, 50)
-  assert.equal(query.submittedTo - new Date(2026, 8, 5).getTime(), 86_400_000 - 1)
+  assert.equal(query.submittedTo, new Date(2026, 8, 6).getTime() - 1)
   assert.equal(query.submittedFrom, new Date(2026, 8, 1).getTime())
+
+  const originalTimeZone = process.env.TZ
+  try {
+    process.env.TZ = 'America/New_York'
+    const dstQuery = exported.buildUserFeedbackQuery({
+      keyword: '',
+      status: '',
+      handlerId: 0,
+      submittedDates: ['2026-03-08', '2026-03-08'],
+    }, 1, 20)
+    assert.equal(dstQuery.submittedFrom, Date.parse('2026-03-08T05:00:00.000Z'))
+    assert.equal(dstQuery.submittedTo, Date.parse('2026-03-09T04:00:00.000Z') - 1)
+    assert.equal(dstQuery.submittedTo - dstQuery.submittedFrom, 23 * 60 * 60 * 1000 - 1, 'DST spring-forward date must end at next local midnight, not after a fixed 24 hours')
+  } finally {
+    if (originalTimeZone === undefined) delete process.env.TZ
+    else process.env.TZ = originalTimeZone
+  }
+  assert.doesNotMatch(view.descriptor.script?.content || '', /86_?400_?000/, 'date range must not add a fixed 24-hour duration')
 
   const overviewQuery = { ...exported.buildUserFeedbackOverviewQuery(filters) }
   assert.equal('status' in overviewQuery, false, 'overview must aggregate every status under the other filters')
@@ -517,6 +561,7 @@ function assertStatusDialogComponent() {
   const dialogs = elements(statusDialog.template, 'AdminDialog')
   assert.equal(dialogs.length, 1)
   assert.equal(attributeValue(dialogs[0], 'append-to-body'), true, 'status dialog must append to body')
+  assert.equal(directiveExpression(dialogs[0], 'before-close', 'bind'), 'beforeClose', 'status dialog must bind a real before-close guard')
   assert.equal(elements(statusDialog.template, 'el-select').length, 1)
   assert.equal(elements(statusDialog.template, 'el-input').length, 1)
   assert.equal(elements(statusDialog.template, 'el-switch').length, 1)
@@ -534,6 +579,15 @@ function assertStatusDialogComponent() {
   assert.doesNotMatch(failed, /visible\.value\s*=\s*false/, 'request failure must keep the dialog open')
   assert.doesNotMatch(failed, /form\.(?:status|note|notifyUser)\s*=|requestId\.value\s*=/, 'request failure must retain the draft and request id')
   assert.match(failed, /反馈已更新，请刷新详情后再处理/, 'version conflict must prompt the user to refresh detail')
+  const submitFunction = functionNode(statusDialog.scriptFile, 'submit')
+  let finalizer
+  const findFinalizer = (node) => {
+    if (ts.isTryStatement(node) && node.finallyBlock) finalizer = node.finallyBlock
+    ts.forEachChild(node, findFinalizer)
+  }
+  findFinalizer(submitFunction)
+  assert.ok(finalizer, 'status submit must restore retry state in finally')
+  assert.match(finalizer.getText(statusDialog.scriptFile), /submitting\.value\s*=\s*false/, 'failed status update must become retryable')
   assert.equal((statusDialog.script.match(/requestId\.value\s*=\s*newRequestId\(\)/g) || []).length, 1, 'request id must be created once when opening')
 
   const exported = executeTypeScriptModule(statusDialog.descriptor.script?.content || '', `${paths.statusDialog}.module.ts`)
@@ -543,6 +597,13 @@ function assertStatusDialogComponent() {
   }
   assert.equal(exported.isVersionConflict({ msg: '反馈已更新，请刷新后重试' }), true)
   assert.equal(exported.isVersionConflict({ msg: '网络错误' }), false)
+
+  let closeCalls = 0
+  assert.equal(exported.closeStatusDialog(false, () => { closeCalls += 1 }), true)
+  assert.equal(closeCalls, 1, 'idle dialog close must call Element Plus done callback')
+  assert.equal(exported.closeStatusDialog(true, () => { closeCalls += 1 }), false)
+  assert.equal(closeCalls, 1, 'submitting dialog close must not call Element Plus done callback')
+  assertCalls(statusDialog.scriptFile, 'beforeClose', ['closeStatusDialog'])
 }
 
 assertStatusDialogComponent()

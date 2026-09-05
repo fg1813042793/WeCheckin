@@ -123,18 +123,13 @@ func buildFeedbackDetailWithURL(
 
 	attachmentsByMessage := make(map[uint64][]application.Attachment)
 	for _, row := range attachments {
-		path := "/" + row.ObjectKey
-		url := ""
-		if fullURL != nil {
-			url = fullURL(ctx, path)
-		}
 		attachmentsByMessage[row.MessageID] = append(attachmentsByMessage[row.MessageID], application.Attachment{
 			ID:           row.ID,
 			ObjectKey:    row.ObjectKey,
 			OriginalName: row.OriginalName,
 			ContentType:  row.ContentType,
 			SizeBytes:    row.SizeBytes,
-			URL:          url,
+			URL:          feedbackAttachmentURL(ctx, row.ObjectKey, fullURL),
 			SortOrder:    row.SortOrder,
 			CreatedAt:    row.CreatedAt,
 		})
@@ -168,6 +163,13 @@ func buildFeedbackDetailWithURL(
 		AllowsSupplement: domain.Status(feedback.Status).
 			AllowsSupplement(),
 	}
+}
+
+func feedbackAttachmentURL(ctx context.Context, objectKey string, fullURL func(context.Context, string) string) string {
+	if objectKey == "" || fullURL == nil {
+		return ""
+	}
+	return fullURL(ctx, "/"+objectKey)
 }
 
 func compactSummary(value string) string {

@@ -11,10 +11,11 @@ func TestSupplementCommandIncludesVersion(t *testing.T) {
 	requireField(t, reflect.TypeOf(SupplementCommand{}), "Version", reflect.TypeOf(uint64(0)), "")
 }
 
-func TestFeedbackSummaryIncludesSummaryAndImageCount(t *testing.T) {
+func TestFeedbackSummaryIncludesListPresentationFields(t *testing.T) {
 	typ := reflect.TypeOf(FeedbackSummary{})
 	requireField(t, typ, "Summary", reflect.TypeOf(""), "summary")
 	requireField(t, typ, "ImageCount", reflect.TypeOf(int64(0)), "imageCount")
+	requireField(t, typ, "FirstImageURL", reflect.TypeOf(""), "firstImageUrl,omitempty")
 }
 
 func TestUserListQueryFields(t *testing.T) {

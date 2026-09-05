@@ -12,6 +12,7 @@ import (
 	userfeedbackmodel "wecheckin/backend/internal/model/userfeedback"
 	"wecheckin/backend/internal/modules/userfeedback/application"
 	"wecheckin/backend/internal/modules/userfeedback/domain"
+	"wecheckin/backend/internal/support/media"
 )
 
 const feedbackOverviewSelect = "COALESCE(SUM(feedback_status = 'pending'), 0) AS pending, " +
@@ -24,9 +25,10 @@ type feedbackInitialMessageRow struct {
 	Content    string `gorm:"column:content"`
 }
 
-type feedbackImageCountRow struct {
-	FeedbackID uint64 `gorm:"column:feedback_id"`
-	ImageCount int64  `gorm:"column:image_count"`
+type feedbackImageSummaryRow struct {
+	FeedbackID     uint64 `gorm:"column:feedback_id"`
+	ImageCount     int64  `gorm:"column:image_count"`
+	FirstObjectKey string `gorm:"column:first_object_key"`
 }
 
 func (store *GormStore) FindCreateReplay(ctx context.Context, key application.CreateReplayKey) (*application.FeedbackDetail, bool, error) {
@@ -100,7 +102,7 @@ func (store *GormStore) ListUserFeedbacks(ctx context.Context, userID uint, quer
 		return application.FeedbackList{}, err
 	}
 	statement := applyUserFeedbackFilters(db.Model(&userfeedbackmodel.Feedback{}), userID, query)
-	return listFeedbacks(statement, db, query.Page, query.PageSize, offset)
+	return listFeedbacks(ctx, statement, db, query.Page, query.PageSize, offset)
 }
 
 func (store *GormStore) GetUserFeedback(ctx context.Context, id uint64, userID uint) (*application.FeedbackDetail, error) {
@@ -140,7 +142,7 @@ func (store *GormStore) ListAdminFeedbacks(ctx context.Context, query applicatio
 		return application.FeedbackList{}, err
 	}
 	statement := applyAdminFeedbackFilters(db.Model(&userfeedbackmodel.Feedback{}), query, true)
-	return listFeedbacks(statement, db, query.Page, query.PageSize, offset)
+	return listFeedbacks(ctx, statement, db, query.Page, query.PageSize, offset)
 }
 
 func (store *GormStore) GetAdminFeedback(ctx context.Context, id uint64) (*application.FeedbackDetail, error) {
@@ -282,7 +284,7 @@ func feedbackContainsLikePattern(value string) string {
 	return "%" + replacer.Replace(strings.TrimSpace(value)) + "%"
 }
 
-func listFeedbacks(statement, db *gorm.DB, page, pageSize, offset int) (application.FeedbackList, error) {
+func listFeedbacks(ctx context.Context, statement, db *gorm.DB, page, pageSize, offset int) (application.FeedbackList, error) {
 	result := application.FeedbackList{List: []application.FeedbackSummary{}, Page: page, PageSize: pageSize}
 	if err := statement.Session(&gorm.Session{}).Count(&result.Total).Error; err != nil {
 		return application.FeedbackList{}, err
@@ -298,7 +300,7 @@ func listFeedbacks(statement, db *gorm.DB, page, pageSize, offset int) (applicat
 	if len(rows) == 0 {
 		return result, nil
 	}
-	summaries, err := feedbackSummaries(db, rows)
+	summaries, err := feedbackSummaries(ctx, db, rows)
 	if err != nil {
 		return application.FeedbackList{}, err
 	}
@@ -306,7 +308,7 @@ func listFeedbacks(statement, db *gorm.DB, page, pageSize, offset int) (applicat
 	return result, nil
 }
 
-func feedbackSummaries(db *gorm.DB, rows []userfeedbackmodel.Feedback) ([]application.FeedbackSummary, error) {
+func feedbackSummaries(ctx context.Context, db *gorm.DB, rows []userfeedbackmodel.Feedback) ([]application.FeedbackSummary, error) {
 	feedbackIDs := make([]uint64, 0, len(rows))
 	userIDs := make([]uint, 0, len(rows)*2)
 	seenUsers := make(map[uint]struct{}, len(rows)*2)
@@ -343,17 +345,26 @@ func feedbackSummaries(db *gorm.DB, rows []userfeedbackmodel.Feedback) ([]applic
 		}
 	}
 
-	imageRows := make([]feedbackImageCountRow, 0)
+	imageRows := make([]feedbackImageSummaryRow, 0)
 	if err := db.Model(&userfeedbackmodel.Attachment{}).
-		Select("feedback_id, COUNT(*) AS image_count").
+		Select(`user_feedback_attachments.feedback_id, COUNT(*) AS image_count,
+			COALESCE((
+				SELECT first_attachment.object_key
+				FROM user_feedback_attachments AS first_attachment
+				WHERE first_attachment.feedback_id = user_feedback_attachments.feedback_id
+				ORDER BY first_attachment.sort_order ASC, first_attachment.id ASC
+				LIMIT 1
+			), '') AS first_object_key`).
 		Where("feedback_id IN ?", feedbackIDs).
-		Group("feedback_id").
+		Group("user_feedback_attachments.feedback_id").
 		Find(&imageRows).Error; err != nil {
 		return nil, err
 	}
 	imageCounts := make(map[uint64]int64, len(imageRows))
+	firstObjectKeys := make(map[uint64]string, len(imageRows))
 	for _, row := range imageRows {
 		imageCounts[row.FeedbackID] = row.ImageCount
+		firstObjectKeys[row.FeedbackID] = row.FirstObjectKey
 	}
 
 	names, err := loadUserNames(db, userIDs)
@@ -369,6 +380,7 @@ func feedbackSummaries(db *gorm.DB, rows []userfeedbackmodel.Feedback) ([]applic
 		}
 		summary.Summary = initialContent[row.ID]
 		summary.ImageCount = imageCounts[row.ID]
+		summary.FirstImageURL = feedbackAttachmentURL(ctx, firstObjectKeys[row.ID], media.FullURLWithStaticDomainContext)
 		summaries = append(summaries, summary)
 	}
 	return summaries, nil

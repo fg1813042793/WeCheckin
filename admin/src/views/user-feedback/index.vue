@@ -8,24 +8,69 @@ export interface UserFeedbackFilterState {
   submittedDates: [string, string] | null
 }
 
-function localDateStart(value: string): number | undefined {
+export type FeedbackRequestKind = 'overview' | 'list'
+
+export interface FeedbackRequestSequences {
+  overview: number
+  list: number
+}
+
+function parseLocalDate(value: string): [number, number, number] | undefined {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) return undefined
-  const timestamp = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getTime()
+  const year = Number(match[1])
+  const monthIndex = Number(match[2]) - 1
+  const day = Number(match[3])
+  const normalized = new Date(Date.UTC(year, monthIndex, day))
+  if (normalized.getUTCFullYear() !== year || normalized.getUTCMonth() !== monthIndex || normalized.getUTCDate() !== day) return undefined
+  return [year, monthIndex, day]
+}
+
+function localDateStart(value: string): number | undefined {
+  const parts = parseLocalDate(value)
+  if (!parts) return undefined
+  const timestamp = new Date(...parts).getTime()
   return Number.isFinite(timestamp) ? timestamp : undefined
 }
 
-export function buildUserFeedbackQuery(filters: UserFeedbackFilterState, page: number, pageSize: number) {
+function localDateEnd(value: string): number | undefined {
+  const parts = parseLocalDate(value)
+  if (!parts) return undefined
+  const nextLocalDateStart = new Date(parts[0], parts[1], parts[2] + 1).getTime()
+  return Number.isFinite(nextLocalDateStart) ? nextLocalDateStart - 1 : undefined
+}
+
+export function invalidateFeedbackRequestSequences(sequences: FeedbackRequestSequences): void {
+  sequences.overview += 1
+  sequences.list += 1
+}
+
+export function applyIfFeedbackRequestCurrent(
+  sequences: FeedbackRequestSequences,
+  kind: FeedbackRequestKind,
+  sequence: number,
+  apply: () => void,
+): boolean {
+  if (sequences[kind] !== sequence) return false
+  apply()
+  return true
+}
+
+export function buildUserFeedbackQuery(
+  filters: UserFeedbackFilterState,
+  page: number,
+  pageSize: number,
+) {
   const keyword = filters.keyword.trim()
   const handlerId = Number(filters.handlerId)
   const submittedFrom = filters.submittedDates ? localDateStart(filters.submittedDates[0]) : undefined
-  const submittedStartTo = filters.submittedDates ? localDateStart(filters.submittedDates[1]) : undefined
+  const submittedTo = filters.submittedDates ? localDateEnd(filters.submittedDates[1]) : undefined
   return {
     ...(keyword ? { keyword } : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...(Number.isInteger(handlerId) && handlerId > 0 ? { handlerId } : {}),
     ...(submittedFrom !== undefined ? { submittedFrom } : {}),
-    ...(submittedStartTo !== undefined ? { submittedTo: submittedStartTo + 86_400_000 - 1 } : {}),
+    ...(submittedTo !== undefined ? { submittedTo } : {}),
     page,
     pageSize,
   }
@@ -77,8 +122,7 @@ const detailVisible = ref(false)
 const selectedFeedbackId = ref<number | null>(null)
 const detailDrawerRef = ref<DetailDrawerExposed>()
 const statusDialogRef = ref<StatusDialogExposed>()
-let overviewRequestSequence = 0
-let listRequestSequence = 0
+const requestSequences: FeedbackRequestSequences = { overview: 0, list: 0 }
 
 const canHandle = computed(() => canHandleUserFeedback())
 const tableEmpty = computed(() => !listLoading.value && !listError.value && rows.value.length === 0)
@@ -95,38 +139,47 @@ function personLabel(name: string | undefined, id: number | undefined, fallback:
 }
 
 async function loadOverview() {
-  const sequence = ++overviewRequestSequence
+  const sequence = ++requestSequences.overview
   overviewLoading.value = true
   overviewError.value = ''
   try {
     const response = await adminApi.userFeedbackOverview(buildUserFeedbackOverviewQuery(filters))
-    if (sequence === overviewRequestSequence) overview.value = response.data
+    applyIfFeedbackRequestCurrent(requestSequences, 'overview', sequence, () => {
+      overview.value = response.data
+    })
   } catch (error) {
-    if (sequence !== overviewRequestSequence) return
-    overviewError.value = '反馈统计加载失败，请重试'
-    showRequestError(error, '反馈统计加载失败')
+    applyIfFeedbackRequestCurrent(requestSequences, 'overview', sequence, () => {
+      overviewError.value = '反馈统计加载失败，请重试'
+      showRequestError(error, '反馈统计加载失败')
+    })
   } finally {
-    if (sequence === overviewRequestSequence) overviewLoading.value = false
+    applyIfFeedbackRequestCurrent(requestSequences, 'overview', sequence, () => {
+      overviewLoading.value = false
+    })
   }
 }
 
 async function loadList() {
-  const sequence = ++listRequestSequence
+  const sequence = ++requestSequences.list
   listLoading.value = true
   listError.value = ''
   try {
     const response = await adminApi.userFeedbackList(buildUserFeedbackQuery(filters, page.value, pageSize.value))
-    if (sequence !== listRequestSequence) return
-    rows.value = response.data.list
-    total.value = response.data.total
-    page.value = response.data.page
-    pageSize.value = response.data.pageSize
+    applyIfFeedbackRequestCurrent(requestSequences, 'list', sequence, () => {
+      rows.value = response.data.list
+      total.value = response.data.total
+      page.value = response.data.page
+      pageSize.value = response.data.pageSize
+    })
   } catch (error) {
-    if (sequence !== listRequestSequence) return
-    listError.value = '反馈列表加载失败，请重试'
-    showRequestError(error, '反馈列表加载失败')
+    applyIfFeedbackRequestCurrent(requestSequences, 'list', sequence, () => {
+      listError.value = '反馈列表加载失败，请重试'
+      showRequestError(error, '反馈列表加载失败')
+    })
   } finally {
-    if (sequence === listRequestSequence) listLoading.value = false
+    applyIfFeedbackRequestCurrent(requestSequences, 'list', sequence, () => {
+      listLoading.value = false
+    })
   }
 }
 
@@ -189,6 +242,7 @@ function mountPage() {
 }
 
 function unmountPage() {
+  invalidateFeedbackRequestSequences(requestSequences)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 }
 
@@ -262,7 +316,16 @@ onBeforeUnmount(unmountPage)
         <el-table-column label="内容摘要 / 首图" min-width="260">
           <template #default="{ row }">
             <div class="feedback-summary-cell">
-              <div v-if="row.imageCount > 0" class="feedback-summary-cell__image" :title="`包含 ${row.imageCount} 张图片`">
+              <el-image
+                v-if="row.firstImageUrl"
+                class="feedback-summary-cell__image"
+                :src="row.firstImageUrl"
+                :preview-src-list="[row.firstImageUrl]"
+                preview-teleported
+                fit="cover"
+                :title="`包含 ${row.imageCount} 张图片`"
+              />
+              <div v-else-if="row.imageCount > 0" class="feedback-summary-cell__image" :title="`包含 ${row.imageCount} 张图片`">
                 <el-icon><Picture /></el-icon>
               </div>
               <el-tooltip :content="row.summary || '暂无文字内容'" placement="top" :show-after="400">
