@@ -1,7 +1,9 @@
+import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { executeTypeScriptModule } from './lib/typescript-runtime.mjs'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const adminDir = resolve(currentDir, '..')
@@ -14,12 +16,11 @@ const paths = {
   status: resolve(adminDir, 'src/views/user-feedback/userFeedbackStatus.ts'),
   view: resolve(adminDir, 'src/views/user-feedback/index.vue'),
   viteConfig: resolve(adminDir, 'vite.config.ts'),
+  package: resolve(adminDir, 'package.json'),
 }
 
 for (const [name, path] of Object.entries(paths)) {
-  if (!existsSync(path)) {
-    throw new Error(`user feedback ${name} contract missing: ${path}`)
-  }
+  if (!existsSync(path)) throw new Error(`user feedback ${name} contract missing: ${path}`)
 }
 
 const sources = Object.fromEntries(
@@ -30,56 +31,70 @@ function fail(message) {
   throw new Error(`user feedback contract failed: ${message}`)
 }
 
-function assertIncludes(sourceName, snippets) {
-  for (const snippet of snippets) {
-    if (!sources[sourceName].includes(snippet)) {
-      fail(`${sourceName} missing ${snippet}`)
-    }
-  }
+function sourceFile(name) {
+  return ts.createSourceFile(paths[name], sources[name], ts.ScriptTarget.Latest, true)
 }
 
-function propertyName(node) {
-  return ts.isIdentifier(node) || ts.isStringLiteralLike(node) ? node.text : node.getText()
+function propertyName(node, file) {
+  if (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) return node.text
+  return node.getText(file)
+}
+
+function property(object, name, file) {
+  return object.properties.find(item => ts.isPropertyAssignment(item) && propertyName(item.name, file) === name)
+}
+
+function stringValue(node) {
+  return node && ts.isStringLiteralLike(node) ? node.text : undefined
+}
+
+function numberValue(node) {
+  return node && ts.isNumericLiteral(node) ? Number(node.text) : undefined
 }
 
 function interfaceContract(name) {
-  const sourceFile = ts.createSourceFile(paths.types, sources.types, ts.ScriptTarget.Latest, true)
+  const file = sourceFile('types')
   let declaration
-  sourceFile.forEachChild((node) => {
+  file.forEachChild((node) => {
     if (ts.isInterfaceDeclaration(node) && node.name.text === name) declaration = node
   })
   if (!declaration) fail(`types missing interface ${name}`)
   return {
-    extends: declaration.heritageClauses?.flatMap(clause => clause.types.map(type => type.expression.getText(sourceFile))) || [],
+    extends: declaration.heritageClauses?.flatMap(clause => clause.types.map(type => type.expression.getText(file))) || [],
     fields: Object.fromEntries(declaration.members.map((member) => {
       if (!ts.isPropertySignature(member) || !member.type) fail(`${name} contains unsupported member`)
-      return [propertyName(member.name), {
+      return [propertyName(member.name, file), {
         optional: Boolean(member.questionToken),
-        type: member.type.getText(sourceFile),
+        type: member.type.getText(file),
       }]
     })),
   }
 }
 
 function assertInterface(name, expectedFields, expectedExtends = []) {
-  const actual = interfaceContract(name)
-  if (JSON.stringify(actual.extends) !== JSON.stringify(expectedExtends)) {
-    fail(`${name} extends ${JSON.stringify(actual.extends)}, expected ${JSON.stringify(expectedExtends)}`)
-  }
-  if (JSON.stringify(actual.fields) !== JSON.stringify(expectedFields)) {
-    fail(`${name} fields do not match Backend DTO: ${JSON.stringify(actual.fields)}`)
-  }
+  assert.deepEqual(interfaceContract(name), { extends: expectedExtends, fields: expectedFields }, `${name} must match Backend DTO`)
+}
+
+function assertStringUnion(name, expected) {
+  const file = sourceFile('types')
+  let declaration
+  file.forEachChild((node) => {
+    if (ts.isTypeAliasDeclaration(node) && node.name.text === name) declaration = node
+  })
+  if (!declaration || !ts.isUnionTypeNode(declaration.type)) fail(`types missing union ${name}`)
+  const actual = declaration.type.types.map((type) => {
+    if (!ts.isLiteralTypeNode(type) || !ts.isStringLiteral(type.literal)) fail(`${name} must contain only string literals`)
+    return type.literal.text
+  })
+  assert.deepEqual(actual, expected, `${name} values must match Backend enum`)
 }
 
 const required = type => ({ optional: false, type })
 const optional = type => ({ optional: true, type })
 
-assertIncludes('types', [
-  "export type UserFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed'",
-  "export type UserFeedbackMessageType = 'initial' | 'supplement' | 'status'",
-  "export type UserFeedbackAuthorType = 'user' | 'admin'",
-])
-
+assertStringUnion('UserFeedbackStatus', ['pending', 'processing', 'resolved', 'closed'])
+assertStringUnion('UserFeedbackMessageType', ['initial', 'supplement', 'status'])
+assertStringUnion('UserFeedbackAuthorType', ['user', 'admin'])
 assertInterface('UserFeedbackOverview', {
   pending: required('number'), processing: required('number'), resolved: required('number'), closed: required('number'),
 })
@@ -115,52 +130,141 @@ assertInterface('UpdateUserFeedbackStatusInput', {
   version: required('number'), requestId: required('string'),
 })
 
-assertIncludes('api', [
-  "from '../types/userFeedback'",
-  'userFeedbackOverview(params: AdminUserFeedbackListQuery = {})',
-  'request.get<UserFeedbackOverview>(`${ADMIN_V2}/user-feedbacks/overview`, { params })',
-  'userFeedbackList(params: AdminUserFeedbackListQuery = {})',
-  'request.get<UserFeedbackList>(`${ADMIN_V2}/user-feedbacks`, { params })',
-  'userFeedbackDetail(id: ID)',
-  'request.get<UserFeedbackDetail>(`${ADMIN_V2}/user-feedbacks/${encodePath(id)}`)',
-  'userFeedbackUpdateStatus(id: ID, data: UpdateUserFeedbackStatusInput)',
-  'request.patch<UserFeedbackDetail, UpdateUserFeedbackStatusInput>(`${ADMIN_V2}/user-feedbacks/${encodePath(id)}/status`, data, jsonConfig)',
-])
+function assertFeedbackRoute() {
+  const file = sourceFile('routes')
+  const matches = []
+  const visit = (node) => {
+    if (ts.isObjectLiteralExpression(node) && stringValue(property(node, 'path', file)?.initializer) === 'user-feedbacks') {
+      matches.push(node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  assert.equal(matches.length, 1, 'exactly one user-feedbacks route object must exist')
 
-assertIncludes('routes', [
-  "path: 'user-feedbacks'",
-  "component: () => import('../views/user-feedback/index.vue')",
-  "menuPath: '/user-feedbacks'",
-  "requiredPermission: 'admin:menu:user-feedback:list'",
-  "adminUi: { version: 1, pattern: 'filter-list' }",
-])
-assertIncludes('routeMeta', ['requiredPermission?: string'])
-assertIncludes('routeAccess', [
-  'meta.requiredPermission',
-  'snapshot.permissions.includes(meta.requiredPermission)',
-])
+  const route = matches[0]
+  const component = property(route, 'component', file)?.initializer
+  assert.ok(component && ts.isArrowFunction(component), 'feedback route component must be lazy')
+  assert.ok(ts.isCallExpression(component.body), 'feedback route component must call import()')
+  assert.equal(component.body.expression.kind, ts.SyntaxKind.ImportKeyword, 'feedback route must use dynamic import')
+  assert.equal(stringValue(component.body.arguments[0]), '../views/user-feedback/index.vue')
 
-assertIncludes('status', [
-  "export const USER_FEEDBACK_LIST_PERMISSION = 'admin:menu:user-feedback:list'",
-  "export const USER_FEEDBACK_HANDLE_PERMISSION = 'admin:menu:user-feedback:handle'",
-  'export function canHandleUserFeedback',
-  'hasPerm(USER_FEEDBACK_HANDLE_PERMISSION)',
-  "pending: { label: '待处理', type: 'warning' }",
-  "processing: { label: '处理中', type: 'warning' }",
-  "resolved: { label: '已解决', type: 'success' }",
-  "closed: { label: '已关闭', type: 'info' }",
-  "pending: ['processing', 'closed']",
-  "processing: ['resolved']",
-  "resolved: ['closed', 'processing']",
-  "closed: ['processing']",
-  'export function nextUserFeedbackStatuses',
-])
-assertIncludes('view', [
-  "from '@/components/admin-ui'",
-  '<AdminPageShell',
-])
-assertIncludes('viteConfig', [
-  "'@': fileURLToPath(new URL('./src', import.meta.url))",
-])
+  const meta = property(route, 'meta', file)?.initializer
+  assert.ok(meta && ts.isObjectLiteralExpression(meta), 'feedback route meta must be an object')
+  assert.equal(stringValue(property(meta, 'menuPath', file)?.initializer), '/user-feedbacks')
+  assert.equal(stringValue(property(meta, 'requiredPermission', file)?.initializer), 'admin:menu:user-feedback:list')
+  const adminUi = property(meta, 'adminUi', file)?.initializer
+  assert.ok(adminUi && ts.isObjectLiteralExpression(adminUi), 'feedback route adminUi must be an object')
+  assert.equal(numberValue(property(adminUi, 'version', file)?.initializer), 1)
+  assert.equal(stringValue(property(adminUi, 'pattern', file)?.initializer), 'filter-list')
+}
 
-console.log('Admin user feedback contract passed.')
+assertFeedbackRoute()
+
+function assertRouteMetaType() {
+  const file = sourceFile('routeMeta')
+  let routeMeta
+  const visit = (node) => {
+    if (ts.isInterfaceDeclaration(node) && node.name.text === 'RouteMeta') routeMeta = node
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  assert.ok(routeMeta, 'RouteMeta declaration must exist')
+  const permission = routeMeta.members.find(member => ts.isPropertySignature(member) && propertyName(member.name, file) === 'requiredPermission')
+  assert.equal(permission?.type?.getText(file), 'string')
+  assert.ok(permission?.questionToken, 'requiredPermission must remain optional for existing routes')
+}
+
+assertRouteMetaType()
+
+function assertAdminApiRequests() {
+  const calls = []
+  const request = {
+    get: (...args) => calls.push({ verb: 'get', args }),
+    patch: (...args) => calls.push({ verb: 'patch', args }),
+  }
+  const apiModule = executeTypeScriptModule(sources.api, paths.api, {
+    '../utils/request': { __esModule: true, default: request },
+  })
+  const api = apiModule.adminApi
+  const query = { status: 'processing', submitterId: 12, handlerId: 21, submittedFrom: 1000, submittedTo: 2000, page: 2, pageSize: 30 }
+  const update = { status: 'resolved', note: '已处理', notifyUser: true, version: 3, requestId: 'request-1' }
+
+  api.userFeedbackOverview(query)
+  api.userFeedbackList(query)
+  api.userFeedbackDetail('feedback/42')
+  api.userFeedbackUpdateStatus(42, update)
+
+  assert.equal(calls.length, 4, 'feedback API must issue exactly one request per method')
+  assert.deepEqual(calls.map(call => call.verb), ['get', 'get', 'get', 'patch'])
+  assert.equal(calls[0].args[0], '/api/v2/admin/user-feedbacks/overview')
+  assert.equal(calls[0].args[1]?.params, query, 'overview query must be passed through params')
+  assert.deepEqual(Object.keys(calls[0].args[1]), ['params'])
+  assert.equal(calls[1].args[0], '/api/v2/admin/user-feedbacks')
+  assert.equal(calls[1].args[1]?.params, query, 'list query must be passed through params')
+  assert.deepEqual(Object.keys(calls[1].args[1]), ['params'])
+  assert.equal(calls[2].args[0], '/api/v2/admin/user-feedbacks/feedback%2F42')
+  assert.equal(calls[2].args.length, 1, 'detail request must not send an unrelated body or config')
+  assert.equal(calls[3].args[0], '/api/v2/admin/user-feedbacks/42/status')
+  assert.equal(calls[3].args[1], update, 'status payload must be the PATCH body')
+  const jsonConfig = calls[3].args[2]
+  assert.equal(jsonConfig?.headers?.['Content-Type'], 'application/json', 'status PATCH must use jsonConfig')
+  assert.equal(jsonConfig?.transformRequest?.length, 1, 'jsonConfig must retain its serializer')
+  assert.equal(jsonConfig.transformRequest[0](update), JSON.stringify(update))
+}
+
+assertAdminApiRequests()
+
+function assertRouteAccessRuntime() {
+  const accessModule = executeTypeScriptModule(sources.routeAccess, paths.routeAccess, {
+    '../api': { adminApi: {} },
+    '../utils/permission': { setPerms: () => {} },
+  })
+  const canAccess = accessModule.canAccessAdminRoute
+  const menuPath = '/user-feedbacks'
+  const permission = 'admin:menu:user-feedback:list'
+  const meta = { menuPath, requiredPermission: permission }
+
+  assert.equal(canAccess(meta, { menuPaths: new Set([menuPath]), permissions: [] }), false, 'menu without required permission must be denied')
+  assert.equal(canAccess(meta, { menuPaths: new Set([menuPath]), permissions: [permission] }), true, 'menu and required permission must be allowed')
+  assert.equal(canAccess(meta, { menuPaths: new Set(), permissions: [permission] }), false, 'permission without menu must be denied')
+  assert.equal(canAccess({ allowWithoutMenu: true, requiredPermission: permission }, { menuPaths: new Set(), permissions: [] }), true, 'allowWithoutMenu must keep its existing bypass semantics')
+}
+
+assertRouteAccessRuntime()
+
+function assertStatusRuntime() {
+  let activePermissions = new Set()
+  const statusModule = executeTypeScriptModule(sources.status, paths.status, {
+    '@/utils/permission': { hasPerm: permission => activePermissions.has(permission) },
+  })
+
+  assert.equal(statusModule.USER_FEEDBACK_LIST_PERMISSION, 'admin:menu:user-feedback:list')
+  assert.equal(statusModule.USER_FEEDBACK_HANDLE_PERMISSION, 'admin:menu:user-feedback:handle')
+  assert.deepEqual({ ...statusModule.userFeedbackStatusMeta('pending') }, { label: '待处理', type: 'warning' })
+  assert.deepEqual({ ...statusModule.userFeedbackStatusMeta('processing') }, { label: '处理中', type: 'warning' })
+  assert.deepEqual({ ...statusModule.userFeedbackStatusMeta('resolved') }, { label: '已解决', type: 'success' })
+  assert.deepEqual({ ...statusModule.userFeedbackStatusMeta('closed') }, { label: '已关闭', type: 'info' })
+  assert.deepEqual([...statusModule.nextUserFeedbackStatuses('pending')], ['processing', 'closed'])
+  assert.deepEqual([...statusModule.nextUserFeedbackStatuses('processing')], ['resolved'])
+  assert.deepEqual([...statusModule.nextUserFeedbackStatuses('resolved')], ['closed', 'processing'])
+  assert.deepEqual([...statusModule.nextUserFeedbackStatuses('closed')], ['processing'])
+
+  assert.equal(statusModule.canHandleUserFeedback(), false, 'empty permission set must not handle feedback')
+  activePermissions = new Set(['admin:menu:user-feedback:list'])
+  assert.equal(statusModule.canHandleUserFeedback(), false, 'list permission must not grant handling')
+  activePermissions = new Set(['admin:menu:user-feedback:handle'])
+  assert.equal(statusModule.canHandleUserFeedback(), true, 'handle permission must grant handling')
+}
+
+assertStatusRuntime()
+
+assert.match(sources.view, /from\s+['"]@\/components\/admin-ui['"]/)
+assert.match(sources.view, /<AdminPageShell(?:\s|>)/)
+assert.match(sources.viteConfig, /['"]@['"]\s*:\s*fileURLToPath\(new URL\(['"]\.\/src['"],\s*import\.meta\.url\)\)/)
+
+const packageJSON = JSON.parse(sources.package)
+assert.equal(packageJSON.scripts?.['check:user-feedback'], 'node scripts/check-user-feedback.mjs')
+assert.match(packageJSON.scripts?.['check:all'] || '', /(?:^|&&\s*)npm run check:user-feedback(?:\s*&&|$)/)
+
+console.log('Admin user feedback AST and runtime contract passed.')
