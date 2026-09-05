@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -34,6 +35,22 @@ type StoredFile struct {
 	IsLocal     bool
 }
 
+func DeleteStoredFile(ctx context.Context, stored *StoredFile) error {
+	if stored == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if stored.IsLocal {
+		if err := os.Remove(stored.LocalPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("删除本地存储对象失败: %w", err)
+		}
+		return nil
+	}
+	return deleteAliyun(ctx, stored.ObjectKey)
+}
+
 func SaveMultipartFile(ctx context.Context, file *multipart.FileHeader, options SaveOptions) (*StoredFile, error) {
 	if file == nil {
 		return nil, fmt.Errorf("上传文件为空")
@@ -43,6 +60,13 @@ func SaveMultipartFile(ctx context.Context, file *multipart.FileHeader, options 
 		return nil, fmt.Errorf("打开上传文件: %w", err)
 	}
 	defer src.Close()
+	return SaveReader(ctx, src, file.Filename, options)
+}
+
+func SaveReader(ctx context.Context, src io.Reader, originalFilename string, options SaveOptions) (*StoredFile, error) {
+	if src == nil {
+		return nil, fmt.Errorf("上传文件为空")
+	}
 
 	now := options.Now
 	if now.IsZero() {
@@ -50,7 +74,7 @@ func SaveMultipartFile(ctx context.Context, file *multipart.FileHeader, options 
 	}
 	filename := strings.TrimSpace(options.Filename)
 	if filename == "" {
-		filename = fmt.Sprintf("%d_%s", now.UnixNano(), filepath.Base(file.Filename))
+		filename = fmt.Sprintf("%d_%s", now.UnixNano(), filepath.Base(originalFilename))
 	}
 	filename = filepath.Base(filename)
 	prefix := strings.Trim(strings.TrimSpace(options.Prefix), "/")
