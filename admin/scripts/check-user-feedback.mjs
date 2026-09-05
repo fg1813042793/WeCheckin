@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { compileTemplate, parse as parseSFC } from '@vue/compiler-sfc'
 import ts from 'typescript'
 import { executeTypeScriptModule } from './lib/typescript-runtime.mjs'
 
@@ -15,6 +16,10 @@ const paths = {
   routeAccess: resolve(adminDir, 'src/router/adminAccess.ts'),
   status: resolve(adminDir, 'src/views/user-feedback/userFeedbackStatus.ts'),
   view: resolve(adminDir, 'src/views/user-feedback/index.vue'),
+  overview: resolve(adminDir, 'src/views/user-feedback/components/UserFeedbackOverview.vue'),
+  detailDrawer: resolve(adminDir, 'src/views/user-feedback/components/UserFeedbackDetailDrawer.vue'),
+  timeline: resolve(adminDir, 'src/views/user-feedback/components/UserFeedbackTimeline.vue'),
+  statusDialog: resolve(adminDir, 'src/views/user-feedback/components/UserFeedbackStatusDialog.vue'),
   viteConfig: resolve(adminDir, 'vite.config.ts'),
   package: resolve(adminDir, 'package.json'),
 }
@@ -33,6 +38,109 @@ function fail(message) {
 
 function sourceFile(name) {
   return ts.createSourceFile(paths[name], sources[name], ts.ScriptTarget.Latest, true)
+}
+
+function componentContract(name) {
+  const { descriptor, errors } = parseSFC(sources[name], { filename: paths[name] })
+  assert.deepEqual(errors, [], `${name} must be a valid Vue SFC`)
+  assert.ok(descriptor.template, `${name} must contain a template`)
+  assert.ok(descriptor.scriptSetup, `${name} must use script setup`)
+  const compiledTemplate = compileTemplate({
+    source: descriptor.template.content,
+    filename: paths[name],
+    id: `user-feedback-${name}`,
+  })
+  assert.deepEqual(compiledTemplate.errors, [], `${name} template must compile`)
+  const script = [descriptor.script?.content || '', descriptor.scriptSetup.content].join('\n')
+  return {
+    descriptor,
+    template: descriptor.template.ast,
+    script,
+    scriptFile: ts.createSourceFile(`${paths[name]}.ts`, script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS),
+  }
+}
+
+function visit(node, callback) {
+  callback(node)
+  for (const child of node.children || []) visit(child, callback)
+}
+
+function elements(template, tag) {
+  const found = []
+  visit(template, (node) => {
+    if (node.type === 1 && node.tag === tag) found.push(node)
+  })
+  return found
+}
+
+function templateProp(element, name, directiveName = '') {
+  return element.props.find((prop) => {
+    if (prop.type === 6) return !directiveName && prop.name === name
+    if (prop.type !== 7 || prop.name !== directiveName) return false
+    if (!prop.arg) return name === directiveName
+    return prop.arg?.type === 4 && prop.arg.content === name
+  })
+}
+
+function attributeValue(element, name) {
+  const prop = templateProp(element, name)
+  return prop?.type === 6 ? prop.value?.content ?? true : undefined
+}
+
+function directiveExpression(element, name, directiveName) {
+  const prop = templateProp(element, name, directiveName)
+  return prop?.type === 7 ? prop.exp?.content || '' : ''
+}
+
+function functionNode(file, name) {
+  let found
+  const find = (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === name) found = node
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name
+      && node.initializer && (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))) {
+      found = node.initializer
+    }
+    ts.forEachChild(node, find)
+  }
+  find(file)
+  assert.ok(found, `missing function ${name}`)
+  return found
+}
+
+function callsIn(node, file) {
+  const calls = []
+  const find = (child) => {
+    if (ts.isCallExpression(child)) calls.push(child.expression.getText(file))
+    ts.forEachChild(child, find)
+  }
+  find(node)
+  return calls
+}
+
+function assertCalls(file, functionName, expected) {
+  const calls = callsIn(functionNode(file, functionName), file)
+  for (const callee of expected) {
+    assert.ok(calls.includes(callee), `${functionName} must call ${callee}; got ${calls.join(', ')}`)
+  }
+}
+
+function firstStatement(file, functionName) {
+  const fn = functionNode(file, functionName)
+  assert.ok(fn.body && ts.isBlock(fn.body), `${functionName} must use a block body`)
+  assert.ok(fn.body.statements.length > 0, `${functionName} must not be empty`)
+  return fn.body.statements[0]
+}
+
+function catchClause(file, functionName) {
+  const fn = functionNode(file, functionName)
+  let found
+  const find = (node) => {
+    if (ts.isCatchClause(node)) found = node
+    ts.forEachChild(node, find)
+  }
+  find(fn)
+  assert.ok(found, `${functionName} must handle request failures`)
+  return found
 }
 
 function propertyName(node, file) {
@@ -259,12 +367,190 @@ function assertStatusRuntime() {
 
 assertStatusRuntime()
 
-assert.match(sources.view, /from\s+['"]@\/components\/admin-ui['"]/)
-assert.match(sources.view, /<AdminPageShell(?:\s|>)/)
+const view = componentContract('view')
+const overview = componentContract('overview')
+const detailDrawer = componentContract('detailDrawer')
+const timeline = componentContract('timeline')
+const statusDialog = componentContract('statusDialog')
+
+function assertAdminUIImports() {
+  const imports = new Map()
+  for (const statement of view.scriptFile.statements) {
+    if (!ts.isImportDeclaration(statement) || stringValue(statement.moduleSpecifier) !== '@/components/admin-ui') continue
+    for (const item of statement.importClause?.namedBindings?.elements || []) imports.set(item.name.text, true)
+  }
+  for (const name of ['AdminPageShell', 'AdminPageHeader', 'AdminSearchBar', 'AdminTablePanel']) {
+    assert.ok(imports.has(name), `view must import ${name} from the Admin UI component index`)
+    assert.equal(elements(view.template, name).length, 1, `view must render exactly one ${name}`)
+  }
+}
+
+assertAdminUIImports()
+
+function assertPageTemplate() {
+  assert.equal(elements(view.template, 'UserFeedbackOverview').length, 1)
+  assert.equal(elements(view.template, 'UserFeedbackDetailDrawer').length, 1)
+  assert.equal(elements(view.template, 'UserFeedbackStatusDialog').length, 1)
+
+  const filterLabels = elements(view.template, 'el-form-item').map(item => attributeValue(item, 'label'))
+  for (const label of ['编号 / 用户 / 消息', '状态', '处理人 ID', '提交时间']) {
+    assert.ok(filterLabels.includes(label), `view filters must include ${label}`)
+  }
+
+  const columnLabels = elements(view.template, 'el-table-column').map(item => attributeValue(item, 'label'))
+  for (const label of ['反馈编号', '内容摘要 / 首图', '提交人', '状态', '处理人', '图片数', '最近活动', '提交时间', '操作']) {
+    assert.ok(columnLabels.includes(label), `feedback table must include ${label}`)
+  }
+
+  const panel = elements(view.template, 'AdminTablePanel')[0]
+  for (const prop of ['loading', 'empty', 'error']) {
+    assert.ok(directiveExpression(panel, prop, 'bind'), `table panel must bind ${prop}`)
+  }
+  const pagination = elements(view.template, 'el-pagination')[0]
+  assert.ok(pagination, 'feedback table must render pagination')
+  assert.ok(directiveExpression(pagination, 'current-page', 'model'), 'pagination must bind current page')
+  assert.ok(directiveExpression(pagination, 'page-size', 'model'), 'pagination must bind page size')
+}
+
+assertPageTemplate()
+
+function assertPageRefreshRuntime() {
+  assertCalls(view.scriptFile, 'loadOverview', ['adminApi.userFeedbackOverview'])
+  assertCalls(view.scriptFile, 'loadList', ['adminApi.userFeedbackList'])
+  assertCalls(view.scriptFile, 'refreshOverviewAndList', ['loadOverview', 'loadList'])
+  assertCalls(view.scriptFile, 'handleOverviewSelect', ['refreshOverviewAndList'])
+  assertCalls(view.scriptFile, 'handleVisibilityChange', ['refreshOverviewAndList'])
+  assertCalls(view.scriptFile, 'mountPage', ['refreshOverviewAndList', 'document.addEventListener'])
+  assertCalls(view.scriptFile, 'unmountPage', ['document.removeEventListener'])
+  assertCalls(view.scriptFile, 'handleStatusSuccess', ['loadOverview', 'loadList'])
+  assert.match(functionNode(view.scriptFile, 'handleStatusSuccess').getText(view.scriptFile), /detailDrawerRef\.value\?\.refresh\(\)/)
+  const openStatusGuard = firstStatement(view.scriptFile, 'openStatusDialog')
+  assert.ok(ts.isIfStatement(openStatusGuard), 'page status dialog handler must start with a permission guard')
+  assert.match(openStatusGuard.getText(view.scriptFile), /canHandleUserFeedback\(\)/)
+  assert.doesNotMatch(view.script, /\bsetInterval\s*\(/, 'feedback page must not poll on an interval')
+}
+
+assertPageRefreshRuntime()
+
+function assertFilterQueryRuntime() {
+  const exported = executeTypeScriptModule(view.descriptor.script?.content || '', `${paths.view}.module.ts`)
+  const filters = {
+    keyword: '  FB-20260905 用户补充  ',
+    status: 'processing',
+    handlerId: 17,
+    submittedDates: ['2026-09-01', '2026-09-05'],
+  }
+  const query = { ...exported.buildUserFeedbackQuery(filters, 3, 50) }
+  assert.equal(query.keyword, 'FB-20260905 用户补充')
+  assert.equal(query.status, 'processing')
+  assert.equal(query.handlerId, 17)
+  assert.equal(query.page, 3)
+  assert.equal(query.pageSize, 50)
+  assert.equal(query.submittedTo - new Date(2026, 8, 5).getTime(), 86_400_000 - 1)
+  assert.equal(query.submittedFrom, new Date(2026, 8, 1).getTime())
+
+  const overviewQuery = { ...exported.buildUserFeedbackOverviewQuery(filters) }
+  assert.equal('status' in overviewQuery, false, 'overview must aggregate every status under the other filters')
+  assert.equal('page' in overviewQuery, false, 'overview must not send pagination')
+  assert.equal('pageSize' in overviewQuery, false, 'overview must not send pagination')
+  assert.equal(overviewQuery.keyword, query.keyword)
+  assert.equal(overviewQuery.handlerId, query.handlerId)
+  assert.equal(overviewQuery.submittedFrom, query.submittedFrom)
+  assert.equal(overviewQuery.submittedTo, query.submittedTo)
+
+  const emptyQuery = { ...exported.buildUserFeedbackQuery({
+    keyword: '   ',
+    status: '',
+    handlerId: 0,
+    submittedDates: null,
+  }, 1, 20) }
+  assert.deepEqual(emptyQuery, { page: 1, pageSize: 20 }, 'empty filters must not emit ambiguous query values')
+}
+
+assertFilterQueryRuntime()
+
+function assertOverviewComponent() {
+  const buttons = elements(overview.template, 'button')
+  assert.equal(buttons.length, 1, 'overview must use one repeated semantic button')
+  assert.match(directiveExpression(buttons[0], 'for', 'for'), /overviewItems/)
+  assert.match(directiveExpression(buttons[0], 'click', 'on'), /emit\('select'/)
+  for (const status of ['pending', 'processing', 'resolved', 'closed']) {
+    assert.match(overview.script, new RegExp(`status:\\s*'${status}'`), `overview must render ${status}`)
+  }
+  assert.ok(elements(overview.template, 'el-alert').length > 0, 'overview must expose its error state')
+  assert.ok(elements(overview.template, 'el-skeleton').length > 0, 'overview must expose its loading state')
+}
+
+assertOverviewComponent()
+
+function assertDetailDrawerComponent() {
+  const drawers = elements(detailDrawer.template, 'AdminDrawer')
+  assert.equal(drawers.length, 1)
+  assert.match(directiveExpression(drawers[0], 'show-footer', 'bind'), /canHandle/, 'detail drawer footer must not render without handle permission')
+  assert.match(directiveExpression(drawers[0], 'confirm', 'on'), /requestStatusUpdate/, 'fixed drawer footer must enter the guarded update handler')
+  assert.equal(elements(detailDrawer.template, 'UserFeedbackTimeline').length, 1)
+  const first = firstStatement(detailDrawer.scriptFile, 'requestStatusUpdate')
+  assert.ok(ts.isIfStatement(first), 'drawer update handler must start with a permission guard')
+  assert.match(first.getText(detailDrawer.scriptFile), /canHandleUserFeedback\(\)/)
+  assertCalls(detailDrawer.scriptFile, 'loadDetail', ['adminApi.userFeedbackDetail'])
+  assert.match(detailDrawer.script, /defineExpose\s*\(\s*\{\s*refresh:\s*loadDetail\s*\}\s*\)/)
+}
+
+assertDetailDrawerComponent()
+
+function assertTimelineComponent() {
+  assert.equal(elements(timeline.template, 'el-timeline').length, 1)
+  assert.equal(elements(timeline.template, 'el-timeline-item').length, 1, 'timeline must repeat one timeline item template')
+  const images = elements(timeline.template, 'el-image')
+  assert.equal(images.length, 1, 'timeline must use one repeated image preview')
+  assert.ok(directiveExpression(images[0], 'preview-src-list', 'bind'), 'timeline images must expose preview sources')
+  assert.equal(attributeValue(images[0], 'preview-teleported'), true, 'image preview must be teleported')
+  assert.match(timeline.script, /\.sort\s*\(.*createdAt/s, 'timeline must sort all messages by createdAt')
+  for (const messageType of ['initial', 'supplement', 'status']) {
+    assert.match(timeline.script, new RegExp(`case\\s+'${messageType}'`), `timeline must label ${messageType} messages`)
+  }
+}
+
+assertTimelineComponent()
+
+function assertStatusDialogComponent() {
+  const dialogs = elements(statusDialog.template, 'AdminDialog')
+  assert.equal(dialogs.length, 1)
+  assert.equal(attributeValue(dialogs[0], 'append-to-body'), true, 'status dialog must append to body')
+  assert.equal(elements(statusDialog.template, 'el-select').length, 1)
+  assert.equal(elements(statusDialog.template, 'el-input').length, 1)
+  assert.equal(elements(statusDialog.template, 'el-switch').length, 1)
+
+  for (const functionName of ['open', 'submit']) {
+    const first = firstStatement(statusDialog.scriptFile, functionName)
+    assert.ok(ts.isIfStatement(first), `${functionName} must start with a permission guard`)
+    assert.match(first.getText(statusDialog.scriptFile), /canHandleUserFeedback\(\)/)
+  }
+  assertCalls(statusDialog.scriptFile, 'submit', ['adminApi.userFeedbackUpdateStatus'])
+  const submit = functionNode(statusDialog.scriptFile, 'submit').getText(statusDialog.scriptFile)
+  assert.match(submit, /nextUserFeedbackStatuses/, 'submit must re-check the legal transition')
+  assert.match(submit, /visible\.value\s*=\s*false/, 'dialog may close after a successful request')
+  const failed = catchClause(statusDialog.scriptFile, 'submit').getText(statusDialog.scriptFile)
+  assert.doesNotMatch(failed, /visible\.value\s*=\s*false/, 'request failure must keep the dialog open')
+  assert.doesNotMatch(failed, /form\.(?:status|note|notifyUser)\s*=|requestId\.value\s*=/, 'request failure must retain the draft and request id')
+  assert.match(failed, /反馈已更新，请刷新详情后再处理/, 'version conflict must prompt the user to refresh detail')
+  assert.equal((statusDialog.script.match(/requestId\.value\s*=\s*newRequestId\(\)/g) || []).length, 1, 'request id must be created once when opening')
+
+  const exported = executeTypeScriptModule(statusDialog.descriptor.script?.content || '', `${paths.statusDialog}.module.ts`)
+  assert.equal(exported.requiresStatusNote('pending', 'processing'), false)
+  for (const [from, to] of [['pending', 'closed'], ['processing', 'resolved'], ['resolved', 'closed'], ['resolved', 'processing'], ['closed', 'processing']]) {
+    assert.equal(exported.requiresStatusNote(from, to), true, `${from} -> ${to} must require a note`)
+  }
+  assert.equal(exported.isVersionConflict({ msg: '反馈已更新，请刷新后重试' }), true)
+  assert.equal(exported.isVersionConflict({ msg: '网络错误' }), false)
+}
+
+assertStatusDialogComponent()
+
 assert.match(sources.viteConfig, /['"]@['"]\s*:\s*fileURLToPath\(new URL\(['"]\.\/src['"],\s*import\.meta\.url\)\)/)
 
 const packageJSON = JSON.parse(sources.package)
 assert.equal(packageJSON.scripts?.['check:user-feedback'], 'node scripts/check-user-feedback.mjs')
 assert.match(packageJSON.scripts?.['check:all'] || '', /(?:^|&&\s*)npm run check:user-feedback(?:\s*&&|$)/)
 
-console.log('Admin user feedback AST and runtime contract passed.')
+console.log('Admin user feedback page AST and runtime contract passed.')
