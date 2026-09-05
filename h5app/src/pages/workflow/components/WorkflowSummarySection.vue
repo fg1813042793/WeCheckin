@@ -267,10 +267,10 @@ function formatTime(timestamp?: number) {
           </view>
         </view>
         <view class="workflow-summary__filter-actions">
-          <u-button size="small" plain :disabled="loading" @click="resetFilters">
+          <u-button custom-class="workflow-summary__filter-action" size="small" plain :disabled="loading" @click="resetFilters">
             重置
           </u-button>
-          <u-button size="small" type="primary" :loading="loading" @click="querySummary">
+          <u-button custom-class="workflow-summary__filter-action" size="small" type="primary" :loading="loading" @click="querySummary">
             查询
           </u-button>
         </view>
@@ -279,7 +279,7 @@ function formatTime(timestamp?: number) {
 
     <view class="workflow-summary__toolbar">
       <view class="workflow-summary__toolbar-main">
-        <u-button size="small" plain :disabled="loading || instances.length === 0" @click="toggleCurrentPage">
+        <u-button custom-class="workflow-summary__toolbar-button" size="small" plain :disabled="loading || instances.length === 0" @click="toggleCurrentPage">
           <u-icon :name="allCurrentPageSelected ? 'checkbox-mark' : 'grid'" size="18" color="#4e5969" />
           <text>{{ allCurrentPageSelected ? '取消本页全选' : '本页全选' }}</text>
         </u-button>
@@ -299,7 +299,7 @@ function formatTime(timestamp?: number) {
             Word
           </option>
         </select>
-        <u-button size="small" type="primary" :disabled="selectedIds.length === 0" @click="exportInstances(selectedIds)">
+        <u-button custom-class="workflow-summary__export-button" size="small" type="primary" :disabled="selectedIds.length === 0" @click="exportInstances(selectedIds)">
           <u-icon name="download" size="18" color="#ffffff" />
           <text>批量导出</text>
         </u-button>
@@ -353,32 +353,73 @@ function formatTime(timestamp?: number) {
           </view>
           <view v-for="instance in instances" :key="instance.id" class="workflow-summary__row">
             <view class="workflow-summary__cell workflow-summary__cell--check">
-              <u-checkbox :value="instance.id" label="" />
+              <u-checkbox custom-class="workflow-summary__checkbox" :value="instance.id" label="" />
+              <text class="workflow-summary__mobile-label">
+                选择
+              </text>
             </view>
-            <text class="workflow-summary__cell workflow-summary__cell--definition">
-              {{ instance.definitionName || instance.definitionKey || '-' }}
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--key">
-              {{ instance.businessKey || instance.id }}
-            </text>
-            <text class="workflow-summary__cell">
-              {{ instance.starterName || instance.starterId || '-' }}
-            </text>
-            <text class="workflow-summary__cell">
-              {{ instance.operatorName || instance.operatorId || '-' }}
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--version">
-              v{{ instance.definitionVersion }}
-            </text>
+            <view class="workflow-summary__cell workflow-summary__cell--definition">
+              <text class="workflow-summary__mobile-label">
+                流程名称
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ instance.definitionName || instance.definitionKey || '-' }}
+              </text>
+            </view>
+            <view class="workflow-summary__cell workflow-summary__cell--key">
+              <text class="workflow-summary__mobile-label">
+                申请编号
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ instance.businessKey || instance.id }}
+              </text>
+            </view>
+            <view class="workflow-summary__cell workflow-summary__cell--starter">
+              <text class="workflow-summary__mobile-label">
+                发起人
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ instance.starterName || instance.starterId || '-' }}
+              </text>
+            </view>
+            <view class="workflow-summary__cell workflow-summary__cell--operator workflow-summary__cell--mobile-secondary">
+              <text class="workflow-summary__mobile-label">
+                操作人
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ instance.operatorName || instance.operatorId || '-' }}
+              </text>
+            </view>
+            <view class="workflow-summary__cell workflow-summary__cell--version workflow-summary__cell--mobile-secondary">
+              <text class="workflow-summary__mobile-label">
+                版本
+              </text>
+              <text class="workflow-summary__cell-value">
+                v{{ instance.definitionVersion }}
+              </text>
+            </view>
             <view class="workflow-summary__cell workflow-summary__cell--status">
+              <text class="workflow-summary__mobile-label">
+                状态
+              </text>
               <u-tag :text="workflowInstanceStatusMeta(instance.status).label" :type="workflowInstanceStatusMeta(instance.status).type" size="mini" />
             </view>
-            <text class="workflow-summary__cell workflow-summary__cell--time">
-              {{ formatTime(instance.startTime) }}
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--time">
-              {{ formatTime(instance.endTime) }}
-            </text>
+            <view class="workflow-summary__cell workflow-summary__cell--time workflow-summary__cell--start-time">
+              <text class="workflow-summary__mobile-label">
+                发起时间
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ formatTime(instance.startTime) }}
+              </text>
+            </view>
+            <view class="workflow-summary__cell workflow-summary__cell--time workflow-summary__cell--end-time workflow-summary__cell--mobile-secondary">
+              <text class="workflow-summary__mobile-label">
+                完成时间
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ formatTime(instance.endTime) }}
+              </text>
+            </view>
             <view class="workflow-summary__cell workflow-summary__cell--action">
               <text class="workflow-summary__link" @click="openDetail(instance.id)">
                 查看
@@ -610,6 +651,18 @@ function formatTime(timestamp?: number) {
   box-sizing: border-box;
 }
 
+.workflow-summary__cell-value {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-summary__mobile-label {
+  display: none;
+}
+
 .workflow-summary__cell--check,
 .workflow-summary__cell--version,
 .workflow-summary__cell--status {
@@ -701,11 +754,15 @@ function formatTime(timestamp?: number) {
 
 @media (max-width: 768px) {
   .workflow-summary {
-    padding: 14px 12px 18px;
+    width: 100%;
+    gap: 10px;
+    padding: 12px 10px 16px;
+    overflow-x: hidden;
   }
 
   .workflow-summary__filters {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .workflow-summary__filter--definition-name,
@@ -720,19 +777,221 @@ function formatTime(timestamp?: number) {
   }
 
   .workflow-summary__date-range {
-    align-items: stretch;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+  }
+
+  .workflow-summary__date-range > text {
+    color: #86909c;
+    font-size: 12px;
+  }
+
+  .workflow-summary__filter-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
+  }
+
+  .workflow-summary__filter-action,
+  :deep(.workflow-summary__filter-action),
+  .workflow-summary__toolbar-button,
+  :deep(.workflow-summary__toolbar-button),
+  .workflow-summary__export-button,
+  :deep(.workflow-summary__export-button) {
+    width: 100%;
+    min-width: 0;
   }
 
   .workflow-summary__toolbar,
   .workflow-summary__pagination {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #e5e9ef;
+    border-radius: 6px;
     align-items: stretch;
     flex-direction: column;
+    background: #ffffff;
+    box-sizing: border-box;
   }
 
   .workflow-summary__toolbar-main,
   .workflow-summary__export-actions {
+    width: 100%;
+    display: grid;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .workflow-summary__toolbar-main {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .workflow-summary__export-actions {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .workflow-summary__select--format {
+    width: 96px;
+  }
+
+  .workflow-summary__table-scroll {
+    border: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  :deep(.workflow-summary__table-scroll .u-checkbox-group) {
+    width: 100%;
+  }
+
+  .workflow-summary__table {
+    min-width: 0;
+    display: grid;
+    gap: 10px;
+  }
+
+  .workflow-summary__row--header {
+    display: none;
+  }
+
+  .workflow-summary__row:not(.workflow-summary__row--header) {
+    min-height: 0;
+    padding: 12px;
+    border: 1px solid #e5e9ef;
+    border-radius: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 12px 14px;
+    background: #ffffff;
+  }
+
+  .workflow-summary__row:last-child {
+    border-bottom: 1px solid #e5e9ef;
+  }
+
+  .workflow-summary__cell {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    overflow: visible;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .workflow-summary__mobile-label {
+    display: block;
+    color: #86909c;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .workflow-summary__cell-value {
+    width: 100%;
+    color: #4e5969;
+    font-size: 13px;
+    line-height: 20px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .workflow-summary__cell--check {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .workflow-summary__checkbox,
+  :deep(.workflow-summary__checkbox) {
+    flex: 0 0 auto;
+    margin: 0;
+    line-height: 1;
+  }
+
+  :deep(.workflow-summary__checkbox .u-checkbox__label) {
+    display: none;
+  }
+
+  .workflow-summary__cell--status {
+    grid-column: 2;
+    grid-row: 1;
+    align-items: flex-end;
+  }
+
+  .workflow-summary__cell--definition {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .workflow-summary__cell--definition .workflow-summary__cell-value {
+    color: #1f2329;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .workflow-summary__cell--key {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .workflow-summary__cell--starter {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .workflow-summary__cell--start-time {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .workflow-summary__cell--mobile-secondary {
+    display: none;
+  }
+
+  .workflow-summary__cell--action {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    min-height: 32px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .workflow-summary__link {
+    min-width: 44px;
+    min-height: 32px;
+    padding: 0 8px;
+    border: 1px solid #b7d8d4;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .workflow-summary__pagination {
+    gap: 10px;
+  }
+
+  .workflow-summary__page-size {
     justify-content: space-between;
+  }
+
+  :deep(.workflow-summary__pagination-control) {
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    gap: 4px;
   }
 }
 </style>

@@ -51,6 +51,9 @@ func PostHandleFormPermissions(definition Definition, handledNodeIDs []string) [
 					access = permission.Access
 				}
 			}
+			if field.Type == FormFieldTypeCalculation && access == FieldAccessWrite {
+				access = FieldAccessRead
+			}
 			if access == FieldAccessWrite {
 				if _, blocked := routingFields[field.Key]; blocked {
 					access = FieldAccessRead

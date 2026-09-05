@@ -43,6 +43,10 @@
     </el-checkbox-group>
     <el-switch v-else-if="field.type === 'boolean'" :model-value="Boolean(field.default)" disabled />
     <el-button v-else-if="field.type === 'attachment'" icon="Upload" disabled>选择附件</el-button>
+    <div v-else-if="field.type === 'calculation'" class="calculation-preview" :class="`calculation-preview--${field.calculation?.display === 'label' ? 'label' : 'field'}`">
+      <span>fx</span>
+      <strong>{{ field.calculation?.expression || '请配置计算公式' }}</strong>
+    </div>
     <el-input
       v-else-if="field.type === 'textarea'"
       :model-value="stringDefault"
@@ -85,6 +89,10 @@ function columnSpan(column: WorkflowFormField) {
 .nested-field-preview :deep(.el-checkbox-group) { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .nested-field-preview :deep(.el-radio),
 .nested-field-preview :deep(.el-checkbox) { margin-right: 0; }
+.calculation-preview { min-height: 34px; padding: 7px 10px; border: 1px solid #dfe6ee; border-radius: 5px; display: flex; align-items: center; gap: 8px; box-sizing: border-box; color: #475569; background: #f8fafc; font-size: 12px; }
+.calculation-preview span { color: #1677ff; font-weight: 700; }
+.calculation-preview strong { min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.calculation-preview--label { border-color: transparent; background: transparent; }
 .detail-preview { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #e6ebf1; border-radius: 6px; background: #f8fafc; }
 .detail-preview__grid {
   display: grid;

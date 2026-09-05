@@ -86,6 +86,10 @@ func (service *Service) StartInstance(ctx context.Context, request StartInstance
 		if err := workflowcore.ValidateStartFormData(definition, request.FormData); err != nil {
 			return err
 		}
+		request.FormData, err = workflowcore.ApplyFormCalculations(definition.Form, request.FormData)
+		if err != nil {
+			return err
+		}
 		startLimit := definitionStartLimitConfig(definition)
 		if startLimit.Mode == workflowcore.StartLimitModeLimited {
 			window, ok := workflowcore.ResolveStartLimitWindow(&startLimit, availability, startedAt)
@@ -178,6 +182,10 @@ func (service *Service) SaveStartDraft(ctx context.Context, request SaveStartDra
 		request.FormData = make(map[string]interface{})
 	}
 	if err := workflowcore.ValidateFormData(definition.Form, request.FormData, true); err != nil {
+		return nil, err
+	}
+	request.FormData, err = workflowcore.ApplyFormCalculations(definition.Form, request.FormData)
+	if err != nil {
 		return nil, err
 	}
 	store, err := service.startDraftStore()

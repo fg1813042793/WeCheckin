@@ -17,6 +17,7 @@
             :field-actions="props.fieldActions"
             :readonly="readonly"
             :user-name-map="props.userNameMap"
+            :calculation-fields="calculationFields || fields"
             embedded
             :show-errors="errorsVisible"
             @update:model-value="emit('update:modelValue', $event)"
@@ -40,12 +41,20 @@
         >
           <el-button @click="openFieldHelp(field)">{{ field.label }}</el-button>
         </div>
+        <div
+          v-else-if="field.type === 'calculation' && calculationDisplay(field) === 'label'"
+          class="runtime-form-calculation-label"
+          :style="{ gridColumn: `span ${fieldSpan(field)}` }"
+        >
+          <span>{{ field.label || field.key }}</span>
+          <strong>{{ calculationText(field) }}</strong>
+        </div>
         <el-form-item
-        v-else
-        :required="fieldIsRequired(field) && !fieldReadonly(field)"
-        :error="fieldError(field)"
-        :style="{ gridColumn: `span ${fieldSpan(field)}` }"
-      >
+          v-else
+          :required="fieldIsRequired(field) && !fieldReadonly(field)"
+          :error="fieldError(field)"
+          :style="{ gridColumn: `span ${fieldSpan(field)}` }"
+        >
         <template #label>
           <span class="runtime-field-label">
             <span>{{ field.label || field.key }}</span>
@@ -55,7 +64,12 @@
           </span>
         </template>
         <el-input
-          v-if="field.type === 'user' && fieldReadonly(field)"
+          v-if="field.type === 'calculation'"
+          :model-value="calculationText(field)"
+          readonly
+        />
+        <el-input
+          v-else-if="field.type === 'user' && fieldReadonly(field)"
           :model-value="userDisplayName(stringValue(field))"
           readonly
         />
@@ -434,6 +448,7 @@ import { ElForm, ElMessage } from 'element-plus'
 import request from '../../../utils/request'
 import type { WorkflowFieldAccess, WorkflowFormField, WorkflowFormHelp, WorkflowFormOption, WorkflowOptionSource } from '../types'
 import { workflowDataFields } from '../formLayout'
+import { calculateWorkflowFormData, evaluateWorkflowCalculation, workflowCalculationDisplay, workflowCalculationPrecision } from '../workflowCalculation'
 import {
   createWorkflowDetailRow,
   emptyWorkflowFieldValue,
@@ -464,6 +479,7 @@ const props = withDefaults(defineProps<{
   embedded?: boolean
   showErrors?: boolean
   userNameMap?: Record<string, string>
+  calculationFields?: WorkflowFormField[]
 }>(), {
   readonly: false,
   emptyText: '暂无流程表单',
@@ -488,7 +504,7 @@ const touchedFields = reactive<Record<string, boolean>>({})
 const accessMap = computed<WorkflowFieldAccessMap>(() => {
   const result: WorkflowFieldAccessMap = {}
   for (const field of workflowDataFields(props.fields || [])) {
-    if (field?.key) result[field.key] = props.fieldAccess?.[field.key] || 'write'
+    if (field?.key) result[field.key] = field.type === 'calculation' ? 'read' : props.fieldAccess?.[field.key] || 'write'
   }
   return result
 })
@@ -514,7 +530,18 @@ function fieldAccess(field: WorkflowFormField): WorkflowFieldAccess {
 }
 
 function fieldReadonly(field: WorkflowFormField) {
-  return props.readonly || fieldAccess(field) !== 'write'
+  return field.type === 'calculation' || props.readonly || fieldAccess(field) !== 'write'
+}
+
+function calculationDisplay(field: WorkflowFormField) {
+  return workflowCalculationDisplay(field.calculation)
+}
+
+function calculationText(field: WorkflowFormField) {
+  const result = evaluateWorkflowCalculation(field, props.modelValue || {})
+  if (result.error || result.value === undefined)
+    return '-'
+  return result.value.toFixed(workflowCalculationPrecision(field.calculation))
 }
 
 function fieldIsRequired(field: WorkflowFormField) {
@@ -759,8 +786,12 @@ function emitFormData(next: WorkflowFormData) {
 }
 
 function updateField(field: WorkflowFormField, value: unknown) {
-	touchedFields[field.key] = true
-  emitFormData({ ...(props.modelValue || {}), [field.key]: normalizeWorkflowFormValue(field, value) })
+  touchedFields[field.key] = true
+  const next = calculateWorkflowFormData(props.calculationFields || props.fields, {
+    ...(props.modelValue || {}),
+    [field.key]: normalizeWorkflowFormValue(field, value),
+  })
+  emitFormData(next)
 }
 
 function updateArrayTextField(field: WorkflowFormField, value: string | number) {
@@ -845,6 +876,8 @@ defineExpose({ validate, resetValidation })
 .runtime-form-label { align-self: end; margin: 8px 0 10px; color: #273548; font-size: 15px; line-height: 1.5; }
 .runtime-form-description { margin: 0 0 16px; color: #64748b; font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
 .runtime-form-button { display: flex; align-items: flex-start; margin-bottom: 16px; }
+.runtime-form-calculation-label { min-width: 0; margin-bottom: 16px; padding: 10px 12px; border-left: 3px solid #1677ff; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; color: #475569; background: #f6f9ff; font-size: 13px; }
+.runtime-form-calculation-label strong { color: #1677ff; font-size: 16px; }
 .runtime-field-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .runtime-field-label :deep(.el-button) { height: auto; padding: 0; font-size: 12px; vertical-align: baseline; }
 .runtime-help-content { color: #475569; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -905,7 +938,8 @@ defineExpose({ validate, resetValidation })
   .runtime-form-group,
   .runtime-form-label,
   .runtime-form-description,
-  .runtime-form-button { grid-column: 1 / -1 !important; }
+  .runtime-form-button,
+  .runtime-form-calculation-label { grid-column: 1 / -1 !important; }
   .detail-list-columns { grid-template-columns: minmax(0, 1fr); }
   .detail-list-column { grid-column: 1 / -1 !important; }
 }

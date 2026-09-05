@@ -36,18 +36,19 @@
             <td v-for="node in permissionNodes" :key="node.id">
               <div class="permission-cell">
                 <el-select
-                  :model-value="fieldAccess(node, entry.field.key)"
+                  :model-value="fieldAccess(node, entry.field)"
                   :disabled="readonly"
-                  :class="`access-${fieldAccess(node, entry.field.key)}`"
-                  @change="updateFieldAccess(node, entry.field.key, $event)"
+                  :class="`access-${fieldAccess(node, entry.field)}`"
+                  @change="updateFieldAccess(node, entry.field, $event)"
                 >
                   <el-option label="隐藏" value="hidden" />
                   <el-option label="只读" value="read" />
-                  <el-option label="可编辑" value="write" />
+                  <el-option v-if="entry.field.type !== 'calculation'" label="可编辑" value="write" />
                 </el-select>
+                <span v-if="entry.field.type === 'calculation'" class="permission-cell__hint">计算字段由系统生成，不能编辑</span>
                 <div v-if="entry.field.type === 'detail_list'" class="row-action-slot">
                   <el-checkbox-group
-                    v-if="(node.type === 'approval' || node.type === 'handle') && fieldAccess(node, entry.field.key) === 'write'"
+                    v-if="(node.type === 'approval' || node.type === 'handle') && fieldAccess(node, entry.field) === 'write'"
                     :model-value="fieldActions(node, entry.field.key)"
                     :disabled="readonly"
                     class="row-action-options"
@@ -68,7 +69,7 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue'
-import type { WorkflowDetailRowAction, WorkflowDraft, WorkflowFieldAccess, WorkflowFieldPermission, WorkflowNode } from '../../types'
+import type { WorkflowDetailRowAction, WorkflowDraft, WorkflowFieldAccess, WorkflowFieldPermission, WorkflowFormField, WorkflowNode } from '../../types'
 import { workflowDataFieldEntries } from '../../formLayout'
 import { workflowPermissionNodes } from '../flowTree'
 
@@ -78,12 +79,13 @@ const emit = defineEmits<{ change: [] }>()
 const permissionNodes = computed(() => workflowPermissionNodes(props.draft))
 const permissionFieldEntries = computed(() => workflowDataFieldEntries(props.draft.form))
 
-function defaultAccess(node: WorkflowNode): WorkflowFieldAccess {
-  return node.type === 'start' ? 'write' : 'read'
+function defaultAccess(node: WorkflowNode, field?: WorkflowFormField): WorkflowFieldAccess {
+  return field?.type === 'calculation' ? 'read' : node.type === 'start' ? 'write' : 'read'
 }
 
-function fieldAccess(node: WorkflowNode, fieldKey: string): WorkflowFieldAccess {
-  return node.formPermissions?.find(item => item.field === fieldKey)?.access || defaultAccess(node)
+function fieldAccess(node: WorkflowNode, field: WorkflowFormField): WorkflowFieldAccess {
+  const access = node.formPermissions?.find(item => item.field === field.key)?.access || defaultAccess(node, field)
+  return field.type === 'calculation' && access === 'write' ? 'read' : access
 }
 
 function fieldPermission(node: WorkflowNode, fieldKey: string): WorkflowFieldPermission | undefined {
@@ -94,21 +96,21 @@ function fieldActions(node: WorkflowNode, fieldKey: string): WorkflowDetailRowAc
   return (fieldPermission(node, fieldKey)?.actions || []).filter((action): action is WorkflowDetailRowAction => action === 'add' || action === 'delete')
 }
 
-function ensureFieldPermission(node: WorkflowNode, fieldKey: string): WorkflowFieldPermission {
+function ensureFieldPermission(node: WorkflowNode, fieldKey: string, access: WorkflowFieldAccess = defaultAccess(node)): WorkflowFieldPermission {
   node.formPermissions ||= []
   let permission = fieldPermission(node, fieldKey)
   if (!permission) {
-    permission = { field: fieldKey, access: defaultAccess(node) }
+    permission = { field: fieldKey, access }
     node.formPermissions.push(permission)
   }
   return permission
 }
 
-function updateFieldAccess(node: WorkflowNode, fieldKey: string, access: WorkflowFieldAccess) {
+function updateFieldAccess(node: WorkflowNode, field: WorkflowFormField, access: WorkflowFieldAccess) {
   if (props.readonly) return
-  const permission = ensureFieldPermission(node, fieldKey)
-  permission.access = access
-  if (access !== 'write') delete permission.actions
+  const permission = ensureFieldPermission(node, field.key, defaultAccess(node, field))
+  permission.access = field.type === 'calculation' && access === 'write' ? 'read' : access
+  if (permission.access !== 'write') delete permission.actions
   emit('change')
 }
 
@@ -148,6 +150,7 @@ function updateFieldActions(node: WorkflowNode, fieldKey: string, actions: unkno
 .permission-table th .node-type { margin: 0 0 5px; color: #1677ff; }
 .permission-table th .field-group-title { margin: 0 0 6px; color: #1677ff; font-weight: 600; }
 .permission-cell { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
+.permission-cell__hint { color: #8492a6; font-size: 11px; line-height: 1.5; }
 .permission-table :deep(.el-select) { width: 100%; }
 .permission-table :deep(.access-hidden .el-select__wrapper) { color: #64748b; background: #f1f5f9; }
 .permission-table :deep(.access-read .el-select__wrapper) { color: #b45309; background: #fffbeb; }

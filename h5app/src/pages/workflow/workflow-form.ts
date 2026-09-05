@@ -9,6 +9,7 @@ import type {
   WorkflowFormOption,
   WorkflowOptionSource,
 } from '@/types/workflow'
+import { calculateWorkflowFormData } from './workflow-calculation'
 
 const arrayFieldTypes = new Set([
   'multi_select',
@@ -50,7 +51,7 @@ export function emptyWorkflowFieldValue(field: Pick<WorkflowFormField, 'type'>):
     return []
   if (field.type === 'boolean')
     return false
-  if (field.type === 'number' || field.type === 'amount')
+  if (field.type === 'number' || field.type === 'amount' || field.type === 'calculation')
     return undefined
   return ''
 }
@@ -169,7 +170,7 @@ export function initialWorkflowFormData(
       result[field.key] = emptyWorkflowFieldValue(field)
     }
   }
-  return result
+  return calculateWorkflowFormData(fields, result)
 }
 
 export function workflowFieldAccessMap(
@@ -178,9 +179,12 @@ export function workflowFieldAccessMap(
   defaultAccess: WorkflowFieldAccess,
 ): WorkflowFieldAccessMap {
   const result: WorkflowFieldAccessMap = {}
-  for (const field of workflowDataFields(fields)) result[field.key] = defaultAccess
+  const dataFields = workflowDataFields(fields)
+  const fieldTypes = new Map(dataFields.map(field => [field.key, field.type]))
+  for (const field of dataFields) result[field.key] = field.type === 'calculation' ? 'read' : defaultAccess
   for (const permission of permissions || []) {
-    if (permission.field in result && ['hidden', 'read', 'write'].includes(permission.access)) {
+    if (permission.field in result && ['hidden', 'read', 'write'].includes(permission.access)
+      && (fieldTypes.get(permission.field) !== 'calculation' || permission.access !== 'write')) {
       result[permission.field] = permission.access
     }
   }
@@ -236,7 +240,7 @@ export function writableWorkflowFormData(
 ): WorkflowFormData {
   const result: WorkflowFormData = {}
   for (const field of workflowDataFields(fields)) {
-    if (accessMap[field.key] !== 'write')
+    if (field.type === 'calculation' || accessMap[field.key] !== 'write')
       continue
     const value = normalizeWorkflowFormValue(field, values[field.key])
     if (value !== undefined)

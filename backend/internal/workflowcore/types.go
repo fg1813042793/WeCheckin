@@ -94,10 +94,16 @@ const (
 	FormFieldTypeUserMulti       = "user_multi"
 	FormFieldTypeDepartmentMulti = "department_multi"
 	FormFieldTypeDetailList      = "detail_list"
+	FormFieldTypeCalculation     = "calculation"
 	FormFieldTypeGroup           = "group"
 	FormFieldTypeLabel           = "label"
 	FormFieldTypeDescription     = "description"
 	FormFieldTypeButton          = "button"
+)
+
+const (
+	CalculationDisplayLabel = "label"
+	CalculationDisplayField = "field"
 )
 
 const (
@@ -213,6 +219,7 @@ const (
 	ValidationFormFieldLayout          = "form_field_layout_invalid"
 	ValidationFormFieldHelp            = "form_field_help_invalid"
 	ValidationFormFieldRules           = "form_field_rules_invalid"
+	ValidationFormFieldCalculation     = "form_field_calculation_invalid"
 	ValidationFieldPermissionField     = "field_permission_field_invalid"
 	ValidationFieldPermissionAccess    = "field_permission_access_invalid"
 	ValidationFieldPermissionAction    = "field_permission_action_invalid"
@@ -254,6 +261,13 @@ type FormField struct {
 	MinVisibleRows int                  `json:"minVisibleRows,omitempty"`
 	MaxVisibleRows int                  `json:"maxVisibleRows,omitempty"`
 	Rules          []FormValidationRule `json:"rules,omitempty"`
+	Calculation    *FormCalculation     `json:"calculation,omitempty"`
+}
+
+type FormCalculation struct {
+	Expression string `json:"expression"`
+	Display    string `json:"display,omitempty"`
+	Precision  *int   `json:"precision,omitempty"`
 }
 
 type FormAttachment struct {

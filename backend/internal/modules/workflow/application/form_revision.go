@@ -70,6 +70,11 @@ func (service *Service) ReviseInstanceForm(ctx context.Context, request ReviseIn
 		if err := workflowcore.ValidatePostHandleFormPatch(definition, handledNodeIDs, loaded.FormData, patch); err != nil {
 			return err
 		}
+		calculatedData, err := workflowcore.ApplyFormCalculations(definition.Form, workflowcore.MergeFormData(loaded.FormData, patch))
+		if err != nil {
+			return err
+		}
+		patch = changedFormDataPatch(loaded.FormData, calculatedData)
 		if notification != nil {
 			if err := validateFormRevisionRecipients(ctx, store, loaded, request.ActorID, notification.UserIDs); err != nil {
 				return err

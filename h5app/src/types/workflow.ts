@@ -20,6 +20,7 @@ export type WorkflowFieldType
     | 'user_multi'
     | 'department_multi'
     | 'detail_list'
+    | 'calculation'
     | 'group'
     | 'label'
     | 'description'
@@ -28,6 +29,7 @@ export type WorkflowFieldType
 
 export type WorkflowFieldAccess = 'hidden' | 'read' | 'write'
 export type WorkflowFieldAction = 'add' | 'delete'
+export type WorkflowCalculationDisplay = 'label' | 'field'
 export type WorkflowFormData = Record<string, unknown>
 export type WorkflowFieldAccessMap = Record<string, WorkflowFieldAccess>
 export type WorkflowFieldActionsMap = Record<string, WorkflowFieldAction[]>
@@ -104,6 +106,13 @@ export interface WorkflowFormField {
   minVisibleRows?: number
   maxVisibleRows?: number
   rules?: WorkflowFormRule[]
+  calculation?: WorkflowFormCalculation
+}
+
+export interface WorkflowFormCalculation {
+  expression: string
+  display?: WorkflowCalculationDisplay
+  precision?: number
 }
 
 export interface WorkflowFieldPermission {

@@ -27,7 +27,7 @@ import {
   workflowFieldActionsMap,
   writableWorkflowFormData,
 } from '../workflow-form'
-import { workflowFormRevisionContentKey, workflowStartContentKey } from '../workflow-route-keys'
+import { workflowFormDetailContentKey, workflowFormRevisionContentKey, workflowStartContentKey } from '../workflow-route-keys'
 import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-status'
 import { isWorkflowTaskAssignedToUser } from '../workflow-task'
 import WorkflowImagePicker from './WorkflowImagePicker.vue'
@@ -292,6 +292,10 @@ const applicationOwner = computed(() => {
 
 const showApplicationActions = computed(() => {
   return Boolean(historyDrawer.value && props.applicationActions && detail.value)
+})
+
+const showFormDetailAction = computed(() => {
+  return Boolean(historyDrawer.value && !historyDialog.value && detail.value)
 })
 
 const showCommentAction = computed(() => {
@@ -958,6 +962,22 @@ function openFormRevision() {
   popupVisible.value = false
 }
 
+function openFormDetail() {
+  const current = detail.value
+  if (!current || !showFormDetailAction.value)
+    return
+  const key = workflowFormDetailContentKey(current.instance.id)
+  if (!key)
+    return
+  appContent.openDynamicTab({
+    key,
+    label: `表单 · ${current.instance.definitionName || title.value}`,
+    icon: 'file-text',
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+  })
+  popupVisible.value = false
+}
+
 async function deleteApplication() {
   if (applicationActionBusy.value)
     return
@@ -1116,6 +1136,17 @@ async function deleteApplication() {
                       发起时提交的表单内容
                     </text>
                   </view>
+                  <u-button
+                    v-if="showFormDetailAction"
+                    custom-class="workflow-detail-panel__form-detail-action"
+                    size="mini"
+                    type="primary"
+                    plain
+                    @click="openFormDetail"
+                  >
+                    <u-icon name="eye" size="14px" color="#2979ff" />
+                    <text>详情</text>
+                  </u-button>
                 </view>
                 <scroll-view class="workflow-detail-panel__history-section-scroll" :scroll-y="!historyPage">
                   <WorkflowRuntimeForm
@@ -1172,7 +1203,7 @@ async function deleteApplication() {
                       </view>
                       <u-button
                         custom-class="workflow-detail-panel__reminder-button"
-                        type="primary"
+                        type="warning"
                         size="mini"
                         :disabled="reminderButtonDisabled(node)"
                         :loading="reminderSubmittingNodeId === node.nodeId"
@@ -2102,6 +2133,16 @@ async function deleteApplication() {
   min-width: 0;
 }
 
+:deep(.workflow-detail-panel__form-detail-action) {
+  width: auto;
+  min-width: 68px;
+  height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  flex-shrink: 0;
+  gap: 5px;
+}
+
 .workflow-detail-panel__section-heading-title,
 .workflow-detail-panel__section-heading-meta {
   display: block;
@@ -2180,9 +2221,25 @@ async function deleteApplication() {
 }
 
 :deep(.workflow-detail-panel__reminder-button) {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px; /* 控制图标和文字的间距 */
   width: auto;
   min-width: 92px;
   margin: 0;
+}
+/* 图标和文字都设为 inline-block 并 middle 对齐 */
+:deep(.workflow-detail-panel__reminder-button .u-icon) {
+  vertical-align: middle !important;
+  margin: 0 !important;
+  display: inline-block !important;
+}
+
+:deep(.workflow-detail-panel__reminder-button text) {
+  vertical-align: middle !important;
+  line-height: 1 !important;
+  display: inline-block !important;
 }
 
 .workflow-detail-panel__subsection-toggle {

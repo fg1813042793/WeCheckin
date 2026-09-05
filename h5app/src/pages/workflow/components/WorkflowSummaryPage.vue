@@ -44,9 +44,12 @@ async function loadDefinitions() {
 
 <style lang="scss" scoped>
 .workflow-summary-page {
+  width: 100%;
   min-height: 0;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 </style>

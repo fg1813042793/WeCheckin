@@ -40,6 +40,8 @@ function assert(condition, message) {
 
 const {
   createWorkflowDetailRow,
+  calculateWorkflowFormData,
+  evaluateWorkflowCalculation,
   flattenWorkflowOptions,
   initialWorkflowFormData,
   normalizeWorkflowOptions,
@@ -100,6 +102,38 @@ const fields = [
     ],
   },
 ]
+
+const calculationFields = [
+  { key: 'quantity', label: '数量', type: 'number' },
+  { key: 'price', label: '单价', type: 'amount' },
+  {
+    key: 'items', label: '明细', type: 'detail_list',
+    columns: [
+      { key: 'quantity', label: '数量', type: 'number' },
+      { key: 'price', label: '单价', type: 'amount' },
+    ],
+  },
+  { key: 'scalarTotal', label: '普通合计', type: 'calculation', calculation: { expression: '[quantity] * [price]', display: 'field', precision: 2 } },
+  { key: 'detailTotal', label: '明细合计', type: 'calculation', calculation: { expression: 'SUM([items.quantity] * [items.price])', display: 'label', precision: 2 } },
+  { key: 'negative', label: '负数舍入', type: 'calculation', calculation: { expression: '-1.005', display: 'field', precision: 2 } },
+]
+const calculated = calculateWorkflowFormData(calculationFields, {
+  quantity: 3,
+  price: 12.345,
+  items: [
+    { id: 'row-1', quantity: 2, price: 10 },
+    { id: 'row-2', quantity: 3, price: 4.5 },
+  ],
+  scalarTotal: 999,
+})
+assert(calculated.scalarTotal === 37.04, '普通计算字段应按配置精度实时计算')
+assert(calculated.detailTotal === 33.5, '明细字段应支持不同列逐行组合后合计')
+assert(calculated.negative === -1.01, '负数临界小数应与后端按相同规则四舍五入')
+assert(evaluateWorkflowCalculation(calculationFields[4], calculated).error === '', '有效公式不应返回错误')
+const calculationAccess = workflowFieldAccessMap(calculationFields, {}, 'start', 'write')
+assert(calculationAccess.scalarTotal === 'read' && calculationAccess.detailTotal === 'read', '计算字段必须固定为只读')
+const calculationPayload = writableWorkflowFormData(calculationFields, calculated, calculationAccess)
+assert(!('scalarTotal' in calculationPayload) && !('detailTotal' in calculationPayload), '客户端不得提交计算字段')
 const permissions = {
   start: [
     { field: 'internalNote', access: 'hidden' },

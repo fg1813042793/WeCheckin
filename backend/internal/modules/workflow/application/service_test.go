@@ -148,6 +148,31 @@ func TestStartInstanceValidatesAndPersistsFormData(t *testing.T) {
 	}
 }
 
+func TestStartInstanceCalculatesServerOwnedFormFields(t *testing.T) {
+	precision := 2
+	definition := simpleDefinition()
+	definition.Form = []workflowcore.FormField{
+		{Key: "quantity", Label: "数量", Type: workflowcore.FormFieldTypeNumber},
+		{Key: "price", Label: "单价", Type: workflowcore.FormFieldTypeAmount},
+		{Key: "total", Label: "合计", Type: workflowcore.FormFieldTypeCalculation, Calculation: &workflowcore.FormCalculation{
+			Expression: "[quantity] * [price]", Display: workflowcore.CalculationDisplayField, Precision: &precision,
+		}},
+	}
+	store := &fakeStore{definition: definition, publishedVersion: 1}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+
+	state, err := service.StartInstance(context.Background(), StartInstanceRequest{
+		DefinitionID: 9, BusinessType: "expense", BusinessKey: "expense-1", StarterID: "7", OperatorID: "7",
+		FormData: map[string]interface{}{"quantity": 3, "price": 12.345},
+	})
+	if err != nil {
+		t.Fatalf("StartInstance() error = %v", err)
+	}
+	if state.FormData["total"] != 37.04 {
+		t.Fatalf("calculated start form data = %#v", state.FormData)
+	}
+}
+
 func TestSaveStartDraftAcceptsPartialFormAndPersistsCurrentVersion(t *testing.T) {
 	definition := simpleDefinition()
 	definition.Form = []workflowcore.FormField{
@@ -714,6 +739,44 @@ func TestCompleteTaskOnlyUpdatesWritableNodeFields(t *testing.T) {
 	}
 	if updated.FormData["opinion"] != "同意" || updated.FormData["reason"] != "出差" {
 		t.Fatalf("form data = %#v", updated.FormData)
+	}
+}
+
+func TestCompleteTaskRecalculatesDerivedFormFields(t *testing.T) {
+	precision := 2
+	definition := simpleDefinition()
+	definition.Form = []workflowcore.FormField{
+		{Key: "quantity", Label: "数量", Type: workflowcore.FormFieldTypeNumber},
+		{Key: "price", Label: "单价", Type: workflowcore.FormFieldTypeAmount},
+		{Key: "total", Label: "合计", Type: workflowcore.FormFieldTypeCalculation, Calculation: &workflowcore.FormCalculation{
+			Expression: "[quantity] * [price]", Display: workflowcore.CalculationDisplayField, Precision: &precision,
+		}},
+	}
+	definition.Nodes[1].FormPermissions = []workflowcore.FieldPermission{
+		{Field: "quantity", Access: workflowcore.FieldAccessWrite},
+		{Field: "price", Access: workflowcore.FieldAccessRead},
+		{Field: "total", Access: workflowcore.FieldAccessRead},
+	}
+	engine := workflowdomain.NewEngine(fixedResolver{"42"}, &sequenceIDs{})
+	state, err := engine.Start(context.Background(), definition, workflowdomain.StartRequest{
+		DefinitionID: 9, DefinitionVersion: 1, StarterID: "7",
+		FormData: map[string]interface{}{"quantity": 2, "price": 10, "total": 20},
+	})
+	if err != nil {
+		t.Fatalf("prepare state: %v", err)
+	}
+	store := &fakeStore{definition: definition, state: state}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+
+	updated, err := service.CompleteTask(context.Background(), CompleteTaskRequest{
+		TaskID: state.PendingTasks()[0].ID, ActorID: "42", Action: workflowdomain.TaskActionApprove,
+		FormData: map[string]interface{}{"quantity": 3},
+	})
+	if err != nil {
+		t.Fatalf("CompleteTask() error = %v", err)
+	}
+	if updated.FormData["total"] != float64(30) {
+		t.Fatalf("calculated task form data = %#v", updated.FormData)
 	}
 }
 

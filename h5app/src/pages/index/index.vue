@@ -10,6 +10,7 @@ import { appPageTitle, useRegisteredAppPages } from '@/config/app-navigation'
 import {
   normalizeWorkflowDynamicContentKey,
   workflowDefinitionIdFromContentKey,
+  workflowFormDetailInstanceIdFromContentKey,
   workflowFormRevisionInstanceIdFromContentKey,
   workflowInstanceIdFromContentKey,
   workflowTaskIdFromContentKey,
@@ -54,19 +55,22 @@ function routeViewKey(value: unknown) {
 function openWorkflowRouteTab(key: string) {
   const definitionId = workflowDefinitionIdFromContentKey(key)
   const instanceId = workflowInstanceIdFromContentKey(key)
+  const formDetailInstanceId = workflowFormDetailInstanceIdFromContentKey(key)
   const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
   const taskId = workflowTaskIdFromContentKey(key)
-  if (!definitionId && !instanceId && !revisionInstanceId && !taskId)
+  if (!definitionId && !instanceId && !formDetailInstanceId && !revisionInstanceId && !taskId)
     return false
 
   const label = definitionId
     ? '发起审批'
-    : revisionInstanceId
-      ? '修改表单'
-      : taskId
-        ? '流程办理'
-        : '流程详情'
-  const icon = definitionId ? 'add-circle' : revisionInstanceId ? 'edit-pen' : taskId ? 'checkmark-circle' : 'eye'
+    : formDetailInstanceId
+      ? '表单详情'
+      : revisionInstanceId
+        ? '修改表单'
+        : taskId
+          ? '流程办理'
+          : '流程详情'
+  const icon = definitionId ? 'add-circle' : formDetailInstanceId ? 'file-text' : revisionInstanceId ? 'edit-pen' : taskId ? 'checkmark-circle' : 'eye'
   appContent.openDynamicTab({
     key,
     label,

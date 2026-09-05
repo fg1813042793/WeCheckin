@@ -8,6 +8,7 @@ const srcDir = resolve(currentDir, '../src')
 const mainPath = resolve(srcDir, 'main.ts')
 const iconsPath = resolve(srcDir, 'icons.ts')
 const layoutPath = resolve(srcDir, 'views/layout/index.vue')
+const menuNodePath = resolve(srcDir, 'views/layout/AdminMenuNode.vue')
 const menuViewPath = resolve(srcDir, 'views/menu/index.vue')
 const iconPickerPath = resolve(srcDir, 'components/IconPicker.vue')
 const adminRoutesPath = resolve(srcDir, 'router/adminRoutes.ts')
@@ -19,6 +20,7 @@ if (!existsSync(iconsPath)) {
 const mainSource = readFileSync(mainPath, 'utf8')
 const iconsSource = readFileSync(iconsPath, 'utf8')
 const layoutSource = readFileSync(layoutPath, 'utf8')
+const menuNodeSource = readFileSync(menuNodePath, 'utf8')
 const menuViewSource = readFileSync(menuViewPath, 'utf8')
 const iconPickerSource = readFileSync(iconPickerPath, 'utf8')
 const adminRoutesSource = readFileSync(adminRoutesPath, 'utf8')
@@ -88,11 +90,19 @@ for (const match of routeIconMatches) {
 
 for (const snippet of [
   "import { resolveAdminIcon } from '../../icons'",
-  'resolveAdminIcon(item.icon)',
   "resolveAdminIcon('Expand')",
   "resolveAdminIcon('Fold')"
 ]) {
   if (!layoutSource.includes(snippet)) {
     throw new Error(`admin layout missing resolved icon usage: ${snippet}`)
+  }
+}
+
+for (const snippet of [
+  "import { resolveAdminIcon } from '../../icons'",
+  'resolveAdminIcon(item.icon)'
+]) {
+  if (!menuNodeSource.includes(snippet)) {
+    throw new Error(`admin recursive menu missing resolved icon usage: ${snippet}`)
   }
 }

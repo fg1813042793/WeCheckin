@@ -170,6 +170,14 @@ func cloneFormFields(fields []workflowcore.FormField) []workflowcore.FormField {
 			help := *field.Help
 			field.Help = &help
 		}
+		if field.Calculation != nil {
+			calculation := *field.Calculation
+			if field.Calculation.Precision != nil {
+				precision := *field.Calculation.Precision
+				calculation.Precision = &precision
+			}
+			field.Calculation = &calculation
+		}
 		result = append(result, field)
 	}
 	return result

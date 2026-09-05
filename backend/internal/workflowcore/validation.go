@@ -204,6 +204,7 @@ func validateFormSchema(fields []FormField) (map[string]FormField, []ValidationE
 	layoutKeys := make(map[string]struct{})
 	errors := validateFormSchemaFields(fields, formSchemaRoot, layoutKeys, fieldByKey)
 	errors = append(errors, validateFormRuleSchemas(fields, fieldByKey)...)
+	errors = append(errors, validateFormCalculationSchemas(fields)...)
 	return fieldByKey, errors
 }
 
@@ -237,6 +238,9 @@ func validateFormSchemaFields(fields []FormField, context formSchemaContext, lay
 
 		if !validFormFieldSpan(field.Span) {
 			errors = append(errors, ValidationError{Code: ValidationFormFieldSpan, Message: "表单字段宽度无效：" + field.Key})
+		}
+		if field.Type != FormFieldTypeCalculation && field.Calculation != nil {
+			errors = append(errors, ValidationError{Code: ValidationFormFieldCalculation, Message: "非计算字段不能配置计算公式：" + field.Key})
 		}
 
 		switch field.Type {
@@ -273,6 +277,12 @@ func validateFormSchemaFields(fields []FormField, context formSchemaContext, lay
 			FormFieldTypeDepartment, FormFieldTypeAttachment, FormFieldTypeBoolean, FormFieldTypeAmount,
 			FormFieldTypePhone, FormFieldTypeEmail, FormFieldTypeRadio, FormFieldTypeCheckbox,
 			FormFieldTypeTime, FormFieldTypeDateRange, FormFieldTypeUserMulti, FormFieldTypeDepartmentMulti:
+		case FormFieldTypeCalculation:
+			if context == formSchemaDetail || field.Required || field.Default != nil || strings.TrimSpace(field.Placeholder) != "" || field.MaxLength != 0 || field.Min != nil || field.Max != nil ||
+				len(field.Options) > 0 || field.OptionSource != nil || len(field.Columns) > 0 || len(field.Rules) > 0 ||
+				field.MinRows != 0 || field.MaxRows != 0 || field.MinVisibleRows != 0 || field.MaxVisibleRows != 0 {
+				errors = append(errors, ValidationError{Code: ValidationFormFieldCalculation, Message: "计算字段配置无效：" + field.Key})
+			}
 		case FormFieldTypeDetailList:
 			if context == formSchemaDetail {
 				errors = append(errors, ValidationError{Code: ValidationFormFieldColumns, Message: "明细列表不支持嵌套：" + field.Key})
@@ -333,6 +343,20 @@ func validateFormSchemaFields(fields []FormField, context formSchemaContext, lay
 			if err := validateFieldValue(field, field.Default, false); err != nil {
 				errors = append(errors, ValidationError{Code: ValidationFormFieldType, Message: "表单字段默认值无效：" + field.Key})
 			}
+		}
+	}
+	return errors
+}
+
+func validateFormCalculationSchemas(fields []FormField) []ValidationError {
+	schema := buildCalculationSchema(fields)
+	errors := make([]ValidationError, 0)
+	for _, field := range dataFormFields(fields) {
+		if field.Type != FormFieldTypeCalculation {
+			continue
+		}
+		if err := validateFormCalculation(field, schema); err != nil {
+			errors = append(errors, ValidationError{Code: ValidationFormFieldCalculation, Message: "计算字段公式无效：" + field.Key + "：" + err.Error()})
 		}
 	}
 	return errors
@@ -637,6 +661,9 @@ func validateFieldPermissions(node Node, fields map[string]FormField) []Validati
 		seen[field] = struct{}{}
 		switch permission.Access {
 		case FieldAccessHidden, FieldAccessRead, FieldAccessWrite:
+			if formField.Type == FormFieldTypeCalculation && permission.Access == FieldAccessWrite {
+				errors = append(errors, ValidationError{Code: ValidationFieldPermissionAccess, Message: "计算字段只能配置为隐藏或只读", NodeID: node.ID})
+			}
 		default:
 			errors = append(errors, ValidationError{Code: ValidationFieldPermissionAccess, Message: "节点字段权限无效", NodeID: node.ID})
 		}

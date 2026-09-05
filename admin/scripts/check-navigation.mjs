@@ -7,6 +7,7 @@ const srcDir = resolve(currentDir, '../src')
 const routesPath = resolve(srcDir, 'router/adminRoutes.ts')
 const routerPath = resolve(srcDir, 'router/index.ts')
 const layoutPath = resolve(srcDir, 'views/layout/index.vue')
+const menuNodePath = resolve(srcDir, 'views/layout/AdminMenuNode.vue')
 
 if (!existsSync(routesPath)) {
   throw new Error('admin navigation config missing: src/router/adminRoutes.ts')
@@ -15,6 +16,7 @@ if (!existsSync(routesPath)) {
 const routesSource = readFileSync(routesPath, 'utf8')
 const routerSource = readFileSync(routerPath, 'utf8')
 const layoutSource = readFileSync(layoutPath, 'utf8')
+const menuNodeSource = existsSync(menuNodePath) ? readFileSync(menuNodePath, 'utf8') : ''
 
 const requiredRouteSnippets = [
   'export const adminChildRoutes',
@@ -43,11 +45,28 @@ for (const snippet of requiredRouterSnippets) {
 const requiredLayoutSnippets = [
   'const displayMenuTree = computed',
   'v-for="item in displayMenuTree"',
+  "import AdminMenuNode from './AdminMenuNode.vue'",
+  '<AdminMenuNode',
 ]
 
 for (const snippet of requiredLayoutSnippets) {
   if (!layoutSource.includes(snippet)) {
     throw new Error(`admin layout is not using permission menu tree: ${snippet}`)
+  }
+}
+
+if (!menuNodeSource) {
+  throw new Error('admin recursive menu component missing: src/views/layout/AdminMenuNode.vue')
+}
+
+for (const snippet of [
+  '<el-sub-menu',
+  '<el-menu-item',
+  '<AdminMenuNode',
+  'renderableChildren',
+]) {
+  if (!menuNodeSource.includes(snippet)) {
+    throw new Error(`admin recursive menu component missing: ${snippet}`)
   }
 }
 

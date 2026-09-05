@@ -16,6 +16,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowFilterPanel.vue',
   'src/pages/workflow/components/WorkflowRecordTable.vue',
   'src/pages/workflow/components/WorkflowInstancePage.vue',
+  'src/pages/workflow/components/WorkflowFormDetailPage.vue',
   'src/pages/workflow/components/WorkflowTaskPage.vue',
   'src/pages/workflow/components/WorkflowStartPage.vue',
   'src/pages/workflow/components/WorkflowSummaryPage.vue',
@@ -34,6 +35,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowNodeProgressList.vue',
   'src/pages/performance/components/PerformanceWorkbench.vue',
   'src/pages/workflow/workflow-form.ts',
+  'src/pages/workflow/workflow-calculation.ts',
   'src/pages/workflow/workflow-select-placement.ts',
   'src/pages/workflow/workflow-history-filter.ts',
   'src/pages/workflow/workflow-task.ts',
@@ -108,11 +110,19 @@ const requiredContent = [
   },
   {
     file: 'src/types/workflow.ts',
-    patterns: ['logoUrl?: string', 'minVisibleRows?: number', 'maxVisibleRows?: number', 'export interface WorkflowAttachment', 'mimeType: string', 'size: number', 'starterName: string', 'starterName?: string', 'assigneeName: string', 'handledByName: string', 'approvalChainKey?: string', 'approvalLayer?: number', 'approvalLayerTotal?: number', 'sourceDepartmentName?: string', 'currentNodeNames: string[]', 'currentAssigneeNames: string[]', 'WorkflowNodeProgressStatus', 'WorkflowNodeProgressSummary', 'nodeProgress?: WorkflowNodeProgressSummary[]', 'WorkflowReminderPolicy', 'WorkflowReminderNode', 'reminderPolicy: WorkflowReminderPolicy', 'reminderNodes: WorkflowReminderNode[]', 'nodes?: WorkflowPublishedNode[]', 'edges?: WorkflowPublishedEdge[]', 'userNames: Record<string, string>', 'WorkflowCommentNotificationRequest', 'WorkflowNotificationChannel', 'notification?: WorkflowCommentNotificationRequest', 'definitionCategory?: string', 'startTimeFrom?: number', 'startTimeTo?: number', 'endTimeFrom?: number', 'endTimeTo?: number'],
+    patterns: ['logoUrl?: string', 'minVisibleRows?: number', 'maxVisibleRows?: number', 'export interface WorkflowAttachment', 'mimeType: string', 'size: number', 'starterName: string', 'starterName?: string', 'assigneeName: string', 'handledByName: string', 'approvalChainKey?: string', 'approvalLayer?: number', 'approvalLayerTotal?: number', 'sourceDepartmentName?: string', 'currentNodeNames: string[]', 'currentAssigneeNames: string[]', 'WorkflowNodeProgressStatus', 'WorkflowNodeProgressSummary', 'nodeProgress?: WorkflowNodeProgressSummary[]', 'WorkflowReminderPolicy', 'WorkflowReminderNode', 'reminderPolicy: WorkflowReminderPolicy', 'reminderNodes: WorkflowReminderNode[]', 'nodes?: WorkflowPublishedNode[]', 'edges?: WorkflowPublishedEdge[]', 'userNames: Record<string, string>', 'WorkflowCommentNotificationRequest', 'WorkflowNotificationChannel', 'notification?: WorkflowCommentNotificationRequest', 'definitionCategory?: string', 'startTimeFrom?: number', 'startTimeTo?: number', 'endTimeFrom?: number', 'endTimeTo?: number', '| \'calculation\'', 'WorkflowCalculationDisplay', 'WorkflowFormCalculation', 'calculation?: WorkflowFormCalculation'],
   },
   {
     file: 'src/pages/workflow/workflow-form.ts',
-    patterns: ['normalizeWorkflowAttachments', 'field.type === \'attachment\''],
+    patterns: ['normalizeWorkflowAttachments', 'field.type === \'attachment\'', 'calculateWorkflowFormData', 'field.type === \'calculation\'', 'result[field.key] = field.type === \'calculation\' ? \'read\' : defaultAccess'],
+  },
+  {
+    file: 'src/pages/workflow/workflow-calculation.ts',
+    patterns: ['evaluateWorkflowCalculation', 'calculateWorkflowFormData', 'SUM', 'AVG', 'MIN', 'MAX', 'COUNT'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowRuntimeForm.vue',
+    patterns: [':calculation-fields="calculationFields || fields"', 'field.type === \'calculation\'', 'calculateWorkflowFormData', 'workflowCalculationDisplay', 'workflowCalculationPrecision'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowFieldControl.vue',
@@ -136,11 +146,23 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/workflow-route-keys.ts',
-    patterns: ['workflowStartContentKey', 'workflowDefinitionIdFromContentKey', 'workflowInstanceContentKey', 'workflowInstanceIdFromContentKey', 'workflowTaskContentKey', 'workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'normalizeWorkflowDynamicContentKey'],
+    patterns: ['workflowStartContentKey', 'workflowDefinitionIdFromContentKey', 'workflowInstanceContentKey', 'workflowInstanceIdFromContentKey', 'workflowFormDetailContentKey', 'workflowFormDetailInstanceIdFromContentKey', 'workflowTaskContentKey', 'workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'normalizeWorkflowDynamicContentKey'],
   },
   {
     file: 'src/pages/workflow/workflow.routes.ts',
-    patterns: ['WorkflowInstancePage', 'WorkflowTaskPage', './workflow-route-keys', 'workflowInstanceContentKey', 'workflowInstanceIdFromContentKey', 'workflowTaskContentKey', 'workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'return WorkflowInstancePage', 'return WorkflowTaskPage'],
+    patterns: ['WorkflowInstancePage', 'WorkflowFormDetailPage', 'WorkflowTaskPage', './workflow-route-keys', 'workflowInstanceContentKey', 'workflowInstanceIdFromContentKey', 'workflowFormDetailContentKey', 'workflowFormDetailInstanceIdFromContentKey', 'workflowTaskContentKey', 'workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'return WorkflowInstancePage', 'return WorkflowFormDetailPage', 'return WorkflowTaskPage'],
+  },
+  {
+    file: 'src/pages/index/index.vue',
+    patterns: ['workflowFormDetailInstanceIdFromContentKey', '? \'表单详情\'', '? \'file-text\''],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
+    patterns: ['workflowFormDetailContentKey', 'showFormDetailAction', 'openFormDetail', 'workflow-detail-panel__form-detail-action', '<text>详情</text>'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowFormDetailPage.vue',
+    patterns: ['getWorkflowInstance', 'workflowFormDetailInstanceIdFromContentKey', 'workflowFieldAccessMap', '\'read\'', 'initialWorkflowFormData', '<WorkflowRuntimeForm', ':readonly="true"', 'readonly-appearance="plain"', '发起时提交的表单内容'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -152,7 +174,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
-    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', '.workflow-summary__filter-actions {\n  grid-column: 11 / 13;\n  grid-row: 3;', 'width: fit-content;'],
+    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', '.workflow-summary__filter-actions {\n  grid-column: 11 / 13;\n  grid-row: 3;', 'width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    min-width: 0;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -596,6 +618,7 @@ const requiredContent = [
 ]
 
 const forbiddenContent = [
+  { file: 'src/pages/workflow/components/WorkflowFormDetailPage.vue', patterns: [':readonly="false"', ':field-actions=', 'completeWorkflowTask', 'reviseWorkflowInstanceForm'] },
   { file: 'src/pages/workflow/components/WorkflowCenter.vue', patterns: [`listWorkflowTasks({ status: 'pending', page: 1, pageSize: 1 })`] },
   { file: 'src/api/workflow.ts', patterns: ['const WORKFLOW_API = \'/api/v2/workflows\''] },
   { file: 'src/pages/workflow/components/WorkflowCenter.vue', patterns: ['client:api:workflow:'] },
@@ -841,6 +864,64 @@ if (existsSync(resolve(root, workflowTaskPath))) {
   }
   catch (error) {
     failures.push(`${workflowTaskPath} task presentation check failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+const workflowCalculationPath = 'src/pages/workflow/workflow-calculation.ts'
+if (existsSync(resolve(root, workflowCalculationPath))) {
+  try {
+    const { calculateWorkflowFormData, evaluateWorkflowCalculation } = await loadTypeScriptModule(workflowCalculationPath)
+    const fields = [
+      { key: 'quantity', label: '数量', type: 'number' },
+      { key: 'price', label: '单价', type: 'amount' },
+      {
+        key: 'items',
+        label: '明细',
+        type: 'detail_list',
+        columns: [
+          { key: 'quantity', label: '数量', type: 'number' },
+          { key: 'price', label: '单价', type: 'amount' },
+        ],
+      },
+      { key: 'total', label: '总额', type: 'calculation', calculation: { expression: '[quantity] * [price]', display: 'field', precision: 2 } },
+      { key: 'detailTotal', label: '明细总额', type: 'calculation', calculation: { expression: 'SUM([items.quantity] * [items.price])', display: 'label', precision: 2 } },
+      { key: 'negative', label: '负数舍入', type: 'calculation', calculation: { expression: '-1.005', display: 'field', precision: 2 } },
+    ]
+    const data = calculateWorkflowFormData(fields, {
+      quantity: 3,
+      price: 12.345,
+      items: [
+        { quantity: 2, price: 10 },
+        { quantity: 3, price: 5.5 },
+      ],
+    })
+    assert.equal(data.total, 37.04)
+    assert.equal(data.detailTotal, 36.5)
+    assert.equal(data.negative, -1.01)
+    assert.deepEqual(evaluateWorkflowCalculation(fields[4], data), { value: 36.5, error: '' })
+  }
+  catch (error) {
+    failures.push(`${workflowCalculationPath} calculation check failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+const workflowRouteKeysPath = 'src/pages/workflow/workflow-route-keys.ts'
+if (existsSync(resolve(root, workflowRouteKeysPath))) {
+  try {
+    const {
+      normalizeWorkflowDynamicContentKey,
+      workflowFormDetailContentKey,
+      workflowFormDetailInstanceIdFromContentKey,
+    } = await loadTypeScriptModule(workflowRouteKeysPath)
+    const formDetailKey = workflowFormDetailContentKey('instance:测试 1')
+    assert.equal(formDetailKey, 'workflow:form-detail:instance%3A%E6%B5%8B%E8%AF%95%201')
+    assert.equal(workflowFormDetailInstanceIdFromContentKey(formDetailKey), 'instance:测试 1')
+    assert.equal(normalizeWorkflowDynamicContentKey(formDetailKey), formDetailKey)
+    assert.equal(workflowFormDetailContentKey('  '), '')
+    assert.equal(workflowFormDetailInstanceIdFromContentKey('workflow:form-detail:%E0%A4%A'), '')
+  }
+  catch (error) {
+    failures.push(`${workflowRouteKeysPath} form detail route check failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
 

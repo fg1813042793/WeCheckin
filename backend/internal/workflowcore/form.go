@@ -109,7 +109,7 @@ func ValidateNodeFormPatch(definition Definition, nodeID string, current, patch 
 func nodeWritableFormFields(fields []FormField, node *Node, defaultWrite bool) map[string]struct{} {
 	result := make(map[string]struct{})
 	for _, field := range dataFormFields(fields) {
-		if defaultWrite {
+		if defaultWrite && field.Type != FormFieldTypeCalculation {
 			result[field.Key] = struct{}{}
 		}
 	}
@@ -117,13 +117,28 @@ func nodeWritableFormFields(fields []FormField, node *Node, defaultWrite bool) m
 		return result
 	}
 	for _, permission := range node.FormPermissions {
-		if permission.Access == FieldAccessWrite {
+		field := workflowFormFieldByKey(fields, permission.Field)
+		if permission.Access == FieldAccessWrite && field.Type != FormFieldTypeCalculation {
 			result[permission.Field] = struct{}{}
 		} else {
 			delete(result, permission.Field)
 		}
 	}
 	return result
+}
+
+func workflowFormFieldByKey(fields []FormField, key string) FormField {
+	for _, field := range fields {
+		if field.Key == key {
+			return field
+		}
+		if field.Type == FormFieldTypeGroup {
+			if nested := workflowFormFieldByKey(field.Fields, key); nested.Key != "" {
+				return nested
+			}
+		}
+	}
+	return FormField{}
 }
 
 func validateSelectedFormData(fields []FormField, data map[string]interface{}, selected map[string]struct{}, partial bool) error {
@@ -213,7 +228,7 @@ func validateFieldValue(field FormField, value interface{}, partial bool) error 
 		if field.Type == FormFieldTypeTime && !validClockTime(text) {
 			return fmt.Errorf("%w：%s格式无效", ErrFormDataInvalid, field.Label)
 		}
-	case FormFieldTypeNumber, FormFieldTypeAmount:
+	case FormFieldTypeNumber, FormFieldTypeAmount, FormFieldTypeCalculation:
 		number, ok := formNumber(value)
 		if !ok {
 			return fieldTypeError(field)

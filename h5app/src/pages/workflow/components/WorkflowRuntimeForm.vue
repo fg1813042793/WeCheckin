@@ -7,6 +7,12 @@ import type {
 } from '@/types/workflow'
 import { computed, ref } from 'vue'
 import {
+  calculateWorkflowFormData,
+  evaluateWorkflowCalculation,
+  workflowCalculationDisplay,
+  workflowCalculationPrecision,
+} from '../workflow-calculation'
+import {
   cloneWorkflowValue,
   createWorkflowDetailRow,
   emptyWorkflowFieldValue,
@@ -28,6 +34,7 @@ const props = withDefaults(defineProps<{
   readonlyAppearance?: 'disabled' | 'plain'
   embedded?: boolean
   showErrors?: boolean
+  calculationFields?: WorkflowFormField[]
 }>(), {
   readonly: false,
   readonlyAppearance: 'disabled',
@@ -54,7 +61,18 @@ const validationErrors = computed(() => validateWorkflowFormData(props.fields, p
 const errorsVisible = computed(() => props.showErrors || localShowErrors.value)
 
 function fieldReadonly(field: WorkflowFormField) {
-  return props.readonly || accessMap.value[field.key] !== 'write'
+  return field.type === 'calculation' || props.readonly || accessMap.value[field.key] !== 'write'
+}
+
+function calculationDisplay(field: WorkflowFormField) {
+  return workflowCalculationDisplay(field.calculation)
+}
+
+function calculationText(field: WorkflowFormField) {
+  const result = evaluateWorkflowCalculation(field, props.modelValue || {})
+  if (result.error || result.value === undefined)
+    return '-'
+  return result.value.toFixed(workflowCalculationPrecision(field.calculation))
 }
 
 function fieldSpanStyle(field: WorkflowFormField) {
@@ -67,10 +85,10 @@ function fieldError(field: WorkflowFormField) {
 }
 
 function updateField(field: WorkflowFormField, value: unknown) {
-  const next = {
+  const next = calculateWorkflowFormData(props.calculationFields || props.fields, {
     ...props.modelValue,
     [field.key]: cloneWorkflowValue(value),
-  }
+  })
   emit('update:modelValue', next)
   emit('change', next)
 }
@@ -166,6 +184,7 @@ defineExpose({ validate })
             :field-actions="fieldActions"
             :readonly="readonly"
             :readonly-appearance="readonlyAppearance"
+            :calculation-fields="calculationFields || fields"
             embedded
             :show-errors="errorsVisible"
             @update:model-value="emit('update:modelValue', $event)"
@@ -174,6 +193,16 @@ defineExpose({ validate })
         </view>
         <view v-else-if="field.type === 'label'" class="workflow-form__label" :style="fieldSpanStyle(field)">
           {{ field.label }}
+        </view>
+        <view
+          v-else-if="field.type === 'calculation' && calculationDisplay(field) === 'label'"
+          class="workflow-form__calculation-label"
+          :style="fieldSpanStyle(field)"
+        >
+          <text>{{ field.label || field.key }}</text>
+          <text class="workflow-form__calculation-value">
+            {{ calculationText(field) }}
+          </text>
         </view>
         <view v-else-if="field.type === 'description'" class="workflow-form__description" :style="fieldSpanStyle(field)">
           {{ field.content }}
@@ -252,6 +281,9 @@ defineExpose({ validate })
               </u-button>
             </view>
           </view>
+          <view v-else-if="field.type === 'calculation'" class="workflow-form__calculation-field">
+            {{ calculationText(field) }}
+          </view>
           <WorkflowFieldControl
             v-else
             :field="field"
@@ -292,6 +324,7 @@ defineExpose({ validate })
 .workflow-form__field,
 .workflow-detail__column,
 .workflow-form__label,
+.workflow-form__calculation-label,
 .workflow-form__description,
 .workflow-form__layout-button {
   min-width: 0;
@@ -346,6 +379,36 @@ defineExpose({ validate })
   color: $u-main-color;
   font-size: 30rpx;
   font-weight: 700;
+}
+
+.workflow-form__calculation-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  border-left: 6rpx solid $u-type-primary;
+  background: #f4f8ff;
+  color: $u-content-color;
+  font-size: 25rpx;
+}
+
+.workflow-form__calculation-value {
+  color: $u-type-primary;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.workflow-form__calculation-field {
+  min-height: 70rpx;
+  padding: 0 20rpx;
+  display: flex;
+  align-items: center;
+  border: 1px solid $u-border-color;
+  border-radius: 8rpx;
+  background: #f5f7fa;
+  color: $u-main-color;
+  font-size: 26rpx;
+  box-sizing: border-box;
 }
 
 .workflow-form__description {
@@ -475,6 +538,7 @@ defineExpose({ validate })
   .workflow-form__field,
   .workflow-detail__column,
   .workflow-form__label,
+  .workflow-form__calculation-label,
   .workflow-form__description,
   .workflow-form__layout-button {
     width: 100% !important;

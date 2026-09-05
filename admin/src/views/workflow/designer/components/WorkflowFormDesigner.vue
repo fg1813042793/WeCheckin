@@ -252,6 +252,10 @@
                     <template #suffix><el-icon><component :is="field.type.startsWith('user') ? 'User' : 'OfficeBuilding'" /></el-icon></template>
                   </el-input>
                   <el-button v-else-if="field.type === 'attachment'" icon="Upload" disabled>选择附件</el-button>
+                  <div v-else-if="field.type === 'calculation'" class="calculation-field-preview" :class="`calculation-field-preview--${field.calculation?.display === 'label' ? 'label' : 'field'}`">
+                    <span>fx</span>
+                    <strong>{{ field.calculation?.expression || '请配置计算公式' }}</strong>
+                  </div>
                   <div v-else-if="field.type === 'detail_list'" class="detail-preview">
                     <div class="detail-preview__grid">
                       <div
@@ -304,7 +308,7 @@
               <template #append><el-tooltip content="以字母开头，可使用字母、数字、点、下划线和中划线"><el-icon><QuestionFilled /></el-icon></el-tooltip></template>
             </el-input>
           </el-form-item>
-          <el-form-item v-if="isWorkflowDataField(selectedField)" label="提示文字">
+          <el-form-item v-if="isWorkflowDataField(selectedField) && selectedField.type !== 'calculation'" label="提示文字">
             <el-input v-model="selectedField.placeholder" maxlength="120" :disabled="readonly" @input="emitChange" />
           </el-form-item>
         </section>
@@ -357,7 +361,12 @@
           <p>PC 端按栅格同行排列，移动端自动切换为整行。</p>
         </section>
 
-        <section v-if="isWorkflowDataField(selectedField)" class="property-section">
+        <section v-if="selectedField.type === 'calculation'" class="property-section">
+          <h3>计算设置</h3>
+          <WorkflowCalculationEditor :field="selectedField" :fields="props.fields" :readonly="readonly" @change="emitChange" />
+        </section>
+
+        <section v-if="isWorkflowDataField(selectedField) && selectedField.type !== 'calculation'" class="property-section">
           <h3>校验规则</h3>
           <div class="required-setting">
             <span>必填字段</span>
@@ -677,47 +686,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { WorkflowFormField, WorkflowFormFieldSpan, WorkflowFormFieldType, WorkflowFormOption, WorkflowOptionSourceType } from '../../types'
 import { insertWorkflowField, isWorkflowDataField, moveWorkflowDetailColumn, moveWorkflowField, removeWorkflowField, workflowFieldByKey } from '../../formLayout'
 import { flattenWorkflowOptions, hasWorkflowOptionChildren, normalizeWorkflowOptions, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
+import { workflowDetailColumnTypes as detailColumnTypes, workflowFieldGroups as fieldGroups, workflowFieldTypes as fieldTypes } from '../workflowFieldCatalog'
 import WorkflowFormFieldPreview from './WorkflowFormFieldPreview.vue'
+import WorkflowCalculationEditor from './WorkflowCalculationEditor.vue'
 import WorkflowValidationRulesEditor from './WorkflowValidationRulesEditor.vue'
 
 const props = defineProps<{ fields: WorkflowFormField[]; readonly?: boolean }>()
 const emit = defineEmits<{ change: [] }>()
 
-const fieldTypes: Array<{ type: WorkflowFormFieldType; label: string; icon: string }> = [
-  { type: 'text', label: '单行文本', icon: 'EditPen' },
-  { type: 'textarea', label: '多行文本', icon: 'Document' },
-  { type: 'number', label: '数字', icon: 'Odometer' },
-  { type: 'amount', label: '金额', icon: 'Money' },
-  { type: 'phone', label: '手机号', icon: 'Cellphone' },
-  { type: 'email', label: '邮箱', icon: 'Message' },
-  { type: 'boolean', label: '开关', icon: 'Switch' },
-  { type: 'select', label: '单选下拉', icon: 'Select' },
-  { type: 'multi_select', label: '多选下拉', icon: 'Finished' },
-  { type: 'radio', label: '单选框', icon: 'CircleCheck' },
-  { type: 'checkbox', label: '复选框', icon: 'Checked' },
-  { type: 'date', label: '日期', icon: 'Calendar' },
-  { type: 'datetime', label: '日期时间', icon: 'Clock' },
-  { type: 'time', label: '时间', icon: 'Timer' },
-  { type: 'date_range', label: '日期区间', icon: 'Calendar' },
-  { type: 'user', label: '人员', icon: 'User' },
-  { type: 'user_multi', label: '多人', icon: 'UserFilled' },
-  { type: 'department', label: '部门', icon: 'OfficeBuilding' },
-  { type: 'department_multi', label: '多部门', icon: 'CopyDocument' },
-  { type: 'attachment', label: '附件', icon: 'Paperclip' },
-  { type: 'detail_list', label: '明细列表', icon: 'Tickets' },
-  { type: 'group', label: '表单组', icon: 'FolderOpened' },
-  { type: 'label', label: '标签', icon: 'CollectionTag' },
-  { type: 'description', label: '说明', icon: 'InfoFilled' },
-  { type: 'button', label: '说明按钮', icon: 'Pointer' },
-]
-const fieldGroups = [
-  { label: '布局与说明', items: fieldTypes.filter(item => ['group', 'label', 'description', 'button'].includes(item.type)) },
-  { label: '基础字段', items: fieldTypes.filter(item => ['text', 'textarea', 'number', 'amount', 'phone', 'email', 'boolean'].includes(item.type)) },
-  { label: '选择与时间', items: fieldTypes.filter(item => ['select', 'multi_select', 'radio', 'checkbox', 'date', 'datetime', 'time', 'date_range'].includes(item.type)) },
-  { label: '组织与附件', items: fieldTypes.filter(item => ['user', 'user_multi', 'department', 'department_multi', 'attachment'].includes(item.type)) },
-  { label: '明细字段', items: fieldTypes.filter(item => ['detail_list'].includes(item.type)) },
-]
-const detailColumnTypes = fieldTypes.filter(item => !['detail_list', 'attachment', 'user', 'user_multi', 'department', 'department_multi', 'group', 'label', 'description', 'button'].includes(item.type))
 const fieldSpanOptions: Array<{ label: string; value: WorkflowFormFieldSpan }> = [
   { label: '1/4', value: 6 },
   { label: '1/3', value: 8 },
@@ -765,6 +741,7 @@ function buildField(type: WorkflowFormFieldType): WorkflowFormField {
   if (type === 'label') return { key, label: '标签文本', type, span: 24 }
   if (type === 'description') return { key, label: '填写提示', type, span: 24, content: '请输入说明内容' }
   if (type === 'button') return { key, label: '查看说明', type, span: 24, help: { title: '说明', content: '请输入说明内容' } }
+  if (type === 'calculation') return { key, label: '计算结果', type, span: 12, calculation: { expression: '', display: 'field', precision: 2 } }
   const field: WorkflowFormField = {
     key,
     label: meta.label,
@@ -1235,7 +1212,7 @@ function updateHelpField(key: 'title' | 'content', value: string) {
 }
 
 function supportsDefault(field: WorkflowFormField) {
-  return isWorkflowDataField(field) && !['attachment', 'user', 'user_multi', 'department', 'department_multi', 'date_range', 'detail_list'].includes(field.type)
+  return isWorkflowDataField(field) && !['calculation', 'attachment', 'user', 'user_multi', 'department', 'department_multi', 'date_range', 'detail_list'].includes(field.type)
 }
 
 function stringDefault(value: unknown) {
@@ -1348,6 +1325,10 @@ function emitChange() {
 .field-preview :deep(.el-radio-group), .field-preview :deep(.el-checkbox-group) { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .field-preview :deep(.el-radio), .field-preview :deep(.el-checkbox) { margin-right: 0; }
 .field-preview :deep(.is-disabled .el-input__wrapper), .field-preview :deep(.el-textarea.is-disabled .el-textarea__inner) { background: #f8fafc; box-shadow: 0 0 0 1px #e6ebf1 inset; }
+.calculation-field-preview { min-height: 34px; padding: 7px 10px; border: 1px solid #dfe6ee; border-radius: 5px; display: flex; align-items: center; gap: 8px; box-sizing: border-box; color: #475569; background: #f8fafc; font-size: 12px; }
+.calculation-field-preview span { flex: 0 0 auto; color: #1677ff; font-weight: 700; }
+.calculation-field-preview strong { min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.calculation-field-preview--label { border-color: transparent; background: transparent; }
 .detail-preview {
   display: flex;
   flex-direction: column;

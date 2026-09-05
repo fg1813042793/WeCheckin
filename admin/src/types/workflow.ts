@@ -10,11 +10,13 @@ export type WorkflowFormFieldType =
   | 'date' | 'datetime' | 'time' | 'date_range'
   | 'user' | 'user_multi' | 'department' | 'department_multi' | 'attachment'
   | 'detail_list'
+  | 'calculation'
   | 'group' | 'label' | 'description' | 'button'
 export type WorkflowFormFieldSpan = 6 | 8 | 12 | 24
 export type WorkflowFieldAccess = 'hidden' | 'read' | 'write'
 export type WorkflowDetailRowAction = 'add' | 'delete'
 export type WorkflowOptionSourceType = 'static' | 'api'
+export type WorkflowCalculationDisplay = 'label' | 'field'
 export type WorkflowInitiatorScope = 'all' | 'specified'
 export type WorkflowStartAvailabilityMode = 'always' | 'fixed' | 'weekly' | 'monthly'
 export type WorkflowStartAvailabilityStatus = 'available' | 'not_started' | 'expired' | 'outside_window'
@@ -102,6 +104,13 @@ export interface WorkflowFormField {
   minVisibleRows?: number
   maxVisibleRows?: number
   rules?: WorkflowValidationRule[]
+  calculation?: WorkflowFormCalculation
+}
+
+export interface WorkflowFormCalculation {
+  expression: string
+  display?: WorkflowCalculationDisplay
+  precision?: number
 }
 
 export interface WorkflowFieldPermission {

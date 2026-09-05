@@ -1,5 +1,6 @@
 const workflowStartPrefix = 'workflow:start:'
 const workflowInstancePrefix = 'workflow:instance:'
+const workflowFormDetailPrefix = 'workflow:form-detail:'
 const workflowTaskPrefix = 'workflow:task:'
 const workflowFormRevisionPrefix = 'workflow:form-revision:'
 const workflowTaskInstanceSeparator = ':instance:'
@@ -26,6 +27,19 @@ export function workflowInstanceIdFromContentKey(key: string) {
   if (!key.startsWith(workflowInstancePrefix))
     return ''
   return decodeWorkflowRouteValue(key.slice(workflowInstancePrefix.length))
+}
+
+export function workflowFormDetailContentKey(instanceId: string) {
+  const normalizedInstanceId = String(instanceId || '').trim()
+  return normalizedInstanceId
+    ? `${workflowFormDetailPrefix}${encodeURIComponent(normalizedInstanceId)}`
+    : ''
+}
+
+export function workflowFormDetailInstanceIdFromContentKey(key: string) {
+  if (!key.startsWith(workflowFormDetailPrefix))
+    return ''
+  return decodeWorkflowRouteValue(key.slice(workflowFormDetailPrefix.length))
 }
 
 export function workflowFormRevisionContentKey(instanceId: string) {
@@ -67,6 +81,10 @@ export function normalizeWorkflowDynamicContentKey(key: string) {
   const instanceId = workflowInstanceIdFromContentKey(key)
   if (instanceId)
     return workflowInstanceContentKey(instanceId)
+
+  const formDetailInstanceId = workflowFormDetailInstanceIdFromContentKey(key)
+  if (formDetailInstanceId)
+    return workflowFormDetailContentKey(formDetailInstanceId)
 
   const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
   if (revisionInstanceId)

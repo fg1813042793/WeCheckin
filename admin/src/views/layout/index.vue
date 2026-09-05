@@ -34,24 +34,11 @@
         text-color="#bfcbd9"
         active-text-color="#409eff"
       >
-        <template v-for="item in displayMenuTree" :key="item.path || item.id">
-          <el-menu-item v-if="item.type === 1 && item.status === 1 && item.path" :index="item.path">
-            <el-icon v-if="resolveAdminIcon(item.icon)"><component :is="resolveAdminIcon(item.icon)" /></el-icon>
-            <span>{{ item.name }}</span>
-          </el-menu-item>
-          <el-sub-menu v-else-if="item.type === 0 && item.children && item.children.length > 0" :index="item.path || String(item.id)">
-            <template #title>
-              <el-icon v-if="resolveAdminIcon(item.icon)"><component :is="resolveAdminIcon(item.icon)" /></el-icon>
-              <span>{{ item.name }}</span>
-            </template>
-            <template v-for="(child, ci) in item.children" :key="child.path || child.id || ci">
-              <el-menu-item v-if="child.type === 1 && child.status === 1 && child.path" :index="child.path">
-                <el-icon v-if="resolveAdminIcon(child.icon)"><component :is="resolveAdminIcon(child.icon)" /></el-icon>
-                <span>{{ child.name }}</span>
-              </el-menu-item>
-            </template>
-          </el-sub-menu>
-        </template>
+        <AdminMenuNode
+          v-for="item in displayMenuTree"
+          :key="item.path || item.id"
+          :item="item"
+        />
       </el-menu>
       </el-scrollbar>
     </el-aside>
@@ -153,6 +140,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick, defineComponent, h, markRaw } from 'vue'
 import type { Component } from 'vue'
 import { adminApi } from '../../api'
+import AdminMenuNode from './AdminMenuNode.vue'
 import { ADMIN_ROUTE_TABS_STORAGE_KEY, clearAdminSession } from '../../utils/adminSession'
 import {
   canAccessAdminRoute,

@@ -13,6 +13,9 @@ import type {
 } from './types'
 import { isWorkflowDataField, workflowDataFields } from './formLayout'
 import { workflowCompareFieldCompatible, workflowCompareOperators } from './workflowValidationRules'
+import { calculateWorkflowFormData } from './workflowCalculation'
+
+export { calculateWorkflowFormData, evaluateWorkflowCalculation } from './workflowCalculation'
 
 export type WorkflowFormData = Record<string, unknown>
 export type WorkflowFieldAccessMap = Record<string, WorkflowFieldAccess>
@@ -110,7 +113,7 @@ export function isArrayWorkflowField(field: Pick<WorkflowFormField, 'type'>): bo
 export function emptyWorkflowFieldValue(field: Pick<WorkflowFormField, 'type'>): unknown {
   if (isArrayWorkflowField(field)) return []
   if (field.type === 'boolean') return false
-  if (field.type === 'number' || field.type === 'amount') return undefined
+  if (field.type === 'number' || field.type === 'amount' || field.type === 'calculation') return undefined
   return ''
 }
 
@@ -128,7 +131,7 @@ export function initialWorkflowFormData(fields: WorkflowFormField[], existing: W
     }
     result[field.key] = emptyWorkflowFieldValue(field)
   }
-  return result
+  return calculateWorkflowFormData(fields, result)
 }
 
 export function workflowFieldAccessMap(
@@ -139,14 +142,15 @@ export function workflowFieldAccessMap(
 ): WorkflowFieldAccessMap {
   const accessByField: WorkflowFieldAccessMap = {}
   for (const field of workflowDataFields(fields)) {
-    if (field?.key) accessByField[field.key] = defaultAccess
+    if (field?.key) accessByField[field.key] = field.type === 'calculation' ? 'read' : defaultAccess
   }
   const permissions = nodeId ? permissionsByNode?.[nodeId] : undefined
   if (!Array.isArray(permissions)) return accessByField
   for (const permission of permissions) {
     if (!permission?.field || !(permission.field in accessByField)) continue
     if (permission.access === 'hidden' || permission.access === 'read' || permission.access === 'write') {
-      accessByField[permission.field] = permission.access
+      const field = workflowDataFields(fields).find(item => item.key === permission.field)
+      accessByField[permission.field] = field?.type === 'calculation' && permission.access === 'write' ? 'read' : permission.access
     }
   }
   return accessByField
@@ -293,7 +297,7 @@ export function writableWorkflowFormData(
 ): WorkflowFormData {
   const result: WorkflowFormData = {}
   for (const field of workflowDataFields(fields)) {
-    if (!field?.key || accessByField[field.key] !== 'write') continue
+    if (!field?.key || field.type === 'calculation' || accessByField[field.key] !== 'write') continue
     const value = normalizeWorkflowFormValue(field, values[field.key])
     if (value !== undefined) result[field.key] = cloneWorkflowValue(value)
   }

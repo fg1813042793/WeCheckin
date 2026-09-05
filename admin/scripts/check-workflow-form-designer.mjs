@@ -26,10 +26,18 @@ function loadTypeScriptModule(relativePath) {
 
 const typeSource = read('src/types/workflow.ts')
 const designerSource = read('src/views/workflow/designer/index.vue')
-const formDesignerSource = read('src/views/workflow/designer/components/WorkflowFormDesigner.vue')
+const formDesignerSource = [
+  read('src/views/workflow/designer/components/WorkflowFormDesigner.vue'),
+  read('src/views/workflow/designer/workflowFieldCatalog.ts'),
+].join('\n')
+const calculationEditorSource = read('src/views/workflow/designer/components/WorkflowCalculationEditor.vue')
 const fieldPreviewSource = read('src/views/workflow/designer/components/WorkflowFormFieldPreview.vue')
 const validationRulesSource = read('src/views/workflow/designer/components/WorkflowValidationRulesEditor.vue')
 const permissionSource = read('src/views/workflow/designer/components/WorkflowFieldPermissions.vue')
+const fieldPermissionUtilsPath = 'src/views/workflow/workflowFieldPermissions.ts'
+if (!fs.existsSync(path.join(root, fieldPermissionUtilsPath))) {
+  throw new Error('流程设计器缺少计算字段权限规范化工具')
+}
 const validationRuleUtilsPath = 'src/views/workflow/workflowValidationRules.ts'
 if (!fs.existsSync(path.join(root, validationRuleUtilsPath))) {
   throw new Error('表单设计器缺少跨字段校验兼容矩阵')
@@ -47,6 +55,43 @@ const {
   workflowCompareFieldCompatible,
   workflowCompareOperators,
 } = loadTypeScriptModule(validationRuleUtilsPath)
+const {
+  normalizeWorkflowCalculationPermissions,
+} = loadTypeScriptModule(fieldPermissionUtilsPath)
+
+const calculationPermissionDraft = {
+  form: [
+    { key: 'quantity', label: '数量', type: 'number' },
+    { key: 'total', label: '合计', type: 'calculation' },
+    { key: 'group', label: '分组', type: 'group', fields: [{ key: 'groupTotal', label: '分组合计', type: 'calculation' }] },
+  ],
+  nodes: [{
+    id: 'start',
+    type: 'start',
+    formPermissions: [
+      { field: 'quantity', access: 'write' },
+      { field: 'total', access: 'write', actions: ['add'] },
+      { field: 'groupTotal', access: 'write' },
+    ],
+  }],
+  edges: [],
+}
+if (!normalizeWorkflowCalculationPermissions(calculationPermissionDraft)) {
+  throw new Error('应修正历史草稿中计算字段的可编辑权限')
+}
+const calculationPermissions = calculationPermissionDraft.nodes[0].formPermissions
+if (calculationPermissions[0].access !== 'write') {
+  throw new Error('普通字段的可编辑权限不应被修改')
+}
+for (const fieldKey of ['total', 'groupTotal']) {
+  const permission = calculationPermissions.find(item => item.field === fieldKey)
+  if (permission?.access !== 'read' || 'actions' in permission) {
+    throw new Error(`计算字段 ${fieldKey} 应规范为只读并清理行操作权限`)
+  }
+}
+if (normalizeWorkflowCalculationPermissions(calculationPermissionDraft)) {
+  throw new Error('计算字段权限规范化应具备幂等性')
+}
 
 for (const [left, right] of [
   ['number', 'amount'],
@@ -259,6 +304,9 @@ for (const [source, surface] of [
 
 const requirements = [
   [typeSource, "export type WorkflowFormFieldType", '缺少流程表单字段类型'],
+  [typeSource, "| 'calculation'", '流程字段类型缺少计算组件'],
+  [typeSource, 'export interface WorkflowFormCalculation', '流程字段缺少计算配置契约'],
+  [typeSource, 'calculation?: WorkflowFormCalculation', '流程字段未关联计算配置'],
   [typeSource, 'form: WorkflowFormField[]', '流程草稿缺少 form 字段'],
   [typeSource, 'span?: WorkflowFormFieldSpan', '流程字段缺少布局宽度'],
   [typeSource, "'detail_list'", '流程字段类型缺少明细列表'],
@@ -294,6 +342,10 @@ const requirements = [
   [formDesignerSource, "type: 'user_multi'", '表单设计器缺少多人字段'],
   [formDesignerSource, "type: 'department_multi'", '表单设计器缺少多部门字段'],
   [formDesignerSource, "type: 'detail_list'", '表单设计器缺少明细列表字段'],
+  [formDesignerSource, "type: 'calculation'", '表单设计器缺少计算组件'],
+  [formDesignerSource, 'WorkflowCalculationEditor', '表单设计器未接入计算公式配置'],
+  [calculationEditorSource, "const aggregates = ['SUM', 'AVG', 'MIN', 'MAX', 'COUNT']", '计算组件缺少明细聚合函数'],
+  [calculationEditorSource, 'SUM([items.quantity] * [items.price])', '计算组件缺少明细行组合计算说明'],
   [formDesignerSource, "type: 'group'", '表单设计器缺少表单组'],
   [formDesignerSource, "type: 'label'", '表单设计器缺少标签'],
   [formDesignerSource, "type: 'description'", '表单设计器缺少说明'],

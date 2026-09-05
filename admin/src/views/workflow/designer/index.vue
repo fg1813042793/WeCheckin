@@ -176,6 +176,7 @@ import type {
 } from '../types'
 import { cloneDraft } from '../types'
 import { workflowDataFields } from '../formLayout'
+import { normalizeWorkflowCalculationPermissions } from '../workflowFieldPermissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -225,11 +226,12 @@ async function loadDetail() {
     const response = await adminApi.workflowDefinitionDetail(definitionId.value)
     const data = response.data as WorkflowDefinitionDetail
     data.draft = cloneDraft(data.draft)
+    const permissionsNormalized = normalizeWorkflowCalculationPermissions(data.draft)
     detail.value = data
     selectedNodeId.value = ''
     activeDesignerTab.value = 'process'
     nodeDrawer.value = false
-    dirty.value = false
+    dirty.value = permissionsNormalized
     validationErrors.value = []
   } finally {
     loading.value = false
@@ -271,9 +273,13 @@ function handleFormChange() {
     if (node.type !== 'start' && node.type !== 'approval' && node.type !== 'handle') return
     formFields.forEach((field) => {
       if (node.formPermissions?.some(permission => permission.field === field.key)) return
-      node.formPermissions?.push({ field: field.key, access: node.type === 'start' ? 'write' : 'read' })
+      node.formPermissions?.push({
+        field: field.key,
+        access: field.type === 'calculation' ? 'read' : node.type === 'start' ? 'write' : 'read',
+      })
     })
   })
+  normalizeWorkflowCalculationPermissions(detail.value.draft)
   markDirty()
 }
 
@@ -356,6 +362,7 @@ async function saveDraft(showMessage = true) {
   try {
     detail.value.draft.key = detail.value.key
     detail.value.draft.name = name
+    normalizeWorkflowCalculationPermissions(detail.value.draft)
     const response = await adminApi.workflowDefinitionUpdate(detail.value.id, {
       name,
       category: detail.value.category.trim(),
@@ -365,6 +372,7 @@ async function saveDraft(showMessage = true) {
     })
     const saved = response.data as WorkflowDefinitionDetail
     saved.draft = cloneDraft(saved.draft)
+    normalizeWorkflowCalculationPermissions(saved.draft)
     detail.value = saved
     dirty.value = false
     if (showMessage) ElMessage.success('草稿已保存')
