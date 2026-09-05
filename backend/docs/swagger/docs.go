@@ -12203,7 +12203,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
-                "description": "首次提交文字必填，去除首尾空白后最长 5000 字；每个用户自然日最多新建 20 条。requestId 是新建幂等键，网络重试必须复用。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP；图片字段 images 可以重复提交",
+                "description": "首次提交文字必填，去除首尾空白后最长 5000 字；每个用户自然日最多新建 20 条。requestId 是新建幂等键，网络重试必须复用。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP；图片字段 images 可以重复提交，multipart 请求体总大小最多 64 MiB",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -12339,7 +12339,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
-                "description": "仅当前登录用户可补充自己的反馈，只有 pending、processing 状态允许补充；文字和图片不能同时为空。requestId 是补充幂等键，网络重试必须复用；version 用于乐观锁校验。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP，单条反馈累计最多 30 张",
+                "description": "仅当前登录用户可补充自己的反馈，只有 pending、processing 状态允许补充；文字和图片不能同时为空。requestId 是补充幂等键，网络重试必须复用；version 用于乐观锁校验。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP，单条反馈累计最多 30 张，multipart 请求体总大小最多 64 MiB",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -18171,6 +18171,11 @@ const docTemplate = `{
         },
         "swagger.UserFeedbackStatusRequest": {
             "type": "object",
+            "required": [
+                "requestId",
+                "status",
+                "version"
+            ],
             "properties": {
                 "note": {
                     "description": "Note 是处理说明；关闭、解决或重新打开反馈时必填。",

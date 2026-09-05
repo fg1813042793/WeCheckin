@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 type userFeedbackSwaggerDocument struct {
@@ -31,10 +33,17 @@ type userFeedbackSwaggerParameter struct {
 
 type userFeedbackSwaggerSchema struct {
 	Properties map[string]json.RawMessage `json:"properties"`
+	Required   []string                   `json:"required"`
 }
 
 type userFeedbackSwaggerProperty struct {
 	Type string `json:"type"`
+}
+
+type userFeedbackSwaggerYAMLDocument struct {
+	Definitions map[string]struct {
+		Required []string `yaml:"required"`
+	} `yaml:"definitions"`
 }
 
 func TestUserFeedbackSwaggerDocumentsAllRoutes(t *testing.T) {
@@ -124,6 +133,22 @@ func TestUserFeedbackSwaggerDocumentsExactAdminStatusBody(t *testing.T) {
 			t.Errorf("status body property %q type = %q, want %q", name, property.Type, wantType)
 		}
 	}
+	wantRequired := []string{"requestId", "status", "version"}
+	assertExactRequiredFields(t, "swagger.json", schema.Required, wantRequired)
+
+	yamlContent, err := os.ReadFile("../../../../docs/swagger/swagger.yaml")
+	if err != nil {
+		t.Fatalf("read generated Swagger YAML: %v", err)
+	}
+	var yamlDoc userFeedbackSwaggerYAMLDocument
+	if err := yaml.Unmarshal(yamlContent, &yamlDoc); err != nil {
+		t.Fatalf("decode generated Swagger YAML: %v", err)
+	}
+	yamlSchema, ok := yamlDoc.Definitions[strings.TrimPrefix(wantRef, "#/definitions/")]
+	if !ok {
+		t.Fatalf("Swagger YAML missing definition %q", wantRef)
+	}
+	assertExactRequiredFields(t, "swagger.yaml", yamlSchema.Required, wantRequired)
 }
 
 func TestUserFeedbackSwaggerDocumentsBehavioralBoundaries(t *testing.T) {
@@ -135,11 +160,11 @@ func TestUserFeedbackSwaggerDocumentsBehavioralBoundaries(t *testing.T) {
 	)
 	assertDescriptionContains(t,
 		requireSwaggerOperation(t, doc, "/api/v2/dingtalk/h5/user-feedbacks", "post").Description,
-		"requestId", "幂等", "最多 6 张", "单张 10 MB", "JPG、PNG、WebP",
+		"requestId", "幂等", "最多 6 张", "单张 10 MB", "JPG、PNG、WebP", "multipart 请求体总大小最多 64 MiB",
 	)
 	assertDescriptionContains(t,
 		requireSwaggerOperation(t, doc, "/api/v2/dingtalk/h5/user-feedbacks/{id}/supplements", "post").Description,
-		"pending", "processing", "累计最多 30 张", "version", "乐观锁",
+		"pending", "processing", "累计最多 30 张", "version", "乐观锁", "multipart 请求体总大小最多 64 MiB",
 	)
 	assertDescriptionContains(t,
 		requireSwaggerOperation(t, doc, "/api/v2/admin/user-feedbacks/{id}/status", "patch").Description,
@@ -253,4 +278,15 @@ func sortedPropertyNames(properties map[string]json.RawMessage) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func assertExactRequiredFields(t *testing.T, document string, got, want []string) {
+	t.Helper()
+	got = append([]string(nil), got...)
+	want = append([]string(nil), want...)
+	sort.Strings(got)
+	sort.Strings(want)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("%s status body required fields = %v, want exactly %v", document, got, want)
+	}
 }

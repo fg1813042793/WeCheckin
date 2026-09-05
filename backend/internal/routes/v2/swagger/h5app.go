@@ -648,7 +648,7 @@ func swaggerV2H5AppUserFeedbackListGet() {}
 
 // @Tags API v2-H5App-用户反馈
 // @Summary 新建用户反馈
-// @Description 首次提交文字必填，去除首尾空白后最长 5000 字；每个用户自然日最多新建 20 条。requestId 是新建幂等键，网络重试必须复用。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP；图片字段 images 可以重复提交
+// @Description 首次提交文字必填，去除首尾空白后最长 5000 字；每个用户自然日最多新建 20 条。requestId 是新建幂等键，网络重试必须复用。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP；图片字段 images 可以重复提交，multipart 请求体总大小最多 64 MiB
 // @Security H5AppToken
 // @Accept multipart/form-data
 // @Param content formData string true "反馈文字，最长 5000 字"
@@ -669,7 +669,7 @@ func swaggerV2H5AppUserFeedbackDetailGet() {}
 
 // @Tags API v2-H5App-用户反馈
 // @Summary 补充用户反馈
-// @Description 仅当前登录用户可补充自己的反馈，只有 pending、processing 状态允许补充；文字和图片不能同时为空。requestId 是补充幂等键，网络重试必须复用；version 用于乐观锁校验。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP，单条反馈累计最多 30 张
+// @Description 仅当前登录用户可补充自己的反馈，只有 pending、processing 状态允许补充；文字和图片不能同时为空。requestId 是补充幂等键，网络重试必须复用；version 用于乐观锁校验。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP，单条反馈累计最多 30 张，multipart 请求体总大小最多 64 MiB
 // @Security H5AppToken
 // @Accept multipart/form-data
 // @Param id path int true "反馈 ID"
