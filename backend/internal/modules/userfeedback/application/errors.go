@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	ErrServiceUnavailable       = errors.New("feedback application service is not initialized")
 	ErrInvalidArgument          = errors.New("invalid feedback argument")
 	ErrFeedbackNotFound         = errors.New("feedback not found or inaccessible")
 	ErrSupplementNotAllowed     = errors.New("feedback status does not allow supplements")
