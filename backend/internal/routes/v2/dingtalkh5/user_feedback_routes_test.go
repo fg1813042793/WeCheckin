@@ -44,13 +44,19 @@ func TestDingTalkH5UserFeedbackMenuMatchesMigration(t *testing.T) {
 			break
 		}
 	}
-	if found == nil || found.Name != "用户反馈" || found.Path != "feedback" || found.Icon != "mine" || found.Sort != 110 {
+	if found == nil || found.Name != "我的反馈" || found.Path != "feedback" || found.Icon != "chat" || found.Sort != 110 {
 		t.Fatalf("feedback menu = %#v", found)
 	}
-	migration := readFeedbackPermissionMigration(t)
+	migration := readFeedbackPermissionMigration(t, "20260905101000_add_user_feedback_permissions.sql")
 	for _, fragment := range []string{"'dingtalk_h5:menu:feedback'", "'feedback'", "'mine'", "110"} {
 		if !strings.Contains(migration, fragment) {
-			t.Fatalf("feedback migration missing %q", fragment)
+			t.Fatalf("initial feedback migration missing %q", fragment)
+		}
+	}
+	updateMigration := readFeedbackPermissionMigration(t, "20260905102000_update_user_feedback_h5_menu.sql")
+	for _, fragment := range []string{"'dingtalk_h5:menu:feedback'", "'我的反馈'", "'chat'"} {
+		if !strings.Contains(updateMigration, fragment) {
+			t.Fatalf("feedback menu update migration missing %q", fragment)
 		}
 	}
 }
@@ -82,9 +88,9 @@ func TestDingTalkH5UserFeedbackRoutesReuseMigratedPermissions(t *testing.T) {
 	}
 }
 
-func readFeedbackPermissionMigration(t *testing.T) string {
+func readFeedbackPermissionMigration(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile("../../../../migrations/20260905101000_add_user_feedback_permissions.sql")
+	data, err := os.ReadFile("../../../../migrations/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
