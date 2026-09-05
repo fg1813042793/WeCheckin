@@ -47,7 +47,7 @@ func (objectStorage *ObjectStorage) Save(ctx context.Context, image application.
 	}
 	randomID, err := objectStorage.nextRandomID()
 	if err != nil {
-		return application.StoredImage{}, newObjectStorageError(err)
+		return application.StoredImage{}, newObjectStorageError(ctx, err)
 	}
 	now := objectStorage.currentTime()
 	filename := randomID + strings.ToLower(filepath.Ext(image.OriginalName))
@@ -57,14 +57,14 @@ func (objectStorage *ObjectStorage) Save(ctx context.Context, image application.
 		Now:      now,
 	})
 	if err != nil {
-		return application.StoredImage{}, newObjectStorageError(err)
+		return application.StoredImage{}, newObjectStorageError(ctx, err)
 	}
 	if stored == nil {
-		return application.StoredImage{}, newObjectStorageError(errEmptyStorageResult)
+		return application.StoredImage{}, newObjectStorageError(ctx, errEmptyStorageResult)
 	}
 	objectKey, ok := feedbackObjectKey(stored.ObjectKey)
 	if !ok {
-		return application.StoredImage{}, newObjectStorageError(errInvalidFeedbackObjectKey)
+		return application.StoredImage{}, newObjectStorageError(ctx, errInvalidFeedbackObjectKey)
 	}
 
 	provider := storageProviderAliyun
@@ -87,7 +87,7 @@ func (objectStorage *ObjectStorage) Delete(ctx context.Context, image applicatio
 	}
 	objectKey, ok := feedbackObjectKey(image.ObjectKey)
 	if !ok {
-		return newObjectStorageError(errInvalidFeedbackObjectKey)
+		return newObjectStorageError(ctx, errInvalidFeedbackObjectKey)
 	}
 
 	stored := &storage.StoredFile{ObjectKey: objectKey}
@@ -98,10 +98,10 @@ func (objectStorage *ObjectStorage) Delete(ctx context.Context, image applicatio
 		stored.LocalPath = filepath.Join(storage.LocalUploadRoot(), filepath.FromSlash(localObjectPath))
 	case storageProviderAliyun:
 	default:
-		return newObjectStorageError(errUnsupportedStorageProvider)
+		return newObjectStorageError(ctx, errUnsupportedStorageProvider)
 	}
 	if err := objectStorage.delete(ctx, stored); err != nil {
-		return newObjectStorageError(err)
+		return newObjectStorageError(ctx, err)
 	}
 	return nil
 }
@@ -184,12 +184,9 @@ func (err *objectStorageError) Unwrap() []error {
 	return []error{application.ErrStorageFailed, err.cause}
 }
 
-func newObjectStorageError(cause error) error {
-	if errors.Is(cause, context.Canceled) {
-		return context.Canceled
-	}
-	if errors.Is(cause, context.DeadlineExceeded) {
-		return context.DeadlineExceeded
+func newObjectStorageError(ctx context.Context, cause error) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	return &objectStorageError{cause: cause}
 }

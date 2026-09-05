@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -241,23 +242,57 @@ func TestObjectStorageSaveReturnsStableStorageError(t *testing.T) {
 	assertStableObjectStorageError(t, err, storageCause)
 }
 
-func TestObjectStorageSavePreservesContextErrors(t *testing.T) {
-	for _, contextErr := range []error{context.Canceled, context.DeadlineExceeded} {
-		t.Run(contextErr.Error(), func(t *testing.T) {
+func TestObjectStorageSaveClassifiesBackendTimeoutsAsStorageFailures(t *testing.T) {
+	timeoutCause := &storageTimeoutError{message: "private storage timeout"}
+	for _, cause := range []error{context.Canceled, context.DeadlineExceeded, timeoutCause} {
+		t.Run(cause.Error(), func(t *testing.T) {
 			objectStorage := &ObjectStorage{
 				saveReader: func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error) {
-					return nil, fmt.Errorf("wrapped context failure: %w", contextErr)
+					return nil, cause
 				},
 				randomID: func() (string, error) { return strings.Repeat("a", 32), nil },
 				now:      time.Now,
 			}
 
 			_, err := objectStorage.Save(context.Background(), application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")})
-			if !errors.Is(err, contextErr) {
-				t.Fatalf("ObjectStorage.Save() error = %v, want errors.Is(_, %v)", err, contextErr)
+			assertStableObjectStorageError(t, err, cause)
+			if err == cause {
+				t.Fatalf("ObjectStorage.Save() returned bare backend cause: %v", err)
 			}
-			if err.Error() != contextErr.Error() {
-				t.Fatalf("ObjectStorage.Save() error text = %q, want %q", err.Error(), contextErr.Error())
+			if cause == timeoutCause {
+				var netErr net.Error
+				if !errors.As(err, &netErr) || !netErr.Timeout() {
+					t.Fatalf("ObjectStorage.Save() error = %v, want wrapped timeout net.Error", err)
+				}
+			}
+		})
+	}
+}
+
+func TestObjectStorageSaveReturnsCallerContextError(t *testing.T) {
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	deadlineCtx, cancelDeadline := context.WithDeadline(context.Background(), time.Unix(0, 0))
+	defer cancelDeadline()
+
+	for name, ctx := range map[string]context.Context{
+		"canceled": canceledCtx,
+		"deadline": deadlineCtx,
+	} {
+		t.Run(name, func(t *testing.T) {
+			objectStorage := &ObjectStorage{
+				randomID: func() (string, error) {
+					t.Fatal("random ID generator must not run for a terminated caller context")
+					return "", nil
+				},
+			}
+
+			_, err := objectStorage.Save(ctx, application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")})
+			if err != ctx.Err() {
+				t.Fatalf("ObjectStorage.Save() error = %v, want caller context error %v", err, ctx.Err())
+			}
+			if errors.Is(err, application.ErrStorageFailed) {
+				t.Fatalf("ObjectStorage.Save() error = %v, must not match ErrStorageFailed", err)
 			}
 		})
 	}
@@ -376,23 +411,48 @@ func TestObjectStorageDeleteReturnsStableStorageError(t *testing.T) {
 	assertStableObjectStorageError(t, err, deleteCause)
 }
 
-func TestObjectStorageDeletePreservesContextErrors(t *testing.T) {
-	for _, contextErr := range []error{context.Canceled, context.DeadlineExceeded} {
-		t.Run(contextErr.Error(), func(t *testing.T) {
+func TestObjectStorageDeleteClassifiesBackendDeadlineAsStorageFailure(t *testing.T) {
+	objectStorage := &ObjectStorage{
+		deleteStoredFile: func(context.Context, *storage.StoredFile) error {
+			return context.DeadlineExceeded
+		},
+	}
+	err := objectStorage.Delete(context.Background(), application.StoredImage{
+		StorageProvider: "aliyun",
+		ObjectKey:       "uploads/feedback/image.png",
+	})
+	assertStableObjectStorageError(t, err, context.DeadlineExceeded)
+	if err == context.DeadlineExceeded {
+		t.Fatalf("ObjectStorage.Delete() returned bare backend deadline: %v", err)
+	}
+}
+
+func TestObjectStorageDeleteReturnsCallerContextError(t *testing.T) {
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	deadlineCtx, cancelDeadline := context.WithDeadline(context.Background(), time.Unix(0, 0))
+	defer cancelDeadline()
+
+	for name, ctx := range map[string]context.Context{
+		"canceled": canceledCtx,
+		"deadline": deadlineCtx,
+	} {
+		t.Run(name, func(t *testing.T) {
 			objectStorage := &ObjectStorage{
 				deleteStoredFile: func(context.Context, *storage.StoredFile) error {
-					return fmt.Errorf("wrapped context failure: %w", contextErr)
+					t.Fatal("delete must not run for a terminated caller context")
+					return nil
 				},
 			}
-			err := objectStorage.Delete(context.Background(), application.StoredImage{
+			err := objectStorage.Delete(ctx, application.StoredImage{
 				StorageProvider: "aliyun",
 				ObjectKey:       "uploads/feedback/image.png",
 			})
-			if !errors.Is(err, contextErr) {
-				t.Fatalf("ObjectStorage.Delete() error = %v, want errors.Is(_, %v)", err, contextErr)
+			if err != ctx.Err() {
+				t.Fatalf("ObjectStorage.Delete() error = %v, want caller context error %v", err, ctx.Err())
 			}
-			if err.Error() != contextErr.Error() {
-				t.Fatalf("ObjectStorage.Delete() error text = %q, want %q", err.Error(), contextErr.Error())
+			if errors.Is(err, application.ErrStorageFailed) {
+				t.Fatalf("ObjectStorage.Delete() error = %v, must not match ErrStorageFailed", err)
 			}
 		})
 	}
@@ -413,5 +473,13 @@ func assertStableObjectStorageError(t *testing.T, err, cause error) {
 		t.Fatalf("error leaked cause: %v", err)
 	}
 }
+
+type storageTimeoutError struct {
+	message string
+}
+
+func (err *storageTimeoutError) Error() string   { return err.message }
+func (err *storageTimeoutError) Timeout() bool   { return true }
+func (err *storageTimeoutError) Temporary() bool { return true }
 
 type staticDomainContextKey struct{}
