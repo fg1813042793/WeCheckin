@@ -23,6 +23,7 @@ const requiredRouteSnippets = [
   "path: 'online'",
   "path: 'event'",
   "path: 'position'",
+  "path: 'user-feedbacks'",
 ]
 
 for (const snippet of requiredRouteSnippets) {

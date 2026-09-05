@@ -11,6 +11,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     title?: string
     menuPath?: string
+    requiredPermission?: string
     allowWithoutMenu?: boolean
     public?: boolean
     adminUi?: AdminUiContract

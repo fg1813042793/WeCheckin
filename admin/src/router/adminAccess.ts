@@ -50,5 +50,6 @@ export function loadAdminAccessSnapshot(force = false): Promise<AdminAccessSnaps
 
 export function canAccessAdminRoute(meta: RouteMeta, snapshot: AdminAccessSnapshot): boolean {
   if (meta.allowWithoutMenu) return true
+  if (meta.requiredPermission && !snapshot.permissions.includes(meta.requiredPermission)) return false
   return typeof meta.menuPath === 'string' && snapshot.menuPaths.has(meta.menuPath)
 }

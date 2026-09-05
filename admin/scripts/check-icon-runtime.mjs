@@ -25,6 +25,12 @@ const menuViewSource = readFileSync(menuViewPath, 'utf8')
 const iconPickerSource = readFileSync(iconPickerPath, 'utf8')
 const adminRoutesSource = readFileSync(adminRoutesPath, 'utf8')
 
+for (const iconName of ['ChatDotRound']) {
+  if (!Object.prototype.hasOwnProperty.call(ElementPlusIconsVue, iconName)) {
+    throw new Error(`backend admin menu icon does not exist in Element Plus: ${iconName}`)
+  }
+}
+
 for (const forbidden of [
   'import * as ElementPlusIconsVue',
   'Object.entries(ElementPlusIconsVue)'

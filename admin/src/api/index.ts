@@ -57,6 +57,13 @@ import type {
   ScheduledTaskRunDetail,
   ScheduledTaskWorker,
 } from '../types/scheduledTask'
+import type {
+  AdminUserFeedbackListQuery,
+  UpdateUserFeedbackStatusInput,
+  UserFeedbackDetail,
+  UserFeedbackList,
+  UserFeedbackOverview,
+} from '../types/userFeedback'
 
 export type TemplatePreset = { label: string; value: string }
 type WorkflowInitiatorConfig = { scope: 'all' | 'specified'; userIds?: number[]; departmentIds?: number[]; excludedUserIds?: number[] }
@@ -766,6 +773,19 @@ export const adminApi = {
   },
   workflowNotificationDispatchDue(data: { limit?: number } = {}) {
     return request.post<{ dispatched: number }, typeof data>(`${ADMIN_V2}/workflow-notifications/dispatch-due`, data, jsonConfig)
+  },
+  // 用户反馈
+  userFeedbackOverview(params: AdminUserFeedbackListQuery = {}) {
+    return request.get<UserFeedbackOverview>(`${ADMIN_V2}/user-feedbacks/overview`, { params })
+  },
+  userFeedbackList(params: AdminUserFeedbackListQuery = {}) {
+    return request.get<UserFeedbackList>(`${ADMIN_V2}/user-feedbacks`, { params })
+  },
+  userFeedbackDetail(id: ID) {
+    return request.get<UserFeedbackDetail>(`${ADMIN_V2}/user-feedbacks/${encodePath(id)}`)
+  },
+  userFeedbackUpdateStatus(id: ID, data: UpdateUserFeedbackStatusInput) {
+    return request.patch<UserFeedbackDetail, UpdateUserFeedbackStatusInput>(`${ADMIN_V2}/user-feedbacks/${encodePath(id)}/status`, data, jsonConfig)
   },
   // 通用定时任务
   scheduledTaskList(params?: QueryParams) {
