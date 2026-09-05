@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	mysqldialect "gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 
 	"wecheckin/backend/internal/modules/userfeedback/application"
@@ -355,11 +355,75 @@ func TestNextFeedbackNumberCreatesLocksAndAdvancesPastFourDigits(t *testing.T) {
 		t.Fatalf("sequence statements = %d queries, %d execs", len(queries), len(execs))
 	}
 	if !strings.Contains(normalizeSQL(execs[0].SQL), "INSERT INTO `user_feedback_daily_sequences`") ||
-		!strings.Contains(normalizeSQL(execs[0].SQL), "ON DUPLICATE KEY UPDATE") {
+		strings.Contains(normalizeSQL(execs[0].SQL), "ON DUPLICATE KEY") {
 		t.Fatalf("missing-row insert SQL = %s", execs[0].SQL)
 	}
 	if !strings.Contains(normalizeSQL(execs[1].SQL), "UPDATE `user_feedback_daily_sequences`") {
 		t.Fatalf("increment SQL = %s", execs[1].SQL)
+	}
+}
+
+func TestNextFeedbackNumberIgnoresOnlyPrimarySeedConflict(t *testing.T) {
+	tests := []struct {
+		name         string
+		seedErr      error
+		wantOriginal bool
+	}{
+		{
+			name:    "bare primary",
+			seedErr: mysqlDuplicate(`Duplicate entry '2026-09-05' for key 'PRIMARY'`),
+		},
+		{
+			name:    "qualified quoted primary",
+			seedErr: mysqlDuplicate("Duplicate entry '2026-09-05' for key `wecheckin`.`user_feedback_daily_sequences`.`PRIMARY`"),
+		},
+		{
+			name:         "other unique index",
+			seedErr:      mysqlDuplicate(`Duplicate entry 'x' for key 'user_feedback_daily_sequences.uk_unexpected'`),
+			wantOriginal: true,
+		},
+		{
+			name:         "translated duplicate without index",
+			seedErr:      gorm.ErrDuplicatedKey,
+			wantOriginal: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			execCount := 0
+			script := &databaseScript{
+				exec: func(string, []driver.NamedValue) execResult {
+					execCount++
+					if execCount == 1 {
+						return execResult{Err: test.seedErr}
+					}
+					return execResult{RowsAffected: 1}
+				},
+				query: func(string, []driver.NamedValue) queryResult {
+					return queryResult{
+						Columns: []string{"sequence_date", "current_value", "updated_at"},
+						Rows:    [][]driver.Value{{time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), int64(8), int64(1)}},
+					}
+				},
+			}
+			value, err := NewGormStore(openScriptedGormDB(t, script)).NextFeedbackNumber(context.Background(), "2026-09-05")
+			if test.wantOriginal {
+				if err != test.seedErr || value != 0 {
+					t.Fatalf("NextFeedbackNumber = %d, %v, want original %v", value, err, test.seedErr)
+				}
+				return
+			}
+			if err != nil || value != 9 {
+				t.Fatalf("NextFeedbackNumber = %d, %v", value, err)
+			}
+			queries, execs := script.statements()
+			if len(queries) != 1 || len(execs) != 2 || !strings.Contains(normalizeSQL(queries[0].SQL), "FOR UPDATE") {
+				t.Fatalf("sequence coordination SQL = %#v %#v", queries, execs)
+			}
+			if strings.Contains(normalizeSQL(execs[0].SQL), "ON DUPLICATE KEY") {
+				t.Fatalf("sequence seed must be a plain insert: %s", execs[0].SQL)
+			}
+		})
 	}
 }
 
@@ -421,71 +485,168 @@ func TestLockFeedbackUsesForUpdateAndMapsNotFound(t *testing.T) {
 	}
 }
 
-func TestCreateAndAppendUseOnlyTheirIdempotencyConflictTargets(t *testing.T) {
+func mysqlDuplicate(message string) *mysqlDriver.MySQLError {
+	return &mysqlDriver.MySQLError{Number: 1062, Message: message}
+}
+
+func feedbackRecord() application.FeedbackRecord {
+	return application.FeedbackRecord{
+		FeedbackNo: "FB-20260905-0001", SubmitterID: 7, CreateRequestID: "create-1",
+		Status: domain.StatusPending, Version: 1, LastActivityAt: 10, CreatedAt: 10, UpdatedAt: 10,
+	}
+}
+
+func messageRecord() application.MessageRecord {
+	return application.MessageRecord{
+		FeedbackID: 9, MessageType: domain.MessageTypeSupplement, AuthorType: domain.AuthorTypeUser,
+		AuthorID: 7, Content: "more", RequestID: "message-1", CreatedAt: 11,
+	}
+}
+
+func notificationRecord() application.NotificationOutboxRecord {
+	return application.NotificationOutboxRecord{
+		IdempotencyKey: "feedback-status:9:20", Channel: "internal", NotificationType: "feedback_status",
+		SourceType: "user_feedback", SourceID: "9", RecipientUserID: 7, Title: "title", Content: "content", CreatedAt: 12345,
+	}
+}
+
+func TestCreateFeedbackClassifiesOnlyExactRequestIndex(t *testing.T) {
 	tests := []struct {
-		name    string
-		clause  clause.OnConflict
-		columns []string
+		name      string
+		cause     error
+		duplicate bool
 	}{
-		{name: "feedback", clause: feedbackCreateConflictClause(), columns: []string{"submitter_id", "create_request_id"}},
-		{name: "message", clause: messageCreateConflictClause(), columns: []string{"feedback_id", "author_type", "author_id", "request_id"}},
-		{name: "notification", clause: notificationCreateConflictClause(), columns: []string{"idempotency_key"}},
+		{name: "bare index", cause: mysqlDuplicate(`Duplicate entry '7-create-1' for key 'uk_user_feedbacks_submitter_request'`), duplicate: true},
+		{name: "single quoted table prefix", cause: mysqlDuplicate(`Duplicate entry '7-create-1' for key 'user_feedbacks.uk_user_feedbacks_submitter_request'`), duplicate: true},
+		{name: "backtick schema and table prefix", cause: mysqlDuplicate("Duplicate entry '7-create-1' for key `wecheckin`.`user_feedbacks`.`uk_user_feedbacks_submitter_request`"), duplicate: true},
+		{name: "feedback number index", cause: mysqlDuplicate(`Duplicate entry 'FB-20260905-0001' for key 'uk_user_feedbacks_feedback_no'`)},
+		{name: "unknown unique index", cause: mysqlDuplicate(`Duplicate entry 'x' for key 'user_feedbacks.uk_unknown'`)},
+		{name: "does not contain for key suffix", cause: mysqlDuplicate(`Duplicate entry 'x'`)},
+		{name: "translated duplicate without index", cause: gorm.ErrDuplicatedKey},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if !test.clause.DoNothing || len(test.clause.Columns) != len(test.columns) {
-				t.Fatalf("conflict clause = %#v", test.clause)
-			}
-			for index, column := range test.columns {
-				if test.clause.Columns[index].Name != column {
-					t.Fatalf("conflict columns = %#v", test.clause.Columns)
+			script := &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{Err: test.cause} }}
+			_, err := NewGormStore(openScriptedGormDB(t, script)).CreateFeedback(context.Background(), feedbackRecord())
+			if test.duplicate {
+				if !errors.Is(err, application.ErrDuplicateRequest) {
+					t.Fatalf("CreateFeedback error = %v", err)
 				}
+			} else if err != test.cause {
+				t.Fatalf("CreateFeedback error = %v, want original %v", err, test.cause)
 			}
+			assertOnlyPlainInserts(t, script)
 		})
 	}
 }
 
-func TestCreateFeedbackAndAppendMessageMapZeroRowsToDuplicateRequest(t *testing.T) {
-	script := &databaseScript{exec: func(string, []driver.NamedValue) execResult {
-		return execResult{RowsAffected: 0}
-	}}
-	store := NewGormStore(openScriptedGormDB(t, script))
-	_, err := store.CreateFeedback(context.Background(), application.FeedbackRecord{
-		FeedbackNo: "FB-20260905-0001", SubmitterID: 7, CreateRequestID: "create-1",
-		Status: domain.StatusPending, Version: 1, LastActivityAt: 10, CreatedAt: 10, UpdatedAt: 10,
-	})
-	if !errors.Is(err, application.ErrDuplicateRequest) {
-		t.Fatalf("CreateFeedback error = %v", err)
+func TestAppendMessageClassifiesOnlyExactRequestIndex(t *testing.T) {
+	tests := []struct {
+		name      string
+		cause     error
+		duplicate bool
+	}{
+		{name: "request index", cause: mysqlDuplicate(`Duplicate entry '9-user-7-message-1' for key 'user_feedback_messages.uk_user_feedback_messages_request'`), duplicate: true},
+		{name: "unknown index", cause: mysqlDuplicate(`Duplicate entry 'x' for key 'uk_unknown'`)},
+		{name: "translated duplicate", cause: gorm.ErrDuplicatedKey},
 	}
-	_, err = store.AppendMessage(context.Background(), application.MessageRecord{
-		FeedbackID: 9, MessageType: domain.MessageTypeSupplement, AuthorType: domain.AuthorTypeUser,
-		AuthorID: 7, Content: "more", RequestID: "message-1", CreatedAt: 11,
-	})
-	if !errors.Is(err, application.ErrDuplicateRequest) {
-		t.Fatalf("AppendMessage error = %v", err)
-	}
-	_, execs := script.statements()
-	if len(execs) != 2 {
-		t.Fatalf("create exec count = %d", len(execs))
-	}
-	for _, record := range execs {
-		if !strings.Contains(normalizeSQL(record.SQL), "ON DUPLICATE KEY UPDATE") {
-			t.Fatalf("idempotent create SQL = %s", record.SQL)
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			script := &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{Err: test.cause} }}
+			_, err := NewGormStore(openScriptedGormDB(t, script)).AppendMessage(context.Background(), messageRecord())
+			if test.duplicate {
+				if !errors.Is(err, application.ErrDuplicateRequest) {
+					t.Fatalf("AppendMessage error = %v", err)
+				}
+			} else if err != test.cause {
+				t.Fatalf("AppendMessage error = %v, want original %v", err, test.cause)
+			}
+			assertOnlyPlainInserts(t, script)
+		})
 	}
 }
 
-func TestCreateFeedbackReturnsRawDatabaseErrors(t *testing.T) {
-	databaseCause := errors.New("duplicate feedback number")
-	script := &databaseScript{exec: func(string, []driver.NamedValue) execResult {
-		return execResult{Err: databaseCause}
-	}}
-	store := NewGormStore(openScriptedGormDB(t, script))
-	_, err := store.CreateFeedback(context.Background(), application.FeedbackRecord{
-		FeedbackNo: "FB-duplicate", SubmitterID: 7, CreateRequestID: "new-request", Status: domain.StatusPending,
+func TestEnqueueNotificationClassifiesOnlyExactIdempotencyIndex(t *testing.T) {
+	tests := []struct {
+		name       string
+		cause      error
+		idempotent bool
+	}{
+		{name: "idempotency index", cause: mysqlDuplicate(`Duplicate entry 'feedback-status:9:20' for key 'notification_outbox.uk_notification_outbox_idempotency'`), idempotent: true},
+		{name: "unknown index", cause: mysqlDuplicate(`Duplicate entry 'x' for key 'uk_unknown'`)},
+		{name: "translated duplicate", cause: gorm.ErrDuplicatedKey},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			script := &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{Err: test.cause} }}
+			err := NewGormStore(openScriptedGormDB(t, script)).EnqueueNotification(context.Background(), notificationRecord())
+			if test.idempotent {
+				if err != nil {
+					t.Fatalf("EnqueueNotification error = %v", err)
+				}
+			} else if err != test.cause {
+				t.Fatalf("EnqueueNotification error = %v, want original %v", err, test.cause)
+			}
+			assertOnlyPlainInserts(t, script)
+		})
+	}
+}
+
+func TestPlainInsertZeroRowsReturnsInternalError(t *testing.T) {
+	t.Run("feedback", func(t *testing.T) {
+		store := NewGormStore(openScriptedGormDB(t, &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{} }}))
+		_, err := store.CreateFeedback(context.Background(), feedbackRecord())
+		if err == nil || errors.Is(err, application.ErrDuplicateRequest) {
+			t.Fatalf("CreateFeedback zero-row error = %v", err)
+		}
 	})
-	if err != databaseCause {
-		t.Fatalf("CreateFeedback error = %v, want original %v", err, databaseCause)
+	t.Run("message", func(t *testing.T) {
+		store := NewGormStore(openScriptedGormDB(t, &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{} }}))
+		_, err := store.AppendMessage(context.Background(), messageRecord())
+		if err == nil || errors.Is(err, application.ErrDuplicateRequest) {
+			t.Fatalf("AppendMessage zero-row error = %v", err)
+		}
+	})
+	t.Run("notification", func(t *testing.T) {
+		store := NewGormStore(openScriptedGormDB(t, &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{} }}))
+		if err := store.EnqueueNotification(context.Background(), notificationRecord()); err == nil {
+			t.Fatal("EnqueueNotification accepted zero-row insert")
+		}
+	})
+	t.Run("attachments", func(t *testing.T) {
+		store := NewGormStore(openScriptedGormDB(t, &databaseScript{exec: func(string, []driver.NamedValue) execResult { return execResult{} }}))
+		err := store.AppendAttachments(context.Background(), []application.AttachmentRecord{{
+			FeedbackID: 9, MessageID: 10, ObjectKey: "feedback/a.jpg", OriginalName: "a.jpg",
+		}})
+		if err == nil {
+			t.Fatal("AppendAttachments accepted zero-row insert")
+		}
+	})
+	t.Run("sequence seed", func(t *testing.T) {
+		script := &databaseScript{
+			exec: func(string, []driver.NamedValue) execResult { return execResult{} },
+			query: func(string, []driver.NamedValue) queryResult {
+				return queryResult{Columns: []string{"sequence_date", "current_value", "updated_at"}, Rows: [][]driver.Value{{time.Now(), int64(1), int64(1)}}}
+			},
+		}
+		if _, err := NewGormStore(openScriptedGormDB(t, script)).NextFeedbackNumber(context.Background(), "2026-09-05"); err == nil {
+			t.Fatal("NextFeedbackNumber accepted zero-row seed insert")
+		}
+		queries, _ := script.statements()
+		if len(queries) != 0 {
+			t.Fatalf("zero-row seed continued to locking query: %#v", queries)
+		}
+	})
+}
+
+func assertOnlyPlainInserts(t *testing.T, script *databaseScript) {
+	t.Helper()
+	_, execs := script.statements()
+	if len(execs) != 1 {
+		t.Fatalf("insert exec count = %d", len(execs))
+	}
+	if strings.Contains(normalizeSQL(execs[0].SQL), "ON DUPLICATE KEY") {
+		t.Fatalf("insert must not use ON DUPLICATE KEY: %s", execs[0].SQL)
 	}
 }
 
@@ -552,17 +713,14 @@ func TestEnqueueNotificationUsesStableRecipientAndPayloadJSON(t *testing.T) {
 	}
 
 	script := &databaseScript{exec: func(string, []driver.NamedValue) execResult {
-		return execResult{RowsAffected: 0}
+		return execResult{Err: mysqlDuplicate(`Duplicate entry 'feedback-status:9:20' for key 'uk_notification_outbox_idempotency'`)}
 	}}
 	store := NewGormStore(openScriptedGormDB(t, script))
-	if err := store.EnqueueNotification(context.Background(), application.NotificationOutboxRecord{
-		IdempotencyKey: "feedback-status:9:20", Channel: "internal", NotificationType: "feedback_status",
-		SourceType: "user_feedback", SourceID: "9", RecipientUserID: 7, Title: "title", Content: "content", CreatedAt: 12345,
-	}); err != nil {
+	if err := store.EnqueueNotification(context.Background(), notificationRecord()); err != nil {
 		t.Fatalf("duplicate EnqueueNotification must succeed: %v", err)
 	}
 	_, execs := script.statements()
-	if len(execs) != 1 || !strings.Contains(normalizeSQL(execs[0].SQL), "ON DUPLICATE KEY UPDATE") {
+	if len(execs) != 1 || strings.Contains(normalizeSQL(execs[0].SQL), "ON DUPLICATE KEY") {
 		t.Fatalf("notification SQL = %#v", execs)
 	}
 }

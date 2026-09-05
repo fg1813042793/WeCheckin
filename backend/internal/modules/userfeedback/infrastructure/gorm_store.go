@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
+	"strings"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -21,7 +24,25 @@ import (
 var (
 	errFeedbackDatabaseNotInitialized = errors.New("user feedback database is not initialized")
 	errFeedbackSequenceOverflow       = errors.New("user feedback daily sequence overflow")
+	errFeedbackSequenceSeedInsert     = errors.New("user feedback daily sequence seed insert affected no rows")
 	errFeedbackSequenceUpdate         = errors.New("user feedback daily sequence update failed")
+	errFeedbackInsert                 = errors.New("user feedback insert affected no rows")
+	errFeedbackMessageInsert          = errors.New("user feedback message insert affected no rows")
+	errFeedbackAttachmentInsert       = errors.New("user feedback attachment insert affected no rows")
+	errFeedbackNotificationInsert     = errors.New("user feedback notification insert affected no rows")
+)
+
+const (
+	mysqlDuplicateEntryNumber          = uint16(1062)
+	sequencePrimaryIndex               = "primary"
+	feedbackRequestIndex               = "uk_user_feedbacks_submitter_request"
+	feedbackMessageRequestIndex        = "uk_user_feedback_messages_request"
+	notificationOutboxIdempotencyIndex = "uk_notification_outbox_idempotency"
+)
+
+var (
+	mysqlDuplicateKeySuffixPattern = regexp.MustCompile(`(?i)(?:^|[[:space:]])for[[:space:]]+key[[:space:]]+(.+?)[[:space:]]*$`)
+	mysqlIndexNamePattern          = regexp.MustCompile(`^[[:alnum:]_$-]+$`)
 )
 
 type GormStore struct {
@@ -72,11 +93,13 @@ func (store *GormStore) NextFeedbackNumber(ctx context.Context, dateKey string) 
 
 	now := time.Now().UTC().UnixMilli()
 	seed := userfeedbackmodel.DailySequence{SequenceDate: sequenceDate, UpdatedAt: now}
-	if err := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "sequence_date"}},
-		DoNothing: true,
-	}).Create(&seed).Error; err != nil {
-		return 0, err
+	seedResult := db.Create(&seed)
+	if seedResult.Error != nil {
+		if !isMySQLDuplicateIndex(seedResult.Error, sequencePrimaryIndex) {
+			return 0, seedResult.Error
+		}
+	} else if seedResult.RowsAffected == 0 {
+		return 0, errFeedbackSequenceSeedInsert
 	}
 
 	var locked userfeedbackmodel.DailySequence
@@ -141,21 +164,17 @@ func (store *GormStore) CreateFeedback(ctx context.Context, record application.F
 	}
 	defer cancel()
 	row := feedbackModel(record)
-	result := db.Clauses(feedbackCreateConflictClause()).Create(&row)
+	result := db.Create(&row)
 	if result.Error != nil {
+		if isMySQLDuplicateIndex(result.Error, feedbackRequestIndex) {
+			return 0, application.ErrDuplicateRequest
+		}
 		return 0, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return 0, application.ErrDuplicateRequest
+		return 0, errFeedbackInsert
 	}
 	return row.ID, nil
-}
-
-func feedbackCreateConflictClause() clause.OnConflict {
-	return clause.OnConflict{
-		Columns:   []clause.Column{{Name: "submitter_id"}, {Name: "create_request_id"}},
-		DoNothing: true,
-	}
 }
 
 func (store *GormStore) LockFeedback(ctx context.Context, id uint64) (*application.FeedbackSnapshot, error) {
@@ -187,26 +206,17 @@ func (store *GormStore) AppendMessage(ctx context.Context, record application.Me
 	}
 	defer cancel()
 	row := messageModel(record)
-	result := db.Clauses(messageCreateConflictClause()).Create(&row)
+	result := db.Create(&row)
 	if result.Error != nil {
+		if isMySQLDuplicateIndex(result.Error, feedbackMessageRequestIndex) {
+			return 0, application.ErrDuplicateRequest
+		}
 		return 0, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return 0, application.ErrDuplicateRequest
+		return 0, errFeedbackMessageInsert
 	}
 	return row.ID, nil
-}
-
-func messageCreateConflictClause() clause.OnConflict {
-	return clause.OnConflict{
-		Columns: []clause.Column{
-			{Name: "feedback_id"},
-			{Name: "author_type"},
-			{Name: "author_id"},
-			{Name: "request_id"},
-		},
-		DoNothing: true,
-	}
 }
 
 func (store *GormStore) AppendAttachments(ctx context.Context, records []application.AttachmentRecord) error {
@@ -222,7 +232,14 @@ func (store *GormStore) AppendAttachments(ctx context.Context, records []applica
 	}
 	defer cancel()
 	rows := attachmentModels(records)
-	return db.Create(&rows).Error
+	result := db.Create(&rows)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errFeedbackAttachmentInsert
+	}
+	return nil
 }
 
 func (store *GormStore) UpdateSnapshot(ctx context.Context, snapshot application.FeedbackSnapshot, expectedVersion uint64) error {
@@ -264,14 +281,17 @@ func (store *GormStore) EnqueueNotification(ctx context.Context, record applicat
 	if err != nil {
 		return err
 	}
-	return db.Clauses(notificationCreateConflictClause()).Create(&row).Error
-}
-
-func notificationCreateConflictClause() clause.OnConflict {
-	return clause.OnConflict{
-		Columns:   []clause.Column{{Name: "idempotency_key"}},
-		DoNothing: true,
+	result := db.Create(&row)
+	if result.Error != nil {
+		if isMySQLDuplicateIndex(result.Error, notificationOutboxIdempotencyIndex) {
+			return nil
+		}
+		return result.Error
 	}
+	if result.RowsAffected == 0 {
+		return errFeedbackNotificationInsert
+	}
+	return nil
 }
 
 type feedbackNotificationPayload struct {
@@ -311,6 +331,29 @@ func notificationOutboxModel(record application.NotificationOutboxRecord) (notif
 		AddTime:        record.CreatedAt,
 		EditTime:       record.CreatedAt,
 	}, nil
+}
+
+func isMySQLDuplicateIndex(err error, expectedIndex string) bool {
+	index, ok := mysqlDuplicateIndexName(err)
+	return ok && index == strings.ToLower(expectedIndex)
+}
+
+func mysqlDuplicateIndexName(err error) (string, bool) {
+	var mysqlErr *mysqlDriver.MySQLError
+	if !errors.As(err, &mysqlErr) || mysqlErr.Number != mysqlDuplicateEntryNumber {
+		return "", false
+	}
+	match := mysqlDuplicateKeySuffixPattern.FindStringSubmatch(mysqlErr.Message)
+	if len(match) != 2 {
+		return "", false
+	}
+	qualifiedName := strings.Trim(strings.TrimSpace(match[1]), "'`\"")
+	parts := strings.Split(qualifiedName, ".")
+	index := strings.ToLower(strings.Trim(strings.TrimSpace(parts[len(parts)-1]), "'`\""))
+	if !mysqlIndexNamePattern.MatchString(index) {
+		return "", false
+	}
+	return index, true
 }
 
 func (store *GormStore) contextDB(ctx context.Context) (*gorm.DB, context.CancelFunc, error) {
