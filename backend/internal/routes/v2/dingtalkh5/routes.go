@@ -5,6 +5,9 @@ import (
 
 	dingtalkh5 "wecheckin/backend/internal/handler/dingtalkh5"
 	dingtalkh5mw "wecheckin/backend/internal/middleware/dingtalk_h5"
+	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
+	userfeedbackinfra "wecheckin/backend/internal/modules/userfeedback/infrastructure"
+	userfeedbackhttp "wecheckin/backend/internal/modules/userfeedback/transport/httpdingtalkh5"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpclient"
@@ -31,6 +34,10 @@ func Register(h *server.Hertz) {
 	)
 	workflowHandler := workflowhttp.NewRuntimeHandler(workflowService)
 	workflowSummaryHandler := workflowhttp.NewSummaryHandler(workflowsummary.NewService(db, workflowService))
+	feedbackStore := userfeedbackinfra.NewGormStore(db)
+	feedbackStorage := userfeedbackinfra.NewObjectStorage()
+	feedbackService := userfeedbackapp.NewService(feedbackStore, feedbackStorage)
+	feedbackHandler := userfeedbackhttp.NewHandler(feedbackService)
 	group := h.Group("/api/v2/dingtalk/h5")
 	group.GET("/public-config", handler.Auth.PublicConfig)
 	group.POST("/login", handler.Auth.Login)
@@ -96,4 +103,9 @@ func Register(h *server.Hertz) {
 	auth.GET("/workflows/summary/instances", workflowSummaryHandler.ListInstances)
 	auth.GET("/workflows/summary/instances/:id", workflowSummaryHandler.GetInstance)
 	auth.GET("/workflows/summary/export", workflowSummaryHandler.Export)
+	auth.GET("/user-feedbacks/overview", feedbackHandler.Overview)
+	auth.GET("/user-feedbacks", feedbackHandler.List)
+	auth.POST("/user-feedbacks", feedbackHandler.Create)
+	auth.GET("/user-feedbacks/:id", feedbackHandler.Detail)
+	auth.POST("/user-feedbacks/:id/supplements", feedbackHandler.Supplement)
 }

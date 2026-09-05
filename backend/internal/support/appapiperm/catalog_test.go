@@ -98,6 +98,41 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 	}
 }
 
+func TestDingTalkH5UserFeedbackCatalogMatchesPermissionMigration(t *testing.T) {
+	wantDeclarations := map[string]struct {
+		perms  string
+		method string
+		path   string
+		sort   int
+	}{
+		"dingtalk_h5:api:feedback:list":       {perms: "feedback:list", method: "GET", path: "/api/v2/dingtalk/h5/user-feedbacks", sort: 10},
+		"dingtalk_h5:api:feedback:create":     {perms: "feedback:create", method: "POST", path: "/api/v2/dingtalk/h5/user-feedbacks", sort: 20},
+		"dingtalk_h5:api:feedback:detail":     {perms: "feedback:detail", method: "GET", path: "/api/v2/dingtalk/h5/user-feedbacks/:id", sort: 30},
+		"dingtalk_h5:api:feedback:supplement": {perms: "feedback:supplement", method: "POST", path: "/api/v2/dingtalk/h5/user-feedbacks/:id/supplements", sort: 40},
+	}
+	for _, declaration := range DingTalkH5APIDeclarations() {
+		if expected, ok := wantDeclarations[declaration.Key]; ok {
+			if declaration.CategoryKey != "dingtalk_h5:api-category:feedback" || declaration.Perms != expected.perms || declaration.Method != expected.method || declaration.Path != expected.path || declaration.Sort != expected.sort {
+				t.Fatalf("feedback declaration=%#v", declaration)
+			}
+			delete(wantDeclarations, declaration.Key)
+		}
+	}
+	if len(wantDeclarations) != 0 {
+		t.Fatalf("missing feedback API declarations: %#v", wantDeclarations)
+	}
+
+	foundCategory := false
+	for _, category := range DingTalkH5APICategories() {
+		if category.Key == "dingtalk_h5:api-category:feedback" && category.Name == "用户反馈" && category.Platform == "dingtalk_h5" && category.Sort == 80 {
+			foundCategory = true
+		}
+	}
+	if !foundCategory {
+		t.Fatal("missing DingTalk H5 feedback API category")
+	}
+}
+
 func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 	categories := ClientAPICategories()
 	if len(categories) == 0 {
