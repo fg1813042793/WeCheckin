@@ -1,13 +1,4 @@
 -- Register Admin and DingTalk H5 user feedback permissions and backfill existing applicable roles.
--- The API catalogs added by later tasks must use these exact route bindings:
--- GET /api/v2/admin/user-feedbacks/overview -> admin:api:user-feedback:list (user-feedback:list)
--- GET /api/v2/admin/user-feedbacks -> admin:api:user-feedback:list (user-feedback:list)
--- GET /api/v2/admin/user-feedbacks/:id -> admin:api:user-feedback:list (user-feedback:list)
--- PATCH /api/v2/admin/user-feedbacks/:id/status -> admin:api:user-feedback:handle (user-feedback:handle)
--- GET /api/v2/dingtalk/h5/user-feedbacks -> dingtalk_h5:api:feedback:list
--- POST /api/v2/dingtalk/h5/user-feedbacks -> dingtalk_h5:api:feedback:create
--- GET /api/v2/dingtalk/h5/user-feedbacks/:id -> dingtalk_h5:api:feedback:detail
--- POST /api/v2/dingtalk/h5/user-feedbacks/:id/supplements -> dingtalk_h5:api:feedback:supplement
 
 SET @user_feedback_now_ms = CAST(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(3)) * 1000 AS UNSIGNED);
 
@@ -66,18 +57,24 @@ ON DUPLICATE KEY UPDATE
   `permission_edit_time` = VALUES(`permission_edit_time`),
   `updated_at` = NOW(3);
 
--- Roles already allowed into Admin keep access to the newly introduced feedback workflow.
+-- Only the canonical built-in super administrator receives the new Admin grants.
 INSERT INTO `permission_grants` (
   `grant_subject_type`, `grant_subject_id`, `grant_permission_key`, `grant_permission_id`,
   `grant_effect`, `grant_scope_value`, `grant_source`, `grant_status`,
   `grant_add_time`, `grant_edit_time`, `created_at`, `updated_at`
 )
 SELECT DISTINCT
-  source_grant.`grant_subject_type`, source_grant.`grant_subject_id`,
+  'role', super_admin.`id`,
   target_perm.`permission_key`, target_perm.`id`, 'allow', '',
   'user-feedback-admin-role-backfill', 1,
   @user_feedback_now_ms, @user_feedback_now_ms, NOW(3), NOW(3)
-FROM `permission_grants` source_grant
+FROM (
+  SELECT `id`
+  FROM `roles`
+  WHERE `role_name` = '超级管理员'
+  ORDER BY `id`
+  LIMIT 1
+) super_admin
 JOIN `permissions` target_perm
   ON target_perm.`permission_key` IN (
     'admin:menu:user-feedback',
@@ -86,18 +83,13 @@ JOIN `permissions` target_perm
     'admin:api:user-feedback:list',
     'admin:api:user-feedback:handle'
   )
-WHERE source_grant.`grant_subject_type` = 'role'
-  AND source_grant.`grant_permission_key` = 'admin:login'
-  AND source_grant.`grant_effect` = 'allow'
-  AND source_grant.`grant_status` = 1
-ON DUPLICATE KEY UPDATE
-  `grant_permission_id` = VALUES(`grant_permission_id`),
-  `grant_effect` = 'allow',
-  `grant_scope_value` = '',
-  `grant_source` = VALUES(`grant_source`),
-  `grant_status` = 1,
-  `grant_edit_time` = VALUES(`grant_edit_time`),
-  `updated_at` = NOW(3);
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM `permission_grants` existing_grant
+  WHERE existing_grant.`grant_subject_type` = 'role'
+    AND existing_grant.`grant_subject_id` = super_admin.`id`
+    AND existing_grant.`grant_permission_key` = target_perm.`permission_key`
+);
 
 -- A baseline H5 menu grant adds the menu. Explicit API roles inherit the feedback APIs
 -- from bootstrap permission so the migration does not switch legacy menu-only roles into strict API mode.
@@ -127,11 +119,10 @@ WHERE source_grant.`grant_subject_type` = 'role'
   )
   AND source_grant.`grant_effect` = 'allow'
   AND source_grant.`grant_status` = 1
-ON DUPLICATE KEY UPDATE
-  `grant_permission_id` = VALUES(`grant_permission_id`),
-  `grant_effect` = 'allow',
-  `grant_scope_value` = '',
-  `grant_source` = VALUES(`grant_source`),
-  `grant_status` = 1,
-  `grant_edit_time` = VALUES(`grant_edit_time`),
-  `updated_at` = NOW(3);
+  AND NOT EXISTS (
+    SELECT 1
+    FROM `permission_grants` existing_grant
+    WHERE existing_grant.`grant_subject_type` = source_grant.`grant_subject_type`
+      AND existing_grant.`grant_subject_id` = source_grant.`grant_subject_id`
+      AND existing_grant.`grant_permission_key` = target_perm.`permission_key`
+  );

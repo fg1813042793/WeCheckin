@@ -1,5 +1,5 @@
 -- User feedback aggregates, timeline messages, attachment metadata, and daily numbering.
--- All BIGINT time columns are UTC milliseconds; 0 means that an optional event has not occurred.
+-- All BIGINT time columns are UTC milliseconds; nullable event times are NULL until they occur.
 
 CREATE TABLE IF NOT EXISTS `user_feedbacks` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Feedback ID',
@@ -7,11 +7,11 @@ CREATE TABLE IF NOT EXISTS `user_feedbacks` (
   `submitter_id` BIGINT UNSIGNED NOT NULL COMMENT 'Submitting user ID',
   `create_request_id` VARCHAR(64) NOT NULL COMMENT 'Create request idempotency key',
   `feedback_status` VARCHAR(24) NOT NULL DEFAULT 'pending' COMMENT 'pending, processing, resolved or closed',
-  `handler_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Current admin handler ID',
+  `handler_id` BIGINT UNSIGNED NULL COMMENT 'Current admin handler ID',
   `version` BIGINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Optimistic lock version',
   `last_activity_at` BIGINT NOT NULL DEFAULT 0 COMMENT 'Latest activity time in UTC milliseconds',
-  `resolved_at` BIGINT NOT NULL DEFAULT 0 COMMENT 'Resolution time in UTC milliseconds',
-  `closed_at` BIGINT NOT NULL DEFAULT 0 COMMENT 'Closure time in UTC milliseconds',
+  `resolved_at` BIGINT NULL COMMENT 'Resolution time in UTC milliseconds',
+  `closed_at` BIGINT NULL COMMENT 'Closure time in UTC milliseconds',
   `created_at` BIGINT NOT NULL DEFAULT 0 COMMENT 'Creation time in UTC milliseconds',
   `updated_at` BIGINT NOT NULL DEFAULT 0 COMMENT 'Update time in UTC milliseconds',
   PRIMARY KEY (`id`),
