@@ -1,6 +1,7 @@
 package application
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -16,6 +17,55 @@ func TestFeedbackSummaryIncludesListPresentationFields(t *testing.T) {
 	requireField(t, typ, "Summary", reflect.TypeOf(""), "summary")
 	requireField(t, typ, "ImageCount", reflect.TypeOf(int64(0)), "imageCount")
 	requireField(t, typ, "FirstImageURL", reflect.TypeOf(""), "firstImageUrl,omitempty")
+}
+
+func TestFeedbackResponseIDsMarshalAsDecimalStrings(t *testing.T) {
+	payload := FeedbackDetail{
+		FeedbackSummary: FeedbackSummary{ID: 9007199254740993},
+		Messages: []Message{{
+			ID:          9007199254740995,
+			Attachments: []Attachment{{ID: 9007199254740997}},
+		}},
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal feedback detail: %v", err)
+	}
+	var decoded struct {
+		ID       string `json:"id"`
+		Messages []struct {
+			ID          string `json:"id"`
+			Attachments []struct {
+				ID string `json:"id"`
+			} `json:"attachments"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("unmarshal feedback detail: %v", err)
+	}
+	if decoded.ID != "9007199254740993" || decoded.Messages[0].ID != "9007199254740995" || decoded.Messages[0].Attachments[0].ID != "9007199254740997" {
+		t.Fatalf("feedback response IDs lost decimal precision: %#v", decoded)
+	}
+
+	for _, contract := range []struct {
+		typ  reflect.Type
+		name string
+	}{
+		{typ: reflect.TypeOf(FeedbackSummary{}), name: "FeedbackSummary"},
+		{typ: reflect.TypeOf(Message{}), name: "Message"},
+		{typ: reflect.TypeOf(Attachment{}), name: "Attachment"},
+	} {
+		field, ok := contract.typ.FieldByName("ID")
+		if !ok {
+			t.Fatalf("%s.ID is missing", contract.name)
+		}
+		if field.Tag.Get("json") != "id,string" {
+			t.Errorf("%s.ID json tag = %q, want %q", contract.name, field.Tag.Get("json"), "id,string")
+		}
+		if field.Tag.Get("swaggertype") != "string" {
+			t.Errorf("%s.ID swaggertype = %q, want string", contract.name, field.Tag.Get("swaggertype"))
+		}
+	}
 }
 
 func TestUserListQueryFields(t *testing.T) {

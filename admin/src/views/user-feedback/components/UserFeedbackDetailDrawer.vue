@@ -22,7 +22,7 @@ import UserFeedbackTimeline from './UserFeedbackTimeline.vue'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
-  feedbackId?: number | null
+  feedbackId?: string | null
   canHandle?: boolean
   formatTime: (timestamp: number) => string
 }>(), {

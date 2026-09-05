@@ -10,7 +10,7 @@ export interface UserFeedbackOverview {
 }
 
 export interface UserFeedbackAttachment {
-  id: number
+  id: string
   originalName: string
   contentType?: string
   sizeBytes: number
@@ -20,7 +20,7 @@ export interface UserFeedbackAttachment {
 }
 
 export interface UserFeedbackMessage {
-  id: number
+  id: string
   messageType: UserFeedbackMessageType
   authorType: UserFeedbackAuthorType
   authorId: number
@@ -33,7 +33,7 @@ export interface UserFeedbackMessage {
 }
 
 export interface UserFeedbackSummary {
-  id: number
+  id: string
   feedbackNo: string
   submitterId: number
   submitterName?: string

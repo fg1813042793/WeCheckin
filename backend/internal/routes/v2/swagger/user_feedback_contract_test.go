@@ -228,6 +228,33 @@ func TestUserFeedbackSwaggerDocumentsSecurityAndResponseModels(t *testing.T) {
 	}
 }
 
+func TestUserFeedbackSwaggerDocumentsSafeResponseIDsAndFirstImage(t *testing.T) {
+	for document, doc := range userFeedbackSwaggerDocuments(t) {
+		t.Run(document, func(t *testing.T) {
+			for _, definition := range []string{
+				"application.FeedbackSummary",
+				"application.FeedbackDetail",
+				"application.Message",
+				"application.Attachment",
+			} {
+				schema, ok := doc.Definitions[definition]
+				if !ok {
+					t.Fatalf("%s missing definition %q", document, definition)
+				}
+				if schema.Properties["id"].Type != "string" {
+					t.Errorf("%s %s.id type = %q, want string", document, definition, schema.Properties["id"].Type)
+				}
+			}
+			for _, definition := range []string{"application.FeedbackSummary", "application.FeedbackDetail"} {
+				property := doc.Definitions[definition].Properties["firstImageUrl"]
+				if property.Type != "string" {
+					t.Errorf("%s %s.firstImageUrl type = %q, want string", document, definition, property.Type)
+				}
+			}
+		})
+	}
+}
+
 func TestUserFeedbackSwaggerDocumentsBehavioralBoundaries(t *testing.T) {
 	doc := loadUserFeedbackSwagger(t)
 

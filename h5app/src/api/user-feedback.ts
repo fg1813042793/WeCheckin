@@ -13,7 +13,7 @@ export interface UserFeedbackOverview {
 }
 
 export interface UserFeedbackAttachment {
-  id: number
+  id: string
   originalName: string
   contentType?: string
   sizeBytes: number
@@ -23,7 +23,7 @@ export interface UserFeedbackAttachment {
 }
 
 export interface UserFeedbackMessage {
-  id: number
+  id: string
   messageType: UserFeedbackMessageType
   authorType: UserFeedbackAuthorType
   authorId: number
@@ -36,12 +36,13 @@ export interface UserFeedbackMessage {
 }
 
 export interface UserFeedbackSummary {
-  id: number
+  id: string
   feedbackNo: string
   submitterId: number
   submitterName?: string
   summary: string
   imageCount: number
+  firstImageUrl?: string
   status: UserFeedbackStatus
   handlerId?: number
   handlerName?: string
@@ -95,8 +96,8 @@ export const USER_FEEDBACK_API_PERMISSIONS = {
 
 const USER_FEEDBACK_API = '/api/v2/dingtalk/h5/user-feedbacks'
 
-function feedbackResourcePath(id: string | number) {
-  return `${USER_FEEDBACK_API}/${encodeURIComponent(String(id).trim())}`
+function feedbackResourcePath(id: string) {
+  return `${USER_FEEDBACK_API}/${encodeURIComponent(id.trim())}`
 }
 
 export function getUserFeedbackOverview() {
@@ -116,11 +117,11 @@ export function createUserFeedback(input: CreateUserFeedbackInput) {
   })
 }
 
-export function getUserFeedbackDetail(id: string | number) {
+export function getUserFeedbackDetail(id: string) {
   return get<UserFeedbackDetail>(feedbackResourcePath(id))
 }
 
-export function supplementUserFeedback(id: string | number, input: SupplementUserFeedbackInput) {
+export function supplementUserFeedback(id: string, input: SupplementUserFeedbackInput) {
   return uploadMultipartFiles<UserFeedbackDetail>(
     `${feedbackResourcePath(id)}/supplements`,
     input.images || [],

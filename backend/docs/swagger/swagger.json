@@ -15939,7 +15939,8 @@
                     "type": "integer"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "originalName": {
                     "type": "string"
@@ -16026,6 +16027,9 @@
                 "feedbackNo": {
                     "type": "string"
                 },
+                "firstImageUrl": {
+                    "type": "string"
+                },
                 "handlerId": {
                     "type": "integer"
                 },
@@ -16033,7 +16037,8 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "imageCount": {
                     "type": "integer"
@@ -16102,6 +16107,9 @@
                 "feedbackNo": {
                     "type": "string"
                 },
+                "firstImageUrl": {
+                    "type": "string"
+                },
                 "handlerId": {
                     "type": "integer"
                 },
@@ -16109,7 +16117,8 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "imageCount": {
                     "type": "integer"
@@ -16168,7 +16177,8 @@
                     "$ref": "#/definitions/domain.Status"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "messageType": {
                     "$ref": "#/definitions/domain.MessageType"

@@ -10,7 +10,7 @@ type Overview struct {
 }
 
 type Attachment struct {
-	ID           uint64 `json:"id"`
+	ID           uint64 `json:"id,string" swaggertype:"string"`
 	ObjectKey    string `json:"-"`
 	OriginalName string `json:"originalName"`
 	ContentType  string `json:"contentType,omitempty"`
@@ -21,7 +21,7 @@ type Attachment struct {
 }
 
 type Message struct {
-	ID          uint64             `json:"id"`
+	ID          uint64             `json:"id,string" swaggertype:"string"`
 	MessageType domain.MessageType `json:"messageType"`
 	AuthorType  domain.AuthorType  `json:"authorType"`
 	AuthorID    uint               `json:"authorId"`
@@ -34,7 +34,7 @@ type Message struct {
 }
 
 type FeedbackSummary struct {
-	ID             uint64        `json:"id"`
+	ID             uint64        `json:"id,string" swaggertype:"string"`
 	FeedbackNo     string        `json:"feedbackNo"`
 	SubmitterID    uint          `json:"submitterId"`
 	SubmitterName  string        `json:"submitterName,omitempty"`

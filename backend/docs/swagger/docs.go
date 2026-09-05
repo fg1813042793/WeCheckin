@@ -15942,7 +15942,8 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "originalName": {
                     "type": "string"
@@ -16029,6 +16030,9 @@ const docTemplate = `{
                 "feedbackNo": {
                     "type": "string"
                 },
+                "firstImageUrl": {
+                    "type": "string"
+                },
                 "handlerId": {
                     "type": "integer"
                 },
@@ -16036,7 +16040,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "imageCount": {
                     "type": "integer"
@@ -16105,6 +16110,9 @@ const docTemplate = `{
                 "feedbackNo": {
                     "type": "string"
                 },
+                "firstImageUrl": {
+                    "type": "string"
+                },
                 "handlerId": {
                     "type": "integer"
                 },
@@ -16112,7 +16120,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "imageCount": {
                     "type": "integer"
@@ -16171,7 +16180,8 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.Status"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": ""
                 },
                 "messageType": {
                     "$ref": "#/definitions/domain.MessageType"
