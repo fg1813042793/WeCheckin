@@ -2,7 +2,7 @@
 import type { FeedbackDraftImage, FeedbackDraftImageError } from './feedback-editor-state'
 import { useLocale } from 'uview-pro'
 import { computed, ref } from 'vue'
-import { normalizeFeedbackChosenImages } from './feedback-editor-state'
+import { feedbackImageSelectionCount, normalizeFeedbackChosenImages } from './feedback-editor-state'
 
 const props = withDefaults(defineProps<{
   modelValue: FeedbackDraftImage[]
@@ -20,21 +20,22 @@ const emit = defineEmits<{
 const { t } = useLocale('feedback.imagePicker')
 const batchSequence = ref(0)
 const images = computed(() => Array.isArray(props.modelValue) ? props.modelValue : [])
-const canAdd = computed(() => !props.disabled && images.value.length < props.maxCount)
+const selectionCount = computed(() => feedbackImageSelectionCount(images.value.length, props.maxCount))
+const canAdd = computed(() => !props.disabled && selectionCount.value.selectedCount < selectionCount.value.maxCount)
 
 function chooseImages() {
   if (!canAdd.value)
     return
-  const remaining = props.maxCount - images.value.length
+  const remaining = selectionCount.value.maxCount - selectionCount.value.selectedCount
   uni.chooseImage({
-    count: Math.min(remaining, 6),
+    count: remaining,
     sizeType: ['compressed'],
     sourceType: ['album', 'camera'],
     success: (result) => {
       batchSequence.value += 1
       const batchID = `feedback-${Date.now().toString(36)}-${batchSequence.value}`
       const chosen = normalizeFeedbackChosenImages(result, batchID)
-      emit('update:modelValue', [...images.value, ...chosen].slice(0, props.maxCount))
+      emit('update:modelValue', [...images.value, ...chosen].slice(0, selectionCount.value.maxCount))
     },
     fail: (error) => {
       if (!String(error.errMsg || '').toLowerCase().includes('cancel'))
@@ -108,9 +109,10 @@ function imageErrorText(error?: FeedbackDraftImageError) {
       <text>{{ t('add') }}</text>
     </view>
   </view>
-  <text class="feedback-image-picker__hint">
-    {{ t('limitHint') }}
-  </text>
+  <view class="feedback-image-picker__hint">
+    <text>{{ t('selectedCount', { count: selectionCount.selectedCount, maxCount: selectionCount.maxCount }) }}</text>
+    <text>{{ t('limitHint') }}</text>
+  </view>
 </template>
 
 <style lang="scss" scoped>
@@ -190,7 +192,9 @@ function imageErrorText(error?: FeedbackDraftImageError) {
 
 .feedback-image-picker__hint {
   margin-top: 8px;
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   color: var(--app-text-muted-color);
   font-size: 12px;
   line-height: 1.5;

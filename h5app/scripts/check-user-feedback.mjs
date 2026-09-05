@@ -25,6 +25,7 @@ const requiredFiles = [
   'src/pages/feedback/components/FeedbackList.vue',
   'src/pages/notifications/feedback-notification-open.ts',
   'src/components/app-notification-panel/app-notification-panel.vue',
+  'src/components/app-shell/app-shell-navigation-guard.ts',
 ]
 
 for (const file of requiredFiles) {
@@ -113,6 +114,18 @@ function functionCalls(sourceFile, functionName) {
   }
   visit(declaration)
   return calls
+}
+
+function functionIdentifiers(sourceFile, functionName) {
+  const identifiers = []
+  const declaration = findFunction(sourceFile, functionName)
+  function visit(node) {
+    if (ts.isIdentifier(node))
+      identifiers.push(node.text)
+    ts.forEachChild(node, visit)
+  }
+  visit(declaration)
+  return identifiers
 }
 
 function lifecycleCallbackCalls(sourceFile, lifecycleName) {
@@ -1056,8 +1069,25 @@ assert.equal(feedbackEditorState.canSupplementFeedback('pending', false), false)
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ statusCode: 404 }), true)
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ status: 403 }), true)
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ response: { status: 404 } }), true)
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({
+  data: { code: 43004, msg: '反馈不存在' },
+}), true, 'uView originalData feedback-not-found envelope must be inaccessible')
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({
+  data: { code: 0, msg: '反馈不存在' },
+}), false, 'successful envelopes must not be treated as inaccessible')
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({
+  data: { code: 43001, msg: '反馈状态不允许当前操作' },
+}), false, 'ordinary business failures must not be treated as inaccessible')
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ statusCode: 500 }), false)
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible(new Error('network failed')), false)
+assert.deepEqual(feedbackEditorState.feedbackImageSelectionCount(2, 6), {
+  selectedCount: 2,
+  maxCount: 6,
+})
+assert.deepEqual(feedbackEditorState.feedbackImageSelectionCount(1, 3), {
+  selectedCount: 1,
+  maxCount: 3,
+}, 'image selection count must use the configured maxCount')
 
 const sortedMessages = feedbackEditorState.sortFeedbackMessages([
   { id: '18446744073709551615', createdAt: 30 },
@@ -1089,6 +1119,11 @@ for (const call of ['validateFeedbackDraft', 'validFeedbackDraftImages', 'supple
 for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'registerCloseGuard', 'appContent.requestRefresh'])
   assert.ok(functionCalls(feedbackDetailScript, 'handleSupplementSuccess').includes(call), `supplement success must call ${call}`)
 assert.equal(functionCalls(feedbackDetailScript, 'loadDetail').includes('Number'), false, 'detail id must remain a decimal string')
+assert.equal(
+  functionIdentifiers(feedbackDetailScript, 'hasUnsavedChanges').includes('canSupplement'),
+  false,
+  'existing supplement drafts must remain guarded after the feedback becomes read-only',
+)
 assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onMounted').includes('registerCloseGuard'), 'detail page must register close guard')
 assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onBeforeUnmount').includes('unregisterCloseGuard'), 'detail page must unregister close guard')
 assertContains('src/pages/feedback/components/FeedbackDetailPage.vue', [
@@ -1100,6 +1135,131 @@ const feedbackImagePickerScript = vueScriptSourceFile('src/pages/feedback/compon
 assert.ok(functionCalls(feedbackImagePickerScript, 'chooseImages').includes('uni.chooseImage'))
 assert.ok(functionCalls(feedbackImagePickerScript, 'previewImage').includes('uni.previewImage'))
 assert.ok(functionCalls(feedbackImagePickerScript, 'removeImage').includes('emit'))
+assert.ok(
+  feedbackImagePickerScript.statements.some(statement => statement.getText(feedbackImagePickerScript).includes('feedbackImageSelectionCount')),
+  'image picker must derive its visible count from executable selection-count logic',
+)
+
+const navigationGuard = await loadTypeScriptModule('src/components/app-shell/app-shell-navigation-guard.ts')
+const cancelledNavigationEvents = []
+let resolveCancelledNavigation
+const cancelledNavigation = navigationGuard.navigateWithUnsavedGuard({
+  activeKey: 'feedback:detail:42',
+  targetKey: 'dashboard',
+  hasUnsavedChanges(key) {
+    cancelledNavigationEvents.push(`guard:${key}`)
+    return true
+  },
+  confirmLeave() {
+    cancelledNavigationEvents.push('confirm')
+    return new Promise((resolve) => {
+      resolveCancelledNavigation = resolve
+    })
+  },
+  navigate() {
+    cancelledNavigationEvents.push('navigate')
+  },
+})
+await Promise.resolve()
+assert.deepEqual(cancelledNavigationEvents, ['guard:feedback:detail:42', 'confirm'])
+resolveCancelledNavigation(false)
+assert.equal(await cancelledNavigation, false)
+assert.deepEqual(cancelledNavigationEvents, ['guard:feedback:detail:42', 'confirm'], 'cancel must not navigate')
+
+const confirmedNavigationEvents = []
+assert.equal(await navigationGuard.navigateWithUnsavedGuard({
+  activeKey: 'feedback:detail:42',
+  targetKey: 'workflow',
+  hasUnsavedChanges(key) {
+    confirmedNavigationEvents.push(`guard:${key}`)
+    return true
+  },
+  async confirmLeave() {
+    confirmedNavigationEvents.push('confirm')
+    return true
+  },
+  navigate() {
+    confirmedNavigationEvents.push('navigate')
+  },
+}), true)
+assert.deepEqual(
+  confirmedNavigationEvents,
+  ['guard:feedback:detail:42', 'confirm', 'navigate'],
+  'navigation must happen only after confirmation succeeds',
+)
+
+const unguardedNavigationEvents = []
+assert.equal(await navigationGuard.navigateWithUnsavedGuard({
+  activeKey: 'feedback:detail:42',
+  targetKey: 'dashboard',
+  hasUnsavedChanges(key) {
+    unguardedNavigationEvents.push(`guard:${key}`)
+    return false
+  },
+  async confirmLeave() {
+    unguardedNavigationEvents.push('confirm')
+    return false
+  },
+  navigate() {
+    unguardedNavigationEvents.push('navigate')
+  },
+}), true)
+assert.deepEqual(unguardedNavigationEvents, ['guard:feedback:detail:42', 'navigate'])
+
+const sameTabNavigationEvents = []
+assert.equal(await navigationGuard.navigateWithUnsavedGuard({
+  activeKey: 'feedback:detail:42',
+  targetKey: 'feedback:detail:42',
+  hasUnsavedChanges() {
+    sameTabNavigationEvents.push('guard')
+    return true
+  },
+  async confirmLeave() {
+    sameTabNavigationEvents.push('confirm')
+    return false
+  },
+  navigate() {
+    sameTabNavigationEvents.push('navigate')
+  },
+}), true)
+assert.deepEqual(sameTabNavigationEvents, ['navigate'], 'same-tab focus must not prompt')
+
+const closeNavigationEvents = []
+assert.equal(await navigationGuard.navigateWithUnsavedGuard({
+  activeKey: 'feedback:detail:42',
+  targetKey: 'dashboard',
+  guardUnsavedChanges: false,
+  hasUnsavedChanges() {
+    closeNavigationEvents.push('guard')
+    return true
+  },
+  async confirmLeave() {
+    closeNavigationEvents.push('confirm')
+    return false
+  },
+  navigate() {
+    closeNavigationEvents.push('navigate')
+  },
+}), true)
+assert.deepEqual(closeNavigationEvents, ['navigate'], 'the existing close-tab decision must not prompt twice')
+
+const appShellScript = vueScriptSourceFile('src/components/app-shell/app-shell.vue')
+for (const entry of ['navigateByKey', 'handleNavItemClick', 'handleTopNavItemClick', 'completeTabClose']) {
+  assert.ok(functionCalls(appShellScript, entry).includes('navigateToItem'), `${entry} must keep routing through navigateToItem`)
+}
+for (const call of ['navigateWithUnsavedGuard', 'appContent.hasUnsavedTabChanges', 'confirmNavigationDiscard']) {
+  assert.ok(functionCalls(appShellScript, 'navigateToItem').includes(call), `navigateToItem must call ${call}`)
+}
+assert.match(
+  findFunction(appShellScript, 'confirmNavigationDiscard').getText(appShellScript),
+  /当前修改尚未提交，是否继续切换页面？/,
+  'navigation confirmation must not claim that a retained dynamic-tab draft will be discarded',
+)
+assert.match(
+  findFunction(appShellScript, 'completeTabClose').getText(appShellScript),
+  /navigateToItem\(nextItem,\s*\{\s*guardUnsavedChanges:\s*false\s*\}\)/,
+  'closing a tab must preserve the existing popup decision without a second navigation prompt',
+)
 
 const feedbackTimelineScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackTimeline.vue')
 assert.ok(feedbackTimelineScript.statements.some(statement => statement.getText(feedbackTimelineScript).includes('sortFeedbackMessages')))
@@ -1148,7 +1308,7 @@ for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.j
     assert.equal(typeof locale.feedback.detailPage[key], 'string', `${localeFile} missing feedback.detailPage.${key}`)
   for (const key of ['initial', 'supplement', 'status', 'statusChange', 'admin', 'user', 'empty'])
     assert.equal(typeof locale.feedback.timeline[key], 'string', `${localeFile} missing feedback.timeline.${key}`)
-  for (const key of ['add', 'preview', 'remove', 'chooseFailed', 'tooLarge', 'unsupportedType', 'limitHint'])
+  for (const key of ['add', 'preview', 'remove', 'chooseFailed', 'tooLarge', 'unsupportedType', 'selectedCount', 'limitHint'])
     assert.equal(typeof locale.feedback.imagePicker[key], 'string', `${localeFile} missing feedback.imagePicker.${key}`)
 }
 

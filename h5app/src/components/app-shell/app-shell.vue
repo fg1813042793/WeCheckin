@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { changePassword as changeProfilePassword, updateProfile as updateProfileInfo, uploadAvatar as uploadProfileAvatarFile } from '@/api/dingtalk-h5/profile'
 import { getNotificationUnreadCount } from '@/api/notifications'
 import AppNotificationPanel from '@/components/app-notification-panel/app-notification-panel.vue'
+import { navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { useAppContentStore, useAppShellStore, useDingtalkAuthStore } from '@/stores'
 import { userAvatarInitial } from '@/utils/avatar'
 import { departmentLeafFromEntity } from '@/utils/departments'
@@ -395,16 +396,38 @@ function firstNavigableItem(item: AppNavItem): AppNavItem | null {
   return null
 }
 
-function navigateToItem(item: AppNavItem) {
+function confirmNavigationDiscard() {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '修改尚未提交',
+      content: '当前修改尚未提交，是否继续切换页面？',
+      confirmText: '继续切换',
+      cancelText: '取消',
+      success: result => resolve(Boolean(result.confirm)),
+      fail: () => resolve(false),
+    })
+  })
+}
+
+async function navigateToItem(item: AppNavItem, options: { guardUnsavedChanges?: boolean } = {}) {
   profileOpen.value = false
   closeTopMenu()
   const target = firstNavigableItem(item)
   if (!target) {
     return
   }
-  rememberOpenedTab(target.key)
-  emit('navigate', target)
-  closeMobileSubmenu()
+  await navigateWithUnsavedGuard({
+    activeKey: props.activeKey,
+    targetKey: target.key,
+    guardUnsavedChanges: options.guardUnsavedChanges,
+    hasUnsavedChanges: key => appContent.hasUnsavedTabChanges(key),
+    confirmLeave: () => confirmNavigationDiscard(),
+    navigate: () => {
+      rememberOpenedTab(target.key)
+      emit('navigate', target)
+      closeMobileSubmenu()
+    },
+  })
 }
 
 function navigateByKey(key: string) {
@@ -736,7 +759,7 @@ function completeTabClose(item: AppNavItem) {
     shell.removeOpenedTab(item.key)
   if (item.key === props.activeKey) {
     if (nextItem)
-      navigateToItem(nextItem)
+      navigateToItem(nextItem, { guardUnsavedChanges: false })
     else
       appContent.switchContent('dashboard')
   }

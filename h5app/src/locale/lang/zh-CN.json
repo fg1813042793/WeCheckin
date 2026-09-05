@@ -102,7 +102,8 @@
       "chooseFailed": "选择图片失败",
       "tooLarge": "图片超过 10MB",
       "unsupportedType": "仅支持 JPG、PNG、WebP",
-      "limitHint": "最多 6 张，单张不超过 10MB，支持 JPG、PNG、WebP"
+      "selectedCount": "已选 {count}/{maxCount} 张",
+      "limitHint": "单张不超过 10MB，支持 JPG、PNG、WebP"
     },
     "statuses": {
       "pending": "待处理",

@@ -39,7 +39,7 @@ const canSupplement = computed(() => Boolean(
   detail.value && canSupplementFeedback(detail.value.status, detail.value.allowsSupplement),
 ))
 function hasUnsavedChanges() {
-  return canSupplement.value && feedbackDraftHasContent(supplementContent.value, supplementImages.value)
+  return feedbackDraftHasContent(supplementContent.value, supplementImages.value)
 }
 
 function registerCloseGuard() {

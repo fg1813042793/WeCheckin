@@ -54,6 +54,13 @@ export function feedbackDraftHasContent(content: string, images: readonly Feedba
   return Boolean(String(content || '').trim() || images.length > 0)
 }
 
+export function feedbackImageSelectionCount(selectedCount: number, maxCount: number) {
+  return {
+    selectedCount: Math.max(0, Math.floor(Number(selectedCount) || 0)),
+    maxCount: Math.max(1, Math.floor(Number(maxCount) || MAX_IMAGE_COUNT)),
+  }
+}
+
 export function validFeedbackDraftImages(images: readonly FeedbackDraftImage[]) {
   return images.filter(image => Boolean(image.filePath) && !image.error)
 }
@@ -139,9 +146,23 @@ function errorStatus(value: unknown) {
   return errorStatus(record.response)
 }
 
+function isFeedbackNotFoundEnvelope(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return false
+  const record = value as Record<string, unknown>
+  const data = record.data
+  if (!data || typeof data !== 'object' || Array.isArray(data))
+    return false
+  const envelope = data as Record<string, unknown>
+  const code = Number(envelope.code || 0)
+  return Number.isFinite(code)
+    && code !== 0
+    && String(envelope.msg || '').trim() === '反馈不存在'
+}
+
 export function feedbackDetailIsInaccessible(error: unknown) {
   const status = errorStatus(error)
-  return status === 403 || status === 404
+  return status === 403 || status === 404 || isFeedbackNotFoundEnvelope(error)
 }
 
 export function sortFeedbackMessages<T extends Pick<UserFeedbackMessage, 'createdAt'>>(messages: readonly T[]) {

@@ -102,7 +102,8 @@
       "chooseFailed": "Failed to select images",
       "tooLarge": "Image exceeds 10 MB",
       "unsupportedType": "Only JPG, PNG, and WebP are supported",
-      "limitHint": "Up to 6 images, 10 MB each. JPG, PNG, and WebP supported."
+      "selectedCount": "Selected {count}/{maxCount}",
+      "limitHint": "Up to 10 MB each. JPG, PNG, and WebP supported."
     },
     "statuses": {
       "pending": "Pending",
