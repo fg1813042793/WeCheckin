@@ -121,15 +121,24 @@ func buildFeedbackDetailWithURL(
 		summary.HandlerName = names[*feedback.HandlerID]
 	}
 
+	summary.ImageCount = int64(len(attachments))
+	firstAttachmentIndex := -1
 	attachmentsByMessage := make(map[uint64][]application.Attachment)
-	for _, row := range attachments {
+	for index, row := range attachments {
+		url := feedbackAttachmentURL(ctx, row.ObjectKey, fullURL)
+		if firstAttachmentIndex < 0 ||
+			row.SortOrder < attachments[firstAttachmentIndex].SortOrder ||
+			(row.SortOrder == attachments[firstAttachmentIndex].SortOrder && row.ID < attachments[firstAttachmentIndex].ID) {
+			firstAttachmentIndex = index
+			summary.FirstImageURL = url
+		}
 		attachmentsByMessage[row.MessageID] = append(attachmentsByMessage[row.MessageID], application.Attachment{
 			ID:           row.ID,
 			ObjectKey:    row.ObjectKey,
 			OriginalName: row.OriginalName,
 			ContentType:  row.ContentType,
 			SizeBytes:    row.SizeBytes,
-			URL:          feedbackAttachmentURL(ctx, row.ObjectKey, fullURL),
+			URL:          url,
 			SortOrder:    row.SortOrder,
 			CreatedAt:    row.CreatedAt,
 		})

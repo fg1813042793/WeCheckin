@@ -186,8 +186,51 @@ func TestDetailMapperKeepsObjectKeysAndPassesContextToURLBuilder(t *testing.T) {
 	if got, want := paths, []string{"/feedback/a.jpg", "/feedback/b.png"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("URL paths = %#v, want %#v", got, want)
 	}
+	if detail.ImageCount != 2 || detail.FirstImageURL != "https://static.example/feedback/a.jpg" {
+		t.Fatalf("detail image summary = count %d, first %q", detail.ImageCount, detail.FirstImageURL)
+	}
 	if detail.SubmitterName != "提交人" || detail.HandlerName != "管理员" || detail.Messages[0].AuthorName != "提交人" {
 		t.Fatalf("display names = %#v", detail)
+	}
+}
+
+func TestDetailMapperImageSummaryUsesSortOrderThenID(t *testing.T) {
+	feedback := userfeedbackmodel.Feedback{ID: 9, FeedbackNo: "FB-9", SubmitterID: 7, Status: "pending"}
+	attachments := []userfeedbackmodel.Attachment{
+		{ID: 30, FeedbackID: 9, MessageID: 21, ObjectKey: "feedback/later.jpg", SortOrder: 1},
+		{ID: 50, FeedbackID: 9, MessageID: 21, ObjectKey: "feedback/same-sort-later.jpg", SortOrder: 0},
+		{ID: 40, FeedbackID: 9, MessageID: 21, ObjectKey: "feedback/first.jpg", SortOrder: 0},
+	}
+	var paths []string
+	detail := buildFeedbackDetailWithURL(context.Background(), feedback, nil, attachments, nil, func(_ context.Context, path string) string {
+		paths = append(paths, path)
+		return "https://static.example" + path
+	})
+	if detail.ImageCount != 3 {
+		t.Fatalf("detail image count = %d, want 3", detail.ImageCount)
+	}
+	if got, want := detail.FirstImageURL, "https://static.example/feedback/first.jpg"; got != want {
+		t.Fatalf("detail first image URL = %q, want %q", got, want)
+	}
+	if want := []string{"/feedback/later.jpg", "/feedback/same-sort-later.jpg", "/feedback/first.jpg"}; !reflect.DeepEqual(paths, want) {
+		t.Fatalf("URL builder paths = %#v, want %#v", paths, want)
+	}
+}
+
+func TestDetailMapperImageSummaryIsEmptyWithoutAttachments(t *testing.T) {
+	detail := buildFeedbackDetailWithURL(
+		context.Background(),
+		userfeedbackmodel.Feedback{ID: 9, FeedbackNo: "FB-9", SubmitterID: 7, Status: "pending"},
+		nil,
+		nil,
+		nil,
+		func(_ context.Context, path string) string {
+			t.Fatalf("URL builder called without attachments: %q", path)
+			return ""
+		},
+	)
+	if detail.ImageCount != 0 || detail.FirstImageURL != "" {
+		t.Fatalf("empty detail image summary = count %d, first %q", detail.ImageCount, detail.FirstImageURL)
 	}
 }
 
