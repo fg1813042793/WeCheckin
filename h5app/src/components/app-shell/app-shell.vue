@@ -766,6 +766,8 @@ function completeTabClose(item: AppNavItem) {
 function closeTab(item: AppNavItem) {
   if (item.key === 'dashboard')
     return
+  if (!appContent.canCloseTab(item.key))
+    return
   if (!appContent.hasUnsavedTabChanges(item.key)) {
     completeTabClose(item)
     return
@@ -1051,7 +1053,7 @@ onBeforeUnmount(() => {
             @click="navigateByKey(item.key)"
           >
             <text>{{ item.label }}</text>
-            <u-button v-if="item.key !== 'dashboard'" custom-class="app-shell__tab-close" @click.stop="closeTab(item)">
+            <u-button v-if="item.key !== 'dashboard'" custom-class="app-shell__tab-close" :disabled="!appContent.canCloseTab(item.key)" @click.stop="closeTab(item)">
               ×
             </u-button>
           </view>

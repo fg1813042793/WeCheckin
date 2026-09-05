@@ -27,14 +27,45 @@ export function confirmUnsavedNavigation(copy: UnsavedNavigationCopy) {
   })
 }
 
-export async function navigateWithUnsavedGuard(options: UnsavedNavigationOptions) {
-  const shouldConfirm = options.guardUnsavedChanges !== false
-    && options.targetKey !== options.activeKey
-    && options.hasUnsavedChanges(options.activeKey)
+export function createUnsavedNavigationCoordinator() {
+  let navigationToken = 0
+  let pendingConfirmation: Promise<boolean> | null = null
 
-  if (shouldConfirm && !await options.confirmLeave())
-    return false
+  return {
+    async navigate(options: UnsavedNavigationOptions) {
+      const token = ++navigationToken
+      const shouldConfirm = options.guardUnsavedChanges !== false
+        && options.targetKey !== options.activeKey
+        && options.hasUnsavedChanges(options.activeKey)
 
-  options.navigate()
-  return true
+      if (shouldConfirm) {
+        if (!pendingConfirmation) {
+          const confirmation = Promise.resolve()
+            .then(() => options.confirmLeave())
+            .then(Boolean, () => false)
+          pendingConfirmation = confirmation
+          void confirmation.finally(() => {
+            if (pendingConfirmation === confirmation)
+              pendingConfirmation = null
+          })
+        }
+
+        const confirmed = await pendingConfirmation
+        if (!confirmed || token !== navigationToken)
+          return false
+      }
+      else if (token !== navigationToken) {
+        return false
+      }
+
+      options.navigate()
+      return true
+    },
+  }
+}
+
+const sharedUnsavedNavigationCoordinator = createUnsavedNavigationCoordinator()
+
+export function navigateWithUnsavedGuard(options: UnsavedNavigationOptions) {
+  return sharedUnsavedNavigationCoordinator.navigate(options)
 }

@@ -19,10 +19,58 @@ export interface FeedbackDraftImage {
   error?: FeedbackDraftImageError
 }
 
+export interface FeedbackComponentLifecycle {
+  isActive: () => boolean
+  invalidate: () => void
+}
+
+export interface FeedbackAsyncOperationOptions<T> {
+  lifecycle: FeedbackComponentLifecycle
+  request: () => Promise<T>
+  success: (value: T) => void | Promise<void>
+  failure: (error: unknown) => void | Promise<void>
+  settled: () => void
+}
+
+export interface FeedbackVersionConflictRecoveryOptions {
+  notify: (message: string) => void
+  refresh: () => Promise<void>
+}
+
 const MAX_CONTENT_LENGTH = 5000
 const MAX_IMAGE_COUNT = 6
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 const SAFE_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+export function createFeedbackComponentLifecycle(): FeedbackComponentLifecycle {
+  let active = true
+  return {
+    isActive: () => active,
+    invalidate: () => {
+      active = false
+    },
+  }
+}
+
+export async function runFeedbackAsyncOperation<T>(options: FeedbackAsyncOperationOptions<T>) {
+  try {
+    const value = await options.request()
+    if (!options.lifecycle.isActive())
+      return 'stale' as const
+    await options.success(value)
+    return 'success' as const
+  }
+  catch (error) {
+    if (!options.lifecycle.isActive())
+      return 'stale' as const
+    await options.failure(error)
+    return 'failure' as const
+  }
+  finally {
+    if (options.lifecycle.isActive())
+      options.settled()
+  }
+}
 
 export function createFeedbackRequestId() {
   const cryptoValue = globalThis.crypto?.randomUUID?.()
@@ -158,6 +206,36 @@ function isFeedbackNotFoundEnvelope(value: unknown) {
   return Number.isFinite(code)
     && code !== 0
     && String(envelope.msg || '').trim() === '反馈不存在'
+}
+
+function feedbackBusinessError(value: unknown): { code: number, message: string } | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return null
+  const record = value as Record<string, unknown>
+  const code = Number(record.code || 0)
+  const message = String(record.msg || record.message || '').trim()
+  if (Number.isFinite(code) && code !== 0 && message)
+    return { code, message }
+  return feedbackBusinessError(record.data)
+}
+
+export function feedbackSupplementVersionConflictMessage(error: unknown) {
+  const businessError = feedbackBusinessError(error)
+  return businessError?.message === '反馈已更新，请刷新后重试'
+    ? businessError.message
+    : ''
+}
+
+export async function recoverFeedbackSupplementVersionConflict(
+  error: unknown,
+  options: FeedbackVersionConflictRecoveryOptions,
+) {
+  const message = feedbackSupplementVersionConflictMessage(error)
+  if (!message)
+    return false
+  options.notify(message)
+  await options.refresh()
+  return true
 }
 
 export function feedbackDetailIsInaccessible(error: unknown) {

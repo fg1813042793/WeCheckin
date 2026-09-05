@@ -29,7 +29,9 @@
     "markAllRead": "Mark all read",
     "empty": "No messages",
     "loadMore": "Load more",
-    "noMore": "No more messages"
+    "noMore": "No more messages",
+    "feedbackStatus": "User Feedback",
+    "feedbackDetail": "Feedback Details"
   },
   "feedback": {
     "title": "My Feedback",

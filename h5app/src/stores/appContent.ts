@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export interface AppTabCloseGuard {
+  canClose?: () => boolean
   hasUnsavedChanges: () => boolean
   saveDraft?: () => Promise<boolean>
 }
@@ -26,6 +27,7 @@ export const useAppContentStore = defineStore('appContent', () => {
   const dynamicTabs = ref<AppNavItem[]>([])
   const closeRequestKey = ref('')
   const closeRequestTick = ref(0)
+  const tabCloseGuardRevision = ref(0)
 
   function switchContent(key: string, reviewId = '') {
     const nextKey = String(key || '').trim()
@@ -41,6 +43,7 @@ export const useAppContentStore = defineStore('appContent', () => {
     workflowStartSeed.value = null
     dynamicTabs.value = []
     tabCloseGuards.clear()
+    tabCloseGuardRevision.value += 1
   }
 
   function openDynamicTab(tab: Omit<AppNavItem, 'children'> & { children?: AppNavItem[] }) {
@@ -66,7 +69,8 @@ export const useAppContentStore = defineStore('appContent', () => {
   function removeDynamicTab(key: string) {
     const normalized = String(key || '').trim()
     dynamicTabs.value = dynamicTabs.value.filter(item => item.key !== normalized)
-    tabCloseGuards.delete(normalized)
+    if (tabCloseGuards.delete(normalized))
+      tabCloseGuardRevision.value += 1
   }
 
   function dynamicTab(key: string) {
@@ -78,10 +82,18 @@ export const useAppContentStore = defineStore('appContent', () => {
     if (!normalized)
       return () => {}
     tabCloseGuards.set(normalized, guard)
+    tabCloseGuardRevision.value += 1
     return () => {
-      if (tabCloseGuards.get(normalized) === guard)
+      if (tabCloseGuards.get(normalized) === guard) {
         tabCloseGuards.delete(normalized)
+        tabCloseGuardRevision.value += 1
+      }
     }
+  }
+
+  function canCloseTab(key: string) {
+    void tabCloseGuardRevision.value
+    return tabCloseGuards.get(key)?.canClose?.() !== false
   }
 
   function hasUnsavedTabChanges(key: string) {
@@ -163,6 +175,7 @@ export const useAppContentStore = defineStore('appContent', () => {
     focusWorkflowTab,
     focusReview,
     canSaveTabDraft,
+    canCloseTab,
     hasUnsavedTabChanges,
     openDynamicTab,
     registerTabCloseGuard,

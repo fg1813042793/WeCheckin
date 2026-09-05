@@ -10,7 +10,7 @@ import {
 } from '@/api/notifications'
 import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
-import { openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
+import { isFeedbackNotification, openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
 import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
 import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
@@ -31,7 +31,8 @@ const emit = defineEmits<{
 }>()
 
 const appContent = useAppContentStore()
-const { t } = useLocale('appShell.unsavedNavigation')
+const { t: navigationT } = useLocale('appShell.unsavedNavigation')
+const { t: notificationT } = useLocale('notifications')
 const loading = ref(false)
 const loadingMore = ref(false)
 const markingAll = ref(false)
@@ -61,7 +62,7 @@ const notificationTypeMetas: Record<string, NotificationTypeMeta> = {
   node_notify: { label: '流程通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   instance_commented: { label: '流程评论', icon: 'chat', color: '#2563eb', tone: 'primary' },
   instance_form_revised: { label: '表单修改', icon: 'edit-pen', color: '#2563eb', tone: 'primary' },
-  feedback_status: { label: '用户反馈', icon: 'chat', color: '#2563eb', tone: 'primary' },
+  feedback_status: { label: '', icon: 'chat', color: '#2563eb', tone: 'primary' },
   workflow: { label: '流程消息', icon: 'file-text', color: '#475569', tone: 'info' },
   admin_manual: { label: '系统通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   scheduled_task: { label: '定时通知', icon: 'clock', color: '#475569', tone: 'info' },
@@ -93,7 +94,10 @@ const unreadLabel = computed(() => props.unreadCount > 99 ? '99+' : String(props
 
 function notificationTypeMeta(notification: InAppNotification | string) {
   const type = typeof notification === 'string' ? notification : notification.type
-  const fallback = notificationTypeMetas[String(type || '').trim()] || defaultNotificationTypeMeta
+  const configuredFallback = notificationTypeMetas[String(type || '').trim()] || defaultNotificationTypeMeta
+  const fallback = type === 'feedback_status'
+    ? { ...configuredFallback, label: notificationT('feedbackStatus') }
+    : configuredFallback
   if (typeof notification === 'string' || !notification.style)
     return fallback
   const style = notification.style
@@ -169,10 +173,10 @@ async function markRead(notification: InAppNotification, options: { requireExpli
 
 function confirmNavigationDiscard() {
   return confirmUnsavedNavigation({
-    title: t('title'),
-    content: t('content'),
-    confirm: t('confirm'),
-    cancel: t('cancel'),
+    title: navigationT('title'),
+    content: navigationT('content'),
+    confirm: navigationT('confirm'),
+    cancel: navigationT('cancel'),
   })
 }
 
@@ -200,7 +204,7 @@ function handleFeedbackNotification(notification: InAppNotification) {
     feedbackDetailContentKey: sourceID => feedbackDetailContentKey(sourceID),
     openDynamicTab: tab => openNotificationTab(tab),
     closePanel,
-    fallbackLabel: '反馈详情',
+    fallbackLabel: notificationT('feedbackDetail'),
   })
 }
 
@@ -218,7 +222,7 @@ function openWorkflowNotification(notification: InAppNotification) {
 
 function openNotification(notification: InAppNotification) {
   selectedNotification.value = notification
-  if (notification.sourceType === 'user_feedback') {
+  if (isFeedbackNotification(notification)) {
     handleFeedbackNotification(notification)
     return
   }

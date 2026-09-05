@@ -11,8 +11,10 @@ import {
 } from '../feedback-route-keys'
 import { createFeedbackDynamicTab } from './feedback-center-state'
 import {
+  createFeedbackComponentLifecycle,
   createStableFeedbackRequestIdState,
   feedbackDraftHasContent,
+  runFeedbackAsyncOperation,
   validateFeedbackDraft,
   validFeedbackDraftImages,
 } from './feedback-editor-state'
@@ -30,15 +32,20 @@ const content = ref('')
 const images = ref<FeedbackDraftImage[]>([])
 const submitting = ref(false)
 const requestIdState = createStableFeedbackRequestIdState()
+const componentLifecycle = createFeedbackComponentLifecycle()
 let unregisterCloseGuard: (() => void) | undefined
 
 function hasUnsavedChanges() {
   return feedbackDraftHasContent(content.value, images.value)
 }
 
+function canClose() {
+  return !submitting.value
+}
+
 function registerCloseGuard() {
   unregisterCloseGuard?.()
-  unregisterCloseGuard = appContent.registerTabCloseGuard(props.contentKey, { hasUnsavedChanges })
+  unregisterCloseGuard = appContent.registerTabCloseGuard(props.contentKey, { canClose, hasUnsavedChanges })
 }
 
 function validationMessage(code: FeedbackDraftValidationError) {
@@ -62,22 +69,24 @@ async function submitFeedback() {
   }
 
   submitting.value = true
-  try {
-    const response = await createUserFeedback({
-      content: content.value.trim(),
-      requestId: requestIdState.current(),
-      images: validFeedbackDraftImages(images.value),
-    })
-    if (!response?.data)
-      throw new Error('empty feedback response')
-    handleCreateSuccess(response.data)
-  }
-  catch {
-    uni.showToast({ title: t('createPage.failed'), icon: 'none' })
-  }
-  finally {
-    submitting.value = false
-  }
+  await runFeedbackAsyncOperation({
+    lifecycle: componentLifecycle,
+    request: async () => {
+      const response = await createUserFeedback({
+        content: content.value.trim(),
+        requestId: requestIdState.current(),
+        images: validFeedbackDraftImages(images.value),
+      })
+      if (!response?.data)
+        throw new Error('empty feedback response')
+      return response.data
+    },
+    success: detail => handleCreateSuccess(detail),
+    failure: () => uni.showToast({ title: t('createPage.failed'), icon: 'none' }),
+    settled: () => {
+      submitting.value = false
+    },
+  })
 }
 
 function handleCreateSuccess(detail: UserFeedbackDetail) {
@@ -96,6 +105,8 @@ function handleCreateSuccess(detail: UserFeedbackDetail) {
 }
 
 function cancelCreate() {
+  if (submitting.value)
+    return
   appContent.requestCloseTab(props.contentKey)
 }
 
@@ -104,6 +115,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  componentLifecycle.invalidate()
   unregisterCloseGuard?.()
   unregisterCloseGuard = undefined
 })
@@ -120,7 +132,7 @@ onBeforeUnmount(() => {
           {{ t('createPage.description') }}
         </text>
       </view>
-      <u-button custom-class="feedback-create-page__cancel" size="small" plain @click="cancelCreate">
+      <u-button custom-class="feedback-create-page__cancel" size="small" plain :disabled="submitting" @click="cancelCreate">
         <view class="feedback-button-content">
           <u-icon name="close" size="14px" color="var(--app-text-secondary-color)" />
           <text>{{ t('createPage.cancel') }}</text>

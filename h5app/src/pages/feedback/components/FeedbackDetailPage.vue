@@ -9,9 +9,12 @@ import { feedbackDetailIdFromContentKey } from '../feedback-route-keys'
 import { feedbackStatusMeta } from '../feedback-status'
 import {
   canSupplementFeedback,
+  createFeedbackComponentLifecycle,
   createStableFeedbackRequestIdState,
   feedbackDetailIsInaccessible,
   feedbackDraftHasContent,
+  recoverFeedbackSupplementVersionConflict,
+  runFeedbackAsyncOperation,
   validateFeedbackDraft,
   validFeedbackDraftImages,
 } from './feedback-editor-state'
@@ -32,6 +35,7 @@ const supplementContent = ref('')
 const supplementImages = ref<FeedbackDraftImage[]>([])
 const submitting = ref(false)
 const requestIdState = createStableFeedbackRequestIdState()
+const componentLifecycle = createFeedbackComponentLifecycle()
 let loadSequence = 0
 let unregisterCloseGuard: (() => void) | undefined
 
@@ -42,9 +46,13 @@ function hasUnsavedChanges() {
   return feedbackDraftHasContent(supplementContent.value, supplementImages.value)
 }
 
+function canClose() {
+  return !submitting.value
+}
+
 function registerCloseGuard() {
   unregisterCloseGuard?.()
-  unregisterCloseGuard = appContent.registerTabCloseGuard(props.contentKey, { hasUnsavedChanges })
+  unregisterCloseGuard = appContent.registerTabCloseGuard(props.contentKey, { canClose, hasUnsavedChanges })
 }
 
 function statusLabel(status: UserFeedbackStatus) {
@@ -74,7 +82,7 @@ async function loadDetail() {
   loading.value = true
   try {
     const response = await getUserFeedbackDetail(feedbackID)
-    if (sequence !== loadSequence)
+    if (sequence !== loadSequence || !componentLifecycle.isActive())
       return
     if (!response?.data) {
       inaccessible.value = true
@@ -83,7 +91,7 @@ async function loadDetail() {
     detail.value = response.data
   }
   catch (error) {
-    if (sequence === loadSequence) {
+    if (sequence === loadSequence && componentLifecycle.isActive()) {
       if (feedbackDetailIsInaccessible(error))
         inaccessible.value = true
       else
@@ -91,7 +99,7 @@ async function loadDetail() {
     }
   }
   finally {
-    if (sequence === loadSequence)
+    if (sequence === loadSequence && componentLifecycle.isActive())
       loading.value = false
   }
 }
@@ -119,24 +127,34 @@ async function submitSupplement() {
   const feedbackID = feedbackDetailIdFromContentKey(props.contentKey)
   if (!feedbackID)
     return
+  const version = detail.value.version
   submitting.value = true
-  try {
-    const response = await supplementUserFeedback(feedbackID, {
-      content: supplementContent.value.trim(),
-      requestId: requestIdState.current(),
-      version: detail.value.version,
-      images: validFeedbackDraftImages(supplementImages.value),
-    })
-    if (!response?.data)
-      throw new Error('empty feedback response')
-    handleSupplementSuccess(response.data)
-  }
-  catch {
-    uni.showToast({ title: t('detailPage.supplementFailed'), icon: 'none' })
-  }
-  finally {
-    submitting.value = false
-  }
+  await runFeedbackAsyncOperation({
+    lifecycle: componentLifecycle,
+    request: async () => {
+      const response = await supplementUserFeedback(feedbackID, {
+        content: supplementContent.value.trim(),
+        requestId: requestIdState.current(),
+        version,
+        images: validFeedbackDraftImages(supplementImages.value),
+      })
+      if (!response?.data)
+        throw new Error('empty feedback response')
+      return response.data
+    },
+    success: nextDetail => handleSupplementSuccess(nextDetail),
+    failure: async (error) => {
+      const recovered = await recoverFeedbackSupplementVersionConflict(error, {
+        notify: message => uni.showToast({ title: message, icon: 'none' }),
+        refresh: () => loadDetail(),
+      })
+      if (!recovered)
+        uni.showToast({ title: t('detailPage.supplementFailed'), icon: 'none' })
+    },
+    settled: () => {
+      submitting.value = false
+    },
+  })
 }
 
 function handleSupplementSuccess(nextDetail: UserFeedbackDetail) {
@@ -152,6 +170,8 @@ function handleSupplementSuccess(nextDetail: UserFeedbackDetail) {
 }
 
 function closeDetail() {
+  if (submitting.value)
+    return
   appContent.requestCloseTab(props.contentKey)
 }
 
@@ -169,6 +189,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  componentLifecycle.invalidate()
   loadSequence += 1
   unregisterCloseGuard?.()
   unregisterCloseGuard = undefined
@@ -222,7 +243,7 @@ onBeforeUnmount(() => {
             <text>{{ t('detailPage.handler') }}: {{ detail.handlerName || t('detailPage.noHandler') }}</text>
           </view>
         </view>
-        <u-button custom-class="feedback-detail-page__close" size="small" plain @click="closeDetail">
+        <u-button custom-class="feedback-detail-page__close" size="small" plain :disabled="submitting" @click="closeDetail">
           <u-icon name="close" size="16px" color="var(--app-text-secondary-color)" />
         </u-button>
       </view>

@@ -1,6 +1,7 @@
 export interface FeedbackNotificationOpenInput {
   sourceType: string
   sourceId: string
+  type?: string
   title: string
 }
 
@@ -19,11 +20,17 @@ export interface FeedbackNotificationOpenDependencies {
   fallbackLabel: string
 }
 
+export function isFeedbackNotification(
+  notification: Pick<FeedbackNotificationOpenInput, 'sourceType' | 'type'>,
+) {
+  return notification.sourceType === 'user_feedback' || notification.type === 'feedback_status'
+}
+
 export async function openFeedbackNotification(
   notification: FeedbackNotificationOpenInput,
   dependencies: FeedbackNotificationOpenDependencies,
 ) {
-  if (notification.sourceType !== 'user_feedback')
+  if (!isFeedbackNotification(notification))
     return false
 
   const marked = await dependencies.markRead()

@@ -25,6 +25,7 @@ const requiredFiles = [
   'src/pages/feedback/components/FeedbackList.vue',
   'src/pages/notifications/feedback-notification-open.ts',
   'src/pages/notifications/notification-mark-read.ts',
+  'src/pages/notifications/components/NotificationHistoryPage.vue',
   'src/components/app-notification-panel/app-notification-panel.vue',
   'src/components/app-shell/app-shell-navigation-guard.ts',
 ]
@@ -182,7 +183,7 @@ async function loadNotificationPanelMetaModule() {
     ))
   })
   assert.equal(statements.length, 4, 'notification type meta declarations are incomplete')
-  const moduleSource = `${statements.map(statement => statement.getText(sourceFile)).join('\n')}\nexport { notificationTypeMeta }`
+  const moduleSource = `const notificationT = key => ({ feedbackStatus: '用户反馈' }[key] || key)\n${statements.map(statement => statement.getText(sourceFile)).join('\n')}\nexport { notificationTypeMeta }`
   const output = ts.transpileModule(moduleSource, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
@@ -670,6 +671,18 @@ assert.deepEqual(notificationMeta.notificationTypeMeta('unknown_notification'), 
 
 const feedbackNotificationOpen = await loadTypeScriptModule('src/pages/notifications/feedback-notification-open.ts')
 const notificationMarkRead = await loadTypeScriptModule('src/pages/notifications/notification-mark-read.ts')
+assert.equal(feedbackNotificationOpen.isFeedbackNotification({
+  sourceType: 'user_feedback',
+  type: 'other',
+}), true)
+assert.equal(feedbackNotificationOpen.isFeedbackNotification({
+  sourceType: 'system',
+  type: 'feedback_status',
+}), true)
+assert.equal(feedbackNotificationOpen.isFeedbackNotification({
+  sourceType: 'workflow_instance',
+  type: 'workflow',
+}), false)
 const workflowMarkEvents = []
 let resolveWorkflowMark
 const workflowMarkResult = notificationMarkRead.runNotificationMarkRead({
@@ -820,6 +833,36 @@ assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
 }), true)
 assert.equal(fallbackFeedbackTab.label, '反馈详情')
 
+const feedbackTypeEvents = []
+assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
+  sourceType: 'system',
+  sourceId: '43',
+  type: 'feedback_status',
+  title: '',
+}, {
+  async markRead() {
+    feedbackTypeEvents.push('mark')
+    return true
+  },
+  feedbackDetailContentKey(sourceID) {
+    feedbackTypeEvents.push(`key:${sourceID}`)
+    return routeKeys.feedbackDetailContentKey(sourceID)
+  },
+  openDynamicTab() {
+    feedbackTypeEvents.push('open')
+    return true
+  },
+  closePanel() {
+    feedbackTypeEvents.push('close')
+  },
+  fallbackLabel: '反馈详情',
+}), true)
+assert.deepEqual(
+  feedbackTypeEvents,
+  ['mark', 'key:43', 'open', 'close'],
+  'feedback_status notifications must use the feedback detail flow even when sourceType is legacy',
+)
+
 const cancelledFeedbackNavigationEvents = []
 assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
   sourceType: 'user_feedback',
@@ -962,12 +1005,30 @@ assert.deepEqual(
   'workflow and history panels must close only after guarded navigation succeeds',
 )
 assert.deepEqual(
-  functionCallStringArguments(notificationPanelScript, 'confirmNavigationDiscard', 't'),
+  functionCallStringArguments(notificationPanelScript, 'confirmNavigationDiscard', 'navigationT'),
   ['title', 'content', 'confirm', 'cancel'],
   'notification navigation confirmation must use the shared locale namespace',
 )
+assert.ok(
+  functionCalls(notificationPanelScript, 'notificationTypeMeta').includes('notificationT'),
+  'feedback notification default metadata must resolve its label from locale',
+)
+assert.ok(
+  functionCalls(notificationPanelScript, 'openNotification').includes('isFeedbackNotification'),
+  'the notification panel must recognize both feedback source and notification type',
+)
+assert.deepEqual(
+  functionCallStringArguments(notificationPanelScript, 'handleFeedbackNotification', 'notificationT'),
+  ['feedbackDetail'],
+  'feedback detail fallback label must resolve from locale',
+)
+assert.equal(
+  source('src/components/app-notification-panel/app-notification-panel.vue').includes(`feedback_status: { label: '用户反馈'`),
+  false,
+  'feedback notification default label must not be hardcoded',
+)
 assertContains('src/components/app-notification-panel/app-notification-panel.vue', [
-  `notification.sourceType === 'user_feedback'`,
+  'isFeedbackNotification(notification)',
   'handleFeedbackNotification(notification)',
   'void markRead(notification)',
   `notification.sourceType === 'workflow_instance'`,
@@ -977,6 +1038,45 @@ assertContains('src/components/app-notification-panel/app-notification-panel.vue
   'runNotificationMarkRead',
   'requireExplicitSuccess: true',
 ])
+
+const notificationHistoryScript = vueScriptSourceFile('src/pages/notifications/components/NotificationHistoryPage.vue')
+assert.ok(functionCalls(notificationHistoryScript, 'markRead').includes('runNotificationMarkRead'))
+assert.ok(functionCalls(notificationHistoryScript, 'openNotification').includes('isFeedbackNotification'))
+assert.ok(functionCalls(notificationHistoryScript, 'openNotification').includes('handleFeedbackNotification'))
+assert.ok(functionCalls(notificationHistoryScript, 'handleFeedbackNotification').includes('openFeedbackNotification'))
+assert.match(
+  findFunction(notificationHistoryScript, 'handleFeedbackNotification').getText(notificationHistoryScript),
+  /markRead\(notification,\s*\{\s*requireExplicitSuccess:\s*true\s*\}\)/,
+  'notification history feedback opening must require explicit mark-read success',
+)
+assert.match(
+  findFunction(notificationHistoryScript, 'handleFeedbackNotification').getText(notificationHistoryScript),
+  /closePanel:\s*closeFeedbackMessage/,
+  'notification history must delegate current-message cleanup to the successful feedback helper path',
+)
+assert.deepEqual(
+  functionCalls(notificationHistoryScript, 'openFeedbackTab')
+    .filter(call => ['navigateWithUnsavedGuard', 'appContent.hasUnsavedTabChanges', 'confirmNavigationDiscard', 'appContent.openDynamicTab'].includes(call)),
+  ['navigateWithUnsavedGuard', 'appContent.hasUnsavedTabChanges', 'confirmNavigationDiscard', 'appContent.openDynamicTab'],
+  'notification history feedback tabs must use the shared unsaved-navigation guard',
+)
+assert.deepEqual(
+  functionIdentifiers(notificationHistoryScript, 'closeFeedbackMessage')
+    .filter(identifier => ['detailVisible', 'selectedNotification'].includes(identifier)),
+  ['detailVisible', 'selectedNotification'],
+  'notification history must only clear the current message after successful feedback navigation',
+)
+assert.doesNotMatch(
+  findFunction(notificationHistoryScript, 'openNotification').getText(notificationHistoryScript),
+  /requireExplicitSuccess/,
+  'workflow notification history opening must keep the default mark-read semantics',
+)
+assert.deepEqual(
+  functionCalls(notificationHistoryScript, 'openNotification')
+    .filter(call => ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab'].includes(call)),
+  ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab'],
+  'notification history workflow navigation must preserve its existing call order',
+)
 
 const statuses = await loadTypeScriptModule('src/pages/feedback/feedback-status.ts')
 assert.equal(statuses.feedbackStatusMeta('pending').type, 'warning')
@@ -1183,6 +1283,58 @@ assert.deepEqual(
 assert.equal(feedbackCenterState.createFeedbackDynamicTab('', 'Invalid', 'chat'), null)
 
 const feedbackEditorState = await loadTypeScriptModule('src/pages/feedback/components/feedback-editor-state.ts')
+const staleLifecycle = feedbackEditorState.createFeedbackComponentLifecycle()
+const staleOperationEvents = []
+let resolveStaleOperation
+const staleOperation = feedbackEditorState.runFeedbackAsyncOperation({
+  lifecycle: staleLifecycle,
+  request() {
+    staleOperationEvents.push('request')
+    return new Promise((resolve) => {
+      resolveStaleOperation = resolve
+    })
+  },
+  success() {
+    staleOperationEvents.push('success')
+  },
+  failure() {
+    staleOperationEvents.push('failure')
+  },
+  settled() {
+    staleOperationEvents.push('settled')
+  },
+})
+await Promise.resolve()
+assert.deepEqual(staleOperationEvents, ['request'])
+staleLifecycle.invalidate()
+resolveStaleOperation('old response')
+assert.equal(await staleOperation, 'stale')
+assert.deepEqual(
+  staleOperationEvents,
+  ['request'],
+  'an operation completed after unmount must not mutate a reopened tab or its guard',
+)
+
+const activeLifecycle = feedbackEditorState.createFeedbackComponentLifecycle()
+const activeOperationEvents = []
+assert.equal(await feedbackEditorState.runFeedbackAsyncOperation({
+  lifecycle: activeLifecycle,
+  async request() {
+    activeOperationEvents.push('request')
+    return 'detail'
+  },
+  success(value) {
+    activeOperationEvents.push(`success:${value}`)
+  },
+  failure() {
+    activeOperationEvents.push('failure')
+  },
+  settled() {
+    activeOperationEvents.push('settled')
+  },
+}), 'success')
+assert.deepEqual(activeOperationEvents, ['request', 'success:detail', 'settled'])
+
 const generatedRequestIds = ['request-first', 'request-next']
 const requestIdState = feedbackEditorState.createStableFeedbackRequestIdState(() => generatedRequestIds.shift())
 assert.equal(requestIdState.current(), 'request-first')
@@ -1246,6 +1398,57 @@ assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({
 }), false, 'ordinary business failures must not be treated as inaccessible')
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ statusCode: 500 }), false)
 assert.equal(feedbackEditorState.feedbackDetailIsInaccessible(new Error('network failed')), false)
+const versionConflictMessage = '反馈已更新，请刷新后重试'
+assert.equal(feedbackEditorState.feedbackSupplementVersionConflictMessage({
+  code: 43009,
+  msg: versionConflictMessage,
+}), versionConflictMessage)
+assert.equal(feedbackEditorState.feedbackSupplementVersionConflictMessage({
+  data: { code: 43009, msg: versionConflictMessage },
+}), versionConflictMessage)
+assert.equal(feedbackEditorState.feedbackSupplementVersionConflictMessage({
+  code: 0,
+  msg: versionConflictMessage,
+}), '')
+assert.equal(feedbackEditorState.feedbackSupplementVersionConflictMessage({
+  code: 43001,
+  msg: '当前状态不允许补充反馈',
+}), '')
+
+const conflictDraft = {
+  content: '请保留的补充内容',
+  images: [validDraftImage],
+  requestId: 'stable-conflict-request',
+}
+const conflictDraftSnapshot = structuredClone(conflictDraft)
+let refreshedVersion = 2
+const conflictRecoveryEvents = []
+assert.equal(await feedbackEditorState.recoverFeedbackSupplementVersionConflict({
+  code: 43009,
+  msg: versionConflictMessage,
+}, {
+  notify(message) {
+    conflictRecoveryEvents.push(`notify:${message}`)
+  },
+  async refresh() {
+    conflictRecoveryEvents.push('refresh')
+    refreshedVersion = 3
+  },
+}), true)
+assert.deepEqual(conflictRecoveryEvents, [`notify:${versionConflictMessage}`, 'refresh'])
+assert.equal(refreshedVersion, 3, 'version conflict recovery must load the latest detail version')
+assert.deepEqual(conflictDraft, conflictDraftSnapshot, 'version conflict recovery must preserve the supplement draft and request id')
+assert.equal(await feedbackEditorState.recoverFeedbackSupplementVersionConflict({
+  code: 43001,
+  msg: '当前状态不允许补充反馈',
+}, {
+  notify() {
+    throw new Error('ordinary errors must not use conflict recovery')
+  },
+  async refresh() {
+    throw new Error('ordinary errors must not refresh detail')
+  },
+}), false)
 assert.deepEqual(feedbackEditorState.feedbackImageSelectionCount(2, 6), {
   selectedCount: 2,
   maxCount: 6,
@@ -1270,17 +1473,26 @@ assertContains('src/pages/feedback/feedback.routes.ts', [
 ])
 
 const feedbackCreateScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackCreatePage.vue')
-for (const call of ['validateFeedbackDraft', 'validFeedbackDraftImages', 'createUserFeedback'])
+for (const call of ['validateFeedbackDraft', 'runFeedbackAsyncOperation', 'validFeedbackDraftImages', 'createUserFeedback'])
   assert.ok(functionCalls(feedbackCreateScript, 'submitFeedback').includes(call), `submitFeedback must call ${call}`)
 for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'appContent.requestRefresh', 'appContent.removeDynamicTab', 'feedbackDetailContentKey', 'appContent.openDynamicTab'])
   assert.ok(functionCalls(feedbackCreateScript, 'handleCreateSuccess').includes(call), `create success must call ${call}`)
 assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onMounted').includes('registerCloseGuard'), 'create page must register close guard')
 assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onBeforeUnmount').includes('unregisterCloseGuard'), 'create page must unregister close guard')
+assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onBeforeUnmount').includes('componentLifecycle.invalidate'), 'create page must invalidate pending operations before unmount')
+assert.ok(functionIdentifiers(feedbackCreateScript, 'cancelCreate').includes('submitting'), 'create cancel must be blocked while submitting')
+assert.ok(functionIdentifiers(feedbackCreateScript, 'canClose').includes('submitting'), 'create tab close guard must be blocked while submitting')
+assert.ok(functionIdentifiers(feedbackCreateScript, 'registerCloseGuard').includes('canClose'), 'create close guard must expose canClose')
+assert.match(
+  source('src/pages/feedback/components/FeedbackCreatePage.vue'),
+  /custom-class="feedback-create-page__cancel"\s+size="small"\s+plain\s+:disabled="submitting"/,
+  'create header cancel button must be disabled while submitting',
+)
 
 const feedbackDetailScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackDetailPage.vue')
 for (const call of ['feedbackDetailIdFromContentKey', 'getUserFeedbackDetail', 'feedbackDetailIsInaccessible'])
   assert.ok(functionCalls(feedbackDetailScript, 'loadDetail').includes(call), `loadDetail must call ${call}`)
-for (const call of ['validateFeedbackDraft', 'validFeedbackDraftImages', 'supplementUserFeedback'])
+for (const call of ['validateFeedbackDraft', 'runFeedbackAsyncOperation', 'validFeedbackDraftImages', 'supplementUserFeedback', 'recoverFeedbackSupplementVersionConflict', 'loadDetail'])
   assert.ok(functionCalls(feedbackDetailScript, 'submitSupplement').includes(call), `submitSupplement must call ${call}`)
 for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'registerCloseGuard', 'appContent.requestRefresh'])
   assert.ok(functionCalls(feedbackDetailScript, 'handleSupplementSuccess').includes(call), `supplement success must call ${call}`)
@@ -1292,6 +1504,15 @@ assert.equal(
 )
 assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onMounted').includes('registerCloseGuard'), 'detail page must register close guard')
 assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onBeforeUnmount').includes('unregisterCloseGuard'), 'detail page must unregister close guard')
+assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onBeforeUnmount').includes('componentLifecycle.invalidate'), 'detail page must invalidate pending operations before unmount')
+assert.ok(functionIdentifiers(feedbackDetailScript, 'closeDetail').includes('submitting'), 'detail close must be blocked while submitting')
+assert.ok(functionIdentifiers(feedbackDetailScript, 'canClose').includes('submitting'), 'detail tab close guard must be blocked while submitting')
+assert.ok(functionIdentifiers(feedbackDetailScript, 'registerCloseGuard').includes('canClose'), 'detail close guard must expose canClose')
+assert.match(
+  source('src/pages/feedback/components/FeedbackDetailPage.vue'),
+  /custom-class="feedback-detail-page__close"\s+size="small"\s+plain\s+:disabled="submitting"/,
+  'detail header close button must be disabled while submitting',
+)
 assertContains('src/pages/feedback/components/FeedbackDetailPage.vue', [
   'detail.lastActivityAt || detail.updatedAt',
   `t('detailPage.lastUpdated')`,
@@ -1307,6 +1528,72 @@ assert.ok(
 )
 
 const navigationGuard = await loadTypeScriptModule('src/components/app-shell/app-shell-navigation-guard.ts')
+const concurrentCoordinator = navigationGuard.createUnsavedNavigationCoordinator()
+const concurrentNavigationEvents = []
+let concurrentConfirmCount = 0
+let resolveConcurrentConfirmation
+const concurrentConfirmation = new Promise((resolve) => {
+  resolveConcurrentConfirmation = resolve
+})
+const firstConcurrentNavigation = concurrentCoordinator.navigate({
+  activeKey: 'feedback:create',
+  targetKey: 'dashboard',
+  hasUnsavedChanges: () => true,
+  confirmLeave() {
+    concurrentConfirmCount += 1
+    return concurrentConfirmation
+  },
+  navigate() {
+    concurrentNavigationEvents.push('dashboard')
+  },
+})
+const latestConcurrentNavigation = concurrentCoordinator.navigate({
+  activeKey: 'feedback:create',
+  targetKey: 'feedback',
+  hasUnsavedChanges: () => true,
+  confirmLeave() {
+    concurrentConfirmCount += 1
+    return concurrentConfirmation
+  },
+  navigate() {
+    concurrentNavigationEvents.push('feedback')
+  },
+})
+await Promise.resolve()
+assert.equal(concurrentConfirmCount, 1, 'rapid guarded navigation must share one confirmation')
+resolveConcurrentConfirmation(true)
+assert.deepEqual(await Promise.all([firstConcurrentNavigation, latestConcurrentNavigation]), [false, true])
+assert.deepEqual(concurrentNavigationEvents, ['feedback'], 'only the latest guarded target may navigate')
+
+const staleCoordinator = navigationGuard.createUnsavedNavigationCoordinator()
+const staleNavigationEvents = []
+let resolveStaleConfirmation
+const staleConfirmation = new Promise((resolve) => {
+  resolveStaleConfirmation = resolve
+})
+const staleGuardedNavigation = staleCoordinator.navigate({
+  activeKey: 'feedback:create',
+  targetKey: 'dashboard',
+  hasUnsavedChanges: () => true,
+  confirmLeave: () => staleConfirmation,
+  navigate() {
+    staleNavigationEvents.push('stale-dashboard')
+  },
+})
+assert.equal(await staleCoordinator.navigate({
+  activeKey: 'feedback:create',
+  targetKey: 'feedback',
+  guardUnsavedChanges: false,
+  hasUnsavedChanges: () => true,
+  confirmLeave: () => Promise.resolve(true),
+  navigate() {
+    staleNavigationEvents.push('feedback')
+  },
+}), true)
+resolveStaleConfirmation(true)
+assert.equal(await staleGuardedNavigation, false)
+assert.deepEqual(staleNavigationEvents, ['feedback'], 'a late stale confirmation must not navigate to its old target')
+
 const originalUni = globalThis.uni
 const zhNavigationCopy = JSON.parse(source('src/locale/lang/zh-CN.json')).appShell?.unsavedNavigation
 let receivedNavigationModal
@@ -1465,6 +1752,19 @@ assert.match(
   /navigateToItem\(nextItem,\s*\{\s*guardUnsavedChanges:\s*false\s*\}\)/,
   'closing a tab must preserve the existing popup decision without a second navigation prompt',
 )
+assert.ok(functionCalls(appShellScript, 'closeTab').includes('appContent.canCloseTab'), 'app shell must refuse tab close while the active submission is running')
+assertContains('src/stores/appContent.ts', [
+  'canClose?: () => boolean',
+  'function canCloseTab(key: string)',
+  'canCloseTab,',
+])
+assertContains('src/components/app-shell/app-shell.vue', [
+  ':disabled="!appContent.canCloseTab(item.key)"',
+])
+assertContains('src/components/app-shell/app-shell-navigation-guard.ts', [
+  'export function createUnsavedNavigationCoordinator()',
+  'sharedUnsavedNavigationCoordinator.navigate(options)',
+])
 
 const feedbackTimelineScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackTimeline.vue')
 assert.ok(feedbackTimelineScript.statements.some(statement => statement.getText(feedbackTimelineScript).includes('sortFeedbackMessages')))
@@ -1479,6 +1779,9 @@ assert.ok(functionCalls(indexScript, 'applyRouteQuery').includes('openFeedbackRo
 
 for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.json']) {
   const locale = JSON.parse(source(localeFile))
+  const expectedNotificationCopy = localeFile.includes('zh-CN')
+    ? { feedbackStatus: '用户反馈', feedbackDetail: '反馈详情' }
+    : { feedbackStatus: 'User Feedback', feedbackDetail: 'Feedback Details' }
   assert.deepEqual(
     Object.keys(locale.appShell?.unsavedNavigation || {}).sort(),
     ['cancel', 'confirm', 'content', 'title'],
@@ -1486,6 +1789,12 @@ for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.j
   )
   for (const value of Object.values(locale.appShell.unsavedNavigation))
     assert.equal(typeof value, 'string', `${localeFile} appShell.unsavedNavigation copy must be a string`)
+  for (const key of ['feedbackStatus', 'feedbackDetail'])
+    assert.equal(typeof locale.notifications[key], 'string', `${localeFile} missing notifications.${key}`)
+  assert.deepEqual({
+    feedbackStatus: locale.notifications.feedbackStatus,
+    feedbackDetail: locale.notifications.feedbackDetail,
+  }, expectedNotificationCopy, `${localeFile} feedback notification copy drifted`)
   assert.deepEqual(Object.keys(locale.feedback.statuses).sort(), ['closed', 'pending', 'processing', 'resolved'])
   for (const key of [
     'title',

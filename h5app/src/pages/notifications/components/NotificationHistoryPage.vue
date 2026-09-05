@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import type { InAppNotification } from '@/api/notifications'
+import type { FeedbackNotificationDynamicTab } from '@/pages/notifications/feedback-notification-open'
+import { useLocale } from 'uview-pro'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   deleteNotification,
   listNotifications,
   markNotificationRead,
 } from '@/api/notifications'
+import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
+import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
+import { isFeedbackNotification, openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
+import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
 import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
 
@@ -14,6 +20,8 @@ defineProps<{
 }>()
 
 const appContent = useAppContentStore()
+const { t: navigationT } = useLocale('appShell.unsavedNavigation')
+const { t: notificationT } = useLocale('notifications')
 const loading = ref(false)
 const loadingMore = ref(false)
 const deletingId = ref(0)
@@ -47,6 +55,8 @@ function syncMobile() {
 }
 
 function notificationLabel(notification: InAppNotification) {
+  if (isFeedbackNotification(notification))
+    return String(notification.style?.label || '').trim() || notificationT('feedbackStatus')
   return String(notification.style?.label || '').trim() || '系统消息'
 }
 
@@ -105,20 +115,61 @@ async function loadNotifications(append: boolean) {
   }
 }
 
-async function markRead(notification: InAppNotification) {
+async function markRead(notification: InAppNotification, options: { requireExplicitSuccess?: boolean } = {}) {
   if (notification.isRead === 1)
-    return
-  try {
-    await markNotificationRead(notification.id)
-    notification.isRead = 1
-    appContent.requestRefresh()
-  }
-  catch {
-    uni.showToast({ title: '标记已读失败', icon: 'none' })
-  }
+    return true
+  return runNotificationMarkRead({
+    requireExplicitSuccess: options.requireExplicitSuccess,
+    request: () => markNotificationRead(notification.id),
+    commit: () => {
+      notification.isRead = 1
+      appContent.requestRefresh()
+    },
+    fail: () => uni.showToast({ title: '标记已读失败', icon: 'none' }),
+  })
+}
+
+function confirmNavigationDiscard() {
+  return confirmUnsavedNavigation({
+    title: navigationT('title'),
+    content: navigationT('content'),
+    confirm: navigationT('confirm'),
+    cancel: navigationT('cancel'),
+  })
+}
+
+function openFeedbackTab(tab: FeedbackNotificationDynamicTab) {
+  return navigateWithUnsavedGuard({
+    activeKey: appContent.currentKey,
+    targetKey: tab.key,
+    hasUnsavedChanges: key => appContent.hasUnsavedTabChanges(key),
+    confirmLeave: () => confirmNavigationDiscard(),
+    navigate: () => appContent.openDynamicTab(tab),
+  })
+}
+
+function closeFeedbackMessage() {
+  detailVisible.value = false
+  selectedNotification.value = null
+}
+
+function handleFeedbackNotification(notification: InAppNotification) {
+  selectedNotification.value = notification
+  detailVisible.value = true
+  void openFeedbackNotification(notification, {
+    markRead: () => markRead(notification, { requireExplicitSuccess: true }),
+    feedbackDetailContentKey: sourceID => feedbackDetailContentKey(sourceID),
+    openDynamicTab: tab => openFeedbackTab(tab),
+    closePanel: closeFeedbackMessage,
+    fallbackLabel: notificationT('feedbackDetail'),
+  })
 }
 
 function openNotification(notification: InAppNotification) {
+  if (isFeedbackNotification(notification)) {
+    handleFeedbackNotification(notification)
+    return
+  }
   void markRead(notification)
   if (notification.sourceType === 'workflow_instance' && notification.sourceId) {
     const key = workflowInstanceContentKey(notification.sourceId)

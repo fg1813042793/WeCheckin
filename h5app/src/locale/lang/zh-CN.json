@@ -29,7 +29,9 @@
     "markAllRead": "全部已读",
     "empty": "暂无站内信",
     "loadMore": "加载更多",
-    "noMore": "没有更多消息"
+    "noMore": "没有更多消息",
+    "feedbackStatus": "用户反馈",
+    "feedbackDetail": "反馈详情"
   },
   "feedback": {
     "title": "我的反馈",
