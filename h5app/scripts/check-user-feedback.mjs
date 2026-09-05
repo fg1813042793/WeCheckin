@@ -23,6 +23,8 @@ const requiredFiles = [
   'src/pages/feedback/components/FeedbackTimeline.vue',
   'src/pages/feedback/components/FeedbackStatusOverview.vue',
   'src/pages/feedback/components/FeedbackList.vue',
+  'src/pages/notifications/feedback-notification-open.ts',
+  'src/components/app-notification-panel/app-notification-panel.vue',
 ]
 
 for (const file of requiredFiles) {
@@ -132,6 +134,34 @@ function lifecycleCallbackCalls(sourceFile, lifecycleName) {
   }
   visit(callback)
   return calls
+}
+
+async function loadNotificationPanelMetaModule() {
+  const sourceFile = vueScriptSourceFile('src/components/app-notification-panel/app-notification-panel.vue')
+  const variableNames = new Set([
+    'notificationTypeMetas',
+    'defaultNotificationTypeMeta',
+    'notificationToneColors',
+  ])
+  const statements = sourceFile.statements.filter((statement) => {
+    if (ts.isFunctionDeclaration(statement))
+      return statement.name?.text === 'notificationTypeMeta'
+    if (!ts.isVariableStatement(statement))
+      return false
+    return statement.declarationList.declarations.some(declaration => (
+      ts.isIdentifier(declaration.name) && variableNames.has(declaration.name.text)
+    ))
+  })
+  assert.equal(statements.length, 4, 'notification type meta declarations are incomplete')
+  const moduleSource = `${statements.map(statement => statement.getText(sourceFile)).join('\n')}\nexport { notificationTypeMeta }`
+  const output = ts.transpileModule(moduleSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  })
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(output.outputText).toString('base64')}`
+  return import(moduleUrl)
 }
 
 async function loadBaseUploadContractModule() {
@@ -576,6 +606,198 @@ assert.equal(routeKeys.feedbackDetailIdFromContentKey('feedback:detail:%E0%A4%A'
 assert.equal(routeKeys.normalizeFeedbackDynamicContentKey('feedback:detail:%E0%A4%A'), '')
 assert.equal(routeKeys.normalizeFeedbackDynamicContentKey('feedback:detail:%31'), '')
 assert.equal(routeKeys.normalizeFeedbackDynamicContentKey('feedback:create'), 'feedback:create')
+
+const notificationMeta = await loadNotificationPanelMetaModule()
+assert.deepEqual(notificationMeta.notificationTypeMeta('feedback_status'), {
+  label: '用户反馈',
+  icon: 'chat',
+  color: '#2563eb',
+  tone: 'primary',
+})
+assert.deepEqual(notificationMeta.notificationTypeMeta({
+  type: 'feedback_status',
+  style: { label: '反馈进度', icon: 'info-circle', tone: 'success' },
+}), {
+  label: '反馈进度',
+  icon: 'info-circle',
+  color: '#00875a',
+  tone: 'success',
+}, 'valid backend style must override feedback defaults')
+assert.deepEqual(notificationMeta.notificationTypeMeta({
+  type: 'feedback_status',
+  style: { label: '', icon: '', tone: 'unsupported' },
+}), {
+  label: '用户反馈',
+  icon: 'chat',
+  color: '#2563eb',
+  tone: 'primary',
+}, 'invalid backend style values must fall back to feedback defaults')
+assert.deepEqual(notificationMeta.notificationTypeMeta('unknown_notification'), {
+  label: '系统消息',
+  icon: 'email',
+  color: '#475569',
+  tone: 'info',
+}, 'unknown notification types must keep the existing fallback')
+
+const feedbackNotificationOpen = await loadTypeScriptModule('src/pages/notifications/feedback-notification-open.ts')
+const openEvents = []
+let openedFeedbackTab
+let resolveMarkRead
+const markReadGate = new Promise((resolve) => {
+  resolveMarkRead = resolve
+})
+const openingFeedback = feedbackNotificationOpen.openFeedbackNotification({
+  sourceType: 'user_feedback',
+  sourceId: '18446744073709551615',
+  title: '反馈 FB-20260905 已解决',
+}, {
+  async markRead() {
+    openEvents.push('mark:start')
+    const marked = await markReadGate
+    openEvents.push('mark:end')
+    return marked
+  },
+  feedbackDetailContentKey(sourceID) {
+    openEvents.push(`key:${sourceID}`)
+    return routeKeys.feedbackDetailContentKey(sourceID)
+  },
+  openDynamicTab(tab) {
+    openEvents.push('open')
+    openedFeedbackTab = tab
+  },
+  closePanel() {
+    openEvents.push('close')
+  },
+  fallbackLabel: '反馈详情',
+})
+await Promise.resolve()
+assert.deepEqual(openEvents, ['mark:start'], 'feedback deep link must wait for mark-read completion')
+resolveMarkRead(true)
+assert.equal(await openingFeedback, true)
+assert.deepEqual(openEvents, [
+  'mark:start',
+  'mark:end',
+  'key:18446744073709551615',
+  'open',
+  'close',
+])
+assert.deepEqual(openedFeedbackTab, {
+  key: 'feedback:detail:18446744073709551615',
+  label: '反馈 FB-20260905 已解决',
+  icon: 'chat',
+  path: '/pages/index/index?view=feedback%3Adetail%3A18446744073709551615',
+})
+
+let fallbackFeedbackTab
+assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
+  sourceType: 'user_feedback',
+  sourceId: '42',
+  title: '  ',
+}, {
+  async markRead() {
+    return true
+  },
+  feedbackDetailContentKey: routeKeys.feedbackDetailContentKey,
+  openDynamicTab(tab) {
+    fallbackFeedbackTab = tab
+  },
+  closePanel() {},
+  fallbackLabel: '反馈详情',
+}), true)
+assert.equal(fallbackFeedbackTab.label, '反馈详情')
+
+const failedMarkEvents = []
+assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
+  sourceType: 'user_feedback',
+  sourceId: '42',
+  title: '',
+}, {
+  async markRead() {
+    failedMarkEvents.push('mark')
+    return false
+  },
+  feedbackDetailContentKey() {
+    failedMarkEvents.push('key')
+    return 'feedback:detail:42'
+  },
+  openDynamicTab() {
+    failedMarkEvents.push('open')
+  },
+  closePanel() {
+    failedMarkEvents.push('close')
+  },
+  fallbackLabel: '反馈详情',
+}), true)
+assert.deepEqual(failedMarkEvents, ['mark'], 'mark-read failure must not build, open, or close the feedback tab')
+
+for (const invalidSourceID of ['', '0', '-1', '1.5', 'a', '18446744073709551616']) {
+  const events = []
+  assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
+    sourceType: 'user_feedback',
+    sourceId: invalidSourceID,
+    title: '',
+  }, {
+    async markRead() {
+      events.push('mark')
+      return true
+    },
+    feedbackDetailContentKey(sourceID) {
+      events.push(`key:${sourceID}`)
+      return routeKeys.feedbackDetailContentKey(sourceID)
+    },
+    openDynamicTab() {
+      events.push('open')
+    },
+    closePanel() {
+      events.push('close')
+    },
+    fallbackLabel: '反馈详情',
+  }), true)
+  assert.deepEqual(events, ['mark', `key:${invalidSourceID}`], `invalid source id must not navigate: ${invalidSourceID}`)
+}
+
+const workflowEvents = []
+assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
+  sourceType: 'workflow_instance',
+  sourceId: '91',
+  title: '流程详情',
+}, {
+  async markRead() {
+    workflowEvents.push('mark')
+    return true
+  },
+  feedbackDetailContentKey() {
+    workflowEvents.push('key')
+    return ''
+  },
+  openDynamicTab() {
+    workflowEvents.push('open')
+  },
+  closePanel() {
+    workflowEvents.push('close')
+  },
+  fallbackLabel: '反馈详情',
+}), false)
+assert.deepEqual(workflowEvents, [], 'feedback helper must not consume workflow notifications')
+
+const notificationPanelScript = vueScriptSourceFile('src/components/app-notification-panel/app-notification-panel.vue')
+assert.ok(functionCalls(notificationPanelScript, 'handleFeedbackNotification').includes('openFeedbackNotification'))
+assert.deepEqual(
+  functionCalls(notificationPanelScript, 'openNotification')
+    .filter(call => ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab', 'closePanel'].includes(call)),
+  ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab', 'closePanel'],
+  'workflow notification open order must remain unchanged',
+)
+assertContains('src/components/app-notification-panel/app-notification-panel.vue', [
+  `notification.sourceType === 'user_feedback'`,
+  'handleFeedbackNotification(notification)',
+  'void markRead(notification)',
+  `notification.sourceType === 'workflow_instance'`,
+  `label: notification.title || '流程详情'`,
+  `icon: 'file-text'`,
+  'const response = await markNotificationRead(notification.id)',
+  'if (!response)',
+])
 
 const statuses = await loadTypeScriptModule('src/pages/feedback/feedback-status.ts')
 assert.equal(statuses.feedbackStatusMeta('pending').type, 'warning')

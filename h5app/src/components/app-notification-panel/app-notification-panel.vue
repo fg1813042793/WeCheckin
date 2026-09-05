@@ -6,6 +6,8 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/api/notifications'
+import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
+import { openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
 import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
@@ -52,6 +54,7 @@ const notificationTypeMetas: Record<string, NotificationTypeMeta> = {
   node_notify: { label: '流程通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   instance_commented: { label: '流程评论', icon: 'chat', color: '#2563eb', tone: 'primary' },
   instance_form_revised: { label: '表单修改', icon: 'edit-pen', color: '#2563eb', tone: 'primary' },
+  feedback_status: { label: '用户反馈', icon: 'chat', color: '#2563eb', tone: 'primary' },
   workflow: { label: '流程消息', icon: 'file-text', color: '#475569', tone: 'info' },
   admin_manual: { label: '系统通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   scheduled_task: { label: '定时通知', icon: 'clock', color: '#475569', tone: 'info' },
@@ -145,7 +148,9 @@ async function markRead(notification: InAppNotification) {
   if (notification.isRead === 1)
     return true
   try {
-    await markNotificationRead(notification.id)
+    const response = await markNotificationRead(notification.id)
+    if (!response)
+      throw new Error('notification mark-read failed')
     notification.isRead = 1
     notifications.value = notifications.value.filter(item => item.id !== notification.id)
     total.value = Math.max(0, total.value - 1)
@@ -158,8 +163,22 @@ async function markRead(notification: InAppNotification) {
   }
 }
 
+function handleFeedbackNotification(notification: InAppNotification) {
+  void openFeedbackNotification(notification, {
+    markRead: () => markRead(notification),
+    feedbackDetailContentKey: sourceID => feedbackDetailContentKey(sourceID),
+    openDynamicTab: tab => appContent.openDynamicTab(tab),
+    closePanel,
+    fallbackLabel: '反馈详情',
+  })
+}
+
 function openNotification(notification: InAppNotification) {
   selectedNotification.value = notification
+  if (notification.sourceType === 'user_feedback') {
+    handleFeedbackNotification(notification)
+    return
+  }
   void markRead(notification)
   if (notification.sourceType === 'workflow_instance' && notification.sourceId) {
     const key = workflowInstanceContentKey(notification.sourceId)
