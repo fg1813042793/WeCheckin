@@ -1,17 +1,12 @@
 import type { RequestConfig, RequestInterceptor, RequestMeta, RequestOptions } from 'uview-pro'
-import type { ApiEnvelope } from '@/types/dingtalk-h5'
 import {
-  DINGTALK_H5_AUTH_EXPIRED_EVENT,
+  handleDingTalkH5AuthExpired,
+  isApiEnvelope,
+} from '@/common/dingtalk-h5-auth-expiry'
+import {
   DINGTALK_H5_BIND_REQUIRED_CODE,
   DINGTALK_H5_CONFIG,
 } from '@/config/dingtalk-h5'
-
-const LOGIN_EXPIRED_MESSAGES = new Set([
-  '未登录',
-  '登录已过期',
-  '登录已过期或已被强制下线',
-  '账号异常',
-])
 
 // 全局配置
 const httpRequestConfig: RequestConfig = {
@@ -74,10 +69,7 @@ const httpInterceptor: RequestInterceptor = {
       if (rawData.code === undefined || rawData.code === 0) {
         return rawData
       }
-      if (isLoginExpired(rawData)) {
-        uni.removeStorageSync(DINGTALK_H5_CONFIG.TOKEN_KEY)
-        uni.$emit(DINGTALK_H5_AUTH_EXPIRED_EVENT, rawData)
-      }
+      handleDingTalkH5AuthExpired(rawData)
       if (Number(rawData.code) !== DINGTALK_H5_BIND_REQUIRED_CODE) {
         meta.toast && showToast(rawData.msg || rawData.message || '请求失败', 'none')
       }
@@ -94,20 +86,6 @@ function isDingTalkH5Request(url = '') {
 function isAuthenticatedClientRequest(url = '') {
   const requestUrl = String(url)
   return isDingTalkH5Request(requestUrl) || requestUrl.startsWith('/api/')
-}
-
-function isApiEnvelope(value: unknown): value is ApiEnvelope {
-  return Boolean(value && typeof value === 'object' && (
-    'code' in value
-    || 'msg' in value
-    || 'message' in value
-    || 'data' in value
-  ))
-}
-
-function isLoginExpired(payload: ApiEnvelope) {
-  const message = String(payload.msg || payload.message || '')
-  return LOGIN_EXPIRED_MESSAGES.has(message)
 }
 
 // 显示加载中，可以替换为uview-pro的u-loading-popup组件

@@ -1,5 +1,9 @@
 import type { ApiEnvelope } from '@/types/dingtalk-h5'
 import { http } from 'uview-pro'
+import {
+  handleDingTalkH5AuthExpired,
+  isApiEnvelope,
+} from '@/common/dingtalk-h5-auth-expiry'
 import { DINGTALK_H5_CONFIG } from '@/config/dingtalk-h5'
 
 export const API_V2 = '/api/v2'
@@ -99,13 +103,14 @@ export function del<T>(url: string, data: unknown = {}) {
 
 function parseUploadResponseData<T>(raw: unknown): ApiEnvelope<T> | null {
   if (raw && typeof raw === 'object') {
-    return raw as ApiEnvelope<T>
+    return isApiEnvelope(raw) ? raw as ApiEnvelope<T> : null
   }
   if (typeof raw !== 'string') {
     return null
   }
   try {
-    return JSON.parse(raw) as ApiEnvelope<T>
+    const data: unknown = JSON.parse(raw)
+    return isApiEnvelope(data) ? data as ApiEnvelope<T> : null
   }
   catch {
     return null
@@ -165,6 +170,10 @@ function safeUploadFilename(file: MultipartUploadFile, index: number, mimeType: 
   return `${filename || `image-${index + 1}`}${extension}`
 }
 
+function isAbortError(error: unknown) {
+  return Boolean(error && typeof error === 'object' && 'name' in error && error.name === 'AbortError')
+}
+
 // #ifdef H5
 async function uploadMultipartFilesInH5<T>(
   url: string,
@@ -173,7 +182,11 @@ async function uploadMultipartFilesInH5<T>(
 ) {
   const controller = new AbortController()
   const timeout = Math.max(1, options.timeout || 30000)
-  const timeoutID = setTimeout(() => controller.abort(), timeout)
+  let timeoutTriggered = false
+  const timeoutID = setTimeout(() => {
+    timeoutTriggered = true
+    controller.abort()
+  }, timeout)
   try {
     const form = new FormData()
     for (const [key, value] of Object.entries(options.formData || {})) {
@@ -213,6 +226,9 @@ async function uploadMultipartFilesInH5<T>(
     })
     const responseText = await response.text()
     const data = parseUploadResponseData<T>(responseText)
+    if (data && data.code !== undefined && data.code !== 0) {
+      handleDingTalkH5AuthExpired(data)
+    }
     if (!response.ok) {
       throw data || new Error(`上传请求失败[${response.status}]`)
     }
@@ -223,6 +239,12 @@ async function uploadMultipartFilesInH5<T>(
       return data
     }
     throw data
+  }
+  catch (error) {
+    if (timeoutTriggered && isAbortError(error)) {
+      throw new Error('上传超时，请检查网络后重试')
+    }
+    throw error
   }
   finally {
     clearTimeout(timeoutID)

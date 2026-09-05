@@ -9,6 +9,7 @@ const root = process.cwd()
 
 const requiredFiles = [
   'src/api/user-feedback.ts',
+  'src/common/dingtalk-h5-auth-expiry.ts',
   'src/pages/feedback/feedback-route-keys.ts',
   'src/pages/feedback/feedback.routes.ts',
   'src/pages/feedback/feedback.menu.ts',
@@ -41,38 +42,103 @@ async function loadTypeScriptModule(file) {
   return import(moduleUrl)
 }
 
+function assertInterfaceShape(file, interfaceName, contract) {
+  const sourceFile = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const declaration = sourceFile.statements.find(statement => (
+    ts.isInterfaceDeclaration(statement) && statement.name.text === interfaceName
+  ))
+  assert.ok(declaration, `${file} missing interface: ${interfaceName}`)
+
+  const properties = new Map()
+  for (const member of declaration.members) {
+    if (!ts.isPropertySignature(member) || !member.type || !member.name)
+      continue
+    const name = member.name.getText(sourceFile).replace(/^['"]|['"]$/g, '')
+    properties.set(name, {
+      optional: Boolean(member.questionToken),
+      type: member.type.getText(sourceFile).replace(/\s+/g, ' ').trim(),
+    })
+  }
+  const expectedNames = [...contract.required, ...contract.optional].sort()
+  assert.deepEqual([...properties.keys()].sort(), expectedNames, `${interfaceName} fields drifted`)
+  for (const name of contract.required) {
+    assert.equal(properties.get(name)?.optional, false, `${interfaceName}.${name} must be required`)
+  }
+  for (const name of contract.optional) {
+    assert.equal(properties.get(name)?.optional, true, `${interfaceName}.${name} must be optional`)
+  }
+  for (const [name, expectedType] of Object.entries(contract.types || {})) {
+    assert.equal(properties.get(name)?.type, expectedType, `${interfaceName}.${name} type drifted`)
+  }
+  assert.deepEqual(
+    (declaration.heritageClauses || []).flatMap(clause => clause.types.map(type => type.expression.getText(sourceFile))).sort(),
+    [...(contract.extends || [])].sort(),
+    `${interfaceName} inheritance drifted`,
+  )
+}
+
 async function loadBaseUploadContractModule() {
-  const file = 'src/api/dingtalk-h5/base.ts'
-  const content = source(file)
-  const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  const selectedNames = new Set([
+  const baseFile = 'src/api/dingtalk-h5/base.ts'
+  const baseSourceFile = ts.createSourceFile(baseFile, source(baseFile), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const baseNames = new Set([
     'MultipartUploadFile',
     'UploadMultipartFilesOptions',
+    'trimRightSlash',
+    'isAbsoluteUrl',
+    'withBaseUrl',
+    'authToken',
+    'buildApiUrl',
     'parseUploadResponseData',
     'SAFE_IMAGE_MIME_TYPES',
     'safeImageMimeType',
     'imageExtension',
     'safeUploadFilename',
+    'isAbortError',
     'uploadMultipartFilesInH5',
   ])
-  const selectedStatements = sourceFile.statements.filter((statement) => {
+  const baseStatements = baseSourceFile.statements.filter((statement) => {
     if (ts.isFunctionDeclaration(statement) || ts.isInterfaceDeclaration(statement))
-      return Boolean(statement.name && selectedNames.has(statement.name.text))
+      return Boolean(statement.name && baseNames.has(statement.name.text))
     if (!ts.isVariableStatement(statement))
       return false
     return statement.declarationList.declarations.some((declaration) => {
-      return ts.isIdentifier(declaration.name) && selectedNames.has(declaration.name.text)
+      return ts.isIdentifier(declaration.name) && baseNames.has(declaration.name.text)
     })
   })
-  assert.equal(selectedStatements.length, selectedNames.size, 'base upload contract declarations are incomplete')
+  assert.equal(baseStatements.length, baseNames.size, 'base upload contract declarations are incomplete')
+
+  const authFile = 'src/common/dingtalk-h5-auth-expiry.ts'
+  const authSourceFile = ts.createSourceFile(authFile, source(authFile), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const authNames = new Set([
+    'LOGIN_EXPIRED_MESSAGES',
+    'isApiEnvelope',
+    'isDingTalkH5AuthExpired',
+    'handleDingTalkH5AuthExpired',
+  ])
+  const authStatements = authSourceFile.statements.filter((statement) => {
+    if (ts.isFunctionDeclaration(statement))
+      return Boolean(statement.name && authNames.has(statement.name.text))
+    if (!ts.isVariableStatement(statement))
+      return false
+    return statement.declarationList.declarations.some((declaration) => {
+      return ts.isIdentifier(declaration.name) && authNames.has(declaration.name.text)
+    })
+  })
+  assert.equal(authStatements.length, authNames.size, 'auth expiry contract declarations are incomplete')
 
   const moduleSource = `
 type UploadFormValue = string | number | boolean
-interface ApiEnvelope<T = unknown> { code?: number, data?: T }
-const DINGTALK_H5_CONFIG = { CLIENT_PLATFORM: 'dingtalk-h5' }
-function authToken() { return 'test-token' }
-function buildApiUrl(url: string) { return url }
-${selectedStatements.map(statement => statement.getText(sourceFile)).join('\n')}
+type QueryValue = string | number | boolean | null | undefined
+interface ApiEnvelope<T = unknown> { code?: number, msg?: string, message?: string, data?: T }
+const DINGTALK_H5_CONFIG = {
+  BASE_URL: 'https://api.example.test/root/',
+  CLIENT_PLATFORM: 'dingtalk-h5',
+  TOKEN_KEY: 'DT_H5_TOKEN',
+}
+const DINGTALK_H5_AUTH_EXPIRED_EVENT = 'dingtalk-h5-auth-expired'
+const uni = globalThis.__feedbackContractUni
+${authStatements.map(statement => statement.getText(authSourceFile)).join('\n')}
+${baseStatements.map(statement => statement.getText(baseSourceFile)).join('\n')}
 export { safeImageMimeType, safeUploadFilename, uploadMultipartFilesInH5 }
 `
   const output = ts.transpileModule(moduleSource, {
@@ -85,7 +151,7 @@ export { safeImageMimeType, safeUploadFilename, uploadMultipartFilesInH5 }
   return import(moduleUrl)
 }
 
-async function assertMultipartUploadContract(uploadContract) {
+async function assertMultipartUploadContract(uploadContract, authHarness) {
   assert.equal(
     uploadContract.safeUploadFilename({ filePath: 'blob:https://example.test/temporary-id' }, 0, 'image/png'),
     'image-1.png',
@@ -117,6 +183,8 @@ async function assertMultipartUploadContract(uploadContract) {
   let localFetchSignal
   let postFetchSignal
   try {
+    authHarness.storage.set('DT_H5_TOKEN', 'Bearer contract-token')
+    authHarness.events.length = 0
     globalThis.setTimeout = (callback, delay) => {
       assert.equal(typeof callback, 'function')
       assert.equal(delay, 30000)
@@ -138,6 +206,15 @@ async function assertMultipartUploadContract(uploadContract) {
         }
       }
       postFetchSignal = init?.signal
+      assert.equal(String(input), 'https://api.example.test/root/api/v2/dingtalk/h5/user-feedbacks')
+      assert.equal(init?.headers?.Authorization, 'Bearer contract-token')
+      assert.equal(init?.headers?.['X-Client-Platform'], 'dingtalk-h5')
+      assert.equal(init?.headers?.['X-Contract-Test'], 'kept')
+      assert.equal(
+        Object.keys(init?.headers || {}).some(key => key.toLowerCase() === 'content-type'),
+        false,
+        'fetch must let FormData set its own multipart boundary',
+      )
       const uploadedImage = init?.body?.get('images')
       assert.equal(uploadedImage?.name, 'image-1.png')
       assert.equal(uploadedImage?.type, 'image/png')
@@ -150,7 +227,13 @@ async function assertMultipartUploadContract(uploadContract) {
     const response = await uploadContract.uploadMultipartFilesInH5(
       '/api/v2/dingtalk/h5/user-feedbacks',
       [{ filePath: 'blob:test-image' }],
-      {},
+      {
+        header: {
+          'Content-Type': 'application/json',
+          'content-type': 'text/plain',
+          'X-Contract-Test': 'kept',
+        },
+      },
     )
     assert.equal(response.data.id, 1)
     assert.ok(localFetchSignal instanceof AbortSignal)
@@ -175,6 +258,101 @@ async function assertMultipartUploadContract(uploadContract) {
       /local image read failed/,
     )
     assert.equal(timerCleared, true, 'failed local image reads must clear the total timeout')
+
+    timerCleared = false
+    let pendingFetchSignal
+    globalThis.fetch = async (_input, init) => {
+      pendingFetchSignal = init?.signal
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const error = new Error('fetch aborted')
+          error.name = 'AbortError'
+          reject(error)
+        }, { once: true })
+      })
+    }
+    const timedOutUpload = uploadContract.uploadMultipartFilesInH5(
+      '/api/v2/dingtalk/h5/user-feedbacks',
+      [],
+      {},
+    )
+    await Promise.resolve()
+    timeoutCallback()
+    await assert.rejects(timedOutUpload, error => (
+      error instanceof Error && error.message === '上传超时，请检查网络后重试'
+    ))
+    assert.equal(pendingFetchSignal?.aborted, true, 'an in-flight upload fetch must be aborted by the total timeout')
+    assert.equal(timerCleared, true, 'timed out uploads must clear the total timeout')
+
+    const uploadEndpoint = '/api/v2/dingtalk/h5/user-feedbacks'
+    const responseWith = (status, payload) => ({
+      ok: status >= 200 && status < 300,
+      status,
+      text: async () => payload,
+    })
+
+    const businessFailure = { code: 43001, msg: '反馈状态不允许当前操作' }
+    authHarness.storage.set('DT_H5_TOKEN', 'Bearer business-token')
+    authHarness.events.length = 0
+    globalThis.fetch = async () => responseWith(200, JSON.stringify(businessFailure))
+    await assert.rejects(
+      uploadContract.uploadMultipartFilesInH5(uploadEndpoint, [], {}),
+      (error) => {
+        assert.deepEqual(error, businessFailure)
+        return true
+      },
+    )
+    assert.equal(authHarness.storage.get('DT_H5_TOKEN'), 'Bearer business-token')
+    assert.deepEqual(authHarness.events, [])
+
+    const httpFailure = { code: 403, msg: '无权上传反馈' }
+    globalThis.fetch = async () => responseWith(403, JSON.stringify(httpFailure))
+    await assert.rejects(
+      uploadContract.uploadMultipartFilesInH5(uploadEndpoint, [], {}),
+      (error) => {
+        assert.deepEqual(error, httpFailure)
+        return true
+      },
+    )
+
+    globalThis.fetch = async () => responseWith(200, '{invalid-json')
+    await assert.rejects(
+      uploadContract.uploadMultipartFilesInH5(uploadEndpoint, [], {}),
+      error => error instanceof Error && error.message === '上传响应异常',
+    )
+
+    const expiredEnvelope = { code: 401, msg: '登录已过期' }
+    authHarness.storage.set('DT_H5_TOKEN', 'Bearer expired-token')
+    authHarness.events.length = 0
+    globalThis.fetch = async () => responseWith(200, JSON.stringify(expiredEnvelope))
+    await assert.rejects(
+      uploadContract.uploadMultipartFilesInH5(uploadEndpoint, [], {}),
+      (error) => {
+        assert.deepEqual(error, expiredEnvelope)
+        return true
+      },
+    )
+    assert.equal(authHarness.storage.has('DT_H5_TOKEN'), false, 'login expiry must clear the H5 token')
+    assert.deepEqual(authHarness.events, [['dingtalk-h5-auth-expired', expiredEnvelope]])
+
+    const networkError = new Error('socket closed')
+    globalThis.fetch = async () => {
+      throw networkError
+    }
+    await assert.rejects(
+      uploadContract.uploadMultipartFilesInH5(uploadEndpoint, [], {}),
+      error => error === networkError,
+    )
+
+    const externalAbort = new Error('request cancelled outside upload timer')
+    externalAbort.name = 'AbortError'
+    globalThis.fetch = async () => {
+      throw externalAbort
+    }
+    await assert.rejects(
+      uploadContract.uploadMultipartFilesInH5(uploadEndpoint, [], {}),
+      error => error === externalAbort,
+    )
   }
   finally {
     globalThis.fetch = originalFetch
@@ -192,6 +370,24 @@ assertContains('src/api/dingtalk-h5/base.ts', [
   `form.append(options.fileFieldName || 'images'`,
   '当前上传仅支持 H5',
 ])
+assertContains('src/common/dingtalk-h5-auth-expiry.ts', [
+  'isApiEnvelope',
+  'isDingTalkH5AuthExpired',
+  'handleDingTalkH5AuthExpired',
+  'DINGTALK_H5_AUTH_EXPIRED_EVENT',
+  'removeStorageSync',
+  'uni.$emit',
+])
+assertContains('src/common/http.interceptor.ts', [
+  `from '@/common/dingtalk-h5-auth-expiry'`,
+  'isApiEnvelope(rawData)',
+  'handleDingTalkH5AuthExpired(rawData)',
+])
+assert.equal(
+  source('src/common/http.interceptor.ts').includes('const LOGIN_EXPIRED_MESSAGES'),
+  false,
+  'http interceptor must reuse the shared auth expiry helper',
+)
 
 assertContains('src/api/user-feedback.ts', [
   '/api/v2/dingtalk/h5/user-feedbacks',
@@ -207,6 +403,78 @@ assertContains('src/api/user-feedback.ts', [
   'getUserFeedbackDetail',
   'supplementUserFeedback',
 ])
+assertContains('src/pages/feedback/feedback-route-keys.ts', [
+  'feedbackDetailContentKey(id: string)',
+  'BigInt(value)',
+])
+
+const feedbackApiFile = 'src/api/user-feedback.ts'
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackOverview', {
+  required: ['pending', 'processing', 'resolved', 'closed'],
+  optional: [],
+  types: { pending: 'number', processing: 'number', resolved: 'number', closed: 'number' },
+})
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackAttachment', {
+  required: ['id', 'originalName', 'sizeBytes', 'url', 'sortOrder', 'createdAt'],
+  optional: ['contentType'],
+  types: { id: 'number', contentType: 'string', sizeBytes: 'number' },
+})
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackMessage', {
+  required: ['id', 'messageType', 'authorType', 'authorId', 'content', 'attachments', 'createdAt'],
+  optional: ['authorName', 'fromStatus', 'toStatus'],
+  types: {
+    messageType: 'UserFeedbackMessageType',
+    authorType: 'UserFeedbackAuthorType',
+    attachments: 'UserFeedbackAttachment[]',
+  },
+})
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackSummary', {
+  required: [
+    'id',
+    'feedbackNo',
+    'submitterId',
+    'summary',
+    'imageCount',
+    'status',
+    'version',
+    'lastActivityAt',
+    'createdAt',
+    'updatedAt',
+  ],
+  optional: ['submitterName', 'handlerId', 'handlerName', 'resolvedAt', 'closedAt'],
+  types: { id: 'number', status: 'UserFeedbackStatus', version: 'number' },
+})
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackDetail', {
+  required: ['messages', 'allowsSupplement'],
+  optional: [],
+  types: { messages: 'UserFeedbackMessage[]', allowsSupplement: 'boolean' },
+  extends: ['UserFeedbackSummary'],
+})
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackList', {
+  required: ['list', 'total', 'page', 'pageSize'],
+  optional: [],
+  types: { list: 'UserFeedbackSummary[]', total: 'number', page: 'number', pageSize: 'number' },
+})
+assertInterfaceShape(feedbackApiFile, 'UserFeedbackListQuery', {
+  required: [],
+  optional: ['keyword', 'status', 'page', 'pageSize'],
+  types: { keyword: 'string', status: 'UserFeedbackStatus', page: 'number', pageSize: 'number' },
+})
+assertInterfaceShape(feedbackApiFile, 'CreateUserFeedbackInput', {
+  required: ['content', 'requestId'],
+  optional: ['images'],
+  types: { content: 'string', requestId: 'string', images: 'readonly MultipartUploadFile[]' },
+})
+assertInterfaceShape(feedbackApiFile, 'SupplementUserFeedbackInput', {
+  required: ['content', 'requestId', 'version'],
+  optional: ['images'],
+  types: {
+    content: 'string',
+    requestId: 'string',
+    version: 'number',
+    images: 'readonly MultipartUploadFile[]',
+  },
+})
 
 assertContains('src/pages/feedback/feedback.menu.ts', [
   `key: 'feedback'`,
@@ -236,9 +504,15 @@ const routeKeys = await loadTypeScriptModule('src/pages/feedback/feedback-route-
 assert.equal(routeKeys.FEEDBACK_CONTENT_KEY, 'feedback')
 assert.equal(routeKeys.FEEDBACK_CREATE_CONTENT_KEY, 'feedback:create')
 assert.equal(routeKeys.feedbackDetailContentKey(' 123 '), 'feedback:detail:123')
-assert.equal(routeKeys.feedbackDetailContentKey('a/b'), 'feedback:detail:a%2Fb')
+assert.equal(routeKeys.feedbackDetailContentKey('18446744073709551615'), 'feedback:detail:18446744073709551615')
+assert.equal(routeKeys.feedbackDetailContentKey('a/b'), '')
 assert.equal(routeKeys.feedbackDetailContentKey(''), '')
-assert.equal(routeKeys.feedbackDetailIdFromContentKey('feedback:detail:a%2Fb'), 'a/b')
+assert.equal(routeKeys.feedbackDetailIdFromContentKey('feedback:detail:18446744073709551615'), '18446744073709551615')
+for (const invalidID of ['0', '-1', '1.5', 'a', '18446744073709551616']) {
+  assert.equal(routeKeys.feedbackDetailContentKey(invalidID), '', `invalid detail id must be rejected: ${invalidID}`)
+  assert.equal(routeKeys.feedbackDetailIdFromContentKey(`feedback:detail:${invalidID}`), '', `invalid detail key must be rejected: ${invalidID}`)
+}
+assert.equal(routeKeys.feedbackDetailIdFromContentKey('feedback:detail:a%2Fb'), '')
 assert.equal(routeKeys.feedbackDetailIdFromContentKey('feedback:detail:'), '')
 assert.equal(routeKeys.feedbackDetailIdFromContentKey('feedback:detail:%E0%A4%A'), '')
 assert.equal(routeKeys.normalizeFeedbackDynamicContentKey('feedback:detail:%E0%A4%A'), '')
@@ -251,7 +525,27 @@ assert.equal(statuses.feedbackStatusMeta('processing').type, 'warning')
 assert.equal(statuses.feedbackStatusMeta('resolved').type, 'success')
 assert.equal(statuses.feedbackStatusMeta('closed').type, 'info')
 
-const uploadContract = await loadBaseUploadContractModule()
-await assertMultipartUploadContract(uploadContract)
+const authHarness = {
+  storage: new Map(),
+  events: [],
+}
+globalThis.__feedbackContractUni = {
+  getStorageSync(key) {
+    return authHarness.storage.get(key) || ''
+  },
+  removeStorageSync(key) {
+    authHarness.storage.delete(key)
+  },
+  $emit(event, payload) {
+    authHarness.events.push([event, payload])
+  },
+}
+try {
+  const uploadContract = await loadBaseUploadContractModule()
+  await assertMultipartUploadContract(uploadContract, authHarness)
+}
+finally {
+  delete globalThis.__feedbackContractUni
+}
 
 console.log('user feedback contracts ok')
