@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 	"syscall"
@@ -769,6 +770,129 @@ func TestSanitizeCleanupErrorKeepsTraversalAndOutputBounded(t *testing.T) {
 			t.Fatalf("sanitizeCleanupError(node limit) = %q", got)
 		}
 	})
+}
+
+func TestSanitizeCleanupErrorStopsSingleUnwrapAtDepthLimit(t *testing.T) {
+	var chain error
+	for depth := cleanupErrorMaxDepth + 2; depth >= 0; depth-- {
+		chain = &testSafeCleanupError{
+			unsafeMessage: fmt.Sprintf("private-depth-%d Authorization: OSS AKID-%d:signature-%d", depth, depth, depth),
+			safeMessage:   fmt.Sprintf("depth=%d", depth),
+			cause:         chain,
+		}
+	}
+
+	got := sanitizeCleanupError(chain)
+	for _, want := range []string{
+		"safe=depth=0",
+		fmt.Sprintf("safe=depth=%d", cleanupErrorMaxDepth),
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("sanitizeCleanupError() = %q, missing boundary node %q", got, want)
+		}
+	}
+	for _, forbidden := range []string{
+		fmt.Sprintf("safe=depth=%d", cleanupErrorMaxDepth+1),
+		fmt.Sprintf("safe=depth=%d", cleanupErrorMaxDepth+2),
+		fmt.Sprintf("AKID-%d", cleanupErrorMaxDepth+1),
+		fmt.Sprintf("signature-%d", cleanupErrorMaxDepth+1),
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("sanitizeCleanupError() crossed depth boundary with %q: %q", forbidden, got)
+		}
+	}
+}
+
+func TestSanitizeCleanupErrorClassifiesOSWrappersWithoutLeakingFields(t *testing.T) {
+	pathValue := "/private/customer/password=db-secret/report.png?X-Amz-Credential=AKID&X-Amz-Signature=path-signature"
+	oldValue := "https://user:old-password@oss.example/old?OSSAccessKeyId=OLDKEY&Signature=old-signature"
+	newValue := "/private/new/Cookie=session-secret/token=new-token"
+	syscallValue := "private-syscall Authorization: OSS SYSCALLKEY:syscall-signature"
+	pathErr := &os.PathError{
+		Op:   "open",
+		Path: pathValue,
+		Err:  syscall.ECONNREFUSED,
+	}
+	linkErr := &os.LinkError{
+		Op:  "rename",
+		Old: oldValue,
+		New: newValue,
+		Err: syscall.ECONNRESET,
+	}
+	syscallErr := &os.SyscallError{
+		Syscall: syscallValue,
+		Err:     syscall.ETIMEDOUT,
+	}
+	joined := errors.Join(pathErr, linkErr, syscallErr)
+
+	got := sanitizeCleanupError(joined)
+	for _, want := range []string{
+		fmt.Sprintf("type=%T", joined),
+		fmt.Sprintf("type=%T", pathErr),
+		fmt.Sprintf("type=%T", linkErr),
+		fmt.Sprintf("type=%T", syscallErr),
+		fmt.Sprintf("type=%T", syscall.ECONNREFUSED),
+		"category=filesystem",
+		"category=syscall",
+		"network=connection_refused",
+		"network=connection_reset",
+		"network=timeout",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("sanitizeCleanupError() = %q, missing controlled classification %q", got, want)
+		}
+	}
+	for _, forbidden := range []string{
+		pathValue,
+		oldValue,
+		newValue,
+		syscallValue,
+		"/private/",
+		"https://",
+		"oss.example",
+		"password=",
+		"db-secret",
+		"X-Amz-Credential",
+		"AKID",
+		"X-Amz-Signature",
+		"path-signature",
+		"old-password",
+		"OSSAccessKeyId",
+		"OLDKEY",
+		"Signature",
+		"old-signature",
+		"Cookie",
+		"session-secret",
+		"token=",
+		"new-token",
+		"Authorization",
+		"SYSCALLKEY",
+		"syscall-signature",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("sanitizeCleanupError() leaked wrapper field %q: %q", forbidden, got)
+		}
+	}
+
+	allowed := map[string]struct{}{
+		fmt.Sprintf("type=%T", joined):               {},
+		fmt.Sprintf("type=%T", pathErr):              {},
+		fmt.Sprintf("type=%T", linkErr):              {},
+		fmt.Sprintf("type=%T", syscallErr):           {},
+		fmt.Sprintf("type=%T", syscall.ECONNREFUSED): {},
+		"category=filesystem":                        {},
+		"category=syscall":                           {},
+		"category=network":                           {},
+		"network=timeout":                            {},
+		"network=temporary":                          {},
+		"network=connection_refused":                 {},
+		"network=connection_reset":                   {},
+	}
+	for _, part := range strings.Split(got, " | ") {
+		if _, ok := allowed[part]; !ok {
+			t.Errorf("sanitizeCleanupError() emitted uncontrolled part %q: %q", part, got)
+		}
+	}
 }
 
 func TestCreateFeedbackReturnsDiagnosticErrorForUninitializedDependencies(t *testing.T) {
