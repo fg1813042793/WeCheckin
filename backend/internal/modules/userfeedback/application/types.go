@@ -37,6 +37,8 @@ type FeedbackSummary struct {
 	FeedbackNo     string        `json:"feedbackNo"`
 	SubmitterID    uint          `json:"submitterId"`
 	SubmitterName  string        `json:"submitterName,omitempty"`
+	Summary        string        `json:"summary"`
+	ImageCount     int64         `json:"imageCount"`
 	Status         domain.Status `json:"status"`
 	HandlerID      *uint         `json:"handlerId,omitempty"`
 	HandlerName    string        `json:"handlerName,omitempty"`
@@ -62,19 +64,21 @@ type FeedbackList struct {
 }
 
 type UserListQuery struct {
-	SubmitterID uint
-	Status      domain.Status
-	Page        int
-	PageSize    int
+	Keyword  string
+	Status   domain.Status
+	Page     int
+	PageSize int
 }
 
 type AdminListQuery struct {
-	FeedbackNo  string
-	SubmitterID uint
-	HandlerID   *uint
-	Status      domain.Status
-	Page        int
-	PageSize    int
+	Keyword       string
+	SubmitterID   uint
+	HandlerID     *uint
+	Status        domain.Status
+	SubmittedFrom int64
+	SubmittedTo   int64
+	Page          int
+	PageSize      int
 }
 
 type AttachmentInput struct {
@@ -96,6 +100,7 @@ type SupplementCommand struct {
 	SubmitterID uint
 	Content     string
 	Attachments []AttachmentInput
+	Version     uint64
 	RequestID   string
 }
 

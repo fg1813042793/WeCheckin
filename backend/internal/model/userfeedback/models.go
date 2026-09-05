@@ -7,9 +7,9 @@ type Feedback struct {
 	FeedbackNo      string `gorm:"column:feedback_no;size:32"`
 	SubmitterID     uint   `gorm:"column:submitter_id"`
 	CreateRequestID string `gorm:"column:create_request_id;size:64"`
-	Status          string `gorm:"column:feedback_status;size:24"`
+	Status          string `gorm:"column:feedback_status;size:24;default:pending"`
 	HandlerID       *uint  `gorm:"column:handler_id"`
-	Version         uint64 `gorm:"column:version"`
+	Version         uint64 `gorm:"column:version;default:1"`
 	LastActivityAt  int64  `gorm:"column:last_activity_at"`
 	ResolvedAt      *int64 `gorm:"column:resolved_at"`
 	ClosedAt        *int64 `gorm:"column:closed_at"`
