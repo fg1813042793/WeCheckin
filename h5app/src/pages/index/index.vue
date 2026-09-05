@@ -2,11 +2,17 @@
 import type { DingTalkUser } from '@/types/dingtalk-h5'
 import type { AppNavItem } from '@/types/navigation'
 import { onLoad } from '@dcloudio/uni-app'
+import { useLocale } from 'uview-pro'
 import { computed } from 'vue'
 import AppAuthGuard from '@/components/app-auth-guard/app-auth-guard.vue'
 import AppShell from '@/components/app-shell/app-shell.vue'
 import { resolveAppContentComponent } from '@/config/app-content-routes'
 import { appPageTitle, useRegisteredAppPages } from '@/config/app-navigation'
+import {
+  FEEDBACK_CREATE_CONTENT_KEY,
+  feedbackDetailIdFromContentKey,
+  normalizeFeedbackDynamicContentKey,
+} from '@/pages/feedback/feedback-route-keys'
 import {
   normalizeWorkflowDynamicContentKey,
   workflowDefinitionIdFromContentKey,
@@ -20,6 +26,7 @@ import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 const auth = useDingtalkAuthStore()
 const appContent = useAppContentStore()
 const registeredPages = useRegisteredAppPages()
+const { t } = useLocale('feedback')
 
 const activeContentComponent = computed(() => {
   return resolveAppContentComponent(appContent.currentKey)
@@ -49,7 +56,9 @@ function routeViewKey(value: unknown) {
     return ''
   }
   const matchedPage = registeredPages.find(page => page.key === rawView || page.contentKey === rawView)
-  return matchedPage?.key || normalizeWorkflowDynamicContentKey(rawView)
+  return matchedPage?.key
+    || normalizeWorkflowDynamicContentKey(rawView)
+    || normalizeFeedbackDynamicContentKey(rawView)
 }
 
 function openWorkflowRouteTab(key: string) {
@@ -80,11 +89,29 @@ function openWorkflowRouteTab(key: string) {
   return true
 }
 
+function openFeedbackRouteTab(key: string) {
+  const normalizedKey = normalizeFeedbackDynamicContentKey(key)
+  if (!normalizedKey)
+    return false
+  const detailID = feedbackDetailIdFromContentKey(normalizedKey)
+  const isCreate = normalizedKey === FEEDBACK_CREATE_CONTENT_KEY
+  if (!isCreate && !detailID)
+    return false
+
+  appContent.openDynamicTab({
+    key: normalizedKey,
+    label: isCreate ? t('create') : t('detail'),
+    icon: isCreate ? 'add-circle' : 'chat',
+    path: `/pages/index/index?view=${encodeURIComponent(normalizedKey)}`,
+  })
+  return true
+}
+
 function applyRouteQuery(query: Record<string, unknown> = {}) {
   const viewKey = routeViewKey(query.view || query.key || query.page)
   const reviewId = firstRouteValue(query.reviewId || query.review_id || query.id)
   if (viewKey) {
-    if (!openWorkflowRouteTab(viewKey))
+    if (!openWorkflowRouteTab(viewKey) && !openFeedbackRouteTab(viewKey))
       appContent.switchContent(viewKey, reviewId)
     return
   }

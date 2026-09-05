@@ -16,6 +16,11 @@ const requiredFiles = [
   'src/pages/feedback/feedback-status.ts',
   'src/pages/feedback/components/FeedbackCenter.vue',
   'src/pages/feedback/components/feedback-center-state.ts',
+  'src/pages/feedback/components/feedback-editor-state.ts',
+  'src/pages/feedback/components/FeedbackImagePicker.vue',
+  'src/pages/feedback/components/FeedbackCreatePage.vue',
+  'src/pages/feedback/components/FeedbackDetailPage.vue',
+  'src/pages/feedback/components/FeedbackTimeline.vue',
   'src/pages/feedback/components/FeedbackStatusOverview.vue',
   'src/pages/feedback/components/FeedbackList.vue',
 ]
@@ -452,8 +457,8 @@ assertContains('src/api/user-feedback.ts', [
   'getUserFeedbackOverview',
   'listUserFeedbacks',
   'createUserFeedback',
-  'getUserFeedbackDetail',
-  'supplementUserFeedback',
+  'getUserFeedbackDetail(id: string)',
+  'supplementUserFeedback(id: string',
 ])
 assertContains('src/pages/feedback/feedback-route-keys.ts', [
   'feedbackDetailContentKey(id: string)',
@@ -469,12 +474,13 @@ assertInterfaceShape(feedbackApiFile, 'UserFeedbackOverview', {
 assertInterfaceShape(feedbackApiFile, 'UserFeedbackAttachment', {
   required: ['id', 'originalName', 'sizeBytes', 'url', 'sortOrder', 'createdAt'],
   optional: ['contentType'],
-  types: { id: 'number', contentType: 'string', sizeBytes: 'number' },
+  types: { id: 'string', contentType: 'string', sizeBytes: 'number' },
 })
 assertInterfaceShape(feedbackApiFile, 'UserFeedbackMessage', {
   required: ['id', 'messageType', 'authorType', 'authorId', 'content', 'attachments', 'createdAt'],
   optional: ['authorName', 'fromStatus', 'toStatus'],
   types: {
+    id: 'string',
     messageType: 'UserFeedbackMessageType',
     authorType: 'UserFeedbackAuthorType',
     attachments: 'UserFeedbackAttachment[]',
@@ -493,8 +499,8 @@ assertInterfaceShape(feedbackApiFile, 'UserFeedbackSummary', {
     'createdAt',
     'updatedAt',
   ],
-  optional: ['submitterName', 'handlerId', 'handlerName', 'resolvedAt', 'closedAt'],
-  types: { id: 'number', status: 'UserFeedbackStatus', version: 'number' },
+  optional: ['submitterName', 'handlerId', 'handlerName', 'firstImageUrl', 'resolvedAt', 'closedAt'],
+  types: { id: 'string', firstImageUrl: 'string', status: 'UserFeedbackStatus', version: 'number' },
 })
 assertInterfaceShape(feedbackApiFile, 'UserFeedbackDetail', {
   required: ['messages', 'allowsSupplement'],
@@ -649,6 +655,10 @@ assertContains('src/pages/feedback/components/FeedbackList.vue', [
 
 for (const componentFile of [
   'src/pages/feedback/components/FeedbackCenter.vue',
+  'src/pages/feedback/components/FeedbackImagePicker.vue',
+  'src/pages/feedback/components/FeedbackCreatePage.vue',
+  'src/pages/feedback/components/FeedbackDetailPage.vue',
+  'src/pages/feedback/components/FeedbackTimeline.vue',
   'src/pages/feedback/components/FeedbackStatusOverview.vue',
   'src/pages/feedback/components/FeedbackList.vue',
 ]) {
@@ -771,6 +781,115 @@ assert.deepEqual(
 )
 assert.equal(feedbackCenterState.createFeedbackDynamicTab('', 'Invalid', 'chat'), null)
 
+const feedbackEditorState = await loadTypeScriptModule('src/pages/feedback/components/feedback-editor-state.ts')
+const generatedRequestIds = ['request-first', 'request-next']
+const requestIdState = feedbackEditorState.createStableFeedbackRequestIdState(() => generatedRequestIds.shift())
+assert.equal(requestIdState.current(), 'request-first')
+assert.equal(requestIdState.current(), 'request-first', 'request id must remain stable before success')
+assert.equal(requestIdState.rotate(), 'request-next')
+assert.equal(requestIdState.current(), 'request-next', 'request id must only change after rotate')
+assert.match(feedbackEditorState.createFeedbackRequestId(), /^feedback-[a-z0-9-]{10,63}$/)
+
+const validDraftImage = {
+  clientId: 'image-valid',
+  filePath: 'blob:valid',
+  name: 'valid.jpg',
+  mimeType: 'image/jpeg',
+  size: 1024,
+}
+assert.equal(feedbackEditorState.validateFeedbackDraft('create', '', []), 'content_required')
+assert.equal(feedbackEditorState.validateFeedbackDraft('create', 'x'.repeat(5000), []), '')
+assert.equal(feedbackEditorState.validateFeedbackDraft('create', 'x'.repeat(5001), []), 'content_too_long')
+assert.equal(feedbackEditorState.validateFeedbackDraft('supplement', '', []), 'content_or_image_required')
+assert.equal(feedbackEditorState.validateFeedbackDraft('supplement', '', [validDraftImage]), '')
+assert.equal(feedbackEditorState.validateFeedbackDraft('supplement', 'more', [
+  { ...validDraftImage, error: 'too_large' },
+]), 'image_invalid')
+assert.equal(feedbackEditorState.validateFeedbackDraft('create', 'content', Array.from({ length: 7 }, (_, index) => ({
+  ...validDraftImage,
+  clientId: `image-${index}`,
+}))), 'images_too_many')
+assert.equal(feedbackEditorState.feedbackDraftHasContent('  ', []), false)
+assert.equal(feedbackEditorState.feedbackDraftHasContent('  ', [validDraftImage]), true)
+
+const chosenImages = feedbackEditorState.normalizeFeedbackChosenImages({
+  tempFilePaths: ['blob:valid', 'blob:large', 'blob:text'],
+  tempFiles: [
+    { name: 'valid.jpg', size: 1024, type: 'image/jpeg' },
+    { name: 'large.png', size: 10 * 1024 * 1024 + 1, type: 'image/png' },
+    { name: 'text.txt', size: 10, type: 'text/plain' },
+  ],
+}, 'batch')
+assert.equal(chosenImages.length, 3)
+assert.equal(chosenImages[0].error, undefined)
+assert.equal(chosenImages[1].error, 'too_large')
+assert.equal(chosenImages[2].error, 'unsupported_type')
+assert.deepEqual(feedbackEditorState.validFeedbackDraftImages(chosenImages).map(image => image.clientId), ['batch-1'])
+
+assert.equal(feedbackEditorState.canSupplementFeedback('pending', true), true)
+assert.equal(feedbackEditorState.canSupplementFeedback('processing', true), true)
+assert.equal(feedbackEditorState.canSupplementFeedback('resolved', true), false)
+assert.equal(feedbackEditorState.canSupplementFeedback('closed', true), false)
+assert.equal(feedbackEditorState.canSupplementFeedback('pending', false), false)
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ statusCode: 404 }), true)
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ status: 403 }), true)
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ response: { status: 404 } }), true)
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible({ statusCode: 500 }), false)
+assert.equal(feedbackEditorState.feedbackDetailIsInaccessible(new Error('network failed')), false)
+
+const sortedMessages = feedbackEditorState.sortFeedbackMessages([
+  { id: '18446744073709551615', createdAt: 30 },
+  { id: '2', createdAt: 10 },
+  { id: '3', createdAt: 20 },
+])
+assert.deepEqual(sortedMessages.map(message => message.id), ['2', '3', '18446744073709551615'])
+
+assertContains('src/pages/feedback/feedback.routes.ts', [
+  `import FeedbackCreatePage from './components/FeedbackCreatePage.vue'`,
+  `import FeedbackDetailPage from './components/FeedbackDetailPage.vue'`,
+  'key === FEEDBACK_CREATE_CONTENT_KEY',
+  'feedbackDetailIdFromContentKey(key)',
+])
+
+const feedbackCreateScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackCreatePage.vue')
+for (const call of ['validateFeedbackDraft', 'validFeedbackDraftImages', 'createUserFeedback'])
+  assert.ok(functionCalls(feedbackCreateScript, 'submitFeedback').includes(call), `submitFeedback must call ${call}`)
+for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'appContent.requestRefresh', 'appContent.removeDynamicTab', 'feedbackDetailContentKey', 'appContent.openDynamicTab'])
+  assert.ok(functionCalls(feedbackCreateScript, 'handleCreateSuccess').includes(call), `create success must call ${call}`)
+assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onMounted').includes('registerCloseGuard'), 'create page must register close guard')
+assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onBeforeUnmount').includes('unregisterCloseGuard'), 'create page must unregister close guard')
+
+const feedbackDetailScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackDetailPage.vue')
+for (const call of ['feedbackDetailIdFromContentKey', 'getUserFeedbackDetail', 'feedbackDetailIsInaccessible'])
+  assert.ok(functionCalls(feedbackDetailScript, 'loadDetail').includes(call), `loadDetail must call ${call}`)
+for (const call of ['validateFeedbackDraft', 'validFeedbackDraftImages', 'supplementUserFeedback'])
+  assert.ok(functionCalls(feedbackDetailScript, 'submitSupplement').includes(call), `submitSupplement must call ${call}`)
+for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'registerCloseGuard', 'appContent.requestRefresh'])
+  assert.ok(functionCalls(feedbackDetailScript, 'handleSupplementSuccess').includes(call), `supplement success must call ${call}`)
+assert.equal(functionCalls(feedbackDetailScript, 'loadDetail').includes('Number'), false, 'detail id must remain a decimal string')
+assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onMounted').includes('registerCloseGuard'), 'detail page must register close guard')
+assert.ok(lifecycleCallbackCalls(feedbackDetailScript, 'onBeforeUnmount').includes('unregisterCloseGuard'), 'detail page must unregister close guard')
+assertContains('src/pages/feedback/components/FeedbackDetailPage.vue', [
+  'detail.lastActivityAt || detail.updatedAt',
+  `t('detailPage.lastUpdated')`,
+])
+
+const feedbackImagePickerScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackImagePicker.vue')
+assert.ok(functionCalls(feedbackImagePickerScript, 'chooseImages').includes('uni.chooseImage'))
+assert.ok(functionCalls(feedbackImagePickerScript, 'previewImage').includes('uni.previewImage'))
+assert.ok(functionCalls(feedbackImagePickerScript, 'removeImage').includes('emit'))
+
+const feedbackTimelineScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackTimeline.vue')
+assert.ok(feedbackTimelineScript.statements.some(statement => statement.getText(feedbackTimelineScript).includes('sortFeedbackMessages')))
+assert.ok(functionCalls(feedbackTimelineScript, 'previewAttachments').includes('uni.previewImage'))
+
+const indexScript = vueScriptSourceFile('src/pages/index/index.vue')
+assert.ok(functionCalls(indexScript, 'routeViewKey').includes('normalizeFeedbackDynamicContentKey'), 'URL view must normalize feedback dynamic keys')
+assert.ok(functionCalls(indexScript, 'openFeedbackRouteTab').includes('normalizeFeedbackDynamicContentKey'))
+assert.ok(functionCalls(indexScript, 'openFeedbackRouteTab').includes('appContent.openDynamicTab'))
+assert.equal(functionCalls(indexScript, 'openFeedbackRouteTab').includes('Number'), false, 'feedback URL ids must remain strings')
+assert.ok(functionCalls(indexScript, 'applyRouteQuery').includes('openFeedbackRouteTab'))
+
 for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.json']) {
   const locale = JSON.parse(source(localeFile))
   assert.deepEqual(Object.keys(locale.feedback.statuses).sort(), ['closed', 'pending', 'processing', 'resolved'])
@@ -799,6 +918,16 @@ for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.j
   ]) {
     assert.equal(typeof locale.feedback[key], 'string', `${localeFile} missing feedback.${key}`)
   }
+  for (const namespace of ['createPage', 'detailPage', 'timeline', 'imagePicker'])
+    assert.equal(typeof locale.feedback[namespace], 'object', `${localeFile} missing feedback.${namespace}`)
+  for (const key of ['title', 'description', 'contentLabel', 'contentPlaceholder', 'submit', 'cancel', 'success', 'failed', 'contentRequired', 'contentTooLong', 'imagesTooMany', 'imageInvalid'])
+    assert.equal(typeof locale.feedback.createPage[key], 'string', `${localeFile} missing feedback.createPage.${key}`)
+  for (const key of ['title', 'unavailable', 'loadFailed', 'retry', 'supplementTitle', 'supplementPlaceholder', 'submitSupplement', 'supplementSuccess', 'supplementFailed', 'readOnly', 'handler', 'createdAt', 'lastUpdated'])
+    assert.equal(typeof locale.feedback.detailPage[key], 'string', `${localeFile} missing feedback.detailPage.${key}`)
+  for (const key of ['initial', 'supplement', 'status', 'statusChange', 'admin', 'user', 'empty'])
+    assert.equal(typeof locale.feedback.timeline[key], 'string', `${localeFile} missing feedback.timeline.${key}`)
+  for (const key of ['add', 'preview', 'remove', 'chooseFailed', 'tooLarge', 'unsupportedType', 'limitHint'])
+    assert.equal(typeof locale.feedback.imagePicker[key], 'string', `${localeFile} missing feedback.imagePicker.${key}`)
 }
 
 console.log('user feedback contracts ok')
