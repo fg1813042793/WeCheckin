@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	homeservice "wecheckin/backend/internal/service/client/home"
 	setupservice "wecheckin/backend/internal/service/admin/setup"
+	homeservice "wecheckin/backend/internal/service/client/home"
 	"wecheckin/backend/pkg/response"
 )
 

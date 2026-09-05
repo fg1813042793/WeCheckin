@@ -6,8 +6,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/pkg/database"
 )
 

@@ -33,7 +33,17 @@ type DingTalkWorkNotificationClient interface {
 	SendWorkNotificationContext(ctx context.Context, config DingTalkH5CorpConfig, userIDs []string, notification DingTalkWorkNotificationPayload) error
 }
 
-const DingTalkMessageTypeActionCard = "action_card"
+const (
+	DingTalkMessageTypeAuto       = "auto"
+	DingTalkMessageTypeText       = "text"
+	DingTalkMessageTypeImage      = "image"
+	DingTalkMessageTypeVoice      = "voice"
+	DingTalkMessageTypeFile       = "file"
+	DingTalkMessageTypeLink       = "link"
+	DingTalkMessageTypeOA         = "oa"
+	DingTalkMessageTypeMarkdown   = "markdown"
+	DingTalkMessageTypeActionCard = "action_card"
+)
 
 type DingTalkWorkNotificationPayload struct {
 	MessageType string
@@ -42,6 +52,10 @@ type DingTalkWorkNotificationPayload struct {
 	URL         string
 	SourceName  string
 	PicURL      string
+	MediaID     string
+	Duration    int
+	ButtonTitle string
+	HeadColor   string
 }
 
 type defaultDingTalkIdentityClient struct {
@@ -81,8 +95,8 @@ func (client defaultDingTalkIdentityClient) SendWorkNotificationContext(ctx cont
 		return fmt.Errorf("请先配置钉钉 H5 AppKey 和 AppSecret")
 	}
 	notification = normalizeDingTalkWorkNotificationPayload(notification)
-	if notification.MessageType == DingTalkMessageTypeActionCard && notification.URL == "" {
-		return fmt.Errorf("ActionCard 跳转地址不能为空")
+	if err := validateDingTalkWorkNotificationPayload(notification); err != nil {
+		return err
 	}
 	notifyMode := normalizeDingTalkH5NotifyMode(config.NotifyMode, config.AgentID, config.RobotCode)
 	if notifyMode == "robot" {
@@ -122,8 +136,8 @@ func (client defaultDingTalkIdentityClient) sendAgentWorkNotificationContext(ctx
 		return fmt.Errorf("钉钉通知接收人不能为空")
 	}
 	notification = normalizeDingTalkWorkNotificationPayload(notification)
-	if notification.Content == "" {
-		return fmt.Errorf("钉钉通知内容不能为空")
+	if err := validateDingTalkWorkNotificationPayload(notification); err != nil {
+		return err
 	}
 	accessToken, err := client.accessTokenContext(ctx, appKey, appSecret)
 	if err != nil {
@@ -161,8 +175,8 @@ func (client defaultDingTalkIdentityClient) sendRobotWorkNotificationContext(ctx
 		return fmt.Errorf("钉钉通知接收人不能为空")
 	}
 	notification = normalizeDingTalkWorkNotificationPayload(notification)
-	if notification.Content == "" {
-		return fmt.Errorf("钉钉通知内容不能为空")
+	if err := validateDingTalkRobotNotificationPayload(notification); err != nil {
+		return err
 	}
 	accessToken, err := client.openAPIAccessTokenContext(ctx, appKey, appSecret)
 	if err != nil {
@@ -197,6 +211,20 @@ func normalizeDingTalkWorkNotificationPayload(notification DingTalkWorkNotificat
 	notification.URL = strings.TrimSpace(notification.URL)
 	notification.SourceName = strings.TrimSpace(notification.SourceName)
 	notification.PicURL = strings.TrimSpace(notification.PicURL)
+	notification.MediaID = strings.TrimSpace(notification.MediaID)
+	notification.ButtonTitle = strings.TrimSpace(notification.ButtonTitle)
+	notification.HeadColor = strings.ToUpper(strings.TrimPrefix(strings.TrimSpace(notification.HeadColor), "#"))
+	if notification.MessageType == "" {
+		notification.MessageType = DingTalkMessageTypeAuto
+	}
+	if notification.ButtonTitle == "" {
+		notification.ButtonTitle = "查看流程"
+	}
+	if notification.HeadColor == "" {
+		notification.HeadColor = "FF1677FF"
+	} else if len(notification.HeadColor) == 6 {
+		notification.HeadColor = "FF" + notification.HeadColor
+	}
 	if notification.Title == "" && notification.URL != "" {
 		notification.Title = "绩效流程待办"
 	}
@@ -204,61 +232,87 @@ func normalizeDingTalkWorkNotificationPayload(notification DingTalkWorkNotificat
 }
 
 func dingTalkAgentNotificationMessage(notification DingTalkWorkNotificationPayload) map[string]interface{} {
-	if notification.MessageType == DingTalkMessageTypeActionCard && notification.URL != "" {
+	notification = normalizeDingTalkWorkNotificationPayload(notification)
+	switch notification.MessageType {
+	case DingTalkMessageTypeText:
+		return dingTalkTextMessage(notification.Content)
+	case DingTalkMessageTypeImage:
+		return map[string]interface{}{"msgtype": "image", "image": map[string]string{"media_id": notification.MediaID}}
+	case DingTalkMessageTypeVoice:
+		return map[string]interface{}{"msgtype": "voice", "voice": map[string]string{
+			"media_id": notification.MediaID, "duration": strconv.Itoa(notification.Duration),
+		}}
+	case DingTalkMessageTypeFile:
+		return map[string]interface{}{"msgtype": "file", "file": map[string]string{"media_id": notification.MediaID}}
+	case DingTalkMessageTypeLink:
+		return map[string]interface{}{"msgtype": "link", "link": map[string]string{
+			"title": notification.Title, "text": notification.Content, "message_url": notification.URL, "pic_url": notification.PicURL,
+		}}
+	case DingTalkMessageTypeMarkdown:
+		return map[string]interface{}{"msgtype": "markdown", "markdown": map[string]string{
+			"title": notification.Title, "text": notification.Content,
+		}}
+	case DingTalkMessageTypeActionCard:
 		return map[string]interface{}{
 			"msgtype": DingTalkMessageTypeActionCard,
 			"action_card": map[string]string{
 				"title":        notification.Title,
 				"markdown":     notification.Content,
-				"single_title": "查看流程",
+				"single_title": notification.ButtonTitle,
 				"single_url":   notification.URL,
 			},
 		}
+	case DingTalkMessageTypeOA:
+		return dingTalkOAMessage(notification)
 	}
 	if notification.URL != "" {
-		headText := strings.TrimSpace(notification.SourceName)
-		if headText == "" {
-			headText = notification.Title
-		}
-		body := map[string]string{
-			"title":   notification.Title,
-			"content": notification.Content,
-		}
-		if notification.PicURL != "" {
-			body["image"] = notification.PicURL
-		}
-		return map[string]interface{}{
-			"msgtype": "oa",
-			"oa": map[string]interface{}{
-				"message_url":    notification.URL,
-				"pc_message_url": notification.URL,
-				"head": map[string]string{
-					"bgcolor": "FF1677FF",
-					"text":    headText,
-				},
-				"body": body,
-			},
-		}
+		return dingTalkOAMessage(notification)
 	}
+	return dingTalkTextMessage(notification.Content)
+}
+
+func dingTalkTextMessage(content string) map[string]interface{} {
 	return map[string]interface{}{
 		"msgtype": "text",
-		"text": map[string]string{
-			"content": notification.Content,
+		"text":    map[string]string{"content": content},
+	}
+}
+
+func dingTalkOAMessage(notification DingTalkWorkNotificationPayload) map[string]interface{} {
+	headText := strings.TrimSpace(notification.SourceName)
+	if headText == "" {
+		headText = notification.Title
+	}
+	body := map[string]string{"title": notification.Title, "content": notification.Content}
+	if notification.PicURL != "" {
+		body["image"] = notification.PicURL
+	}
+	return map[string]interface{}{
+		"msgtype": "oa",
+		"oa": map[string]interface{}{
+			"message_url": notification.URL, "pc_message_url": notification.URL,
+			"head": map[string]string{"bgcolor": notification.HeadColor, "text": headText},
+			"body": body,
 		},
 	}
 }
 
 func dingTalkRobotNotificationMessage(notification DingTalkWorkNotificationPayload) (string, string) {
-	if notification.MessageType == DingTalkMessageTypeActionCard && notification.URL != "" {
+	notification = normalizeDingTalkWorkNotificationPayload(notification)
+	if notification.MessageType == DingTalkMessageTypeActionCard {
 		msgParam, _ := json.Marshal(map[string]string{
 			"title":       notification.Title,
 			"text":        notification.Content,
-			"singleTitle": "查看流程",
+			"singleTitle": notification.ButtonTitle,
 			"singleURL":   notification.URL,
 		})
 		return "sampleActionCard", string(msgParam)
 	}
-	if notification.URL != "" {
+	if notification.MessageType == DingTalkMessageTypeMarkdown {
+		msgParam, _ := json.Marshal(map[string]string{"title": notification.Title, "text": notification.Content})
+		return "sampleMarkdown", string(msgParam)
+	}
+	if notification.MessageType == DingTalkMessageTypeLink || notification.MessageType == DingTalkMessageTypeOA || notification.URL != "" {
 		params := map[string]string{
 			"title":      notification.Title,
 			"text":       notification.Content,
@@ -273,6 +327,54 @@ func dingTalkRobotNotificationMessage(notification DingTalkWorkNotificationPaylo
 	}
 	msgParam, _ := json.Marshal(map[string]string{"content": notification.Content})
 	return "sampleText", string(msgParam)
+}
+
+func validateDingTalkWorkNotificationPayload(notification DingTalkWorkNotificationPayload) error {
+	notification = normalizeDingTalkWorkNotificationPayload(notification)
+	switch notification.MessageType {
+	case DingTalkMessageTypeAuto, DingTalkMessageTypeText:
+		if notification.Content == "" {
+			return fmt.Errorf("钉钉文本通知内容不能为空")
+		}
+	case DingTalkMessageTypeImage, DingTalkMessageTypeFile:
+		if notification.MediaID == "" {
+			return fmt.Errorf("钉钉%s消息 mediaId 不能为空", notification.MessageType)
+		}
+	case DingTalkMessageTypeVoice:
+		if notification.MediaID == "" || notification.Duration <= 0 {
+			return fmt.Errorf("钉钉语音消息 mediaId 和时长不能为空")
+		}
+	case DingTalkMessageTypeLink, DingTalkMessageTypeOA:
+		if notification.Title == "" || notification.Content == "" || notification.URL == "" {
+			return fmt.Errorf("钉钉%s消息标题、正文和跳转地址不能为空", notification.MessageType)
+		}
+	case DingTalkMessageTypeActionCard:
+		if notification.URL == "" {
+			return fmt.Errorf("ActionCard 跳转地址不能为空")
+		}
+		if notification.Title == "" || notification.Content == "" {
+			return fmt.Errorf("钉钉 ActionCard 消息标题和正文不能为空")
+		}
+	case DingTalkMessageTypeMarkdown:
+		if notification.Title == "" || notification.Content == "" {
+			return fmt.Errorf("钉钉 Markdown 消息标题和正文不能为空")
+		}
+	default:
+		return fmt.Errorf("不支持的钉钉消息类型：%s", notification.MessageType)
+	}
+	return nil
+}
+
+func validateDingTalkRobotNotificationPayload(notification DingTalkWorkNotificationPayload) error {
+	if err := validateDingTalkWorkNotificationPayload(notification); err != nil {
+		return err
+	}
+	switch normalizeDingTalkWorkNotificationPayload(notification).MessageType {
+	case DingTalkMessageTypeImage, DingTalkMessageTypeVoice, DingTalkMessageTypeFile:
+		return fmt.Errorf("当前钉钉机器人单聊通道不支持 %s 消息，请使用内部应用通知模式", notification.MessageType)
+	default:
+		return nil
+	}
 }
 
 func (client defaultDingTalkIdentityClient) accessTokenContext(ctx context.Context, appKey, appSecret string) (string, error) {

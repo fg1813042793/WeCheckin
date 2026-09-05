@@ -170,6 +170,7 @@ func Declarations(enableExam bool) []Declaration {
 		{Key: "admin:menu:notification:dingtalk-send", Name: "发送钉钉通知", Perms: "notification:dingtalk:send", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:notification"},
 		{Key: "admin:menu:notification:style:list", Name: "通知样式查看", Perms: "notification:style:list", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:notification"},
 		{Key: "admin:menu:notification:style:edit", Name: "通知样式维护", Perms: "notification:style:edit", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:notification"},
+		{Key: "admin:menu:notification:delete", Name: "删除通知记录", Perms: "notification:delete", Sort: 7, Type: TypeButton, ParentKey: "admin:menu:notification"},
 	}
 	if enableExam {
 		items = append(items,

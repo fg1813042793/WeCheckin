@@ -8,8 +8,8 @@ import (
 
 	"gorm.io/gorm"
 
-	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/internal/model"
+	permissionsupport "wecheckin/backend/internal/support/permission"
 )
 
 const ReservedSuperAdminRoleName = "超级管理员"

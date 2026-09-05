@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"os"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -55,4 +56,28 @@ func readWorkflowStructureFile(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(content)
+}
+
+func readWorkflowPackageSource(t *testing.T) string {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read workflow infrastructure package: %v", err)
+	}
+
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		names = append(names, entry.Name())
+	}
+	sort.Strings(names)
+
+	var source strings.Builder
+	for _, name := range names {
+		source.WriteString(readWorkflowStructureFile(t, name))
+		source.WriteString("\n")
+	}
+	return source.String()
 }

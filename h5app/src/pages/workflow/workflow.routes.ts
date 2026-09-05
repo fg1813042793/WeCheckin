@@ -1,10 +1,12 @@
 import type { Component } from 'vue'
 import WorkflowCenter from './components/WorkflowCenter.vue'
+import WorkflowFormRevisionPage from './components/WorkflowFormRevisionPage.vue'
 import WorkflowInstancePage from './components/WorkflowInstancePage.vue'
 import WorkflowStartPage from './components/WorkflowStartPage.vue'
 import WorkflowTaskPage from './components/WorkflowTaskPage.vue'
 import {
   workflowDefinitionIdFromContentKey,
+  workflowFormRevisionInstanceIdFromContentKey,
   workflowInstanceIdFromContentKey,
   workflowTaskIdFromContentKey,
   workflowTaskInstanceIdFromContentKey,
@@ -12,6 +14,8 @@ import {
 
 export {
   workflowDefinitionIdFromContentKey,
+  workflowFormRevisionContentKey,
+  workflowFormRevisionInstanceIdFromContentKey,
   workflowInstanceContentKey,
   workflowInstanceIdFromContentKey,
   workflowStartContentKey,
@@ -29,6 +33,8 @@ export function resolveWorkflowContentComponent(key: string): Component | undefi
     return WorkflowStartPage
   if (workflowInstanceIdFromContentKey(key))
     return WorkflowInstancePage
+  if (workflowFormRevisionInstanceIdFromContentKey(key))
+    return WorkflowFormRevisionPage
   if (workflowTaskIdFromContentKey(key) && workflowTaskInstanceIdFromContentKey(key))
     return WorkflowTaskPage
   return workflowContentRoutes[key]

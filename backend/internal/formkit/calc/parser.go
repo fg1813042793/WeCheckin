@@ -22,7 +22,7 @@ type identNode struct{ name string }
 
 // binaryNode 二元运算
 type binaryNode struct {
-	op       string
+	op          string
 	left, right node
 }
 

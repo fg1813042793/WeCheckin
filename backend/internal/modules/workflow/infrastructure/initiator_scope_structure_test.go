@@ -6,7 +6,7 @@ import (
 )
 
 func TestInitiatorDepartmentScopeStoreStructure(t *testing.T) {
-	source := readWorkflowStructureFile(t, "gorm_store.go")
+	source := readWorkflowPackageSource(t)
 	for _, snippet := range []string{
 		"func (store *GormStore) UserDepartmentIDs",
 		`Table("user_depts")`,

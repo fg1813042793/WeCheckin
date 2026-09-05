@@ -38,6 +38,8 @@ var (
 	ErrNoRecipients                = errors.New("notification has no active recipients")
 	ErrDingTalkDeliveryUnavailable = errors.New("DingTalk notification delivery is unavailable")
 	ErrInvalidNotificationType     = errors.New("notification type is invalid")
+	ErrInvalidReadStatus           = errors.New("notification read status is invalid")
+	ErrInvalidTimeRange            = errors.New("notification time range is invalid")
 )
 
 type RecipientRule struct {
@@ -79,9 +81,10 @@ type DeliveryResult struct {
 }
 
 type DingTalkDeliveryBatch struct {
-	Title   string
-	Content string
-	UserIDs []uint
+	Title            string
+	Content          string
+	NotificationType string
+	UserIDs          []uint
 }
 
 type DingTalkDeliveryResult struct {
@@ -104,14 +107,28 @@ type SendResult struct {
 }
 
 type Notification struct {
-	ID         uint   `json:"id"`
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	Type       string `json:"type"`
-	SourceType string `json:"sourceType"`
-	SourceID   string `json:"sourceId"`
-	IsRead     int    `json:"isRead"`
-	AddTime    int64  `json:"addTime"`
+	ID              uint   `json:"id"`
+	Title           string `json:"title"`
+	Content         string `json:"content"`
+	Type            string `json:"type"`
+	SourceType      string `json:"sourceType"`
+	SourceID        string `json:"sourceId"`
+	RecipientUserID string `json:"recipientUserId"`
+	RecipientName   string `json:"recipientName"`
+	IsRead          int    `json:"isRead"`
+	AddTime         int64  `json:"addTime"`
+}
+
+type NotificationRecordQuery struct {
+	Title         string
+	RecipientName string
+	SourceType    string
+	Type          string
+	IsRead        *int
+	AddTimeFrom   int64
+	AddTimeTo     int64
+	Page          int
+	PageSize      int
 }
 
 type NotificationList struct {
@@ -143,7 +160,8 @@ type RecipientOptions struct {
 type Store interface {
 	ResolveRecipients(context.Context, RecipientRule) (RecipientResolution, error)
 	Deliver(context.Context, DeliveryBatch) (DeliveryResult, error)
-	List(context.Context, string, int, int) ([]Notification, int64, error)
+	ListRecords(context.Context, NotificationRecordQuery) ([]Notification, int64, error)
+	SoftDeleteRecord(context.Context, uint, string, int64) (bool, error)
 	UnreadCount(context.Context, string) (int64, error)
 	MarkRead(context.Context, string, uint) (bool, error)
 	MarkAllRead(context.Context, string) error

@@ -35,12 +35,27 @@ export interface PageResult<T> {
 
 export type InAppNotificationScope = 'all' | 'departments' | 'users'
 export type NotificationTone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+export type DingTalkMessageType = 'auto' | 'text' | 'image' | 'voice' | 'file' | 'link' | 'oa' | 'markdown' | 'action_card'
+
+export interface DingTalkNotificationTemplate {
+  messageType: DingTalkMessageType
+  title: string
+  content: string
+  url: string
+  picUrl: string
+  sourceName: string
+  mediaId: string
+  duration: number
+  buttonTitle: string
+  headColor: string
+}
 
 export interface NotificationStyle {
   type: string
   label: string
   icon: string
   tone: NotificationTone
+  dingTalk: DingTalkNotificationTemplate
 }
 
 export interface NotificationStyleConfig {
@@ -55,8 +70,20 @@ export interface InAppNotificationItem {
   type: string
   sourceType: string
   sourceId: string
+  recipientUserId: string
+  recipientName: string
   isRead: number
   addTime: number
+}
+
+export interface InAppNotificationQuery extends PageQuery {
+  title?: string
+  recipientName?: string
+  sourceType?: string
+  type?: string
+  isRead?: number
+  addTimeFrom?: number
+  addTimeTo?: number
 }
 
 export interface InAppNotificationList {

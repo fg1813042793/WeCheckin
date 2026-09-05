@@ -37,6 +37,13 @@ func TestApplicationPermissionTreeContainsBuiltInMenus(t *testing.T) {
 	if findApplicationPermissionNode(org.Children, "dingtalk_h5:button:user:config") == nil {
 		t.Fatalf("dingtalk h5 org menu must expose user flow config button permission")
 	}
+	workflow := findApplicationPermissionNode(tree.DingTalkH5, "dingtalk_h5:menu:workflow")
+	if workflow == nil {
+		t.Fatalf("dingtalk h5 tree must contain workflow menu")
+	}
+	if findApplicationPermissionNode(workflow.Children, "dingtalk_h5:button:workflow:form-revise") == nil {
+		t.Fatalf("dingtalk h5 workflow menu must expose form revise button permission")
+	}
 }
 
 func findApplicationPermissionNode(nodes []ApplicationPermissionNode, key string) *ApplicationPermissionNode {

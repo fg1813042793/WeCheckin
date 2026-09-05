@@ -239,6 +239,13 @@ export interface WorkflowInstanceSummary {
   status: WorkflowInstanceStatus
   startTime: number
   endTime: number
+  formRevision: number
+}
+
+export interface WorkflowFormRevisionCapability {
+  allowed: boolean
+  revision: number
+  fieldPermissions: WorkflowFieldPermission[]
 }
 
 export interface WorkflowTaskSummary {
@@ -332,6 +339,7 @@ export interface WorkflowInstanceDetail {
   userNames: Record<string, string>
   reminderPolicy: WorkflowReminderPolicy
   reminderNodes: WorkflowReminderNode[]
+  formRevision: WorkflowFormRevisionCapability
 }
 
 export interface WorkflowInstanceList {
@@ -339,6 +347,13 @@ export interface WorkflowInstanceList {
   total: number
   page: number
   pageSize: number
+}
+
+export interface WorkflowOverview {
+  pending: number
+  handled: number
+  started: number
+  copied: number
 }
 
 export interface WorkflowTaskList {
@@ -361,6 +376,7 @@ export interface WorkflowMutationResult {
   status: WorkflowInstanceStatus
   variables: Record<string, unknown>
   formData: WorkflowFormData
+  formRevision: number
   pendingTasks: WorkflowMutationTask[]
 }
 
@@ -418,6 +434,13 @@ export type WorkflowNotificationChannel = 'in_app' | 'dingtalk_oa'
 export interface WorkflowCommentNotificationRequest {
   userIds: string[]
   channels: WorkflowNotificationChannel[]
+}
+
+export interface WorkflowReviseFormRequest {
+  expectedRevision: number
+  formData: WorkflowFormData
+  reason: string
+  notification?: WorkflowCommentNotificationRequest
 }
 
 export interface WorkflowInstanceQuery {

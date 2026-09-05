@@ -16,7 +16,7 @@
       <label class="field-label spacing">通知渠道</label>
       <el-checkbox-group :model-value="config.channels" :disabled="readonly" class="notification-channels" @change="updateChannels">
         <el-checkbox value="in_app">站内通知</el-checkbox>
-        <el-checkbox value="dingtalk_oa">钉钉 OA</el-checkbox>
+        <el-checkbox value="dingtalk_oa">钉钉通知</el-checkbox>
       </el-checkbox-group>
 
       <label class="field-label spacing">通知标题</label>

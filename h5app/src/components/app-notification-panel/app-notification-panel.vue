@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/api/notifications'
+import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
 import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
 
@@ -50,6 +51,7 @@ const notificationTypeMetas: Record<string, NotificationTypeMeta> = {
   node_cc: { label: '流程抄送', icon: 'share', color: '#475569', tone: 'info' },
   node_notify: { label: '流程通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   instance_commented: { label: '流程评论', icon: 'chat', color: '#2563eb', tone: 'primary' },
+  instance_form_revised: { label: '表单修改', icon: 'edit-pen', color: '#2563eb', tone: 'primary' },
   workflow: { label: '流程消息', icon: 'file-text', color: '#475569', tone: 'info' },
   admin_manual: { label: '系统通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   scheduled_task: { label: '定时通知', icon: 'clock', color: '#475569', tone: 'info' },
@@ -123,7 +125,7 @@ async function loadNotifications(append: boolean) {
     loading.value = true
   errorMessage.value = ''
   try {
-    const response = await listNotifications(nextPage, pageSize)
+    const response = await listNotifications(nextPage, pageSize, true)
     const payload = response?.data
     const items = Array.isArray(payload?.list) ? payload.list : []
     notifications.value = append ? [...notifications.value, ...items] : items
@@ -145,6 +147,8 @@ async function markRead(notification: InAppNotification) {
   try {
     await markNotificationRead(notification.id)
     notification.isRead = 1
+    notifications.value = notifications.value.filter(item => item.id !== notification.id)
+    total.value = Math.max(0, total.value - 1)
     emit('unread-change', Math.max(0, props.unreadCount - 1))
     return true
   }
@@ -155,6 +159,7 @@ async function markRead(notification: InAppNotification) {
 }
 
 function openNotification(notification: InAppNotification) {
+  selectedNotification.value = notification
   void markRead(notification)
   if (notification.sourceType === 'workflow_instance' && notification.sourceId) {
     const key = workflowInstanceContentKey(notification.sourceId)
@@ -167,9 +172,17 @@ function openNotification(notification: InAppNotification) {
       path: `/pages/index/index?view=${encodeURIComponent(key)}`,
     })
     closePanel()
-    return
   }
-  selectedNotification.value = notification
+}
+
+function openNotificationHistory() {
+  appContent.openDynamicTab({
+    key: NOTIFICATION_HISTORY_CONTENT_KEY,
+    label: '站内信历史',
+    icon: 'email',
+    path: `/pages/index/index?view=${encodeURIComponent(NOTIFICATION_HISTORY_CONTENT_KEY)}`,
+  })
+  closePanel()
 }
 
 async function markAllRead() {
@@ -178,9 +191,8 @@ async function markAllRead() {
   markingAll.value = true
   try {
     await markAllNotificationsRead()
-    notifications.value.forEach((item) => {
-      item.isRead = 1
-    })
+    notifications.value = []
+    total.value = 0
     if (selectedNotification.value)
       selectedNotification.value.isRead = 1
     emit('unread-change', 0)
@@ -229,6 +241,15 @@ function formatTime(value: number) {
           <text class="notification-panel__title">
             {{ selectedNotification ? '消息详情' : '站内信' }}
           </text>
+          <u-button
+            v-if="!selectedNotification"
+            custom-class="notification-panel__history"
+            title="查看站内信历史"
+            @click="openNotificationHistory"
+          >
+            <u-icon name="clock" size="14" color="#008f72" />
+            <text>历史</text>
+          </u-button>
           <text v-if="!selectedNotification && unreadCount > 0" class="notification-panel__unread-copy">
             {{ unreadLabel }} 条未读
           </text>
@@ -286,7 +307,7 @@ function formatTime(value: number) {
         <view v-else-if="notifications.length === 0" class="notification-panel__state">
           <u-icon name="email" size="42" color="#c9cdd4" />
           <text class="notification-panel__empty-title">
-            暂无站内信
+            暂无未读消息
           </text>
         </view>
         <view v-else class="notification-list">
@@ -397,15 +418,34 @@ function formatTime(value: number) {
 }
 
 .notification-panel__icon-btn,
+.notification-panel__history,
 .notification-panel__read-all,
 .notification-panel__retry,
 .notification-panel__load-more,
 :deep(.notification-panel__icon-btn),
+:deep(.notification-panel__history),
 :deep(.notification-panel__read-all),
 :deep(.notification-panel__retry),
 :deep(.notification-panel__load-more) {
   margin: 0;
   box-shadow: none;
+}
+
+.notification-panel__history,
+:deep(.notification-panel__history) {
+  width: auto;
+  min-width: 48px;
+  height: 28px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 5px;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  color: #008f72;
+  font-size: 12px;
 }
 
 .notification-panel__icon-btn,

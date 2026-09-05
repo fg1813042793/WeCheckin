@@ -73,7 +73,7 @@ const description = computed(() => {
 
 function notificationChannelSummary(node: WorkflowNode) {
   if (!node.notification?.enabled) return '未开启通知'
-  const labels = node.notification.channels.map(channel => channel === 'in_app' ? '站内' : channel === 'dingtalk_oa' ? '钉钉 OA' : channel)
+  const labels = node.notification.channels.map(channel => channel === 'in_app' ? '站内' : channel === 'dingtalk_oa' ? '钉钉' : channel)
   return labels.length ? `${labels.join('+')}通知` : '请配置通知渠道'
 }
 

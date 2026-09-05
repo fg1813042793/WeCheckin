@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"wecheckin/backend/internal/formkit/schema"
-	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/pkg/database"
 
 	"gorm.io/gorm"

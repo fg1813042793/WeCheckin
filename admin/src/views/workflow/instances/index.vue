@@ -520,6 +520,7 @@ const notificationKindMetas: Record<WorkflowNotificationKind, { label: string, t
   task_arrived: { label: '任务到达', type: 'warning' },
   task_reminder: { label: '处理提醒', type: 'warning' },
   instance_commented: { label: '流程评论', type: 'primary' },
+  instance_form_revised: { label: '表单修改', type: 'primary' },
   approval_result_approved: { label: '审批通过结果', type: 'success' },
   approval_result_rejected: { label: '审批驳回结果', type: 'danger' },
   approval_result_returned: { label: '审批退回结果', type: 'warning' },
@@ -530,7 +531,7 @@ function notificationKindMeta(kind: WorkflowNotificationKind): { label: string, 
 }
 
 function notificationChannelLabel(channel: WorkflowNotificationChannel) {
-  return { in_app: '站内通知', dingtalk_oa: '钉钉 OA' }[channel] || channel
+  return { in_app: '站内通知', dingtalk_oa: '钉钉通知' }[channel] || channel
 }
 
 function formatTime(timestamp: number) {

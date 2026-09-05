@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -18,10 +19,11 @@ var (
 )
 
 type Repository interface {
-	List(ctx context.Context, userID string, page, pageSize int) ([]model.Notify, int64, error)
+	List(ctx context.Context, userID string, page, pageSize int, unreadOnly bool) ([]model.Notify, int64, error)
 	UnreadCount(ctx context.Context, userID string) (int64, error)
 	MarkRead(ctx context.Context, userID string, id uint) (bool, error)
 	MarkAllRead(ctx context.Context, userID string) error
+	Delete(ctx context.Context, userID string, id uint) (bool, error)
 	NotificationStyles(ctx context.Context) (notificationstyle.Config, error)
 }
 
@@ -56,13 +58,13 @@ func NewServiceWithRepository(repository Repository) *Service {
 	return &Service{repository: repository}
 }
 
-func (s *Service) List(ctx context.Context, currentUserID uint, page, pageSize int) (ListResult, error) {
+func (s *Service) List(ctx context.Context, currentUserID uint, page, pageSize int, unreadOnly bool) (ListResult, error) {
 	userID, err := requiredUserID(currentUserID)
 	if err != nil {
 		return ListResult{}, err
 	}
 	page, pageSize = normalizePagination(page, pageSize)
-	items, total, err := s.repository.List(ctx, userID, page, pageSize)
+	items, total, err := s.repository.List(ctx, userID, page, pageSize, unreadOnly)
 	if err != nil {
 		return ListResult{}, err
 	}
@@ -126,6 +128,24 @@ func (s *Service) MarkAllRead(ctx context.Context, currentUserID uint) error {
 	return s.repository.MarkAllRead(ctx, userID)
 }
 
+func (s *Service) Delete(ctx context.Context, currentUserID, notificationID uint) error {
+	userID, err := requiredUserID(currentUserID)
+	if err != nil {
+		return err
+	}
+	if notificationID == 0 {
+		return ErrNotificationNotFound
+	}
+	deleted, err := s.repository.Delete(ctx, userID, notificationID)
+	if err != nil {
+		return err
+	}
+	if !deleted {
+		return ErrNotificationNotFound
+	}
+	return nil
+}
+
 func requiredUserID(currentUserID uint) (string, error) {
 	if currentUserID == 0 {
 		return "", ErrUnauthenticated
@@ -151,10 +171,14 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	return &GormRepository{db: db}
 }
 
-func (r *GormRepository) List(ctx context.Context, userID string, page, pageSize int) ([]model.Notify, int64, error) {
+func (r *GormRepository) List(ctx context.Context, userID string, page, pageSize int, unreadOnly bool) ([]model.Notify, int64, error) {
 	db, cancel := r.withContext(ctx)
 	defer cancel()
-	query := db.Model(&model.Notify{}).Where("`notify_user_id` = ?", userID)
+	query := db.Model(&model.Notify{}).
+		Where("`notify_user_id` = ? AND `notify_deleted_at` = 0", userID)
+	if unreadOnly {
+		query = query.Where("`notify_is_read` = 0")
+	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -169,7 +193,7 @@ func (r *GormRepository) UnreadCount(ctx context.Context, userID string) (int64,
 	defer cancel()
 	var count int64
 	err := db.Model(&model.Notify{}).
-		Where("`notify_user_id` = ? AND `notify_is_read` = 0", userID).
+		Where("`notify_user_id` = ? AND `notify_deleted_at` = 0 AND `notify_is_read` = 0", userID).
 		Count(&count).Error
 	return count, err
 }
@@ -180,7 +204,7 @@ func (r *GormRepository) MarkRead(ctx context.Context, userID string, id uint) (
 	var item model.Notify
 	err := db.
 		Select("notify_id").
-		Where("`notify_id` = ? AND `notify_user_id` = ?", id, userID).
+		Where("`notify_id` = ? AND `notify_user_id` = ? AND `notify_deleted_at` = 0", id, userID).
 		Take(&item).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
@@ -189,7 +213,7 @@ func (r *GormRepository) MarkRead(ctx context.Context, userID string, id uint) (
 		return false, err
 	}
 	err = db.Model(&model.Notify{}).
-		Where("`notify_id` = ? AND `notify_user_id` = ?", id, userID).
+		Where("`notify_id` = ? AND `notify_user_id` = ? AND `notify_deleted_at` = 0", id, userID).
 		UpdateColumn("notify_is_read", 1).Error
 	return err == nil, err
 }
@@ -198,8 +222,20 @@ func (r *GormRepository) MarkAllRead(ctx context.Context, userID string) error {
 	db, cancel := r.withContext(ctx)
 	defer cancel()
 	return db.Model(&model.Notify{}).
-		Where("`notify_user_id` = ? AND `notify_is_read` = 0", userID).
+		Where("`notify_user_id` = ? AND `notify_deleted_at` = 0 AND `notify_is_read` = 0", userID).
 		UpdateColumn("notify_is_read", 1).Error
+}
+
+func (r *GormRepository) Delete(ctx context.Context, userID string, id uint) (bool, error) {
+	db, cancel := r.withContext(ctx)
+	defer cancel()
+	result := db.Model(&model.Notify{}).
+		Where("`notify_id` = ? AND `notify_user_id` = ? AND `notify_deleted_at` = 0", id, userID).
+		UpdateColumn("notify_deleted_at", time.Now().UnixMilli())
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
 }
 
 func (r *GormRepository) NotificationStyles(ctx context.Context) (notificationstyle.Config, error) {

@@ -21,8 +21,8 @@ type Question struct {
 	ID         uint        `json:"id"`
 	Type       string      `json:"type"`
 	Title      string      `json:"title"`
-	Options    interface{} `json:"options"`    // 旧/新格式均可
-	Answer     string      `json:"answer"`     // JSON 字符串
+	Options    interface{} `json:"options"` // 旧/新格式均可
+	Answer     string      `json:"answer"`  // JSON 字符串
 	Score      int         `json:"score"`
 	NeedManual bool        `json:"needManual"` // 是否需要人工判分
 }

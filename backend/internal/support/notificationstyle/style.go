@@ -28,10 +28,21 @@ const (
 	TypeNodeCC                 = "node_cc"
 	TypeNodeNotify             = "node_notify"
 	TypeInstanceCommented      = "instance_commented"
+	TypeInstanceFormRevised    = "instance_form_revised"
 	TypeWorkflow               = "workflow"
 	TypeAdminManual            = "admin_manual"
 	TypeScheduledTask          = "scheduled_task"
 	TypeSurveyStat             = "survey_stat"
+
+	DingTalkMessageTypeAuto       = "auto"
+	DingTalkMessageTypeText       = "text"
+	DingTalkMessageTypeImage      = "image"
+	DingTalkMessageTypeVoice      = "voice"
+	DingTalkMessageTypeFile       = "file"
+	DingTalkMessageTypeLink       = "link"
+	DingTalkMessageTypeOA         = "oa"
+	DingTalkMessageTypeMarkdown   = "markdown"
+	DingTalkMessageTypeActionCard = "action_card"
 )
 
 type Tone string
@@ -45,34 +56,79 @@ const (
 )
 
 var (
-	ErrUnknownType   = errors.New("notification style type is unsupported")
-	ErrDuplicateType = errors.New("notification style type is duplicated")
-	ErrInvalidLabel  = errors.New("notification style label is invalid")
-	ErrInvalidIcon   = errors.New("notification style icon is invalid")
-	ErrInvalidTone   = errors.New("notification style tone is invalid")
+	ErrUnknownType             = errors.New("notification style type is unsupported")
+	ErrDuplicateType           = errors.New("notification style type is duplicated")
+	ErrInvalidLabel            = errors.New("notification style label is invalid")
+	ErrInvalidIcon             = errors.New("notification style icon is invalid")
+	ErrInvalidTone             = errors.New("notification style tone is invalid")
+	ErrInvalidDingTalkTemplate = errors.New("notification DingTalk template is invalid")
 
-	iconPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
-	defaults    = []Style{
-		{Type: TypeTaskArrived, Label: "待处理", Icon: "clock", Tone: ToneWarning},
-		{Type: TypeTaskReminder, Label: "处理提醒", Icon: "bell", Tone: ToneWarning},
-		{Type: TypeApprovalResultApproved, Label: "审批通过", Icon: "checkmark-circle", Tone: ToneSuccess},
-		{Type: TypeApprovalResultRejected, Label: "审批驳回", Icon: "error-circle", Tone: ToneDanger},
-		{Type: TypeApprovalResultReturned, Label: "审批退回", Icon: "reload", Tone: ToneWarning},
-		{Type: TypeNodeCC, Label: "流程抄送", Icon: "share", Tone: ToneInfo},
-		{Type: TypeNodeNotify, Label: "流程通知", Icon: "email", Tone: TonePrimary},
-		{Type: TypeInstanceCommented, Label: "流程评论", Icon: "chat", Tone: TonePrimary},
-		{Type: TypeWorkflow, Label: "流程消息", Icon: "file-text", Tone: ToneInfo},
-		{Type: TypeAdminManual, Label: "系统通知", Icon: "email", Tone: TonePrimary},
-		{Type: TypeScheduledTask, Label: "定时通知", Icon: "clock", Tone: ToneInfo},
-		{Type: TypeSurveyStat, Label: "问卷统计", Icon: "file-text", Tone: ToneInfo},
+	iconPattern      = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
+	templateToken    = regexp.MustCompile(`\{\{[^{}]+\}\}`)
+	dingTalkColor    = regexp.MustCompile(`^[0-9A-F]{8}$`)
+	allowedVariables = map[string]struct{}{
+		"{{title}}": {}, "{{content}}": {}, "{{url}}": {}, "{{sourceName}}": {},
+		"{{picUrl}}": {}, "{{mediaId}}": {}, "{{duration}}": {},
+	}
+	defaults = []Style{
+		newDefaultStyle(TypeTaskArrived, "待处理", "clock", ToneWarning),
+		newDefaultStyle(TypeTaskReminder, "处理提醒", "bell", ToneWarning),
+		newDefaultStyle(TypeApprovalResultApproved, "审批通过", "checkmark-circle", ToneSuccess),
+		newDefaultStyle(TypeApprovalResultRejected, "审批驳回", "error-circle", ToneDanger),
+		newDefaultStyle(TypeApprovalResultReturned, "审批退回", "reload", ToneWarning),
+		newDefaultStyle(TypeNodeCC, "流程抄送", "share", ToneInfo),
+		newDefaultStyle(TypeNodeNotify, "流程通知", "email", TonePrimary),
+		newDefaultStyle(TypeInstanceCommented, "流程评论", "chat", TonePrimary),
+		newDefaultStyle(TypeInstanceFormRevised, "表单修改", "edit-pen", TonePrimary),
+		newDefaultStyle(TypeWorkflow, "流程消息", "file-text", ToneInfo),
+		newDefaultStyle(TypeAdminManual, "系统通知", "email", TonePrimary),
+		newDefaultStyle(TypeScheduledTask, "定时通知", "clock", ToneInfo),
+		newDefaultStyle(TypeSurveyStat, "问卷统计", "file-text", ToneInfo),
 	}
 )
 
 type Style struct {
-	Type  string `json:"type"`
-	Label string `json:"label"`
-	Icon  string `json:"icon"`
-	Tone  Tone   `json:"tone"`
+	Type     string           `json:"type"`
+	Label    string           `json:"label"`
+	Icon     string           `json:"icon"`
+	Tone     Tone             `json:"tone"`
+	DingTalk DingTalkTemplate `json:"dingTalk"`
+}
+
+type DingTalkTemplate struct {
+	MessageType string `json:"messageType"`
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	URL         string `json:"url"`
+	PicURL      string `json:"picUrl"`
+	SourceName  string `json:"sourceName"`
+	MediaID     string `json:"mediaId"`
+	Duration    int    `json:"duration"`
+	ButtonTitle string `json:"buttonTitle"`
+	HeadColor   string `json:"headColor"`
+}
+
+type DingTalkTemplateData struct {
+	Title      string
+	Content    string
+	URL        string
+	PicURL     string
+	SourceName string
+	MediaID    string
+	Duration   int
+}
+
+type RenderedDingTalkTemplate struct {
+	MessageType string
+	Title       string
+	Content     string
+	URL         string
+	PicURL      string
+	SourceName  string
+	MediaID     string
+	Duration    int
+	ButtonTitle string
+	HeadColor   string
 }
 
 type Config struct {
@@ -103,10 +159,11 @@ func Normalize(input Config) (Config, error) {
 	overrides := make(map[string]Style, len(input.Styles))
 	for _, raw := range input.Styles {
 		style := Style{
-			Type:  strings.TrimSpace(raw.Type),
-			Label: strings.TrimSpace(raw.Label),
-			Icon:  strings.TrimSpace(raw.Icon),
-			Tone:  Tone(strings.TrimSpace(string(raw.Tone))),
+			Type:     strings.TrimSpace(raw.Type),
+			Label:    strings.TrimSpace(raw.Label),
+			Icon:     strings.TrimSpace(raw.Icon),
+			Tone:     Tone(strings.TrimSpace(string(raw.Tone))),
+			DingTalk: raw.DingTalk,
 		}
 		if !IsSupportedType(style.Type) {
 			return Config{}, fmt.Errorf("%w: %s", ErrUnknownType, style.Type)
@@ -123,6 +180,14 @@ func Normalize(input Config) (Config, error) {
 		if !validTone(style.Tone) {
 			return Config{}, fmt.Errorf("%w: %s", ErrInvalidTone, style.Type)
 		}
+		if strings.TrimSpace(style.DingTalk.MessageType) == "" {
+			style.DingTalk = defaultDingTalkTemplate()
+		} else {
+			style.DingTalk = normalizeDingTalkTemplate(style.DingTalk)
+			if err := validateDingTalkTemplate(style.DingTalk); err != nil {
+				return Config{}, fmt.Errorf("%w: %s: %v", ErrInvalidDingTalkTemplate, style.Type, err)
+			}
+		}
 		overrides[style.Type] = style
 	}
 
@@ -135,17 +200,44 @@ func Normalize(input Config) (Config, error) {
 	return result, nil
 }
 
+func RenderDingTalkTemplate(template DingTalkTemplate, data DingTalkTemplateData) RenderedDingTalkTemplate {
+	template = normalizeDingTalkTemplate(template)
+	replacements := map[string]string{
+		"{{title}}": data.Title, "{{content}}": data.Content, "{{url}}": data.URL,
+		"{{sourceName}}": data.SourceName, "{{picUrl}}": data.PicURL,
+		"{{mediaId}}": data.MediaID, "{{duration}}": fmt.Sprintf("%d", data.Duration),
+	}
+	render := func(value string) string {
+		for token, replacement := range replacements {
+			value = strings.ReplaceAll(value, token, replacement)
+		}
+		return strings.TrimSpace(value)
+	}
+	duration := template.Duration
+	if duration <= 0 {
+		duration = data.Duration
+	}
+	return RenderedDingTalkTemplate{
+		MessageType: template.MessageType, Title: render(template.Title), Content: render(template.Content),
+		URL: render(template.URL), PicURL: render(template.PicURL), SourceName: render(template.SourceName),
+		MediaID: render(template.MediaID), Duration: duration, ButtonTitle: render(template.ButtonTitle), HeadColor: template.HeadColor,
+	}
+}
+
 func StyleFor(config Config, notificationType string) Style {
 	notificationType = strings.TrimSpace(notificationType)
 	for _, style := range config.Styles {
 		if strings.TrimSpace(style.Type) == notificationType {
+			if strings.TrimSpace(style.DingTalk.MessageType) == "" {
+				style.DingTalk = defaultDingTalkTemplate()
+			}
 			return style
 		}
 	}
 	if style, ok := defaultByType(notificationType); ok {
 		return style
 	}
-	return Style{Type: notificationType, Label: "系统消息", Icon: "email", Tone: ToneInfo}
+	return newDefaultStyle(notificationType, "系统消息", "email", ToneInfo)
 }
 
 func Decode(value string) (Config, error) {
@@ -228,4 +320,78 @@ func validTone(tone Tone) bool {
 	default:
 		return false
 	}
+}
+
+func newDefaultStyle(notificationType, label, icon string, tone Tone) Style {
+	return Style{Type: notificationType, Label: label, Icon: icon, Tone: tone, DingTalk: defaultDingTalkTemplate()}
+}
+
+func defaultDingTalkTemplate() DingTalkTemplate {
+	return DingTalkTemplate{
+		MessageType: DingTalkMessageTypeAuto,
+		Title:       "{{title}}", Content: "{{content}}", URL: "{{url}}", PicURL: "{{picUrl}}",
+		SourceName: "{{sourceName}}", MediaID: "{{mediaId}}", ButtonTitle: "查看流程", HeadColor: "FF1677FF",
+	}
+}
+
+func normalizeDingTalkTemplate(template DingTalkTemplate) DingTalkTemplate {
+	template.MessageType = strings.ToLower(strings.TrimSpace(template.MessageType))
+	template.Title = strings.TrimSpace(template.Title)
+	template.Content = strings.TrimSpace(template.Content)
+	template.URL = strings.TrimSpace(template.URL)
+	template.PicURL = strings.TrimSpace(template.PicURL)
+	template.SourceName = strings.TrimSpace(template.SourceName)
+	template.MediaID = strings.TrimSpace(template.MediaID)
+	template.ButtonTitle = strings.TrimSpace(template.ButtonTitle)
+	template.HeadColor = strings.ToUpper(strings.TrimPrefix(strings.TrimSpace(template.HeadColor), "#"))
+	if len(template.HeadColor) == 6 {
+		template.HeadColor = "FF" + template.HeadColor
+	}
+	return template
+}
+
+func validateDingTalkTemplate(template DingTalkTemplate) error {
+	switch template.MessageType {
+	case DingTalkMessageTypeAuto, DingTalkMessageTypeText, DingTalkMessageTypeImage,
+		DingTalkMessageTypeVoice, DingTalkMessageTypeFile, DingTalkMessageTypeLink,
+		DingTalkMessageTypeOA, DingTalkMessageTypeMarkdown, DingTalkMessageTypeActionCard:
+	default:
+		return fmt.Errorf("unsupported message type %q", template.MessageType)
+	}
+	for _, value := range []string{template.Title, template.Content, template.URL, template.PicURL, template.SourceName, template.MediaID, template.ButtonTitle} {
+		if utf8.RuneCountInString(value) > 5000 {
+			return errors.New("template field is too long")
+		}
+		for _, token := range templateToken.FindAllString(value, -1) {
+			if _, ok := allowedVariables[token]; !ok {
+				return fmt.Errorf("unsupported variable %s", token)
+			}
+		}
+	}
+	if template.HeadColor != "" && !dingTalkColor.MatchString(template.HeadColor) {
+		return errors.New("OA head color must contain 8 hexadecimal characters")
+	}
+	switch template.MessageType {
+	case DingTalkMessageTypeText, DingTalkMessageTypeAuto:
+		if template.Content == "" {
+			return errors.New("content template is required")
+		}
+	case DingTalkMessageTypeImage, DingTalkMessageTypeFile:
+		if template.MediaID == "" {
+			return errors.New("media ID is required")
+		}
+	case DingTalkMessageTypeVoice:
+		if template.MediaID == "" || template.Duration <= 0 {
+			return errors.New("voice media ID and duration are required")
+		}
+	case DingTalkMessageTypeLink, DingTalkMessageTypeOA, DingTalkMessageTypeActionCard:
+		if template.Title == "" || template.Content == "" || template.URL == "" {
+			return errors.New("title, content and URL templates are required")
+		}
+	case DingTalkMessageTypeMarkdown:
+		if template.Title == "" || template.Content == "" {
+			return errors.New("title and content templates are required")
+		}
+	}
+	return nil
 }

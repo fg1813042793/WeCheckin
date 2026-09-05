@@ -129,12 +129,12 @@ func TestDingTalkH5NotificationSourceHasSwitchAndBindingLookup(t *testing.T) {
 		"recipient.Config.NotifyEnabled",
 		"SendWorkNotificationContext",
 		"[DingTalkH5Notify] schedule",
-			"[DingTalkH5Notify] send config",
-			"[DingTalkH5Notify] sent",
-			"[DingTalkH5Notify] skip",
-		} {
-			if !strings.Contains(text, want) {
-				t.Fatalf("DingTalk H5 notification should include %q", want)
+		"[DingTalkH5Notify] send config",
+		"[DingTalkH5Notify] sent",
+		"[DingTalkH5Notify] skip",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("DingTalk H5 notification should include %q", want)
 		}
 	}
 	notifyBody := functionBody(text, "func TransitionAsync")

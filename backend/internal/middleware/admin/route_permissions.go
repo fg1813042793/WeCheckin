@@ -279,6 +279,7 @@ var routeMethodPermPatterns = []routeMethodPerm{
 	{method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete", perm: "workflow:task:complete"},
 	{method: "DELETE", path: "/api/v2/admin/workflow-tasks/:id", perm: "workflow:task:delete"},
 	{method: "POST", path: "/api/v2/admin/workflow-notifications/:id/retry", perm: "workflow:notification:retry"},
+	{method: "DELETE", path: "/api/v2/admin/in-app-notifications/:id", perm: "notification:delete"},
 	{method: "PATCH", path: "/api/v2/admin/in-app-notifications/:id/read", perm: "notification:read"},
 
 	{method: "GET", path: "/api/v2/admin/scheduled-tasks/:id", perm: "scheduled-task:list"},

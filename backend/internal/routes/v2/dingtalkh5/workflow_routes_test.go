@@ -13,6 +13,7 @@ func TestDingTalkH5WorkflowRoutesUseProtectedGroup(t *testing.T) {
 	}
 	text := string(source)
 	for _, snippet := range []string{
+		`auth.GET("/workflows/overview", workflowHandler.GetMyOverview)`,
 		`auth.GET("/workflows/categories", workflowHandler.ListDefinitionCategories)`,
 		`auth.GET("/workflows/definitions", workflowHandler.ListDefinitions)`,
 		`auth.GET("/workflows/definitions/:id", workflowHandler.GetDefinition)`,
@@ -27,6 +28,7 @@ func TestDingTalkH5WorkflowRoutesUseProtectedGroup(t *testing.T) {
 		`auth.POST("/workflows/instances/:id/withdraw", workflowHandler.WithdrawInstance)`,
 		`auth.POST("/workflows/instances/:id/comments", workflowHandler.CommentInstance)`,
 		`auth.POST("/workflows/instances/:id/reminders", workflowHandler.RemindInstance)`,
+		`auth.PATCH("/workflows/instances/:id/form-data", workflowHandler.ReviseInstanceForm)`,
 		`auth.GET("/workflows/tasks", workflowHandler.ListMyTasks)`,
 		`auth.POST("/workflows/tasks/:id/complete", workflowHandler.CompleteTask)`,
 		`auth.GET("/workflows/summary/definitions", workflowSummaryHandler.ListDefinitions)`,

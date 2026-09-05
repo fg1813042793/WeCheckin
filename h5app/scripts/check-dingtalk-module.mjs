@@ -22,6 +22,8 @@ const requiredFiles = [
   'src/stores/appContent.ts',
   'src/components/app-shell/app-shell.vue',
   'src/components/app-notification-panel/app-notification-panel.vue',
+  'src/pages/notifications/components/NotificationHistoryPage.vue',
+  'src/pages/notifications/notification-route-keys.ts',
   'src/components/app-auth-guard/app-auth-guard.vue',
   'src/components/dingtalk-login-panel/dingtalk-login-panel.vue',
   'src/components/dingtalk-bind-panel/dingtalk-bind-panel.vue',
@@ -181,6 +183,8 @@ const requiredContent = [
       '/read-all',
       '/read',
       'style?: NotificationStyle',
+      'unreadOnly',
+      'deleteNotification',
     ],
   },
   {
@@ -205,6 +209,19 @@ const requiredContent = [
       'notification-item__kind',
       'notification-detail__kind',
       'notification.style',
+      'NOTIFICATION_HISTORY_CONTENT_KEY',
+      'listNotifications(nextPage, pageSize, true)',
+    ],
+  },
+  {
+    file: 'src/pages/notifications/components/NotificationHistoryPage.vue',
+    patterns: [
+      'listNotifications',
+      'deleteNotification',
+      'markNotificationRead',
+      'workflowInstanceContentKey',
+      'notification-history__list',
+      '确认删除这条站内信吗',
     ],
   },
   {

@@ -1,17 +1,12 @@
 package permission
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
 
 func TestDingTalkH5MenuPermissionUsesShortTTLCache(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"dingtalkH5MenuPermissionCacheTTL",
 		"dingtalkH5MenuPermissionCacheKey(userID, roleIDs)",

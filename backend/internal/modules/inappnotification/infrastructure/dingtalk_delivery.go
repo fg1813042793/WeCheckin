@@ -12,6 +12,7 @@ import (
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/modules/inappnotification/application"
 	configsvc "wecheckin/backend/internal/service/dingtalkh5/config"
+	"wecheckin/backend/internal/support/notificationstyle"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/logger"
 )
@@ -34,15 +35,22 @@ type dingTalkTargetResolver interface {
 }
 
 type DingTalkDelivery struct {
-	client   configsvc.DingTalkWorkNotificationClient
-	resolver dingTalkTargetResolver
+	client      configsvc.DingTalkWorkNotificationClient
+	resolver    dingTalkTargetResolver
+	styleLoader dingTalkStyleLoader
+}
+
+type dingTalkStyleLoader interface {
+	NotificationStyles(context.Context) (notificationstyle.Config, error)
 }
 
 func NewDingTalkDelivery(db *gorm.DB, client configsvc.DingTalkWorkNotificationClient) *DingTalkDelivery {
 	if client == nil {
 		client = configsvc.DefaultDingTalkWorkNotificationClient()
 	}
-	return newDingTalkDelivery(client, &gormDingTalkTargetResolver{db: db})
+	delivery := newDingTalkDelivery(client, &gormDingTalkTargetResolver{db: db})
+	delivery.styleLoader = NewGormStore(db)
+	return delivery
 }
 
 func newDingTalkDelivery(client configsvc.DingTalkWorkNotificationClient, resolver dingTalkTargetResolver) *DingTalkDelivery {
@@ -58,6 +66,18 @@ func (delivery *DingTalkDelivery) DeliverDingTalk(ctx context.Context, batch app
 		return application.DingTalkDeliveryResult{}, err
 	}
 	result := application.DingTalkDeliveryResult{SkippedCount: resolution.SkippedCount}
+	styles := notificationstyle.DefaultConfig()
+	if delivery.styleLoader != nil {
+		styles, err = delivery.styleLoader.NotificationStyles(ctx)
+		if err != nil {
+			return application.DingTalkDeliveryResult{}, err
+		}
+	}
+	notificationType := strings.TrimSpace(batch.NotificationType)
+	if notificationType == "" {
+		notificationType = notificationstyle.TypeAdminManual
+	}
+	template := notificationstyle.StyleFor(styles, notificationType).DingTalk
 	groups := make(map[string]*dingTalkDeliveryGroup)
 	groupKeys := make([]string, 0)
 	for _, target := range resolution.Targets {
@@ -78,7 +98,7 @@ func (delivery *DingTalkDelivery) DeliverDingTalk(ctx context.Context, batch app
 	sort.Strings(groupKeys)
 	for _, corpID := range groupKeys {
 		group := groups[corpID]
-		payload := dingTalkManualNotificationPayload(group.config, batch.Title, batch.Content)
+		payload := configsvc.ApplyDingTalkTemplate(template, dingTalkManualNotificationPayload(group.config, batch.Title, batch.Content))
 		sendCtx, cancel := context.WithTimeout(ctx, dingTalkAdminNotificationTimeout)
 		err := delivery.client.SendWorkNotificationContext(sendCtx, group.config, group.userIDs, payload)
 		cancel()

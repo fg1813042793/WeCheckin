@@ -30,7 +30,8 @@ func (h *Handler) List(ctx context.Context, c *app.RequestContext) {
 	}
 	page, _ := strconv.Atoi(strings.TrimSpace(c.Query("page")))
 	pageSize, _ := strconv.Atoi(strings.TrimSpace(c.Query("pageSize")))
-	data, err := h.service.List(ctx, user.ID, page, pageSize)
+	unreadOnly := parseUnreadOnly(c.Query("unreadOnly"))
+	data, err := h.service.List(ctx, user.ID, page, pageSize, unreadOnly)
 	if err != nil {
 		response.FailInternal(ctx, c, "dingtalkh5.notification.handler", "操作失败，请稍后重试", err)
 		return
@@ -87,10 +88,41 @@ func (h *Handler) MarkAllRead(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, nil)
 }
 
+func (h *Handler) Delete(ctx context.Context, c *app.RequestContext) {
+	user, ok := dingtalkh5session.CurrentUser(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
+	notificationID, valid := parseNotificationID(c.Param("id"))
+	if !valid {
+		response.Fail(c, "通知不存在")
+		return
+	}
+	if err := h.service.Delete(ctx, user.ID, notificationID); err != nil {
+		if errors.Is(err, service.ErrNotificationNotFound) {
+			response.Fail(c, "通知不存在")
+			return
+		}
+		response.FailInternal(ctx, c, "dingtalkh5.notification.handler", "操作失败，请稍后重试", err)
+		return
+	}
+	response.JSON(c, nil)
+}
+
 func parseNotificationID(value string) (uint, bool) {
 	id, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
 	if err != nil || id == 0 {
 		return 0, false
 	}
 	return uint(id), true
+}
+
+func parseUnreadOnly(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true":
+		return true
+	default:
+		return false
+	}
 }

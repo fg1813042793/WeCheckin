@@ -5,9 +5,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/adminaccess"
 	permissionsupport "wecheckin/backend/internal/support/permission"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 

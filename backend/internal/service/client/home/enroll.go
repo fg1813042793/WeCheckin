@@ -3,8 +3,8 @@ package home
 import (
 	"encoding/json"
 
-	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/media"
 )
 
 type enrollObj struct {

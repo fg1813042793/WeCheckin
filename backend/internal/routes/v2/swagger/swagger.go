@@ -3073,14 +3073,30 @@ func swaggerV2AdminScheduledTaskRunsIDCancelPost() {}
 // @Router /api/v2/admin/scheduled-task-workers [get]
 func swaggerV2AdminScheduledTaskWorkersGet() {}
 
-// @Tags API v2-后台管理-站内信
-// @Summary 查询当前管理员站内信
+// @Tags API v2-后台管理-通知记录
+// @Summary 查询通知投递记录
 // @Security AdminToken
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页数量"
+// @Param title query string false "通知标题，模糊匹配"
+// @Param recipientName query string false "接收人用户名，模糊匹配"
+// @Param sourceType query string false "来源类型"
+// @Param type query string false "通知类型"
+// @Param isRead query int false "阅读状态：0未读，1已读"
+// @Param addTimeFrom query int false "发送开始时间，毫秒时间戳"
+// @Param addTimeTo query int false "发送结束时间，毫秒时间戳"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/in-app-notifications [get]
 func swaggerV2AdminInAppNotificationsGet() {}
+
+// @Tags API v2-后台管理-通知记录
+// @Summary 删除通知投递记录
+// @Description 仅从后台通知记录列表中移除，不撤回接收人已经收到的站内信
+// @Security AdminToken
+// @Param id path int true "通知记录 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/in-app-notifications/{id} [delete]
+func swaggerV2AdminInAppNotificationsIDDelete() {}
 
 // @Tags API v2-后台管理-站内信
 // @Summary 手动发送站内信

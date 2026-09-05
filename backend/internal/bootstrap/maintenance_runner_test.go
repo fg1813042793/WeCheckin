@@ -1,11 +1,28 @@
 package bootstrap
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestAppliedMigrationChecksumRepairAllowlistMatchesCurrentFiles(t *testing.T) {
+	for version := range appliedMigrationChecksumRepairAllowlist {
+		path := filepath.Join("..", "..", "migrations", version+".sql")
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read allowlisted migration %s: %v", version, err)
+		}
+		digest := sha256.Sum256(content)
+		checksum := hex.EncodeToString(digest[:])
+		if !isAppliedMigrationChecksumRepairAllowed(version, checksum) {
+			t.Fatalf("allowlisted migration %s must use current checksum %s", version, checksum)
+		}
+	}
+}
 
 func TestMaintenanceRunnerRecordsExecutedTasks(t *testing.T) {
 	src, err := os.ReadFile("maintenance.go")
@@ -68,13 +85,19 @@ DEALLOCATE PREPARE stmt;
 }
 
 func TestAppliedMigrationChecksumRepairIsNarrowlyAllowed(t *testing.T) {
-	allowedVersion := "20260731162000_add_dingtalk_h5_review_scope_indexes"
-	allowedChecksum := "2385c26de9616e0fb26ebeb7d617f827711d285e8a466a5658895765261f51ec"
-	if !isAppliedMigrationChecksumRepairAllowed(allowedVersion, allowedChecksum) {
-		t.Fatalf("%s is an idempotent index migration and should allow checksum repair", allowedVersion)
+	allowed := map[string]string{
+		"20260727174000_seed_mishi_org_users":                 "b559652f583b1e7d8e41fc72135234b7e97e5ffa32044d8646120caac0016aa9",
+		"20260731162000_add_dingtalk_h5_review_scope_indexes": "2385c26de9616e0fb26ebeb7d617f827711d285e8a466a5658895765261f51ec",
+		"20260901140000_add_workflow_definition_logo":         "28622beda1bdd9f21756b7e6285dd89e745774babcb7219937db9ccb59e4ad96",
+		"20260903133000_add_workflow_task_admin_delete":       "aff5bec2c37ba63e9d9fe876739098dced70c9e7b04722c881c09f8b02aaf0d7",
 	}
-	if isAppliedMigrationChecksumRepairAllowed(allowedVersion, strings.Repeat("0", 64)) {
-		t.Fatalf("%s must not allow checksum repair for unexpected content", allowedVersion)
+	for version, checksum := range allowed {
+		if !isAppliedMigrationChecksumRepairAllowed(version, checksum) {
+			t.Fatalf("%s should allow checksum repair for its known previous content", version)
+		}
+		if isAppliedMigrationChecksumRepairAllowed(version, strings.Repeat("0", 64)) {
+			t.Fatalf("%s must not allow checksum repair for unexpected content", version)
+		}
 	}
 
 	for _, version := range []string{
@@ -83,7 +106,7 @@ func TestAppliedMigrationChecksumRepairIsNarrowlyAllowed(t *testing.T) {
 		"bootstrap:seed_permissions",
 		"",
 	} {
-		if isAppliedMigrationChecksumRepairAllowed(version, allowedChecksum) {
+		if isAppliedMigrationChecksumRepairAllowed(version, allowed["20260731162000_add_dingtalk_h5_review_scope_indexes"]) {
 			t.Fatalf("%s must not allow checksum repair", version)
 		}
 	}

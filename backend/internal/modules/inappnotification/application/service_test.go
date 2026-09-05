@@ -97,6 +97,7 @@ func TestServiceSendDingTalkCombinesRecipientAndChannelResults(t *testing.T) {
 	result, err := service.SendDingTalk(context.Background(), SendInput{
 		Title: "  钉钉通知  ", Content: "内容", Scope: ScopeUsers,
 		UserIDs: []uint{9, 4, 9, 0}, SourceType: SourceAdminManualDingTalk, SourceID: "request-1",
+		NotificationType: notificationstyle.TypeTaskReminder,
 	})
 	if err != nil {
 		t.Fatalf("SendDingTalk() error = %v", err)
@@ -104,7 +105,7 @@ func TestServiceSendDingTalkCombinesRecipientAndChannelResults(t *testing.T) {
 	if !reflect.DeepEqual(store.rule.UserIDs, []uint{4, 9}) {
 		t.Fatalf("resolved user IDs = %v, want [4 9]", store.rule.UserIDs)
 	}
-	if delivery.batch.Title != "钉钉通知" || !reflect.DeepEqual(delivery.batch.UserIDs, []uint{4, 9}) {
+	if delivery.batch.Title != "钉钉通知" || delivery.batch.NotificationType != notificationstyle.TypeTaskReminder || !reflect.DeepEqual(delivery.batch.UserIDs, []uint{4, 9}) {
 		t.Fatalf("delivery batch = %#v", delivery.batch)
 	}
 	if result.PlannedCount != 2 || result.SentCount != 1 || result.SkippedCount != 3 || result.FailedCount != 1 {
@@ -163,17 +164,58 @@ func TestServiceSendPropagatesStoreFailure(t *testing.T) {
 	}
 }
 
-func TestServiceListScopesInboxToCurrentUserAndNormalizesPagination(t *testing.T) {
+func TestServiceListRecordsNormalizesFiltersAndPagination(t *testing.T) {
 	store := &fakeStore{notifications: []Notification{{ID: 3, Title: "通知"}}, total: 1}
-	result, err := NewService(store).List(context.Background(), 66, 0, 999)
+	readStatus := 0
+	result, err := NewService(store).ListRecords(context.Background(), NotificationRecordQuery{
+		Title: "  系统通知  ", RecipientName: "  张三  ", SourceType: " workflow ", Type: " task_arrived ",
+		IsRead: &readStatus, AddTimeFrom: 100, AddTimeTo: 200, Page: 0, PageSize: 999,
+	})
 	if err != nil {
-		t.Fatalf("List() error = %v", err)
+		t.Fatalf("ListRecords() error = %v", err)
 	}
-	if store.inboxUserID != "66" || store.page != 1 || store.pageSize != 20 {
-		t.Fatalf("list query user=%q page=%d pageSize=%d", store.inboxUserID, store.page, store.pageSize)
+	if store.recordQuery.Title != "系统通知" || store.recordQuery.RecipientName != "张三" ||
+		store.recordQuery.SourceType != "workflow" || store.recordQuery.Type != "task_arrived" ||
+		store.recordQuery.IsRead == nil || *store.recordQuery.IsRead != 0 ||
+		store.recordQuery.AddTimeFrom != 100 || store.recordQuery.AddTimeTo != 200 ||
+		store.recordQuery.Page != 1 || store.recordQuery.PageSize != 20 {
+		t.Fatalf("record query = %#v", store.recordQuery)
 	}
 	if result.Total != 1 || len(result.List) != 1 || result.Page != 1 || result.PageSize != 20 {
 		t.Fatalf("list result = %#v", result)
+	}
+}
+
+func TestServiceListRecordsRejectsInvalidReadStatusAndTimeRange(t *testing.T) {
+	invalidReadStatus := 2
+	service := NewService(&fakeStore{})
+	if _, err := service.ListRecords(context.Background(), NotificationRecordQuery{IsRead: &invalidReadStatus}); !errors.Is(err, ErrInvalidReadStatus) {
+		t.Fatalf("invalid read status error = %v", err)
+	}
+	if _, err := service.ListRecords(context.Background(), NotificationRecordQuery{AddTimeFrom: 200, AddTimeTo: 100}); !errors.Is(err, ErrInvalidTimeRange) {
+		t.Fatalf("invalid time range error = %v", err)
+	}
+}
+
+func TestServiceDeleteRecordSoftDeletesWithAdminIdentity(t *testing.T) {
+	store := &fakeStore{deleteRecordFound: true}
+	service := NewService(store)
+
+	if err := service.DeleteRecord(context.Background(), 66, 7); err != nil {
+		t.Fatalf("DeleteRecord() error = %v", err)
+	}
+	if store.deleteRecordID != 7 || store.deleteRecordActorID != "66" || store.deleteRecordAt <= 0 {
+		t.Fatalf("delete record id=%d actor=%q at=%d", store.deleteRecordID, store.deleteRecordActorID, store.deleteRecordAt)
+	}
+}
+
+func TestServiceDeleteRecordRejectsMissingRecordAndUnauthenticatedAdmin(t *testing.T) {
+	service := NewService(&fakeStore{})
+	if err := service.DeleteRecord(context.Background(), 66, 7); !errors.Is(err, ErrNotificationMissing) {
+		t.Fatalf("DeleteRecord() missing error = %v, want ErrNotificationMissing", err)
+	}
+	if err := service.DeleteRecord(context.Background(), 0, 7); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("DeleteRecord() unauthenticated error = %v, want ErrUnauthenticated", err)
 	}
 }
 
@@ -196,19 +238,22 @@ func TestServiceInboxRequiresAuthenticatedUser(t *testing.T) {
 }
 
 type fakeStore struct {
-	rule           RecipientRule
-	batch          DeliveryBatch
-	resolution     RecipientResolution
-	delivery       DeliveryResult
-	resolveErr     error
-	deliverErr     error
-	notifications  []Notification
-	total          int64
-	inboxUserID    string
-	page           int
-	pageSize       int
-	notificationID uint
-	markReadFound  bool
+	rule                RecipientRule
+	batch               DeliveryBatch
+	resolution          RecipientResolution
+	delivery            DeliveryResult
+	resolveErr          error
+	deliverErr          error
+	notifications       []Notification
+	total               int64
+	recordQuery         NotificationRecordQuery
+	inboxUserID         string
+	notificationID      uint
+	markReadFound       bool
+	deleteRecordID      uint
+	deleteRecordActorID string
+	deleteRecordAt      int64
+	deleteRecordFound   bool
 }
 
 type fakeDingTalkDelivery struct {
@@ -232,11 +277,16 @@ func (store *fakeStore) Deliver(_ context.Context, batch DeliveryBatch) (Deliver
 	return store.delivery, store.deliverErr
 }
 
-func (store *fakeStore) List(_ context.Context, userID string, page, pageSize int) ([]Notification, int64, error) {
-	store.inboxUserID = userID
-	store.page = page
-	store.pageSize = pageSize
+func (store *fakeStore) ListRecords(_ context.Context, query NotificationRecordQuery) ([]Notification, int64, error) {
+	store.recordQuery = query
 	return store.notifications, store.total, nil
+}
+
+func (store *fakeStore) SoftDeleteRecord(_ context.Context, notificationID uint, actorID string, deletedAt int64) (bool, error) {
+	store.deleteRecordID = notificationID
+	store.deleteRecordActorID = actorID
+	store.deleteRecordAt = deletedAt
+	return store.deleteRecordFound, nil
 }
 
 func (store *fakeStore) UnreadCount(_ context.Context, userID string) (int64, error) {

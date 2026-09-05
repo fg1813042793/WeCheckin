@@ -45,24 +45,26 @@ type StartLimitStatus struct {
 }
 
 type PublishedNode struct {
-	ID              string                 `json:"id"`
-	Type            string                 `json:"type"`
-	Name            string                 `json:"name"`
-	Position        *workflowcore.Position `json:"position,omitempty"`
-	ApprovalMode    string                 `json:"approvalMode,omitempty"`
-	GatewayMode     string                 `json:"gatewayMode,omitempty"`
-	AssigneeDisplay string                 `json:"assigneeDisplay,omitempty"`
-	Assignee        *workflowcore.Assignee `json:"-"`
+	ID              string                             `json:"id"`
+	Type            string                             `json:"type"`
+	Name            string                             `json:"name"`
+	Position        *workflowcore.Position             `json:"position,omitempty"`
+	ApprovalMode    string                             `json:"approvalMode,omitempty"`
+	GatewayMode     string                             `json:"gatewayMode,omitempty"`
+	AssigneeDisplay string                             `json:"assigneeDisplay,omitempty"`
+	Assignee        *workflowcore.Assignee             `json:"-"`
+	PostHandleEdit  *workflowcore.PostHandleEditConfig `json:"-"`
 }
 
 type PublishedEdge struct {
-	ID           string `json:"id"`
-	Source       string `json:"source"`
-	Target       string `json:"target"`
-	SourceHandle string `json:"sourceHandle,omitempty"`
-	TargetHandle string `json:"targetHandle,omitempty"`
-	Name         string `json:"name,omitempty"`
-	Default      bool   `json:"default,omitempty"`
+	ID           string                  `json:"id"`
+	Source       string                  `json:"source"`
+	Target       string                  `json:"target"`
+	SourceHandle string                  `json:"sourceHandle,omitempty"`
+	TargetHandle string                  `json:"targetHandle,omitempty"`
+	Name         string                  `json:"name,omitempty"`
+	Default      bool                    `json:"default,omitempty"`
+	Condition    *workflowcore.Condition `json:"-"`
 }
 
 type StartDraft struct {
@@ -152,6 +154,27 @@ type InstanceSummary struct {
 	Status               string   `json:"status"`
 	StartTime            int64    `json:"startTime"`
 	EndTime              int64    `json:"endTime"`
+	FormRevision         int64    `json:"formRevision"`
+}
+
+type FormRevisionCapability struct {
+	Allowed          bool                           `json:"allowed"`
+	Revision         int64                          `json:"revision"`
+	FieldPermissions []workflowcore.FieldPermission `json:"fieldPermissions"`
+}
+
+type FormRevisionNotificationRequest struct {
+	UserIDs  []string `json:"userIds"`
+	Channels []string `json:"channels"`
+}
+
+type ReviseInstanceFormRequest struct {
+	InstanceID       string                           `json:"-"`
+	ActorID          string                           `json:"-"`
+	ExpectedRevision int64                            `json:"expectedRevision"`
+	FormData         map[string]interface{}           `json:"formData"`
+	Reason           string                           `json:"reason"`
+	Notification     *FormRevisionNotificationRequest `json:"notification,omitempty"`
 }
 
 type TokenSummary struct {
@@ -245,6 +268,7 @@ type InstanceDetail struct {
 	UserNames        map[string]string                         `json:"userNames"`
 	ReminderPolicy   ReminderPolicy                            `json:"reminderPolicy"`
 	ReminderNodes    []ReminderNodeSummary                     `json:"reminderNodes"`
+	FormRevision     FormRevisionCapability                    `json:"formRevision"`
 }
 
 type InstanceList struct {
@@ -252,6 +276,13 @@ type InstanceList struct {
 	Total    int64             `json:"total"`
 	Page     int               `json:"page"`
 	PageSize int               `json:"pageSize"`
+}
+
+type WorkflowOverview struct {
+	Pending int64 `json:"pending"`
+	Handled int64 `json:"handled"`
+	Started int64 `json:"started"`
+	Copied  int64 `json:"copied"`
 }
 
 type TaskList struct {

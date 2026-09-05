@@ -6,10 +6,10 @@ import (
 
 	"gorm.io/gorm"
 
+	"wecheckin/backend/internal/model"
 	newsservice "wecheckin/backend/internal/service/client/news"
 	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/internal/support/query"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 

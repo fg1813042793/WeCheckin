@@ -203,7 +203,7 @@ type NotificationStyleConfigRequest struct {
 	Styles []NotificationStyleRequest `json:"styles"`
 }
 
-// NotificationStyleRequest describes one notification type's visual style.
+// NotificationStyleRequest describes one notification type's in-app style and DingTalk template.
 type NotificationStyleRequest struct {
 	// Type 是稳定的消息类型编码。
 	Type string `json:"type" example:"task_arrived"`
@@ -213,6 +213,32 @@ type NotificationStyleRequest struct {
 	Icon string `json:"icon" example:"clock"`
 	// Tone 是样式语义色。
 	Tone string `json:"tone" enums:"primary,success,warning,danger,info" example:"warning"`
+	// DingTalk 是该业务消息类型对应的钉钉消息模板。
+	DingTalk NotificationDingTalkTemplateRequest `json:"dingTalk"`
+}
+
+// NotificationDingTalkTemplateRequest describes a DingTalk work-notification template.
+type NotificationDingTalkTemplateRequest struct {
+	// MessageType 是钉钉消息类型；auto 保持历史行为，有跳转地址时发送 OA，否则发送文本。
+	MessageType string `json:"messageType" enums:"auto,text,image,voice,file,link,oa,markdown,action_card" example:"oa"`
+	// Title 是标题模板。
+	Title string `json:"title" example:"{{title}}"`
+	// Content 是正文模板。
+	Content string `json:"content" example:"{{content}}"`
+	// URL 是跳转地址模板。
+	URL string `json:"url" example:"{{url}}"`
+	// PicURL 是链接或 OA 消息的图片地址模板。
+	PicURL string `json:"picUrl" example:"{{picUrl}}"`
+	// SourceName 是 OA 消息头部来源名称模板。
+	SourceName string `json:"sourceName" example:"{{sourceName}}"`
+	// MediaID 是图片、语音或文件消息使用的钉钉媒体标识。
+	MediaID string `json:"mediaId" example:"@lALPDfYHc..."`
+	// Duration 是语音消息时长，单位为秒。
+	Duration int `json:"duration" example:"10"`
+	// ButtonTitle 是卡片消息的按钮文字。
+	ButtonTitle string `json:"buttonTitle" example:"查看流程"`
+	// HeadColor 是 OA 消息顶部颜色，格式为 AARRGGBB。
+	HeadColor string `json:"headColor" example:"FF1677FF"`
 }
 
 // SurveyQuestionBankRequest describes a reusable survey question.

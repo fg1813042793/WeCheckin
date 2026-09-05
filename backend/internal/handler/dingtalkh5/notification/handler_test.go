@@ -24,3 +24,22 @@ func TestParseNotificationID(t *testing.T) {
 		})
 	}
 }
+
+func TestParseUnreadOnly(t *testing.T) {
+	tests := []struct {
+		value string
+		want  bool
+	}{
+		{value: "1", want: true},
+		{value: "true", want: true},
+		{value: "TRUE", want: true},
+		{value: "0", want: false},
+		{value: "false", want: false},
+		{value: "", want: false},
+	}
+	for _, test := range tests {
+		if got := parseUnreadOnly(test.value); got != test.want {
+			t.Fatalf("parseUnreadOnly(%q) = %v, want %v", test.value, got, test.want)
+		}
+	}
+}

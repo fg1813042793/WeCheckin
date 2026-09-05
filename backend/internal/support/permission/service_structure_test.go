@@ -1,7 +1,6 @@
 package permission
 
 import (
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -10,11 +9,7 @@ import (
 )
 
 func TestPermissionServiceExposesUnifiedAccessFunctions(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"AdminLoginPermissionKey",
 		"SubjectRole",
@@ -41,11 +36,7 @@ func TestPermissionServiceExposesUnifiedAccessFunctions(t *testing.T) {
 }
 
 func TestPermissionServiceChecksSchemaWithoutRuntimeDDL(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error",
 		"HasColumn(&model.Permission{}, \"Icon\")",
@@ -64,11 +55,7 @@ func TestPermissionServiceChecksSchemaWithoutRuntimeDDL(t *testing.T) {
 }
 
 func TestPermissionServiceCachesRuntimeTableReadiness(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"permissionTablesReadyCache",
 		"permissionTablesReadyNegativeCacheTTL",
@@ -88,11 +75,7 @@ func TestPermissionServiceCachesRuntimeTableReadiness(t *testing.T) {
 }
 
 func TestEnsurePermissionSchemaContextUsesReadyCacheBeforeMigrator(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	body := testFunctionBody(t, text, "EnsurePermissionSchemaContext")
 	cacheIndex := strings.Index(body, "permissionTablesReadyCached()")
 	migratorIndex := strings.Index(body, "db.Migrator().HasTable")
@@ -108,11 +91,7 @@ func TestEnsurePermissionSchemaContextUsesReadyCacheBeforeMigrator(t *testing.T)
 }
 
 func TestPermissionServiceCachesSubjectPermissionSets(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"subjectPermissionSetCacheTTL",
 		"type subjectPermissionSetCacheEntry struct",
@@ -139,11 +118,7 @@ func TestPermissionServiceCachesSubjectPermissionSets(t *testing.T) {
 }
 
 func TestPermissionServiceAggregatesMultipleUserRoles(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"func ActiveRoleIDsForUserContext(ctx context.Context, db *gorm.DB, userID, primaryRoleID uint) ([]uint, error)",
 		"func SubjectHasPermissionWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint, key string) (bool, error)",
@@ -182,11 +157,7 @@ func TestPermissionServiceAggregatesMultipleUserRoles(t *testing.T) {
 }
 
 func TestPermissionServiceAvoidsRepeatedAPIPermissionQueries(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 
 	hasBody := testFunctionBody(t, text, "SubjectHasPermissionWithRoleIDsContext")
 	for _, snippet := range []string{
@@ -223,11 +194,7 @@ func TestPermissionServiceAvoidsRepeatedAPIPermissionQueries(t *testing.T) {
 }
 
 func TestPermissionGrantMutationsInvalidateSubjectPermissionSetCache(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, name := range []string{
 		"SetRoleApplicationMenuPermissionsTx",
 		"SetRoleApplicationAPIPermissionsTx",
@@ -244,11 +211,7 @@ func TestPermissionGrantMutationsInvalidateSubjectPermissionSetCache(t *testing.
 }
 
 func TestDataScopeContextFetchesUserAndRoleGrantsTogether(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"type permissionSubjectRef struct",
 		"func grantsBySubjectsAndKeys",
@@ -288,11 +251,7 @@ func TestDataScopeContextFetchesUserAndRoleGrantsTogether(t *testing.T) {
 }
 
 func TestDataScopeExtrasContextMergesUserAndRoleExtras(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"func DataScopeExtrasContext(ctx context.Context, db *gorm.DB, userID, roleID uint) (DataScopeExtras, error)",
 		"func DataScopeExtrasWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) (DataScopeExtras, error)",
@@ -318,11 +277,7 @@ func TestDataScopeExtrasContextMergesUserAndRoleExtras(t *testing.T) {
 }
 
 func TestDataScopeBundleContextFetchesBaseAndExtraGrantsTogether(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"func DataScopeBundleContext(ctx context.Context, db *gorm.DB, userID, roleID uint) (DataScope, DataScopeExtras, error)",
 		"func DataScopeBundleWithRoleIDsContext(ctx context.Context, db *gorm.DB, userID uint, roleIDs []uint) (DataScope, DataScopeExtras, error)",
@@ -408,11 +363,7 @@ func TestMergedDataScopeKeepsWidestRoleScope(t *testing.T) {
 }
 
 func TestPermissionServiceLimitsRoleAssignmentGrantColumns(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"permissionGrantRoleAssignmentSelectColumns",
 		"Select(permissionGrantRoleAssignmentSelectColumns)",
@@ -425,11 +376,7 @@ func TestPermissionServiceLimitsRoleAssignmentGrantColumns(t *testing.T) {
 }
 
 func TestPermissionServiceSkipsStaleLegacyAdminMenuGrants(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		`strings.HasPrefix(key, "admin:menu:")`,
 		"continue",
@@ -442,11 +389,7 @@ func TestPermissionServiceSkipsStaleLegacyAdminMenuGrants(t *testing.T) {
 }
 
 func TestPermissionServiceDoesNotReadLegacyRoleGrantTables(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, forbidden := range []string{
 		"syncLegacyRoleGrants",
 		"legacyAdminAPIPermissionKeysByMenuKeys",
@@ -464,11 +407,7 @@ func TestPermissionServiceDoesNotReadLegacyRoleGrantTables(t *testing.T) {
 }
 
 func TestPermissionServiceDoesNotSyncCatalogDuringRoleGrantSave(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	adminBody := testFunctionBody(t, text, "SetRoleAdminPermissionKeysTx")
 	for _, snippet := range []string{
 		"setRoleAdminPermissionKeysTx(tx, roleID, allowAdminLogin, adminPermissionKeys, adminAPIPermissionKeys, dataScope, deptIDs, false)",
@@ -488,11 +427,7 @@ func TestPermissionServiceDoesNotSyncCatalogDuringRoleGrantSave(t *testing.T) {
 }
 
 func TestEnsureApplicationCatalogBackfillsAdminAPIWithoutFullSync(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	body := testFunctionBody(t, text, "EnsureApplicationPermissionCatalogContext")
 	if !strings.Contains(body, "ensureMissingAdminAPIPermissionsContext(ctx, db)") {
 		t.Fatalf("admin API catalog read path must only backfill missing permissions")
@@ -521,11 +456,7 @@ func TestEnsureApplicationCatalogBackfillsAdminAPIWithoutFullSync(t *testing.T) 
 }
 
 func TestEnsureApplicationCatalogDoesNotBackfillAdminMenus(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	body := testFunctionBody(t, text, "EnsureApplicationPermissionCatalogContext")
 	if strings.Contains(body, "ensureMissingAdminMenuPermissionsContext") || strings.Contains(body, "syncAdminMenuPermissions(db") {
 		t.Fatalf("admin menu permissions must be created by migrations/bootstrap, not request-path catalog backfill")
@@ -536,11 +467,7 @@ func TestEnsureApplicationCatalogDoesNotBackfillAdminMenus(t *testing.T) {
 }
 
 func TestPermissionServiceProvidesRuntimeRoleGrantLookupsWithoutLegacyTables(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"RoleAdminPermissionKeyMapContext",
 		"RoleAdminAPIPermissionKeyMapContext",
@@ -560,11 +487,7 @@ func TestPermissionServiceProvidesRuntimeRoleGrantLookupsWithoutLegacyTables(t *
 }
 
 func TestPermissionServiceSyncsAdminAPIPermissions(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"TypeAPI",
 		"TypeAPICategory",
@@ -584,11 +507,7 @@ func TestPermissionServiceSyncsAdminAPIPermissions(t *testing.T) {
 }
 
 func TestPermissionServiceSyncsAdminMenusFromDeclarationsOnly(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"adminmenuperm.Declarations",
 		"adminmenuperm.Declarations(enableExam)",
@@ -618,11 +537,7 @@ func TestPermissionServiceSyncsAdminMenusFromDeclarationsOnly(t *testing.T) {
 }
 
 func TestPermissionServiceSupportsUserLevelAPIAllowDeny(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		`"admin:api:%"`,
 		"subjectAdminPermissionSets",
@@ -636,11 +551,7 @@ func TestPermissionServiceSupportsUserLevelAPIAllowDeny(t *testing.T) {
 }
 
 func TestPermissionServiceSyncsClientAndDingTalkH5Menus(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		"PlatformClient",
 		"PlatformDingTalkH5",
@@ -662,11 +573,7 @@ func TestPermissionServiceSyncsClientAndDingTalkH5Menus(t *testing.T) {
 }
 
 func TestRoleApplicationPermissionAssignmentSelfHealsCatalog(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	body := testFunctionBody(t, text, "SetRoleApplicationMenuPermissionsTx")
 	for _, snippet := range []string{
 		"ensureApplicationPermissionCatalogForKeysTx(tx, keys)",
@@ -679,11 +586,7 @@ func TestRoleApplicationPermissionAssignmentSelfHealsCatalog(t *testing.T) {
 }
 
 func TestPermissionServiceBatchesUserApplicationPermissionOverrides(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	body := testFunctionBody(t, text, "SetUserApplicationMenuPermissionOverridesTx")
 	for _, snippet := range []string{
 		"replaceSubjectGrantsByEffectsTx",
@@ -726,11 +629,7 @@ func TestPermissionServiceBatchesUserApplicationPermissionOverrides(t *testing.T
 }
 
 func TestPermissionServiceReplacesRoleAdminLoginGrant(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	adminPrefixesBody := testFunctionBody(t, text, "AdminPermissionPrefixes")
 	if !strings.Contains(adminPrefixesBody, "AdminLoginPermissionKey") {
 		t.Fatalf("role admin permission replacement must delete old admin:login grants before inserting new ones")
@@ -738,11 +637,7 @@ func TestPermissionServiceReplacesRoleAdminLoginGrant(t *testing.T) {
 }
 
 func TestPermissionServiceUpsertsReplacementGrantBatches(t *testing.T) {
-	src, err := os.ReadFile("service.go")
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	text := string(src)
+	text := readPermissionPackageSource(t)
 	for _, snippet := range []string{
 		`"gorm.io/gorm/clause"`,
 		"createGrantBatchTx",

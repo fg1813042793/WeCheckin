@@ -17,6 +17,7 @@ func TestDingTalkH5NotificationRoutesUseAuthenticatedGroup(t *testing.T) {
 		`authed.GET("/notifications/unread-count", handler.Notification.UnreadCount)`,
 		`authed.PATCH("/notifications/read-all", handler.Notification.MarkAllRead)`,
 		`authed.PATCH("/notifications/:id/read", handler.Notification.MarkRead)`,
+		`authed.DELETE("/notifications/:id", handler.Notification.Delete)`,
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("DingTalk H5 routes missing authenticated notification registration %q", snippet)
@@ -25,6 +26,7 @@ func TestDingTalkH5NotificationRoutesUseAuthenticatedGroup(t *testing.T) {
 	for _, forbidden := range []string{
 		`auth.GET("/notifications"`,
 		`auth.PATCH("/notifications`,
+		`auth.DELETE("/notifications`,
 	} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("notification routes must not require the app permission middleware: found %q", forbidden)

@@ -4522,9 +4522,9 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "API v2-后台管理-站内信"
+                    "API v2-后台管理-通知记录"
                 ],
-                "summary": "查询当前管理员站内信",
+                "summary": "查询通知投递记录",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4536,6 +4536,48 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "每页数量",
                         "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "通知标题，模糊匹配",
+                        "name": "title",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "接收人用户名，模糊匹配",
+                        "name": "recipientName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源类型",
+                        "name": "sourceType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "通知类型",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "阅读状态：0未读，1已读",
+                        "name": "isRead",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "发送开始时间，毫秒时间戳",
+                        "name": "addTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "发送结束时间，毫秒时间戳",
+                        "name": "addTimeTo",
                         "in": "query"
                     }
                 ],
@@ -4635,6 +4677,37 @@ const docTemplate = `{
                     "API v2-后台管理-站内信"
                 ],
                 "summary": "查询当前管理员未读站内信数量",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/in-app-notifications/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "仅从后台通知记录列表中移除，不撤回接收人已经收到的站内信",
+                "tags": [
+                    "API v2-后台管理-通知记录"
+                ],
+                "summary": "删除通知投递记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "通知记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -11032,6 +11105,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/dingtalk/h5/notifications/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-H5App-站内信"
+                ],
+                "summary": "删除当前用户指定站内信",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "站内信 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/dingtalk/h5/notifications/{id}/read": {
             "patch": {
                 "security": [
@@ -12341,6 +12444,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}/form-data": {
+            "patch": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅流程仍在运行、当前用户实际办理过已启用该能力的节点时可用；只允许修改这些节点配置为 write 且不参与路由条件判断的字段。expectedRevision 用于乐观锁校验；通知可省略，收件人仅限流程参与人，渠道支持站内信和钉钉 OA。",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "修改已处理流程实例的表单数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "表单修改内容",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.H5AppWorkflowReviseFormRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/dingtalk/h5/workflows/instances/{id}/reminders": {
             "post": {
                 "security": [
@@ -12413,6 +12556,40 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/overview": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "一次返回我的待办、已处理、我的申请和抄送我的数量，仅执行聚合统计，不读取列表记录",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询 H5App 工作流概览统计",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.WorkflowOverview"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -15328,6 +15505,23 @@ const docTemplate = `{
                 }
             }
         },
+        "application.WorkflowOverview": {
+            "type": "object",
+            "properties": {
+                "copied": {
+                    "type": "integer"
+                },
+                "handled": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "started": {
+                    "type": "integer"
+                }
+            }
+        },
         "dingtalk.CorpConfigResponse": {
             "type": "object",
             "properties": {
@@ -16681,6 +16875,26 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.H5AppWorkflowReviseFormRequest": {
+            "type": "object",
+            "properties": {
+                "expectedRevision": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "formData": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "notification": {
+                    "$ref": "#/definitions/swagger.H5AppWorkflowCommentNotification"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "补充实际验收结果"
+                }
+            }
+        },
         "swagger.H5AppWorkflowSaveDraftRequest": {
             "type": "object",
             "properties": {
@@ -16778,6 +16992,72 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.NotificationDingTalkTemplateRequest": {
+            "type": "object",
+            "properties": {
+                "buttonTitle": {
+                    "description": "ButtonTitle 是卡片消息的按钮文字。",
+                    "type": "string",
+                    "example": "查看流程"
+                },
+                "content": {
+                    "description": "Content 是正文模板。",
+                    "type": "string",
+                    "example": "{{content}}"
+                },
+                "duration": {
+                    "description": "Duration 是语音消息时长，单位为秒。",
+                    "type": "integer",
+                    "example": 10
+                },
+                "headColor": {
+                    "description": "HeadColor 是 OA 消息顶部颜色，格式为 AARRGGBB。",
+                    "type": "string",
+                    "example": "FF1677FF"
+                },
+                "mediaId": {
+                    "description": "MediaID 是图片、语音或文件消息使用的钉钉媒体标识。",
+                    "type": "string",
+                    "example": "@lALPDfYHc..."
+                },
+                "messageType": {
+                    "description": "MessageType 是钉钉消息类型；auto 保持历史行为，有跳转地址时发送 OA，否则发送文本。",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "text",
+                        "image",
+                        "voice",
+                        "file",
+                        "link",
+                        "oa",
+                        "markdown",
+                        "action_card"
+                    ],
+                    "example": "oa"
+                },
+                "picUrl": {
+                    "description": "PicURL 是链接或 OA 消息的图片地址模板。",
+                    "type": "string",
+                    "example": "{{picUrl}}"
+                },
+                "sourceName": {
+                    "description": "SourceName 是 OA 消息头部来源名称模板。",
+                    "type": "string",
+                    "example": "{{sourceName}}"
+                },
+                "title": {
+                    "description": "Title 是标题模板。",
+                    "type": "string",
+                    "example": "{{title}}"
+                },
+                "url": {
+                    "description": "URL 是跳转地址模板。",
+                    "type": "string",
+                    "example": "{{url}}"
+                }
+            }
+        },
         "swagger.NotificationStyleConfigRequest": {
             "type": "object",
             "properties": {
@@ -16798,6 +17078,14 @@ const docTemplate = `{
         "swagger.NotificationStyleRequest": {
             "type": "object",
             "properties": {
+                "dingTalk": {
+                    "description": "DingTalk 是该业务消息类型对应的钉钉消息模板。",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/swagger.NotificationDingTalkTemplateRequest"
+                        }
+                    ]
+                },
                 "icon": {
                     "description": "Icon 是 uView Pro 图标名称。",
                     "type": "string",

@@ -26,6 +26,7 @@
     "check:workflow-form-designer": "node scripts/check-workflow-form-designer.mjs",
     "check:workflow-org-approver": "node scripts/check-workflow-org-approver.mjs",
     "check:workflow-version-history": "node scripts/check-workflow-version-history.mjs",
+    "check:workflow-form-revision": "node scripts/check-workflow-form-revision.mjs",
     "check:scheduled-task": "node scripts/check-scheduled-task.mjs",
     "check:in-app-notification": "node scripts/check-in-app-notification.mjs",
     "check:dict-management": "node scripts/check-dict-management.mjs",
@@ -34,7 +35,7 @@
     "check:question-bank-components": "node scripts/check-question-bank-components.mjs",
     "check:formkit-shared-types": "node scripts/check-formkit-shared-types.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
-    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:admin-ui-contract && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:dingtalk-h5-menu-tree && npm run check:dingtalk-h5-icons && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:workflow-tree && npm run check:workflow-runtime-pages && npm run check:workflow-runtime-form && npm run check:workflow-form-designer && npm run check:workflow-org-approver && npm run check:workflow-version-history && npm run check:scheduled-task && npm run check:in-app-notification && npm run check:dict-management && npm run check:swagger-docs && npm run check:component-complexity && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
+    "check:all": "npm run check:request && npm run check:build-config && npm run check:navigation && npm run check:ui-shell && npm run check:admin-ui-contract && npm run check:route-tabs && npm run check:admin-new-permissions && npm run check:user-list-ui && npm run check:dingtalk-h5-menu-tree && npm run check:dingtalk-h5-icons && npm run check:p2-ui && npm run check:icon-runtime && npm run check:position-management && npm run check:workflow-tree && npm run check:workflow-runtime-pages && npm run check:workflow-runtime-form && npm run check:workflow-form-designer && npm run check:workflow-org-approver && npm run check:workflow-version-history && npm run check:workflow-form-revision && npm run check:scheduled-task && npm run check:in-app-notification && npm run check:dict-management && npm run check:swagger-docs && npm run check:component-complexity && npm run check:question-bank-components && npm run check:formkit-shared-types && npm run build && npm run check:bundle"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.1",

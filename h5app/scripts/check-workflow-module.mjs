@@ -41,6 +41,21 @@ const requiredFiles = [
 
 const requiredContent = [
   {
+    file: 'src/api/workflow.ts',
+    patterns: ['WorkflowOverview', 'getWorkflowOverview', 'get<WorkflowOverview>'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowCenter.vue',
+    patterns: [
+      'getWorkflowOverview',
+      '() => [appContent.currentKey, appContent.refreshTick]',
+      'document.addEventListener(\'visibilitychange\', handleVisibilityChange)',
+      'document.removeEventListener(\'visibilitychange\', handleVisibilityChange)',
+      'void loadCounts()',
+      'await Promise.all([loadCounts(), loadCurrentList()])',
+    ],
+  },
+  {
     file: 'src/common/style.scss',
     patterns: ['--app-pc-content-max-width: 1080px;'],
   },
@@ -62,7 +77,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/index/index.vue',
-    patterns: ['dynamicTabs', ':content-key="tab.key"'],
+    patterns: ['dynamicTabs', ':content-key="tab.key"', 'normalizeWorkflowDynamicContentKey', 'appContent.openDynamicTab({'],
   },
   {
     file: 'src/common/http.interceptor.ts',
@@ -121,7 +136,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/workflow-route-keys.ts',
-    patterns: ['workflowStartContentKey', 'workflowDefinitionIdFromContentKey', 'workflowInstanceContentKey', 'workflowInstanceIdFromContentKey', 'workflowTaskContentKey', 'workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey'],
+    patterns: ['workflowStartContentKey', 'workflowDefinitionIdFromContentKey', 'workflowInstanceContentKey', 'workflowInstanceIdFromContentKey', 'workflowTaskContentKey', 'workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'normalizeWorkflowDynamicContentKey'],
   },
   {
     file: 'src/pages/workflow/workflow.routes.ts',
@@ -581,6 +596,7 @@ const requiredContent = [
 ]
 
 const forbiddenContent = [
+  { file: 'src/pages/workflow/components/WorkflowCenter.vue', patterns: [`listWorkflowTasks({ status: 'pending', page: 1, pageSize: 1 })`] },
   { file: 'src/api/workflow.ts', patterns: ['const WORKFLOW_API = \'/api/v2/workflows\''] },
   { file: 'src/pages/workflow/components/WorkflowCenter.vue', patterns: ['client:api:workflow:'] },
   { file: 'src/pages/workflow/components/WorkflowCenter.vue', patterns: [':loading="definitionsLoading || listLoading || countsLoading"'] },

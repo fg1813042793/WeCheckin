@@ -199,6 +199,10 @@ export interface WorkflowNotificationConfig {
   resultTypes?: WorkflowNotificationResultType[]
 }
 
+export interface WorkflowPostHandleEditConfig {
+  enabled: boolean
+}
+
 export interface WorkflowNode {
   id: string
   type: WorkflowNodeType
@@ -210,6 +214,7 @@ export interface WorkflowNode {
   completionRate?: number
   gatewayMode?: GatewayMode
   formPermissions?: WorkflowFieldPermission[]
+  postHandleEdit?: WorkflowPostHandleEditConfig
   automation?: WorkflowAutomationConfig
   timer?: WorkflowTimerConfig
   initiator?: WorkflowInitiatorConfig
@@ -409,6 +414,7 @@ export type WorkflowNotificationKind
     | 'task_arrived'
     | 'task_reminder'
     | 'instance_commented'
+    | 'instance_form_revised'
     | 'approval_result_approved'
     | 'approval_result_rejected'
     | 'approval_result_returned'

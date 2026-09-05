@@ -809,15 +809,15 @@
 
   将输出保存到任务记录，不写入仓库。确认这些文件没有跨任务未提交改动。
 
-- [ ] **Step 2：独立机械格式化**
+- [x] **Step 2：独立机械格式化**
 
   只对上一步列表执行 `gofmt -w`，不同时修改逻辑。格式化后运行 Backend 全量测试并单独审查 diff。
 
-- [ ] **Step 3：增加门禁**
+- [x] **Step 3：增加门禁**
 
   `check-backend-format.sh` 在 `gofmt -l` 有输出时打印文件列表并退出 1。`verify-local.sh` 在 Backend 测试前运行该脚本；质量门禁测试必须断言此调用存在。
 
-- [ ] **Step 4：验证**
+- [x] **Step 4：验证**
 
   Run:
 
@@ -852,23 +852,23 @@
   go doc ./internal/modules/workflow/infrastructure
   ```
 
-- [ ] **Step 2：拆分 permission service**
+- [x] **Step 2：拆分 permission service**
 
   同包拆为 schema、query、evaluate、sync、cache 等职责文件。禁止趁机修改权限判定优先级、种子数据或缓存失效语义。
 
-- [ ] **Step 3：拆分 workflow application service**
+- [x] **Step 3：拆分 workflow application service**
 
   同包拆为 definition、start、task、instance、notification、quota 等职责文件。保留现有 transaction 闭包和幂等边界。
 
-- [ ] **Step 4：拆分 GORM store**
+- [x] **Step 4：拆分 GORM store**
 
   同包拆为 definition store、runtime state、query、participant、notification、quota。SQL 条件、锁和排序必须由现有测试逐项保护。
 
-- [ ] **Step 5：增加渐进式文件预算**
+- [x] **Step 5：增加渐进式文件预算**
 
   门禁只限制本轮拆分后的三个包，单文件上限设为 700 行；其他存量大文件先记录基线，不因一次整改阻塞全仓库。
 
-- [ ] **Step 6：验证**
+- [x] **Step 6：验证**
 
   Run:
 
@@ -927,7 +927,7 @@
 
   Expected: PASS。该脚本覆盖 Backend、Admin、Frontend；本计划没有修改 H5App，不要求额外运行 H5App 检查。
 
-- [ ] **Step 4：受控环境集成验证**
+- [x] **Step 4：受控环境集成验证**
 
   使用非生产 MySQL/Redis 验证：
 
@@ -938,7 +938,7 @@
   5. CORS wildcard + credentials 的非法组合在启动前被拒绝。
   6. SQL 日志不包含登录 token、配置值或测试口令。
 
-- [ ] **Step 5：交付记录**
+- [x] **Step 5：交付记录**
 
   交付说明逐项列出：
 

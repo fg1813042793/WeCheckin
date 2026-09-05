@@ -18,6 +18,9 @@ func TestWorkflowTaskAdminDeleteMigrationAddsAuditColumnsAndPermission(t *testin
 	}
 	text := string(source)
 	for _, snippet := range []string{
+		"INFORMATION_SCHEMA.COLUMNS",
+		"INFORMATION_SCHEMA.STATISTICS",
+		"PREPARE stmt FROM @ddl",
 		"workflow_process_tasks",
 		"admin_deleted_at",
 		"admin_deleted_by",

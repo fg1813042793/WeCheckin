@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
-	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/internal/model"
+	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
 )
 

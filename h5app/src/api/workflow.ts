@@ -7,9 +7,11 @@ import type {
   WorkflowInstanceQuery,
   WorkflowMutationResult,
   WorkflowOptionSource,
+  WorkflowOverview,
   WorkflowPublishedDefinition,
   WorkflowRemindInstanceRequest,
   WorkflowRemindInstanceResult,
+  WorkflowReviseFormRequest,
   WorkflowSaveStartDraftRequest,
   WorkflowStartDraft,
   WorkflowStartRequest,
@@ -18,12 +20,16 @@ import type {
   WorkflowTaskList,
   WorkflowTaskQuery,
 } from '@/types/workflow'
-import { authToken, buildApiUrl, del, get, post, put, uploadFile } from '@/api/dingtalk-h5/base'
+import { authToken, buildApiUrl, del, get, patch, post, put, uploadFile } from '@/api/dingtalk-h5/base'
 
 const WORKFLOW_API = '/api/v2/dingtalk/h5/workflows'
 
 export function listWorkflowCategories() {
   return get<string[]>(`${WORKFLOW_API}/categories`)
+}
+
+export function getWorkflowOverview() {
+  return get<WorkflowOverview>(`${WORKFLOW_API}/overview`)
 }
 
 export function listWorkflowDefinitions() {
@@ -105,6 +111,13 @@ export function commentWorkflowInstance(id: string, data: WorkflowCommentRequest
 export function remindWorkflowInstance(id: string, data: WorkflowRemindInstanceRequest) {
   return post<WorkflowRemindInstanceResult>(
     `${WORKFLOW_API}/instances/${encodeURIComponent(id)}/reminders`,
+    data,
+  )
+}
+
+export function reviseWorkflowInstanceForm(id: string, data: WorkflowReviseFormRequest) {
+  return patch<WorkflowMutationResult>(
+    `${WORKFLOW_API}/instances/${encodeURIComponent(id)}/form-data`,
     data,
   )
 }

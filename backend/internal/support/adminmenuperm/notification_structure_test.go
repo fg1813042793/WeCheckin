@@ -10,6 +10,7 @@ func TestNotificationMenuDeclarations(t *testing.T) {
 	}{
 		"admin:menu:notification":               {perms: "notification:list", typ: TypeMenu},
 		"admin:menu:notification:list":          {parent: "admin:menu:notification", perms: "notification:list", typ: TypeButton},
+		"admin:menu:notification:delete":        {parent: "admin:menu:notification", perms: "notification:delete", typ: TypeButton},
 		"admin:menu:notification:read":          {parent: "admin:menu:notification", perms: "notification:read", typ: TypeButton},
 		"admin:menu:notification:send":          {parent: "admin:menu:notification", perms: "notification:send", typ: TypeButton},
 		"admin:menu:notification:dingtalk-send": {parent: "admin:menu:notification", perms: "notification:dingtalk:send", typ: TypeButton},

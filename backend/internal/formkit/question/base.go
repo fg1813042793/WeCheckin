@@ -12,9 +12,9 @@ type BaseQuestion struct {
 	Cat string // Category
 }
 
-func (b *BaseQuestion) Type() string                       { return b.T }
-func (b *BaseQuestion) DisplayName() string                { return b.Dis }
-func (b *BaseQuestion) Category() string                   { return b.Cat }
+func (b *BaseQuestion) Type() string                                    { return b.T }
+func (b *BaseQuestion) DisplayName() string                             { return b.Dis }
+func (b *BaseQuestion) Category() string                                { return b.Cat }
 func (b *BaseQuestion) Validate(_ interface{}, _ schema.Question) error { return nil }
 func (b *BaseQuestion) ExtractValue(data map[string]interface{}, q schema.Question) interface{} {
 	if data == nil {

@@ -192,6 +192,21 @@
         </section>
       </template>
 
+      <template v-if="['approval', 'handle'].includes(selectedNode.type)">
+        <section class="inspector-section">
+          <h4>办理后修改</h4>
+          <div class="setting-switch-row">
+            <label class="field-label">办理完成后允许修改表单</label>
+            <el-switch
+              :model-value="selectedNode.postHandleEdit?.enabled === true"
+              :disabled="readonly"
+              @change="updatePostHandleEditEnabled"
+            />
+          </div>
+          <p class="assignee-helper">仅实际办理人且流程仍在运行时可再次修改该节点有写权限的字段；已用于分支判断的字段不可修改。</p>
+        </section>
+      </template>
+
       <template v-if="['approval', 'handle', 'cc', 'notify'].includes(selectedNode.type)">
         <section class="inspector-section notification-section">
           <div class="section-title-row">
@@ -220,7 +235,7 @@
             <label class="field-label">通知渠道</label>
             <el-checkbox-group :model-value="notificationChannels" :disabled="readonly" class="notification-channels" @change="updateNotificationChannels">
               <el-checkbox value="in_app">站内通知</el-checkbox>
-              <el-checkbox value="dingtalk_oa">钉钉 OA</el-checkbox>
+              <el-checkbox value="dingtalk_oa">钉钉通知</el-checkbox>
             </el-checkbox-group>
             <label class="field-label spacing">通知标题</label>
             <el-input
@@ -356,7 +371,7 @@
       <section class="notification-help-section">
         <h3>如何配置</h3>
         <ol class="notification-help-steps">
-          <li>选择站内通知、钉钉 OA，或同时选择两个渠道。</li>
+          <li>选择站内通知、钉钉通知，或同时选择两个渠道。</li>
           <li>在通知标题和通知正文中输入固定文字，并按需插入下方占位符。</li>
           <li>保存并发布流程后，系统会在任务到达或通知节点触发时替换占位符并发送消息。</li>
         </ol>
@@ -387,6 +402,12 @@
           <div><dt>发送标题</dt><dd>{{ notificationExample.renderedTitle }}</dd></div>
           <div><dt>发送正文</dt><dd>{{ notificationExample.renderedContent }}</dd></div>
         </dl>
+      </section>
+
+      <section class="notification-help-section">
+        <h3>与消息样式的关系</h3>
+        <p>流程节点模板会先替换上方占位符；发送钉钉通知时，消息样式中的 <code v-text="'{{title}}'" /> 和 <code v-text="'{{content}}'" /> 再接收替换完成的标题和正文。</p>
+        <p><code v-text="'{{url}}'" /> 根据钉钉企业配置生成当前流程实例的工作台内跳转地址，<code v-text="'{{picUrl}}'" /> 取当前实例绑定的已发布流程定义的 Logo。消息类型和最终排版在“通知管理 / 消息样式”中统一设置。</p>
       </section>
 
       <section class="notification-help-section notification-help-limits">
@@ -445,6 +466,7 @@ const notificationPlaceholderRows = [
   { placeholder: '{{starterName}}', description: '流程业务发起人的显示名称', example: '张三' },
   { placeholder: '{{instanceId}}', description: '当前流程实例 ID', example: 'instance_123' },
   { placeholder: '{{taskId}}', description: '当前审批或办理任务 ID；非任务通知为空', example: 'task_456' },
+  { placeholder: '{{result}}', description: '仅任务处理结果通知可用：通过、驳回或退回', example: '已通过' },
 ]
 const notificationExample = {
   titleTemplate: '{{workflowName}}',
@@ -590,6 +612,13 @@ function updateAssigneeValue(value: string) {
 function updateCompletionRate(value: number | undefined) {
   if (!selectedNode.value) return
   selectedNode.value.completionRate = Number(value || 100)
+  emit('change')
+}
+
+function updatePostHandleEditEnabled(value: string | number | boolean) {
+  if (!selectedNode.value || !['approval', 'handle'].includes(selectedNode.value.type)) return
+  if (Boolean(value)) selectedNode.value.postHandleEdit = { enabled: true }
+  else delete selectedNode.value.postHandleEdit
   emit('change')
 }
 

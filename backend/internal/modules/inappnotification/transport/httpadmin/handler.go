@@ -20,7 +20,8 @@ import (
 type Service interface {
 	Send(context.Context, application.SendInput) (application.SendResult, error)
 	SendDingTalk(context.Context, application.SendInput) (application.SendResult, error)
-	List(context.Context, uint, int, int) (application.NotificationList, error)
+	ListRecords(context.Context, application.NotificationRecordQuery) (application.NotificationList, error)
+	DeleteRecord(context.Context, uint, uint) error
 	UnreadCount(context.Context, uint) (int64, error)
 	MarkRead(context.Context, uint, uint) error
 	MarkAllRead(context.Context, uint) error
@@ -56,21 +57,58 @@ func NewHandler(service Service) *Handler {
 }
 
 // List godoc
-// @Summary 查询当前管理员站内信
-// @Tags Admin站内信
+// @Summary 查询通知投递记录
+// @Tags API v2-后台管理-通知记录
 // @Produce json
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页数量"
+// @Param title query string false "通知标题，模糊匹配"
+// @Param recipientName query string false "接收人用户名，模糊匹配"
+// @Param sourceType query string false "来源类型"
+// @Param type query string false "通知类型"
+// @Param isRead query int false "阅读状态：0未读，1已读"
+// @Param addTimeFrom query int false "发送开始时间，毫秒时间戳"
+// @Param addTimeTo query int false "发送结束时间，毫秒时间戳"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/in-app-notifications [get]
 func (handler *Handler) List(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedAdmin(c); !ok {
+		response.Fail(c, "管理员未登录")
+		return
+	}
+	query, err := notificationRecordQuery(c)
+	if err != nil {
+		response.Fail(c, "通知记录筛选参数格式无效")
+		return
+	}
+	result, err := handler.service.ListRecords(ctx, query)
+	respond(ctx, c, result, err)
+}
+
+// DeleteRecord godoc
+// @Summary 删除通知投递记录
+// @Description 仅从后台通知记录列表中移除，不撤回接收人已经收到的站内信
+// @Tags API v2-后台管理-通知记录
+// @Produce json
+// @Param id path int true "通知记录ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/in-app-notifications/{id} [delete]
+func (handler *Handler) DeleteRecord(ctx context.Context, c *app.RequestContext) {
 	admin, ok := authenticatedAdmin(c)
 	if !ok {
 		response.Fail(c, "管理员未登录")
 		return
 	}
-	result, err := handler.service.List(ctx, admin.ID, queryInt(c, "page"), queryInt(c, "pageSize"))
-	respond(ctx, c, result, err)
+	notificationID, err := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || notificationID == 0 {
+		response.Fail(c, "通知记录ID无效")
+		return
+	}
+	if err := handler.service.DeleteRecord(ctx, admin.ID, uint(notificationID)); err != nil {
+		respond(ctx, c, nil, err)
+		return
+	}
+	response.JSON(c, map[string]uint{"id": uint(notificationID)})
 }
 
 // UnreadCount godoc
@@ -348,6 +386,47 @@ func queryInt(c *app.RequestContext, key string) int {
 	return value
 }
 
+func notificationRecordQuery(c *app.RequestContext) (application.NotificationRecordQuery, error) {
+	isRead, err := optionalQueryInt(c, "isRead")
+	if err != nil {
+		return application.NotificationRecordQuery{}, err
+	}
+	addTimeFrom, err := optionalQueryInt64(c, "addTimeFrom")
+	if err != nil {
+		return application.NotificationRecordQuery{}, err
+	}
+	addTimeTo, err := optionalQueryInt64(c, "addTimeTo")
+	if err != nil {
+		return application.NotificationRecordQuery{}, err
+	}
+	return application.NotificationRecordQuery{
+		Title: c.Query("title"), RecipientName: c.Query("recipientName"),
+		SourceType: c.Query("sourceType"), Type: c.Query("type"), IsRead: isRead,
+		AddTimeFrom: addTimeFrom, AddTimeTo: addTimeTo,
+		Page: queryInt(c, "page"), PageSize: queryInt(c, "pageSize"),
+	}, nil
+}
+
+func optionalQueryInt(c *app.RequestContext, key string) (*int, error) {
+	value := strings.TrimSpace(c.Query(key))
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
+func optionalQueryInt64(c *app.RequestContext, key string) (int64, error) {
+	value := strings.TrimSpace(c.Query(key))
+	if value == "" {
+		return 0, nil
+	}
+	return strconv.ParseInt(value, 10, 64)
+}
+
 func decodeJSONBody(c *app.RequestContext, target interface{}) error {
 	if c == nil || len(c.Request.Body()) == 0 {
 		return errors.New("request body is required")
@@ -397,6 +476,10 @@ func localizedError(err error) string {
 		return "钉钉通知发送通道未初始化"
 	case errors.Is(err, application.ErrInvalidNotificationType):
 		return "消息类型无效"
+	case errors.Is(err, application.ErrInvalidReadStatus):
+		return "阅读状态筛选无效"
+	case errors.Is(err, application.ErrInvalidTimeRange):
+		return "发送时间范围无效"
 	case errors.Is(err, notificationstyle.ErrUnknownType):
 		return "消息样式中包含不支持的消息类型"
 	case errors.Is(err, notificationstyle.ErrDuplicateType):
@@ -407,6 +490,8 @@ func localizedError(err error) string {
 		return "消息样式图标无效"
 	case errors.Is(err, notificationstyle.ErrInvalidTone):
 		return "消息样式色调无效"
+	case errors.Is(err, notificationstyle.ErrInvalidDingTalkTemplate):
+		return "钉钉消息模板配置无效"
 	default:
 		return ""
 	}

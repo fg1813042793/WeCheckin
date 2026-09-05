@@ -141,16 +141,16 @@ func ToCSV(t Table) []byte {
 
 // FieldStat 单字段统计
 type FieldStat struct {
-	QuestionID  string                   `json:"questionId"`
-	Title       string                   `json:"title"`
-	Type        string                   `json:"type"`
-	TotalCount  int                      `json:"totalCount"`
-	NonEmpty    int                      `json:"nonEmpty"`
-	Empty       int                      `json:"empty"`
-	Dist        map[string]int           `json:"dist,omitempty"`        // 字符串/数值 答案 → 次数
-	NumericStat *NumericStat             `json:"numericStat,omitempty"` // 仅数字
-	TableData   [][]string               `json:"tableData,omitempty"`   // 矩阵填空/表格自增的明细
-	TableCols   []string                 `json:"tableCols,omitempty"`   // 列标题
+	QuestionID  string         `json:"questionId"`
+	Title       string         `json:"title"`
+	Type        string         `json:"type"`
+	TotalCount  int            `json:"totalCount"`
+	NonEmpty    int            `json:"nonEmpty"`
+	Empty       int            `json:"empty"`
+	Dist        map[string]int `json:"dist,omitempty"`        // 字符串/数值 答案 → 次数
+	NumericStat *NumericStat   `json:"numericStat,omitempty"` // 仅数字
+	TableData   [][]string     `json:"tableData,omitempty"`   // 矩阵填空/表格自增的明细
+	TableCols   []string       `json:"tableCols,omitempty"`   // 列标题
 }
 
 // NumericStat 数字统计
@@ -479,6 +479,7 @@ func StringPtr(s string) *string { return &s }
 
 // fmtInt 辅助：整数转字符串
 func fmtInt(n int) string { return fmt.Sprintf("%d", n) }
+
 var _ = fmtInt
 
 // parseRawQuestions 解析 schema JSON 为 questionId → 原始 question map

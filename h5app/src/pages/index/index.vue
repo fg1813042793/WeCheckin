@@ -7,6 +7,13 @@ import AppAuthGuard from '@/components/app-auth-guard/app-auth-guard.vue'
 import AppShell from '@/components/app-shell/app-shell.vue'
 import { resolveAppContentComponent } from '@/config/app-content-routes'
 import { appPageTitle, useRegisteredAppPages } from '@/config/app-navigation'
+import {
+  normalizeWorkflowDynamicContentKey,
+  workflowDefinitionIdFromContentKey,
+  workflowFormRevisionInstanceIdFromContentKey,
+  workflowInstanceIdFromContentKey,
+  workflowTaskIdFromContentKey,
+} from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 
 const auth = useDingtalkAuthStore()
@@ -41,14 +48,40 @@ function routeViewKey(value: unknown) {
     return ''
   }
   const matchedPage = registeredPages.find(page => page.key === rawView || page.contentKey === rawView)
-  return matchedPage?.key || ''
+  return matchedPage?.key || normalizeWorkflowDynamicContentKey(rawView)
+}
+
+function openWorkflowRouteTab(key: string) {
+  const definitionId = workflowDefinitionIdFromContentKey(key)
+  const instanceId = workflowInstanceIdFromContentKey(key)
+  const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
+  const taskId = workflowTaskIdFromContentKey(key)
+  if (!definitionId && !instanceId && !revisionInstanceId && !taskId)
+    return false
+
+  const label = definitionId
+    ? '发起审批'
+    : revisionInstanceId
+      ? '修改表单'
+      : taskId
+        ? '流程办理'
+        : '流程详情'
+  const icon = definitionId ? 'add-circle' : revisionInstanceId ? 'edit-pen' : taskId ? 'checkmark-circle' : 'eye'
+  appContent.openDynamicTab({
+    key,
+    label,
+    icon,
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+  })
+  return true
 }
 
 function applyRouteQuery(query: Record<string, unknown> = {}) {
   const viewKey = routeViewKey(query.view || query.key || query.page)
   const reviewId = firstRouteValue(query.reviewId || query.review_id || query.id)
   if (viewKey) {
-    appContent.switchContent(viewKey, reviewId)
+    if (!openWorkflowRouteTab(viewKey))
+      appContent.switchContent(viewKey, reviewId)
     return
   }
   if (reviewId) {

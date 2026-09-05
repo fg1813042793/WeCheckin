@@ -23,6 +23,7 @@ const adminPkg = readJson('admin/package.json')
 const frontendPkg = readJson('frontend/package.json')
 const rootPkg = readJson('package.json')
 const verifyLocal = readFileSync(resolve(rootDir, 'scripts/verify-local.sh'), 'utf8')
+const backendFormatScript = readFileSync(resolve(rootDir, 'scripts/check-backend-format.sh'), 'utf8')
 const checkScript = readFileSync(resolve(rootDir, 'scripts/check.sh'), 'utf8')
 const maintenanceDoc = readFileSync(resolve(rootDir, 'docs/project-maintenance.md'), 'utf8')
 const performanceReadme = readFileSync(resolve(rootDir, 'docs/performance/README.md'), 'utf8')
@@ -60,12 +61,22 @@ requireScript(rootPkg, 'check:performance', 'check-performance.mjs', 'root')
 
 for (const snippet of [
   'node scripts/check-quality-gates.mjs',
+  'bash "$ROOT_DIR/scripts/check-backend-format.sh"',
   'cd "$ROOT_DIR/backend"',
   'go test ./...',
   'npm run check:all',
 ]) {
   if (!verifyLocal.includes(snippet)) {
     throw new Error(`scripts/verify-local.sh must include: ${snippet}`)
+  }
+}
+
+for (const snippet of [
+  'gofmt -l cmd internal pkg test',
+  'Backend Go files are not formatted',
+]) {
+  if (!backendFormatScript.includes(snippet)) {
+    throw new Error(`scripts/check-backend-format.sh must include: ${snippet}`)
   }
 }
 

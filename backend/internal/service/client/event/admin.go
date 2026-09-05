@@ -8,10 +8,10 @@ import (
 
 	"gorm.io/gorm"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/support/query"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 

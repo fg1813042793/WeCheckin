@@ -53,6 +53,7 @@
     "check:app-branding": "node scripts/check-app-branding.mjs",
     "check:ui-style": "node scripts/check-ui-style-guidelines.mjs",
     "check:workflow-module": "node scripts/check-workflow-module.mjs",
+    "check:workflow-form-revision": "node scripts/check-workflow-form-revision.mjs",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

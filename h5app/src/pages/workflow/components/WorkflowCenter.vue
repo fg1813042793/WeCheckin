@@ -5,9 +5,10 @@ import type {
   WorkflowPublishedDefinition,
   WorkflowTaskSummary,
 } from '@/types/workflow'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   getWorkflowInstance,
+  getWorkflowOverview,
   listWorkflowCategories,
   listWorkflowDefinitions,
   listWorkflowInstances,
@@ -53,6 +54,7 @@ const definitionsLoading = ref(false)
 const categoriesLoading = ref(false)
 const listLoading = ref(false)
 const countsLoading = ref(false)
+let countsRefreshQueued = false
 const keyword = ref('')
 const selectedCategory = ref<WorkflowCategory>('all')
 const workflowListTabs: WorkflowListTab[] = ['pending', 'handled', 'started', 'copied']
@@ -263,7 +265,7 @@ const recordRows = computed(() => {
 })
 
 watch(
-  () => appContent.refreshTick,
+  () => [appContent.currentKey, appContent.refreshTick],
   () => {
     if (appContent.currentKey === 'workflow')
       void refreshAll()
@@ -279,6 +281,9 @@ watch(
 )
 
 onMounted(() => {
+  // #ifdef H5
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  // #endif
   const focusedTabOpened = openFocusedWorkflowTab()
   if (!focusedTabOpened)
     activeTab.value = defaultWorkflowTab()
@@ -286,6 +291,19 @@ onMounted(() => {
   openFocusedWorkflowInstance()
   void refreshAll()
 })
+
+onBeforeUnmount(() => {
+  // #ifdef H5
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  // #endif
+})
+
+function handleVisibilityChange() {
+  // #ifdef H5
+  if (document.visibilityState === 'visible' && appContent.currentKey === 'workflow')
+    void loadCounts()
+  // #endif
+}
 
 function defaultWorkflowTab(): WorkflowCenterTab {
   if (canStart.value)
@@ -355,20 +373,29 @@ async function loadWorkflowCategories() {
 }
 
 async function loadCounts() {
-  if (!hasViewPermission.value || countsLoading.value)
+  if (!hasViewPermission.value)
     return
+  if (countsLoading.value) {
+    countsRefreshQueued = true
+    return
+  }
   countsLoading.value = true
   try {
-    const [pending, handled, started, copied] = await Promise.all([
-      listWorkflowTasks({ status: 'pending', page: 1, pageSize: 1 }),
-      listWorkflowInstances({ scope: 'handled', page: 1, pageSize: 1 }),
-      listWorkflowInstances({ scope: 'started', page: 1, pageSize: 1 }),
-      listWorkflowInstances({ scope: 'copied', page: 1, pageSize: 1 }),
-    ])
-    counts.pending = Number(pending?.data?.total || 0)
-    counts.handled = Number(handled?.data?.total || 0)
-    counts.started = Number(started?.data?.total || 0)
-    counts.copied = Number(copied?.data?.total || 0)
+    do {
+      countsRefreshQueued = false
+      try {
+        const response = await getWorkflowOverview()
+        if (!response?.data)
+          continue
+        counts.pending = Number(response.data.pending || 0)
+        counts.handled = Number(response.data.handled || 0)
+        counts.started = Number(response.data.started || 0)
+        counts.copied = Number(response.data.copied || 0)
+      }
+      catch {
+        // 请求层已统一反馈网络和接口错误，保留最近一次有效统计。
+      }
+    } while (countsRefreshQueued)
   }
   finally {
     countsLoading.value = false
@@ -441,6 +468,8 @@ async function loadTaskInstances(list: WorkflowTaskSummary[]) {
 }
 
 function switchTab(tab: WorkflowCenterTab) {
+  if (workflowListTabs.includes(tab as WorkflowListTab))
+    void loadCounts()
   if (tab === activeTab.value)
     return
   activeTab.value = tab
@@ -958,6 +987,7 @@ function activeListTitle() {
       :definitions="definitions"
       presentation="history-drawer"
       :application-actions="activeTab === 'started'"
+      :form-revision-action="activeTab === 'handled'"
       comment-action
       @changed="handleDetailChanged"
     />

@@ -324,6 +324,7 @@ type Node struct {
 	CompletionRate          int                            `json:"completionRate,omitempty"`
 	GatewayMode             string                         `json:"gatewayMode,omitempty"`
 	FormPermissions         []FieldPermission              `json:"formPermissions,omitempty"`
+	PostHandleEdit          *PostHandleEditConfig          `json:"postHandleEdit,omitempty"`
 	Automation              *AutomationConfig              `json:"automation,omitempty"`
 	Timer                   *TimerConfig                   `json:"timer,omitempty"`
 	Notification            *NotificationConfig            `json:"notification,omitempty"`
@@ -331,6 +332,10 @@ type Node struct {
 	Initiator               *InitiatorConfig               `json:"initiator,omitempty"`
 	Availability            *StartAvailabilityConfig       `json:"availability,omitempty"`
 	StartLimit              *StartLimitConfig              `json:"startLimit,omitempty"`
+}
+
+type PostHandleEditConfig struct {
+	Enabled bool `json:"enabled"`
 }
 
 type NotificationConfig struct {

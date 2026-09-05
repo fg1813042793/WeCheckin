@@ -55,7 +55,8 @@ INSERT INTO `departments` (`dept_name`, `dept_parent_id`, `dept_sort`, `dept_sta
 SELECT DISTINCT t.`dept_l1`, @mishi_dept_id, 10, 1, @seed_now_ms, @seed_now_ms, '127.0.0.1', '127.0.0.1', NOW(), NOW()
 FROM `tmp_mishi_user_seed` t
 LEFT JOIN `departments` existing
-  ON existing.`dept_name` = t.`dept_l1`
+  ON CAST(existing.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l1` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND existing.`dept_parent_id` = @mishi_dept_id
 WHERE t.`dept_l1` <> ''
   AND existing.`id` IS NULL;
@@ -64,10 +65,12 @@ INSERT INTO `departments` (`dept_name`, `dept_parent_id`, `dept_sort`, `dept_sta
 SELECT DISTINCT t.`dept_l2`, p1.`id`, 20, 1, @seed_now_ms, @seed_now_ms, '127.0.0.1', '127.0.0.1', NOW(), NOW()
 FROM `tmp_mishi_user_seed` t
 JOIN `departments` p1
-  ON p1.`dept_name` = t.`dept_l1`
+  ON CAST(p1.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l1` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND p1.`dept_parent_id` = @mishi_dept_id
 LEFT JOIN `departments` existing
-  ON existing.`dept_name` = t.`dept_l2`
+  ON CAST(existing.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l2` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND existing.`dept_parent_id` = p1.`id`
 WHERE t.`dept_l2` <> ''
   AND existing.`id` IS NULL;
@@ -76,13 +79,16 @@ INSERT INTO `departments` (`dept_name`, `dept_parent_id`, `dept_sort`, `dept_sta
 SELECT DISTINCT t.`dept_l3`, p2.`id`, 30, 1, @seed_now_ms, @seed_now_ms, '127.0.0.1', '127.0.0.1', NOW(), NOW()
 FROM `tmp_mishi_user_seed` t
 JOIN `departments` p1
-  ON p1.`dept_name` = t.`dept_l1`
+  ON CAST(p1.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l1` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND p1.`dept_parent_id` = @mishi_dept_id
 JOIN `departments` p2
-  ON p2.`dept_name` = t.`dept_l2`
+  ON CAST(p2.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l2` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND p2.`dept_parent_id` = p1.`id`
 LEFT JOIN `departments` existing
-  ON existing.`dept_name` = t.`dept_l3`
+  ON CAST(existing.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l3` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND existing.`dept_parent_id` = p2.`id`
 WHERE t.`dept_l3` <> ''
   AND existing.`id` IS NULL;
@@ -140,17 +146,21 @@ SELECT
   NOW()
 FROM `tmp_mishi_user_seed` t
 JOIN `users` u
-  ON u.`user_mini_openid` = t.`mini_openid`
+  ON CAST(u.`user_mini_openid` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`mini_openid` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
 JOIN `departments` d1
-  ON d1.`dept_name` = t.`dept_l1`
+  ON CAST(d1.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l1` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND d1.`dept_parent_id` = @mishi_dept_id
 LEFT JOIN `departments` d2
   ON t.`dept_l2` <> ''
-  AND d2.`dept_name` = t.`dept_l2`
+  AND CAST(d2.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l2` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND d2.`dept_parent_id` = d1.`id`
 LEFT JOIN `departments` d3
   ON t.`dept_l3` <> ''
-  AND d3.`dept_name` = t.`dept_l3`
+  AND CAST(d3.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+    = CAST(t.`dept_l3` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
   AND d3.`dept_parent_id` = d2.`id`
 LEFT JOIN `user_depts` existing
   ON existing.`user_dept_user_id` = u.`id`

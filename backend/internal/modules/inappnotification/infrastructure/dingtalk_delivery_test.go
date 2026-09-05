@@ -8,6 +8,7 @@ import (
 
 	"wecheckin/backend/internal/modules/inappnotification/application"
 	configsvc "wecheckin/backend/internal/service/dingtalkh5/config"
+	"wecheckin/backend/internal/support/notificationstyle"
 )
 
 func TestDingTalkDeliveryGroupsRecipientsByCorpAndKeepsPartialFailures(t *testing.T) {
@@ -49,9 +50,46 @@ func TestDingTalkManualPayloadIncludesTitleInTextMode(t *testing.T) {
 	}
 }
 
+func TestDingTalkDeliveryAppliesConfiguredTemplateForNotificationType(t *testing.T) {
+	resolver := &dingTalkTargetResolverStub{resolution: dingTalkTargetResolution{Targets: []dingTalkNotificationTarget{{
+		LocalUserID: 4, DingTalkUserID: "ding-4", Config: configsvc.DingTalkH5CorpConfig{CorpID: "corp-a", AppURL: "https://example.test/app"},
+	}}}}
+	client := &dingTalkClientStub{}
+	delivery := newDingTalkDelivery(client, resolver)
+	delivery.styleLoader = &dingTalkStyleLoaderStub{config: notificationstyle.Config{Styles: []notificationstyle.Style{{
+		Type: notificationstyle.TypeTaskReminder, Label: "处理提醒", Icon: "bell", Tone: notificationstyle.ToneWarning,
+		DingTalk: notificationstyle.DingTalkTemplate{
+			MessageType: notificationstyle.DingTalkMessageTypeMarkdown,
+			Title:       "【提醒】{{title}}", Content: "## {{title}}\n{{content}}",
+		},
+	}}}}
+
+	_, err := delivery.DeliverDingTalk(context.Background(), application.DingTalkDeliveryBatch{
+		Title: "请审批", Content: "单据已到达", NotificationType: notificationstyle.TypeTaskReminder, UserIDs: []uint{4},
+	})
+	if err != nil {
+		t.Fatalf("DeliverDingTalk() error = %v", err)
+	}
+	if len(client.calls) != 1 {
+		t.Fatalf("client calls = %d", len(client.calls))
+	}
+	payload := client.calls[0].payload
+	if payload.MessageType != configsvc.DingTalkMessageTypeMarkdown || payload.Title != "【提醒】请审批" || payload.Content != "## 请审批\n单据已到达" {
+		t.Fatalf("templated payload = %#v", payload)
+	}
+}
+
 type dingTalkTargetResolverStub struct {
 	resolution dingTalkTargetResolution
 	err        error
+}
+
+type dingTalkStyleLoaderStub struct {
+	config notificationstyle.Config
+}
+
+func (stub *dingTalkStyleLoaderStub) NotificationStyles(context.Context) (notificationstyle.Config, error) {
+	return stub.config, nil
 }
 
 func (stub *dingTalkTargetResolverStub) ResolveTargets(context.Context, []uint) (dingTalkTargetResolution, error) {

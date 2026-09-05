@@ -74,22 +74,42 @@ func TestSendDingTalkUsesManualDingTalkSource(t *testing.T) {
 	}
 }
 
-func TestListAndMarkReadUseAuthenticatedAdminUser(t *testing.T) {
+func TestListUsesRecordFiltersAndMarkReadUsesAuthenticatedAdminUser(t *testing.T) {
 	service := &serviceStub{listResult: application.NotificationList{Total: 1}}
 	handler := NewHandler(service)
 	listContext := newAdminContext(66)
-	listContext.Request.SetRequestURI("/api/v2/admin/in-app-notifications?page=2&pageSize=15&userId=999")
+	listContext.Request.SetRequestURI("/api/v2/admin/in-app-notifications?page=2&pageSize=15&title=%E7%B3%BB%E7%BB%9F&recipientName=%E5%BC%A0%E4%B8%89&sourceType=workflow&type=task_arrived&isRead=0&addTimeFrom=100&addTimeTo=200")
 
 	handler.List(context.Background(), listContext)
 
-	if service.listUserID != 66 || service.listPage != 2 || service.listPageSize != 15 {
-		t.Fatalf("list query user=%d page=%d pageSize=%d", service.listUserID, service.listPage, service.listPageSize)
+	if service.listQuery.Title != "系统" || service.listQuery.RecipientName != "张三" ||
+		service.listQuery.SourceType != "workflow" || service.listQuery.Type != "task_arrived" ||
+		service.listQuery.IsRead == nil || *service.listQuery.IsRead != 0 ||
+		service.listQuery.AddTimeFrom != 100 || service.listQuery.AddTimeTo != 200 ||
+		service.listQuery.Page != 2 || service.listQuery.PageSize != 15 {
+		t.Fatalf("list query = %#v", service.listQuery)
 	}
 	readContext := newAdminContext(66)
 	readContext.Params = append(readContext.Params, param.Param{Key: "id", Value: "7"})
 	handler.MarkRead(context.Background(), readContext)
 	if service.markReadUserID != 66 || service.markReadID != 7 {
 		t.Fatalf("mark read user=%d id=%d", service.markReadUserID, service.markReadID)
+	}
+}
+
+func TestDeleteRecordUsesPathIDAndAuthenticatedAdmin(t *testing.T) {
+	service := &serviceStub{}
+	handler := NewHandler(service)
+	c := newAdminContext(66)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "7"})
+
+	handler.DeleteRecord(context.Background(), c)
+
+	if service.deleteRecordAdminID != 66 || service.deleteRecordID != 7 {
+		t.Fatalf("delete record admin=%d id=%d", service.deleteRecordAdminID, service.deleteRecordID)
+	}
+	if !strings.Contains(string(c.Response.Body()), `"id":7`) {
+		t.Fatalf("response = %s", c.Response.Body())
 	}
 }
 
@@ -181,22 +201,22 @@ func TestSendStyleTestRejectsEmptyOriginalTitle(t *testing.T) {
 }
 
 type serviceStub struct {
-	sendInput          application.SendInput
-	sendResult         application.SendResult
-	sendCalls          int
-	dingTalkSendInput  application.SendInput
-	dingTalkSendResult application.SendResult
-	dingTalkSendCalls  int
-	listResult         application.NotificationList
-	listUserID         uint
-	listPage           int
-	listPageSize       int
-	markReadUserID     uint
-	markReadID         uint
-	styles             notificationstyle.Config
-	savedStyles        notificationstyle.Config
-	styleReadCalls     int
-	styleSaveCalls     int
+	sendInput           application.SendInput
+	sendResult          application.SendResult
+	sendCalls           int
+	dingTalkSendInput   application.SendInput
+	dingTalkSendResult  application.SendResult
+	dingTalkSendCalls   int
+	listResult          application.NotificationList
+	listQuery           application.NotificationRecordQuery
+	markReadUserID      uint
+	markReadID          uint
+	deleteRecordAdminID uint
+	deleteRecordID      uint
+	styles              notificationstyle.Config
+	savedStyles         notificationstyle.Config
+	styleReadCalls      int
+	styleSaveCalls      int
 }
 
 func (stub *serviceStub) Send(_ context.Context, input application.SendInput) (application.SendResult, error) {
@@ -211,11 +231,15 @@ func (stub *serviceStub) SendDingTalk(_ context.Context, input application.SendI
 	return stub.dingTalkSendResult, nil
 }
 
-func (stub *serviceStub) List(_ context.Context, userID uint, page, pageSize int) (application.NotificationList, error) {
-	stub.listUserID = userID
-	stub.listPage = page
-	stub.listPageSize = pageSize
+func (stub *serviceStub) ListRecords(_ context.Context, query application.NotificationRecordQuery) (application.NotificationList, error) {
+	stub.listQuery = query
 	return stub.listResult, nil
+}
+
+func (stub *serviceStub) DeleteRecord(_ context.Context, adminID, notificationID uint) error {
+	stub.deleteRecordAdminID = adminID
+	stub.deleteRecordID = notificationID
+	return nil
 }
 
 func (stub *serviceStub) UnreadCount(context.Context, uint) (int64, error) { return 0, nil }

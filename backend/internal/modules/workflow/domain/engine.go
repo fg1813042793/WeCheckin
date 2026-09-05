@@ -63,7 +63,7 @@ func (engine *Engine) Start(ctx context.Context, definition workflowcore.Definit
 			DefinitionVersion: request.DefinitionVersion, DefinitionKey: definition.Key,
 			BusinessType: request.BusinessType, BusinessKey: request.BusinessKey,
 			StarterID: request.StarterID, OperatorID: request.OperatorID, Status: InstanceStatusRunning,
-			StartTime: request.StartTime,
+			StartTime: request.StartTime, FormRevision: 1,
 		},
 		Variables: cloneVariables(request.Variables),
 		FormData:  cloneVariables(request.FormData),

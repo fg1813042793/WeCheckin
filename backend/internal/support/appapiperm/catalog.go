@@ -204,8 +204,9 @@ func DingTalkH5APIDeclarations() []Declaration {
 		dingtalkAPI("dingtalk_h5:api:workflow:delete", "OA 流程申请删除接口", "workflow:delete", "dingtalk_h5:api-category:workflow", "DELETE", "/api/v2/dingtalk/h5/workflows/instances/:id", 50),
 		dingtalkAPI("dingtalk_h5:api:workflow:comment", "OA 流程评论接口", "workflow:comment", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/instances/:id/comments", 60),
 		dingtalkAPI("dingtalk_h5:api:workflow:remind", "OA 流程催办接口", "workflow:remind", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/instances/:id/reminders", 70),
-		dingtalkAPI("dingtalk_h5:api:workflow:summary", "OA 流程汇总接口", "workflow:summary", "dingtalk_h5:api-category:workflow", "GET", "/api/v2/dingtalk/h5/workflows/summary/instances", 80),
-		dingtalkAPI("dingtalk_h5:api:workflow:export", "OA 流程汇总导出接口", "workflow:export", "dingtalk_h5:api-category:workflow", "GET", "/api/v2/dingtalk/h5/workflows/summary/export", 90),
+		dingtalkAPI("dingtalk_h5:api:workflow:form-revise", "OA 流程表单修改接口", "workflow:form-revise", "dingtalk_h5:api-category:workflow", "PATCH", "/api/v2/dingtalk/h5/workflows/instances/:id/form-data", 80),
+		dingtalkAPI("dingtalk_h5:api:workflow:summary", "OA 流程汇总接口", "workflow:summary", "dingtalk_h5:api-category:workflow", "GET", "/api/v2/dingtalk/h5/workflows/summary/instances", 90),
+		dingtalkAPI("dingtalk_h5:api:workflow:export", "OA 流程汇总导出接口", "workflow:export", "dingtalk_h5:api-category:workflow", "GET", "/api/v2/dingtalk/h5/workflows/summary/export", 100),
 	}
 }
 
@@ -219,6 +220,7 @@ func DingTalkH5RouteDeclarations() []RouteDeclaration {
 		})
 	}
 	routes = append(routes,
+		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/overview", PermissionKey: "dingtalk_h5:api:workflow:view"},
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/categories", PermissionKey: "dingtalk_h5:api:workflow:view"},
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/definitions", PermissionKey: "dingtalk_h5:api:workflow:view"},
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/definitions/:id", PermissionKey: "dingtalk_h5:api:workflow:view"},

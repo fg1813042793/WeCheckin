@@ -888,6 +888,27 @@ func TestUserScopedQueriesCannotOverrideActor(t *testing.T) {
 	}
 }
 
+func TestGetMyOverviewUsesAuthenticatedActor(t *testing.T) {
+	want := WorkflowOverview{Pending: 3, Handled: 5, Started: 7, Copied: 11}
+	store := &fakeStore{workflowOverview: want}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+
+	got, err := service.GetMyOverview(context.Background(), " 7 ")
+	if err != nil {
+		t.Fatalf("GetMyOverview() error = %v", err)
+	}
+	if got == nil || *got != want {
+		t.Fatalf("GetMyOverview() = %#v, want %#v", got, want)
+	}
+	if store.workflowOverviewActorID != "7" {
+		t.Fatalf("overview actor = %q, want 7", store.workflowOverviewActorID)
+	}
+
+	if _, err := service.GetMyOverview(context.Background(), " "); !errors.Is(err, ErrActorRequired) {
+		t.Fatalf("empty actor error = %v, want ErrActorRequired", err)
+	}
+}
+
 func TestStartInstancePersistsRuntimeEffectsInSameTransaction(t *testing.T) {
 	definition := simpleDefinition()
 	definition.Nodes[1].Notification = &workflowcore.NotificationConfig{
@@ -1711,6 +1732,8 @@ type fakeStore struct {
 	startQuotaCountStarter        string
 	startQuotaCountWindow         workflowcore.StartLimitWindow
 	startQuotaConsumeCalls        int
+	workflowOverview              WorkflowOverview
+	workflowOverviewActorID       string
 }
 
 func (store *fakeStore) InTransaction(_ context.Context, fn func(TransactionStore) error) error {
@@ -1892,6 +1915,12 @@ func (store *fakeStore) HasParticipant(_ context.Context, _, userID, role string
 func (store *fakeStore) ListTasks(_ context.Context, query TaskQuery) (*TaskList, error) {
 	store.taskQuery = query
 	return &TaskList{}, nil
+}
+
+func (store *fakeStore) GetWorkflowOverview(_ context.Context, actorID string) (*WorkflowOverview, error) {
+	store.workflowOverviewActorID = actorID
+	result := store.workflowOverview
+	return &result, nil
 }
 
 type fixedResolver []string

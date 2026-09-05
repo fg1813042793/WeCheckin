@@ -36,7 +36,10 @@ type schemaMigration struct {
 func (schemaMigration) TableName() string { return "schema_migrations" }
 
 var appliedMigrationChecksumRepairAllowlist = map[string]string{
+	"20260727174000_seed_mishi_org_users":                 "b559652f583b1e7d8e41fc72135234b7e97e5ffa32044d8646120caac0016aa9",
 	"20260731162000_add_dingtalk_h5_review_scope_indexes": "2385c26de9616e0fb26ebeb7d617f827711d285e8a466a5658895765261f51ec",
+	"20260901140000_add_workflow_definition_logo":         "28622beda1bdd9f21756b7e6285dd89e745774babcb7219937db9ccb59e4ad96",
+	"20260903133000_add_workflow_task_admin_delete":       "aff5bec2c37ba63e9d9fe876739098dced70c9e7b04722c881c09f8b02aaf0d7",
 }
 
 func isAppliedMigrationChecksumRepairAllowed(version, checksum string) bool {

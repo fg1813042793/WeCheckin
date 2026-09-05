@@ -19,17 +19,17 @@ func Init(logDir, level string, maxAge int, compress bool) error {
 	}
 
 	accessLog := &lumberjack.Logger{
-		Filename:   filepath.Join(logDir, fmt.Sprintf("access-%s.log", time.Now().Format("2006-01-02"))),
-		MaxAge:     maxAge,
-		Compress:   compress,
-		LocalTime:  true,
+		Filename:  filepath.Join(logDir, fmt.Sprintf("access-%s.log", time.Now().Format("2006-01-02"))),
+		MaxAge:    maxAge,
+		Compress:  compress,
+		LocalTime: true,
 	}
 
 	errorLog := &lumberjack.Logger{
-		Filename:   filepath.Join(logDir, fmt.Sprintf("error-%s.log", time.Now().Format("2006-01-02"))),
-		MaxAge:     maxAge,
-		Compress:   compress,
-		LocalTime:  true,
+		Filename:  filepath.Join(logDir, fmt.Sprintf("error-%s.log", time.Now().Format("2006-01-02"))),
+		MaxAge:    maxAge,
+		Compress:  compress,
+		LocalTime: true,
 	}
 
 	Logger = log.New(io.MultiWriter(os.Stdout, accessLog), "", log.LstdFlags|log.Lshortfile)

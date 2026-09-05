@@ -1,6 +1,7 @@
 const workflowStartPrefix = 'workflow:start:'
 const workflowInstancePrefix = 'workflow:instance:'
 const workflowTaskPrefix = 'workflow:task:'
+const workflowFormRevisionPrefix = 'workflow:form-revision:'
 const workflowTaskInstanceSeparator = ':instance:'
 
 export function workflowStartContentKey(definitionId: number) {
@@ -27,6 +28,19 @@ export function workflowInstanceIdFromContentKey(key: string) {
   return decodeWorkflowRouteValue(key.slice(workflowInstancePrefix.length))
 }
 
+export function workflowFormRevisionContentKey(instanceId: string) {
+  const normalizedInstanceId = String(instanceId || '').trim()
+  return normalizedInstanceId
+    ? `${workflowFormRevisionPrefix}${encodeURIComponent(normalizedInstanceId)}`
+    : ''
+}
+
+export function workflowFormRevisionInstanceIdFromContentKey(key: string) {
+  if (!key.startsWith(workflowFormRevisionPrefix))
+    return ''
+  return decodeWorkflowRouteValue(key.slice(workflowFormRevisionPrefix.length))
+}
+
 export function workflowTaskContentKey(taskId: string, instanceId: string) {
   const normalizedTaskId = String(taskId || '').trim()
   const normalizedInstanceId = String(instanceId || '').trim()
@@ -43,6 +57,27 @@ export function workflowTaskIdFromContentKey(key: string) {
 export function workflowTaskInstanceIdFromContentKey(key: string) {
   const payload = workflowTaskPayloadFromContentKey(key)
   return payload ? decodeWorkflowRouteValue(payload.instanceId) : ''
+}
+
+export function normalizeWorkflowDynamicContentKey(key: string) {
+  const definitionId = workflowDefinitionIdFromContentKey(key)
+  if (definitionId > 0)
+    return workflowStartContentKey(definitionId)
+
+  const instanceId = workflowInstanceIdFromContentKey(key)
+  if (instanceId)
+    return workflowInstanceContentKey(instanceId)
+
+  const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
+  if (revisionInstanceId)
+    return workflowFormRevisionContentKey(revisionInstanceId)
+
+  const taskId = workflowTaskIdFromContentKey(key)
+  const taskInstanceId = workflowTaskInstanceIdFromContentKey(key)
+  if (taskId && taskInstanceId)
+    return workflowTaskContentKey(taskId, taskInstanceId)
+
+  return ''
 }
 
 function workflowTaskPayloadFromContentKey(key: string) {

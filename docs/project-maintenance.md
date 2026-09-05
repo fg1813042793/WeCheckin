@@ -39,7 +39,8 @@
 
 后续做功能或 UI 调整时，建议按影响范围执行下面的检查：
 
-- 后端：在 `backend` 目录执行 `GOCACHE=$PWD/../.cache/go-build go test ./...`
+- 后端格式：在项目根目录执行 `bash scripts/check-backend-format.sh`
+- 后端测试：在 `backend` 目录执行 `GOCACHE=$PWD/../.cache/go-build go test ./...`
 - 管理后台：在 `admin` 目录执行 `npm run check:all`
 - 客户端：在 `frontend` 目录执行 `npm run check:all`
 - 全量本地复核：在项目根目录执行 `bash scripts/verify-local.sh`
@@ -51,7 +52,7 @@
 - 部署配置检查：覆盖 Docker Compose、Nginx `/api/v2` 代理、日志轮转、备份恢复脚本和部署文档关键片段。
 - 管理后台请求封装、API v2 迁移、构建配置、导航、基础 UI 壳、用户列表、P2 UI、图标运行时、题库组件拆分、共享 FormKit 类型、生产构建与 bundle 预算。
 - 客户端配置、API v2 迁移、请求封装、生产调试日志、认证工具、表单逻辑、固定搜索区和搜索输入样式检查。
-- 后端全包单元测试与结构保护测试。
+- 后端 `gofmt` 检查、全包单元测试与结构保护测试。
 
 注意：这些命令只能覆盖代码结构、构建和静态检查；问卷设计器、考试设计器、题库可视化编辑等复杂交互仍需要人工在浏览器中确认。
 

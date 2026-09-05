@@ -47,7 +47,6 @@ func autoMigrate(enableExam bool) error {
 		&model.EnrollJoin{},
 		&model.EnrollUser{},
 		&model.Favorite{},
-		&model.Admin{},
 		&model.Log{},
 		&model.Setup{},
 		&model.Role{},

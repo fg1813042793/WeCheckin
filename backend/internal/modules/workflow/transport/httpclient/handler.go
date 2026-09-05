@@ -30,7 +30,9 @@ type RuntimeService interface {
 	WithdrawInstance(context.Context, workflowapp.WithdrawInstanceRequest) (*workflowdomain.State, error)
 	CommentInstance(context.Context, workflowapp.CommentInstanceRequest) error
 	RemindInstance(context.Context, workflowapp.RemindInstanceRequest) (*workflowapp.RemindInstanceResult, error)
+	ReviseInstanceForm(context.Context, workflowapp.ReviseInstanceFormRequest) (*workflowdomain.State, error)
 	DeleteMyInstance(context.Context, string, string) error
+	GetMyOverview(context.Context, string) (*workflowapp.WorkflowOverview, error)
 	ListMyInstances(context.Context, string, workflowapp.InstanceQuery) (*workflowapp.InstanceList, error)
 	GetMyInstance(context.Context, string, string) (*workflowapp.InstanceDetail, error)
 	ListMyTasks(context.Context, string, workflowapp.TaskQuery) (*workflowapp.TaskList, error)
@@ -81,11 +83,19 @@ type remindInstanceBody struct {
 	NodeID string `json:"nodeId"`
 }
 
+type reviseInstanceFormBody struct {
+	ExpectedRevision int64                                        `json:"expectedRevision"`
+	FormData         map[string]interface{}                       `json:"formData"`
+	Reason           string                                       `json:"reason"`
+	Notification     *workflowapp.FormRevisionNotificationRequest `json:"notification"`
+}
+
 type mutationResponse struct {
 	InstanceID   string                 `json:"instanceId"`
 	Status       string                 `json:"status"`
 	Variables    map[string]interface{} `json:"variables"`
 	FormData     map[string]interface{} `json:"formData"`
+	FormRevision int64                  `json:"formRevision"`
 	PendingTasks []mutationTask         `json:"pendingTasks"`
 }
 
@@ -230,6 +240,20 @@ func (handler *RuntimeHandler) StartInstance(ctx context.Context, c *app.Request
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
+}
+
+func (handler *RuntimeHandler) GetMyOverview(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	data, err := handler.service.GetMyOverview(ctx, actorID)
+	if err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.client.overview", err)
+		return
+	}
+	response.JSON(c, data)
 }
 
 func (handler *RuntimeHandler) ListMyInstances(ctx context.Context, c *app.RequestContext) {
@@ -379,6 +403,33 @@ func (handler *RuntimeHandler) RemindInstance(ctx context.Context, c *app.Reques
 	response.JSON(c, result)
 }
 
+func (handler *RuntimeHandler) ReviseInstanceForm(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	var body reviseInstanceFormBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	state, err := handler.service.ReviseInstanceForm(ctx, workflowapp.ReviseInstanceFormRequest{
+		InstanceID: instanceID, ActorID: actorID, ExpectedRevision: body.ExpectedRevision,
+		FormData: body.FormData, Reason: body.Reason, Notification: body.Notification,
+	})
+	if err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.client.revise_form", err)
+		return
+	}
+	response.JSON(c, newMutationResponse(state))
+}
+
 func (handler *RuntimeHandler) ListMyTasks(ctx context.Context, c *app.RequestContext) {
 	actorID, ok := authenticatedActorID(c)
 	if !ok {
@@ -471,7 +522,7 @@ func newMutationResponse(state *workflowdomain.State) mutationResponse {
 	}
 	result := mutationResponse{
 		InstanceID: state.Instance.ID, Status: string(state.Instance.Status),
-		Variables: state.Variables, FormData: state.FormData,
+		Variables: state.Variables, FormData: state.FormData, FormRevision: state.Instance.FormRevision,
 	}
 	for _, task := range state.PendingTasks() {
 		result.PendingTasks = append(result.PendingTasks, mutationTask{

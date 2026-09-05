@@ -2,8 +2,10 @@ package infrastructure
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,6 +17,8 @@ import (
 	workflowmodel "wecheckin/backend/internal/model/workflow"
 	"wecheckin/backend/internal/modules/workflow/application"
 	configsvc "wecheckin/backend/internal/service/dingtalkh5/config"
+	"wecheckin/backend/internal/support/media"
+	"wecheckin/backend/internal/support/notificationstyle"
 	"wecheckin/backend/internal/workflowcore"
 	"wecheckin/backend/pkg/database"
 )
@@ -24,6 +28,7 @@ const dingTalkWorkflowNotificationTimeout = 5 * time.Second
 type DingTalkNotificationTarget struct {
 	Config         configsvc.DingTalkH5CorpConfig
 	DingTalkUserID string
+	PicURL         string
 }
 
 type DingTalkNotificationResolver interface {
@@ -31,19 +36,34 @@ type DingTalkNotificationResolver interface {
 }
 
 type DingTalkNotificationChannel struct {
-	client   configsvc.DingTalkWorkNotificationClient
-	resolver DingTalkNotificationResolver
+	client      configsvc.DingTalkWorkNotificationClient
+	resolver    DingTalkNotificationResolver
+	styleLoader workflowDingTalkStyleLoader
+}
+
+type workflowDingTalkStyleLoader interface {
+	NotificationStyles(context.Context) (notificationstyle.Config, error)
+}
+
+type gormWorkflowDingTalkStyleLoader struct{ db *gorm.DB }
+
+func (loader *gormWorkflowDingTalkStyleLoader) NotificationStyles(ctx context.Context) (notificationstyle.Config, error) {
+	return notificationstyle.Load(ctx, loader.db)
 }
 
 func NewDingTalkNotificationChannel(db *gorm.DB, client configsvc.DingTalkWorkNotificationClient) *DingTalkNotificationChannel {
 	if client == nil {
 		client = configsvc.DefaultDingTalkWorkNotificationClient()
 	}
-	return newDingTalkNotificationChannel(client, &gormDingTalkNotificationResolver{db: db})
+	return newDingTalkNotificationChannel(client, &gormDingTalkNotificationResolver{db: db}, &gormWorkflowDingTalkStyleLoader{db: db})
 }
 
-func newDingTalkNotificationChannel(client configsvc.DingTalkWorkNotificationClient, resolver DingTalkNotificationResolver) *DingTalkNotificationChannel {
-	return &DingTalkNotificationChannel{client: client, resolver: resolver}
+func newDingTalkNotificationChannel(client configsvc.DingTalkWorkNotificationClient, resolver DingTalkNotificationResolver, loaders ...workflowDingTalkStyleLoader) *DingTalkNotificationChannel {
+	channel := &DingTalkNotificationChannel{client: client, resolver: resolver}
+	if len(loaders) > 0 {
+		channel.styleLoader = loaders[0]
+	}
+	return channel
 }
 
 func (*DingTalkNotificationChannel) Name() string {
@@ -52,6 +72,17 @@ func (*DingTalkNotificationChannel) Name() string {
 
 func (channel *DingTalkNotificationChannel) Deliver(ctx context.Context, notifications []application.NotificationRecord) []application.NotificationDeliveryResult {
 	results := make([]application.NotificationDeliveryResult, len(notifications))
+	styles := notificationstyle.DefaultConfig()
+	if channel != nil && channel.styleLoader != nil {
+		loaded, err := channel.styleLoader.NotificationStyles(ctx)
+		if err != nil {
+			for index := range results {
+				results[index] = application.NotificationDeliveryResult{ID: notifications[index].ID, Err: err}
+			}
+			return results
+		}
+		styles = loaded
+	}
 	groups := make(map[string]*dingTalkNotificationGroup)
 	groupKeys := make([]string, 0)
 	for index, notification := range notifications {
@@ -69,9 +100,15 @@ func (channel *DingTalkNotificationChannel) Deliver(ctx context.Context, notific
 			MessageType: notification.Payload.MessageType,
 			Title:       notification.Payload.Title,
 			Content:     notification.Payload.Content,
-			URL:         target.Config.AppURL,
+			URL:         buildWorkflowNotificationURL(target.Config.AppURL, target.Config, notification.InstanceID),
 			SourceName:  "WeCheckin 流程",
+			PicURL:      target.PicURL,
 		}
+		notificationType := strings.TrimSpace(notification.Kind)
+		if notificationType == "" {
+			notificationType = notificationstyle.TypeWorkflow
+		}
+		payload = configsvc.ApplyDingTalkTemplate(notificationstyle.StyleFor(styles, notificationType).DingTalk, payload)
 		key := dingTalkNotificationGroupKey(target.Config.CorpID, payload)
 		group, exists := groups[key]
 		if !exists {
@@ -94,6 +131,61 @@ func (channel *DingTalkNotificationChannel) Deliver(ctx context.Context, notific
 		}
 	}
 	return results
+}
+
+func buildWorkflowNotificationURL(baseURL string, config configsvc.DingTalkH5CorpConfig, instanceID string) string {
+	operationURL := strings.TrimSpace(baseURL)
+	if operationURL == "" {
+		return ""
+	}
+	if instanceID = strings.TrimSpace(instanceID); instanceID != "" {
+		parsed, err := url.Parse(operationURL)
+		if err == nil {
+			query := parsed.Query()
+			query.Set("view", "workflow:instance:"+instanceID)
+			parsed.RawQuery = query.Encode()
+			operationURL = parsed.String()
+		} else {
+			query := url.Values{}
+			query.Set("view", "workflow:instance:"+instanceID)
+			separator := "?"
+			if strings.Contains(operationURL, "?") {
+				separator = "&"
+			}
+			operationURL += separator + query.Encode()
+		}
+	}
+	return wrapWorkflowOpenAppURL(operationURL, config)
+}
+
+func wrapWorkflowOpenAppURL(operationURL string, config configsvc.DingTalkH5CorpConfig) string {
+	operationURL = strings.TrimSpace(operationURL)
+	if operationURL == "" {
+		return ""
+	}
+	corpID := strings.TrimSpace(config.CorpID)
+	appID := strings.TrimSpace(config.UnifiedAppID)
+	if appID == "" {
+		appID = strings.TrimSpace(config.AgentID)
+		if appID != "" && !strings.HasPrefix(appID, "0_") {
+			appID = "0_" + appID
+		}
+	}
+	if corpID == "" || appID == "" {
+		return operationURL
+	}
+	query := url.Values{}
+	query.Set("corpid", corpID)
+	query.Set("container_type", "work_platform")
+	query.Set("app_id", appID)
+	query.Set("redirect_type", "jump")
+	query.Set("redirect_url", operationURL)
+	return (&url.URL{
+		Scheme:   "dingtalk",
+		Host:     "dingtalkclient",
+		Path:     "/action/openapp",
+		RawQuery: query.Encode(),
+	}).String()
 }
 
 type dingTalkNotificationGroup struct {
@@ -160,6 +252,10 @@ func (resolver *gormDingTalkNotificationResolver) Resolve(ctx context.Context, n
 	if err != nil {
 		return DingTalkNotificationTarget{}, err
 	}
+	picURL, err := workflowNotificationLogoURL(queryCtx, db, notification.InstanceID)
+	if err != nil {
+		return DingTalkNotificationTarget{}, err
+	}
 	if strings.TrimSpace(notification.CorpID) == "" {
 		result := db.Model(&workflowmodel.NotificationOutbox{}).
 			Where("id = ? AND corp_id = ?", notification.ID, "").
@@ -184,7 +280,58 @@ func (resolver *gormDingTalkNotificationResolver) Resolve(ctx context.Context, n
 	return DingTalkNotificationTarget{
 		Config:         dingTalkNotificationConfigFromModel(configRow),
 		DingTalkUserID: strings.TrimSpace(binding.DingTalkUserID),
+		PicURL:         picURL,
 	}, nil
+}
+
+func workflowNotificationLogoURL(ctx context.Context, db *gorm.DB, instanceID string) (string, error) {
+	instanceID = strings.TrimSpace(instanceID)
+	if instanceID == "" {
+		return "", nil
+	}
+	var instance workflowmodel.ProcessInstance
+	if err := db.Select("definition_id", "definition_version").First(&instance, "id = ?", instanceID).Error; err != nil {
+		return "", fmt.Errorf("查询流程通知实例失败: %w", err)
+	}
+	if instance.DefinitionVersion > 0 {
+		var version workflowmodel.DefinitionVersion
+		err := db.Select("definition_metadata_json").First(
+			&version,
+			"definition_id = ? AND definition_version = ?",
+			instance.DefinitionID,
+			instance.DefinitionVersion,
+		).Error
+		if err == nil {
+			logoURL, recorded, decodeErr := workflowNotificationVersionLogoURL(version.MetadataJSON)
+			if decodeErr != nil {
+				return "", fmt.Errorf("解析流程通知版本元数据失败: %w", decodeErr)
+			}
+			if recorded {
+				return media.FullURLWithStaticDomainContext(ctx, logoURL), nil
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", fmt.Errorf("查询流程通知版本失败: %w", err)
+		}
+	}
+
+	var definition workflowmodel.Definition
+	if err := db.Select("definition_logo_url").First(&definition, instance.DefinitionID).Error; err != nil {
+		return "", fmt.Errorf("查询流程通知定义失败: %w", err)
+	}
+	return media.FullURLWithStaticDomainContext(ctx, strings.TrimSpace(definition.LogoURL)), nil
+}
+
+func workflowNotificationVersionLogoURL(raw string) (string, bool, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", false, nil
+	}
+	var metadata struct {
+		LogoURL string `json:"logoUrl"`
+	}
+	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		return "", false, err
+	}
+	return strings.TrimSpace(metadata.LogoURL), true, nil
 }
 
 func selectDingTalkNotificationTarget(
@@ -248,7 +395,8 @@ func dingTalkNotificationConfigFromModel(row model.DingTalkH5CorpConfig) configs
 func dingTalkNotificationGroupKey(corpID string, payload configsvc.DingTalkWorkNotificationPayload) string {
 	return strings.Join([]string{
 		strings.TrimSpace(corpID), strings.TrimSpace(payload.MessageType), strings.TrimSpace(payload.Title), strings.TrimSpace(payload.Content),
-		strings.TrimSpace(payload.URL), strings.TrimSpace(payload.SourceName), strings.TrimSpace(payload.PicURL),
+		strings.TrimSpace(payload.URL), strings.TrimSpace(payload.SourceName), strings.TrimSpace(payload.PicURL), strings.TrimSpace(payload.MediaID),
+		strconv.Itoa(payload.Duration), strings.TrimSpace(payload.ButtonTitle), strings.TrimSpace(payload.HeadColor),
 	}, "\x00")
 }
 

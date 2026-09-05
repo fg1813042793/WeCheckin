@@ -154,6 +154,56 @@ func TestDingTalkAgentNotificationMessageUsesActionCardWhenRequested(t *testing.
 	}
 }
 
+func TestDingTalkAgentNotificationMessageSupportsAllWorkNotificationTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload DingTalkWorkNotificationPayload
+		msgType string
+		bodyKey string
+	}{
+		{name: "text", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeText, Content: "正文"}, msgType: "text", bodyKey: "text"},
+		{name: "image", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeImage, MediaID: "@image"}, msgType: "image", bodyKey: "image"},
+		{name: "voice", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeVoice, MediaID: "@voice", Duration: 12}, msgType: "voice", bodyKey: "voice"},
+		{name: "file", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeFile, MediaID: "@file"}, msgType: "file", bodyKey: "file"},
+		{name: "link", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeLink, Title: "标题", Content: "正文", URL: "https://example.test", PicURL: "https://example.test/p.png"}, msgType: "link", bodyKey: "link"},
+		{name: "oa", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeOA, Title: "标题", Content: "正文", URL: "https://example.test"}, msgType: "oa", bodyKey: "oa"},
+		{name: "markdown", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeMarkdown, Title: "标题", Content: "## 正文"}, msgType: "markdown", bodyKey: "markdown"},
+		{name: "action card", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeActionCard, Title: "标题", Content: "## 正文", URL: "https://example.test"}, msgType: "action_card", bodyKey: "action_card"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			message := dingTalkAgentNotificationMessage(test.payload)
+			if message["msgtype"] != test.msgType {
+				t.Fatalf("msgtype = %#v, want %q", message["msgtype"], test.msgType)
+			}
+			if _, ok := message[test.bodyKey]; !ok {
+				t.Fatalf("message body %q missing: %#v", test.bodyKey, message)
+			}
+		})
+	}
+}
+
+func TestValidateDingTalkWorkNotificationPayloadChecksTypeSpecificFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload DingTalkWorkNotificationPayload
+	}{
+		{name: "image media", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeImage}},
+		{name: "voice duration", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeVoice, MediaID: "@voice"}},
+		{name: "file media", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeFile}},
+		{name: "link url", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeLink, Title: "标题", Content: "正文"}},
+		{name: "oa url", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeOA, Title: "标题", Content: "正文"}},
+		{name: "card url", payload: DingTalkWorkNotificationPayload{MessageType: DingTalkMessageTypeActionCard, Title: "标题", Content: "正文"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validateDingTalkWorkNotificationPayload(test.payload); err == nil {
+				t.Fatalf("validateDingTalkWorkNotificationPayload() error = nil")
+			}
+		})
+	}
+}
+
 func TestDingTalkWorkNotificationRejectsActionCardWithoutURL(t *testing.T) {
 	client := defaultDingTalkIdentityClient{}
 	err := client.SendWorkNotificationContext(context.Background(), DingTalkH5CorpConfig{

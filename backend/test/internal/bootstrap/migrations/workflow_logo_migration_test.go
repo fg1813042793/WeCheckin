@@ -14,6 +14,9 @@ func TestWorkflowLogoMigrationAddsDefinitionLogoColumn(t *testing.T) {
 		t.Fatalf("read workflow logo migration: %v", err)
 	}
 	for _, snippet := range []string{
+		"INFORMATION_SCHEMA.COLUMNS",
+		"COLUMN_NAME = 'definition_logo_url'",
+		"PREPARE stmt FROM @ddl",
 		"ALTER TABLE `workflow_definitions`",
 		"ADD COLUMN `definition_logo_url` varchar(500)",
 	} {

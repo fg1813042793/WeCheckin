@@ -22,6 +22,7 @@ type runtimeServiceStub struct {
 	withdrawRequest    workflowapp.WithdrawInstanceRequest
 	commentRequest     workflowapp.CommentInstanceRequest
 	remindRequest      workflowapp.RemindInstanceRequest
+	reviseFormRequest  workflowapp.ReviseInstanceFormRequest
 	instanceQuery      workflowapp.InstanceQuery
 	taskQuery          workflowapp.TaskQuery
 	actorID            string
@@ -31,6 +32,7 @@ type runtimeServiceStub struct {
 	withdrawCalls      int
 	commentCalls       int
 	remindCalls        int
+	reviseFormCalls    int
 	saveDraftRequest   workflowapp.SaveStartDraftRequest
 	draft              *workflowapp.StartDraft
 	deleteDraftID      uint
@@ -39,6 +41,7 @@ type runtimeServiceStub struct {
 	deleteActorID      string
 	instanceDetail     *workflowapp.InstanceDetail
 	listDefinitionsErr error
+	workflowOverview   workflowapp.WorkflowOverview
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitionsForStarter(_ context.Context, actorID string) ([]workflowapp.PublishedDefinition, error) {
@@ -132,6 +135,12 @@ func (stub *runtimeServiceStub) RemindInstance(_ context.Context, request workfl
 	return &workflowapp.RemindInstanceResult{NodeID: request.NodeID, RemindedCount: 2}, nil
 }
 
+func (stub *runtimeServiceStub) ReviseInstanceForm(_ context.Context, request workflowapp.ReviseInstanceFormRequest) (*workflowdomain.State, error) {
+	stub.reviseFormCalls++
+	stub.reviseFormRequest = request
+	return &workflowdomain.State{Instance: workflowdomain.ProcessInstance{ID: request.InstanceID, Status: workflowdomain.InstanceStatusRunning, FormRevision: request.ExpectedRevision + 1}}, nil
+}
+
 func (stub *runtimeServiceStub) DeleteMyInstance(_ context.Context, actorID, instanceID string) error {
 	stub.deleteActorID = actorID
 	stub.deleteInstanceID = instanceID
@@ -157,6 +166,32 @@ func (stub *runtimeServiceStub) ListMyTasks(_ context.Context, actorID string, q
 	stub.actorID = actorID
 	stub.taskQuery = query
 	return &workflowapp.TaskList{}, nil
+}
+
+func (stub *runtimeServiceStub) GetMyOverview(_ context.Context, actorID string) (*workflowapp.WorkflowOverview, error) {
+	stub.actorID = actorID
+	result := stub.workflowOverview
+	return &result, nil
+}
+
+func TestGetMyOverviewUsesAuthenticatedUser(t *testing.T) {
+	stub := &runtimeServiceStub{workflowOverview: workflowapp.WorkflowOverview{
+		Pending: 3, Handled: 5, Started: 7, Copied: 11,
+	}}
+	handler := NewRuntimeHandler(stub)
+	c := newUserContext(42)
+
+	handler.GetMyOverview(context.Background(), c)
+
+	if stub.actorID != "42" {
+		t.Fatalf("overview actor = %q, want 42", stub.actorID)
+	}
+	body := string(c.Response.Body())
+	for _, fragment := range []string{`"pending":3`, `"handled":5`, `"started":7`, `"copied":11`} {
+		if !strings.Contains(body, fragment) {
+			t.Fatalf("overview response missing %s: %s", fragment, body)
+		}
+	}
 }
 
 func TestListDefinitionsReturnsInitiatorDepartmentsForClient(t *testing.T) {
@@ -415,6 +450,40 @@ func TestRemindInstanceUsesRouteInstanceAndAuthenticatedUser(t *testing.T) {
 	}
 	if body := string(c.Response.Body()); !strings.Contains(body, `"remindedCount":2`) {
 		t.Fatalf("reminder response missing result: %s", body)
+	}
+}
+
+func TestReviseInstanceFormUsesRouteInstanceAndAuthenticatedUser(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := NewRuntimeHandler(stub)
+	c := newUserContext(42)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1"})
+	c.Request.SetBodyString(`{
+		"instanceId":"forged-instance",
+		"actorId":"forged-user",
+		"expectedRevision":3,
+		"formData":{"summary":"修订后的说明"},
+		"reason":"补充核实结果",
+		"notification":{"userIds":["7","99"],"channels":["in_app","dingtalk_oa"]}
+	}`)
+
+	handler.ReviseInstanceForm(context.Background(), c)
+
+	if stub.reviseFormCalls != 1 {
+		t.Fatalf("expected one form revision call, got %d", stub.reviseFormCalls)
+	}
+	request := stub.reviseFormRequest
+	if request.InstanceID != "instance-1" || request.ActorID != "42" {
+		t.Fatalf("route instance and authenticated actor must win: %+v", request)
+	}
+	if request.ExpectedRevision != 3 || request.FormData["summary"] != "修订后的说明" || request.Reason != "补充核实结果" {
+		t.Fatalf("form revision request = %+v", request)
+	}
+	if request.Notification == nil || len(request.Notification.UserIDs) != 2 || len(request.Notification.Channels) != 2 {
+		t.Fatalf("form revision notification = %#v", request.Notification)
+	}
+	if body := string(c.Response.Body()); !strings.Contains(body, `"formRevision":4`) {
+		t.Fatalf("form revision response missing next revision: %s", body)
 	}
 }
 

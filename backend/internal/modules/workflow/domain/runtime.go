@@ -48,25 +48,26 @@ const (
 type HistoryEventType string
 
 const (
-	HistoryInstanceStarted   HistoryEventType = "instance_started"
-	HistoryTaskCreated       HistoryEventType = "task_created"
-	HistoryTaskActivated     HistoryEventType = "task_activated"
-	HistoryTaskApproved      HistoryEventType = "task_approved"
-	HistoryTaskRejected      HistoryEventType = "task_rejected"
-	HistoryTaskReturned      HistoryEventType = "task_returned"
-	HistoryTaskSubmitted     HistoryEventType = "task_submitted"
-	HistoryTaskCancelled     HistoryEventType = "task_cancelled"
-	HistoryNodeCC            HistoryEventType = "node_cc"
-	HistoryNodeNotify        HistoryEventType = "node_notify"
-	HistoryNodeAutomated     HistoryEventType = "node_automated"
-	HistoryTimerWaiting      HistoryEventType = "timer_waiting"
-	HistoryTimerResumed      HistoryEventType = "timer_resumed"
-	HistoryInstanceCompleted HistoryEventType = "instance_completed"
-	HistoryInstanceRejected  HistoryEventType = "instance_rejected"
-	HistoryInstanceWithdrawn HistoryEventType = "instance_withdrawn"
-	HistoryInstanceCancelled HistoryEventType = "instance_cancelled"
-	HistoryInstanceCommented HistoryEventType = "instance_commented"
-	HistoryInstanceReminded  HistoryEventType = "instance_reminded"
+	HistoryInstanceStarted     HistoryEventType = "instance_started"
+	HistoryTaskCreated         HistoryEventType = "task_created"
+	HistoryTaskActivated       HistoryEventType = "task_activated"
+	HistoryTaskApproved        HistoryEventType = "task_approved"
+	HistoryTaskRejected        HistoryEventType = "task_rejected"
+	HistoryTaskReturned        HistoryEventType = "task_returned"
+	HistoryTaskSubmitted       HistoryEventType = "task_submitted"
+	HistoryTaskCancelled       HistoryEventType = "task_cancelled"
+	HistoryNodeCC              HistoryEventType = "node_cc"
+	HistoryNodeNotify          HistoryEventType = "node_notify"
+	HistoryNodeAutomated       HistoryEventType = "node_automated"
+	HistoryTimerWaiting        HistoryEventType = "timer_waiting"
+	HistoryTimerResumed        HistoryEventType = "timer_resumed"
+	HistoryInstanceCompleted   HistoryEventType = "instance_completed"
+	HistoryInstanceRejected    HistoryEventType = "instance_rejected"
+	HistoryInstanceWithdrawn   HistoryEventType = "instance_withdrawn"
+	HistoryInstanceCancelled   HistoryEventType = "instance_cancelled"
+	HistoryInstanceCommented   HistoryEventType = "instance_commented"
+	HistoryInstanceReminded    HistoryEventType = "instance_reminded"
+	HistoryInstanceFormRevised HistoryEventType = "instance_form_revised"
 )
 
 type ParticipantRole string
@@ -81,6 +82,7 @@ const (
 	NotificationKindTaskArrived            NotificationKind = "task_arrived"
 	NotificationKindTaskReminder           NotificationKind = "task_reminder"
 	NotificationKindInstanceCommented      NotificationKind = "instance_commented"
+	NotificationKindInstanceFormRevised    NotificationKind = "instance_form_revised"
 	NotificationKindApprovalResultApproved NotificationKind = "approval_result_approved"
 	NotificationKindApprovalResultRejected NotificationKind = "approval_result_rejected"
 	NotificationKindApprovalResultReturned NotificationKind = "approval_result_returned"
@@ -97,6 +99,7 @@ type ProcessInstance struct {
 	OperatorID        string
 	Status            InstanceStatus
 	StartTime         int64
+	FormRevision      int64
 }
 
 type Token struct {

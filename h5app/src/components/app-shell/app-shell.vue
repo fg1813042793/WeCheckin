@@ -54,6 +54,9 @@ const tabsOverflow = ref(false)
 const canScrollTabsLeft = ref(false)
 const canScrollTabsRight = ref(false)
 const pendingCloseTab = ref<AppNavItem | null>(null)
+const pendingCloseCanSaveDraft = computed(() => Boolean(
+  pendingCloseTab.value && appContent.canSaveTabDraft(pendingCloseTab.value.key),
+))
 const profileCenterForm = ref<ProfileCenterForm>(emptyProfileCenterForm())
 const profileCenterResetDelay = 280
 let profileCenterResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -816,6 +819,10 @@ watch(() => appContent.closeRequestTick, () => {
     closeTab(item)
 })
 
+watch(() => appContent.refreshTick, () => {
+  void loadNotificationUnreadCount()
+})
+
 onMounted(() => {
   syncMobileShell()
   queueActiveTabVisibilitySync()
@@ -1066,10 +1073,10 @@ onBeforeUnmount(() => {
       <view class="tab-close-prompt">
         <view class="tab-close-prompt__header">
           <text class="tab-close-prompt__title">
-            表单尚未保存
+            {{ pendingCloseCanSaveDraft ? '表单尚未保存' : '修改尚未提交' }}
           </text>
           <text class="tab-close-prompt__desc">
-            关闭前是否保存当前填写内容？
+            {{ pendingCloseCanSaveDraft ? '关闭前是否保存当前填写内容？' : '关闭后将放弃当前修改，是否继续？' }}
           </text>
         </view>
         <view class="tab-close-prompt__actions">
@@ -1079,7 +1086,7 @@ onBeforeUnmount(() => {
           <u-button plain type="error" :disabled="tabCloseSaving" @click="discardAndCloseTab">
             不保存
           </u-button>
-          <u-button type="primary" :loading="tabCloseSaving" @click="saveAndCloseTab">
+          <u-button v-if="pendingCloseCanSaveDraft" type="primary" :loading="tabCloseSaving" @click="saveAndCloseTab">
             保存草稿
           </u-button>
         </view>

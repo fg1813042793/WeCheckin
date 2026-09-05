@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"wecheckin/backend/internal/support/notificationstyle"
@@ -24,17 +25,47 @@ func NewServiceWithDingTalk(store Store, delivery DingTalkDelivery) *Service {
 	return &Service{store: store, dingTalkDelivery: delivery}
 }
 
-func (service *Service) List(ctx context.Context, currentUserID uint, page, pageSize int) (NotificationList, error) {
-	userID, err := requiredUserID(currentUserID)
+func (service *Service) ListRecords(ctx context.Context, query NotificationRecordQuery) (NotificationList, error) {
+	if service == nil || service.store == nil {
+		return NotificationList{}, fmt.Errorf("in-app notification store is not initialized")
+	}
+	query.Title = strings.TrimSpace(query.Title)
+	query.RecipientName = strings.TrimSpace(query.RecipientName)
+	query.SourceType = strings.TrimSpace(query.SourceType)
+	query.Type = strings.TrimSpace(query.Type)
+	query.Page, query.PageSize = normalizePagination(query.Page, query.PageSize)
+	if query.IsRead != nil && *query.IsRead != 0 && *query.IsRead != 1 {
+		return NotificationList{}, ErrInvalidReadStatus
+	}
+	if query.AddTimeFrom < 0 || query.AddTimeTo < 0 || (query.AddTimeFrom > 0 && query.AddTimeTo > 0 && query.AddTimeFrom > query.AddTimeTo) {
+		return NotificationList{}, ErrInvalidTimeRange
+	}
+	items, total, err := service.store.ListRecords(ctx, query)
 	if err != nil {
 		return NotificationList{}, err
 	}
-	page, pageSize = normalizePagination(page, pageSize)
-	items, total, err := service.store.List(ctx, userID, page, pageSize)
+	return NotificationList{List: items, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (service *Service) DeleteRecord(ctx context.Context, currentAdminID, notificationID uint) error {
+	actorID, err := requiredUserID(currentAdminID)
 	if err != nil {
-		return NotificationList{}, err
+		return err
 	}
-	return NotificationList{List: items, Total: total, Page: page, PageSize: pageSize}, nil
+	if notificationID == 0 {
+		return ErrNotificationMissing
+	}
+	if service == nil || service.store == nil {
+		return fmt.Errorf("in-app notification store is not initialized")
+	}
+	found, err := service.store.SoftDeleteRecord(ctx, notificationID, actorID, time.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+	if !found {
+		return ErrNotificationMissing
+	}
+	return nil
 }
 
 func (service *Service) UnreadCount(ctx context.Context, currentUserID uint) (int64, error) {
@@ -142,6 +173,7 @@ func (service *Service) Send(ctx context.Context, input SendInput) (SendResult, 
 	input.SourceType = strings.TrimSpace(input.SourceType)
 	input.SourceID = strings.TrimSpace(input.SourceID)
 	input.NotificationType = strings.TrimSpace(input.NotificationType)
+	input.NotificationType = strings.TrimSpace(input.NotificationType)
 	rule := RecipientRule{
 		Scope:         input.Scope,
 		UserIDs:       normalizeIDs(input.UserIDs),
@@ -202,7 +234,7 @@ func (service *Service) SendDingTalk(ctx context.Context, input SendInput) (Send
 		return SendResult{}, ErrNoRecipients
 	}
 	delivery, err := service.dingTalkDelivery.DeliverDingTalk(ctx, DingTalkDeliveryBatch{
-		Title: input.Title, Content: input.Content, UserIDs: resolution.UserIDs,
+		Title: input.Title, Content: input.Content, NotificationType: notificationType(input.SourceType, input.NotificationType), UserIDs: resolution.UserIDs,
 	})
 	if err != nil {
 		return SendResult{}, err

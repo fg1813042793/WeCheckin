@@ -27,7 +27,7 @@ import {
   workflowFieldActionsMap,
   writableWorkflowFormData,
 } from '../workflow-form'
-import { workflowStartContentKey } from '../workflow-route-keys'
+import { workflowFormRevisionContentKey, workflowStartContentKey } from '../workflow-route-keys'
 import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-status'
 import { isWorkflowTaskAssignedToUser } from '../workflow-task'
 import WorkflowImagePicker from './WorkflowImagePicker.vue'
@@ -48,6 +48,7 @@ const props = withDefaults(defineProps<{
   presentation?: 'dialog' | 'history-drawer' | 'page' | 'history-page'
   applicationActions?: boolean
   commentAction?: boolean
+  formRevisionAction?: boolean
   summaryMode?: boolean
 }>(), {
   taskId: '',
@@ -56,6 +57,7 @@ const props = withDefaults(defineProps<{
   presentation: 'dialog',
   applicationActions: false,
   commentAction: false,
+  formRevisionAction: false,
   summaryMode: false,
 })
 
@@ -101,6 +103,7 @@ const formRef = ref<RuntimeFormExposed | null>(null)
 let actionConfirmResolver: ((confirmed: boolean) => void) | null = null
 
 const HISTORY_DIALOG_BREAKPOINT = 1024
+const MOBILE_INTERACTION_BREAKPOINT = 768
 
 function resolveCompactHistoryDialog() {
   // #ifdef H5
@@ -122,9 +125,30 @@ function resolveCompactHistoryDialog() {
 }
 
 const compactHistoryDialog = ref(resolveCompactHistoryDialog())
+const mobileInteractionDialog = ref(resolveMobileInteractionDialog())
+
+function resolveMobileInteractionDialog() {
+  // #ifdef H5
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    return window.matchMedia(`(max-width: ${MOBILE_INTERACTION_BREAKPOINT}px)`).matches
+  // #endif
+
+  try {
+    const info = uni.getSystemInfoSync()
+    const width = Number(info.windowWidth || info.screenWidth || 0)
+    if (Number.isFinite(width) && width > 0)
+      return width <= MOBILE_INTERACTION_BREAKPOINT
+  }
+  catch {
+    return false
+  }
+
+  return false
+}
 
 function syncCompactHistoryDialog() {
   compactHistoryDialog.value = resolveCompactHistoryDialog()
+  mobileInteractionDialog.value = resolveMobileInteractionDialog()
 }
 
 const popupVisible = computed({
@@ -175,6 +199,12 @@ const popupCustomClass = computed(() => {
 const popupBorderRadius = computed(() => {
   return inlinePresentation.value || (historyDrawer.value && !historyDialog.value) ? 0 : 8
 })
+const commentPopupMode = computed(() => mobileInteractionDialog.value ? 'bottom' : 'center')
+const commentPopupWidth = computed(() => mobileInteractionDialog.value ? '100%' : '520px')
+const rejectPopupMode = computed(() => mobileInteractionDialog.value ? 'bottom' : 'center')
+const rejectPopupWidth = computed(() => mobileInteractionDialog.value ? '100%' : '480px')
+const returnPopupMode = computed(() => mobileInteractionDialog.value ? 'bottom' : 'center')
+const returnPopupWidth = computed(() => mobileInteractionDialog.value ? '100%' : '480px')
 const pageNavigationItems: Array<{ key: WorkflowDetailSection, label: string, icon: string }> = [
   { key: 'form', label: '审批处理', icon: 'checkmark-circle' },
   { key: 'history', label: '流程记录', icon: 'clock' },
@@ -266,6 +296,24 @@ const showApplicationActions = computed(() => {
 
 const showCommentAction = computed(() => {
   return Boolean(props.commentAction && detail.value)
+})
+
+const showTaskActionBar = computed(() => {
+  if (pagePresentation.value && mobileInteractionDialog.value && activeSection.value === 'graph')
+    return false
+  return pagePresentation.value || canHandle.value || canWithdraw.value || showCommentAction.value
+})
+
+const showFormRevisionAction = computed(() => {
+  const current = detail.value
+  return Boolean(
+    historyDrawer.value
+    && props.formRevisionAction
+    && current?.instance.status === 'running'
+    && current.formRevision?.allowed
+    && auth.hasButtonPermission('dingtalk_h5:button:workflow:form-revise')
+    && auth.hasApiPermission('dingtalk_h5:api:workflow:form-revise'),
+  )
 })
 
 const canModifyApplication = computed(() => {
@@ -502,6 +550,7 @@ function historyLabel(eventType = '') {
     instance_withdrawn: '流程已撤回',
     instance_cancelled: '流程已取消',
     instance_commented: '评论',
+    instance_form_revised: '表单已修改',
     instance_reminded: '已提醒处理人',
   }
   return labels[eventType] || eventType || '流程记录'
@@ -893,6 +942,22 @@ async function modifyApplication() {
   }
 }
 
+function openFormRevision() {
+  const current = detail.value
+  if (!current || !showFormRevisionAction.value)
+    return
+  const key = workflowFormRevisionContentKey(current.instance.id)
+  if (!key)
+    return
+  appContent.openDynamicTab({
+    key,
+    label: `修改 · ${current.instance.definitionName || title.value}`,
+    icon: 'edit-pen',
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+  })
+  popupVisible.value = false
+}
+
 async function deleteApplication() {
   if (applicationActionBusy.value)
     return
@@ -1173,9 +1238,9 @@ async function deleteApplication() {
           </view>
 
           <view
-            v-if="showApplicationActions || showCommentAction"
+            v-if="showApplicationActions || showCommentAction || showFormRevisionAction"
             class="workflow-detail-panel__application-actions"
-            :class="{ 'workflow-detail-panel__application-actions--comment-only': !showApplicationActions }"
+            :class="{ 'workflow-detail-panel__application-actions--comment-only': !showApplicationActions && !showFormRevisionAction }"
           >
             <u-button
               v-if="showApplicationActions"
@@ -1198,6 +1263,16 @@ async function deleteApplication() {
             >
               <u-icon name="edit-pen" size="14px" :color="canModifyApplication ? '#1677ff' : '#c9cdd4'" />
               <text>{{ modifyApplicationLabel }}</text>
+            </u-button>
+            <u-button
+              v-if="showFormRevisionAction"
+              custom-class="workflow-detail-panel__application-action"
+              plain
+              :disabled="applicationActionBusy"
+              @click="openFormRevision"
+            >
+              <u-icon name="edit-pen" size="14px" color="#1677ff" />
+              <text>修改表单</text>
             </u-button>
             <u-button
               v-if="showCommentAction"
@@ -1360,7 +1435,7 @@ async function deleteApplication() {
           </scroll-view>
 
           <view
-            v-if="pagePresentation || canHandle || canWithdraw || showCommentAction"
+            v-if="showTaskActionBar"
             class="workflow-detail-panel__actions"
             :class="{ 'workflow-detail-panel__actions--page': pagePresentation }"
           >
@@ -1375,7 +1450,7 @@ async function deleteApplication() {
             </u-button>
             <u-button
               v-if="showCommentAction"
-              custom-class="workflow-detail-panel__action"
+              custom-class="workflow-detail-panel__action workflow-detail-panel__action--comment"
               plain
               :disabled="!canCommentInstance || applicationActionBusy"
               :loading="applicationAction === 'comment'"
@@ -1451,14 +1526,15 @@ async function deleteApplication() {
 
   <u-popup
     v-model="returnVisible"
-    mode="center"
-    width="480px"
+    :mode="returnPopupMode"
+    :width="returnPopupWidth"
     custom-class="workflow-return-popup app-pc-control-scope"
     :z-index="10140"
     :border-radius="8"
     :mask-close-able="!submitting && !returnUploading"
+    :safe-area-inset-bottom="true"
   >
-    <view class="workflow-interaction-dialog">
+    <view class="workflow-interaction-dialog workflow-interaction-dialog--return">
       <view class="workflow-interaction-dialog__header">
         <view>
           <text class="workflow-interaction-dialog__title">
@@ -1523,14 +1599,15 @@ async function deleteApplication() {
 
   <u-popup
     v-model="rejectVisible"
-    mode="center"
-    width="480px"
+    :mode="rejectPopupMode"
+    :width="rejectPopupWidth"
     custom-class="workflow-reject-popup app-pc-control-scope"
     :z-index="10140"
     :border-radius="8"
     :mask-close-able="!submitting && !rejectUploading"
+    :safe-area-inset-bottom="true"
   >
-    <view class="workflow-interaction-dialog">
+    <view class="workflow-interaction-dialog workflow-interaction-dialog--reject">
       <view class="workflow-interaction-dialog__header">
         <view>
           <text class="workflow-interaction-dialog__title">
@@ -1581,14 +1658,15 @@ async function deleteApplication() {
 
   <u-popup
     v-model="commentVisible"
-    mode="center"
-    width="520px"
+    :mode="commentPopupMode"
+    :width="commentPopupWidth"
     custom-class="workflow-comment-popup app-pc-control-scope"
     :z-index="10140"
     :border-radius="8"
     :mask-close-able="!commentSubmitting && !commentUploading"
+    :safe-area-inset-bottom="true"
   >
-    <view class="workflow-interaction-dialog">
+    <view class="workflow-interaction-dialog workflow-interaction-dialog--comment">
       <view class="workflow-interaction-dialog__header">
         <view>
           <text class="workflow-interaction-dialog__title">
@@ -2304,8 +2382,9 @@ async function deleteApplication() {
   padding: 10px 12px;
   border-top: 1px solid #dfe5ee;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, 120px);
   align-items: center;
+  justify-content: start;
   gap: 8px;
   background: #fff;
   box-shadow: 0 -4px 16px rgba(31, 35, 41, 0.06);
@@ -2313,14 +2392,14 @@ async function deleteApplication() {
 }
 
 .workflow-detail-panel__application-actions--comment-only {
-  grid-template-columns: minmax(120px, 220px);
-  justify-content: end;
+  grid-template-columns: 120px;
+  justify-content: start;
 }
 
 .workflow-detail-panel--history-drawer .workflow-detail-panel__application-actions--comment-only {
   min-height: 56px;
   padding: 10px 16px;
-  grid-template-columns: 104px;
+  grid-template-columns: 120px;
   border-top-color: #eef1f4;
   box-shadow: 0 -2px 10px rgba(31, 35, 41, 0.04);
 }
@@ -2328,13 +2407,13 @@ async function deleteApplication() {
 .workflow-detail-panel--history-drawer
   .workflow-detail-panel__application-actions--comment-only
   :deep(.workflow-detail-panel__application-action) {
-  height: 36px;
+  height: 40px;
   border-color: #0f766e;
   border-radius: 4px;
   background: #fff;
   color: #0f766e;
   font-weight: 500;
-  line-height: 34px;
+  line-height: 38px;
 }
 
 .workflow-detail-panel--history-drawer
@@ -2496,6 +2575,78 @@ async function deleteApplication() {
     max-width: 94vw;
   }
 
+  .workflow-interaction-dialog--comment {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    padding: 16px;
+    border-radius: 8px 8px 0 0;
+    overflow-y: auto;
+  }
+
+  .workflow-interaction-dialog--comment .workflow-interaction-dialog__actions {
+    position: sticky;
+    z-index: 2;
+    bottom: 0;
+    margin: 18px -16px -16px;
+    padding: 12px 16px;
+    border-top: 1px solid #edf0f3;
+    background: #fff;
+  }
+
+  .workflow-interaction-dialog--comment .workflow-interaction-dialog__actions :deep(.u-btn) {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .workflow-interaction-dialog--return {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    padding: 16px;
+    border-radius: 8px 8px 0 0;
+    overflow-y: auto;
+  }
+
+  .workflow-interaction-dialog--return .workflow-interaction-dialog__actions {
+    position: sticky;
+    z-index: 2;
+    bottom: 0;
+    margin: 18px -16px -16px;
+    padding: 12px 16px;
+    border-top: 1px solid #edf0f3;
+    background: #fff;
+  }
+
+  .workflow-interaction-dialog--return .workflow-interaction-dialog__actions :deep(.u-btn) {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .workflow-interaction-dialog--reject {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    padding: 16px;
+    border-radius: 8px 8px 0 0;
+    overflow-y: auto;
+  }
+
+  .workflow-interaction-dialog--reject .workflow-interaction-dialog__actions {
+    position: sticky;
+    z-index: 2;
+    bottom: 0;
+    margin: 18px -16px -16px;
+    padding: 12px 16px;
+    border-top: 1px solid #edf0f3;
+    background: #fff;
+  }
+
+  .workflow-interaction-dialog--reject .workflow-interaction-dialog__actions :deep(.u-btn) {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
   .workflow-detail-panel__header {
     min-height: 60px;
     padding: 0 14px 0 16px;
@@ -2570,21 +2721,41 @@ async function deleteApplication() {
 
   .workflow-detail-panel__actions {
     padding: 10px 12px;
+    gap: 8px;
   }
 
   .workflow-detail-panel__application-actions--comment-only {
-    grid-template-columns: 1fr;
+    grid-template-columns: 120px;
   }
 
   .workflow-detail-panel--history-drawer .workflow-detail-panel__application-actions--comment-only {
     padding: 10px 12px;
-    grid-template-columns: 1fr;
+    grid-template-columns: 120px;
   }
 
   .workflow-detail-panel__action,
   :deep(.workflow-detail-panel__action) {
     flex: 1 1 0;
     min-width: 0;
+  }
+
+  .workflow-detail-panel__actions :deep(.workflow-detail-panel__action) {
+    height: 46px;
+    margin: 0;
+    padding: 0 8px;
+    font-size: 15px;
+    line-height: 1;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  .workflow-detail-panel__actions :deep(.workflow-detail-panel__action text) {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .workflow-detail-panel__actions :deep(.workflow-detail-panel__action--comment .u-icon) {
+    display: none;
   }
 }
 </style>

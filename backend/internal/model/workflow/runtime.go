@@ -27,6 +27,7 @@ const (
 	NotificationKindNodeNotify             = "node_notify"
 	NotificationKindTaskArrived            = "task_arrived"
 	NotificationKindTaskReminder           = "task_reminder"
+	NotificationKindInstanceFormRevised    = "instance_form_revised"
 	NotificationKindApprovalResultApproved = "approval_result_approved"
 	NotificationKindApprovalResultRejected = "approval_result_rejected"
 	NotificationKindApprovalResultReturned = "approval_result_returned"
@@ -54,6 +55,7 @@ type ProcessInstance struct {
 	OperatorID        string    `json:"operatorId" gorm:"size:64;column:operator_id;index:idx_workflow_instances_operator_status,priority:1;comment:实际发起操作人ID"`
 	Status            string    `json:"status" gorm:"size:24;column:instance_status;default:running;index:idx_workflow_instances_definition_status,priority:2;index:idx_workflow_instances_starter_status,priority:2;index:idx_workflow_instances_operator_status,priority:2;comment:实例状态"`
 	FormDataJSON      string    `json:"formDataJson" gorm:"type:mediumtext;column:form_data_json;comment:流程表单数据JSON"`
+	FormRevision      int64     `json:"formRevision" gorm:"column:form_revision;default:1;comment:流程表单修订版本"`
 	StartTime         int64     `json:"startTime" gorm:"column:start_time;index:idx_workflow_instances_starter_deleted_time,priority:3;index:idx_workflow_instances_definition_starter_time,priority:3;comment:开始时间"`
 	EndTime           int64     `json:"endTime" gorm:"column:end_time;comment:结束时间"`
 	StarterDeletedAt  int64     `json:"-" gorm:"column:starter_deleted_at;index:idx_workflow_instances_starter_deleted_time,priority:2;comment:发起人从我的申请删除时间"`

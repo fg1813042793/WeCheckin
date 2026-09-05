@@ -15,14 +15,14 @@
           <div class="org-panel__header">
             <div class="panel-title">
               <span class="panel-title__index">1</span>
-              <strong>适用对象</strong>
+              <strong>为谁配置</strong>
             </div>
             <span class="panel-title__count">{{ activeSubjectType === 'department' ? `${departmentCount} 个部门` : `${activeSubjectUserOptions.length} 名人员` }}</span>
           </div>
           <div class="org-panel__content">
             <el-radio-group v-model="activeSubjectType" class="subject-type-switch" @change="onSubjectTypeChange">
-              <el-radio-button value="department">部门默认</el-radio-button>
-              <el-radio-button value="user">指定人员</el-radio-button>
+              <el-radio-button value="department">部门内员工</el-radio-button>
+              <el-radio-button value="user">指定员工</el-radio-button>
             </el-radio-group>
             <template v-if="activeSubjectType === 'department'">
               <el-input
@@ -51,7 +51,7 @@
               <el-input
                 v-model="subjectUserKeyword"
                 prefix-icon="Search"
-                placeholder="搜索人员/手机号/部门"
+                placeholder="搜索指定员工/手机号/部门"
                 clearable
                 @input="filterSubjectUserTree"
               />
@@ -65,7 +65,7 @@
                   node-key="key"
                   highlight-current
                   default-expand-all
-                  empty-text="暂无可选人员"
+                  empty-text="暂无可选员工"
                   @node-click="onSubjectUserClick"
                   class="subject-user-tree"
                 >
@@ -85,7 +85,7 @@
           <div class="org-panel__header">
             <div class="panel-title">
               <span class="panel-title__index">2</span>
-              <strong>身份</strong>
+              <strong>配置什么身份</strong>
             </div>
             <span class="panel-title__count">{{ identityOptions.length }} 项</span>
           </div>
@@ -118,32 +118,31 @@
             <div class="assignment-scope">
               <div class="panel-title">
                 <span class="panel-title__index">3</span>
-                <strong>处理人</strong>
+                <strong>由谁担任该身份</strong>
               </div>
-              <div class="scope-path">
-                <span>{{ activeSubjectType === 'department' ? '部门默认' : '指定人员' }}</span>
-                <i>/</i>
-                <span>{{ activeSubjectPath || '-' }}</span>
-                <i>/</i>
-                <span>{{ activeIdentity?.name || '-' }}</span>
+              <div class="assignment-summary">
+                <span class="assignment-summary__text" :title="assignmentSummary">{{ assignmentSummary }}</span>
+                <el-tag v-if="scopeReady" size="small" :type="activeSubjectType === 'department' ? 'info' : 'warning'" effect="plain">
+                  {{ activeSubjectType === 'department' ? '部门通用规则' : '优先于部门规则' }}
+                </el-tag>
               </div>
             </div>
             <div class="assignment-actions">
               <el-button circle icon="Refresh" title="刷新处理人" :loading="assignmentsLoading" :disabled="!scopeReady" @click="loadAssignments" />
-              <el-button v-if="canEdit" type="primary" icon="Check" :loading="saving" :disabled="!scopeReady" @click="saveAssignments">保存</el-button>
+              <el-button v-if="canEdit" type="primary" icon="Check" :loading="saving" :disabled="!scopeReady" @click="saveAssignments">保存担任人员</el-button>
             </div>
           </div>
 
           <div v-if="scopeReady" class="assignment-body">
             <div class="assignment-picker">
               <div class="candidate-users__header">
-                <strong>候选处理人</strong>
+                <strong>选择担任人员</strong>
                 <span>{{ userOptions.length }} 人</span>
               </div>
               <el-input
                 v-model="userKeyword"
                 prefix-icon="Search"
-                placeholder="搜索用户/手机号/部门"
+                placeholder="搜索担任人员/手机号/部门"
                 clearable
                 @input="filterOrgApproverUserTree"
               />
@@ -175,10 +174,10 @@
 
             <div class="selected-users">
               <div class="selected-users__header">
-                <strong>已选处理人</strong>
+                <strong>当前担任人员</strong>
                 <span>{{ selectedUserRows.length }} 人</span>
               </div>
-              <el-table :data="selectedUserRows" height="100%" empty-text="尚未选择处理人" class="selected-users__table">
+              <el-table :data="selectedUserRows" height="100%" empty-text="尚未指定担任人员" class="selected-users__table">
                 <el-table-column type="index" label="顺序" width="60" />
                 <el-table-column prop="name" label="用户" min-width="100" show-overflow-tooltip />
                 <el-table-column prop="mobile" label="手机号" min-width="120" show-overflow-tooltip />
@@ -194,7 +193,7 @@
               </el-table>
             </div>
           </div>
-          <el-empty v-else description="请选择适用对象和身份" />
+          <el-empty v-else description="请先选择配置对象和审批身份" />
         </section>
       </div>
     </el-card>
@@ -299,6 +298,17 @@ const selectedUserRows = computed(() => selectedUserIds.value.map((id) => {
     mobile: user?.mobile || '',
   }
 }))
+const assignmentSummary = computed(() => {
+  if (!scopeReady.value) return '选择配置对象和审批身份后，在这里指定担任人员'
+  const subject = activeSubjectType.value === 'department'
+    ? `“${activeSubjectPath.value}”部门内员工`
+    : `员工“${activeSubjectPath.value}”`
+  const identity = activeIdentity.value?.name || activeIdentityCode.value
+  const names = selectedUserRows.value.map((row) => row.name)
+  if (names.length === 0) return `${subject}的“${identity}”尚未指定担任人员`
+  const assignees = names.length > 2 ? `${names.slice(0, 2).join('、')}等 ${names.length} 人` : names.join('、')
+  return `${subject}的“${identity}”由 ${assignees} 担任`
+})
 
 function normalizeNumberIDs(ids: unknown[]) {
   return Array.from(new Set((ids || []).map((id) => Number(id)).filter(Boolean)))
@@ -622,7 +632,7 @@ async function loadAssignments() {
 
 async function saveAssignments() {
   if (!scopeReady.value) {
-    ElMessage.warning('请选择适用对象和身份')
+    ElMessage.warning('请先选择配置对象和审批身份')
     return
   }
   saving.value = true
@@ -782,7 +792,7 @@ onMounted(() => {
   min-width: 0;
 }
 
-.scope-path {
+.assignment-summary {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -791,16 +801,11 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.scope-path span {
-  max-width: 240px;
+.assignment-summary__text {
+  max-width: 520px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.scope-path i {
-  color: #c1c7d0;
-  font-style: normal;
 }
 
 .assignment-actions {
@@ -998,8 +1003,12 @@ onMounted(() => {
     padding-bottom: 12px;
   }
 
-  .scope-path {
+  .assignment-summary {
     width: 100%;
+  }
+
+  .assignment-summary__text {
+    max-width: calc(100% - 112px);
   }
 }
 </style>

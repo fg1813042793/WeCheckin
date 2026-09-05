@@ -66,6 +66,7 @@ func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.
 	admin.GET("/in-app-notifications/unread-count", handler.UnreadCount)
 	admin.GET("/in-app-notifications/recipient-options", handler.RecipientOptions)
 	admin.POST("/in-app-notifications", handler.Send)
+	admin.DELETE("/in-app-notifications/:id", handler.DeleteRecord)
 	admin.GET("/dingtalk-notifications/recipient-options", handler.RecipientOptions)
 	admin.POST("/dingtalk-notifications", handler.SendDingTalk)
 	admin.GET("/notification-styles", handler.NotificationStyles)

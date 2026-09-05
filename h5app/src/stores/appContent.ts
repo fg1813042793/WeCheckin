@@ -4,7 +4,7 @@ import { ref } from 'vue'
 
 export interface AppTabCloseGuard {
   hasUnsavedChanges: () => boolean
-  saveDraft: () => Promise<boolean>
+  saveDraft?: () => Promise<boolean>
 }
 
 export interface WorkflowStartSeed {
@@ -88,9 +88,13 @@ export const useAppContentStore = defineStore('appContent', () => {
     return Boolean(tabCloseGuards.get(key)?.hasUnsavedChanges())
   }
 
+  function canSaveTabDraft(key: string) {
+    return typeof tabCloseGuards.get(key)?.saveDraft === 'function'
+  }
+
   async function saveTabDraft(key: string) {
     const guard = tabCloseGuards.get(key)
-    return guard ? guard.saveDraft() : true
+    return guard?.saveDraft ? guard.saveDraft() : false
   }
 
   function requestCloseTab(key: string) {
@@ -158,6 +162,7 @@ export const useAppContentStore = defineStore('appContent', () => {
     focusWorkflowInstance,
     focusWorkflowTab,
     focusReview,
+    canSaveTabDraft,
     hasUnsavedTabChanges,
     openDynamicTab,
     registerTabCloseGuard,

@@ -22,6 +22,7 @@ import type {
   FormPayload,
   ID,
   InAppNotificationList,
+  InAppNotificationQuery,
   InAppNotificationRecipientOptions,
   InAppNotificationSendPayload,
   InAppNotificationSendResult,
@@ -621,20 +622,14 @@ export const adminApi = {
   surveyNotifyUnreadCount(params?: { userId?: string }) {
     return request.get(`${ADMIN_V2}/survey-notifications/unread-count`, { params })
   },
-  inAppNotificationList(params?: PageQuery) {
+  inAppNotificationList(params?: InAppNotificationQuery) {
     return request.get<InAppNotificationList>(`${ADMIN_V2}/in-app-notifications`, { params })
   },
-  inAppNotificationUnreadCount() {
-    return request.get<{ count: number }>(`${ADMIN_V2}/in-app-notifications/unread-count`)
+  inAppNotificationDelete(id: number) {
+    return request.delete(`${ADMIN_V2}/in-app-notifications/${encodePath(id)}`)
   },
   inAppNotificationRecipientOptions() {
     return request.get<InAppNotificationRecipientOptions>(`${ADMIN_V2}/in-app-notifications/recipient-options`)
-  },
-  inAppNotificationMarkRead(id: ID) {
-    return request.patch(`${ADMIN_V2}/in-app-notifications/${encodePath(id)}/read`)
-  },
-  inAppNotificationMarkAllRead() {
-    return request.patch(`${ADMIN_V2}/in-app-notifications/read-all`)
   },
   inAppNotificationSend(data: InAppNotificationSendPayload) {
     return request.post<InAppNotificationSendResult, InAppNotificationSendPayload>(`${ADMIN_V2}/in-app-notifications`, data, jsonConfig)

@@ -1,11 +1,13 @@
 package swagger
 
 import (
+	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/performance"
 	"wecheckin/backend/pkg/response"
 )
 
 var _ response.Resp
+var _ workflowapp.WorkflowOverview
 var _ dingtalkh5service.AccountProfilePayload
 var _ dingtalkh5service.ReviewPayload
 var _ dingtalkh5service.TemplateDTO
@@ -81,6 +83,13 @@ type H5AppWorkflowImage struct {
 
 type H5AppWorkflowRemindRequest struct {
 	NodeID string `json:"nodeId"`
+}
+
+type H5AppWorkflowReviseFormRequest struct {
+	ExpectedRevision int64                             `json:"expectedRevision" example:"1"`
+	FormData         map[string]interface{}            `json:"formData"`
+	Reason           string                            `json:"reason" example:"补充实际验收结果"`
+	Notification     *H5AppWorkflowCommentNotification `json:"notification,omitempty"`
 }
 
 // @Tags API v2-H5App-认证
@@ -195,6 +204,14 @@ func swaggerV2H5AppNotificationsReadAllPatch() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/dingtalk/h5/notifications/{id}/read [patch]
 func swaggerV2H5AppNotificationsIDReadPatch() {}
+
+// @Tags API v2-H5App-站内信
+// @Summary 删除当前用户指定站内信
+// @Security H5AppToken
+// @Param id path int true "站内信 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/notifications/{id} [delete]
+func swaggerV2H5AppNotificationsIDDelete() {}
 
 // @Tags API v2-H5App-绩效考核
 // @Summary 查询绩效考核列表
@@ -389,6 +406,14 @@ func swaggerV2H5AppTemplateGet() {}
 func swaggerV2H5AppTemplatePut() {}
 
 // @Tags API v2-H5App-OA流程
+// @Summary 查询 H5App 工作流概览统计
+// @Description 一次返回我的待办、已处理、我的申请和抄送我的数量，仅执行聚合统计，不读取列表记录
+// @Security H5AppToken
+// @Success 200 {object} response.Resp{data=workflowapp.WorkflowOverview}
+// @Router /api/v2/dingtalk/h5/workflows/overview [get]
+func swaggerV2H5AppWorkflowOverviewGet() {}
+
+// @Tags API v2-H5App-OA流程
 // @Summary 查询 H5App 可发起流程
 // @Security H5AppToken
 // @Success 200 {object} response.Resp
@@ -508,6 +533,16 @@ func swaggerV2H5AppWorkflowInstancesIDCommentsPost() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/dingtalk/h5/workflows/instances/{id}/reminders [post]
 func swaggerV2H5AppWorkflowInstancesIDRemindersPost() {}
+
+// @Tags API v2-H5App-OA流程
+// @Summary 修改已处理流程实例的表单数据
+// @Description 仅流程仍在运行、当前用户实际办理过已启用该能力的节点时可用；只允许修改这些节点配置为 write 且不参与路由条件判断的字段。expectedRevision 用于乐观锁校验；通知可省略，收件人仅限流程参与人，渠道支持站内信和钉钉 OA。
+// @Security H5AppToken
+// @Param id path string true "流程实例 ID"
+// @Param body body H5AppWorkflowReviseFormRequest true "表单修改内容"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/instances/{id}/form-data [patch]
+func swaggerV2H5AppWorkflowInstancesIDFormDataPatch() {}
 
 // @Tags API v2-H5App-OA流程
 // @Summary 查询 H5App 待办任务

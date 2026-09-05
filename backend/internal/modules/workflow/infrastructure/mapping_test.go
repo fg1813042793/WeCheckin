@@ -198,7 +198,7 @@ func TestNotificationDedupeKeyAllowsSeparateReminderActions(t *testing.T) {
 	}
 }
 
-func TestRenderNotificationPayloadUsesActionCardForCommentsOnly(t *testing.T) {
+func TestRenderNotificationPayloadUsesActionCardForInteractiveUpdates(t *testing.T) {
 	state := &workflowdomain.State{Instance: workflowdomain.ProcessInstance{ID: "instance-1", StarterID: "7"}}
 	comment := renderNotificationPayload(state, workflowdomain.NotificationIntent{
 		Kind:   workflowdomain.NotificationKindInstanceCommented,
@@ -206,6 +206,13 @@ func TestRenderNotificationPayloadUsesActionCardForCommentsOnly(t *testing.T) {
 	}, "Foster")
 	if comment.MessageType != "action_card" {
 		t.Fatalf("comment message type = %q, want action_card", comment.MessageType)
+	}
+	revision := renderNotificationPayload(state, workflowdomain.NotificationIntent{
+		Kind:   workflowdomain.NotificationKindInstanceFormRevised,
+		Config: workflowcore.NotificationConfig{Title: "表单有更新", Content: "请查看修改"},
+	}, "Foster")
+	if revision.MessageType != "action_card" {
+		t.Fatalf("form revision message type = %q, want action_card", revision.MessageType)
 	}
 
 	regular := renderNotificationPayload(state, workflowdomain.NotificationIntent{

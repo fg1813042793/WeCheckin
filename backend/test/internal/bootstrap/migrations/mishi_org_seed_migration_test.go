@@ -31,7 +31,11 @@ func TestMishiOrgSeedMigrationExists(t *testing.T) {
 		"INSERT INTO `users`",
 		"INSERT INTO `user_depts`",
 		"MD5('123456')",
-		"COLLATE=utf8mb4_general_ci",
+		"CAST(existing.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(p1.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(p2.`dept_name` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(u.`user_mini_openid` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
+		"CAST(t.`mini_openid` AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci",
 	}
 	for _, snippet := range required {
 		if !strings.Contains(text, snippet) {

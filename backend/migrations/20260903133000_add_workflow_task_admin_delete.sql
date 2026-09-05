@@ -1,10 +1,50 @@
 -- 管理员删除流程任务采用软删除，保留流程实例详情和流转历史用于审计。
 -- 删除权限不自动授予现有角色或用户。
 
-ALTER TABLE `workflow_process_tasks`
-  ADD COLUMN `admin_deleted_at` bigint NOT NULL DEFAULT 0 COMMENT '管理员删除时间' AFTER `handled_at`,
-  ADD COLUMN `admin_deleted_by` varchar(64) NOT NULL DEFAULT '' COMMENT '删除操作管理员ID' AFTER `admin_deleted_at`,
-  ADD INDEX `idx_workflow_tasks_admin_deleted_time` (`admin_deleted_at`, `created_at`);
+SET @workflow_task_admin_deleted_at_exists := (
+  SELECT COUNT(1) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'workflow_process_tasks'
+    AND COLUMN_NAME = 'admin_deleted_at'
+);
+SET @ddl := IF(
+  @workflow_task_admin_deleted_at_exists = 0,
+  'ALTER TABLE `workflow_process_tasks` ADD COLUMN `admin_deleted_at` bigint NOT NULL DEFAULT 0 COMMENT ''管理员删除时间'' AFTER `handled_at`',
+  'SELECT ''workflow_process_tasks.admin_deleted_at exists'''
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @workflow_task_admin_deleted_by_exists := (
+  SELECT COUNT(1) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'workflow_process_tasks'
+    AND COLUMN_NAME = 'admin_deleted_by'
+);
+SET @ddl := IF(
+  @workflow_task_admin_deleted_by_exists = 0,
+  'ALTER TABLE `workflow_process_tasks` ADD COLUMN `admin_deleted_by` varchar(64) NOT NULL DEFAULT '''' COMMENT ''删除操作管理员ID'' AFTER `admin_deleted_at`',
+  'SELECT ''workflow_process_tasks.admin_deleted_by exists'''
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @workflow_task_admin_deleted_index_exists := (
+  SELECT COUNT(1) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'workflow_process_tasks'
+    AND INDEX_NAME = 'idx_workflow_tasks_admin_deleted_time'
+);
+SET @ddl := IF(
+  @workflow_task_admin_deleted_index_exists = 0,
+  'ALTER TABLE `workflow_process_tasks` ADD INDEX `idx_workflow_tasks_admin_deleted_time` (`admin_deleted_at`, `created_at`)',
+  'SELECT ''idx_workflow_tasks_admin_deleted_time exists'''
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 INSERT INTO `permissions` (
   `permission_key`, `permission_name`, `permission_platform`, `permission_type`,

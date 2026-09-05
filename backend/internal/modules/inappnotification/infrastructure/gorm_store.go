@@ -146,35 +146,127 @@ func (store *GormStore) Deliver(ctx context.Context, batch application.DeliveryB
 	return application.DeliveryResult{SentCount: int(existing), Replayed: true}, nil
 }
 
-func (store *GormStore) List(ctx context.Context, userID string, page, pageSize int) ([]application.Notification, int64, error) {
+func (store *GormStore) ListRecords(ctx context.Context, recordQuery application.NotificationRecordQuery) ([]application.Notification, int64, error) {
 	if store == nil || store.db == nil {
 		return nil, 0, errors.New("in-app notification database is not initialized")
 	}
 	db, cancel := store.withContext(ctx)
 	defer cancel()
-	query := db.Model(&model.Notify{}).Where("notify_user_id = ?", userID)
+
+	var recipientUserIDs []string
+	if recordQuery.RecipientName != "" {
+		var userIDs []uint
+		if err := db.Model(&model.User{}).
+			Where("user_name LIKE ? ESCAPE '!'", notificationContainsLikePattern(recordQuery.RecipientName)).
+			Pluck("id", &userIDs).Error; err != nil {
+			return nil, 0, err
+		}
+		if len(userIDs) == 0 {
+			return []application.Notification{}, 0, nil
+		}
+		recipientUserIDs = make([]string, 0, len(userIDs))
+		for _, userID := range userIDs {
+			recipientUserIDs = append(recipientUserIDs, strconv.FormatUint(uint64(userID), 10))
+		}
+	}
+	query := applyNotificationRecordFilters(db.Model(&model.Notify{}), recordQuery, recipientUserIDs)
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	rows := make([]model.Notify, 0)
-	if err := query.Order("notify_id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error; err != nil {
+	if err := query.Order("notify_id DESC").Offset((recordQuery.Page - 1) * recordQuery.PageSize).Limit(recordQuery.PageSize).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	recipientNames, err := notificationRecipientNames(db, rows)
+	if err != nil {
 		return nil, 0, err
 	}
 	items := make([]application.Notification, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, application.Notification{
-			ID:         row.ID,
-			Title:      row.Title,
-			Content:    row.Content,
-			Type:       row.Type,
-			SourceType: row.SourceType,
-			SourceID:   row.SourceID,
-			IsRead:     row.IsRead,
-			AddTime:    row.AddTime,
+			ID: row.ID, Title: row.Title, Content: row.Content, Type: row.Type,
+			SourceType: row.SourceType, SourceID: row.SourceID,
+			RecipientUserID: row.UserID, RecipientName: recipientNames[row.UserID],
+			IsRead: row.IsRead, AddTime: row.AddTime,
 		})
 	}
 	return items, total, nil
+}
+
+func applyNotificationRecordFilters(db *gorm.DB, query application.NotificationRecordQuery, recipientUserIDs []string) *gorm.DB {
+	db = db.Where("notify_admin_deleted_at = ?", int64(0))
+	if query.Title != "" {
+		db = db.Where("notify_title LIKE ? ESCAPE '!'", notificationContainsLikePattern(query.Title))
+	}
+	if query.SourceType != "" {
+		db = db.Where("notify_source_type = ?", query.SourceType)
+	}
+	if query.Type != "" {
+		db = db.Where("notify_type = ?", query.Type)
+	}
+	if query.IsRead != nil {
+		db = db.Where("notify_is_read = ?", *query.IsRead)
+	}
+	if query.AddTimeFrom > 0 {
+		db = db.Where("notify_add_time >= ?", query.AddTimeFrom)
+	}
+	if query.AddTimeTo > 0 {
+		db = db.Where("notify_add_time <= ?", query.AddTimeTo)
+	}
+	if len(recipientUserIDs) > 0 {
+		db = db.Where("notify_user_id IN ?", recipientUserIDs)
+	}
+	return db
+}
+
+func (store *GormStore) SoftDeleteRecord(ctx context.Context, notificationID uint, actorID string, deletedAt int64) (bool, error) {
+	if store == nil || store.db == nil {
+		return false, errors.New("in-app notification database is not initialized")
+	}
+	db, cancel := store.withContext(ctx)
+	defer cancel()
+	result := db.Model(&model.Notify{}).
+		Where("notify_id = ? AND notify_admin_deleted_at = 0", notificationID).
+		Updates(map[string]interface{}{
+			"notify_admin_deleted_at": deletedAt,
+			"notify_admin_deleted_by": strings.TrimSpace(actorID),
+		})
+	return result.RowsAffected == 1, result.Error
+}
+
+func notificationRecipientNames(db *gorm.DB, rows []model.Notify) (map[string]string, error) {
+	userIDs := make([]uint, 0, len(rows))
+	userIDKeys := make(map[uint]string, len(rows))
+	for _, row := range rows {
+		value, err := strconv.ParseUint(strings.TrimSpace(row.UserID), 10, 64)
+		if err != nil || value == 0 {
+			continue
+		}
+		userID := uint(value)
+		if _, exists := userIDKeys[userID]; exists {
+			continue
+		}
+		userIDs = append(userIDs, userID)
+		userIDKeys[userID] = row.UserID
+	}
+	result := make(map[string]string, len(userIDs))
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+	var users []model.User
+	if err := db.Select("id", "user_name").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	for _, user := range users {
+		result[userIDKeys[user.ID]] = user.Name
+	}
+	return result, nil
+}
+
+func notificationContainsLikePattern(value string) string {
+	replacer := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_")
+	return "%" + replacer.Replace(strings.TrimSpace(value)) + "%"
 }
 
 func (store *GormStore) UnreadCount(ctx context.Context, userID string) (int64, error) {
@@ -185,7 +277,7 @@ func (store *GormStore) UnreadCount(ctx context.Context, userID string) (int64, 
 	defer cancel()
 	var count int64
 	err := db.Model(&model.Notify{}).
-		Where("notify_user_id = ? AND notify_is_read = 0", userID).
+		Where("notify_user_id = ? AND notify_deleted_at = 0 AND notify_is_read = 0", userID).
 		Count(&count).Error
 	return count, err
 }
@@ -198,7 +290,7 @@ func (store *GormStore) MarkRead(ctx context.Context, userID string, notificatio
 	defer cancel()
 	var row model.Notify
 	err := db.Select("notify_id").
-		Where("notify_id = ? AND notify_user_id = ?", notificationID, userID).
+		Where("notify_id = ? AND notify_user_id = ? AND notify_deleted_at = 0", notificationID, userID).
 		Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
@@ -207,7 +299,7 @@ func (store *GormStore) MarkRead(ctx context.Context, userID string, notificatio
 		return false, err
 	}
 	if err := db.Model(&model.Notify{}).
-		Where("notify_id = ? AND notify_user_id = ?", notificationID, userID).
+		Where("notify_id = ? AND notify_user_id = ? AND notify_deleted_at = 0", notificationID, userID).
 		UpdateColumn("notify_is_read", 1).Error; err != nil {
 		return false, err
 	}
@@ -221,7 +313,7 @@ func (store *GormStore) MarkAllRead(ctx context.Context, userID string) error {
 	db, cancel := store.withContext(ctx)
 	defer cancel()
 	return db.Model(&model.Notify{}).
-		Where("notify_user_id = ? AND notify_is_read = 0", userID).
+		Where("notify_user_id = ? AND notify_deleted_at = 0 AND notify_is_read = 0", userID).
 		UpdateColumn("notify_is_read", 1).Error
 }
 

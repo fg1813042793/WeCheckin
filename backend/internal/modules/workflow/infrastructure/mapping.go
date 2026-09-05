@@ -119,6 +119,7 @@ func stateFromModels(
 			BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
 			StarterID: instance.StarterID, OperatorID: instance.OperatorID,
 			Status: workflowdomain.InstanceStatus(instance.Status), StartTime: instance.StartTime,
+			FormRevision: instance.FormRevision,
 		},
 		Variables: make(map[string]interface{}, len(variables)),
 		FormData:  make(map[string]interface{}),

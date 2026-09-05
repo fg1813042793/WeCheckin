@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/internal/support/adminaccess"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 

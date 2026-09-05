@@ -13,6 +13,7 @@ type fakeRepository struct {
 	listUserID      string
 	listPage        int
 	listPageSize    int
+	listUnreadOnly  bool
 	listItems       []model.Notify
 	listTotal       int64
 	unreadUserID    string
@@ -21,13 +22,17 @@ type fakeRepository struct {
 	markReadID      uint
 	markReadUpdated bool
 	markAllUserID   string
+	deleteUserID    string
+	deleteID        uint
+	deleteUpdated   bool
 	styles          notificationstyle.Config
 }
 
-func (r *fakeRepository) List(_ context.Context, userID string, page, pageSize int) ([]model.Notify, int64, error) {
+func (r *fakeRepository) List(_ context.Context, userID string, page, pageSize int, unreadOnly bool) ([]model.Notify, int64, error) {
 	r.listUserID = userID
 	r.listPage = page
 	r.listPageSize = pageSize
+	r.listUnreadOnly = unreadOnly
 	return r.listItems, r.listTotal, nil
 }
 
@@ -45,6 +50,12 @@ func (r *fakeRepository) MarkRead(_ context.Context, userID string, id uint) (bo
 func (r *fakeRepository) MarkAllRead(_ context.Context, userID string) error {
 	r.markAllUserID = userID
 	return nil
+}
+
+func (r *fakeRepository) Delete(_ context.Context, userID string, id uint) (bool, error) {
+	r.deleteUserID = userID
+	r.deleteID = id
+	return r.deleteUpdated, nil
 }
 
 func (r *fakeRepository) NotificationStyles(context.Context) (notificationstyle.Config, error) {
@@ -71,7 +82,7 @@ func TestServiceListScopesToCurrentUserAndNormalizesPagination(t *testing.T) {
 	}
 	service := NewServiceWithRepository(repository)
 
-	result, err := service.List(context.Background(), 42, 0, 101)
+	result, err := service.List(context.Background(), 42, 0, 101, false)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
@@ -90,6 +101,18 @@ func TestServiceListScopesToCurrentUserAndNormalizesPagination(t *testing.T) {
 	}
 	if item.Style.Label != "自定义流程" || item.Style.Icon != "bell" || item.Style.Tone != notificationstyle.ToneWarning {
 		t.Fatalf("notification style = %#v", item.Style)
+	}
+}
+
+func TestServiceListPassesUnreadOnlyFilter(t *testing.T) {
+	repository := &fakeRepository{}
+	service := NewServiceWithRepository(repository)
+
+	if _, err := service.List(context.Background(), 42, 1, 20, true); err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if !repository.listUnreadOnly {
+		t.Fatal("repository unread-only filter = false, want true")
 	}
 }
 
@@ -131,13 +154,38 @@ func TestServiceMarkAllReadScopesToCurrentUser(t *testing.T) {
 	}
 }
 
+func TestServiceDeleteScopesToCurrentUser(t *testing.T) {
+	repository := &fakeRepository{deleteUpdated: true}
+	service := NewServiceWithRepository(repository)
+
+	if err := service.Delete(context.Background(), 88, 12); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if repository.deleteUserID != "88" || repository.deleteID != 12 {
+		t.Fatalf("delete scope = %q/%d, want 88/12", repository.deleteUserID, repository.deleteID)
+	}
+}
+
+func TestServiceDeleteRejectsNotificationOutsideCurrentUser(t *testing.T) {
+	repository := &fakeRepository{deleteUpdated: false}
+	service := NewServiceWithRepository(repository)
+
+	err := service.Delete(context.Background(), 66, 9)
+	if !errors.Is(err, ErrNotificationNotFound) {
+		t.Fatalf("Delete() error = %v, want ErrNotificationNotFound", err)
+	}
+}
+
 func TestServiceRejectsMissingCurrentUser(t *testing.T) {
 	service := NewServiceWithRepository(&fakeRepository{})
 
-	if _, err := service.List(context.Background(), 0, 1, 20); !errors.Is(err, ErrUnauthenticated) {
+	if _, err := service.List(context.Background(), 0, 1, 20, false); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("List() error = %v, want ErrUnauthenticated", err)
 	}
 	if err := service.MarkRead(context.Background(), 0, 1); !errors.Is(err, ErrUnauthenticated) {
 		t.Fatalf("MarkRead() error = %v, want ErrUnauthenticated", err)
+	}
+	if err := service.Delete(context.Background(), 0, 1); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("Delete() error = %v, want ErrUnauthenticated", err)
 	}
 }

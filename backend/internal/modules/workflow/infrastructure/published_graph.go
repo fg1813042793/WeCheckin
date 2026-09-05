@@ -103,6 +103,7 @@ func buildPublishedWorkflowGraph(definition workflowcore.Definition, labels publ
 			ApprovalMode: node.ApprovalMode, GatewayMode: node.GatewayMode,
 			AssigneeDisplay: publishedAssigneeDisplay(node.Assignee, labels),
 			Assignee:        clonePublishedAssignee(node.Assignee),
+			PostHandleEdit:  clonePostHandleEdit(node.PostHandleEdit),
 		})
 	}
 	edges := make([]application.PublishedEdge, 0, len(definition.Edges))
@@ -110,10 +111,26 @@ func buildPublishedWorkflowGraph(definition workflowcore.Definition, labels publ
 		edges = append(edges, application.PublishedEdge{
 			ID: edge.ID, Source: edge.Source, Target: edge.Target,
 			SourceHandle: edge.SourceHandle, TargetHandle: edge.TargetHandle,
-			Name: edge.Name, Default: edge.Default,
+			Name: edge.Name, Default: edge.Default, Condition: clonePublishedCondition(edge.Condition),
 		})
 	}
 	return nodes, edges
+}
+
+func clonePostHandleEdit(config *workflowcore.PostHandleEditConfig) *workflowcore.PostHandleEditConfig {
+	if config == nil {
+		return nil
+	}
+	value := *config
+	return &value
+}
+
+func clonePublishedCondition(condition *workflowcore.Condition) *workflowcore.Condition {
+	if condition == nil {
+		return nil
+	}
+	value := *condition
+	return &value
 }
 
 func clonePublishedAssignee(assignee *workflowcore.Assignee) *workflowcore.Assignee {

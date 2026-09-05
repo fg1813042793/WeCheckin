@@ -2,9 +2,24 @@ package bootstrap
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
+
+func TestAutoMigrateUsesCompleteUserModelAsSingleUsersTableOwner(t *testing.T) {
+	source, err := os.ReadFile("migrate.go")
+	if err != nil {
+		t.Fatalf("read migrate.go: %v", err)
+	}
+	text := string(source)
+	if !strings.Contains(text, "&model.User{}") {
+		t.Fatal("autoMigrate must include the complete user model")
+	}
+	if strings.Contains(text, "&model.Admin{}") {
+		t.Fatal("autoMigrate must not include the compatibility admin model for the users table")
+	}
+}
 
 func TestRunMigrationStepsLogsSuccessfulSteps(t *testing.T) {
 	var logs []string

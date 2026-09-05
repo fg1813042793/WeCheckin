@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 
+	"wecheckin/backend/internal/model"
 	setupservice "wecheckin/backend/internal/service/admin/setup"
 	"wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/support/publish"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 

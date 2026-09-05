@@ -193,6 +193,15 @@
 - 仅运行中流程的发起人可操作；串行、并行或会签均只通知当前处于 `pending` 状态的人工任务处理人，自己不会收到催办。
 - 同一流程实例和节点每 30 分钟最多提醒一次，每日最多 3 次；成功催办会写入流转记录和通知 Outbox。
 
+### 钉钉 H5 办理后修改表单
+
+- `PATCH /api/v2/dingtalk/h5/workflows/instances/{id}/form-data`：允许实际办理过流程节点的用户在流程结束前修改授权字段。
+- 流程设计节点必须开启“办理完成后允许修改表单”；可修改字段取该用户已办理且已开启能力节点的 `write` 字段并集，参与路由条件判断的字段始终不可修改。
+- 请求体包含 `expectedRevision`、非空 `formData` 补丁和必填 `reason`。服务端使用 `expectedRevision` 做乐观锁校验，普通任务提交导致表单变化时也会递增版本。
+- `notification` 可省略；启用时收件人只能选择该流程的发起人、处理人或抄送人，渠道支持 `in_app` 和 `dingtalk_oa`。
+- 修改、审计记录与通知 Outbox 在同一事务中提交；修改成功后会新增“表单已修改”流转记录。历史流程版本未配置该能力时保持不可修改。
+- H5 入口同时要求 `dingtalk_h5:button:workflow:form-revise` 与 `dingtalk_h5:api:workflow:form-revise` 权限，后端接口权限是最终边界。
+
 ### 钉钉 H5 流程附件
 
 - `POST /api/v2/dingtalk/h5/workflows/attachments`：上传流程表单附件，文件字段名为 `file`，单文件最大 20MB。

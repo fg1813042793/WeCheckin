@@ -8,6 +8,7 @@ func TestNotificationRoutePermissionCatalog(t *testing.T) {
 		path   string
 	}{
 		"notification:list":          {method: "GET", path: "/api/v2/admin/in-app-notifications"},
+		"notification:delete":        {method: "DELETE", path: "/api/v2/admin/in-app-notifications/:id"},
 		"notification:read":          {method: "PATCH", path: "/api/v2/admin/in-app-notifications/:id/read"},
 		"notification:send":          {method: "POST", path: "/api/v2/admin/in-app-notifications"},
 		"notification:dingtalk:send": {method: "POST", path: "/api/v2/admin/dingtalk-notifications"},

@@ -46,6 +46,7 @@ func Register(h *server.Hertz) {
 	authed.GET("/notifications/unread-count", handler.Notification.UnreadCount)
 	authed.PATCH("/notifications/read-all", handler.Notification.MarkAllRead)
 	authed.PATCH("/notifications/:id/read", handler.Notification.MarkRead)
+	authed.DELETE("/notifications/:id", handler.Notification.Delete)
 
 	auth := group.Group("", dingtalkh5mw.DingTalkH5Auth(), dingtalkh5mw.DingTalkH5Perm())
 	auth.GET("/bootstrap", handler.Bootstrap.Bootstrap)
@@ -72,6 +73,7 @@ func Register(h *server.Hertz) {
 	auth.DELETE("/users/:id", handler.User.DeleteUser)
 	auth.GET("/template", handler.Template.Template)
 	auth.PUT("/template", handler.Template.SaveTemplate)
+	auth.GET("/workflows/overview", workflowHandler.GetMyOverview)
 	auth.GET("/workflows/categories", workflowHandler.ListDefinitionCategories)
 	auth.GET("/workflows/definitions", workflowHandler.ListDefinitions)
 	auth.GET("/workflows/definitions/:id", workflowHandler.GetDefinition)
@@ -86,6 +88,7 @@ func Register(h *server.Hertz) {
 	auth.POST("/workflows/instances/:id/withdraw", workflowHandler.WithdrawInstance)
 	auth.POST("/workflows/instances/:id/comments", workflowHandler.CommentInstance)
 	auth.POST("/workflows/instances/:id/reminders", workflowHandler.RemindInstance)
+	auth.PATCH("/workflows/instances/:id/form-data", workflowHandler.ReviseInstanceForm)
 	auth.GET("/workflows/tasks", workflowHandler.ListMyTasks)
 	auth.POST("/workflows/tasks/:id/complete", workflowHandler.CompleteTask)
 	auth.GET("/workflows/summary/definitions", workflowSummaryHandler.ListDefinitions)

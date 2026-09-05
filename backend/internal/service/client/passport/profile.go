@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
 	permissionsupport "wecheckin/backend/internal/support/permission"
-	"wecheckin/backend/internal/model"
 	"wecheckin/backend/pkg/database"
 )
 

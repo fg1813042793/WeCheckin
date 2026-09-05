@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$ROOT_DIR"
 node scripts/check-quality-gates.mjs
+bash "$ROOT_DIR/scripts/check-backend-format.sh"
 
 cd "$ROOT_DIR/backend"
 GOCACHE="$ROOT_DIR/.cache/go-build" go test ./...
