@@ -8,6 +8,7 @@ import {
 } from '@/api/notifications'
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
 import { openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
+import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
 import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
 import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
@@ -144,28 +145,25 @@ async function loadNotifications(append: boolean) {
   }
 }
 
-async function markRead(notification: InAppNotification) {
+async function markRead(notification: InAppNotification, options: { requireExplicitSuccess?: boolean } = {}) {
   if (notification.isRead === 1)
     return true
-  try {
-    const response = await markNotificationRead(notification.id)
-    if (!response)
-      throw new Error('notification mark-read failed')
-    notification.isRead = 1
-    notifications.value = notifications.value.filter(item => item.id !== notification.id)
-    total.value = Math.max(0, total.value - 1)
-    emit('unread-change', Math.max(0, props.unreadCount - 1))
-    return true
-  }
-  catch {
-    uni.showToast({ title: '标记已读失败', icon: 'none' })
-    return false
-  }
+  return runNotificationMarkRead({
+    requireExplicitSuccess: options.requireExplicitSuccess,
+    request: () => markNotificationRead(notification.id),
+    commit: () => {
+      notification.isRead = 1
+      notifications.value = notifications.value.filter(item => item.id !== notification.id)
+      total.value = Math.max(0, total.value - 1)
+      emit('unread-change', Math.max(0, props.unreadCount - 1))
+    },
+    fail: () => uni.showToast({ title: '标记已读失败', icon: 'none' }),
+  })
 }
 
 function handleFeedbackNotification(notification: InAppNotification) {
   void openFeedbackNotification(notification, {
-    markRead: () => markRead(notification),
+    markRead: () => markRead(notification, { requireExplicitSuccess: true }),
     feedbackDetailContentKey: sourceID => feedbackDetailContentKey(sourceID),
     openDynamicTab: tab => appContent.openDynamicTab(tab),
     closePanel,

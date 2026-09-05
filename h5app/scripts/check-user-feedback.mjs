@@ -24,6 +24,7 @@ const requiredFiles = [
   'src/pages/feedback/components/FeedbackStatusOverview.vue',
   'src/pages/feedback/components/FeedbackList.vue',
   'src/pages/notifications/feedback-notification-open.ts',
+  'src/pages/notifications/notification-mark-read.ts',
   'src/components/app-notification-panel/app-notification-panel.vue',
   'src/components/app-shell/app-shell-navigation-guard.ts',
 ]
@@ -653,6 +654,68 @@ assert.deepEqual(notificationMeta.notificationTypeMeta('unknown_notification'), 
 }, 'unknown notification types must keep the existing fallback')
 
 const feedbackNotificationOpen = await loadTypeScriptModule('src/pages/notifications/feedback-notification-open.ts')
+const notificationMarkRead = await loadTypeScriptModule('src/pages/notifications/notification-mark-read.ts')
+const workflowMarkEvents = []
+let resolveWorkflowMark
+const workflowMarkResult = notificationMarkRead.runNotificationMarkRead({
+  request() {
+    workflowMarkEvents.push('request')
+    return new Promise((resolve) => {
+      resolveWorkflowMark = resolve
+    })
+  },
+  commit() {
+    workflowMarkEvents.push('commit')
+  },
+  fail() {
+    workflowMarkEvents.push('fail')
+  },
+})
+await Promise.resolve()
+assert.deepEqual(workflowMarkEvents, ['request'], 'local workflow read state must wait for the API')
+resolveWorkflowMark(false)
+assert.equal(await workflowMarkResult, true)
+assert.deepEqual(
+  workflowMarkEvents,
+  ['request', 'commit'],
+  'workflow must preserve the legacy resolved-false behavior and commit local read state',
+)
+
+const strictFeedbackMarkEvents = []
+assert.equal(await notificationMarkRead.runNotificationMarkRead({
+  requireExplicitSuccess: true,
+  async request() {
+    strictFeedbackMarkEvents.push('request')
+    return false
+  },
+  commit() {
+    strictFeedbackMarkEvents.push('commit')
+  },
+  fail() {
+    strictFeedbackMarkEvents.push('fail')
+  },
+}), false)
+assert.deepEqual(
+  strictFeedbackMarkEvents,
+  ['request', 'fail'],
+  'feedback must reject an ambiguous resolved-false mark and keep local state unchanged',
+)
+
+const rejectedWorkflowMarkEvents = []
+assert.equal(await notificationMarkRead.runNotificationMarkRead({
+  async request() {
+    rejectedWorkflowMarkEvents.push('request')
+    throw new Error('request failed')
+  },
+  commit() {
+    rejectedWorkflowMarkEvents.push('commit')
+  },
+  fail() {
+    rejectedWorkflowMarkEvents.push('fail')
+  },
+}), false)
+assert.deepEqual(rejectedWorkflowMarkEvents, ['request', 'fail'], 'workflow API rejection must keep failing')
+
 const openEvents = []
 let openedFeedbackTab
 let resolveMarkRead
@@ -795,6 +858,17 @@ assert.deepEqual(workflowEvents, [], 'feedback helper must not consume workflow 
 
 const notificationPanelScript = vueScriptSourceFile('src/components/app-notification-panel/app-notification-panel.vue')
 assert.ok(functionCalls(notificationPanelScript, 'handleFeedbackNotification').includes('openFeedbackNotification'))
+assert.ok(functionCalls(notificationPanelScript, 'markRead').includes('runNotificationMarkRead'))
+assert.match(
+  findFunction(notificationPanelScript, 'handleFeedbackNotification').getText(notificationPanelScript),
+  /markRead\(notification,\s*\{\s*requireExplicitSuccess:\s*true\s*\}\)/,
+  'only feedback notifications must request explicit mark-read success',
+)
+assert.doesNotMatch(
+  findFunction(notificationPanelScript, 'openNotification').getText(notificationPanelScript),
+  /requireExplicitSuccess/,
+  'workflow notification opening must keep the default mark-read semantics',
+)
 assert.deepEqual(
   functionCalls(notificationPanelScript, 'openNotification')
     .filter(call => ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab', 'closePanel'].includes(call)),
@@ -808,8 +882,8 @@ assertContains('src/components/app-notification-panel/app-notification-panel.vue
   `notification.sourceType === 'workflow_instance'`,
   `label: notification.title || '流程详情'`,
   `icon: 'file-text'`,
-  'const response = await markNotificationRead(notification.id)',
-  'if (!response)',
+  'runNotificationMarkRead',
+  'requireExplicitSuccess: true',
 ])
 
 const statuses = await loadTypeScriptModule('src/pages/feedback/feedback-status.ts')
