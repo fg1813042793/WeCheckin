@@ -110,26 +110,22 @@ func TestUserFeedbackGrantBackfillsAreScopedAndInsertOnly(t *testing.T) {
 		t.Fatalf("permission_grants INSERT count = %d, want 2", len(grants))
 	}
 	for _, grant := range grants {
-		if !strings.Contains(grant, "NOT EXISTS") && !strings.Contains(grant, "LEFT JOIN") {
-			t.Fatal("grant backfill must insert only missing target grants")
-		}
 		if strings.Contains(grant, "ON DUPLICATE KEY UPDATE") {
 			t.Fatal("grant backfill must not overwrite existing effect, status, scope, or source")
 		}
-		requireFragments(t, grant, []string{
-			"existing_grant.`grant_permission_key` = target_perm.`permission_key`",
-		})
 	}
 
 	admin := statementContaining(t, grants, "user-feedback-admin-role-backfill")
-	requireFragments(t, admin, []string{
-		"FROM `roles`", "`role_name` = '超级管理员'", "ORDER BY `id`", "LIMIT 1",
-		"existing_grant.`grant_subject_type` = 'role'",
-		"existing_grant.`grant_subject_id` = super_admin.`id`",
-	})
 	if strings.Contains(admin, "admin:login") || strings.Contains(admin, "source_grant") {
 		t.Fatal("admin feedback grants must be scoped by the built-in super administrator role, not login permission")
 	}
+	assertNormalizedSQL(t, "Admin source role subquery", extractBetween(t, admin, "FROM (", ") super_admin"),
+		"SELECT `id` FROM `roles` WHERE `role_name` = '超级管理员' ORDER BY `id` LIMIT 1")
+	assertNormalizedSQL(t, "Admin grant WHERE", extractWhereClause(t, admin, "WHERE NOT EXISTS"),
+		"WHERE NOT EXISTS (SELECT 1 FROM `permission_grants` existing_grant "+
+			"WHERE existing_grant.`grant_subject_type` = 'role' "+
+			"AND existing_grant.`grant_subject_id` = super_admin.`id` "+
+			"AND existing_grant.`grant_permission_key` = target_perm.`permission_key`)")
 	assertStringSet(t, "Admin feedback grant targets", extractINValues(t, admin, "target_perm.`permission_key`"), []string{
 		"admin:menu:user-feedback",
 		"admin:menu:user-feedback:list",
@@ -139,13 +135,14 @@ func TestUserFeedbackGrantBackfillsAreScopedAndInsertOnly(t *testing.T) {
 	})
 
 	h5 := statementContaining(t, grants, "user-feedback-h5-role-backfill")
-	requireFragments(t, h5, []string{
-		"source_grant.`grant_subject_type` = 'role'",
-		"source_grant.`grant_effect` = 'allow'",
-		"source_grant.`grant_status` = 1",
-		"existing_grant.`grant_subject_type` = source_grant.`grant_subject_type`",
-		"existing_grant.`grant_subject_id` = source_grant.`grant_subject_id`",
-	})
+	assertNormalizedSQL(t, "H5 grant WHERE", extractWhereClause(t, h5, "WHERE source_grant"),
+		"WHERE source_grant.`grant_subject_type` = 'role' "+
+			"AND source_grant.`grant_permission_key` IN ('dingtalk_h5:menu:dashboard', 'dingtalk_h5:api:bootstrap:view') "+
+			"AND source_grant.`grant_effect` = 'allow' AND source_grant.`grant_status` = 1 "+
+			"AND NOT EXISTS (SELECT 1 FROM `permission_grants` existing_grant "+
+			"WHERE existing_grant.`grant_subject_type` = source_grant.`grant_subject_type` "+
+			"AND existing_grant.`grant_subject_id` = source_grant.`grant_subject_id` "+
+			"AND existing_grant.`grant_permission_key` = target_perm.`permission_key`)")
 	assertStringSet(t, "H5 feedback grant mappings", extractH5Mappings(h5), []string{
 		"dingtalk_h5:menu:dashboard->dingtalk_h5:menu:feedback",
 		"dingtalk_h5:api:bootstrap:view->dingtalk_h5:api:feedback:list",
@@ -155,7 +152,7 @@ func TestUserFeedbackGrantBackfillsAreScopedAndInsertOnly(t *testing.T) {
 	})
 }
 
-func TestUserFeedbackSourceFilterSpecification(t *testing.T) {
+func TestUserFeedbackSourceFilterSemanticExamples(t *testing.T) {
 	targets := []string{"feedback:menu", "feedback:api"}
 	tests := []struct {
 		name   string
@@ -176,7 +173,7 @@ func TestUserFeedbackSourceFilterSpecification(t *testing.T) {
 	}
 }
 
-func TestUserFeedbackInsertOnlyGrantSpecificationPreservesExistingAndIsRepeatable(t *testing.T) {
+func TestUserFeedbackInsertOnlyGrantSemanticExamples(t *testing.T) {
 	existing := []grantFixture{
 		{Subject: "role:1", Permission: "admin:menu:user-feedback", Effect: "deny", Status: 0, Scope: "department:7", Source: "manual"},
 		{Subject: "role:1", Permission: "admin:api:user-feedback:list", Effect: "allow", Status: 0, Scope: "self", Source: "legacy"},
@@ -332,6 +329,41 @@ func statementContaining(t *testing.T, statements []string, marker string) strin
 	}
 	t.Fatalf("statement containing %q not found", marker)
 	return ""
+}
+
+func extractBetween(t *testing.T, text, startMarker, endMarker string) string {
+	t.Helper()
+	start := strings.Index(text, startMarker)
+	if start < 0 {
+		t.Fatalf("start marker %q not found", startMarker)
+	}
+	start += len(startMarker)
+	end := strings.Index(text[start:], endMarker)
+	if end < 0 {
+		t.Fatalf("end marker %q not found", endMarker)
+	}
+	return text[start : start+end]
+}
+
+func extractWhereClause(t *testing.T, statement, marker string) string {
+	t.Helper()
+	start := strings.Index(statement, marker)
+	if start < 0 {
+		t.Fatalf("WHERE marker %q not found", marker)
+	}
+	return strings.TrimSuffix(strings.TrimSpace(statement[start:]), ";")
+}
+
+func assertNormalizedSQL(t *testing.T, label, actual, expected string) {
+	t.Helper()
+	normalize := func(value string) string {
+		value = strings.Join(strings.Fields(value), " ")
+		value = strings.ReplaceAll(value, "( ", "(")
+		return strings.ReplaceAll(value, " )", ")")
+	}
+	if actual, expected = normalize(actual), normalize(expected); actual != expected {
+		t.Fatalf("%s = %q, want %q", label, actual, expected)
+	}
 }
 
 func requireFragments(t *testing.T, text string, fragments []string) {
