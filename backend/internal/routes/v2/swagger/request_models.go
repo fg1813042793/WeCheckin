@@ -129,6 +129,20 @@ type WorkflowDispatchDueRequest struct {
 	Limit int `json:"limit" example:"100"`
 }
 
+// UserFeedbackStatusRequest describes an administrator feedback status change.
+type UserFeedbackStatusRequest struct {
+	// Status 是目标状态，必须符合反馈状态流转规则。
+	Status string `json:"status" enums:"pending,processing,resolved,closed" example:"resolved"`
+	// Note 是处理说明；关闭、解决或重新打开反馈时必填。
+	Note string `json:"note" example:"问题已修复，请刷新后重试。"`
+	// NotifyUser 表示是否通过站内信通知提交人，省略时默认为 true。
+	NotifyUser *bool `json:"notifyUser" default:"true" example:"true"`
+	// Version 是当前反馈版本号，用于乐观锁校验。
+	Version uint64 `json:"version" example:"3"`
+	// RequestID 是客户端生成的状态更新幂等请求标识。
+	RequestID string `json:"requestId" example:"8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"`
+}
+
 // ScheduledTaskStatusRequest applies an optimistic-locking status change.
 type ScheduledTaskStatusRequest struct {
 	// Enabled 表示是否启用定时任务。

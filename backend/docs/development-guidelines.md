@@ -49,6 +49,13 @@
 - transport/handler 只做协议适配。模块有多个入口时，按 `httpadmin`、`httpclient` 等边界拆分。
 - `internal/workflowcore` 承载流程定义核心、表单校验和 BPMN 编译；`internal/modules/workflow` 承载运行时状态机与应用服务，不应将两者合并为同一个包。
 
+### 3.4 用户反馈模块
+
+- `internal/modules/userfeedback` 是独立的通用用户反馈模块，按 `domain`、`application`、`infrastructure`、`transport/httpadmin`、`transport/httpdingtalkh5` 分层；HTTP transport 只适配协议和认证身份，状态流转、归属校验与业务约束由领域和应用层负责。
+- 新建、补充和状态更新的主表、消息、附件及幂等记录在 application 管理的同一数据库事务中写入；管理员选择通知用户时，状态变更与 `notification_outbox` 记录也在同一数据库事务中提交，由 `taskd` 异步投递。
+- 图片对象存储与数据库事务无法形成同一 ACID 边界。模块先保存通过类型、大小和数量校验的对象，数据库事务失败时执行补偿删除；事务提交结果不确定时先按幂等键核对结果，避免删除已经被成功记录的对象。
+- 包内领域、应用、存储和 HTTP 行为测试入口为 `GOCACHE=$PWD/../.cache/go-build go test ./internal/modules/userfeedback/... -count=1`；路由、权限、迁移和 Swagger 契约继续由对应的 `internal/routes`、`internal/support` 与 `test/internal` 测试覆盖。
+
 ## 4. Go 编码约定
 
 - 新增和修改的 Go 文件必须执行 `gofmt`。

@@ -8750,6 +8750,269 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/user-feedbacks": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "分页查询用户反馈；关键词匹配反馈编号和全部消息文字，不为每行执行独立查询",
+                "tags": [
+                    "API v2-后台管理-用户反馈"
+                ],
+                "summary": "查询用户反馈列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "resolved",
+                            "closed"
+                        ],
+                        "type": "string",
+                        "description": "反馈状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提交人用户 ID",
+                        "name": "submitterId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "处理人管理员 ID",
+                        "name": "handlerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "反馈编号或消息文字关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提交时间起始值，Unix 毫秒",
+                        "name": "submittedFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提交时间截止值，Unix 毫秒",
+                        "name": "submittedTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/user-feedbacks/overview": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "按列表筛选条件一次聚合返回待处理、处理中、已解决和已关闭数量，不读取列表记录",
+                "tags": [
+                    "API v2-后台管理-用户反馈"
+                ],
+                "summary": "查询用户反馈状态统计",
+                "parameters": [
+                    {
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "resolved",
+                            "closed"
+                        ],
+                        "type": "string",
+                        "description": "反馈状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提交人用户 ID",
+                        "name": "submitterId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "处理人管理员 ID",
+                        "name": "handlerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "反馈编号或消息文字关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提交时间起始值，Unix 毫秒",
+                        "name": "submittedFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "提交时间截止值，Unix 毫秒",
+                        "name": "submittedTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.Overview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/user-feedbacks/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "返回反馈当前快照、提交人、处理人、完整消息时间线和附件",
+                "tags": [
+                    "API v2-后台管理-用户反馈"
+                ],
+                "summary": "查询用户反馈详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "反馈 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/user-feedbacks/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "允许的状态流转为 pending -\u003e processing、pending -\u003e closed、processing -\u003e resolved、resolved -\u003e closed、resolved -\u003e processing、closed -\u003e processing；关闭、解决或重新打开时处理说明必填。requestId 是状态更新幂等键，重复请求返回首次结果；version 用于乐观锁校验，冲突时应刷新详情。notifyUser 省略时默认 true，通知通过事务内 Outbox 异步投递",
+                "tags": [
+                    "API v2-后台管理-用户反馈"
+                ],
+                "summary": "更新用户反馈状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "反馈 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "目标状态、处理说明、通知开关、当前版本号和幂等请求标识",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.UserFeedbackStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/user-sessions": {
             "get": {
                 "security": [
@@ -11864,6 +12127,278 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/user-feedbacks": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅返回当前登录用户自己的反馈，不接受客户端指定提交人",
+                "tags": [
+                    "API v2-H5App-用户反馈"
+                ],
+                "summary": "查询我的反馈列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，最大 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "resolved",
+                            "closed"
+                        ],
+                        "type": "string",
+                        "description": "反馈状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "反馈编号或消息文字关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "首次提交文字必填，去除首尾空白后最长 5000 字；每个用户自然日最多新建 20 条。requestId 是新建幂等键，网络重试必须复用。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP；图片字段 images 可以重复提交",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-H5App-用户反馈"
+                ],
+                "summary": "新建用户反馈",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "反馈文字，最长 5000 字",
+                        "name": "content",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端生成的幂等请求标识",
+                        "name": "requestId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "反馈图片，可重复提交；最多 6 张，单张最大 10 MB，仅允许 JPG、PNG、WebP",
+                        "name": "images",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/user-feedbacks/overview": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅统计当前登录用户自己的反馈，一次聚合返回待处理、处理中、已解决和已关闭数量，不读取列表记录",
+                "tags": [
+                    "API v2-H5App-用户反馈"
+                ],
+                "summary": "查询我的反馈状态统计",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.Overview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/user-feedbacks/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "同时按反馈 ID 和当前登录用户校验归属；反馈不存在或不属于当前用户均按不存在处理",
+                "tags": [
+                    "API v2-H5App-用户反馈"
+                ],
+                "summary": "查询我的反馈详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "反馈 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/user-feedbacks/{id}/supplements": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅当前登录用户可补充自己的反馈，只有 pending、processing 状态允许补充；文字和图片不能同时为空。requestId 是补充幂等键，网络重试必须复用；version 用于乐观锁校验。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP，单条反馈累计最多 30 张",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-H5App-用户反馈"
+                ],
+                "summary": "补充用户反馈",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "反馈 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "补充文字，最长 5000 字",
+                        "name": "content",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端生成的幂等请求标识",
+                        "name": "requestId",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "当前反馈版本号，用于乐观锁校验",
+                        "name": "version",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "补充图片，可重复提交；最多 6 张，单张最大 10 MB，仅允许 JPG、PNG、WebP",
+                        "name": "images",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackDetail"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -15390,6 +15925,32 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "application.Attachment": {
+            "type": "object",
+            "properties": {
+                "contentType": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "originalName": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "application.CreateTaskRequest": {
             "type": "object",
             "properties": {
@@ -15443,6 +16004,190 @@ const docTemplate = `{
                 },
                 "timezone": {
                     "type": "string"
+                }
+            }
+        },
+        "application.FeedbackDetail": {
+            "type": "object",
+            "properties": {
+                "allowsSupplement": {
+                    "type": "boolean"
+                },
+                "closedAt": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "feedbackNo": {
+                    "type": "string"
+                },
+                "handlerId": {
+                    "type": "integer"
+                },
+                "handlerName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "imageCount": {
+                    "type": "integer"
+                },
+                "lastActivityAt": {
+                    "type": "integer"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.Message"
+                    }
+                },
+                "resolvedAt": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.Status"
+                },
+                "submitterId": {
+                    "type": "integer"
+                },
+                "submitterName": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.FeedbackList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.FeedbackSummary"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.FeedbackSummary": {
+            "type": "object",
+            "properties": {
+                "closedAt": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "feedbackNo": {
+                    "type": "string"
+                },
+                "handlerId": {
+                    "type": "integer"
+                },
+                "handlerName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "imageCount": {
+                    "type": "integer"
+                },
+                "lastActivityAt": {
+                    "type": "integer"
+                },
+                "resolvedAt": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.Status"
+                },
+                "submitterId": {
+                    "type": "integer"
+                },
+                "submitterName": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.Message": {
+            "type": "object",
+            "properties": {
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.Attachment"
+                    }
+                },
+                "authorId": {
+                    "type": "integer"
+                },
+                "authorName": {
+                    "type": "string"
+                },
+                "authorType": {
+                    "$ref": "#/definitions/domain.AuthorType"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "fromStatus": {
+                    "$ref": "#/definitions/domain.Status"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "messageType": {
+                    "$ref": "#/definitions/domain.MessageType"
+                },
+                "toStatus": {
+                    "$ref": "#/definitions/domain.Status"
+                }
+            }
+        },
+        "application.Overview": {
+            "type": "object",
+            "properties": {
+                "closed": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "processing": {
+                    "type": "integer"
+                },
+                "resolved": {
+                    "type": "integer"
                 }
             }
         },
@@ -16065,6 +16810,45 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "domain.AuthorType": {
+            "type": "string",
+            "enum": [
+                "user",
+                "admin"
+            ],
+            "x-enum-varnames": [
+                "AuthorTypeUser",
+                "AuthorTypeAdmin"
+            ]
+        },
+        "domain.MessageType": {
+            "type": "string",
+            "enum": [
+                "initial",
+                "supplement",
+                "status"
+            ],
+            "x-enum-varnames": [
+                "MessageTypeInitial",
+                "MessageTypeSupplement",
+                "MessageTypeStatus"
+            ]
+        },
+        "domain.Status": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "processing",
+                "resolved",
+                "closed"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusProcessing",
+                "StatusResolved",
+                "StatusClosed"
+            ]
         },
         "model.Survey": {
             "type": "object",
@@ -17382,6 +18166,43 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                }
+            }
+        },
+        "swagger.UserFeedbackStatusRequest": {
+            "type": "object",
+            "properties": {
+                "note": {
+                    "description": "Note 是处理说明；关闭、解决或重新打开反馈时必填。",
+                    "type": "string",
+                    "example": "问题已修复，请刷新后重试。"
+                },
+                "notifyUser": {
+                    "description": "NotifyUser 表示是否通过站内信通知提交人，省略时默认为 true。",
+                    "type": "boolean",
+                    "default": true,
+                    "example": true
+                },
+                "requestId": {
+                    "description": "RequestID 是客户端生成的状态更新幂等请求标识。",
+                    "type": "string",
+                    "example": "8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"
+                },
+                "status": {
+                    "description": "Status 是目标状态，必须符合反馈状态流转规则。",
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "processing",
+                        "resolved",
+                        "closed"
+                    ],
+                    "example": "resolved"
+                },
+                "version": {
+                    "description": "Version 是当前反馈版本号，用于乐观锁校验。",
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },

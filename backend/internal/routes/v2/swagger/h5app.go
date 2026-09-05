@@ -1,12 +1,14 @@
 package swagger
 
 import (
+	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/performance"
 	"wecheckin/backend/pkg/response"
 )
 
 var _ response.Resp
+var _ userfeedbackapp.Overview
 var _ workflowapp.WorkflowOverview
 var _ dingtalkh5service.AccountProfilePayload
 var _ dingtalkh5service.ReviewPayload
@@ -623,3 +625,58 @@ func swaggerV2H5AppWorkflowSummaryInstancesIDGet() {}
 // @Success 200 {file} file
 // @Router /api/v2/dingtalk/h5/workflows/summary/export [get]
 func swaggerV2H5AppWorkflowSummaryExportGet() {}
+
+// @Tags API v2-H5App-用户反馈
+// @Summary 查询我的反馈状态统计
+// @Description 仅统计当前登录用户自己的反馈，一次聚合返回待处理、处理中、已解决和已关闭数量，不读取列表记录
+// @Security H5AppToken
+// @Success 200 {object} response.Resp{data=userfeedbackapp.Overview}
+// @Router /api/v2/dingtalk/h5/user-feedbacks/overview [get]
+func swaggerV2H5AppUserFeedbackOverviewGet() {}
+
+// @Tags API v2-H5App-用户反馈
+// @Summary 查询我的反馈列表
+// @Description 仅返回当前登录用户自己的反馈，不接受客户端指定提交人
+// @Security H5AppToken
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页数量，最大 100"
+// @Param status query string false "反馈状态" Enums(pending,processing,resolved,closed)
+// @Param keyword query string false "反馈编号或消息文字关键词"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackList}
+// @Router /api/v2/dingtalk/h5/user-feedbacks [get]
+func swaggerV2H5AppUserFeedbackListGet() {}
+
+// @Tags API v2-H5App-用户反馈
+// @Summary 新建用户反馈
+// @Description 首次提交文字必填，去除首尾空白后最长 5000 字；每个用户自然日最多新建 20 条。requestId 是新建幂等键，网络重试必须复用。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP；图片字段 images 可以重复提交
+// @Security H5AppToken
+// @Accept multipart/form-data
+// @Param content formData string true "反馈文字，最长 5000 字"
+// @Param requestId formData string true "客户端生成的幂等请求标识"
+// @Param images formData file false "反馈图片，可重复提交；最多 6 张，单张最大 10 MB，仅允许 JPG、PNG、WebP"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
+// @Router /api/v2/dingtalk/h5/user-feedbacks [post]
+func swaggerV2H5AppUserFeedbackCreatePost() {}
+
+// @Tags API v2-H5App-用户反馈
+// @Summary 查询我的反馈详情
+// @Description 同时按反馈 ID 和当前登录用户校验归属；反馈不存在或不属于当前用户均按不存在处理
+// @Security H5AppToken
+// @Param id path int true "反馈 ID"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
+// @Router /api/v2/dingtalk/h5/user-feedbacks/{id} [get]
+func swaggerV2H5AppUserFeedbackDetailGet() {}
+
+// @Tags API v2-H5App-用户反馈
+// @Summary 补充用户反馈
+// @Description 仅当前登录用户可补充自己的反馈，只有 pending、processing 状态允许补充；文字和图片不能同时为空。requestId 是补充幂等键，网络重试必须复用；version 用于乐观锁校验。每次最多 6 张图片，单张 10 MB，仅允许 JPG、PNG、WebP，单条反馈累计最多 30 张
+// @Security H5AppToken
+// @Accept multipart/form-data
+// @Param id path int true "反馈 ID"
+// @Param content formData string false "补充文字，最长 5000 字"
+// @Param requestId formData string true "客户端生成的幂等请求标识"
+// @Param version formData integer true "当前反馈版本号，用于乐观锁校验"
+// @Param images formData file false "补充图片，可重复提交；最多 6 张，单张最大 10 MB，仅允许 JPG、PNG、WebP"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
+// @Router /api/v2/dingtalk/h5/user-feedbacks/{id}/supplements [post]
+func swaggerV2H5AppUserFeedbackSupplementPost() {}

@@ -5,6 +5,7 @@ import (
 	adminsetuphandler "wecheckin/backend/internal/handler/admin/setup"
 	adminsurveyhandler "wecheckin/backend/internal/handler/admin/survey"
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
+	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
 	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	workflowservice "wecheckin/backend/internal/service/admin/workflow"
 	"wecheckin/backend/pkg/response"
@@ -14,6 +15,7 @@ var _ response.Resp
 var _ adminsetuphandler.DebugTokenConfigResponse
 var _ adminsurveyhandler.EvalExprResponse
 var _ scheduledtaskapp.CreateTaskRequest
+var _ userfeedbackapp.Overview
 var _ admindingtalkservice.SettingsResponse
 var _ workflowservice.PublishRequest
 var _ formkitschema.FormSchema
@@ -3294,3 +3296,52 @@ func swaggerV2WorkflowsTasksGet() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/workflows/tasks/{id}/complete [post]
 func swaggerV2WorkflowsTasksIDCompletePost() {}
+
+// @Tags API v2-后台管理-用户反馈
+// @Summary 查询用户反馈状态统计
+// @Description 按列表筛选条件一次聚合返回待处理、处理中、已解决和已关闭数量，不读取列表记录
+// @Security AdminToken
+// @Param status query string false "反馈状态" Enums(pending,processing,resolved,closed)
+// @Param submitterId query int false "提交人用户 ID"
+// @Param handlerId query int false "处理人管理员 ID"
+// @Param keyword query string false "反馈编号或消息文字关键词"
+// @Param submittedFrom query int false "提交时间起始值，Unix 毫秒"
+// @Param submittedTo query int false "提交时间截止值，Unix 毫秒"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.Overview}
+// @Router /api/v2/admin/user-feedbacks/overview [get]
+func swaggerV2AdminUserFeedbackOverviewGet() {}
+
+// @Tags API v2-后台管理-用户反馈
+// @Summary 查询用户反馈列表
+// @Description 分页查询用户反馈；关键词匹配反馈编号和全部消息文字，不为每行执行独立查询
+// @Security AdminToken
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页数量，最大 100"
+// @Param status query string false "反馈状态" Enums(pending,processing,resolved,closed)
+// @Param submitterId query int false "提交人用户 ID"
+// @Param handlerId query int false "处理人管理员 ID"
+// @Param keyword query string false "反馈编号或消息文字关键词"
+// @Param submittedFrom query int false "提交时间起始值，Unix 毫秒"
+// @Param submittedTo query int false "提交时间截止值，Unix 毫秒"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackList}
+// @Router /api/v2/admin/user-feedbacks [get]
+func swaggerV2AdminUserFeedbackListGet() {}
+
+// @Tags API v2-后台管理-用户反馈
+// @Summary 查询用户反馈详情
+// @Description 返回反馈当前快照、提交人、处理人、完整消息时间线和附件
+// @Security AdminToken
+// @Param id path int true "反馈 ID"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
+// @Router /api/v2/admin/user-feedbacks/{id} [get]
+func swaggerV2AdminUserFeedbackDetailGet() {}
+
+// @Tags API v2-后台管理-用户反馈
+// @Summary 更新用户反馈状态
+// @Description 允许的状态流转为 pending -> processing、pending -> closed、processing -> resolved、resolved -> closed、resolved -> processing、closed -> processing；关闭、解决或重新打开时处理说明必填。requestId 是状态更新幂等键，重复请求返回首次结果；version 用于乐观锁校验，冲突时应刷新详情。notifyUser 省略时默认 true，通知通过事务内 Outbox 异步投递
+// @Security AdminToken
+// @Param id path int true "反馈 ID"
+// @Param body body UserFeedbackStatusRequest true "目标状态、处理说明、通知开关、当前版本号和幂等请求标识"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
+// @Router /api/v2/admin/user-feedbacks/{id}/status [patch]
+func swaggerV2AdminUserFeedbackStatusPatch() {}
