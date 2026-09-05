@@ -143,6 +143,43 @@ function catchClause(file, functionName) {
   return found
 }
 
+function guardedRequestPhases(file, functionName, guardName) {
+  const fn = functionNode(file, functionName)
+  let requestTry
+  const find = (node) => {
+    if (!requestTry && ts.isTryStatement(node)) requestTry = node
+    ts.forEachChild(node, find)
+  }
+  find(fn)
+  assert.ok(requestTry?.catchClause, `${functionName} must contain a request catch clause`)
+  assert.ok(requestTry?.finallyBlock, `${functionName} must contain a request finally block`)
+
+  const phaseStatements = {
+    success: requestTry.tryBlock.statements,
+    catch: requestTry.catchClause.block.statements,
+    finally: requestTry.finallyBlock.statements,
+  }
+  assert.equal(phaseStatements.success.length, 2, `${functionName} success must only declare the response and apply guarded effects`)
+  assert.ok(ts.isVariableStatement(phaseStatements.success[0]), `${functionName} success must first await its response`)
+  assert.equal(phaseStatements.catch.length, 1, `${functionName} catch effects must use one guard call`)
+  assert.equal(phaseStatements.finally.length, 1, `${functionName} finally effects must use one guard call`)
+
+  const guardedEffects = {}
+  for (const [phase, statement] of Object.entries({
+    success: phaseStatements.success[1],
+    catch: phaseStatements.catch[0],
+    finally: phaseStatements.finally[0],
+  })) {
+    assert.ok(ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression), `${functionName} ${phase} must call ${guardName}`)
+    const call = statement.expression
+    assert.equal(call.expression.getText(file), guardName, `${functionName} ${phase} must use ${guardName}`)
+    const callback = call.arguments.at(-1)
+    assert.ok(callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)), `${functionName} ${phase} guard must own its side effects`)
+    guardedEffects[phase] = callback.body.getText(file)
+  }
+  return guardedEffects
+}
+
 function propertyName(node, file) {
   if (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) return node.text
   return node.getText(file)
@@ -207,17 +244,17 @@ assertInterface('UserFeedbackOverview', {
   pending: required('number'), processing: required('number'), resolved: required('number'), closed: required('number'),
 })
 assertInterface('UserFeedbackAttachment', {
-  id: required('number'), originalName: required('string'), contentType: optional('string'), sizeBytes: required('number'),
+  id: required('string'), originalName: required('string'), contentType: optional('string'), sizeBytes: required('number'),
   url: required('string'), sortOrder: required('number'), createdAt: required('number'),
 })
 assertInterface('UserFeedbackMessage', {
-  id: required('number'), messageType: required('UserFeedbackMessageType'), authorType: required('UserFeedbackAuthorType'),
+  id: required('string'), messageType: required('UserFeedbackMessageType'), authorType: required('UserFeedbackAuthorType'),
   authorId: required('number'), authorName: optional('string'), content: required('string'),
   fromStatus: optional('UserFeedbackStatus'), toStatus: optional('UserFeedbackStatus'),
   attachments: required('UserFeedbackAttachment[]'), createdAt: required('number'),
 })
 assertInterface('UserFeedbackSummary', {
-  id: required('number'), feedbackNo: required('string'), submitterId: required('number'), submitterName: optional('string'),
+  id: required('string'), feedbackNo: required('string'), submitterId: required('number'), submitterName: optional('string'),
   summary: required('string'), imageCount: required('number'), firstImageUrl: optional('string'), status: required('UserFeedbackStatus'),
   handlerId: optional('number'), handlerName: optional('string'), version: required('number'),
   lastActivityAt: required('number'), resolvedAt: optional('number'), closedAt: optional('number'),
@@ -436,11 +473,17 @@ function assertPageRefreshRuntime() {
   assert.match(openStatusGuard.getText(view.scriptFile), /canHandleUserFeedback\(\)/)
   assert.doesNotMatch(view.script, /\bsetInterval\s*\(/, 'feedback page must not poll on an interval')
 
-  for (const functionName of ['loadOverview', 'loadList']) {
-    const failed = catchClause(view.scriptFile, functionName).getText(view.scriptFile)
-    assert.match(failed, /applyIfFeedbackRequestCurrent/, `${functionName} must suppress stale error side effects`)
-    assert.match(failed, /showRequestError/, `${functionName} must retain current-request error feedback`)
-  }
+  const overviewPhases = guardedRequestPhases(view.scriptFile, 'loadOverview', 'applyIfFeedbackRequestCurrent')
+  assert.match(overviewPhases.success, /overview\.value\s*=\s*response\.data/, 'overview success update must be guarded')
+  assert.match(overviewPhases.catch, /overviewError\.value\s*=/, 'overview error state must be guarded')
+  assert.match(overviewPhases.catch, /showRequestError/, 'overview global error must be guarded')
+  assert.match(overviewPhases.finally, /overviewLoading\.value\s*=\s*false/, 'overview loading cleanup must be guarded')
+
+  const listPhases = guardedRequestPhases(view.scriptFile, 'loadList', 'applyIfFeedbackRequestCurrent')
+  assert.match(listPhases.success, /rows\.value\s*=\s*response\.data\.list/, 'list success update must be guarded')
+  assert.match(listPhases.catch, /listError\.value\s*=/, 'list error state must be guarded')
+  assert.match(listPhases.catch, /showRequestError/, 'list global error must be guarded')
+  assert.match(listPhases.finally, /listLoading\.value\s*=\s*false/, 'list loading cleanup must be guarded')
 
   const exported = executeTypeScriptModule(view.descriptor.script?.content || '', `${paths.view}.module.ts`)
   const sequences = { overview: 4, list: 9 }
@@ -537,6 +580,27 @@ function assertDetailDrawerComponent() {
   assert.ok(ts.isIfStatement(first), 'drawer update handler must start with a permission guard')
   assert.match(first.getText(detailDrawer.scriptFile), /canHandleUserFeedback\(\)/)
   assertCalls(detailDrawer.scriptFile, 'loadDetail', ['adminApi.userFeedbackDetail'])
+  assertCalls(detailDrawer.scriptFile, 'unmountDrawer', ['invalidateDetailRequestSequence'])
+  assert.match(detailDrawer.script, /onBeforeUnmount\s*\(\s*unmountDrawer\s*\)/, 'detail drawer must invalidate pending requests when unmounted')
+
+  const phases = guardedRequestPhases(detailDrawer.scriptFile, 'loadDetail', 'applyIfDetailRequestCurrent')
+  assert.match(phases.success, /detail\.value\s*=\s*response\.data/, 'detail success update must be guarded')
+  assert.match(phases.success, /emit\(\s*'detail-change'/, 'detail success emit must be guarded')
+  assert.match(phases.catch, /detail\.value\s*=\s*null/, 'detail error reset must be guarded')
+  assert.match(phases.catch, /showRequestError/, 'detail global error must be guarded')
+  assert.match(phases.finally, /loading\.value\s*=\s*false/, 'detail loading cleanup must be guarded')
+
+  const exported = executeTypeScriptModule(detailDrawer.descriptor.script?.content || '', `${paths.detailDrawer}.module.ts`)
+  const staleSequence = 7
+  const currentSequence = exported.invalidateDetailRequestSequence(staleSequence)
+  assert.equal(currentSequence, 8, 'detail unmount invalidation must advance its request sequence')
+  let staleEffects = 0
+  for (const phase of ['success', 'catch', 'finally']) {
+    assert.equal(exported.applyIfDetailRequestCurrent(currentSequence, staleSequence, () => { staleEffects += 1 }), false, `stale detail ${phase} effect must be suppressed`)
+  }
+  assert.equal(staleEffects, 0, 'unmounted detail request must have no success, catch, or finally side effects')
+  assert.equal(exported.applyIfDetailRequestCurrent(currentSequence, currentSequence, () => { staleEffects += 1 }), true)
+  assert.equal(staleEffects, 1, 'current detail request must still apply effects')
   assert.match(detailDrawer.script, /defineExpose\s*\(\s*\{\s*refresh:\s*loadDetail\s*\}\s*\)/)
 }
 

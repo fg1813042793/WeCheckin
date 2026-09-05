@@ -1,5 +1,17 @@
+<script lang="ts">
+export function invalidateDetailRequestSequence(sequence: number): number {
+  return sequence + 1
+}
+
+export function applyIfDetailRequestCurrent(currentSequence: number, requestSequence: number, apply: () => void): boolean {
+  if (currentSequence !== requestSequence) return false
+  apply()
+  return true
+}
+</script>
+
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { AdminDrawer } from '@/components/admin-ui'
 import { adminApi } from '@/api'
@@ -49,17 +61,21 @@ async function loadDetail() {
   error.value = ''
   try {
     const response = await adminApi.userFeedbackDetail(feedbackId)
-    if (sequence !== detailRequestSequence) return
-    detail.value = response.data
-    emit('detail-change', response.data)
+    applyIfDetailRequestCurrent(detailRequestSequence, sequence, () => {
+      detail.value = response.data
+      emit('detail-change', response.data)
+    })
   } catch (requestError) {
-    if (sequence !== detailRequestSequence) return
-    detail.value = null
-    emit('detail-change', null)
-    error.value = '反馈详情加载失败，请重试'
-    showRequestError(requestError, '反馈详情加载失败')
+    applyIfDetailRequestCurrent(detailRequestSequence, sequence, () => {
+      detail.value = null
+      emit('detail-change', null)
+      error.value = '反馈详情加载失败，请重试'
+      showRequestError(requestError, '反馈详情加载失败')
+    })
   } finally {
-    if (sequence === detailRequestSequence) loading.value = false
+    applyIfDetailRequestCurrent(detailRequestSequence, sequence, () => {
+      loading.value = false
+    })
   }
 }
 
@@ -73,10 +89,14 @@ function requestStatusUpdate() {
 }
 
 function handleClosed() {
-  detailRequestSequence += 1
+  detailRequestSequence = invalidateDetailRequestSequence(detailRequestSequence)
   detail.value = null
   error.value = ''
   emit('detail-change', null)
+}
+
+function unmountDrawer() {
+  detailRequestSequence = invalidateDetailRequestSequence(detailRequestSequence)
 }
 
 watch([() => props.modelValue, () => props.feedbackId], ([isVisible, feedbackId], previous) => {
@@ -87,6 +107,8 @@ watch([() => props.modelValue, () => props.feedbackId], ([isVisible, feedbackId]
   }
   void loadDetail()
 })
+
+onBeforeUnmount(unmountDrawer)
 
 defineExpose({ refresh: loadDetail })
 </script>
