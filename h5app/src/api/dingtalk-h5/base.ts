@@ -115,13 +115,19 @@ function parseUploadResponseData<T>(raw: unknown): ApiEnvelope<T> | null {
 const SAFE_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 function safeImageMimeType(file: MultipartUploadFile, blobType: string) {
-  for (const value of [file.mimeType, blobType]) {
-    const mimeType = String(value || '').trim().toLowerCase().split(';')[0]
-    if (SAFE_IMAGE_MIME_TYPES.has(mimeType)) {
-      return mimeType
+  const blobMimeType = String(blobType || '').trim().toLowerCase().split(';')[0]
+  if (blobMimeType) {
+    if (SAFE_IMAGE_MIME_TYPES.has(blobMimeType)) {
+      return blobMimeType
     }
+    throw new Error('不支持的图片类型')
   }
-  return 'application/octet-stream'
+
+  const fallbackMimeType = String(file.mimeType || '').trim().toLowerCase().split(';')[0]
+  if (SAFE_IMAGE_MIME_TYPES.has(fallbackMimeType)) {
+    return fallbackMimeType
+  }
+  throw new Error('不支持的图片类型')
 }
 
 function imageExtension(mimeType: string) {
@@ -135,7 +141,7 @@ function imageExtension(mimeType: string) {
 }
 
 function safeUploadFilename(file: MultipartUploadFile, index: number, mimeType: string) {
-  const source = String(file.name || file.filePath || '').split(/[?#]/)[0] || ''
+  const source = String(file.name || '').split(/[?#]/)[0] || ''
   const segments = source.replace(/\\/g, '/').split('/')
   let filename = segments.at(-1) || ''
   try {
@@ -149,8 +155,14 @@ function safeUploadFilename(file: MultipartUploadFile, index: number, mimeType: 
     return codePoint <= 31 || codePoint === 127 ? '_' : character
   }).join('')
   filename = filename.replace(/[<>:"/\\|?*]/g, '_').replace(/^\.+/, '')
-  filename = filename.trim().slice(0, 120)
-  return filename || `image-${index + 1}${imageExtension(mimeType)}`
+  filename = filename.trim()
+  const extensionIndex = filename.lastIndexOf('.')
+  if (extensionIndex > 0) {
+    filename = filename.slice(0, extensionIndex)
+  }
+  const extension = imageExtension(mimeType)
+  filename = filename.replace(/\.+$/, '').trim().slice(0, 120 - extension.length)
+  return `${filename || `image-${index + 1}`}${extension}`
 }
 
 // #ifdef H5
@@ -159,40 +171,40 @@ async function uploadMultipartFilesInH5<T>(
   files: readonly MultipartUploadFile[],
   options: UploadMultipartFilesOptions,
 ) {
-  const form = new FormData()
-  for (const [key, value] of Object.entries(options.formData || {})) {
-    form.append(key, String(value))
-  }
-
-  for (const [index, file] of files.entries()) {
-    const response = await fetch(file.filePath)
-    if (!response.ok) {
-      throw new Error('读取待上传图片失败')
-    }
-    const blob = await response.blob()
-    if (blob.size === 0) {
-      throw new Error('待上传图片不能为空')
-    }
-    const mimeType = safeImageMimeType(file, blob.type)
-    const uploadBlob = blob.type === mimeType ? blob : blob.slice(0, blob.size, mimeType)
-    form.append(options.fileFieldName || 'images', uploadBlob, safeUploadFilename(file, index, mimeType))
-  }
-
   const controller = new AbortController()
   const timeout = Math.max(1, options.timeout || 30000)
   const timeoutID = setTimeout(() => controller.abort(), timeout)
-  const headers: Record<string, string> = {
-    ...options.header,
-    'Authorization': authToken(),
-    'X-Client-Platform': DINGTALK_H5_CONFIG.CLIENT_PLATFORM,
-  }
-  for (const key of Object.keys(headers)) {
-    if (key.toLowerCase() === 'content-type') {
-      delete headers[key]
-    }
-  }
-
   try {
+    const form = new FormData()
+    for (const [key, value] of Object.entries(options.formData || {})) {
+      form.append(key, String(value))
+    }
+
+    for (const [index, file] of files.entries()) {
+      const response = await fetch(file.filePath, { signal: controller.signal })
+      if (!response.ok) {
+        throw new Error('读取待上传图片失败')
+      }
+      const blob = await response.blob()
+      if (blob.size === 0) {
+        throw new Error('待上传图片不能为空')
+      }
+      const mimeType = safeImageMimeType(file, blob.type)
+      const uploadBlob = blob.type === mimeType ? blob : blob.slice(0, blob.size, mimeType)
+      form.append(options.fileFieldName || 'images', uploadBlob, safeUploadFilename(file, index, mimeType))
+    }
+
+    const headers: Record<string, string> = {
+      ...options.header,
+      'Authorization': authToken(),
+      'X-Client-Platform': DINGTALK_H5_CONFIG.CLIENT_PLATFORM,
+    }
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'content-type') {
+        delete headers[key]
+      }
+    }
+
     const response = await fetch(buildApiUrl(url), {
       method: 'POST',
       body: form,
