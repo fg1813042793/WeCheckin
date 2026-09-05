@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -539,12 +542,12 @@ func TestImageCleanupFailureLogsSafeIdentifiersWithoutReplacingResult(t *testing
 			t.Fatalf("cleanup log count = %d, want 1: %#v", len(output.entries), output.entries)
 		}
 		entry := output.entries[0]
-		for _, value := range append([]string{"event=user_feedback_image_cleanup_failed", `objectKey="uploads/feedback/safe-object.png"`, "delete wrapper"}, required...) {
+		for _, value := range append([]string{"event=user_feedback_image_cleanup_failed", `objectKey="uploads/feedback/safe-object.png"`, "type=*fmt.wrapError"}, required...) {
 			if !strings.Contains(entry, value) {
 				t.Errorf("cleanup log missing %q: %s", value, entry)
 			}
 		}
-		for _, forbidden := range []string{"token-secret", "bearer-secret", "app-secret", "private-name.png", "TOP-PRIVATE-FEEDBACK"} {
+		for _, forbidden := range []string{"delete wrapper", "access_token", "Authorization", "Bearer", "appSecret", "token-secret", "bearer-secret", "app-secret", "private-name.png", "TOP-PRIVATE-FEEDBACK"} {
 			if strings.Contains(entry, forbidden) {
 				t.Errorf("cleanup log leaked %q: %s", forbidden, entry)
 			}
@@ -658,87 +661,111 @@ func TestImageCleanupFailureLogsSafeIdentifiersWithoutReplacingResult(t *testing
 	})
 }
 
-func TestSanitizeCleanupErrorExpandsSingleAndMultiUnwrapChains(t *testing.T) {
-	t.Run("single unwrap", func(t *testing.T) {
-		err := &testSingleUnwrapError{
-			message: "object storage delete failed",
-			cause:   errors.New("HTTP status 503 Service Unavailable"),
-		}
+func TestSanitizeCleanupErrorOnlyEmitsExplicitlySafeDiagnostics(t *testing.T) {
+	signedURL := "https://user:password@oss.example/private.png?OSSAccessKeyId=AKID&Signature=url-signature"
+	httpCause := errors.New("HTTP status 503 Authorization: OSS AKID:oss-signature Basic basic-secret Cookie: session=cookie-secret password=db-secret " + signedURL)
+	timeoutCause := &testClassifiedNetError{message: "timeout-private Authorization: Bearer bearer-secret", timeout: true, temporary: true}
+	timeoutURL := &url.Error{
+		Op:  "GET",
+		URL: signedURL,
+		Err: &net.OpError{Op: "read", Net: "tcp", Err: timeoutCause},
+	}
+	connectionURL := &url.Error{
+		Op:  "GET",
+		URL: signedURL,
+		Err: &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED},
+	}
+	marked := &testSafeCleanupError{
+		unsafeMessage: "unsafe marker text Authorization: OSS marker-secret",
+		safeMessage:   "feedback attachment storage failed",
+		cause: errors.Join(
+			httpCause,
+			timeoutURL,
+			connectionURL,
+			errors.New("unknown-private-cause access_key=unknown-key"),
+			context.Canceled,
+			context.DeadlineExceeded,
+		),
+	}
+	err := fmt.Errorf("outer Basic outer-secret: %w", errors.Join(marked, errors.New("Cookie: outer-cookie")))
 
-		got := sanitizeCleanupError(err)
-		for _, want := range []string{"object storage delete failed", "HTTP status 503 Service Unavailable"} {
-			if !strings.Contains(got, want) {
-				t.Fatalf("sanitizeCleanupError() = %q, missing %q", got, want)
-			}
+	got := sanitizeCleanupError(err)
+	for _, want := range []string{
+		"safe=feedback attachment storage failed",
+		"http_status=503 Service Unavailable",
+		"category=url",
+		"category=network",
+		"network=timeout",
+		"network=temporary",
+		"network=connection_refused",
+		"context=canceled",
+		"context=deadline_exceeded",
+		"type=*url.Error",
+		"type=*net.OpError",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("sanitizeCleanupError() = %q, missing %q", got, want)
 		}
-	})
-
-	t.Run("multi unwrap and errors join", func(t *testing.T) {
-		const generic = "feedback attachment storage failed"
-		err := &testMultiUnwrapError{
-			message: generic,
-			causes: []error{
-				errors.New(generic),
-				errors.Join(
-					errors.New("HTTP status 502 Bad Gateway"),
-					errors.New("dial tcp: connection reset"),
-				),
-				errors.New(""),
-			},
+	}
+	for _, forbidden := range []string{
+		"https://",
+		"oss.example",
+		"private.png",
+		"user:password",
+		"Authorization",
+		"OSS AKID",
+		"oss-signature",
+		"Basic",
+		"basic-secret",
+		"Cookie",
+		"cookie-secret",
+		"password=",
+		"db-secret",
+		"OSSAccessKeyId",
+		"AKID",
+		"Signature",
+		"url-signature",
+		"timeout-private",
+		"bearer-secret",
+		"unknown-private-cause",
+		"unknown-key",
+		"unsafe marker text",
+		"outer-secret",
+		"outer-cookie",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("sanitizeCleanupError() leaked %q: %q", forbidden, got)
 		}
-
-		got := sanitizeCleanupError(err)
-		for _, want := range []string{generic, "HTTP status 502 Bad Gateway", "dial tcp: connection reset"} {
-			if !strings.Contains(got, want) {
-				t.Fatalf("sanitizeCleanupError() = %q, missing %q", got, want)
-			}
-		}
-		if count := strings.Count(got, generic); count != 1 {
-			t.Fatalf("generic error occurrence count = %d, want 1: %q", count, got)
-		}
-		if count := strings.Count(got, "HTTP status 502 Bad Gateway"); count != 1 {
-			t.Fatalf("HTTP cause occurrence count = %d, want 1: %q", count, got)
-		}
-	})
+	}
 }
 
-func TestSanitizeCleanupErrorRedactsExpandedChainAndBoundsOutput(t *testing.T) {
-	t.Run("credentials", func(t *testing.T) {
-		err := &testSingleUnwrapError{
-			message: "upload failed access_token=top-secret",
-			cause:   errors.New("HTTP status 401 bearer bottom-secret secret=child-secret"),
-		}
-
-		got := sanitizeCleanupError(err)
-		if !strings.Contains(got, "HTTP status 401") || !strings.Contains(got, "[REDACTED]") {
-			t.Fatalf("sanitizeCleanupError() = %q, want safe lower-level HTTP cause", got)
-		}
-		for _, secret := range []string{"top-secret", "bottom-secret", "child-secret"} {
-			if strings.Contains(got, secret) {
-				t.Fatalf("sanitizeCleanupError() leaked %q: %q", secret, got)
-			}
-		}
-	})
-
+func TestSanitizeCleanupErrorKeepsTraversalAndOutputBounded(t *testing.T) {
 	t.Run("truncation", func(t *testing.T) {
-		err := &testSingleUnwrapError{message: "outer", cause: errors.New(strings.Repeat("x", 2000))}
+		err := &testSafeCleanupError{safeMessage: strings.Repeat("x", 2000)}
 		got := sanitizeCleanupError(err)
 		if count := utf8.RuneCountInString(got); count != cleanupErrorMaxRunes {
 			t.Fatalf("sanitizeCleanupError() rune count = %d, want %d", count, cleanupErrorMaxRunes)
 		}
 	})
 
-	t.Run("cycle and node limit", func(t *testing.T) {
+	t.Run("cycle", func(t *testing.T) {
 		cycle := &testCyclicUnwrapError{}
-		if got := sanitizeCleanupError(cycle); got != "cycle" {
-			t.Fatalf("sanitizeCleanupError(cycle) = %q, want cycle", got)
+		got := sanitizeCleanupError(cycle)
+		if !strings.Contains(got, "type=*application.testCyclicUnwrapError") || strings.Count(got, "testCyclicUnwrapError") != 1 {
+			t.Fatalf("sanitizeCleanupError(cycle) = %q", got)
 		}
+		if strings.Contains(got, "cycle") {
+			t.Fatalf("sanitizeCleanupError(cycle) trusted unknown text: %q", got)
+		}
+	})
+
+	t.Run("node limit", func(t *testing.T) {
 		causes := make([]error, 100)
 		for index := range causes {
-			causes[index] = fmt.Errorf("cause-%03d", index)
+			causes[index] = &testSafeCleanupError{safeMessage: fmt.Sprintf("n%02d", index)}
 		}
-		got := sanitizeCleanupError(&testMultiUnwrapError{causes: causes})
-		if !strings.Contains(got, "cause-000") || strings.Contains(got, "cause-099") {
+		got := sanitizeCleanupError(&testMultiUnwrapError{message: "private root", causes: causes})
+		if !strings.Contains(got, "safe=n00") || strings.Contains(got, "safe=n99") || strings.Contains(got, "private root") {
 			t.Fatalf("sanitizeCleanupError(node limit) = %q", got)
 		}
 	})
@@ -2037,14 +2064,27 @@ func (logger *captureLogger) Printf(format string, values ...interface{}) {
 	logger.entries = append(logger.entries, fmt.Sprintf(format, values...))
 }
 
-type testSingleUnwrapError struct {
-	message string
-	cause   error
+type testSafeCleanupError struct {
+	unsafeMessage string
+	safeMessage   string
+	cause         error
 }
 
-func (err *testSingleUnwrapError) Error() string { return err.message }
+func (err *testSafeCleanupError) Error() string { return err.unsafeMessage }
 
-func (err *testSingleUnwrapError) Unwrap() error { return err.cause }
+func (err *testSafeCleanupError) SafeCleanupLogMessage() string { return err.safeMessage }
+
+func (err *testSafeCleanupError) Unwrap() error { return err.cause }
+
+type testClassifiedNetError struct {
+	message   string
+	timeout   bool
+	temporary bool
+}
+
+func (err *testClassifiedNetError) Error() string   { return err.message }
+func (err *testClassifiedNetError) Timeout() bool   { return err.timeout }
+func (err *testClassifiedNetError) Temporary() bool { return err.temporary }
 
 type testMultiUnwrapError struct {
 	message string
@@ -2134,7 +2174,7 @@ func assertDeferredCleanupLogs(
 			`feedbackNo="` + feedbackNo + `"`,
 			`objectKey="` + image.ObjectKey + `"`,
 			"err=",
-			"[REDACTED]",
+			"type=",
 		} {
 			if !strings.Contains(entry, required) {
 				t.Errorf("deferred cleanup log missing %q: %s", required, entry)

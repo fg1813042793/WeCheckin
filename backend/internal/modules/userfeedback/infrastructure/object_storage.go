@@ -180,6 +180,10 @@ func (err *objectStorageError) Error() string {
 	return application.ErrStorageFailed.Error()
 }
 
+func (err *objectStorageError) SafeCleanupLogMessage() string {
+	return application.ErrStorageFailed.Error()
+}
+
 func (err *objectStorageError) Unwrap() []error {
 	return []error{application.ErrStorageFailed, err.cause}
 }

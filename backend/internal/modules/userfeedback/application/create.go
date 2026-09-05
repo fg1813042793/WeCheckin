@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -27,7 +32,12 @@ const (
 var (
 	cleanupSecretAssignmentPattern = regexp.MustCompile(`(?i)(access[_-]?token|app[_-]?secret|secret|token)(\s*[=:]\s*)([^&\s"']+)`)
 	cleanupBearerPattern           = regexp.MustCompile(`(?i)(bearer\s+)([a-z0-9._~+/=-]+)`)
+	cleanupHTTPStatusPattern       = regexp.MustCompile(`(?i)\b(?:http(?:/\d(?:\.\d)?)?(?:\s+status)?|status(?:\s+code)?)\s*[:=]?\s*([1-5][0-9]{2})\b`)
 )
+
+type safeCleanupLogMessage interface {
+	SafeCleanupLogMessage() string
+}
 
 type imageCleanupReference struct {
 	RequestID  string
@@ -270,9 +280,7 @@ func sanitizeCleanupError(err error) string {
 			continue
 		}
 		children := unwrapCleanupErrors(node.err)
-		part := sanitizeCleanupText(cleanupErrorOwnMessage(node.err, children), cleanupErrorMaxRunes)
-		part = strings.TrimSpace(part)
-		if part != "" {
+		for _, part := range cleanupErrorClassifications(node.err) {
 			if _, exists := seen[part]; !exists {
 				seen[part] = struct{}{}
 				parts = append(parts, part)
@@ -306,28 +314,82 @@ func unwrapCleanupErrors(err error) []error {
 	return nil
 }
 
-func cleanupErrorOwnMessage(err error, children []error) string {
-	message := strings.TrimSpace(err.Error())
-	if message == "" || len(children) == 0 {
-		return message
-	}
-	childMessages := make([]string, 0, len(children))
-	for _, child := range children {
-		if child != nil {
-			if childMessage := strings.TrimSpace(child.Error()); childMessage != "" {
-				childMessages = append(childMessages, childMessage)
-			}
+func cleanupErrorClassifications(err error) []string {
+	parts := make([]string, 0, 6)
+	if marked, ok := err.(safeCleanupLogMessage); ok {
+		if message := strings.TrimSpace(marked.SafeCleanupLogMessage()); message != "" {
+			parts = append(parts, "safe="+sanitizeCleanupText(message, cleanupErrorMaxRunes))
 		}
 	}
-	if len(childMessages) == 1 && message != childMessages[0] && strings.HasSuffix(message, childMessages[0]) {
-		message = strings.TrimSpace(strings.TrimSuffix(message, childMessages[0]))
-		message = strings.TrimSpace(strings.TrimSuffix(message, ":"))
-		return message
+	parts = append(parts, fmt.Sprintf("type=%T", err))
+	if err == context.Canceled {
+		parts = append(parts, "context=canceled")
 	}
-	if len(childMessages) > 1 && message == strings.Join(childMessages, "\n") {
+	if err == context.DeadlineExceeded {
+		parts = append(parts, "context=deadline_exceeded")
+	}
+	switch err.(type) {
+	case *url.Error:
+		parts = append(parts, "category=url")
+	case *net.OpError, *net.DNSError, *net.AddrError, net.UnknownNetworkError:
+		parts = append(parts, "category=network")
+	case *os.PathError, *os.LinkError, *os.SyscallError:
+		parts = append(parts, "category=filesystem")
+	case syscall.Errno:
+		parts = append(parts, "category=syscall")
+	}
+	if netErr, ok := err.(net.Error); ok {
+		parts = append(parts, "category=network")
+		if netErr.Timeout() {
+			parts = append(parts, "network=timeout")
+		}
+		if temporaryErr, ok := err.(interface{ Temporary() bool }); ok && temporaryErr.Temporary() {
+			parts = append(parts, "network=temporary")
+		}
+	}
+	if errno, ok := err.(syscall.Errno); ok {
+		if classification := classifyCleanupSyscall(errno); classification != "" {
+			parts = append(parts, classification)
+		}
+	}
+	if status := extractCleanupHTTPStatus(err.Error()); status != "" {
+		parts = append(parts, status)
+	}
+	return parts
+}
+
+func classifyCleanupSyscall(errno syscall.Errno) string {
+	switch errno {
+	case syscall.ECONNREFUSED:
+		return "network=connection_refused"
+	case syscall.ECONNRESET:
+		return "network=connection_reset"
+	case syscall.ECONNABORTED:
+		return "network=connection_aborted"
+	case syscall.ENETUNREACH:
+		return "network=network_unreachable"
+	case syscall.EHOSTUNREACH:
+		return "network=host_unreachable"
+	case syscall.ETIMEDOUT:
+		return "network=timeout"
+	case syscall.EPIPE:
+		return "network=broken_pipe"
+	default:
 		return ""
 	}
-	return message
+}
+
+func extractCleanupHTTPStatus(message string) string {
+	for _, match := range cleanupHTTPStatusPattern.FindAllStringSubmatch(message, -1) {
+		statusCode, err := strconv.Atoi(match[1])
+		if err != nil {
+			continue
+		}
+		if statusText := http.StatusText(statusCode); statusText != "" {
+			return fmt.Sprintf("http_status=%d %s", statusCode, statusText)
+		}
+	}
+	return ""
 }
 
 func sanitizeCleanupText(value string, maxRunes int) string {

@@ -242,6 +242,21 @@ func TestObjectStorageSaveReturnsStableStorageError(t *testing.T) {
 	assertStableObjectStorageError(t, err, storageCause)
 }
 
+func TestObjectStorageErrorProvidesFixedSafeCleanupLogMessage(t *testing.T) {
+	cause := errors.New("Authorization: OSS AKID:signature https://oss.example/private?Signature=secret")
+	err := newObjectStorageError(context.Background(), cause)
+	marked, ok := err.(interface{ SafeCleanupLogMessage() string })
+	if !ok {
+		t.Fatalf("objectStorageError does not implement SafeCleanupLogMessage: %T", err)
+	}
+	if got, want := marked.SafeCleanupLogMessage(), application.ErrStorageFailed.Error(); got != want {
+		t.Fatalf("SafeCleanupLogMessage() = %q, want %q", got, want)
+	}
+	if strings.Contains(marked.SafeCleanupLogMessage(), "AKID") || strings.Contains(marked.SafeCleanupLogMessage(), "https://") {
+		t.Fatalf("SafeCleanupLogMessage() leaked cause: %q", marked.SafeCleanupLogMessage())
+	}
+}
+
 func TestObjectStorageSaveClassifiesBackendTimeoutsAsStorageFailures(t *testing.T) {
 	timeoutCause := &storageTimeoutError{message: "private storage timeout"}
 	for _, cause := range []error{context.Canceled, context.DeadlineExceeded, timeoutCause} {
