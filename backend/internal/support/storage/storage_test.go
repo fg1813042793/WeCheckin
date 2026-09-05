@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,6 +182,35 @@ func TestDeleteStoredFileHonorsCanceledContextForAliyunObject(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("round trip calls = %d, want 0", calls)
+	}
+}
+
+func TestDeleteStoredFileSanitizesAliyunRequestConstructionErrorAndPreservesCause(t *testing.T) {
+	oldCfg := config.Cfg
+	endpoint := "http://[private-endpoint-secret"
+	objectKey := "uploads/feedback/private-user-content.png"
+	config.Cfg = &config.Config{OSS: config.OSSConfig{Aliyun: config.AliyunOSSConfig{
+		Endpoint:        endpoint,
+		Bucket:          "demo-bucket",
+		AccessKeyID:     "sensitive-access-key",
+		AccessKeySecret: "sensitive-secret",
+	}}}
+	t.Cleanup(func() { config.Cfg = oldCfg })
+
+	err := deleteAliyunWithClient(context.Background(), &http.Client{}, objectKey)
+	if err == nil {
+		t.Fatal("deleteAliyunWithClient(invalid endpoint) error = nil")
+	}
+	if err.Error() != "删除阿里云 OSS 对象失败" {
+		t.Fatalf("deleteAliyunWithClient(invalid endpoint) error text = %q", err)
+	}
+	assertErrorOmits(t, err, endpoint, objectKey, "private-user-content.png", "missing ']'", "sensitive-access-key", "sensitive-secret")
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		t.Fatalf("deleteAliyunWithClient(invalid endpoint) error = %v, want wrapped *url.Error", err)
+	}
+	if !strings.Contains(urlErr.Error(), "private-endpoint-secret") {
+		t.Fatalf("wrapped URL error = %q, want original construction detail", urlErr)
 	}
 }
 

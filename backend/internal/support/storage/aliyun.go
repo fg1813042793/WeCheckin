@@ -55,7 +55,7 @@ func deleteAliyunWithClient(ctx context.Context, client *http.Client, objectKey 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, aliyunObjectURL(endpoint, bucket, objectKey), nil)
 	if err != nil {
-		return fmt.Errorf("创建阿里云 OSS 删除请求失败")
+		return &aliyunDeleteTransportError{cause: err}
 	}
 	date := time.Now().UTC().Format(http.TimeFormat)
 	req.Header.Set("Date", date)
