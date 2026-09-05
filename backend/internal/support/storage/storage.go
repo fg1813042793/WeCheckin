@@ -43,6 +43,9 @@ func DeleteStoredFile(ctx context.Context, stored *StoredFile) error {
 		return err
 	}
 	if stored.IsLocal {
+		if strings.TrimSpace(stored.LocalPath) == "" {
+			return errors.New("删除本地存储对象失败: 本地路径为空")
+		}
 		if err := os.Remove(stored.LocalPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			var pathErr *os.PathError
 			if errors.As(err, &pathErr) {
@@ -51,6 +54,9 @@ func DeleteStoredFile(ctx context.Context, stored *StoredFile) error {
 			return fmt.Errorf("删除本地存储对象失败: %w", err)
 		}
 		return nil
+	}
+	if strings.TrimSpace(stored.ObjectKey) == "" {
+		return errors.New("删除存储对象失败: 对象键为空")
 	}
 	return deleteAliyun(ctx, stored.ObjectKey)
 }
@@ -68,6 +74,9 @@ func SaveMultipartFile(ctx context.Context, file *multipart.FileHeader, options 
 }
 
 func SaveReader(ctx context.Context, src io.Reader, originalFilename string, options SaveOptions) (*StoredFile, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if src == nil {
 		return nil, fmt.Errorf("上传文件为空")
 	}
@@ -92,7 +101,7 @@ func SaveReader(ctx context.Context, src io.Reader, originalFilename string, opt
 	ossType := strings.ToLower(strings.TrimSpace(currentOSSConfig().Type))
 	switch ossType {
 	case "", "local":
-		return saveLocal(src, objectKey, filename)
+		return saveLocal(&contextReader{ctx: ctx, reader: src}, objectKey, filename)
 	case "aliyun":
 		return saveAliyun(ctx, src, objectKey, filename, contentType)
 	case "tencent":
@@ -100,6 +109,22 @@ func SaveReader(ctx context.Context, src io.Reader, originalFilename string, opt
 	default:
 		return nil, fmt.Errorf("不支持的 oss.type: %s", ossType)
 	}
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (reader *contextReader) Read(buffer []byte) (int, error) {
+	if err := reader.ctx.Err(); err != nil {
+		return 0, err
+	}
+	n, err := reader.reader.Read(buffer)
+	if ctxErr := reader.ctx.Err(); ctxErr != nil {
+		return n, ctxErr
+	}
+	return n, err
 }
 
 func LocalUploadRoot() string {

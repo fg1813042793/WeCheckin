@@ -26,6 +26,29 @@ func TestDeleteStoredFileTreatsNilAsSuccess(t *testing.T) {
 	}
 }
 
+func TestDeleteStoredFileRejectsEmptyLocalPath(t *testing.T) {
+	err := DeleteStoredFile(context.Background(), &StoredFile{IsLocal: true})
+	if err == nil {
+		t.Fatal("DeleteStoredFile(empty local path) error = nil")
+	}
+	if err.Error() != "删除本地存储对象失败: 本地路径为空" {
+		t.Fatalf("DeleteStoredFile(empty local path) error = %q", err)
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("DeleteStoredFile(empty local path) incorrectly treated as missing file: %v", err)
+	}
+}
+
+func TestDeleteStoredFileRejectsEmptyObjectKey(t *testing.T) {
+	err := DeleteStoredFile(context.Background(), &StoredFile{})
+	if err == nil {
+		t.Fatal("DeleteStoredFile(empty object key) error = nil")
+	}
+	if err.Error() != "删除存储对象失败: 对象键为空" {
+		t.Fatalf("DeleteStoredFile(empty object key) error = %q", err)
+	}
+}
+
 func TestDeleteStoredFileRemovesLocalPath(t *testing.T) {
 	localPath := filepath.Join(t.TempDir(), "feedback.png")
 	if err := os.WriteFile(localPath, []byte("image"), 0600); err != nil {
@@ -182,8 +205,9 @@ func TestDeleteStoredFileSanitizesAliyunStatusError(t *testing.T) {
 func TestDeleteStoredFileSanitizesAliyunTransportError(t *testing.T) {
 	withSensitiveAliyunTestConfig(t)
 	oldClient := aliyunHTTPClient
+	transportErr := errors.New("private-user-content.png sensitive-access-key sensitive-secret")
 	aliyunHTTPClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		return nil, errors.New("private-user-content.png sensitive-access-key sensitive-secret " + req.Header.Get("Authorization"))
+		return nil, fmt.Errorf("%w %s", transportErr, req.Header.Get("Authorization"))
 	})}
 	t.Cleanup(func() { aliyunHTTPClient = oldClient })
 
@@ -191,7 +215,28 @@ func TestDeleteStoredFileSanitizesAliyunTransportError(t *testing.T) {
 	if err == nil {
 		t.Fatal("DeleteStoredFile(transport failure) error = nil")
 	}
+	if !errors.Is(err, transportErr) {
+		t.Fatalf("DeleteStoredFile(transport failure) error = %v, want transport cause", err)
+	}
+	if err.Error() != "删除阿里云 OSS 对象失败" {
+		t.Fatalf("DeleteStoredFile(transport failure) error text = %q", err)
+	}
 	assertErrorOmits(t, err, "private-user-content.png", "sensitive-access-key", "sensitive-secret", "OSS sensitive-access-key:")
+}
+
+func TestDeleteStoredFilePreservesAliyunTransportContextCause(t *testing.T) {
+	withAliyunTestConfig(t)
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, context.DeadlineExceeded
+	})}
+
+	err := deleteAliyunWithClient(context.Background(), client, "uploads/feedback/image.png")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("deleteAliyunWithClient(deadline transport failure) error = %v, want context deadline", err)
+	}
+	if err.Error() != "删除阿里云 OSS 对象失败" {
+		t.Fatalf("deleteAliyunWithClient(deadline transport failure) error text = %q", err)
+	}
 }
 
 func TestSaveReaderStoresLocalUploadWithoutMultipartReconstruction(t *testing.T) {
@@ -243,6 +288,60 @@ func TestSaveReaderRemovesPartialLocalFileOnCopyFailure(t *testing.T) {
 	localPath := filepath.Join(uploadRoot, "feedback", "2026", "09", "05", "partial.png")
 	if _, statErr := os.Stat(localPath); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("partial local file remains after save failure: %v", statErr)
+	}
+}
+
+func TestSaveReaderHonorsPreCanceledContextBeforeReading(t *testing.T) {
+	oldCfg := config.Cfg
+	uploadRoot := t.TempDir()
+	config.Cfg = &config.Config{OSS: config.OSSConfig{
+		Type:  "local",
+		Local: config.LocalOSSConfig{Path: uploadRoot},
+	}}
+	t.Cleanup(func() { config.Cfg = oldCfg })
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	reader := &trackingReader{content: []byte("must-not-read")}
+
+	_, err := SaveReader(ctx, reader, "original.png", SaveOptions{
+		Prefix:   "uploads/feedback",
+		Filename: "pre-canceled.png",
+		Now:      time.Date(2026, 9, 5, 10, 0, 0, 0, time.Local),
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("SaveReader(pre-canceled) error = %v, want context.Canceled", err)
+	}
+	if reader.reads != 0 {
+		t.Fatalf("SaveReader(pre-canceled) reads = %d, want 0", reader.reads)
+	}
+	localPath := filepath.Join(uploadRoot, "feedback", "2026", "09", "05", "pre-canceled.png")
+	if _, statErr := os.Stat(localPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("pre-canceled save created local file: %v", statErr)
+	}
+}
+
+func TestSaveReaderRemovesPartialLocalFileWhenContextCanceledDuringCopy(t *testing.T) {
+	oldCfg := config.Cfg
+	uploadRoot := t.TempDir()
+	config.Cfg = &config.Config{OSS: config.OSSConfig{
+		Type:  "local",
+		Local: config.LocalOSSConfig{Path: uploadRoot},
+	}}
+	t.Cleanup(func() { config.Cfg = oldCfg })
+	ctx, cancel := context.WithCancel(context.Background())
+	reader := &cancelAfterReadReader{cancel: cancel}
+
+	_, err := SaveReader(ctx, reader, "original.png", SaveOptions{
+		Prefix:   "uploads/feedback",
+		Filename: "mid-copy.png",
+		Now:      time.Date(2026, 9, 5, 10, 0, 0, 0, time.Local),
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("SaveReader(mid-copy cancel) error = %v, want context.Canceled", err)
+	}
+	localPath := filepath.Join(uploadRoot, "feedback", "2026", "09", "05", "mid-copy.png")
+	if _, statErr := os.Stat(localPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("mid-copy cancellation left partial local file: %v", statErr)
 	}
 }
 
@@ -486,6 +585,36 @@ func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 type partialErrorReader struct {
 	wrote bool
+}
+
+type trackingReader struct {
+	content []byte
+	reads   int
+}
+
+func (reader *trackingReader) Read(buffer []byte) (int, error) {
+	reader.reads++
+	if len(reader.content) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(buffer, reader.content)
+	reader.content = reader.content[n:]
+	return n, nil
+}
+
+type cancelAfterReadReader struct {
+	cancel context.CancelFunc
+	read   bool
+}
+
+func (reader *cancelAfterReadReader) Read(buffer []byte) (int, error) {
+	if reader.read {
+		return 0, io.EOF
+	}
+	reader.read = true
+	n := copy(buffer, "partial")
+	reader.cancel()
+	return n, nil
 }
 
 func (reader *partialErrorReader) Read(buffer []byte) (int, error) {

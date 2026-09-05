@@ -17,6 +17,18 @@ import (
 
 var aliyunHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
+type aliyunDeleteTransportError struct {
+	cause error
+}
+
+func (err *aliyunDeleteTransportError) Error() string {
+	return "删除阿里云 OSS 对象失败"
+}
+
+func (err *aliyunDeleteTransportError) Unwrap() error {
+	return err.cause
+}
+
 func saveAliyun(ctx context.Context, src io.Reader, objectKey, filename, contentType string) (*StoredFile, error) {
 	return saveAliyunWithClient(ctx, aliyunHTTPClient, src, objectKey, filename, contentType)
 }
@@ -51,10 +63,7 @@ func deleteAliyunWithClient(ctx context.Context, client *http.Client, objectKey 
 
 	resp, err := client.Do(req)
 	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-		return fmt.Errorf("删除阿里云 OSS 对象失败")
+		return &aliyunDeleteTransportError{cause: err}
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))

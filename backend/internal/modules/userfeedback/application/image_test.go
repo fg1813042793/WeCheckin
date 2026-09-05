@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"os"
@@ -122,6 +123,55 @@ func TestValidateImageRejectsMoreThanTenMiB(t *testing.T) {
 	}
 }
 
+func TestValidateImageNormalizesOriginalNameAndEnforcesUnicodeLength(t *testing.T) {
+	nameAtLimit := strings.Repeat("图", 251) + ".png"
+	input := validImageInput("  "+nameAtLimit+"  ", "image/png")
+	image, err := ValidateImage(input)
+	if err != nil {
+		t.Fatalf("ValidateImage(255-rune name) error = %v", err)
+	}
+	if image.OriginalName != nameAtLimit {
+		t.Fatalf("OriginalName = %q, want normalized 255-rune name", image.OriginalName)
+	}
+
+	for _, test := range []struct {
+		name     string
+		filename string
+	}{
+		{name: "empty after trim", filename: " \t\n "},
+		{name: "256 runes", filename: strings.Repeat("图", 252) + ".png"},
+		{name: "invalid utf8", filename: string([]byte{0xff}) + ".png"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			input := validImageInput(test.filename, "image/png")
+			if _, err := ValidateImage(input); !errors.Is(err, ErrInvalidArgument) {
+				t.Fatalf("ValidateImage(%s) error = %v, want ErrInvalidArgument", test.name, err)
+			}
+		})
+	}
+}
+
+func TestValidateImageRejectsInvalidUTF8DeclaredMIME(t *testing.T) {
+	input := validImageInput("photo.png", "image/png")
+	input.ContentType = "image/png" + string([]byte{0xff})
+	if _, err := ValidateImage(input); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("ValidateImage(invalid UTF-8 MIME) error = %v, want ErrInvalidArgument", err)
+	}
+}
+
+func TestValidateImageClonesContent(t *testing.T) {
+	input := validImageInput("photo.png", "image/png")
+	want := bytes.Clone(input.Content)
+	image, err := ValidateImage(input)
+	if err != nil {
+		t.Fatalf("ValidateImage() error = %v", err)
+	}
+	input.Content[0] = 0
+	if !bytes.Equal(image.Content, want) {
+		t.Fatalf("validated content changed with input: got %v want %v", image.Content, want)
+	}
+}
+
 func TestValidateInitialMessageTrimsAndRequiresContent(t *testing.T) {
 	message, err := ValidateInitialMessage("  中文反馈  \n", nil)
 	if err != nil {
@@ -142,6 +192,16 @@ func TestValidateInitialMessageCountsContentByRunes(t *testing.T) {
 	}
 	if _, err := ValidateInitialMessage(strings.Repeat("中", MaxFeedbackContentRunes+1), nil); !errors.Is(err, ErrInvalidArgument) {
 		t.Fatalf("ValidateInitialMessage(over rune limit) error = %v, want ErrInvalidArgument", err)
+	}
+}
+
+func TestValidateMessagesRejectInvalidUTF8Content(t *testing.T) {
+	invalidContent := "feedback" + string([]byte{0xff})
+	if _, err := ValidateInitialMessage(invalidContent, nil); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("ValidateInitialMessage(invalid UTF-8) error = %v, want ErrInvalidArgument", err)
+	}
+	if _, err := ValidateSupplementMessage(invalidContent, nil, 0); !errors.Is(err, ErrInvalidArgument) {
+		t.Fatalf("ValidateSupplementMessage(invalid UTF-8) error = %v, want ErrInvalidArgument", err)
 	}
 }
 

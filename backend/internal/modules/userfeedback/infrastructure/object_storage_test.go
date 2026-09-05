@@ -2,11 +2,16 @@ package infrastructure
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,6 +47,9 @@ func TestObjectStorageSaveUsesFeedbackPrefixAndMapsMetadata(t *testing.T) {
 			}, nil
 		},
 		deleteStoredFile: storage.DeleteStoredFile,
+		randomID: func() (string, error) {
+			return strings.Repeat("a", 32), nil
+		},
 		fullURL: func(ctx context.Context, path string) string {
 			publicURLPath = path
 			return ctx.Value(staticDomainContextKey{}).(string) + path
@@ -68,7 +76,7 @@ func TestObjectStorageSaveUsesFeedbackPrefixAndMapsMetadata(t *testing.T) {
 	if savedOptions.Now != now {
 		t.Fatalf("save time = %v, want %v", savedOptions.Now, now)
 	}
-	if filepath.Ext(savedOptions.Filename) != ".png" || savedOptions.Filename == image.OriginalName {
+	if savedOptions.Filename != strings.Repeat("a", 32)+".png" {
 		t.Fatalf("generated filename = %q", savedOptions.Filename)
 	}
 	if stored.StorageProvider != "aliyun" || stored.ObjectKey != "uploads/feedback/2026/09/05/generated.png" {
@@ -79,6 +87,108 @@ func TestObjectStorageSaveUsesFeedbackPrefixAndMapsMetadata(t *testing.T) {
 	}
 	if publicURLPath != "/uploads/feedback/2026/09/05/generated.png" || stored.URL != "https://cdn.example.test"+publicURLPath {
 		t.Fatalf("stored URL = %q, path = %q", stored.URL, publicURLPath)
+	}
+}
+
+func TestSecureRandomIDReturnsLongHexValues(t *testing.T) {
+	first, err := secureRandomID()
+	if err != nil {
+		t.Fatalf("secureRandomID() first error = %v", err)
+	}
+	second, err := secureRandomID()
+	if err != nil {
+		t.Fatalf("secureRandomID() second error = %v", err)
+	}
+	if len(first) != 32 || len(second) != 32 {
+		t.Fatalf("secureRandomID() lengths = %d and %d, want 32", len(first), len(second))
+	}
+	if _, err := hex.DecodeString(first); err != nil {
+		t.Fatalf("secureRandomID() first value is not hex: %q", first)
+	}
+	if _, err := hex.DecodeString(second); err != nil {
+		t.Fatalf("secureRandomID() second value is not hex: %q", second)
+	}
+	if first == second {
+		t.Fatalf("secureRandomID() returned duplicate values: %q", first)
+	}
+}
+
+func TestObjectStorageFixedTimeSequentialAndConcurrentSavesUseUniqueKeys(t *testing.T) {
+	fixedTime := time.Date(2026, 9, 5, 14, 30, 0, 123, time.Local)
+	var sequence atomic.Uint64
+	objectStorage := &ObjectStorage{
+		randomID: func() (string, error) {
+			return fmt.Sprintf("%032x", sequence.Add(1)), nil
+		},
+		saveReader: func(_ context.Context, _ io.Reader, _ string, options storage.SaveOptions) (*storage.StoredFile, error) {
+			return &storage.StoredFile{
+				ObjectKey: path.Join(options.Prefix, options.Now.Format("2006/01/02"), options.Filename),
+			}, nil
+		},
+		fullURL: func(_ context.Context, objectPath string) string { return objectPath },
+		now:     func() time.Time { return fixedTime },
+	}
+	image := application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")}
+
+	const saveCount = 34
+	keys := make(chan string, saveCount)
+	errs := make(chan error, saveCount)
+	save := func() {
+		stored, err := objectStorage.Save(context.Background(), image)
+		if err != nil {
+			errs <- err
+			return
+		}
+		keys <- stored.ObjectKey
+	}
+	save()
+	save()
+	var group sync.WaitGroup
+	for range saveCount - 2 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			save()
+		}()
+	}
+	group.Wait()
+	close(errs)
+	close(keys)
+
+	for err := range errs {
+		t.Fatalf("ObjectStorage.Save() error = %v", err)
+	}
+	unique := make(map[string]struct{}, saveCount)
+	for key := range keys {
+		if !strings.HasPrefix(key, "uploads/feedback/2026/09/05/") || filepath.Ext(key) != ".png" {
+			t.Fatalf("saved object key = %q", key)
+		}
+		if _, exists := unique[key]; exists {
+			t.Fatalf("duplicate object key = %q", key)
+		}
+		unique[key] = struct{}{}
+	}
+	if len(unique) != saveCount {
+		t.Fatalf("unique object keys = %d, want %d", len(unique), saveCount)
+	}
+}
+
+func TestObjectStorageRandomFailureDoesNotSave(t *testing.T) {
+	randomCause := errors.New("private random source failure")
+	var saveCalls atomic.Int64
+	objectStorage := &ObjectStorage{
+		randomID: func() (string, error) { return "", randomCause },
+		saveReader: func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error) {
+			saveCalls.Add(1)
+			return nil, nil
+		},
+		now: time.Now,
+	}
+
+	_, err := objectStorage.Save(context.Background(), application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")})
+	assertStableObjectStorageError(t, err, randomCause)
+	if got := saveCalls.Load(); got != 0 {
+		t.Fatalf("save calls = %d, want 0", got)
 	}
 }
 
@@ -105,20 +215,73 @@ func TestObjectStoragePublicURLUsesMediaStaticDomain(t *testing.T) {
 	}
 }
 
+func TestObjectStoragePublicURLRejectsObjectKeyOutsideFeedbackPrefix(t *testing.T) {
+	objectStorage := &ObjectStorage{
+		fullURL: func(context.Context, string) string {
+			t.Fatal("full URL generator must not be called for an invalid object key")
+			return ""
+		},
+	}
+	if got := objectStorage.PublicURL(context.Background(), "uploads/avatar/2026/09/05/image.png"); got != "" {
+		t.Fatalf("PublicURL() = %q, want empty", got)
+	}
+}
+
 func TestObjectStorageSaveReturnsStableStorageError(t *testing.T) {
+	storageCause := errors.New("private storage failure")
 	objectStorage := &ObjectStorage{
 		saveReader: func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error) {
-			return nil, errors.New("private storage failure")
+			return nil, storageCause
+		},
+		randomID: func() (string, error) { return strings.Repeat("a", 32), nil },
+		now:      time.Now,
+	}
+
+	_, err := objectStorage.Save(context.Background(), application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")})
+	assertStableObjectStorageError(t, err, storageCause)
+}
+
+func TestObjectStorageSavePreservesContextErrors(t *testing.T) {
+	for _, contextErr := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(contextErr.Error(), func(t *testing.T) {
+			objectStorage := &ObjectStorage{
+				saveReader: func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error) {
+					return nil, fmt.Errorf("wrapped context failure: %w", contextErr)
+				},
+				randomID: func() (string, error) { return strings.Repeat("a", 32), nil },
+				now:      time.Now,
+			}
+
+			_, err := objectStorage.Save(context.Background(), application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")})
+			if !errors.Is(err, contextErr) {
+				t.Fatalf("ObjectStorage.Save() error = %v, want errors.Is(_, %v)", err, contextErr)
+			}
+			if err.Error() != contextErr.Error() {
+				t.Fatalf("ObjectStorage.Save() error text = %q, want %q", err.Error(), contextErr.Error())
+			}
+		})
+	}
+}
+
+func TestObjectStorageSaveRejectsObjectKeyOutsideFeedbackPrefix(t *testing.T) {
+	objectStorage := &ObjectStorage{
+		saveReader: func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error) {
+			return &storage.StoredFile{ObjectKey: "uploads/avatar/2026/09/05/image.png"}, nil
+		},
+		randomID: func() (string, error) { return strings.Repeat("a", 32), nil },
+		fullURL: func(context.Context, string) string {
+			t.Fatal("full URL generator must not be called for an invalid object key")
+			return ""
 		},
 		now: time.Now,
 	}
 
 	_, err := objectStorage.Save(context.Background(), application.ValidatedImage{OriginalName: "image.png", Content: []byte("image")})
-	if err != application.ErrStorageFailed {
-		t.Fatalf("ObjectStorage.Save() error = %v, want stable ErrStorageFailed", err)
+	if !errors.Is(err, application.ErrStorageFailed) {
+		t.Fatalf("ObjectStorage.Save() error = %v, want errors.Is(_, ErrStorageFailed)", err)
 	}
-	if strings.Contains(err.Error(), "private storage failure") {
-		t.Fatalf("ObjectStorage.Save() leaked storage error: %v", err)
+	if err.Error() != application.ErrStorageFailed.Error() {
+		t.Fatalf("ObjectStorage.Save() error text = %q", err.Error())
 	}
 }
 
@@ -200,20 +363,54 @@ func TestObjectStorageDeleteCompensatesLocalSave(t *testing.T) {
 }
 
 func TestObjectStorageDeleteReturnsStableStorageError(t *testing.T) {
+	deleteCause := errors.New("private delete failure")
 	objectStorage := &ObjectStorage{
 		deleteStoredFile: func(context.Context, *storage.StoredFile) error {
-			return errors.New("private delete failure")
+			return deleteCause
 		},
 	}
 	err := objectStorage.Delete(context.Background(), application.StoredImage{
 		StorageProvider: "aliyun",
 		ObjectKey:       "uploads/feedback/image.png",
 	})
-	if err != application.ErrStorageFailed {
-		t.Fatalf("ObjectStorage.Delete() error = %v, want stable ErrStorageFailed", err)
+	assertStableObjectStorageError(t, err, deleteCause)
+}
+
+func TestObjectStorageDeletePreservesContextErrors(t *testing.T) {
+	for _, contextErr := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(contextErr.Error(), func(t *testing.T) {
+			objectStorage := &ObjectStorage{
+				deleteStoredFile: func(context.Context, *storage.StoredFile) error {
+					return fmt.Errorf("wrapped context failure: %w", contextErr)
+				},
+			}
+			err := objectStorage.Delete(context.Background(), application.StoredImage{
+				StorageProvider: "aliyun",
+				ObjectKey:       "uploads/feedback/image.png",
+			})
+			if !errors.Is(err, contextErr) {
+				t.Fatalf("ObjectStorage.Delete() error = %v, want errors.Is(_, %v)", err, contextErr)
+			}
+			if err.Error() != contextErr.Error() {
+				t.Fatalf("ObjectStorage.Delete() error text = %q, want %q", err.Error(), contextErr.Error())
+			}
+		})
 	}
-	if strings.Contains(err.Error(), "private delete failure") {
-		t.Fatalf("ObjectStorage.Delete() leaked storage error: %v", err)
+}
+
+func assertStableObjectStorageError(t *testing.T, err, cause error) {
+	t.Helper()
+	if !errors.Is(err, application.ErrStorageFailed) {
+		t.Fatalf("error = %v, want errors.Is(_, ErrStorageFailed)", err)
+	}
+	if !errors.Is(err, cause) {
+		t.Fatalf("error = %v, want errors.Is(_, cause)", err)
+	}
+	if err.Error() != application.ErrStorageFailed.Error() {
+		t.Fatalf("error text = %q, want %q", err.Error(), application.ErrStorageFailed.Error())
+	}
+	if strings.Contains(err.Error(), cause.Error()) {
+		t.Fatalf("error leaked cause: %v", err)
 	}
 }
 

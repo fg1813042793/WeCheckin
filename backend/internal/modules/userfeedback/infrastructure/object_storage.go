@@ -3,7 +3,9 @@ package infrastructure
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"io"
 	"path"
 	"path/filepath"
@@ -24,6 +26,7 @@ const (
 type ObjectStorage struct {
 	saveReader       func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error)
 	deleteStoredFile func(context.Context, *storage.StoredFile) error
+	randomID         func() (string, error)
 	fullURL          func(context.Context, string) string
 	now              func() time.Time
 }
@@ -32,21 +35,36 @@ func NewObjectStorage() *ObjectStorage {
 	return &ObjectStorage{
 		saveReader:       storage.SaveReader,
 		deleteStoredFile: storage.DeleteStoredFile,
+		randomID:         secureRandomID,
 		fullURL:          media.FullURLWithStaticDomainContext,
 		now:              time.Now,
 	}
 }
 
 func (objectStorage *ObjectStorage) Save(ctx context.Context, image application.ValidatedImage) (application.StoredImage, error) {
+	if err := ctx.Err(); err != nil {
+		return application.StoredImage{}, err
+	}
+	randomID, err := objectStorage.nextRandomID()
+	if err != nil {
+		return application.StoredImage{}, newObjectStorageError(err)
+	}
 	now := objectStorage.currentTime()
-	filename := fmt.Sprintf("%d%s", now.UnixNano(), strings.ToLower(filepath.Ext(image.OriginalName)))
+	filename := randomID + strings.ToLower(filepath.Ext(image.OriginalName))
 	stored, err := objectStorage.save(ctx, bytes.NewReader(image.Content), image.OriginalName, storage.SaveOptions{
 		Prefix:   feedbackImagePrefix,
 		Filename: filename,
 		Now:      now,
 	})
-	if err != nil || stored == nil || strings.TrimSpace(stored.ObjectKey) == "" {
-		return application.StoredImage{}, application.ErrStorageFailed
+	if err != nil {
+		return application.StoredImage{}, newObjectStorageError(err)
+	}
+	if stored == nil {
+		return application.StoredImage{}, newObjectStorageError(errEmptyStorageResult)
+	}
+	objectKey, ok := feedbackObjectKey(stored.ObjectKey)
+	if !ok {
+		return application.StoredImage{}, newObjectStorageError(errInvalidFeedbackObjectKey)
 	}
 
 	provider := storageProviderAliyun
@@ -55,18 +73,21 @@ func (objectStorage *ObjectStorage) Save(ctx context.Context, image application.
 	}
 	return application.StoredImage{
 		StorageProvider: provider,
-		ObjectKey:       stored.ObjectKey,
+		ObjectKey:       objectKey,
 		OriginalName:    image.OriginalName,
 		ContentType:     image.ContentType,
 		SizeBytes:       image.SizeBytes,
-		URL:             objectStorage.PublicURL(ctx, stored.ObjectKey),
+		URL:             objectStorage.PublicURL(ctx, objectKey),
 	}, nil
 }
 
 func (objectStorage *ObjectStorage) Delete(ctx context.Context, image application.StoredImage) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	objectKey, ok := feedbackObjectKey(image.ObjectKey)
 	if !ok {
-		return application.ErrStorageFailed
+		return newObjectStorageError(errInvalidFeedbackObjectKey)
 	}
 
 	stored := &storage.StoredFile{ObjectKey: objectKey}
@@ -77,17 +98,17 @@ func (objectStorage *ObjectStorage) Delete(ctx context.Context, image applicatio
 		stored.LocalPath = filepath.Join(storage.LocalUploadRoot(), filepath.FromSlash(localObjectPath))
 	case storageProviderAliyun:
 	default:
-		return application.ErrStorageFailed
+		return newObjectStorageError(errUnsupportedStorageProvider)
 	}
 	if err := objectStorage.delete(ctx, stored); err != nil {
-		return application.ErrStorageFailed
+		return newObjectStorageError(err)
 	}
 	return nil
 }
 
 func (objectStorage *ObjectStorage) PublicURL(ctx context.Context, objectKey string) string {
-	objectKey = strings.TrimLeft(strings.TrimSpace(objectKey), "/")
-	if objectKey == "" {
+	objectKey, ok := feedbackObjectKey(objectKey)
+	if !ok {
 		return ""
 	}
 	return objectStorage.url(ctx, "/"+objectKey)
@@ -121,6 +142,21 @@ func (objectStorage *ObjectStorage) currentTime() time.Time {
 	return time.Now()
 }
 
+func (objectStorage *ObjectStorage) nextRandomID() (string, error) {
+	if objectStorage != nil && objectStorage.randomID != nil {
+		return objectStorage.randomID()
+	}
+	return secureRandomID()
+}
+
+func secureRandomID() (string, error) {
+	var value [16]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(value[:]), nil
+}
+
 func feedbackObjectKey(value string) (string, bool) {
 	trimmed := strings.Trim(strings.TrimSpace(value), "/")
 	cleaned := path.Clean(trimmed)
@@ -128,6 +164,34 @@ func feedbackObjectKey(value string) (string, bool) {
 		return "", false
 	}
 	return cleaned, true
+}
+
+var (
+	errEmptyStorageResult         = errors.New("empty feedback storage result")
+	errInvalidFeedbackObjectKey   = errors.New("invalid feedback object key")
+	errUnsupportedStorageProvider = errors.New("unsupported feedback storage provider")
+)
+
+type objectStorageError struct {
+	cause error
+}
+
+func (err *objectStorageError) Error() string {
+	return application.ErrStorageFailed.Error()
+}
+
+func (err *objectStorageError) Unwrap() []error {
+	return []error{application.ErrStorageFailed, err.cause}
+}
+
+func newObjectStorageError(cause error) error {
+	if errors.Is(cause, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(cause, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	return &objectStorageError{cause: cause}
 }
 
 var _ application.ImageStorage = (*ObjectStorage)(nil)

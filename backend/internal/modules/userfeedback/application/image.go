@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"path/filepath"
@@ -53,8 +54,15 @@ func ValidateImage(input AttachmentInput) (ValidatedImage, error) {
 	if uint64(len(input.Content)) > MaxImageSizeBytes {
 		return ValidatedImage{}, ErrAttachmentTooLarge
 	}
+	if !utf8.ValidString(input.OriginalName) || !utf8.ValidString(input.ContentType) {
+		return ValidatedImage{}, ErrInvalidArgument
+	}
+	originalName := strings.TrimSpace(input.OriginalName)
+	if originalName == "" || utf8.RuneCountInString(originalName) > 255 {
+		return ValidatedImage{}, ErrInvalidArgument
+	}
 
-	extension := strings.ToLower(filepath.Ext(strings.TrimSpace(input.OriginalName)))
+	extension := strings.ToLower(filepath.Ext(originalName))
 	expectedMIME, allowed := imageMIMEByExtension[extension]
 	declaredMIME := strings.ToLower(strings.TrimSpace(input.ContentType))
 	if !allowed || declaredMIME != expectedMIME || http.DetectContentType(input.Content) != expectedMIME {
@@ -62,10 +70,10 @@ func ValidateImage(input AttachmentInput) (ValidatedImage, error) {
 	}
 
 	return ValidatedImage{
-		OriginalName: input.OriginalName,
+		OriginalName: originalName,
 		ContentType:  expectedMIME,
 		SizeBytes:    uint64(len(input.Content)),
-		Content:      input.Content,
+		Content:      bytes.Clone(input.Content),
 	}, nil
 }
 
@@ -78,6 +86,9 @@ func ValidateSupplementMessage(content string, attachments []AttachmentInput, ex
 }
 
 func validateImageMessage(content string, attachments []AttachmentInput, existingImageCount int64, contentRequired bool) (ValidatedMessage, error) {
+	if !utf8.ValidString(content) {
+		return ValidatedMessage{}, ErrInvalidArgument
+	}
 	trimmedContent := strings.TrimSpace(content)
 	if utf8.RuneCountInString(trimmedContent) > MaxFeedbackContentRunes {
 		return ValidatedMessage{}, ErrInvalidArgument
