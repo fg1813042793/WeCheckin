@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import { feedbackContentRoutes, resolveFeedbackContentComponent } from '@/pages/feedback/feedback.routes'
 import NotificationHistoryPage from '@/pages/notifications/components/NotificationHistoryPage.vue'
 import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
 import PerformanceWorkbench from '@/pages/performance/components/PerformanceWorkbench.vue'
@@ -22,8 +23,14 @@ export const appContentRoutes: Record<string, AppContentRoute> = {
   ...Object.fromEntries(
     Object.entries(workflowContentRoutes).map(([key, component]) => [key, { component }]),
   ),
+  ...Object.fromEntries(
+    Object.entries(feedbackContentRoutes).map(([key, component]) => [key, { component }]),
+  ),
 }
 
 export function resolveAppContentComponent(key: string) {
-  return appContentRoutes[key]?.component || resolveWorkflowContentComponent(key) || appContentRoutes.dashboard.component
+  return appContentRoutes[key]?.component
+    || resolveWorkflowContentComponent(key)
+    || resolveFeedbackContentComponent(key)
+    || appContentRoutes.dashboard.component
 }

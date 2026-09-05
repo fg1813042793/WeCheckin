@@ -1,5 +1,6 @@
 import type { DingTalkMenu } from '@/types/dingtalk-h5'
 import type { AppNavItem } from '@/types/navigation'
+import { feedbackMenuPages, feedbackRootNavItem } from '@/pages/feedback/feedback.menu'
 import { performanceMenuPages, performanceRootNavItem } from '@/pages/performance/performance.menu'
 import { workflowMenuPages, workflowRootNavItem } from '@/pages/workflow/workflow.menu'
 import { resolveAppMenuIcon } from './app-icons'
@@ -14,6 +15,7 @@ export type AppContentView
     | 'org'
     | 'template'
     | 'workflow'
+    | 'feedback'
 
 export interface RegisteredAppPage {
   key: string
@@ -22,6 +24,7 @@ export interface RegisteredAppPage {
   title: string
   description: string
   icon: string
+  permissionKey?: string
   parentKey?: string
   rootKey: string
 }
@@ -50,12 +53,14 @@ const appRootNavItems: AppRootNavItem[] = [
   },
   performanceRootNavItem,
   workflowRootNavItem,
+  feedbackRootNavItem,
 ]
 
 export const appRegisteredPages: RegisteredAppPage[] = [
   dashboardPage,
   ...performanceMenuPages,
   ...workflowMenuPages,
+  ...feedbackMenuPages,
 ]
 
 const registeredPageMap = new Map(appRegisteredPages.map(page => [page.key, page]))

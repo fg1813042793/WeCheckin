@@ -10,6 +10,7 @@ const appMenuIconAliases: Record<string, string> = {
   template: 'file-text',
   account: 'account-fill',
   workflow: 'checkmark-circle',
+  feedback: 'chat',
 }
 
 function firstText(...values: Array<unknown>) {

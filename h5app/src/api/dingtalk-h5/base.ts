@@ -15,6 +15,19 @@ export interface UploadFileOptions {
   header?: Record<string, string>
 }
 
+export interface MultipartUploadFile {
+  filePath: string
+  name?: string
+  mimeType?: string
+}
+
+export interface UploadMultipartFilesOptions {
+  fileFieldName?: string
+  formData?: Record<string, UploadFormValue>
+  timeout?: number
+  header?: Record<string, string>
+}
+
 function trimRightSlash(value: string) {
   return value.replace(/\/+$/, '')
 }
@@ -97,6 +110,127 @@ function parseUploadResponseData<T>(raw: unknown): ApiEnvelope<T> | null {
   catch {
     return null
   }
+}
+
+const SAFE_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+function safeImageMimeType(file: MultipartUploadFile, blobType: string) {
+  for (const value of [file.mimeType, blobType]) {
+    const mimeType = String(value || '').trim().toLowerCase().split(';')[0]
+    if (SAFE_IMAGE_MIME_TYPES.has(mimeType)) {
+      return mimeType
+    }
+  }
+  return 'application/octet-stream'
+}
+
+function imageExtension(mimeType: string) {
+  if (mimeType === 'image/jpeg')
+    return '.jpg'
+  if (mimeType === 'image/png')
+    return '.png'
+  if (mimeType === 'image/webp')
+    return '.webp'
+  return ''
+}
+
+function safeUploadFilename(file: MultipartUploadFile, index: number, mimeType: string) {
+  const source = String(file.name || file.filePath || '').split(/[?#]/)[0] || ''
+  const segments = source.replace(/\\/g, '/').split('/')
+  let filename = segments.at(-1) || ''
+  try {
+    filename = decodeURIComponent(filename)
+  }
+  catch {
+    filename = ''
+  }
+  filename = Array.from(filename, (character) => {
+    const codePoint = character.codePointAt(0) || 0
+    return codePoint <= 31 || codePoint === 127 ? '_' : character
+  }).join('')
+  filename = filename.replace(/[<>:"/\\|?*]/g, '_').replace(/^\.+/, '')
+  filename = filename.trim().slice(0, 120)
+  return filename || `image-${index + 1}${imageExtension(mimeType)}`
+}
+
+// #ifdef H5
+async function uploadMultipartFilesInH5<T>(
+  url: string,
+  files: readonly MultipartUploadFile[],
+  options: UploadMultipartFilesOptions,
+) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(options.formData || {})) {
+    form.append(key, String(value))
+  }
+
+  for (const [index, file] of files.entries()) {
+    const response = await fetch(file.filePath)
+    if (!response.ok) {
+      throw new Error('读取待上传图片失败')
+    }
+    const blob = await response.blob()
+    if (blob.size === 0) {
+      throw new Error('待上传图片不能为空')
+    }
+    const mimeType = safeImageMimeType(file, blob.type)
+    const uploadBlob = blob.type === mimeType ? blob : blob.slice(0, blob.size, mimeType)
+    form.append(options.fileFieldName || 'images', uploadBlob, safeUploadFilename(file, index, mimeType))
+  }
+
+  const controller = new AbortController()
+  const timeout = Math.max(1, options.timeout || 30000)
+  const timeoutID = setTimeout(() => controller.abort(), timeout)
+  const headers: Record<string, string> = {
+    ...options.header,
+    'Authorization': authToken(),
+    'X-Client-Platform': DINGTALK_H5_CONFIG.CLIENT_PLATFORM,
+  }
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === 'content-type') {
+      delete headers[key]
+    }
+  }
+
+  try {
+    const response = await fetch(buildApiUrl(url), {
+      method: 'POST',
+      body: form,
+      headers,
+      signal: controller.signal,
+    })
+    const responseText = await response.text()
+    const data = parseUploadResponseData<T>(responseText)
+    if (!response.ok) {
+      throw data || new Error(`上传请求失败[${response.status}]`)
+    }
+    if (!data) {
+      throw new Error('上传响应异常')
+    }
+    if (data.code === undefined || data.code === 0) {
+      return data
+    }
+    throw data
+  }
+  finally {
+    clearTimeout(timeoutID)
+  }
+}
+// #endif
+
+export function uploadMultipartFiles<T>(
+  url: string,
+  files: readonly MultipartUploadFile[],
+  options: UploadMultipartFilesOptions = {},
+) {
+  let task: Promise<ApiEnvelope<T>>
+  // #ifdef H5
+  task = uploadMultipartFilesInH5<T>(url, files, options)
+  // #endif
+  // #ifndef H5
+  task = Promise.reject(new Error('当前上传仅支持 H5'))
+  // #endif
+  return task
 }
 
 export function uploadFile<T>(url: string, filePath: string, options: UploadFileOptions = {}) {
