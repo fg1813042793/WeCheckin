@@ -658,6 +658,92 @@ func TestImageCleanupFailureLogsSafeIdentifiersWithoutReplacingResult(t *testing
 	})
 }
 
+func TestSanitizeCleanupErrorExpandsSingleAndMultiUnwrapChains(t *testing.T) {
+	t.Run("single unwrap", func(t *testing.T) {
+		err := &testSingleUnwrapError{
+			message: "object storage delete failed",
+			cause:   errors.New("HTTP status 503 Service Unavailable"),
+		}
+
+		got := sanitizeCleanupError(err)
+		for _, want := range []string{"object storage delete failed", "HTTP status 503 Service Unavailable"} {
+			if !strings.Contains(got, want) {
+				t.Fatalf("sanitizeCleanupError() = %q, missing %q", got, want)
+			}
+		}
+	})
+
+	t.Run("multi unwrap and errors join", func(t *testing.T) {
+		const generic = "feedback attachment storage failed"
+		err := &testMultiUnwrapError{
+			message: generic,
+			causes: []error{
+				errors.New(generic),
+				errors.Join(
+					errors.New("HTTP status 502 Bad Gateway"),
+					errors.New("dial tcp: connection reset"),
+				),
+				errors.New(""),
+			},
+		}
+
+		got := sanitizeCleanupError(err)
+		for _, want := range []string{generic, "HTTP status 502 Bad Gateway", "dial tcp: connection reset"} {
+			if !strings.Contains(got, want) {
+				t.Fatalf("sanitizeCleanupError() = %q, missing %q", got, want)
+			}
+		}
+		if count := strings.Count(got, generic); count != 1 {
+			t.Fatalf("generic error occurrence count = %d, want 1: %q", count, got)
+		}
+		if count := strings.Count(got, "HTTP status 502 Bad Gateway"); count != 1 {
+			t.Fatalf("HTTP cause occurrence count = %d, want 1: %q", count, got)
+		}
+	})
+}
+
+func TestSanitizeCleanupErrorRedactsExpandedChainAndBoundsOutput(t *testing.T) {
+	t.Run("credentials", func(t *testing.T) {
+		err := &testSingleUnwrapError{
+			message: "upload failed access_token=top-secret",
+			cause:   errors.New("HTTP status 401 bearer bottom-secret secret=child-secret"),
+		}
+
+		got := sanitizeCleanupError(err)
+		if !strings.Contains(got, "HTTP status 401") || !strings.Contains(got, "[REDACTED]") {
+			t.Fatalf("sanitizeCleanupError() = %q, want safe lower-level HTTP cause", got)
+		}
+		for _, secret := range []string{"top-secret", "bottom-secret", "child-secret"} {
+			if strings.Contains(got, secret) {
+				t.Fatalf("sanitizeCleanupError() leaked %q: %q", secret, got)
+			}
+		}
+	})
+
+	t.Run("truncation", func(t *testing.T) {
+		err := &testSingleUnwrapError{message: "outer", cause: errors.New(strings.Repeat("x", 2000))}
+		got := sanitizeCleanupError(err)
+		if count := utf8.RuneCountInString(got); count != cleanupErrorMaxRunes {
+			t.Fatalf("sanitizeCleanupError() rune count = %d, want %d", count, cleanupErrorMaxRunes)
+		}
+	})
+
+	t.Run("cycle and node limit", func(t *testing.T) {
+		cycle := &testCyclicUnwrapError{}
+		if got := sanitizeCleanupError(cycle); got != "cycle" {
+			t.Fatalf("sanitizeCleanupError(cycle) = %q, want cycle", got)
+		}
+		causes := make([]error, 100)
+		for index := range causes {
+			causes[index] = fmt.Errorf("cause-%03d", index)
+		}
+		got := sanitizeCleanupError(&testMultiUnwrapError{causes: causes})
+		if !strings.Contains(got, "cause-000") || strings.Contains(got, "cause-099") {
+			t.Fatalf("sanitizeCleanupError(node limit) = %q", got)
+		}
+	})
+}
+
 func TestCreateFeedbackReturnsDiagnosticErrorForUninitializedDependencies(t *testing.T) {
 	for _, service := range []*Service{nil, NewService(nil, &fakeImageStorage{}), NewService(newFakeStore(), nil)} {
 		_, err := service.CreateFeedback(context.Background(), CreateCommand{SubmitterID: 1, Content: "feedback", RequestID: "request"})
@@ -1328,6 +1414,38 @@ func TestUpdateFeedbackStatusWritesMessageSnapshotAndNotificationInOneTransactio
 	}
 }
 
+func TestUpdateFeedbackStatusUsesNonEmptyNotificationContentWhenProcessingNoteIsEmpty(t *testing.T) {
+	store := newFakeStore()
+	store.locked = &FeedbackSnapshot{
+		ID: 101, FeedbackNo: "FB-20260905-0007", SubmitterID: 9,
+		Status: domain.StatusPending, Version: 1,
+	}
+	store.adminDetail = feedbackDetail(101, 9, domain.StatusProcessing, 2)
+	service := newServiceWithClock(store, &fakeImageStorage{}, time.Now, mustShanghai(t))
+
+	_, err := service.UpdateFeedbackStatus(context.Background(), UpdateStatusCommand{
+		FeedbackID: 101,
+		AdminID:    77,
+		Status:     domain.StatusProcessing,
+		Note:       " \t ",
+		NotifyUser: true,
+		Version:    1,
+		RequestID:  "status-empty-note",
+	})
+	if err != nil {
+		t.Fatalf("UpdateFeedbackStatus() error = %v", err)
+	}
+	if store.appendedMessage.Content != "" {
+		t.Fatalf("status message content = %q, want actual empty note", store.appendedMessage.Content)
+	}
+	if len(store.enqueued) != 1 {
+		t.Fatalf("notifications = %#v, want one", store.enqueued)
+	}
+	if got, want := store.enqueued[0].Content, "反馈状态已更新为处理中。"; got != want {
+		t.Fatalf("notification content = %q, want %q", got, want)
+	}
+}
+
 func TestUpdateFeedbackStatusWithoutNotificationDoesNotEnqueue(t *testing.T) {
 	store := newFakeStore()
 	store.locked = &FeedbackSnapshot{ID: 101, FeedbackNo: "FB-1", SubmitterID: 9, Status: domain.StatusPending, Version: 1}
@@ -1417,6 +1535,72 @@ func TestUpdateFeedbackStatusPreservesUnknownTransactionOutcome(t *testing.T) {
 			t.Fatalf("UpdateFeedbackStatus() = %#v, %v, want replay", detail, err)
 		}
 	})
+}
+
+func TestUpdateFeedbackStatusReconcilesWithDetachedBoundedContextAfterCancellation(t *testing.T) {
+	type contextKey string
+	const traceKey contextKey = "trace"
+	tests := []struct {
+		name              string
+		replay            *FeedbackDetail
+		replayLookupError bool
+		wantReplay        bool
+	}{
+		{
+			name:       "replay found",
+			replay:     feedbackDetail(101, 9, domain.StatusProcessing, 2),
+			wantReplay: true,
+		},
+		{
+			name: "replay not found",
+		},
+		{
+			name:              "replay lookup failed",
+			replayLookupError: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.WithValue(context.Background(), traceKey, "status-trace"))
+			defer cancel()
+			rootErr := errors.New("commit result unavailable")
+			transactionErr := fmt.Errorf("%w: %w", ErrTransactionOutcomeUnknown, rootErr)
+			store := newFakeStore()
+			store.locked = &FeedbackSnapshot{ID: 101, SubmitterID: 9, Status: domain.StatusPending, Version: 1}
+			store.transactionCommitErr = transactionErr
+			store.transactionReturnHook = cancel
+			store.messageReplays = []*FeedbackDetail{nil, nil, test.replay}
+			store.replayContextKey = traceKey
+			if test.replayLookupError {
+				store.messageReplayErrAt = 3
+				store.messageReplayErr = errors.New("replay lookup failed")
+			}
+			service := newServiceWithClock(store, &fakeImageStorage{}, time.Now, mustShanghai(t))
+			service.replayReconciliationTimeout = 25 * time.Millisecond
+
+			detail, err := service.UpdateFeedbackStatus(ctx, UpdateStatusCommand{
+				FeedbackID: 101, AdminID: 7, Status: domain.StatusProcessing,
+				Version: 1, RequestID: "status-canceled",
+			})
+			if test.wantReplay {
+				if err != nil || detail != test.replay {
+					t.Fatalf("UpdateFeedbackStatus() = %#v, %v, want replay", detail, err)
+				}
+			} else if detail != nil || err != transactionErr || !errors.Is(err, ErrTransactionOutcomeUnknown) || !errors.Is(err, rootErr) {
+				t.Fatalf("UpdateFeedbackStatus() = %#v, %v, want original unknown error", detail, err)
+			}
+			if store.messageReplayCalls != 3 {
+				t.Fatalf("FindMessageReplay calls = %d, want 3", store.messageReplayCalls)
+			}
+			observed := store.messageReplayContexts[2]
+			if observed.err != nil || !observed.hasDeadline || observed.deadlineRemaining <= 0 || observed.deadlineRemaining > 100*time.Millisecond {
+				t.Fatalf("reconciliation context = %#v, want valid bounded context", observed)
+			}
+			if observed.value != "status-trace" {
+				t.Fatalf("reconciliation context value = %#v, want status-trace", observed.value)
+			}
+		})
+	}
 }
 
 func TestUpdateFeedbackStatusValidatesCommandBeforeStoreCalls(t *testing.T) {
@@ -1852,6 +2036,30 @@ type captureLogger struct {
 func (logger *captureLogger) Printf(format string, values ...interface{}) {
 	logger.entries = append(logger.entries, fmt.Sprintf(format, values...))
 }
+
+type testSingleUnwrapError struct {
+	message string
+	cause   error
+}
+
+func (err *testSingleUnwrapError) Error() string { return err.message }
+
+func (err *testSingleUnwrapError) Unwrap() error { return err.cause }
+
+type testMultiUnwrapError struct {
+	message string
+	causes  []error
+}
+
+func (err *testMultiUnwrapError) Error() string { return err.message }
+
+func (err *testMultiUnwrapError) Unwrap() []error { return err.causes }
+
+type testCyclicUnwrapError struct{}
+
+func (*testCyclicUnwrapError) Error() string { return "cycle" }
+
+func (err *testCyclicUnwrapError) Unwrap() error { return err }
 
 func feedbackDetail(id uint64, submitterID uint, status domain.Status, version uint64) *FeedbackDetail {
 	return &FeedbackDetail{FeedbackSummary: FeedbackSummary{ID: id, SubmitterID: submitterID, Status: status, Version: version}}

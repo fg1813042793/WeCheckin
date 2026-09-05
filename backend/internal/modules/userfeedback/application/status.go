@@ -104,6 +104,10 @@ func (service *Service) UpdateFeedbackStatus(ctx context.Context, command Update
 		if !command.NotifyUser {
 			return nil
 		}
+		notificationContent := note
+		if notificationContent == "" {
+			notificationContent = fmt.Sprintf("反馈状态已更新为%s。", feedbackStatusName(command.Status))
+		}
 		return store.EnqueueNotification(ctx, NotificationOutboxRecord{
 			IdempotencyKey:   fmt.Sprintf("user-feedback-status:%d:%d", command.FeedbackID, messageID),
 			Channel:          NotificationChannelInternal,
@@ -112,15 +116,19 @@ func (service *Service) UpdateFeedbackStatus(ctx context.Context, command Update
 			SourceID:         strconv.FormatUint(command.FeedbackID, 10),
 			RecipientUserID:  locked.SubmitterID,
 			Title:            fmt.Sprintf("反馈 %s %s", locked.FeedbackNo, feedbackStatusName(command.Status)),
-			Content:          note,
+			Content:          notificationContent,
 			CreatedAt:        now,
 		})
 	})
 	if err != nil {
-		if ctx.Err() == nil {
-			if duplicate, found, lookupErr := service.store.FindMessageReplay(ctx, key); lookupErr == nil && found {
-				return decorateDetail(duplicate), nil
-			}
+		reconciliationCtx, cancel := context.WithTimeout(
+			context.WithoutCancel(ctx),
+			timeoutOrDefault(service.replayReconciliationTimeout, defaultReplayReconciliationTimeout),
+		)
+		duplicate, found, lookupErr := service.store.FindMessageReplay(reconciliationCtx, key)
+		cancel()
+		if lookupErr == nil && found {
+			return decorateDetail(duplicate), nil
 		}
 		return nil, err
 	}

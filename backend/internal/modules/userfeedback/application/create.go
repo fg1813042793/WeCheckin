@@ -17,6 +17,8 @@ const (
 	defaultImageCleanupTimeout         = 10 * time.Second
 	defaultReplayReconciliationTimeout = 10 * time.Second
 	cleanupErrorMaxRunes               = 1000
+	cleanupErrorMaxDepth               = 16
+	cleanupErrorMaxNodes               = 64
 	cleanupRequestIDMaxRunes           = MaxRequestIDRunes
 	cleanupFeedbackNoMaxRunes          = 64
 	cleanupObjectKeyMaxRunes           = 600
@@ -254,9 +256,76 @@ func sanitizeCleanupError(err error) string {
 	if err == nil {
 		return "-"
 	}
-	message := sanitizeCleanupText(strings.TrimSpace(err.Error()), cleanupErrorMaxRunes)
+	type errorNode struct {
+		err   error
+		depth int
+	}
+	nodes := []errorNode{{err: err}}
+	parts := make([]string, 0, 4)
+	seen := make(map[string]struct{})
+	for visited := 0; len(nodes) > 0 && visited < cleanupErrorMaxNodes; visited++ {
+		node := nodes[0]
+		nodes = nodes[1:]
+		if node.err == nil {
+			continue
+		}
+		children := unwrapCleanupErrors(node.err)
+		part := sanitizeCleanupText(cleanupErrorOwnMessage(node.err, children), cleanupErrorMaxRunes)
+		part = strings.TrimSpace(part)
+		if part != "" {
+			if _, exists := seen[part]; !exists {
+				seen[part] = struct{}{}
+				parts = append(parts, part)
+			}
+		}
+		if node.depth >= cleanupErrorMaxDepth {
+			continue
+		}
+		for _, child := range children {
+			if child != nil {
+				nodes = append(nodes, errorNode{err: child, depth: node.depth + 1})
+			}
+		}
+	}
+	message := sanitizeCleanupText(strings.Join(parts, " | "), cleanupErrorMaxRunes)
 	if message == "" {
 		return "-"
+	}
+	return message
+}
+
+func unwrapCleanupErrors(err error) []error {
+	switch value := err.(type) {
+	case interface{ Unwrap() []error }:
+		return value.Unwrap()
+	case interface{ Unwrap() error }:
+		if child := value.Unwrap(); child != nil {
+			return []error{child}
+		}
+	}
+	return nil
+}
+
+func cleanupErrorOwnMessage(err error, children []error) string {
+	message := strings.TrimSpace(err.Error())
+	if message == "" || len(children) == 0 {
+		return message
+	}
+	childMessages := make([]string, 0, len(children))
+	for _, child := range children {
+		if child != nil {
+			if childMessage := strings.TrimSpace(child.Error()); childMessage != "" {
+				childMessages = append(childMessages, childMessage)
+			}
+		}
+	}
+	if len(childMessages) == 1 && message != childMessages[0] && strings.HasSuffix(message, childMessages[0]) {
+		message = strings.TrimSpace(strings.TrimSuffix(message, childMessages[0]))
+		message = strings.TrimSpace(strings.TrimSuffix(message, ":"))
+		return message
+	}
+	if len(childMessages) > 1 && message == strings.Join(childMessages, "\n") {
+		return ""
 	}
 	return message
 }
