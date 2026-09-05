@@ -52,7 +52,7 @@ func TestDeleteStoredFileTreatsMissingLocalPathAsSuccess(t *testing.T) {
 }
 
 func TestDeleteStoredFileWrapsLocalDeleteError(t *testing.T) {
-	nonEmptyDir := filepath.Join(t.TempDir(), "not-a-file")
+	nonEmptyDir := filepath.Join(t.TempDir(), "private-feedback-name.png")
 	if err := os.Mkdir(nonEmptyDir, 0755); err != nil {
 		t.Fatalf("mkdir local object: %v", err)
 	}
@@ -66,6 +66,12 @@ func TestDeleteStoredFileWrapsLocalDeleteError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "删除本地存储对象失败") {
 		t.Fatalf("DeleteStoredFile(non-empty directory) error = %v, want contextual error", err)
+	}
+	if strings.Contains(err.Error(), nonEmptyDir) {
+		t.Fatalf("DeleteStoredFile(non-empty directory) leaked full local path: %v", err)
+	}
+	if strings.Contains(err.Error(), filepath.Base(nonEmptyDir)) {
+		t.Fatalf("DeleteStoredFile(non-empty directory) leaked user filename: %v", err)
 	}
 }
 

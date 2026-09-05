@@ -13,9 +13,6 @@ const (
 	MaxImagesPerMessage     = 6
 	MaxImagesPerFeedback    = 30
 	MaxFeedbackContentRunes = 5000
-
-	StorageProviderLocal  = "local"
-	StorageProviderAliyun = "aliyun"
 )
 
 type ValidatedImage struct {
@@ -94,7 +91,9 @@ func validateImageMessage(content string, attachments []AttachmentInput, existin
 	if existingImageCount < 0 {
 		return ValidatedMessage{}, ErrInvalidArgument
 	}
-	if len(attachments) > MaxImagesPerMessage || existingImageCount+int64(len(attachments)) > MaxImagesPerFeedback {
+	if len(attachments) > MaxImagesPerMessage ||
+		existingImageCount > MaxImagesPerFeedback ||
+		int64(len(attachments)) > MaxImagesPerFeedback-existingImageCount {
 		return ValidatedMessage{}, ErrAttachmentLimitExceeded
 	}
 

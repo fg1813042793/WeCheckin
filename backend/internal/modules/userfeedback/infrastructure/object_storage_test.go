@@ -71,7 +71,7 @@ func TestObjectStorageSaveUsesFeedbackPrefixAndMapsMetadata(t *testing.T) {
 	if filepath.Ext(savedOptions.Filename) != ".png" || savedOptions.Filename == image.OriginalName {
 		t.Fatalf("generated filename = %q", savedOptions.Filename)
 	}
-	if stored.StorageProvider != application.StorageProviderAliyun || stored.ObjectKey != "uploads/feedback/2026/09/05/generated.png" {
+	if stored.StorageProvider != "aliyun" || stored.ObjectKey != "uploads/feedback/2026/09/05/generated.png" {
 		t.Fatalf("stored provider/key = %q/%q", stored.StorageProvider, stored.ObjectKey)
 	}
 	if stored.OriginalName != image.OriginalName || stored.ContentType != image.ContentType || stored.SizeBytes != image.SizeBytes {
@@ -136,11 +136,11 @@ func TestObjectStorageDeleteDelegatesLocalAndAliyunObjects(t *testing.T) {
 	}{
 		{
 			name:          "local",
-			provider:      application.StorageProviderLocal,
+			provider:      "local",
 			wantLocal:     true,
 			wantLocalPath: filepath.Join(uploadRoot, "feedback", "2026", "09", "05", "image.png"),
 		},
-		{name: "aliyun", provider: application.StorageProviderAliyun},
+		{name: "aliyun", provider: "aliyun"},
 	}
 
 	for _, test := range tests {
@@ -206,7 +206,7 @@ func TestObjectStorageDeleteReturnsStableStorageError(t *testing.T) {
 		},
 	}
 	err := objectStorage.Delete(context.Background(), application.StoredImage{
-		StorageProvider: application.StorageProviderAliyun,
+		StorageProvider: "aliyun",
 		ObjectKey:       "uploads/feedback/image.png",
 	})
 	if err != application.ErrStorageFailed {

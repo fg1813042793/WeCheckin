@@ -2,9 +2,23 @@ package application
 
 import (
 	"errors"
+	"math"
+	"os"
 	"strings"
 	"testing"
 )
+
+func TestImageApplicationDoesNotOwnConcreteStorageProviders(t *testing.T) {
+	source, err := os.ReadFile("image.go")
+	if err != nil {
+		t.Fatalf("read image.go: %v", err)
+	}
+	for _, name := range []string{"StorageProviderLocal", "StorageProviderAliyun"} {
+		if strings.Contains(string(source), name) {
+			t.Errorf("application image boundary declares concrete provider %s", name)
+		}
+	}
+}
 
 func TestValidateImageAcceptsMatchingExtensionDeclaredMIMEAndContent(t *testing.T) {
 	tests := []struct {
@@ -176,6 +190,13 @@ func TestValidateSupplementMessageEnforcesPerMessageAndCumulativeLimits(t *testi
 	}
 	if _, err := ValidateSupplementMessage("", validImageInputs(MaxImagesPerMessage), MaxImagesPerFeedback-MaxImagesPerMessage+1); !errors.Is(err, ErrAttachmentLimitExceeded) {
 		t.Fatalf("ValidateSupplementMessage(over cumulative limit) error = %v, want ErrAttachmentLimitExceeded", err)
+	}
+}
+
+func TestValidateSupplementMessageRejectsOverflowingExistingImageCount(t *testing.T) {
+	_, err := ValidateSupplementMessage("", validImageInputs(1), math.MaxInt64)
+	if !errors.Is(err, ErrAttachmentLimitExceeded) {
+		t.Fatalf("ValidateSupplementMessage(MaxInt64 count) error = %v, want ErrAttachmentLimitExceeded", err)
 	}
 }
 

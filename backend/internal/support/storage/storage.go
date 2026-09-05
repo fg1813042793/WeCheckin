@@ -44,6 +44,10 @@ func DeleteStoredFile(ctx context.Context, stored *StoredFile) error {
 	}
 	if stored.IsLocal {
 		if err := os.Remove(stored.LocalPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			var pathErr *os.PathError
+			if errors.As(err, &pathErr) {
+				err = pathErr.Err
+			}
 			return fmt.Errorf("删除本地存储对象失败: %w", err)
 		}
 		return nil

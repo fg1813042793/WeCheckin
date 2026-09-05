@@ -15,7 +15,11 @@ import (
 	"wecheckin/backend/internal/support/storage"
 )
 
-const feedbackImagePrefix = "uploads/feedback"
+const (
+	feedbackImagePrefix   = "uploads/feedback"
+	storageProviderLocal  = "local"
+	storageProviderAliyun = "aliyun"
+)
 
 type ObjectStorage struct {
 	saveReader       func(context.Context, io.Reader, string, storage.SaveOptions) (*storage.StoredFile, error)
@@ -45,9 +49,9 @@ func (objectStorage *ObjectStorage) Save(ctx context.Context, image application.
 		return application.StoredImage{}, application.ErrStorageFailed
 	}
 
-	provider := application.StorageProviderAliyun
+	provider := storageProviderAliyun
 	if stored.IsLocal {
-		provider = application.StorageProviderLocal
+		provider = storageProviderLocal
 	}
 	return application.StoredImage{
 		StorageProvider: provider,
@@ -67,11 +71,11 @@ func (objectStorage *ObjectStorage) Delete(ctx context.Context, image applicatio
 
 	stored := &storage.StoredFile{ObjectKey: objectKey}
 	switch strings.ToLower(strings.TrimSpace(image.StorageProvider)) {
-	case application.StorageProviderLocal:
+	case storageProviderLocal:
 		stored.IsLocal = true
 		localObjectPath := strings.TrimPrefix(objectKey, "uploads/")
 		stored.LocalPath = filepath.Join(storage.LocalUploadRoot(), filepath.FromSlash(localObjectPath))
-	case application.StorageProviderAliyun:
+	case storageProviderAliyun:
 	default:
 		return application.ErrStorageFailed
 	}
