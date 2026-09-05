@@ -14,6 +14,14 @@
     "copyCommandSuccess": "Command copied to clipboard",
     "jumpFailed": "Navigation failed"
   },
+  "appShell": {
+    "unsavedNavigation": {
+      "title": "Unsaved changes",
+      "content": "Your changes have not been submitted. Continue switching pages?",
+      "confirm": "Continue",
+      "cancel": "Cancel"
+    }
+  },
   "notifications": {
     "title": "Inbox",
     "detail": "Message details",

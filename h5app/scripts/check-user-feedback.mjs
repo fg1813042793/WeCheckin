@@ -129,6 +129,21 @@ function functionIdentifiers(sourceFile, functionName) {
   return identifiers
 }
 
+function functionCallStringArguments(sourceFile, functionName, calleeName) {
+  const values = []
+  const declaration = findFunction(sourceFile, functionName)
+  function visit(node) {
+    if (ts.isCallExpression(node) && node.expression.getText(sourceFile) === calleeName) {
+      const argument = node.arguments[0]
+      if (argument && ts.isStringLiteral(argument))
+        values.push(argument.text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(declaration)
+  return values
+}
+
 function lifecycleCallbackCalls(sourceFile, lifecycleName) {
   const lifecycleCall = sourceFile.statements
     .filter(ts.isExpressionStatement)
@@ -722,6 +737,14 @@ let resolveMarkRead
 const markReadGate = new Promise((resolve) => {
   resolveMarkRead = resolve
 })
+let notifyNavigationStarted
+let resolveFeedbackNavigation
+const feedbackNavigationStarted = new Promise((resolve) => {
+  notifyNavigationStarted = resolve
+})
+const feedbackNavigationGate = new Promise((resolve) => {
+  resolveFeedbackNavigation = resolve
+})
 const openingFeedback = feedbackNotificationOpen.openFeedbackNotification({
   sourceType: 'user_feedback',
   sourceId: '18446744073709551615',
@@ -738,8 +761,13 @@ const openingFeedback = feedbackNotificationOpen.openFeedbackNotification({
     return routeKeys.feedbackDetailContentKey(sourceID)
   },
   openDynamicTab(tab) {
-    openEvents.push('open')
+    openEvents.push('open:start')
     openedFeedbackTab = tab
+    notifyNavigationStarted()
+    return feedbackNavigationGate.then((opened) => {
+      openEvents.push('open:end')
+      return opened
+    })
   },
   closePanel() {
     openEvents.push('close')
@@ -749,12 +777,21 @@ const openingFeedback = feedbackNotificationOpen.openFeedbackNotification({
 await Promise.resolve()
 assert.deepEqual(openEvents, ['mark:start'], 'feedback deep link must wait for mark-read completion')
 resolveMarkRead(true)
+await feedbackNavigationStarted
+assert.deepEqual(openEvents, [
+  'mark:start',
+  'mark:end',
+  'key:18446744073709551615',
+  'open:start',
+], 'feedback deep link must wait for guarded navigation before closing the panel')
+resolveFeedbackNavigation(true)
 assert.equal(await openingFeedback, true)
 assert.deepEqual(openEvents, [
   'mark:start',
   'mark:end',
   'key:18446744073709551615',
-  'open',
+  'open:start',
+  'open:end',
   'close',
 ])
 assert.deepEqual(openedFeedbackTab, {
@@ -776,11 +813,41 @@ assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
   feedbackDetailContentKey: routeKeys.feedbackDetailContentKey,
   openDynamicTab(tab) {
     fallbackFeedbackTab = tab
+    return true
   },
   closePanel() {},
   fallbackLabel: '反馈详情',
 }), true)
 assert.equal(fallbackFeedbackTab.label, '反馈详情')
+
+const cancelledFeedbackNavigationEvents = []
+assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
+  sourceType: 'user_feedback',
+  sourceId: '42',
+  title: '反馈详情',
+}, {
+  async markRead() {
+    cancelledFeedbackNavigationEvents.push('mark')
+    return true
+  },
+  feedbackDetailContentKey(sourceID) {
+    cancelledFeedbackNavigationEvents.push(`key:${sourceID}`)
+    return routeKeys.feedbackDetailContentKey(sourceID)
+  },
+  async openDynamicTab() {
+    cancelledFeedbackNavigationEvents.push('open')
+    return false
+  },
+  closePanel() {
+    cancelledFeedbackNavigationEvents.push('close')
+  },
+  fallbackLabel: '反馈详情',
+}), true)
+assert.deepEqual(
+  cancelledFeedbackNavigationEvents,
+  ['mark', 'key:42', 'open'],
+  'cancelled feedback navigation may stay read but must keep the notification panel open',
+)
 
 const failedMarkEvents = []
 assert.equal(await feedbackNotificationOpen.openFeedbackNotification({
@@ -858,6 +925,7 @@ assert.deepEqual(workflowEvents, [], 'feedback helper must not consume workflow 
 
 const notificationPanelScript = vueScriptSourceFile('src/components/app-notification-panel/app-notification-panel.vue')
 assert.ok(functionCalls(notificationPanelScript, 'handleFeedbackNotification').includes('openFeedbackNotification'))
+assert.ok(functionCalls(notificationPanelScript, 'handleFeedbackNotification').includes('openNotificationTab'))
 assert.ok(functionCalls(notificationPanelScript, 'markRead').includes('runNotificationMarkRead'))
 assert.match(
   findFunction(notificationPanelScript, 'handleFeedbackNotification').getText(notificationPanelScript),
@@ -871,9 +939,32 @@ assert.doesNotMatch(
 )
 assert.deepEqual(
   functionCalls(notificationPanelScript, 'openNotification')
-    .filter(call => ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab', 'closePanel'].includes(call)),
-  ['markRead', 'workflowInstanceContentKey', 'appContent.openDynamicTab', 'closePanel'],
-  'workflow notification open order must remain unchanged',
+    .filter(call => ['markRead', 'openWorkflowNotification'].includes(call)),
+  ['markRead', 'openWorkflowNotification'],
+  'workflow notification must keep mark-read dispatch before guarded navigation',
+)
+assert.deepEqual(
+  functionCalls(notificationPanelScript, 'openNotificationTab')
+    .filter(call => ['navigateWithUnsavedGuard', 'appContent.hasUnsavedTabChanges', 'confirmNavigationDiscard', 'appContent.openDynamicTab'].includes(call)),
+  ['navigateWithUnsavedGuard', 'appContent.hasUnsavedTabChanges', 'confirmNavigationDiscard', 'appContent.openDynamicTab'],
+  'notification tabs must use the shared unsaved-navigation guard',
+)
+for (const entry of ['openWorkflowNotification', 'openNotificationHistory']) {
+  assert.ok(
+    functionCalls(notificationPanelScript, entry).includes('openNotificationTabAndClose'),
+    `${entry} must use guarded navigation and close only after success`,
+  )
+}
+assert.deepEqual(
+  functionCalls(notificationPanelScript, 'openNotificationTabAndClose')
+    .filter(call => ['openNotificationTab', 'closePanel'].includes(call)),
+  ['openNotificationTab', 'closePanel'],
+  'workflow and history panels must close only after guarded navigation succeeds',
+)
+assert.deepEqual(
+  functionCallStringArguments(notificationPanelScript, 'confirmNavigationDiscard', 't'),
+  ['title', 'content', 'confirm', 'cancel'],
+  'notification navigation confirmation must use the shared locale namespace',
 )
 assertContains('src/components/app-notification-panel/app-notification-panel.vue', [
   `notification.sourceType === 'user_feedback'`,
@@ -882,6 +973,7 @@ assertContains('src/components/app-notification-panel/app-notification-panel.vue
   `notification.sourceType === 'workflow_instance'`,
   `label: notification.title || '流程详情'`,
   `icon: 'file-text'`,
+  'appContent.currentKey',
   'runNotificationMarkRead',
   'requireExplicitSuccess: true',
 ])
@@ -1215,6 +1307,36 @@ assert.ok(
 )
 
 const navigationGuard = await loadTypeScriptModule('src/components/app-shell/app-shell-navigation-guard.ts')
+const originalUni = globalThis.uni
+const zhNavigationCopy = JSON.parse(source('src/locale/lang/zh-CN.json')).appShell?.unsavedNavigation
+let receivedNavigationModal
+globalThis.uni = {
+  showModal(options) {
+    receivedNavigationModal = options
+    options.success({ confirm: false })
+  },
+}
+try {
+  assert.equal(await navigationGuard.confirmUnsavedNavigation(zhNavigationCopy), false)
+  assert.deepEqual({
+    title: receivedNavigationModal.title,
+    content: receivedNavigationModal.content,
+    confirmText: receivedNavigationModal.confirmText,
+    cancelText: receivedNavigationModal.cancelText,
+  }, {
+    title: zhNavigationCopy.title,
+    content: zhNavigationCopy.content,
+    confirmText: zhNavigationCopy.confirm,
+    cancelText: zhNavigationCopy.cancel,
+  }, 'shared confirmation must pass all locale copy to uni.showModal')
+}
+finally {
+  if (originalUni === undefined)
+    delete globalThis.uni
+  else
+    globalThis.uni = originalUni
+}
+
 const cancelledNavigationEvents = []
 let resolveCancelledNavigation
 const cancelledNavigation = navigationGuard.navigateWithUnsavedGuard({
@@ -1324,10 +1446,19 @@ for (const entry of ['navigateByKey', 'handleNavItemClick', 'handleTopNavItemCli
 for (const call of ['navigateWithUnsavedGuard', 'appContent.hasUnsavedTabChanges', 'confirmNavigationDiscard']) {
   assert.ok(functionCalls(appShellScript, 'navigateToItem').includes(call), `navigateToItem must call ${call}`)
 }
-assert.match(
+assert.ok(
+  functionCalls(appShellScript, 'confirmNavigationDiscard').includes('confirmUnsavedNavigation'),
+  'app shell must use the shared confirmation adapter',
+)
+assert.deepEqual(
+  functionCallStringArguments(appShellScript, 'confirmNavigationDiscard', 't'),
+  ['title', 'content', 'confirm', 'cancel'],
+  'app shell navigation confirmation must use locale for all visible copy',
+)
+assert.doesNotMatch(
   findFunction(appShellScript, 'confirmNavigationDiscard').getText(appShellScript),
-  /当前修改尚未提交，是否继续切换页面？/,
-  'navigation confirmation must not claim that a retained dynamic-tab draft will be discarded',
+  /[\u3400-\u9FFF]/,
+  'app shell navigation confirmation must not hardcode Chinese copy',
 )
 assert.match(
   findFunction(appShellScript, 'completeTabClose').getText(appShellScript),
@@ -1348,6 +1479,13 @@ assert.ok(functionCalls(indexScript, 'applyRouteQuery').includes('openFeedbackRo
 
 for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.json']) {
   const locale = JSON.parse(source(localeFile))
+  assert.deepEqual(
+    Object.keys(locale.appShell?.unsavedNavigation || {}).sort(),
+    ['cancel', 'confirm', 'content', 'title'],
+    `${localeFile} missing appShell.unsavedNavigation copy`,
+  )
+  for (const value of Object.values(locale.appShell.unsavedNavigation))
+    assert.equal(typeof value, 'string', `${localeFile} appShell.unsavedNavigation copy must be a string`)
   assert.deepEqual(Object.keys(locale.feedback.statuses).sort(), ['closed', 'pending', 'processing', 'resolved'])
   for (const key of [
     'title',

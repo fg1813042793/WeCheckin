@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { InAppNotification, NotificationTone } from '@/api/notifications'
+import type { AppNavItem } from '@/types/navigation'
+import { useLocale } from 'uview-pro'
 import { computed, ref, watch } from 'vue'
 import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/api/notifications'
+import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
 import { openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
@@ -28,6 +31,7 @@ const emit = defineEmits<{
 }>()
 
 const appContent = useAppContentStore()
+const { t } = useLocale('appShell.unsavedNavigation')
 const loading = ref(false)
 const loadingMore = ref(false)
 const markingAll = ref(false)
@@ -37,6 +41,8 @@ const selectedNotification = ref<InAppNotification | null>(null)
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
+
+type NotificationDynamicTab = Omit<AppNavItem, 'children'> & { children?: AppNavItem[] }
 
 interface NotificationTypeMeta {
   label: string
@@ -161,13 +167,52 @@ async function markRead(notification: InAppNotification, options: { requireExpli
   })
 }
 
+function confirmNavigationDiscard() {
+  return confirmUnsavedNavigation({
+    title: t('title'),
+    content: t('content'),
+    confirm: t('confirm'),
+    cancel: t('cancel'),
+  })
+}
+
+function openNotificationTab(tab: NotificationDynamicTab) {
+  return navigateWithUnsavedGuard({
+    activeKey: appContent.currentKey,
+    targetKey: tab.key,
+    hasUnsavedChanges: key => appContent.hasUnsavedTabChanges(key),
+    confirmLeave: () => confirmNavigationDiscard(),
+    navigate: () => appContent.openDynamicTab(tab),
+  })
+}
+
+async function openNotificationTabAndClose(tab: NotificationDynamicTab) {
+  const opened = await openNotificationTab(tab)
+  if (!opened)
+    return false
+  closePanel()
+  return true
+}
+
 function handleFeedbackNotification(notification: InAppNotification) {
   void openFeedbackNotification(notification, {
     markRead: () => markRead(notification, { requireExplicitSuccess: true }),
     feedbackDetailContentKey: sourceID => feedbackDetailContentKey(sourceID),
-    openDynamicTab: tab => appContent.openDynamicTab(tab),
+    openDynamicTab: tab => openNotificationTab(tab),
     closePanel,
     fallbackLabel: '反馈详情',
+  })
+}
+
+function openWorkflowNotification(notification: InAppNotification) {
+  const key = workflowInstanceContentKey(notification.sourceId)
+  if (!key)
+    return
+  void openNotificationTabAndClose({
+    key,
+    label: notification.title || '流程详情',
+    icon: 'file-text',
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
 }
 
@@ -178,28 +223,17 @@ function openNotification(notification: InAppNotification) {
     return
   }
   void markRead(notification)
-  if (notification.sourceType === 'workflow_instance' && notification.sourceId) {
-    const key = workflowInstanceContentKey(notification.sourceId)
-    if (!key)
-      return
-    appContent.openDynamicTab({
-      key,
-      label: notification.title || '流程详情',
-      icon: 'file-text',
-      path: `/pages/index/index?view=${encodeURIComponent(key)}`,
-    })
-    closePanel()
-  }
+  if (notification.sourceType === 'workflow_instance' && notification.sourceId)
+    openWorkflowNotification(notification)
 }
 
 function openNotificationHistory() {
-  appContent.openDynamicTab({
+  void openNotificationTabAndClose({
     key: NOTIFICATION_HISTORY_CONTENT_KEY,
     label: '站内信历史',
     icon: 'email',
     path: `/pages/index/index?view=${encodeURIComponent(NOTIFICATION_HISTORY_CONTENT_KEY)}`,
   })
-  closePanel()
 }
 
 async function markAllRead() {

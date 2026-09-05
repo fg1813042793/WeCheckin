@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { AppConfig, DingTalkUser } from '@/types/dingtalk-h5'
 import type { AppNavItem } from '@/types/navigation'
+import { useLocale } from 'uview-pro'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { changePassword as changeProfilePassword, updateProfile as updateProfileInfo, uploadAvatar as uploadProfileAvatarFile } from '@/api/dingtalk-h5/profile'
 import { getNotificationUnreadCount } from '@/api/notifications'
 import AppNotificationPanel from '@/components/app-notification-panel/app-notification-panel.vue'
-import { navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
+import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { useAppContentStore, useAppShellStore, useDingtalkAuthStore } from '@/stores'
 import { userAvatarInitial } from '@/utils/avatar'
 import { departmentLeafFromEntity } from '@/utils/departments'
@@ -42,6 +43,7 @@ interface TabScrollTemplateRef {
 const shell = useAppShellStore()
 const appContent = useAppContentStore()
 const auth = useDingtalkAuthStore()
+const { t } = useLocale('appShell.unsavedNavigation')
 const profileOpen = ref(false)
 const topMenuOpenKey = ref('')
 const mobileShell = ref(resolveMobileShell())
@@ -397,15 +399,11 @@ function firstNavigableItem(item: AppNavItem): AppNavItem | null {
 }
 
 function confirmNavigationDiscard() {
-  return new Promise<boolean>((resolve) => {
-    uni.showModal({
-      title: '修改尚未提交',
-      content: '当前修改尚未提交，是否继续切换页面？',
-      confirmText: '继续切换',
-      cancelText: '取消',
-      success: result => resolve(Boolean(result.confirm)),
-      fail: () => resolve(false),
-    })
+  return confirmUnsavedNavigation({
+    title: t('title'),
+    content: t('content'),
+    confirm: t('confirm'),
+    cancel: t('cancel'),
   })
 }
 

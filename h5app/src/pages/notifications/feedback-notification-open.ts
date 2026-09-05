@@ -14,7 +14,7 @@ export interface FeedbackNotificationDynamicTab {
 export interface FeedbackNotificationOpenDependencies {
   markRead: () => Promise<boolean>
   feedbackDetailContentKey: (sourceID: string) => string
-  openDynamicTab: (tab: FeedbackNotificationDynamicTab) => void
+  openDynamicTab: (tab: FeedbackNotificationDynamicTab) => boolean | Promise<boolean>
   closePanel: () => void
   fallbackLabel: string
 }
@@ -34,12 +34,14 @@ export async function openFeedbackNotification(
   if (!key)
     return true
 
-  dependencies.openDynamicTab({
+  const opened = await dependencies.openDynamicTab({
     key,
     label: String(notification.title || '').trim() || dependencies.fallbackLabel,
     icon: 'chat',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
+  if (!opened)
+    return true
   dependencies.closePanel()
   return true
 }

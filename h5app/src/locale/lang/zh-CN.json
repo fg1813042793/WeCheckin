@@ -14,6 +14,14 @@
     "copyCommandSuccess": "命令已复制到剪贴板",
     "jumpFailed": "跳转失败"
   },
+  "appShell": {
+    "unsavedNavigation": {
+      "title": "修改尚未提交",
+      "content": "当前修改尚未提交，是否继续切换页面？",
+      "confirm": "继续切换",
+      "cancel": "取消"
+    }
+  },
   "notifications": {
     "title": "站内信",
     "detail": "消息详情",
