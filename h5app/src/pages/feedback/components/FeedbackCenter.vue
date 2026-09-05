@@ -13,6 +13,13 @@ import {
   FEEDBACK_CREATE_CONTENT_KEY,
   feedbackDetailContentKey,
 } from '../feedback-route-keys'
+import {
+  createFeedbackDynamicTab,
+  createInFlightRequestDeduper,
+  feedbackListRequestKey,
+  registerFeedbackVisibilityRefresh,
+  resolveFeedbackListPage,
+} from './feedback-center-state'
 import FeedbackList from './FeedbackList.vue'
 import FeedbackStatusOverview from './FeedbackStatusOverview.vue'
 
@@ -44,6 +51,8 @@ const pageSize = 12
 const total = ref(0)
 let overviewRequestSequence = 0
 let listRequestSequence = 0
+let removeVisibilityListener: (() => void) | undefined
+const requestDeduper = createInFlightRequestDeduper()
 
 const statusOptions = computed(() => [
   { value: '' as const, label: t('allStatuses') },
@@ -72,7 +81,7 @@ async function loadOverview() {
   overviewLoading.value = true
   overviewError.value = false
   try {
-    const response = await getUserFeedbackOverview()
+    const response = await requestDeduper.run('overview', getUserFeedbackOverview)
     if (requestSequence !== overviewRequestSequence)
       return
     resetOverview(response?.data)
@@ -89,21 +98,32 @@ async function loadOverview() {
 
 async function loadFeedbacks() {
   const requestSequence = ++listRequestSequence
+  const requestParameters = {
+    keyword: appliedFilters.keyword || undefined,
+    status: appliedFilters.status || undefined,
+    page: page.value,
+    pageSize,
+  }
   listLoading.value = true
   listError.value = false
   try {
-    const response = await listUserFeedbacks({
-      keyword: appliedFilters.keyword || undefined,
-      status: appliedFilters.status || undefined,
-      page: page.value,
-      pageSize,
-    })
+    const response = await requestDeduper.run(
+      feedbackListRequestKey(requestParameters),
+      () => listUserFeedbacks(requestParameters),
+    )
     if (requestSequence !== listRequestSequence)
       return
     const payload = response?.data
+    const nextTotal = nonNegativeInteger(payload?.total)
+    const pageResolution = resolveFeedbackListPage(requestParameters.page, nextTotal, pageSize)
+    if (pageResolution.shouldReload) {
+      page.value = pageResolution.page
+      await loadFeedbacks()
+      return
+    }
     feedbacks.value = Array.isArray(payload?.list) ? payload.list : []
-    total.value = nonNegativeInteger(payload?.total)
-    page.value = Math.max(1, nonNegativeInteger(payload?.page) || page.value)
+    total.value = nextTotal
+    page.value = pageResolution.page
   }
   catch {
     if (requestSequence === listRequestSequence)
@@ -153,31 +173,18 @@ function changePage(nextPage: number) {
 }
 
 function openCreate() {
-  appContent.openDynamicTab({
-    key: FEEDBACK_CREATE_CONTENT_KEY,
-    label: t('create'),
-    icon: 'plus-circle',
-    path: `/pages/index/index?view=${encodeURIComponent(FEEDBACK_CREATE_CONTENT_KEY)}`,
-  })
+  const tab = createFeedbackDynamicTab(FEEDBACK_CREATE_CONTENT_KEY, t('create'), 'plus-circle')
+  if (tab)
+    appContent.openDynamicTab(tab)
 }
 
 function openFeedback(item: UserFeedbackSummary) {
   const key = feedbackDetailContentKey(String(item.id))
   if (!key)
     return
-  appContent.openDynamicTab({
-    key,
-    label: item.feedbackNo || t('detail'),
-    icon: 'chat',
-    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
-  })
-}
-
-function handleVisibilityChange() {
-  // #ifdef H5
-  if (document.visibilityState === 'visible' && appContent.currentKey === FEEDBACK_CONTENT_KEY)
-    void refreshFeedbackCenter()
-  // #endif
+  const tab = createFeedbackDynamicTab(key, item.feedbackNo || t('detail'), 'chat')
+  if (tab)
+    appContent.openDynamicTab(tab)
 }
 
 watch(
@@ -191,16 +198,20 @@ watch(
 
 onMounted(() => {
   // #ifdef H5
-  document.addEventListener('visibilitychange', handleVisibilityChange)
+  removeVisibilityListener = registerFeedbackVisibilityRefresh(
+    document,
+    () => appContent.currentKey === FEEDBACK_CONTENT_KEY,
+    () => { void refreshFeedbackCenter() },
+  )
   // #endif
 })
 
 onBeforeUnmount(() => {
   overviewRequestSequence += 1
   listRequestSequence += 1
-  // #ifdef H5
-  document.removeEventListener('visibilitychange', handleVisibilityChange)
-  // #endif
+  removeVisibilityListener?.()
+  removeVisibilityListener = undefined
+  requestDeduper.clear()
 })
 </script>
 

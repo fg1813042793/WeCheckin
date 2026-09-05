@@ -15,6 +15,7 @@ const requiredFiles = [
   'src/pages/feedback/feedback.menu.ts',
   'src/pages/feedback/feedback-status.ts',
   'src/pages/feedback/components/FeedbackCenter.vue',
+  'src/pages/feedback/components/feedback-center-state.ts',
   'src/pages/feedback/components/FeedbackStatusOverview.vue',
   'src/pages/feedback/components/FeedbackList.vue',
 ]
@@ -78,6 +79,54 @@ function assertInterfaceShape(file, interfaceName, contract) {
     [...(contract.extends || [])].sort(),
     `${interfaceName} inheritance drifted`,
   )
+}
+
+function vueScriptSourceFile(file) {
+  const content = source(file)
+  const match = content.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)
+  assert.ok(match, `${file} must contain a TypeScript script setup block`)
+  return ts.createSourceFile(file, match[1], ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+}
+
+function findFunction(sourceFile, functionName) {
+  const declaration = sourceFile.statements.find(statement => (
+    ts.isFunctionDeclaration(statement) && statement.name?.text === functionName
+  ))
+  assert.ok(declaration, `${sourceFile.fileName} missing function: ${functionName}`)
+  return declaration
+}
+
+function functionCalls(sourceFile, functionName) {
+  const calls = []
+  const declaration = findFunction(sourceFile, functionName)
+  function visit(node) {
+    if (ts.isCallExpression(node))
+      calls.push(node.expression.getText(sourceFile))
+    ts.forEachChild(node, visit)
+  }
+  visit(declaration)
+  return calls
+}
+
+function lifecycleCallbackCalls(sourceFile, lifecycleName) {
+  const lifecycleCall = sourceFile.statements
+    .filter(ts.isExpressionStatement)
+    .map(statement => statement.expression)
+    .find(expression => (
+      ts.isCallExpression(expression)
+      && expression.expression.getText(sourceFile) === lifecycleName
+    ))
+  assert.ok(lifecycleCall && ts.isCallExpression(lifecycleCall), `${sourceFile.fileName} missing ${lifecycleName}`)
+  const callback = lifecycleCall.arguments[0]
+  assert.ok(callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)), `${lifecycleName} must receive a callback`)
+  const calls = []
+  function visit(node) {
+    if (ts.isCallExpression(node))
+      calls.push(node.expression.getText(sourceFile))
+    ts.forEachChild(node, visit)
+  }
+  visit(callback)
+  return calls
 }
 
 async function loadBaseUploadContractModule() {
@@ -567,9 +616,7 @@ assertContains('src/pages/feedback/components/FeedbackCenter.vue', [
   'appContent.openDynamicTab',
   'appContent.refreshTick',
   `appContent.currentKey === FEEDBACK_CONTENT_KEY`,
-  'document.addEventListener(\'visibilitychange\'',
-  'document.removeEventListener(\'visibilitychange\'',
-  'document.visibilityState === \'visible\'',
+  'registerFeedbackVisibilityRefresh',
   'loadOverview()',
   'loadFeedbacks()',
   '@select="selectStatus"',
@@ -610,11 +657,119 @@ for (const componentFile of [
 
 const feedbackCenterSource = source('src/pages/feedback/components/FeedbackCenter.vue')
 assert.equal(/setInterval|setTimeout\s*\([^,]+,\s*\d+\s*\)/.test(feedbackCenterSource), false, 'feedback center must not poll')
-assert.match(feedbackCenterSource, /watch\s*\([\s\S]*appContent\.currentKey[\s\S]*appContent\.refreshTick/)
-assert.match(feedbackCenterSource, /function\s+openCreate[\s\S]*FEEDBACK_CREATE_CONTENT_KEY[\s\S]*openDynamicTab/)
-assert.match(feedbackCenterSource, /function\s+openFeedback[\s\S]*feedbackDetailContentKey[\s\S]*openDynamicTab/)
-assert.match(feedbackCenterSource, /function\s+selectStatus[\s\S]*loadOverview[\s\S]*loadFeedbacks/)
-assert.match(feedbackCenterSource, /computed\([\s\S]*sort\([\s\S]*lastActivityAt/)
+const feedbackCenterScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackCenter.vue')
+assert.deepEqual(
+  functionCalls(feedbackCenterScript, 'openCreate').filter(call => ['createFeedbackDynamicTab', 'appContent.openDynamicTab'].includes(call)),
+  ['createFeedbackDynamicTab', 'appContent.openDynamicTab'],
+  'openCreate must build and open one stable dynamic tab',
+)
+assert.deepEqual(
+  functionCalls(feedbackCenterScript, 'openFeedback').filter(call => ['feedbackDetailContentKey', 'createFeedbackDynamicTab', 'appContent.openDynamicTab'].includes(call)),
+  ['feedbackDetailContentKey', 'createFeedbackDynamicTab', 'appContent.openDynamicTab'],
+  'openFeedback must build and open the canonical detail tab',
+)
+assert.ok(functionCalls(feedbackCenterScript, 'loadOverview').includes('requestDeduper.run'), 'overview must reuse an in-flight request')
+assert.ok(functionCalls(feedbackCenterScript, 'loadFeedbacks').includes('requestDeduper.run'), 'list must reuse an in-flight request')
+assert.ok(functionCalls(feedbackCenterScript, 'loadFeedbacks').includes('resolveFeedbackListPage'), 'list must correct an out-of-range page')
+assert.ok(functionCalls(feedbackCenterScript, 'loadFeedbacks').filter(call => call === 'loadFeedbacks').length >= 1, 'corrected page must be queried again')
+assert.ok(lifecycleCallbackCalls(feedbackCenterScript, 'onMounted').includes('registerFeedbackVisibilityRefresh'), 'mount must register visibility refresh')
+assert.ok(lifecycleCallbackCalls(feedbackCenterScript, 'onBeforeUnmount').includes('removeVisibilityListener'), 'unmount must remove visibility refresh')
+assert.ok(lifecycleCallbackCalls(feedbackCenterScript, 'onBeforeUnmount').includes('requestDeduper.clear'), 'unmount must clear request dedupe state')
+
+const feedbackCenterState = await loadTypeScriptModule('src/pages/feedback/components/feedback-center-state.ts')
+assert.deepEqual(feedbackCenterState.resolveFeedbackListPage(3, 12, 12), { page: 1, shouldReload: true })
+assert.deepEqual(feedbackCenterState.resolveFeedbackListPage(3, 25, 12), { page: 3, shouldReload: false })
+assert.deepEqual(feedbackCenterState.resolveFeedbackListPage(2, 0, 12), { page: 1, shouldReload: true })
+assert.deepEqual(feedbackCenterState.resolveFeedbackListPage(1, 0, 12), { page: 1, shouldReload: false })
+const listRequestParameters = { keyword: 'network', status: 'pending', page: 2, pageSize: 12 }
+assert.equal(
+  feedbackCenterState.feedbackListRequestKey(listRequestParameters),
+  feedbackCenterState.feedbackListRequestKey({ ...listRequestParameters }),
+  'same list parameters must produce one request key',
+)
+assert.notEqual(
+  feedbackCenterState.feedbackListRequestKey(listRequestParameters),
+  feedbackCenterState.feedbackListRequestKey({ ...listRequestParameters, page: 1 }),
+  'different pages must not share an in-flight request',
+)
+
+const requestDeduper = feedbackCenterState.createInFlightRequestDeduper()
+let requestCount = 0
+let resolveFirstRequest
+const firstRequestResult = new Promise((resolve) => {
+  resolveFirstRequest = resolve
+})
+const firstRequest = requestDeduper.run('list:1', () => {
+  requestCount += 1
+  return firstRequestResult
+})
+const duplicateRequest = requestDeduper.run('list:1', () => {
+  requestCount += 1
+  return Promise.resolve('duplicate')
+})
+assert.equal(firstRequest, duplicateRequest, 'same request key must return the existing promise')
+assert.equal(requestCount, 1, 'same request key must only execute once while in flight')
+resolveFirstRequest('first')
+assert.equal(await duplicateRequest, 'first')
+await requestDeduper.run('list:1', async () => {
+  requestCount += 1
+  return 'after-settle'
+})
+assert.equal(requestCount, 2, 'settled request keys must be reusable')
+
+const visibilityDocument = {
+  visibilityState: 'hidden',
+  listeners: new Set(),
+  addEventListener(event, listener) {
+    assert.equal(event, 'visibilitychange')
+    this.listeners.add(listener)
+  },
+  removeEventListener(event, listener) {
+    assert.equal(event, 'visibilitychange')
+    this.listeners.delete(listener)
+  },
+  dispatch() {
+    for (const listener of this.listeners)
+      listener()
+  },
+}
+let feedbackActive = true
+let visibilityRefreshCount = 0
+const removeVisibilityListener = feedbackCenterState.registerFeedbackVisibilityRefresh(
+  visibilityDocument,
+  () => feedbackActive,
+  () => { visibilityRefreshCount += 1 },
+)
+visibilityDocument.dispatch()
+assert.equal(visibilityRefreshCount, 0, 'hidden document must not refresh feedback')
+visibilityDocument.visibilityState = 'visible'
+feedbackActive = false
+visibilityDocument.dispatch()
+assert.equal(visibilityRefreshCount, 0, 'inactive feedback page must not refresh')
+feedbackActive = true
+visibilityDocument.dispatch()
+assert.equal(visibilityRefreshCount, 1, 'visible active feedback page must refresh once')
+removeVisibilityListener()
+visibilityDocument.dispatch()
+assert.equal(visibilityRefreshCount, 1, 'removed listener must not refresh')
+
+const createTab = feedbackCenterState.createFeedbackDynamicTab('feedback:create', 'New Feedback', 'plus-circle')
+assert.deepEqual(createTab, {
+  key: 'feedback:create',
+  label: 'New Feedback',
+  icon: 'plus-circle',
+  path: '/pages/index/index?view=feedback%3Acreate',
+})
+assert.deepEqual(
+  feedbackCenterState.createFeedbackDynamicTab('feedback:detail:42', 'FB-42', 'chat'),
+  {
+    key: 'feedback:detail:42',
+    label: 'FB-42',
+    icon: 'chat',
+    path: '/pages/index/index?view=feedback%3Adetail%3A42',
+  },
+)
+assert.equal(feedbackCenterState.createFeedbackDynamicTab('', 'Invalid', 'chat'), null)
 
 for (const localeFile of ['src/locale/lang/zh-CN.json', 'src/locale/lang/en-US.json']) {
   const locale = JSON.parse(source(localeFile))
