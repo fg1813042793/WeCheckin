@@ -77,6 +77,17 @@ func TestMainUsesConfiguredAddressTimeoutsAndCORSCredentials(t *testing.T) {
 	}
 }
 
+func TestMainAllowsFeedbackMultipartMaximum(t *testing.T) {
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("read main.go: %v", err)
+	}
+
+	if !strings.Contains(string(src), "server.WithMaxRequestBodySize(64*1024*1024)") {
+		t.Fatal("main.go must configure a 64MiB request body limit for six 10MiB feedback images")
+	}
+}
+
 func TestMainUsesDatabaseOptions(t *testing.T) {
 	src, err := os.ReadFile("main.go")
 	if err != nil {

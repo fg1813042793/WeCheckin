@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/route/param"
 
 	"wecheckin/backend/internal/model"
@@ -82,6 +83,43 @@ func TestUserFeedbackHandlersRejectMissingAuthenticatedUser(t *testing.T) {
 	}
 }
 
+func TestUserFeedbackHandlersRejectMissingServiceWithoutPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		invoke func(*Handler, context.Context, *app.RequestContext)
+		params []param.Param
+	}{
+		{name: "overview", invoke: (*Handler).Overview},
+		{name: "list", invoke: (*Handler).List},
+		{name: "create", invoke: (*Handler).Create},
+		{name: "detail", invoke: (*Handler).Detail, params: []param.Param{{Key: "id", Value: "7"}}},
+		{name: "supplement", invoke: (*Handler).Supplement, params: []param.Param{{Key: "id", Value: "7"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := newUserContext(42)
+			c.Params = append(c.Params, test.params...)
+
+			invokeWithoutPanic(t, func() {
+				test.invoke(NewHandler(nil), context.Background(), c)
+			})
+
+			assertMissingServiceResponse(t, c)
+		})
+	}
+}
+
+func TestNilUserFeedbackHandlerRejectsRequestWithoutPanic(t *testing.T) {
+	var handler *Handler
+	c := newUserContext(42)
+
+	invokeWithoutPanic(t, func() {
+		handler.Overview(context.Background(), c)
+	})
+
+	assertMissingServiceResponse(t, c)
+}
+
 func TestUserFeedbackHandlerStrictlyParsesQueryAndPathIDs(t *testing.T) {
 	invalidQueries := []string{
 		"page=abc",
@@ -130,8 +168,42 @@ func TestUserFeedbackMultipartBodyLimitRunsBeforeParsing(t *testing.T) {
 
 	handler.Create(context.Background(), c)
 
-	if service.createCalls != 0 || !responseContains(c, "反馈请求总大小不能超过 31MB") {
+	if service.createCalls != 0 || !responseContains(c, "反馈请求总大小不能超过 64MB") {
 		t.Fatalf("create calls=%d response=%s", service.createCalls, c.Response.Body())
+	}
+}
+
+func TestUserFeedbackMultipartAggregateLimitAllowsSixMaximumImages(t *testing.T) {
+	const multipartOverheadAllowance = 4 * 1024 * 1024
+	maximumValidRequestSize := application.MaxImagesPerMessage*application.MaxImageSizeBytes + multipartOverheadAllowance
+	c := app.NewContext(1)
+	c.Request.Header.SetContentLength(maximumValidRequestSize)
+
+	if err := checkMultipartBodySize(c); err != nil {
+		t.Fatalf("%d-byte multipart request containing six maximum images must be allowed: %v", maximumValidRequestSize, err)
+	}
+}
+
+func TestCheckMultipartBodySizeDoesNotMarshalPreParsedForm(t *testing.T) {
+	c := app.NewContext(1)
+	protocol.SetMultipartFormWithBoundary(&c.Request, &multipart.Form{
+		Value: map[string][]string{"content": {"already parsed"}},
+	}, "boundary")
+	if len(c.Request.BodyBytes()) != 0 {
+		t.Fatal("pre-parsed request unexpectedly has a raw body")
+	}
+
+	allocations := testing.AllocsPerRun(10, func() {
+		if err := checkMultipartBodySize(c); err != nil {
+			t.Fatalf("check multipart body size: %v", err)
+		}
+	})
+
+	if allocations != 0 {
+		t.Fatalf("checkMultipartBodySize allocated %.1f times; multipart form was reassembled", allocations)
+	}
+	if len(c.Request.BodyBytes()) != 0 {
+		t.Fatal("checkMultipartBodySize must only inspect the raw body")
 	}
 }
 
@@ -317,6 +389,24 @@ func newUserContext(userID uint) *app.RequestContext {
 
 func responseContains(c *app.RequestContext, value string) bool {
 	return strings.Contains(string(c.Response.Body()), value)
+}
+
+func invokeWithoutPanic(t *testing.T, invoke func()) {
+	t.Helper()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("handler panicked: %v", recovered)
+		}
+	}()
+	invoke()
+}
+
+func assertMissingServiceResponse(t *testing.T, c *app.RequestContext) {
+	t.Helper()
+	responseBody := string(c.Response.Body())
+	if !strings.Contains(responseBody, "反馈操作失败，请稍后重试") || strings.Contains(responseBody, "service") {
+		t.Fatalf("response=%s", responseBody)
+	}
 }
 
 type serviceFake struct {

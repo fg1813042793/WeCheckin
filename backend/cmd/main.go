@@ -93,7 +93,7 @@ func main() {
 		server.WithReadTimeout(time.Duration(cfg.Server.ReadTimeoutSec)*time.Second),
 		server.WithWriteTimeout(time.Duration(cfg.Server.WriteTimeoutSec)*time.Second),
 		server.WithIdleTimeout(time.Duration(cfg.Server.IdleTimeoutSec)*time.Second),
-		server.WithMaxRequestBodySize(32*1024*1024),
+		server.WithMaxRequestBodySize(64*1024*1024),
 	)
 
 	h.Use(cors.New(cors.Config{

@@ -26,6 +26,8 @@ type Service interface {
 
 var _ Service = (*application.Service)(nil)
 
+var errServiceUnavailable = errors.New("user feedback service is unavailable")
+
 type Handler struct {
 	service Service
 }
@@ -47,6 +49,9 @@ func (handler *Handler) Overview(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "未登录或权限失效")
 		return
 	}
+	if !handler.requireService(ctx, c) {
+		return
+	}
 	query, err := adminListQuery(c)
 	if err != nil {
 		respond(ctx, c, nil, application.ErrInvalidArgument)
@@ -59,6 +64,9 @@ func (handler *Handler) Overview(ctx context.Context, c *app.RequestContext) {
 func (handler *Handler) List(ctx context.Context, c *app.RequestContext) {
 	if _, ok := currentAdminID(c); !ok {
 		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	if !handler.requireService(ctx, c) {
 		return
 	}
 	query, err := adminListQuery(c)
@@ -75,6 +83,9 @@ func (handler *Handler) Detail(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "未登录或权限失效")
 		return
 	}
+	if !handler.requireService(ctx, c) {
+		return
+	}
 	id, ok := positivePathID(c, "id")
 	if !ok {
 		response.Fail(c, "反馈编号不正确")
@@ -88,6 +99,9 @@ func (handler *Handler) UpdateStatus(ctx context.Context, c *app.RequestContext)
 	adminID, ok := currentAdminID(c)
 	if !ok {
 		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	if !handler.requireService(ctx, c) {
 		return
 	}
 	id, ok := positivePathID(c, "id")
@@ -138,6 +152,14 @@ func currentAdminID(c *app.RequestContext) (uint, bool) {
 		return 0, false
 	}
 	return admin.ID, true
+}
+
+func (handler *Handler) requireService(ctx context.Context, c *app.RequestContext) bool {
+	if handler != nil && handler.service != nil {
+		return true
+	}
+	respond(ctx, c, nil, errServiceUnavailable)
+	return false
 }
 
 func positivePathID(c *app.RequestContext, key string) (uint64, bool) {

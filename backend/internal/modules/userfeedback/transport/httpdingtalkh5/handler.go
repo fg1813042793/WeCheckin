@@ -18,13 +18,17 @@ import (
 	"wecheckin/backend/pkg/response"
 )
 
-const MaxMultipartBodyBytes = 31 * 1024 * 1024
+const (
+	multipartBodyOverheadBytes = 4 * 1024 * 1024
+	MaxMultipartBodyBytes      = application.MaxImagesPerMessage*application.MaxImageSizeBytes + multipartBodyOverheadBytes
+)
 
 var (
 	errMultipartRequired     = errors.New("feedback request must use multipart/form-data")
 	errMultipartBodyTooLarge = errors.New("feedback multipart body is too large")
 	errTooManyImages         = errors.New("too many feedback images in one request")
 	errEmptyImage            = errors.New("feedback image is empty")
+	errServiceUnavailable    = errors.New("user feedback service is unavailable")
 )
 
 type Service interface {
@@ -51,6 +55,9 @@ func (handler *Handler) Overview(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "未登录或权限失效")
 		return
 	}
+	if !handler.requireService(ctx, c) {
+		return
+	}
 	data, err := handler.service.GetUserOverview(ctx, userID)
 	respond(ctx, c, data, err)
 }
@@ -59,6 +66,9 @@ func (handler *Handler) List(ctx context.Context, c *app.RequestContext) {
 	userID, ok := currentUserID(c)
 	if !ok {
 		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	if !handler.requireService(ctx, c) {
 		return
 	}
 	query, err := userListQuery(c)
@@ -74,6 +84,9 @@ func (handler *Handler) Create(ctx context.Context, c *app.RequestContext) {
 	userID, ok := currentUserID(c)
 	if !ok {
 		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	if !handler.requireService(ctx, c) {
 		return
 	}
 	form, err := parseMultipartMessage(c, false)
@@ -96,6 +109,9 @@ func (handler *Handler) Detail(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "未登录或权限失效")
 		return
 	}
+	if !handler.requireService(ctx, c) {
+		return
+	}
 	id, ok := positivePathID(c, "id")
 	if !ok {
 		response.Fail(c, "反馈编号不正确")
@@ -109,6 +125,9 @@ func (handler *Handler) Supplement(ctx context.Context, c *app.RequestContext) {
 	userID, ok := currentUserID(c)
 	if !ok {
 		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	if !handler.requireService(ctx, c) {
 		return
 	}
 	id, ok := positivePathID(c, "id")
@@ -192,7 +211,7 @@ func checkMultipartBodySize(c *app.RequestContext) error {
 	if contentLength := c.Request.Header.ContentLength(); contentLength > MaxMultipartBodyBytes {
 		return errMultipartBodyTooLarge
 	}
-	if len(c.Request.Body()) > MaxMultipartBodyBytes {
+	if len(c.Request.BodyBytes()) > MaxMultipartBodyBytes {
 		return errMultipartBodyTooLarge
 	}
 	return nil
@@ -276,6 +295,14 @@ func currentUserID(c *app.RequestContext) (uint, bool) {
 	return user.ID, true
 }
 
+func (handler *Handler) requireService(ctx context.Context, c *app.RequestContext) bool {
+	if handler != nil && handler.service != nil {
+		return true
+	}
+	respond(ctx, c, nil, errServiceUnavailable)
+	return false
+}
+
 func positivePathID(c *app.RequestContext, key string) (uint64, bool) {
 	value, err := strconv.ParseUint(strings.TrimSpace(c.Param(key)), 10, 64)
 	return value, err == nil && value > 0
@@ -329,7 +356,7 @@ func respond(ctx context.Context, c *app.RequestContext, data interface{}, err e
 func localizedError(err error) string {
 	switch {
 	case errors.Is(err, errMultipartBodyTooLarge):
-		return "反馈请求总大小不能超过 31MB"
+		return "反馈请求总大小不能超过 64MB"
 	case errors.Is(err, errMultipartRequired):
 		return "请使用 multipart/form-data 提交反馈"
 	case errors.Is(err, errTooManyImages):

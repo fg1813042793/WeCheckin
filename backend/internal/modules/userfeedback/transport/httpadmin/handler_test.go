@@ -146,6 +146,42 @@ func TestAdminUserFeedbackHandlersRejectMissingAuthenticatedAdmin(t *testing.T) 
 	}
 }
 
+func TestAdminUserFeedbackHandlersRejectMissingServiceWithoutPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		invoke func(*Handler, context.Context, *app.RequestContext)
+		params []param.Param
+	}{
+		{name: "overview", invoke: (*Handler).Overview},
+		{name: "list", invoke: (*Handler).List},
+		{name: "detail", invoke: (*Handler).Detail, params: []param.Param{{Key: "id", Value: "7"}}},
+		{name: "update status", invoke: (*Handler).UpdateStatus, params: []param.Param{{Key: "id", Value: "7"}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := newAdminContext(66)
+			c.Params = append(c.Params, test.params...)
+
+			adminInvokeWithoutPanic(t, func() {
+				test.invoke(NewHandler(nil), context.Background(), c)
+			})
+
+			assertAdminMissingServiceResponse(t, c)
+		})
+	}
+}
+
+func TestNilAdminUserFeedbackHandlerRejectsRequestWithoutPanic(t *testing.T) {
+	var handler *Handler
+	c := newAdminContext(66)
+
+	adminInvokeWithoutPanic(t, func() {
+		handler.Overview(context.Background(), c)
+	})
+
+	assertAdminMissingServiceResponse(t, c)
+}
+
 func TestAdminUserFeedbackBusinessErrorsHaveStableMessages(t *testing.T) {
 	tests := []struct {
 		err  error
@@ -199,6 +235,24 @@ func newAdminContext(adminID uint) *app.RequestContext {
 
 func adminResponseContains(c *app.RequestContext, value string) bool {
 	return strings.Contains(string(c.Response.Body()), value)
+}
+
+func adminInvokeWithoutPanic(t *testing.T, invoke func()) {
+	t.Helper()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("handler panicked: %v", recovered)
+		}
+	}()
+	invoke()
+}
+
+func assertAdminMissingServiceResponse(t *testing.T, c *app.RequestContext) {
+	t.Helper()
+	responseBody := string(c.Response.Body())
+	if !strings.Contains(responseBody, "反馈操作失败，请稍后重试") || strings.Contains(responseBody, "service") {
+		t.Fatalf("response=%s", responseBody)
+	}
 }
 
 type adminServiceFake struct {
