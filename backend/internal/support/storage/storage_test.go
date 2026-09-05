@@ -146,6 +146,33 @@ func TestDeleteStoredFileSignsEscapedAliyunDeleteRequest(t *testing.T) {
 	}
 }
 
+func TestDeleteStoredFileDoesNotFollowAliyunRedirect(t *testing.T) {
+	withSensitiveAliyunTestConfig(t)
+	objectKey := "uploads/feedback/private-user-content.png"
+	methods := make([]string, 0, 2)
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		methods = append(methods, req.Method)
+		if len(methods) == 1 {
+			resp := storageHTTPResponse(req, http.StatusFound, "private-redirect-response")
+			resp.Header.Set("Location", "https://redirect.example.test/private-target")
+			return resp, nil
+		}
+		return storageHTTPResponse(req, http.StatusOK, "redirect followed"), nil
+	})}
+
+	err := deleteAliyunWithClient(context.Background(), client, objectKey)
+	if err == nil {
+		t.Fatal("deleteAliyunWithClient(redirect) error = nil")
+	}
+	if err.Error() != "删除阿里云 OSS 对象失败: HTTP 302" {
+		t.Fatalf("deleteAliyunWithClient(redirect) error = %q", err)
+	}
+	if len(methods) != 1 || methods[0] != http.MethodDelete {
+		t.Fatalf("request methods = %v, want one DELETE and no redirected GET", methods)
+	}
+	assertErrorOmits(t, err, objectKey, "private-user-content.png", "redirect.example.test", "private-target", "private-redirect-response")
+}
+
 func TestDeleteStoredFileTreatsAliyunSuccessAndMissingStatusesAsSuccess(t *testing.T) {
 	for _, statusCode := range []int{http.StatusOK, http.StatusNoContent, http.StatusNotFound} {
 		statusCode := statusCode
@@ -372,6 +399,34 @@ func TestSaveReaderRemovesPartialLocalFileWhenContextCanceledDuringCopy(t *testi
 	localPath := filepath.Join(uploadRoot, "feedback", "2026", "09", "05", "mid-copy.png")
 	if _, statErr := os.Stat(localPath); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("mid-copy cancellation left partial local file: %v", statErr)
+	}
+}
+
+func TestSaveReaderAliyunReadHonorsCancellationBeforeSendingRequest(t *testing.T) {
+	withAliyunTestConfig(t)
+	oldClient := aliyunHTTPClient
+	requests := 0
+	aliyunHTTPClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		return storageHTTPResponse(req, http.StatusOK, ""), nil
+	})}
+	t.Cleanup(func() { aliyunHTTPClient = oldClient })
+	ctx, cancel := context.WithCancel(context.Background())
+	reader := &cancelThenErrorReader{cancel: cancel}
+
+	_, err := SaveReader(ctx, reader, "original.png", SaveOptions{
+		Prefix:   "uploads/feedback",
+		Filename: "canceled.png",
+		Now:      time.Date(2026, 9, 5, 10, 0, 0, 0, time.Local),
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("SaveReader(aliyun read canceled) error = %v, want context.Canceled", err)
+	}
+	if reader.reads != 1 {
+		t.Fatalf("SaveReader(aliyun read canceled) reads = %d, want 1", reader.reads)
+	}
+	if requests != 0 {
+		t.Fatalf("SaveReader(aliyun read canceled) requests = %d, want 0", requests)
 	}
 }
 
@@ -642,6 +697,21 @@ func (reader *cancelAfterReadReader) Read(buffer []byte) (int, error) {
 		return 0, io.EOF
 	}
 	reader.read = true
+	n := copy(buffer, "partial")
+	reader.cancel()
+	return n, nil
+}
+
+type cancelThenErrorReader struct {
+	cancel context.CancelFunc
+	reads  int
+}
+
+func (reader *cancelThenErrorReader) Read(buffer []byte) (int, error) {
+	reader.reads++
+	if reader.reads > 1 {
+		return 0, errors.New("reader continued after cancellation")
+	}
 	n := copy(buffer, "partial")
 	reader.cancel()
 	return n, nil

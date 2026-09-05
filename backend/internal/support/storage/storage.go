@@ -103,7 +103,7 @@ func SaveReader(ctx context.Context, src io.Reader, originalFilename string, opt
 	case "", "local":
 		return saveLocal(&contextReader{ctx: ctx, reader: src}, objectKey, filename)
 	case "aliyun":
-		return saveAliyun(ctx, src, objectKey, filename, contentType)
+		return saveAliyun(ctx, &contextReader{ctx: ctx, reader: src}, objectKey, filename, contentType)
 	case "tencent":
 		return nil, fmt.Errorf("暂不支持腾讯云 COS，请将 oss.type 设置为 local 或 aliyun")
 	default:

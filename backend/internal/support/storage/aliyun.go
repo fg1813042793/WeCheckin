@@ -61,7 +61,7 @@ func deleteAliyunWithClient(ctx context.Context, client *http.Client, objectKey 
 	req.Header.Set("Date", date)
 	req.Header.Set("Authorization", aliyunAuthorizationForMethod(http.MethodDelete, accessKeyID, accessKeySecret, bucket, objectKey, "", date))
 
-	resp, err := client.Do(req)
+	resp, err := doAliyunRequest(client, req)
 	if err != nil {
 		return &aliyunDeleteTransportError{cause: err}
 	}
@@ -106,7 +106,7 @@ func saveAliyunWithClient(ctx context.Context, client *http.Client, src io.Reade
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Authorization", aliyunAuthorization(accessKeyID, accessKeySecret, bucket, objectKey, contentType, date))
 
-	resp, err := client.Do(req)
+	resp, err := doAliyunRequest(client, req)
 	if err != nil {
 		return nil, fmt.Errorf("上传阿里云 OSS 失败: %w", err)
 	}
@@ -125,6 +125,14 @@ func saveAliyunWithClient(ctx context.Context, client *http.Client, src io.Reade
 		Filename:    filename,
 		IsLocal:     false,
 	}, nil
+}
+
+func doAliyunRequest(client *http.Client, req *http.Request) (*http.Response, error) {
+	clientWithoutRedirects := *client
+	clientWithoutRedirects.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return clientWithoutRedirects.Do(req)
 }
 
 func aliyunAuthorization(accessKeyID, accessKeySecret, bucket, objectKey, contentType, date string) string {
