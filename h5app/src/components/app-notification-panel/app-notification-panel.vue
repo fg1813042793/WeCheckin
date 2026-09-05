@@ -94,8 +94,13 @@ const unreadLabel = computed(() => props.unreadCount > 99 ? '99+' : String(props
 
 function notificationTypeMeta(notification: InAppNotification | string) {
   const type = typeof notification === 'string' ? notification : notification.type
-  const configuredFallback = notificationTypeMetas[String(type || '').trim()] || defaultNotificationTypeMeta
-  const fallback = type === 'feedback_status'
+  const feedbackNotification = typeof notification === 'string'
+    ? type === 'feedback_status'
+    : isFeedbackNotification(notification)
+  const configuredFallback = feedbackNotification
+    ? notificationTypeMetas.feedback_status
+    : notificationTypeMetas[String(type || '').trim()] || defaultNotificationTypeMeta
+  const fallback = feedbackNotification
     ? { ...configuredFallback, label: notificationT('feedbackStatus') }
     : configuredFallback
   if (typeof notification === 'string' || !notification.style)

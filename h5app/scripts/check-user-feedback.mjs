@@ -166,7 +166,7 @@ function lifecycleCallbackCalls(sourceFile, lifecycleName) {
   return calls
 }
 
-async function loadNotificationPanelMetaModule() {
+async function loadNotificationPanelMetaModule(feedbackStatus = '用户反馈') {
   const sourceFile = vueScriptSourceFile('src/components/app-notification-panel/app-notification-panel.vue')
   const variableNames = new Set([
     'notificationTypeMetas',
@@ -183,7 +183,13 @@ async function loadNotificationPanelMetaModule() {
     ))
   })
   assert.equal(statements.length, 4, 'notification type meta declarations are incomplete')
-  const moduleSource = `const notificationT = key => ({ feedbackStatus: '用户反馈' }[key] || key)\n${statements.map(statement => statement.getText(sourceFile)).join('\n')}\nexport { notificationTypeMeta }`
+  const moduleSource = `
+const feedbackStatus = ${JSON.stringify(feedbackStatus)}
+const notificationT = key => ({ feedbackStatus }[key] || key)
+const isFeedbackNotification = notification => notification.sourceType === 'user_feedback' || notification.type === 'feedback_status'
+${statements.map(statement => statement.getText(sourceFile)).join('\n')}
+export { notificationTypeMeta }
+`
   const output = ts.transpileModule(moduleSource, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
@@ -662,6 +668,41 @@ assert.deepEqual(notificationMeta.notificationTypeMeta({
   color: '#2563eb',
   tone: 'primary',
 }, 'invalid backend style values must fall back to feedback defaults')
+assert.deepEqual(notificationMeta.notificationTypeMeta({
+  sourceType: 'user_feedback',
+  type: 'legacy_feedback',
+}), {
+  label: '用户反馈',
+  icon: 'chat',
+  color: '#2563eb',
+  tone: 'primary',
+}, 'legacy feedback source must use the localized feedback metadata fallback')
+assert.deepEqual(notificationMeta.notificationTypeMeta({
+  sourceType: 'user_feedback',
+  type: '',
+  style: { label: '', icon: '', tone: 'unsupported' },
+}), {
+  label: '用户反馈',
+  icon: 'chat',
+  color: '#2563eb',
+  tone: 'primary',
+}, 'feedback source with empty style must use the localized feedback metadata fallback')
+assert.deepEqual(notificationMeta.notificationTypeMeta({
+  sourceType: 'user_feedback',
+  type: 'legacy_feedback',
+  style: { label: '历史反馈', icon: 'info-circle', tone: 'success' },
+}), {
+  label: '历史反馈',
+  icon: 'info-circle',
+  color: '#00875a',
+  tone: 'success',
+}, 'custom feedback style label must remain higher priority than the localized fallback')
+const englishNotificationMeta = await loadNotificationPanelMetaModule('User Feedback')
+assert.equal(englishNotificationMeta.notificationTypeMeta({
+  sourceType: 'user_feedback',
+  type: 'legacy_feedback',
+  style: { label: '', icon: '', tone: 'unsupported' },
+}).label, 'User Feedback', 'legacy feedback source must use the active English locale fallback')
 assert.deepEqual(notificationMeta.notificationTypeMeta('unknown_notification'), {
   label: '系统消息',
   icon: 'email',
@@ -1012,6 +1053,10 @@ assert.deepEqual(
 assert.ok(
   functionCalls(notificationPanelScript, 'notificationTypeMeta').includes('notificationT'),
   'feedback notification default metadata must resolve its label from locale',
+)
+assert.ok(
+  functionCalls(notificationPanelScript, 'notificationTypeMeta').includes('isFeedbackNotification'),
+  'feedback notification metadata must recognize legacy feedback sources through the shared helper',
 )
 assert.ok(
   functionCalls(notificationPanelScript, 'openNotification').includes('isFeedbackNotification'),
