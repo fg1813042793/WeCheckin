@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -58,6 +59,87 @@ func listQueryScript(size int) *databaseScript {
 			return queryResult{Err: fmt.Errorf("unexpected query: %s", query)}
 		}
 	}}
+}
+
+type feedbackKeywordFixture struct {
+	initial       string
+	supplement    string
+	status        string
+	submitterName string
+}
+
+func timelineKeywordScript(t *testing.T, keyword string, admin bool, fixture feedbackKeywordFixture) *databaseScript {
+	t.Helper()
+	return &databaseScript{query: func(query string, args []driver.NamedValue) queryResult {
+		sqlText := normalizeSQL(query)
+		switch {
+		case strings.Contains(sqlText, "FROM `user_feedbacks`"):
+			matched := scriptedKeywordMatches(t, sqlText, args, keyword, admin, fixture)
+			if strings.Contains(strings.ToLower(sqlText), "count(*)") {
+				total := int64(0)
+				if matched {
+					total = 1
+				}
+				return queryResult{Columns: []string{"count"}, Rows: [][]driver.Value{{total}}}
+			}
+			if matched {
+				return queryResult{Columns: feedbackColumns(), Rows: [][]driver.Value{feedbackDriverRow(1)}}
+			}
+			return queryResult{Columns: feedbackColumns()}
+		case strings.Contains(sqlText, "FROM `user_feedback_messages`"):
+			if !strings.Contains(sqlText, "message_type = ?") || !containsNamedValue(args, string(domain.MessageTypeInitial)) {
+				return queryResult{Err: fmt.Errorf("summary query must remain initial-only: %s %#v", sqlText, namedValues(args))}
+			}
+			return queryResult{
+				Columns: []string{"feedback_id", "content"},
+				Rows:    [][]driver.Value{{int64(1), fixture.initial}},
+			}
+		case strings.Contains(sqlText, "FROM `user_feedback_attachments`"):
+			return queryResult{Columns: []string{"feedback_id", "image_count"}}
+		case strings.Contains(sqlText, "FROM `users`"):
+			return queryResult{Columns: []string{"id", "user_name"}, Rows: [][]driver.Value{
+				{int64(3), "管理员"}, {int64(7), fixture.submitterName},
+			}}
+		default:
+			return queryResult{Err: fmt.Errorf("unexpected timeline keyword query: %s", query)}
+		}
+	}}
+}
+
+func scriptedKeywordMatches(t *testing.T, sqlText string, args []driver.NamedValue, keyword string, admin bool, fixture feedbackKeywordFixture) bool {
+	t.Helper()
+	expectedPattern := "%" + keyword + "%"
+	wantPatternCount := 2
+	if admin {
+		wantPatternCount = 3
+	}
+	if got := countNamedValue(args, expectedPattern); got != wantPatternCount {
+		t.Fatalf("keyword pattern count = %d, want %d in %#v", got, wantPatternCount, namedValues(args))
+	}
+	if strings.Contains(sqlText, keyword) {
+		t.Fatalf("keyword was interpolated into SQL instead of parameterized: %s", sqlText)
+	}
+
+	contents := []string{fixture.initial, fixture.supplement, fixture.status}
+	if strings.Contains(sqlText, "keyword_message.message_type") {
+		contents = contents[:1]
+	}
+	for _, content := range contents {
+		if strings.Contains(content, keyword) {
+			return true
+		}
+	}
+	return admin && strings.Contains(fixture.submitterName, keyword)
+}
+
+func countNamedValue(values []driver.NamedValue, want any) int {
+	count := 0
+	for _, value := range values {
+		if reflect.DeepEqual(value.Value, want) {
+			count++
+		}
+	}
+	return count
 }
 
 func TestCompactSummaryIsUTF8SafeAndCollapsesWhitespace(t *testing.T) {
@@ -280,6 +362,177 @@ func containsNamedValue(values []driver.NamedValue, want any) bool {
 	for _, value := range values {
 		if reflect.DeepEqual(value.Value, want) {
 			return true
+		}
+	}
+	return false
+}
+
+func TestListKeywordMatchesSupplementAndStatusTimelineMessages(t *testing.T) {
+	fixture := feedbackKeywordFixture{
+		initial:       "仅用作列表摘要",
+		supplement:    "用户补充了登录戳中详情",
+		status:        "状态流转记录含审核驳回原因",
+		submitterName: "当前提交人",
+	}
+	keywords := []struct {
+		name    string
+		keyword string
+	}{
+		{name: "supplement", keyword: "登录戳中"},
+		{name: "status", keyword: "审核驳回"},
+	}
+	for _, admin := range []bool{false, true} {
+		audience := "user"
+		if admin {
+			audience = "admin"
+		}
+		for _, keyword := range keywords {
+			t.Run(audience+"_"+keyword.name, func(t *testing.T) {
+				script := timelineKeywordScript(t, keyword.keyword, admin, fixture)
+				store := NewGormStore(openScriptedGormDB(t, script))
+				var (
+					result application.FeedbackList
+					err    error
+				)
+				if admin {
+					result, err = store.ListAdminFeedbacks(context.Background(), application.AdminListQuery{
+						Keyword: keyword.keyword, Page: 1, PageSize: 20,
+					})
+				} else {
+					result, err = store.ListUserFeedbacks(context.Background(), 7, application.UserListQuery{
+						Keyword: keyword.keyword, Page: 1, PageSize: 20,
+					})
+				}
+				if err != nil {
+					t.Fatalf("list timeline keyword: %v", err)
+				}
+				if result.Total != 1 || len(result.List) != 1 {
+					t.Fatalf("timeline keyword result = %#v, want one match", result)
+				}
+				if got := result.List[0].Summary; got != fixture.initial {
+					t.Fatalf("summary = %q, want initial content %q", got, fixture.initial)
+				}
+			})
+		}
+	}
+}
+
+func TestAdminListKeywordAlsoMatchesCurrentSubmitterName(t *testing.T) {
+	fixture := feedbackKeywordFixture{
+		initial:       "与关键词无关的初始内容",
+		supplement:    "与关键词无关的补充内容",
+		status:        "与关键词无关的状态内容",
+		submitterName: "产品经理李明",
+	}
+	script := timelineKeywordScript(t, "李明", true, fixture)
+	result, err := NewGormStore(openScriptedGormDB(t, script)).ListAdminFeedbacks(context.Background(), application.AdminListQuery{
+		Keyword: "李明", Page: 1, PageSize: 20,
+	})
+	if err != nil {
+		t.Fatalf("ListAdminFeedbacks by submitter name: %v", err)
+	}
+	if result.Total != 1 || len(result.List) != 1 || result.List[0].SubmitterName != fixture.submitterName {
+		t.Fatalf("submitter-name keyword result = %#v", result)
+	}
+}
+
+func TestListFeedbacksRejectsOffsetOverflowBeforeSQL(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(*GormStore) error
+	}{
+		{
+			name: "user",
+			call: func(store *GormStore) error {
+				_, err := store.ListUserFeedbacks(context.Background(), 7, application.UserListQuery{Page: math.MaxInt, PageSize: 2})
+				return err
+			},
+		},
+		{
+			name: "admin",
+			call: func(store *GormStore) error {
+				_, err := store.ListAdminFeedbacks(context.Background(), application.AdminListQuery{Page: math.MaxInt, PageSize: 2})
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			script := &databaseScript{query: func(query string, _ []driver.NamedValue) queryResult {
+				if strings.Contains(strings.ToLower(normalizeSQL(query)), "count(*)") {
+					return queryResult{Columns: []string{"count"}, Rows: [][]driver.Value{{int64(0)}}}
+				}
+				return queryResult{Columns: feedbackColumns()}
+			}}
+			err := test.call(NewGormStore(openScriptedGormDB(t, script)))
+			if !errors.Is(err, application.ErrInvalidArgument) {
+				t.Fatalf("overflow page error = %v, want ErrInvalidArgument", err)
+			}
+			queries, execs := script.statements()
+			if len(queries) != 0 || len(execs) != 0 {
+				t.Fatalf("overflow page executed SQL: queries=%#v execs=%#v", queries, execs)
+			}
+		})
+	}
+}
+
+func TestListFeedbackOffsetSafeBoundaries(t *testing.T) {
+	newEmptyScript := func() *databaseScript {
+		return &databaseScript{query: func(query string, _ []driver.NamedValue) queryResult {
+			if strings.Contains(strings.ToLower(normalizeSQL(query)), "count(*)") {
+				return queryResult{Columns: []string{"count"}, Rows: [][]driver.Value{{int64(0)}}}
+			}
+			return queryResult{Columns: feedbackColumns()}
+		}}
+	}
+
+	t.Run("first page", func(t *testing.T) {
+		script := newEmptyScript()
+		result, err := NewGormStore(openScriptedGormDB(t, script)).ListUserFeedbacks(context.Background(), 7, application.UserListQuery{Page: 1, PageSize: 20})
+		if err != nil || result.Page != 1 || result.PageSize != 20 {
+			t.Fatalf("first page result = %#v, %v", result, err)
+		}
+		queries, _ := script.statements()
+		if len(queries) != 2 || strings.Contains(normalizeSQL(queries[1].SQL), "OFFSET") {
+			t.Fatalf("first page SQL = %#v", queries)
+		}
+	})
+
+	t.Run("maximum safe offset", func(t *testing.T) {
+		const pageSize = application.MaxPageSize
+		page := math.MaxInt/pageSize + 1
+		wantOffset := (page - 1) * pageSize
+		script := newEmptyScript()
+		result, err := NewGormStore(openScriptedGormDB(t, script)).ListUserFeedbacks(context.Background(), 7, application.UserListQuery{Page: page, PageSize: pageSize})
+		if err != nil || result.Page != page || result.PageSize != pageSize {
+			t.Fatalf("maximum safe page result = %#v, %v", result, err)
+		}
+		queries, _ := script.statements()
+		if len(queries) != 2 || !strings.Contains(normalizeSQL(queries[1].SQL), "OFFSET ?") {
+			t.Fatalf("maximum safe page SQL = %#v", queries)
+		}
+		if !containsIntegerNamedValue(queries[1].Args, wantOffset) {
+			t.Fatalf("maximum safe offset %d missing from %#v", wantOffset, namedValues(queries[1].Args))
+		}
+	})
+
+	page, pageSize := queryPage(math.MaxInt, 2)
+	if page != math.MaxInt || pageSize != 2 {
+		t.Fatalf("queryPage remapped a large positive page to %d/%d", page, pageSize)
+	}
+}
+
+func containsIntegerNamedValue(values []driver.NamedValue, want int) bool {
+	for _, value := range values {
+		switch got := value.Value.(type) {
+		case int:
+			if got == want {
+				return true
+			}
+		case int64:
+			if got == int64(want) {
+				return true
+			}
 		}
 	}
 	return false

@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 
 	"gorm.io/gorm"
@@ -94,8 +95,12 @@ func (store *GormStore) ListUserFeedbacks(ctx context.Context, userID uint, quer
 	}
 	defer cancel()
 	query.Page, query.PageSize = queryPage(query.Page, query.PageSize)
+	offset, err := safeFeedbackOffset(query.Page, query.PageSize)
+	if err != nil {
+		return application.FeedbackList{}, err
+	}
 	statement := applyUserFeedbackFilters(db.Model(&userfeedbackmodel.Feedback{}), userID, query)
-	return listFeedbacks(statement, db, query.Page, query.PageSize)
+	return listFeedbacks(statement, db, query.Page, query.PageSize, offset)
 }
 
 func (store *GormStore) GetUserFeedback(ctx context.Context, id uint64, userID uint) (*application.FeedbackDetail, error) {
@@ -130,8 +135,12 @@ func (store *GormStore) ListAdminFeedbacks(ctx context.Context, query applicatio
 	}
 	defer cancel()
 	query.Page, query.PageSize = queryPage(query.Page, query.PageSize)
+	offset, err := safeFeedbackOffset(query.Page, query.PageSize)
+	if err != nil {
+		return application.FeedbackList{}, err
+	}
 	statement := applyAdminFeedbackFilters(db.Model(&userfeedbackmodel.Feedback{}), query, true)
-	return listFeedbacks(statement, db, query.Page, query.PageSize)
+	return listFeedbacks(statement, db, query.Page, query.PageSize, offset)
 }
 
 func (store *GormStore) GetAdminFeedback(ctx context.Context, id uint64) (*application.FeedbackDetail, error) {
@@ -226,10 +235,9 @@ func applyUserFeedbackFilters(db *gorm.DB, userID uint, query application.UserLi
 			OR EXISTS (
 				SELECT 1 FROM user_feedback_messages keyword_message
 				WHERE keyword_message.feedback_id = user_feedbacks.id
-				AND keyword_message.message_type = ?
 				AND keyword_message.content LIKE ? ESCAPE '!'
 			)
-		)`, pattern, domain.MessageTypeInitial, pattern)
+		)`, pattern, pattern)
 	}
 	return db
 }
@@ -257,7 +265,6 @@ func applyAdminFeedbackFilters(db *gorm.DB, query application.AdminListQuery, in
 			OR EXISTS (
 				SELECT 1 FROM user_feedback_messages keyword_message
 				WHERE keyword_message.feedback_id = user_feedbacks.id
-				AND keyword_message.message_type = ?
 				AND keyword_message.content LIKE ? ESCAPE '!'
 			)
 			OR EXISTS (
@@ -265,7 +272,7 @@ func applyAdminFeedbackFilters(db *gorm.DB, query application.AdminListQuery, in
 				WHERE keyword_submitter.id = user_feedbacks.submitter_id
 				AND keyword_submitter.user_name LIKE ? ESCAPE '!'
 			)
-		)`, pattern, domain.MessageTypeInitial, pattern, pattern)
+		)`, pattern, pattern, pattern)
 	}
 	return db
 }
@@ -275,7 +282,7 @@ func feedbackContainsLikePattern(value string) string {
 	return "%" + replacer.Replace(strings.TrimSpace(value)) + "%"
 }
 
-func listFeedbacks(statement, db *gorm.DB, page, pageSize int) (application.FeedbackList, error) {
+func listFeedbacks(statement, db *gorm.DB, page, pageSize, offset int) (application.FeedbackList, error) {
 	result := application.FeedbackList{List: []application.FeedbackSummary{}, Page: page, PageSize: pageSize}
 	if err := statement.Session(&gorm.Session{}).Count(&result.Total).Error; err != nil {
 		return application.FeedbackList{}, err
@@ -283,7 +290,7 @@ func listFeedbacks(statement, db *gorm.DB, page, pageSize int) (application.Feed
 	rows := make([]userfeedbackmodel.Feedback, 0)
 	if err := statement.Session(&gorm.Session{}).
 		Order("last_activity_at DESC,id DESC").
-		Offset((page - 1) * pageSize).
+		Offset(offset).
 		Limit(pageSize).
 		Find(&rows).Error; err != nil {
 		return application.FeedbackList{}, err
@@ -378,4 +385,11 @@ func queryPage(page, pageSize int) (int, int) {
 		pageSize = application.MaxPageSize
 	}
 	return page, pageSize
+}
+
+func safeFeedbackOffset(page, pageSize int) (int, error) {
+	if page < 1 || pageSize < 1 || page-1 > math.MaxInt/pageSize {
+		return 0, application.ErrInvalidArgument
+	}
+	return (page - 1) * pageSize, nil
 }

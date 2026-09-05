@@ -58,6 +58,10 @@ type databaseScript struct {
 	query func(string, []driver.NamedValue) queryResult
 	exec  func(string, []driver.NamedValue) execResult
 
+	beforeQuery func(context.Context) error
+	beforeExec  func(context.Context) error
+	beforeBegin func(context.Context) error
+
 	beginErr    error
 	commitErr   error
 	rollbackErr error
@@ -106,21 +110,46 @@ func (conn *scriptedConn) Begin() (driver.Tx, error) {
 func (*scriptedConn) Ping(context.Context) error { return nil }
 
 func (conn *scriptedConn) BeginTx(ctx context.Context, _ driver.TxOptions) (driver.Tx, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	conn.script.mu.Lock()
-	defer conn.script.mu.Unlock()
 	conn.script.beginCount++
 	conn.script.beginCtx = ctx
-	if conn.script.beginErr != nil {
-		return nil, conn.script.beginErr
+	hook := conn.script.beforeBegin
+	beginErr := conn.script.beginErr
+	conn.script.mu.Unlock()
+	if hook != nil {
+		if err := hook(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if beginErr != nil {
+		return nil, beginErr
 	}
 	return &scriptedTx{script: conn.script}, nil
 }
 
-func (conn *scriptedConn) ExecContext(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (conn *scriptedConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	conn.script.mu.Lock()
 	conn.script.execs = append(conn.script.execs, statementRecord{SQL: query, Args: cloneNamedValues(args)})
 	callback := conn.script.exec
+	hook := conn.script.beforeExec
 	conn.script.mu.Unlock()
+	if hook != nil {
+		if err := hook(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	result := execResult{RowsAffected: 1}
 	if callback != nil {
 		result = callback(query, args)
@@ -131,11 +160,23 @@ func (conn *scriptedConn) ExecContext(_ context.Context, query string, args []dr
 	return scriptedResult{lastInsertID: result.LastInsertID, rowsAffected: result.RowsAffected}, nil
 }
 
-func (conn *scriptedConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (conn *scriptedConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	conn.script.mu.Lock()
 	conn.script.queries = append(conn.script.queries, statementRecord{SQL: query, Args: cloneNamedValues(args)})
 	callback := conn.script.query
+	hook := conn.script.beforeQuery
 	conn.script.mu.Unlock()
+	if hook != nil {
+		if err := hook(ctx); err != nil {
+			return nil, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	result := queryResult{}
 	if callback != nil {
 		result = callback(query, args)
@@ -249,6 +290,159 @@ func TestGormStoreReturnsInitializationErrorsInsteadOfPanicking(t *testing.T) {
 			t.Fatalf("InTransaction error = %v", err)
 		}
 	}
+}
+
+func TestScriptedDriverRejectsCanceledContextBeforeRecordingSQL(t *testing.T) {
+	script := &databaseScript{}
+	conn := &scriptedConn{script: script}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := conn.QueryContext(ctx, "SELECT 1", nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("QueryContext error = %v, want context.Canceled", err)
+	}
+	if _, err := conn.ExecContext(ctx, "UPDATE user_feedbacks SET version = version", nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("ExecContext error = %v, want context.Canceled", err)
+	}
+	queries, execs := script.statements()
+	if len(queries) != 0 || len(execs) != 0 {
+		t.Fatalf("canceled context recorded SQL: queries=%#v execs=%#v", queries, execs)
+	}
+}
+
+func TestCanceledParentDoesNotExecuteStoreSQL(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(context.Context, *GormStore) error
+	}{
+		{
+			name: "query",
+			call: func(ctx context.Context, store *GormStore) error {
+				_, err := store.GetUserOverview(ctx, 7)
+				return err
+			},
+		},
+		{
+			name: "exec",
+			call: func(ctx context.Context, store *GormStore) error {
+				_, err := store.CreateFeedback(ctx, feedbackRecord())
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			script := &databaseScript{}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			err := test.call(ctx, NewGormStore(openScriptedGormDB(t, script)))
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("store call error = %v, want context.Canceled", err)
+			}
+			queries, execs := script.statements()
+			if len(queries) != 0 || len(execs) != 0 {
+				t.Fatalf("canceled store call executed SQL: queries=%#v execs=%#v", queries, execs)
+			}
+		})
+	}
+}
+
+func TestParentDeadlineInterruptsScriptedQueryExecAndTransaction(t *testing.T) {
+	const parentTimeout = 50 * time.Millisecond
+	const maximumWait = time.Second
+
+	t.Run("query", func(t *testing.T) {
+		var hookEntered atomic.Bool
+		var deadlinePreserved atomic.Bool
+		ctx, cancel := context.WithTimeout(context.Background(), parentTimeout)
+		defer cancel()
+		parentDeadline, _ := ctx.Deadline()
+		script := &databaseScript{beforeQuery: func(ctx context.Context) error {
+			hookEntered.Store(true)
+			deadline, ok := ctx.Deadline()
+			deadlinePreserved.Store(ok && deadline.Equal(parentDeadline))
+			<-ctx.Done()
+			return ctx.Err()
+		}}
+		startedAt := time.Now()
+		_, err := NewGormStore(openScriptedGormDB(t, script)).GetUserOverview(ctx, 7)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("blocked query error = %v, want context.DeadlineExceeded", err)
+		}
+		if !hookEntered.Load() || !deadlinePreserved.Load() {
+			t.Fatalf("query hook entered = %v, deadline preserved = %v", hookEntered.Load(), deadlinePreserved.Load())
+		}
+		if elapsed := time.Since(startedAt); elapsed >= maximumWait {
+			t.Fatalf("blocked query took %s, parent deadline was not preserved", elapsed)
+		}
+		queries, _ := script.statements()
+		if len(queries) != 1 {
+			t.Fatalf("blocked query statements = %d, want 1", len(queries))
+		}
+	})
+
+	t.Run("exec", func(t *testing.T) {
+		var hookEntered atomic.Bool
+		var deadlinePreserved atomic.Bool
+		ctx, cancel := context.WithTimeout(context.Background(), parentTimeout)
+		defer cancel()
+		parentDeadline, _ := ctx.Deadline()
+		script := &databaseScript{beforeExec: func(ctx context.Context) error {
+			hookEntered.Store(true)
+			deadline, ok := ctx.Deadline()
+			deadlinePreserved.Store(ok && deadline.Equal(parentDeadline))
+			<-ctx.Done()
+			return ctx.Err()
+		}}
+		startedAt := time.Now()
+		_, err := NewGormStore(openScriptedGormDB(t, script)).CreateFeedback(ctx, feedbackRecord())
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("blocked exec error = %v, want context.DeadlineExceeded", err)
+		}
+		if !hookEntered.Load() || !deadlinePreserved.Load() {
+			t.Fatalf("exec hook entered = %v, deadline preserved = %v", hookEntered.Load(), deadlinePreserved.Load())
+		}
+		if elapsed := time.Since(startedAt); elapsed >= maximumWait {
+			t.Fatalf("blocked exec took %s, parent deadline was not preserved", elapsed)
+		}
+		_, execs := script.statements()
+		if len(execs) != 1 {
+			t.Fatalf("blocked exec statements = %d, want 1", len(execs))
+		}
+	})
+
+	t.Run("transaction begin", func(t *testing.T) {
+		var hookEntered atomic.Bool
+		var deadlinePreserved atomic.Bool
+		var callbackCalled atomic.Bool
+		ctx, cancel := context.WithTimeout(context.Background(), parentTimeout)
+		defer cancel()
+		parentDeadline, _ := ctx.Deadline()
+		script := &databaseScript{beforeBegin: func(ctx context.Context) error {
+			hookEntered.Store(true)
+			deadline, ok := ctx.Deadline()
+			deadlinePreserved.Store(ok && deadline.Equal(parentDeadline))
+			<-ctx.Done()
+			return ctx.Err()
+		}}
+		startedAt := time.Now()
+		err := NewGormStore(openScriptedGormDB(t, script)).InTransaction(ctx, func(application.TransactionStore) error {
+			callbackCalled.Store(true)
+			return nil
+		})
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("blocked transaction error = %v, want context.DeadlineExceeded", err)
+		}
+		if !hookEntered.Load() || !deadlinePreserved.Load() || callbackCalled.Load() {
+			t.Fatalf("transaction hook entered = %v, deadline preserved = %v, callback called = %v", hookEntered.Load(), deadlinePreserved.Load(), callbackCalled.Load())
+		}
+		if elapsed := time.Since(startedAt); elapsed >= maximumWait {
+			t.Fatalf("blocked transaction took %s, parent deadline was not preserved", elapsed)
+		}
+		if begin, commit, rollback := script.transactionCounts(); begin != 1 || commit != 0 || rollback != 0 {
+			t.Fatalf("transaction counts = begin %d commit %d rollback %d", begin, commit, rollback)
+		}
+	})
 }
 
 func TestInTransactionPassesOneTxBackedStoreAndCommits(t *testing.T) {
