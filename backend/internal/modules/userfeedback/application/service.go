@@ -32,6 +32,9 @@ type ReplayReader interface {
 
 type Store interface {
 	ReplayReader
+	// InTransaction returns callback and confirmed rollback errors without
+	// ErrTransactionOutcomeUnknown. If Commit fails and the final outcome cannot
+	// be determined, it must wrap ErrTransactionOutcomeUnknown and the root cause.
 	InTransaction(ctx context.Context, fn func(TransactionStore) error) error
 	GetUserOverview(ctx context.Context, userID uint) (Overview, error)
 	ListUserFeedbacks(ctx context.Context, userID uint, query UserListQuery) (FeedbackList, error)
@@ -41,6 +44,9 @@ type Store interface {
 	GetAdminFeedback(ctx context.Context, id uint64) (*FeedbackDetail, error)
 }
 
+// TransactionStore is valid only within an InTransaction callback. Callback
+// and explicitly confirmed rollback errors are definitive and must not carry
+// ErrTransactionOutcomeUnknown.
 type TransactionStore interface {
 	ReplayReader
 	// NextFeedbackNumber serializes creation for one date key. The following
@@ -137,11 +143,13 @@ type Logger interface {
 }
 
 type Service struct {
-	store        Store
-	imageStorage ImageStorage
-	now          func() time.Time
-	location     *time.Location
-	logger       Logger
+	store                       Store
+	imageStorage                ImageStorage
+	now                         func() time.Time
+	location                    *time.Location
+	logger                      Logger
+	imageCleanupTimeout         time.Duration
+	replayReconciliationTimeout time.Duration
 }
 
 func NewService(store Store, imageStorage ImageStorage) *Service {
@@ -161,7 +169,22 @@ func newServiceWithClock(store Store, imageStorage ImageStorage, now func() time
 }
 
 func newServiceWithClockAndLogger(store Store, imageStorage ImageStorage, now func() time.Time, location *time.Location, logger Logger) *Service {
-	return &Service{store: store, imageStorage: imageStorage, now: now, location: location, logger: logger}
+	return &Service{
+		store:                       store,
+		imageStorage:                imageStorage,
+		now:                         now,
+		location:                    location,
+		logger:                      logger,
+		imageCleanupTimeout:         defaultImageCleanupTimeout,
+		replayReconciliationTimeout: defaultReplayReconciliationTimeout,
+	}
+}
+
+func timeoutOrDefault(value, fallback time.Duration) time.Duration {
+	if value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func defaultLogger() Logger {

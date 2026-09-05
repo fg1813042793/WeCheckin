@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -13,12 +14,12 @@ import (
 )
 
 const (
-	imageCleanupTimeout         = 10 * time.Second
-	replayReconciliationTimeout = 10 * time.Second
-	cleanupErrorMaxRunes        = 1000
-	cleanupRequestIDMaxRunes    = MaxRequestIDRunes
-	cleanupFeedbackNoMaxRunes   = 64
-	cleanupObjectKeyMaxRunes    = 600
+	defaultImageCleanupTimeout         = 10 * time.Second
+	defaultReplayReconciliationTimeout = 10 * time.Second
+	cleanupErrorMaxRunes               = 1000
+	cleanupRequestIDMaxRunes           = MaxRequestIDRunes
+	cleanupFeedbackNoMaxRunes          = 64
+	cleanupObjectKeyMaxRunes           = 600
 )
 
 var (
@@ -121,7 +122,7 @@ func (service *Service) CreateFeedback(ctx context.Context, command CreateComman
 		return nil
 	})
 	if err != nil {
-		if duplicate, found := service.reconcileReplay(ctx, storedImages, cleanupReference, func(reconciliationCtx context.Context) (*FeedbackDetail, bool, error) {
+		if duplicate, found := service.reconcileReplay(ctx, storedImages, cleanupReference, err, func(reconciliationCtx context.Context) (*FeedbackDetail, bool, error) {
 			return service.store.FindCreateReplay(reconciliationCtx, key)
 		}); found {
 			return decorateDetail(duplicate), nil
@@ -155,7 +156,10 @@ func (service *Service) saveImages(ctx context.Context, images []ValidatedImage,
 
 func (service *Service) deleteImages(ctx context.Context, images []StoredImage, reference imageCleanupReference) {
 	for _, image := range images {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), imageCleanupTimeout)
+		cleanupCtx, cancel := context.WithTimeout(
+			context.WithoutCancel(ctx),
+			timeoutOrDefault(service.imageCleanupTimeout, defaultImageCleanupTimeout),
+		)
 		if err := service.imageStorage.Delete(cleanupCtx, image); err != nil {
 			service.logImageCleanupFailure(reference, image.ObjectKey, err)
 		}
@@ -167,13 +171,21 @@ func (service *Service) reconcileReplay(
 	ctx context.Context,
 	images []StoredImage,
 	reference imageCleanupReference,
+	transactionErr error,
 	findReplay func(context.Context) (*FeedbackDetail, bool, error),
 ) (*FeedbackDetail, bool) {
-	reconciliationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), replayReconciliationTimeout)
+	reconciliationCtx, cancel := context.WithTimeout(
+		context.WithoutCancel(ctx),
+		timeoutOrDefault(service.replayReconciliationTimeout, defaultReplayReconciliationTimeout),
+	)
 	replay, found, err := findReplay(reconciliationCtx)
 	cancel()
 	if err != nil || !found || replay == nil {
-		service.deleteImages(ctx, images, reference)
+		if errors.Is(transactionErr, ErrTransactionOutcomeUnknown) {
+			service.logDeferredImageCleanup(reference, images, transactionErr)
+		} else {
+			service.deleteImages(ctx, images, reference)
+		}
 		return nil, false
 	}
 	reference.FeedbackID = replay.ID
@@ -208,11 +220,21 @@ func (service *Service) deleteImagesNotReferencedByReplay(
 }
 
 func (service *Service) logImageCleanupFailure(reference imageCleanupReference, objectKey string, err error) {
+	service.logImageCleanupEvent("user_feedback_image_cleanup_failed", reference, objectKey, err)
+}
+
+func (service *Service) logDeferredImageCleanup(reference imageCleanupReference, images []StoredImage, err error) {
+	for _, image := range images {
+		service.logImageCleanupEvent("user_feedback_image_cleanup_deferred", reference, image.ObjectKey, err)
+	}
+}
+
+func (service *Service) logImageCleanupEvent(event string, reference imageCleanupReference, objectKey string, err error) {
 	if service == nil || service.logger == nil {
 		return
 	}
 	parts := []string{
-		"event=user_feedback_image_cleanup_failed",
+		"event=" + event,
 		"requestId=" + strconv.Quote(sanitizeCleanupText(reference.RequestID, cleanupRequestIDMaxRunes)),
 	}
 	if reference.FeedbackID > 0 {

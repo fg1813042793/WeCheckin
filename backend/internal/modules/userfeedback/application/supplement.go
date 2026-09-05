@@ -97,7 +97,7 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		return store.UpdateSnapshot(ctx, updated, locked.Version)
 	})
 	if err != nil {
-		if duplicate, found := service.reconcileReplay(ctx, storedImages, cleanupReference, func(reconciliationCtx context.Context) (*FeedbackDetail, bool, error) {
+		if duplicate, found := service.reconcileReplay(ctx, storedImages, cleanupReference, err, func(reconciliationCtx context.Context) (*FeedbackDetail, bool, error) {
 			return service.store.FindMessageReplay(reconciliationCtx, key)
 		}); found {
 			return decorateDetail(duplicate), nil

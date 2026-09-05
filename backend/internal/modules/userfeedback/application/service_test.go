@@ -233,6 +233,74 @@ func TestCreateFeedbackReconcilesCommitErrorBeforeSelectiveImageCleanup(t *testi
 	}
 }
 
+func TestCreateFeedbackDefersCleanupForUnknownTransactionOutcomeWhenReplayUnavailable(t *testing.T) {
+	tests := []struct {
+		name              string
+		replayLookupError bool
+	}{
+		{name: "replay not found"},
+		{name: "replay lookup failed", replayLookupError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rootErr := errors.New("commit result unavailable token=private-token")
+			transactionErr := fmt.Errorf("%w: %w", ErrTransactionOutcomeUnknown, rootErr)
+			store := newFakeStore()
+			store.transactionCommitErr = transactionErr
+			if test.replayLookupError {
+				store.createReplayErrAt = 3
+				store.createReplayErr = errors.New("replay lookup failed")
+			}
+			storage := &fakeImageStorage{}
+			logger := &captureLogger{}
+			service := newServiceWithClockAndLogger(store, storage, func() time.Time {
+				return time.Date(2026, time.September, 5, 1, 0, 0, 0, time.UTC)
+			}, mustShanghai(t), logger)
+
+			_, err := service.CreateFeedback(context.Background(), CreateCommand{
+				SubmitterID: 8,
+				Content:     "TOP-PRIVATE-FEEDBACK",
+				RequestID:   "unknown-create",
+				Attachments: []AttachmentInput{
+					validImageInput("private-one.png", "image/png"),
+					validImageInput("private-two.png", "image/png"),
+				},
+			})
+			if err != transactionErr || !errors.Is(err, ErrTransactionOutcomeUnknown) || !errors.Is(err, rootErr) {
+				t.Fatalf("CreateFeedback() error = %v, want original unknown transaction error chain", err)
+			}
+			if storage.deleteCalls != 0 {
+				t.Fatalf("Delete calls = %d, want 0", storage.deleteCalls)
+			}
+			assertDeferredCleanupLogs(t, logger, storage.saved, "unknown-create", 101, "FB-20260905-0001")
+		})
+	}
+}
+
+func TestCreateFeedbackUnknownTransactionOutcomeUsesReplayForSelectiveCleanup(t *testing.T) {
+	rootErr := errors.New("commit result unavailable")
+	store := newFakeStore()
+	store.transactionCommitErr = fmt.Errorf("%w: %w", ErrTransactionOutcomeUnknown, rootErr)
+	replay := feedbackDetailWithObjectKeys(feedbackDetail(101, 8, domain.StatusPending, 1), "uploads/feedback/1")
+	store.createReplays = []*FeedbackDetail{nil, nil, replay}
+	storage := &fakeImageStorage{}
+	logger := &captureLogger{}
+	service := newServiceWithClockAndLogger(store, storage, time.Now, mustShanghai(t), logger)
+
+	detail, err := service.CreateFeedback(context.Background(), CreateCommand{
+		SubmitterID: 8, Content: "with images", RequestID: "unknown-replayed", Attachments: validImageInputs(2),
+	})
+	if err != nil || detail != replay {
+		t.Fatalf("CreateFeedback() = %#v, %v, want replay", detail, err)
+	}
+	if got, want := storedImageObjectKeys(storage.deleted), []string{"uploads/feedback/2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("deleted object keys = %#v, want %#v", got, want)
+	}
+	if len(logger.entries) != 0 {
+		t.Fatalf("deferred cleanup logs = %#v, want none after confirmed replay", logger.entries)
+	}
+}
+
 func TestCreateFeedbackKeepsTransactionErrorWhenReplayLookupFailsAndReconcilesCanceledContext(t *testing.T) {
 	t.Run("lookup failure", func(t *testing.T) {
 		store := newFakeStore()
@@ -240,7 +308,8 @@ func TestCreateFeedbackKeepsTransactionErrorWhenReplayLookupFailsAndReconcilesCa
 		store.createReplayErrAt = 3
 		store.createReplayErr = errors.New("replay lookup failed")
 		storage := &fakeImageStorage{}
-		service := newServiceWithClock(store, storage, time.Now, mustShanghai(t))
+		logger := &captureLogger{}
+		service := newServiceWithClockAndLogger(store, storage, time.Now, mustShanghai(t), logger)
 
 		_, err := service.CreateFeedback(context.Background(), CreateCommand{
 			SubmitterID: 3, Content: "retry", RequestID: "lookup-failure", Attachments: validImageInputs(2),
@@ -250,6 +319,9 @@ func TestCreateFeedbackKeepsTransactionErrorWhenReplayLookupFailsAndReconcilesCa
 		}
 		if !reflect.DeepEqual(storage.deleted, storage.saved) {
 			t.Fatalf("lookup failure compensation saved=%#v deleted=%#v", storage.saved, storage.deleted)
+		}
+		if len(logger.entries) != 0 {
+			t.Fatalf("definitive rollback logged deferred cleanup: %#v", logger.entries)
 		}
 	})
 
@@ -434,11 +506,13 @@ func TestImageCleanupUsesFreshBoundedContextForEachImage(t *testing.T) {
 		},
 	}
 	service := newServiceWithClockAndLogger(newFakeStore(), storage, time.Now, mustShanghai(t), &captureLogger{})
+	service.imageCleanupTimeout = 20 * time.Millisecond
 	images := []StoredImage{
 		{ObjectKey: "uploads/feedback/first"},
 		{ObjectKey: "uploads/feedback/second"},
 	}
 
+	startedAt := time.Now()
 	service.deleteImages(context.Background(), images, imageCleanupReference{RequestID: "cleanup-each"})
 
 	if storage.deleteCalls != 2 {
@@ -449,6 +523,9 @@ func TestImageCleanupUsesFreshBoundedContextForEachImage(t *testing.T) {
 	}
 	if !secondHasDeadline {
 		t.Fatal("second Delete context has no deadline")
+	}
+	if elapsed := time.Since(startedAt); elapsed >= time.Second {
+		t.Fatalf("cleanup test elapsed = %v, want injected timeout below one second", elapsed)
 	}
 }
 
@@ -595,6 +672,48 @@ func TestNewServiceAlwaysInitializesShanghaiLocationAndLogger(t *testing.T) {
 	assertShanghaiLocation(t, service.location)
 	if service.logger == nil {
 		t.Fatal("NewService() logger = nil")
+	}
+	if service.imageCleanupTimeout != 10*time.Second || service.replayReconciliationTimeout != 10*time.Second {
+		t.Fatalf("NewService() timeouts = %v/%v, want 10s/10s", service.imageCleanupTimeout, service.replayReconciliationTimeout)
+	}
+}
+
+func TestServiceTimeoutsFallBackToProductionDefaultsWhenNonPositive(t *testing.T) {
+	storage := &fakeImageStorage{}
+	service := newServiceWithClock(newFakeStore(), storage, time.Now, mustShanghai(t))
+	service.imageCleanupTimeout = 0
+	service.deleteImages(context.Background(), []StoredImage{{ObjectKey: "uploads/feedback/fallback"}}, imageCleanupReference{})
+	if len(storage.deleteContexts) != 1 {
+		t.Fatalf("Delete context count = %d, want 1", len(storage.deleteContexts))
+	}
+	cleanupContext := storage.deleteContexts[0]
+	if !cleanupContext.hasDeadline || cleanupContext.deadlineRemaining < 9*time.Second || cleanupContext.deadlineRemaining > 11*time.Second {
+		t.Fatalf("fallback cleanup deadline = %v, hasDeadline=%t", cleanupContext.deadlineRemaining, cleanupContext.hasDeadline)
+	}
+
+	service.replayReconciliationTimeout = -time.Second
+	var replayContext observedCleanupContext
+	service.reconcileReplay(context.Background(), nil, imageCleanupReference{}, errors.New("rolled back"), func(ctx context.Context) (*FeedbackDetail, bool, error) {
+		replayContext = observeContext(ctx, nil)
+		return nil, false, nil
+	})
+	if !replayContext.hasDeadline || replayContext.deadlineRemaining < 9*time.Second || replayContext.deadlineRemaining > 11*time.Second {
+		t.Fatalf("fallback reconciliation deadline = %v, hasDeadline=%t", replayContext.deadlineRemaining, replayContext.hasDeadline)
+	}
+}
+
+func TestServiceUsesInjectedReplayReconciliationTimeout(t *testing.T) {
+	service := newServiceWithClock(newFakeStore(), &fakeImageStorage{}, time.Now, mustShanghai(t))
+	service.replayReconciliationTimeout = 25 * time.Millisecond
+	var observed observedCleanupContext
+
+	service.reconcileReplay(context.Background(), nil, imageCleanupReference{}, errors.New("rolled back"), func(ctx context.Context) (*FeedbackDetail, bool, error) {
+		observed = observeContext(ctx, nil)
+		return nil, false, nil
+	})
+
+	if !observed.hasDeadline || observed.deadlineRemaining <= 0 || observed.deadlineRemaining > 100*time.Millisecond {
+		t.Fatalf("injected reconciliation deadline = %v, hasDeadline=%t", observed.deadlineRemaining, observed.hasDeadline)
 	}
 }
 
@@ -995,6 +1114,77 @@ func TestSupplementFeedbackReconcilesCommitErrorBeforeSelectiveImageCleanup(t *t
 	}
 }
 
+func TestSupplementFeedbackDefersCleanupForUnknownTransactionOutcomeWhenReplayUnavailable(t *testing.T) {
+	tests := []struct {
+		name              string
+		replayLookupError bool
+	}{
+		{name: "replay not found"},
+		{name: "replay lookup failed", replayLookupError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rootErr := errors.New("commit result unavailable bearer private-bearer")
+			transactionErr := fmt.Errorf("%w: %w", ErrTransactionOutcomeUnknown, rootErr)
+			store := newFakeStore()
+			store.locked = &FeedbackSnapshot{
+				ID: 101, FeedbackNo: "FB-20260905-0001", SubmitterID: 9,
+				Status: domain.StatusPending, Version: 3,
+			}
+			store.transactionCommitErr = transactionErr
+			if test.replayLookupError {
+				store.messageReplayErrAt = 3
+				store.messageReplayErr = errors.New("replay lookup failed")
+			}
+			storage := &fakeImageStorage{}
+			logger := &captureLogger{}
+			service := newServiceWithClockAndLogger(store, storage, time.Now, mustShanghai(t), logger)
+
+			_, err := service.SupplementFeedback(context.Background(), SupplementCommand{
+				FeedbackID: 101, SubmitterID: 9, Version: 3,
+				Content: "TOP-PRIVATE-FEEDBACK", RequestID: "unknown-supplement",
+				Attachments: []AttachmentInput{
+					validImageInput("private-one.png", "image/png"),
+					validImageInput("private-two.png", "image/png"),
+				},
+			})
+			if err != transactionErr || !errors.Is(err, ErrTransactionOutcomeUnknown) || !errors.Is(err, rootErr) {
+				t.Fatalf("SupplementFeedback() error = %v, want original unknown transaction error chain", err)
+			}
+			if storage.deleteCalls != 0 {
+				t.Fatalf("Delete calls = %d, want 0", storage.deleteCalls)
+			}
+			assertDeferredCleanupLogs(t, logger, storage.saved, "unknown-supplement", 101, "FB-20260905-0001")
+		})
+	}
+}
+
+func TestSupplementFeedbackUnknownTransactionOutcomeUsesReplayForSelectiveCleanup(t *testing.T) {
+	rootErr := errors.New("commit result unavailable")
+	store := newFakeStore()
+	store.locked = &FeedbackSnapshot{ID: 101, SubmitterID: 9, Status: domain.StatusPending, Version: 3}
+	store.transactionCommitErr = fmt.Errorf("%w: %w", ErrTransactionOutcomeUnknown, rootErr)
+	replay := feedbackDetailWithObjectKeys(feedbackDetail(101, 9, domain.StatusPending, 4), "uploads/feedback/1")
+	store.messageReplays = []*FeedbackDetail{nil, nil, replay}
+	storage := &fakeImageStorage{}
+	logger := &captureLogger{}
+	service := newServiceWithClockAndLogger(store, storage, time.Now, mustShanghai(t), logger)
+
+	detail, err := service.SupplementFeedback(context.Background(), SupplementCommand{
+		FeedbackID: 101, SubmitterID: 9, Version: 3,
+		Content: "more", RequestID: "unknown-replayed", Attachments: validImageInputs(2),
+	})
+	if err != nil || detail != replay {
+		t.Fatalf("SupplementFeedback() = %#v, %v, want replay", detail, err)
+	}
+	if got, want := storedImageObjectKeys(storage.deleted), []string{"uploads/feedback/2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("deleted object keys = %#v, want %#v", got, want)
+	}
+	if len(logger.entries) != 0 {
+		t.Fatalf("deferred cleanup logs = %#v, want none after confirmed replay", logger.entries)
+	}
+}
+
 func TestSupplementFeedbackRechecksOwnershipStatusVersionAndAttachmentLimitAfterLock(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -1191,6 +1381,42 @@ func TestUpdateFeedbackStatusRechecksReplayAfterAnyTransactionError(t *testing.T
 	if store.messageReplayCalls != 3 || store.appendMessageCalls != 0 || store.updateCalls != 0 || len(store.enqueued) != 0 {
 		t.Fatalf("replay/message/update/outbox calls = %d/%d/%d/%d, want 3/0/0/0", store.messageReplayCalls, store.appendMessageCalls, store.updateCalls, len(store.enqueued))
 	}
+}
+
+func TestUpdateFeedbackStatusPreservesUnknownTransactionOutcome(t *testing.T) {
+	t.Run("replay unavailable", func(t *testing.T) {
+		rootErr := errors.New("commit result unavailable")
+		transactionErr := fmt.Errorf("%w: %w", ErrTransactionOutcomeUnknown, rootErr)
+		store := newFakeStore()
+		store.locked = &FeedbackSnapshot{ID: 101, SubmitterID: 9, Status: domain.StatusPending, Version: 1}
+		store.transactionCommitErr = transactionErr
+		service := newServiceWithClock(store, &fakeImageStorage{}, time.Now, mustShanghai(t))
+
+		_, err := service.UpdateFeedbackStatus(context.Background(), UpdateStatusCommand{
+			FeedbackID: 101, AdminID: 7, Status: domain.StatusProcessing,
+			Version: 1, RequestID: "status-unknown",
+		})
+		if err != transactionErr || !errors.Is(err, ErrTransactionOutcomeUnknown) || !errors.Is(err, rootErr) {
+			t.Fatalf("UpdateFeedbackStatus() error = %v, want original unknown transaction error chain", err)
+		}
+	})
+
+	t.Run("replay found", func(t *testing.T) {
+		store := newFakeStore()
+		store.locked = &FeedbackSnapshot{ID: 101, SubmitterID: 9, Status: domain.StatusPending, Version: 1}
+		store.transactionCommitErr = fmt.Errorf("%w: commit result unavailable", ErrTransactionOutcomeUnknown)
+		replay := feedbackDetail(101, 9, domain.StatusProcessing, 2)
+		store.messageReplays = []*FeedbackDetail{nil, nil, replay}
+		service := newServiceWithClock(store, &fakeImageStorage{}, time.Now, mustShanghai(t))
+
+		detail, err := service.UpdateFeedbackStatus(context.Background(), UpdateStatusCommand{
+			FeedbackID: 101, AdminID: 7, Status: domain.StatusProcessing,
+			Version: 1, RequestID: "status-unknown-replayed",
+		})
+		if err != nil || detail != replay {
+			t.Fatalf("UpdateFeedbackStatus() = %#v, %v, want replay", detail, err)
+		}
+	})
 }
 
 func TestUpdateFeedbackStatusValidatesCommandBeforeStoreCalls(t *testing.T) {
@@ -1676,6 +1902,46 @@ func assertBoundedReplayContext(t *testing.T, observed observedCleanupContext, w
 	}
 	if observed.value != wantValue {
 		t.Fatalf("reconciliation context value = %#v, want %#v", observed.value, wantValue)
+	}
+}
+
+func assertDeferredCleanupLogs(
+	t *testing.T,
+	logger *captureLogger,
+	images []StoredImage,
+	requestID string,
+	feedbackID uint64,
+	feedbackNo string,
+) {
+	t.Helper()
+	if len(logger.entries) != len(images) {
+		t.Fatalf("deferred cleanup log count = %d, want %d: %#v", len(logger.entries), len(images), logger.entries)
+	}
+	for index, image := range images {
+		entry := logger.entries[index]
+		for _, required := range []string{
+			"event=user_feedback_image_cleanup_deferred",
+			`requestId="` + requestID + `"`,
+			fmt.Sprintf("feedbackId=%d", feedbackID),
+			`feedbackNo="` + feedbackNo + `"`,
+			`objectKey="` + image.ObjectKey + `"`,
+			"err=",
+			"[REDACTED]",
+		} {
+			if !strings.Contains(entry, required) {
+				t.Errorf("deferred cleanup log missing %q: %s", required, entry)
+			}
+		}
+		for _, forbidden := range []string{
+			"TOP-PRIVATE-FEEDBACK",
+			image.OriginalName,
+			"private-token",
+			"private-bearer",
+		} {
+			if strings.Contains(entry, forbidden) {
+				t.Errorf("deferred cleanup log leaked %q: %s", forbidden, entry)
+			}
+		}
 	}
 }
 
