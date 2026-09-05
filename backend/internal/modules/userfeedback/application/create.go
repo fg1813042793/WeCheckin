@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	imageCleanupTimeout       = 10 * time.Second
-	cleanupErrorMaxRunes      = 1000
-	cleanupRequestIDMaxRunes  = MaxRequestIDRunes
-	cleanupFeedbackNoMaxRunes = 64
-	cleanupObjectKeyMaxRunes  = 600
+	imageCleanupTimeout         = 10 * time.Second
+	replayReconciliationTimeout = 10 * time.Second
+	cleanupErrorMaxRunes        = 1000
+	cleanupRequestIDMaxRunes    = MaxRequestIDRunes
+	cleanupFeedbackNoMaxRunes   = 64
+	cleanupObjectKeyMaxRunes    = 600
 )
 
 var (
@@ -120,18 +121,17 @@ func (service *Service) CreateFeedback(ctx context.Context, command CreateComman
 		return nil
 	})
 	if err != nil {
-		service.deleteImages(ctx, storedImages, cleanupReference)
-		if ctx.Err() == nil {
-			if duplicate, found, lookupErr := service.store.FindCreateReplay(ctx, key); lookupErr == nil && found {
-				return decorateDetail(duplicate), nil
-			}
+		if duplicate, found := service.reconcileReplay(ctx, storedImages, cleanupReference, func(reconciliationCtx context.Context) (*FeedbackDetail, bool, error) {
+			return service.store.FindCreateReplay(reconciliationCtx, key)
+		}); found {
+			return decorateDetail(duplicate), nil
 		}
 		return nil, err
 	}
 	if replay != nil {
 		cleanupReference.FeedbackID = replay.ID
 		cleanupReference.FeedbackNo = replay.FeedbackNo
-		service.deleteImages(ctx, storedImages, cleanupReference)
+		service.deleteImagesNotReferencedByReplay(ctx, storedImages, cleanupReference, replay)
 		return decorateDetail(replay), nil
 	}
 	return service.GetUserFeedback(ctx, feedbackID, command.SubmitterID)
@@ -154,13 +154,57 @@ func (service *Service) saveImages(ctx context.Context, images []ValidatedImage,
 }
 
 func (service *Service) deleteImages(ctx context.Context, images []StoredImage, reference imageCleanupReference) {
-	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), imageCleanupTimeout)
-	defer cancel()
 	for _, image := range images {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), imageCleanupTimeout)
 		if err := service.imageStorage.Delete(cleanupCtx, image); err != nil {
 			service.logImageCleanupFailure(reference, image.ObjectKey, err)
 		}
+		cancel()
 	}
+}
+
+func (service *Service) reconcileReplay(
+	ctx context.Context,
+	images []StoredImage,
+	reference imageCleanupReference,
+	findReplay func(context.Context) (*FeedbackDetail, bool, error),
+) (*FeedbackDetail, bool) {
+	reconciliationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), replayReconciliationTimeout)
+	replay, found, err := findReplay(reconciliationCtx)
+	cancel()
+	if err != nil || !found || replay == nil {
+		service.deleteImages(ctx, images, reference)
+		return nil, false
+	}
+	reference.FeedbackID = replay.ID
+	reference.FeedbackNo = replay.FeedbackNo
+	service.deleteImagesNotReferencedByReplay(ctx, images, reference, replay)
+	return replay, true
+}
+
+func (service *Service) deleteImagesNotReferencedByReplay(
+	ctx context.Context,
+	images []StoredImage,
+	reference imageCleanupReference,
+	replay *FeedbackDetail,
+) {
+	referencedObjectKeys := make(map[string]struct{})
+	if replay != nil {
+		for _, message := range replay.Messages {
+			for _, attachment := range message.Attachments {
+				if attachment.ObjectKey != "" {
+					referencedObjectKeys[attachment.ObjectKey] = struct{}{}
+				}
+			}
+		}
+	}
+	unreferencedImages := make([]StoredImage, 0, len(images))
+	for _, image := range images {
+		if _, referenced := referencedObjectKeys[image.ObjectKey]; !referenced {
+			unreferencedImages = append(unreferencedImages, image)
+		}
+	}
+	service.deleteImages(ctx, unreferencedImages, reference)
 }
 
 func (service *Service) logImageCleanupFailure(reference imageCleanupReference, objectKey string, err error) {

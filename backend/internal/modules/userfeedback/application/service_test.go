@@ -136,6 +136,24 @@ func TestCreateFeedbackConcurrentReplayDeletesOnlyImagesSavedByThisCall(t *testi
 	}
 }
 
+func TestCreateFeedbackConcurrentReplayPreservesReferencedImages(t *testing.T) {
+	store := newFakeStore()
+	replay := feedbackDetailWithObjectKeys(feedbackDetail(56, 3, domain.StatusPending, 1), "uploads/feedback/1")
+	store.createReplays = []*FeedbackDetail{nil, replay}
+	storage := &fakeImageStorage{}
+	service := newServiceWithClock(store, storage, time.Now, mustShanghai(t))
+
+	detail, err := service.CreateFeedback(context.Background(), CreateCommand{
+		SubmitterID: 3, Content: "retry", RequestID: "race-referenced", Attachments: validImageInputs(2),
+	})
+	if err != nil || detail != replay {
+		t.Fatalf("CreateFeedback() = %#v, %v, want replay", detail, err)
+	}
+	if got, want := storedImageObjectKeys(storage.deleted), []string{"uploads/feedback/2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("deleted object keys = %#v, want %#v", got, want)
+	}
+}
+
 func TestCreateFeedbackRechecksReplayAfterAnyTransactionError(t *testing.T) {
 	events := make([]string, 0)
 	store := newFakeStore()
@@ -155,45 +173,108 @@ func TestCreateFeedbackRechecksReplayAfterAnyTransactionError(t *testing.T) {
 	if store.createReplayCalls != 3 || store.createCalls != 0 {
 		t.Fatalf("replay/create calls = %d/%d, want 3/0", store.createReplayCalls, store.createCalls)
 	}
-	wantTail := []string{"delete-image", "find-create-replay"}
+	wantTail := []string{"find-create-replay", "delete-image"}
 	if len(events) < len(wantTail) || !reflect.DeepEqual(events[len(events)-len(wantTail):], wantTail) {
 		t.Fatalf("operation tail = %#v, want %#v", events, wantTail)
 	}
 }
 
-func TestCreateFeedbackKeepsTransactionErrorWhenReplayLookupFailsOrContextEnds(t *testing.T) {
+func TestCreateFeedbackReconcilesCommitErrorBeforeSelectiveImageCleanup(t *testing.T) {
+	type contextKey string
+	const traceKey contextKey = "trace"
+	tests := []struct {
+		name           string
+		referencedKeys []string
+		cancelOriginal bool
+		wantDeleted    []string
+	}{
+		{
+			name:           "partially committed attachments",
+			referencedKeys: []string{"uploads/feedback/1"},
+			wantDeleted:    []string{"uploads/feedback/2"},
+		},
+		{
+			name:           "all attachments committed after original context cancellation",
+			referencedKeys: []string{"uploads/feedback/1", "uploads/feedback/2"},
+			cancelOriginal: true,
+			wantDeleted:    []string{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.WithValue(context.Background(), traceKey, "create-trace"))
+			defer cancel()
+			transactionErr := errors.New("commit result unavailable")
+			replay := feedbackDetailWithObjectKeys(feedbackDetail(101, 8, domain.StatusPending, 1), test.referencedKeys...)
+			store := newFakeStore()
+			store.transactionCommitErr = transactionErr
+			store.createReplays = []*FeedbackDetail{nil, nil, replay}
+			store.replayContextKey = traceKey
+			if test.cancelOriginal {
+				store.transactionReturnHook = cancel
+			}
+			storage := &fakeImageStorage{}
+			service := newServiceWithClock(store, storage, time.Now, mustShanghai(t))
+
+			detail, err := service.CreateFeedback(ctx, CreateCommand{
+				SubmitterID: 8, Content: "with images", RequestID: "commit-reconcile", Attachments: validImageInputs(2),
+			})
+			if err != nil || detail != replay {
+				t.Fatalf("CreateFeedback() = %#v, %v, want replay", detail, err)
+			}
+			if got := storedImageObjectKeys(storage.deleted); !reflect.DeepEqual(got, test.wantDeleted) {
+				t.Fatalf("deleted object keys = %#v, want %#v", got, test.wantDeleted)
+			}
+			if store.createReplayCalls != 3 {
+				t.Fatalf("FindCreateReplay calls = %d, want 3", store.createReplayCalls)
+			}
+			assertBoundedReplayContext(t, store.createReplayContexts[2], "create-trace")
+		})
+	}
+}
+
+func TestCreateFeedbackKeepsTransactionErrorWhenReplayLookupFailsAndReconcilesCanceledContext(t *testing.T) {
 	t.Run("lookup failure", func(t *testing.T) {
 		store := newFakeStore()
 		store.createdOnDate = MaxFeedbacksPerUserPerDay
 		store.createReplayErrAt = 3
 		store.createReplayErr = errors.New("replay lookup failed")
-		service := newServiceWithClock(store, &fakeImageStorage{}, time.Now, mustShanghai(t))
+		storage := &fakeImageStorage{}
+		service := newServiceWithClock(store, storage, time.Now, mustShanghai(t))
 
 		_, err := service.CreateFeedback(context.Background(), CreateCommand{
-			SubmitterID: 3, Content: "retry", RequestID: "lookup-failure",
+			SubmitterID: 3, Content: "retry", RequestID: "lookup-failure", Attachments: validImageInputs(2),
 		})
 		if !errors.Is(err, ErrDailyLimitExceeded) {
 			t.Fatalf("CreateFeedback() error = %v, want original ErrDailyLimitExceeded", err)
+		}
+		if !reflect.DeepEqual(storage.deleted, storage.saved) {
+			t.Fatalf("lookup failure compensation saved=%#v deleted=%#v", storage.saved, storage.deleted)
 		}
 	})
 
 	t.Run("request canceled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		type contextKey string
+		const traceKey contextKey = "trace"
+		ctx, cancel := context.WithCancel(context.WithValue(context.Background(), traceKey, "create-trace"))
 		store := newFakeStore()
 		store.createdOnDate = MaxFeedbacksPerUserPerDay
-		store.createReplays = []*FeedbackDetail{nil, nil, feedbackDetail(56, 3, domain.StatusPending, 1)}
+		replay := feedbackDetail(56, 3, domain.StatusPending, 1)
+		store.createReplays = []*FeedbackDetail{nil, nil, replay}
+		store.replayContextKey = traceKey
 		store.transactionReturnHook = cancel
 		service := newServiceWithClock(store, &fakeImageStorage{}, time.Now, mustShanghai(t))
 
-		_, err := service.CreateFeedback(ctx, CreateCommand{
+		detail, err := service.CreateFeedback(ctx, CreateCommand{
 			SubmitterID: 3, Content: "retry", RequestID: "canceled-recheck",
 		})
-		if !errors.Is(err, ErrDailyLimitExceeded) {
-			t.Fatalf("CreateFeedback() error = %v, want original ErrDailyLimitExceeded", err)
+		if err != nil || detail != replay {
+			t.Fatalf("CreateFeedback() = %#v, %v, want replay", detail, err)
 		}
-		if store.createReplayCalls != 2 {
-			t.Fatalf("replay calls = %d, want no out-of-transaction lookup", store.createReplayCalls)
+		if store.createReplayCalls != 3 {
+			t.Fatalf("replay calls = %d, want reconciliation lookup", store.createReplayCalls)
 		}
+		assertBoundedReplayContext(t, store.createReplayContexts[2], "create-trace")
 	})
 }
 
@@ -336,6 +417,39 @@ func TestImageCleanupUsesIndependentBoundedContext(t *testing.T) {
 		}
 		assertCleanupContext(t, storage)
 	})
+}
+
+func TestImageCleanupUsesFreshBoundedContextForEachImage(t *testing.T) {
+	var secondContextErr error
+	var secondHasDeadline bool
+	storage := &fakeImageStorage{
+		deleteHook: func(ctx context.Context, call int, _ StoredImage) error {
+			if call == 1 {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			secondContextErr = ctx.Err()
+			_, secondHasDeadline = ctx.Deadline()
+			return nil
+		},
+	}
+	service := newServiceWithClockAndLogger(newFakeStore(), storage, time.Now, mustShanghai(t), &captureLogger{})
+	images := []StoredImage{
+		{ObjectKey: "uploads/feedback/first"},
+		{ObjectKey: "uploads/feedback/second"},
+	}
+
+	service.deleteImages(context.Background(), images, imageCleanupReference{RequestID: "cleanup-each"})
+
+	if storage.deleteCalls != 2 {
+		t.Fatalf("Delete calls = %d, want 2", storage.deleteCalls)
+	}
+	if secondContextErr != nil {
+		t.Fatalf("second Delete context error = %v, want nil", secondContextErr)
+	}
+	if !secondHasDeadline {
+		t.Fatal("second Delete context has no deadline")
+	}
 }
 
 func TestImageCleanupFailureLogsSafeIdentifiersWithoutReplacingResult(t *testing.T) {
@@ -780,6 +894,25 @@ func TestSupplementFeedbackConcurrentReplayCompensatesNewImages(t *testing.T) {
 	}
 }
 
+func TestSupplementFeedbackConcurrentReplayPreservesReferencedImages(t *testing.T) {
+	store := newFakeStore()
+	replay := feedbackDetailWithObjectKeys(feedbackDetail(101, 9, domain.StatusPending, 4), "uploads/feedback/1")
+	store.messageReplays = []*FeedbackDetail{nil, replay}
+	storage := &fakeImageStorage{}
+	service := newServiceWithClock(store, storage, time.Now, mustShanghai(t))
+
+	detail, err := service.SupplementFeedback(context.Background(), SupplementCommand{
+		FeedbackID: 101, SubmitterID: 9, Version: 3,
+		Content: "race", RequestID: "same-referenced", Attachments: validImageInputs(2),
+	})
+	if err != nil || detail != replay {
+		t.Fatalf("SupplementFeedback() = %#v, %v, want replay", detail, err)
+	}
+	if got, want := storedImageObjectKeys(storage.deleted), []string{"uploads/feedback/2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("deleted object keys = %#v, want %#v", got, want)
+	}
+}
+
 func TestSupplementFeedbackRechecksReplayAfterAnyTransactionError(t *testing.T) {
 	events := make([]string, 0)
 	store := newFakeStore()
@@ -800,9 +933,65 @@ func TestSupplementFeedbackRechecksReplayAfterAnyTransactionError(t *testing.T) 
 	if store.messageReplayCalls != 3 || store.appendMessageCalls != 0 || store.updateCalls != 0 {
 		t.Fatalf("replay/message/update calls = %d/%d/%d, want 3/0/0", store.messageReplayCalls, store.appendMessageCalls, store.updateCalls)
 	}
-	wantTail := []string{"delete-image", "find-message-replay"}
+	wantTail := []string{"find-message-replay", "delete-image"}
 	if len(events) < len(wantTail) || !reflect.DeepEqual(events[len(events)-len(wantTail):], wantTail) {
 		t.Fatalf("operation tail = %#v, want %#v", events, wantTail)
+	}
+}
+
+func TestSupplementFeedbackReconcilesCommitErrorBeforeSelectiveImageCleanup(t *testing.T) {
+	type contextKey string
+	const traceKey contextKey = "trace"
+	tests := []struct {
+		name           string
+		referencedKeys []string
+		cancelOriginal bool
+		wantDeleted    []string
+	}{
+		{
+			name:           "partially committed attachments",
+			referencedKeys: []string{"uploads/feedback/1"},
+			wantDeleted:    []string{"uploads/feedback/2"},
+		},
+		{
+			name:           "all attachments committed after original context cancellation",
+			referencedKeys: []string{"uploads/feedback/1", "uploads/feedback/2"},
+			cancelOriginal: true,
+			wantDeleted:    []string{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.WithValue(context.Background(), traceKey, "supplement-trace"))
+			defer cancel()
+			transactionErr := errors.New("commit result unavailable")
+			replay := feedbackDetailWithObjectKeys(feedbackDetail(101, 9, domain.StatusPending, 4), test.referencedKeys...)
+			store := newFakeStore()
+			store.locked = &FeedbackSnapshot{ID: 101, SubmitterID: 9, Status: domain.StatusPending, Version: 3}
+			store.transactionCommitErr = transactionErr
+			store.messageReplays = []*FeedbackDetail{nil, nil, replay}
+			store.replayContextKey = traceKey
+			if test.cancelOriginal {
+				store.transactionReturnHook = cancel
+			}
+			storage := &fakeImageStorage{}
+			service := newServiceWithClock(store, storage, time.Now, mustShanghai(t))
+
+			detail, err := service.SupplementFeedback(ctx, SupplementCommand{
+				FeedbackID: 101, SubmitterID: 9, Version: 3,
+				Content: "more", RequestID: "commit-reconcile", Attachments: validImageInputs(2),
+			})
+			if err != nil || detail != replay {
+				t.Fatalf("SupplementFeedback() = %#v, %v, want replay", detail, err)
+			}
+			if got := storedImageObjectKeys(storage.deleted); !reflect.DeepEqual(got, test.wantDeleted) {
+				t.Fatalf("deleted object keys = %#v, want %#v", got, test.wantDeleted)
+			}
+			if store.messageReplayCalls != 3 {
+				t.Fatalf("FindMessageReplay calls = %d, want 3", store.messageReplayCalls)
+			}
+			assertBoundedReplayContext(t, store.messageReplayContexts[2], "supplement-trace")
+		})
 	}
 }
 
@@ -853,6 +1042,15 @@ func TestSupplementFeedbackCompensatesTransactionAndWriteFailures(t *testing.T) 
 		{name: "append attachments", configure: func(store *fakeStore) { store.appendAttachmentErr = errors.New("attachments failed") }, want: errors.New("attachments failed")},
 		{name: "snapshot", configure: func(store *fakeStore) { store.updateErr = ErrVersionConflict }, want: ErrVersionConflict},
 		{name: "commit", configure: func(store *fakeStore) { store.transactionCommitErr = errors.New("commit failed") }, want: errors.New("commit failed")},
+		{
+			name: "reconciliation lookup",
+			configure: func(store *fakeStore) {
+				store.transactionCommitErr = errors.New("commit failed")
+				store.messageReplayErrAt = 3
+				store.messageReplayErr = errors.New("replay lookup failed")
+			},
+			want: errors.New("commit failed"),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1160,6 +1358,9 @@ type fakeStore struct {
 	createReplayErr         error
 	messageReplayErrAt      int
 	messageReplayErr        error
+	replayContextKey        any
+	createReplayContexts    []observedCleanupContext
+	messageReplayContexts   []observedCleanupContext
 	nextSequence            uint64
 	nextDateKey             string
 	createdOnDate           int64
@@ -1223,8 +1424,9 @@ func (store *fakeStore) InTransaction(ctx context.Context, fn func(TransactionSt
 	return store.transactionCommitErr
 }
 
-func (store *fakeStore) FindCreateReplay(_ context.Context, _ CreateReplayKey) (*FeedbackDetail, bool, error) {
+func (store *fakeStore) FindCreateReplay(ctx context.Context, _ CreateReplayKey) (*FeedbackDetail, bool, error) {
 	store.recordEvent("find-create-replay")
+	store.createReplayContexts = append(store.createReplayContexts, observeContext(ctx, store.replayContextKey))
 	index := store.createReplayCalls
 	store.createReplayCalls++
 	if store.createReplayErrAt == store.createReplayCalls {
@@ -1236,8 +1438,9 @@ func (store *fakeStore) FindCreateReplay(_ context.Context, _ CreateReplayKey) (
 	return store.createReplays[index], true, nil
 }
 
-func (store *fakeStore) FindMessageReplay(_ context.Context, _ MessageReplayKey) (*FeedbackDetail, bool, error) {
+func (store *fakeStore) FindMessageReplay(ctx context.Context, _ MessageReplayKey) (*FeedbackDetail, bool, error) {
 	store.recordEvent("find-message-replay")
+	store.messageReplayContexts = append(store.messageReplayContexts, observeContext(ctx, store.replayContextKey))
 	index := store.messageReplayCalls
 	store.messageReplayCalls++
 	if store.messageReplayErrAt == store.messageReplayCalls {
@@ -1360,6 +1563,7 @@ type fakeImageStorage struct {
 	saveErr         error
 	saveHook        func(int)
 	deleteErr       error
+	deleteHook      func(context.Context, int, StoredImage) error
 	storedObjectKey string
 	contextKey      any
 	deleteContexts  []observedCleanupContext
@@ -1406,21 +1610,10 @@ func (storage *fakeImageStorage) Delete(ctx context.Context, image StoredImage) 
 		*storage.events = append(*storage.events, "delete-image")
 	}
 	storage.deleted = append(storage.deleted, image)
-	deadline, hasDeadline := ctx.Deadline()
-	remaining := time.Duration(0)
-	if hasDeadline {
-		remaining = time.Until(deadline)
+	storage.deleteContexts = append(storage.deleteContexts, observeContext(ctx, storage.contextKey))
+	if storage.deleteHook != nil {
+		return storage.deleteHook(ctx, storage.deleteCalls, image)
 	}
-	var value any
-	if storage.contextKey != nil {
-		value = ctx.Value(storage.contextKey)
-	}
-	storage.deleteContexts = append(storage.deleteContexts, observedCleanupContext{
-		err:               ctx.Err(),
-		hasDeadline:       hasDeadline,
-		deadlineRemaining: remaining,
-		value:             value,
-	})
 	return storage.deleteErr
 }
 
@@ -1436,6 +1629,54 @@ func (logger *captureLogger) Printf(format string, values ...interface{}) {
 
 func feedbackDetail(id uint64, submitterID uint, status domain.Status, version uint64) *FeedbackDetail {
 	return &FeedbackDetail{FeedbackSummary: FeedbackSummary{ID: id, SubmitterID: submitterID, Status: status, Version: version}}
+}
+
+func feedbackDetailWithObjectKeys(detail *FeedbackDetail, objectKeys ...string) *FeedbackDetail {
+	attachments := make([]Attachment, 0, len(objectKeys))
+	for _, objectKey := range objectKeys {
+		attachments = append(attachments, Attachment{ObjectKey: objectKey})
+	}
+	detail.Messages = []Message{{Attachments: attachments}}
+	return detail
+}
+
+func storedImageObjectKeys(images []StoredImage) []string {
+	objectKeys := make([]string, 0, len(images))
+	for _, image := range images {
+		objectKeys = append(objectKeys, image.ObjectKey)
+	}
+	return objectKeys
+}
+
+func observeContext(ctx context.Context, valueKey any) observedCleanupContext {
+	deadline, hasDeadline := ctx.Deadline()
+	remaining := time.Duration(0)
+	if hasDeadline {
+		remaining = time.Until(deadline)
+	}
+	var value any
+	if valueKey != nil {
+		value = ctx.Value(valueKey)
+	}
+	return observedCleanupContext{
+		err:               ctx.Err(),
+		hasDeadline:       hasDeadline,
+		deadlineRemaining: remaining,
+		value:             value,
+	}
+}
+
+func assertBoundedReplayContext(t *testing.T, observed observedCleanupContext, wantValue any) {
+	t.Helper()
+	if observed.err != nil {
+		t.Fatalf("reconciliation context error = %v, want nil", observed.err)
+	}
+	if !observed.hasDeadline || observed.deadlineRemaining <= 0 || observed.deadlineRemaining > 11*time.Second {
+		t.Fatalf("reconciliation deadline remaining = %v, hasDeadline=%t", observed.deadlineRemaining, observed.hasDeadline)
+	}
+	if observed.value != wantValue {
+		t.Fatalf("reconciliation context value = %#v, want %#v", observed.value, wantValue)
+	}
 }
 
 func mustShanghai(t *testing.T) *time.Location {

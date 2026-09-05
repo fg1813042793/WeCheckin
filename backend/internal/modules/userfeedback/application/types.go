@@ -11,6 +11,7 @@ type Overview struct {
 
 type Attachment struct {
 	ID           uint64 `json:"id"`
+	ObjectKey    string `json:"-"`
 	OriginalName string `json:"originalName"`
 	ContentType  string `json:"contentType,omitempty"`
 	SizeBytes    uint64 `json:"sizeBytes"`

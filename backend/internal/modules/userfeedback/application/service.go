@@ -22,7 +22,11 @@ const (
 )
 
 type ReplayReader interface {
+	// When found is true, the detail must contain every attachment ObjectKey in
+	// its complete Messages list so callers can reconcile uncertain commits.
 	FindCreateReplay(ctx context.Context, key CreateReplayKey) (*FeedbackDetail, bool, error)
+	// When found is true, the detail must contain every attachment ObjectKey in
+	// its complete Messages list so callers can reconcile uncertain commits.
 	FindMessageReplay(ctx context.Context, key MessageReplayKey) (*FeedbackDetail, bool, error)
 }
 

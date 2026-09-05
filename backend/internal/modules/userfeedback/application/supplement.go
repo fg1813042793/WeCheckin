@@ -97,11 +97,10 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		return store.UpdateSnapshot(ctx, updated, locked.Version)
 	})
 	if err != nil {
-		service.deleteImages(ctx, storedImages, cleanupReference)
-		if ctx.Err() == nil {
-			if duplicate, found, lookupErr := service.store.FindMessageReplay(ctx, key); lookupErr == nil && found {
-				return decorateDetail(duplicate), nil
-			}
+		if duplicate, found := service.reconcileReplay(ctx, storedImages, cleanupReference, func(reconciliationCtx context.Context) (*FeedbackDetail, bool, error) {
+			return service.store.FindMessageReplay(reconciliationCtx, key)
+		}); found {
+			return decorateDetail(duplicate), nil
 		}
 		return nil, err
 	}
@@ -109,7 +108,7 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		if replay != nil {
 			cleanupReference.FeedbackNo = replay.FeedbackNo
 		}
-		service.deleteImages(ctx, storedImages, cleanupReference)
+		service.deleteImagesNotReferencedByReplay(ctx, storedImages, cleanupReference, replay)
 		return decorateDetail(replay), nil
 	}
 	return service.GetUserFeedback(ctx, command.FeedbackID, command.SubmitterID)
