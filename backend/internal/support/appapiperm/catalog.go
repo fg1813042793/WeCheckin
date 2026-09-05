@@ -217,6 +217,7 @@ func DingTalkH5APIDeclarations() []Declaration {
 
 func DingTalkH5RouteDeclarations() []RouteDeclaration {
 	routes := make([]RouteDeclaration, 0, len(DingTalkH5APIDeclarations())+8)
+	routes = append(routes, RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/user-feedbacks/overview", PermissionKey: "dingtalk_h5:api:feedback:list"})
 	for _, declaration := range DingTalkH5APIDeclarations() {
 		routes = append(routes, RouteDeclaration{
 			Method:        declaration.Method,
@@ -225,7 +226,6 @@ func DingTalkH5RouteDeclarations() []RouteDeclaration {
 		})
 	}
 	routes = append(routes,
-		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/user-feedbacks/overview", PermissionKey: "dingtalk_h5:api:feedback:list"},
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/overview", PermissionKey: "dingtalk_h5:api:workflow:view"},
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/categories", PermissionKey: "dingtalk_h5:api:workflow:view"},
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/definitions", PermissionKey: "dingtalk_h5:api:workflow:view"},

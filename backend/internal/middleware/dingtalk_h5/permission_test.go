@@ -32,3 +32,19 @@ func TestDingTalkH5RoutePermissionMapsTemplateSave(t *testing.T) {
 		t.Fatalf("template save route mapped to %q ok=%v", key, ok)
 	}
 }
+
+func TestDingTalkH5RoutePermissionPrefersFeedbackOverviewOverDetail(t *testing.T) {
+	tests := []struct {
+		path string
+		key  string
+	}{
+		{"/api/v2/dingtalk/h5/user-feedbacks/overview", "dingtalk_h5:api:feedback:list"},
+		{"/api/v2/dingtalk/h5/user-feedbacks/123", "dingtalk_h5:api:feedback:detail"},
+	}
+	for _, test := range tests {
+		key, ok := dingTalkH5RoutePermission("GET", test.path)
+		if !ok || key != test.key {
+			t.Fatalf("%s mapped to %q ok=%v, want %q", test.path, key, ok, test.key)
+		}
+	}
+}
