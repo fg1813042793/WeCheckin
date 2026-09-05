@@ -2,11 +2,14 @@ package application
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
+	_ "time/tzdata"
 	"unicode/utf8"
 
 	"wecheckin/backend/internal/modules/userfeedback/domain"
+	projectlogger "wecheckin/backend/pkg/logger"
 )
 
 const (
@@ -125,20 +128,43 @@ type NotificationOutboxRecord struct {
 	CreatedAt        int64
 }
 
+type Logger interface {
+	Printf(format string, values ...interface{})
+}
+
 type Service struct {
 	store        Store
 	imageStorage ImageStorage
 	now          func() time.Time
 	location     *time.Location
+	logger       Logger
 }
 
 func NewService(store Store, imageStorage ImageStorage) *Service {
-	location, _ := time.LoadLocation("Asia/Shanghai")
-	return newServiceWithClock(store, imageStorage, time.Now, location)
+	return newServiceWithClock(store, imageStorage, time.Now, shanghaiLocation(time.LoadLocation))
+}
+
+func shanghaiLocation(loader func(string) (*time.Location, error)) *time.Location {
+	location, err := loader("Asia/Shanghai")
+	if err != nil || location == nil {
+		location = time.FixedZone("Asia/Shanghai", 8*60*60)
+	}
+	return location
 }
 
 func newServiceWithClock(store Store, imageStorage ImageStorage, now func() time.Time, location *time.Location) *Service {
-	return &Service{store: store, imageStorage: imageStorage, now: now, location: location}
+	return newServiceWithClockAndLogger(store, imageStorage, now, location, defaultLogger())
+}
+
+func newServiceWithClockAndLogger(store Store, imageStorage ImageStorage, now func() time.Time, location *time.Location, logger Logger) *Service {
+	return &Service{store: store, imageStorage: imageStorage, now: now, location: location, logger: logger}
+}
+
+func defaultLogger() Logger {
+	if projectlogger.Logger != nil {
+		return projectlogger.Logger
+	}
+	return log.Default()
 }
 
 func (service *Service) requireStore() error {

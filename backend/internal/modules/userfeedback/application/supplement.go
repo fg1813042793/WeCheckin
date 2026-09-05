@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 
 	"wecheckin/backend/internal/modules/userfeedback/domain"
 )
@@ -28,13 +27,14 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		AuthorID:   command.SubmitterID,
 		RequestID:  requestID,
 	}
+	cleanupReference := imageCleanupReference{RequestID: requestID, FeedbackID: command.FeedbackID}
 	if replay, found, err := service.store.FindMessageReplay(ctx, key); err != nil {
 		return nil, err
 	} else if found {
 		return decorateDetail(replay), nil
 	}
 
-	storedImages, err := service.saveImages(ctx, message.Images)
+	storedImages, err := service.saveImages(ctx, message.Images, cleanupReference)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +58,7 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		if locked == nil || locked.ID != command.FeedbackID || locked.SubmitterID != command.SubmitterID {
 			return ErrFeedbackNotFound
 		}
+		cleanupReference.FeedbackNo = locked.FeedbackNo
 		if !locked.Status.AllowsSupplement() {
 			return ErrSupplementNotAllowed
 		}
@@ -96,8 +97,8 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		return store.UpdateSnapshot(ctx, updated, locked.Version)
 	})
 	if err != nil {
-		service.deleteImages(ctx, storedImages)
-		if errors.Is(err, ErrDuplicateRequest) {
+		service.deleteImages(ctx, storedImages, cleanupReference)
+		if ctx.Err() == nil {
 			if duplicate, found, lookupErr := service.store.FindMessageReplay(ctx, key); lookupErr == nil && found {
 				return decorateDetail(duplicate), nil
 			}
@@ -105,7 +106,10 @@ func (service *Service) SupplementFeedback(ctx context.Context, command Suppleme
 		return nil, err
 	}
 	if concurrentReplay {
-		service.deleteImages(ctx, storedImages)
+		if replay != nil {
+			cleanupReference.FeedbackNo = replay.FeedbackNo
+		}
+		service.deleteImages(ctx, storedImages, cleanupReference)
 		return decorateDetail(replay), nil
 	}
 	return service.GetUserFeedback(ctx, command.FeedbackID, command.SubmitterID)

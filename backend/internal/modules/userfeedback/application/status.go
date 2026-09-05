@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -118,7 +117,7 @@ func (service *Service) UpdateFeedbackStatus(ctx context.Context, command Update
 		})
 	})
 	if err != nil {
-		if errors.Is(err, ErrDuplicateRequest) {
+		if ctx.Err() == nil {
 			if duplicate, found, lookupErr := service.store.FindMessageReplay(ctx, key); lookupErr == nil && found {
 				return decorateDetail(duplicate), nil
 			}
