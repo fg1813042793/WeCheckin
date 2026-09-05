@@ -3305,8 +3305,8 @@ func swaggerV2WorkflowsTasksIDCompletePost() {}
 // @Param submitterId query int false "提交人用户 ID"
 // @Param handlerId query int false "处理人管理员 ID"
 // @Param keyword query string false "反馈编号或消息文字关键词"
-// @Param submittedFrom query int false "提交时间起始值，Unix 毫秒"
-// @Param submittedTo query int false "提交时间截止值，Unix 毫秒"
+// @Param submittedFrom query int false "提交时间起始值，Unix 毫秒" Format(int64)
+// @Param submittedTo query int false "提交时间截止值，Unix 毫秒" Format(int64)
 // @Success 200 {object} response.Resp{data=userfeedbackapp.Overview}
 // @Router /api/v2/admin/user-feedbacks/overview [get]
 func swaggerV2AdminUserFeedbackOverviewGet() {}
@@ -3321,8 +3321,8 @@ func swaggerV2AdminUserFeedbackOverviewGet() {}
 // @Param submitterId query int false "提交人用户 ID"
 // @Param handlerId query int false "处理人管理员 ID"
 // @Param keyword query string false "反馈编号或消息文字关键词"
-// @Param submittedFrom query int false "提交时间起始值，Unix 毫秒"
-// @Param submittedTo query int false "提交时间截止值，Unix 毫秒"
+// @Param submittedFrom query int false "提交时间起始值，Unix 毫秒" Format(int64)
+// @Param submittedTo query int false "提交时间截止值，Unix 毫秒" Format(int64)
 // @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackList}
 // @Router /api/v2/admin/user-feedbacks [get]
 func swaggerV2AdminUserFeedbackListGet() {}
@@ -3340,6 +3340,7 @@ func swaggerV2AdminUserFeedbackDetailGet() {}
 // @Summary 更新用户反馈状态
 // @Description 允许的状态流转为 pending -> processing、pending -> closed、processing -> resolved、resolved -> closed、resolved -> processing、closed -> processing；关闭、解决或重新打开时处理说明必填。requestId 是状态更新幂等键，重复请求返回首次结果；version 用于乐观锁校验，冲突时应刷新详情。notifyUser 省略时默认 true，通知通过事务内 Outbox 异步投递
 // @Security AdminToken
+// @Accept application/json
 // @Param id path int true "反馈 ID"
 // @Param body body UserFeedbackStatusRequest true "目标状态、处理说明、通知开关、当前版本号和幂等请求标识"
 // @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}

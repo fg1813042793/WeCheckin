@@ -8807,12 +8807,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "提交时间起始值，Unix 毫秒",
                         "name": "submittedFrom",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "提交时间截止值，Unix 毫秒",
                         "name": "submittedTo",
                         "in": "query"
@@ -8885,12 +8887,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "提交时间起始值，Unix 毫秒",
                         "name": "submittedFrom",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "提交时间截止值，Unix 毫秒",
                         "name": "submittedTo",
                         "in": "query"
@@ -8969,6 +8973,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "允许的状态流转为 pending -\u003e processing、pending -\u003e closed、processing -\u003e resolved、resolved -\u003e closed、resolved -\u003e processing、closed -\u003e processing；关闭、解决或重新打开时处理说明必填。requestId 是状态更新幂等键，重复请求返回首次结果；version 用于乐观锁校验，冲突时应刷新详情。notifyUser 省略时默认 true，通知通过事务内 Outbox 异步投递",
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "API v2-后台管理-用户反馈"
                 ],

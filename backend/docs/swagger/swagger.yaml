@@ -7183,10 +7183,12 @@ paths:
         name: keyword
         type: string
       - description: 提交时间起始值，Unix 毫秒
+        format: int64
         in: query
         name: submittedFrom
         type: integer
       - description: 提交时间截止值，Unix 毫秒
+        format: int64
         in: query
         name: submittedTo
         type: integer
@@ -7231,6 +7233,8 @@ paths:
       - API v2-后台管理-用户反馈
   /api/v2/admin/user-feedbacks/{id}/status:
     patch:
+      consumes:
+      - application/json
       description: 允许的状态流转为 pending -> processing、pending -> closed、processing ->
         resolved、resolved -> closed、resolved -> processing、closed -> processing；关闭、解决或重新打开时处理说明必填。requestId
         是状态更新幂等键，重复请求返回首次结果；version 用于乐观锁校验，冲突时应刷新详情。notifyUser 省略时默认 true，通知通过事务内
@@ -7288,10 +7292,12 @@ paths:
         name: keyword
         type: string
       - description: 提交时间起始值，Unix 毫秒
+        format: int64
         in: query
         name: submittedFrom
         type: integer
       - description: 提交时间截止值，Unix 毫秒
+        format: int64
         in: query
         name: submittedTo
         type: integer
