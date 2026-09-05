@@ -28,6 +28,40 @@ func TestDefaultConfigIncludesInstanceFormRevisedStyle(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigIncludesFeedbackStatusStyle(t *testing.T) {
+	style := StyleFor(DefaultConfig(), TypeFeedbackStatus)
+	if style.Type != TypeFeedbackStatus || style.Label != "用户反馈" || style.Icon != "chat" || style.Tone != TonePrimary {
+		t.Fatalf("feedback status style = %#v", style)
+	}
+	if !IsSupportedType(TypeFeedbackStatus) {
+		t.Fatalf("feedback status must be supported")
+	}
+}
+
+func TestDecodeLegacyConfigAddsFeedbackStatusDefault(t *testing.T) {
+	config, err := Decode(`{"version":1,"styles":[{"type":"admin_manual","label":"系统通知","icon":"email","tone":"primary"}]}`)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	style := StyleFor(config, TypeFeedbackStatus)
+	if style.Label != "用户反馈" || style.Icon != "chat" || style.Tone != TonePrimary {
+		t.Fatalf("feedback status style = %#v", style)
+	}
+}
+
+func TestNormalizePreservesFeedbackStatusOverride(t *testing.T) {
+	config, err := Normalize(Config{Styles: []Style{{
+		Type: TypeFeedbackStatus, Label: "反馈进度", Icon: "bell", Tone: ToneSuccess,
+	}}})
+	if err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
+	style := StyleFor(config, TypeFeedbackStatus)
+	if style.Label != "反馈进度" || style.Icon != "bell" || style.Tone != ToneSuccess {
+		t.Fatalf("feedback status override = %#v", style)
+	}
+}
+
 func TestNormalizeMergesPartialOverridesWithDefaults(t *testing.T) {
 	config, err := Normalize(Config{Styles: []Style{{
 		Type: TypeTaskArrived, Label: "新待办", Icon: "bell", Tone: ToneDanger,

@@ -294,11 +294,6 @@ func (store *GormStore) EnqueueNotification(ctx context.Context, record applicat
 	return nil
 }
 
-type feedbackNotificationPayload struct {
-	notificationoutboxapp.MessagePayload
-	NotificationType string `json:"notificationType"`
-}
-
 func notificationOutboxModel(record application.NotificationOutboxRecord) (notificationmodel.Outbox, error) {
 	recipientJSON, err := json.Marshal(notificationoutboxapp.InternalRecipient{
 		UserIDs: []uint{record.RecipientUserID},
@@ -306,13 +301,11 @@ func notificationOutboxModel(record application.NotificationOutboxRecord) (notif
 	if err != nil {
 		return notificationmodel.Outbox{}, err
 	}
-	payloadJSON, err := json.Marshal(feedbackNotificationPayload{
-		MessagePayload: notificationoutboxapp.MessagePayload{
-			Title:      record.Title,
-			Content:    record.Content,
-			SourceType: record.SourceType,
-			SourceID:   record.SourceID,
-		},
+	payloadJSON, err := json.Marshal(notificationoutboxapp.MessagePayload{
+		Title:            record.Title,
+		Content:          record.Content,
+		SourceType:       record.SourceType,
+		SourceID:         record.SourceID,
 		NotificationType: record.NotificationType,
 	})
 	if err != nil {

@@ -2,12 +2,55 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	notificationmodel "wecheckin/backend/internal/model/notification"
 )
+
+func TestMessagePayloadJSONOmitsEmptyNotificationType(t *testing.T) {
+	payloadJSON, err := json.Marshal(MessagePayload{
+		Title: "问卷统计", Content: "统计完成", SourceType: "survey", SourceID: "12",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(payloadJSON), `{"title":"问卷统计","content":"统计完成","sourceType":"survey","sourceId":"12"}`; got != want {
+		t.Fatalf("payload JSON = %s, want %s", got, want)
+	}
+}
+
+func TestMessagePayloadJSONIncludesNotificationTypeOnce(t *testing.T) {
+	payloadJSON, err := json.Marshal(MessagePayload{
+		Title: "反馈状态", Content: "已解决", NotificationType: "feedback_status",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count := strings.Count(string(payloadJSON), `"notificationType"`); count != 1 {
+		t.Fatalf("notificationType field count = %d, payload = %s", count, payloadJSON)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := payload["notificationType"]; got != "feedback_status" {
+		t.Fatalf("notificationType = %#v, want feedback_status", got)
+	}
+}
+
+func TestMessagePayloadDecodesLegacyJSONWithoutNotificationType(t *testing.T) {
+	var payload MessagePayload
+	if err := json.Unmarshal([]byte(`{"title":"旧通知","content":"旧内容","sourceType":"survey","sourceId":"12"}`), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.NotificationType != "" || payload.Title != "旧通知" || payload.SourceType != "survey" || payload.SourceID != "12" {
+		t.Fatalf("decoded legacy payload = %#v", payload)
+	}
+}
 
 func TestServiceEnqueuePersistsPendingNotification(t *testing.T) {
 	store := &storeStub{}

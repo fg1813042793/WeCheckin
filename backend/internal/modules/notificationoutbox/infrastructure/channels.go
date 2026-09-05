@@ -55,7 +55,8 @@ func (channel *InternalChannel) Deliver(ctx context.Context, row notificationmod
 	}
 	_, err = channel.sender.Send(ctx, inappnotificationapp.SendInput{
 		Title: payload.Title, Content: payload.Content, Scope: scope, UserIDs: recipient.UserIDs,
-		SourceType: sourceType, SourceID: sourceID, DeliveryKey: row.IdempotencyKey,
+		NotificationType: strings.TrimSpace(payload.NotificationType),
+		SourceType:       sourceType, SourceID: sourceID, DeliveryKey: row.IdempotencyKey,
 	})
 	return err
 }

@@ -36,8 +36,24 @@ func TestInternalChannelUsesSelectedUsers(t *testing.T) {
 	if err := channel.Deliver(context.Background(), row); err != nil {
 		t.Fatal(err)
 	}
-	if sender.input.Scope != inappnotificationapp.ScopeUsers || len(sender.input.UserIDs) != 2 {
+	if sender.input.Scope != inappnotificationapp.ScopeUsers || len(sender.input.UserIDs) != 2 || sender.input.NotificationType != "" {
 		t.Fatalf("send input = %#v", sender.input)
+	}
+}
+
+func TestInternalChannelForwardsTrimmedNotificationType(t *testing.T) {
+	sender := &inAppSenderStub{}
+	channel := NewInternalChannel(sender)
+	row := notificationRow(t, notificationoutboxapp.InternalRecipient{UserIDs: []uint{7}}, notificationoutboxapp.MessagePayload{
+		Title: "反馈 FB-20260905-0001 已解决", Content: "问题已修复",
+		NotificationType: "  feedback_status  ", SourceType: "user_feedback", SourceID: "91",
+	})
+
+	if err := channel.Deliver(context.Background(), row); err != nil {
+		t.Fatal(err)
+	}
+	if sender.input.NotificationType != "feedback_status" {
+		t.Fatalf("notification type = %q, want feedback_status", sender.input.NotificationType)
 	}
 }
 
@@ -45,7 +61,7 @@ func TestWebhookChannelKeepsDingTalkPayloadFormat(t *testing.T) {
 	client := &outboundClientStub{response: outboundhttp.Response{StatusCode: 200}}
 	channel := NewWebhookChannel(client)
 	row := notificationRow(t, notificationoutboxapp.WebhookRecipient{Type: "dingtalk", URL: "https://example.com/hook"}, notificationoutboxapp.MessagePayload{
-		Title: "问卷", Content: "第一行\n第二行",
+		Title: "问卷", Content: "第一行\n第二行", NotificationType: "feedback_status",
 	})
 
 	if err := channel.Deliver(context.Background(), row); err != nil {

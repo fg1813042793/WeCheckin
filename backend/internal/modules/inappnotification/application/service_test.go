@@ -75,6 +75,68 @@ func TestServiceSendUsesExplicitNotificationTypeForStylePreview(t *testing.T) {
 	}
 }
 
+func TestServiceSendDeliversFeedbackStatusType(t *testing.T) {
+	store := &fakeStore{
+		resolution: RecipientResolution{UserIDs: []uint{7}},
+		delivery:   DeliveryResult{SentCount: 1},
+	}
+	_, err := NewService(store).Send(context.Background(), SendInput{
+		Title: "反馈 FB-20260905-0001 已解决", Content: "问题已修复", Scope: ScopeUsers, UserIDs: []uint{7},
+		SourceType: "user_feedback", SourceID: "91", NotificationType: "feedback_status",
+	})
+	if err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	if store.batch.Type != "feedback_status" {
+		t.Fatalf("delivery type = %q, want feedback_status", store.batch.Type)
+	}
+}
+
+func TestServiceSendDingTalkDeliversFeedbackStatusType(t *testing.T) {
+	store := &fakeStore{resolution: RecipientResolution{UserIDs: []uint{7}}}
+	delivery := &fakeDingTalkDelivery{result: DingTalkDeliveryResult{SentCount: 1}}
+	_, err := NewServiceWithDingTalk(store, delivery).SendDingTalk(context.Background(), SendInput{
+		Title: "反馈 FB-20260905-0001 已解决", Content: "问题已修复", Scope: ScopeUsers, UserIDs: []uint{7},
+		SourceType: "user_feedback", SourceID: "91", NotificationType: "feedback_status",
+	})
+	if err != nil {
+		t.Fatalf("SendDingTalk() error = %v", err)
+	}
+	if delivery.batch.NotificationType != "feedback_status" {
+		t.Fatalf("DingTalk notification type = %q, want feedback_status", delivery.batch.NotificationType)
+	}
+}
+
+func TestServiceSendKeepsLegacyDefaultNotificationTypes(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourceType string
+		wantType   string
+	}{
+		{name: "admin manual", sourceType: SourceAdminManual, wantType: TypeAdminManual},
+		{name: "scheduled task", sourceType: SourceScheduledTaskRun, wantType: TypeScheduledTask},
+		{name: "survey stat", sourceType: SourceSurvey, wantType: TypeSurveyStat},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &fakeStore{
+				resolution: RecipientResolution{UserIDs: []uint{7}},
+				delivery:   DeliveryResult{SentCount: 1},
+			}
+			_, err := NewService(store).Send(context.Background(), SendInput{
+				Title: "旧通知", Content: "内容", Scope: ScopeUsers, UserIDs: []uint{7},
+				SourceType: tt.sourceType, SourceID: "legacy-1",
+			})
+			if err != nil {
+				t.Fatalf("Send() error = %v", err)
+			}
+			if store.batch.Type != tt.wantType {
+				t.Fatalf("delivery type = %q, want %q", store.batch.Type, tt.wantType)
+			}
+		})
+	}
+}
+
 func TestValidateSendInputRejectsUnsupportedExplicitNotificationType(t *testing.T) {
 	err := ValidateSendInput(SendInput{
 		Title: "title", Content: "content", Scope: ScopeAll,

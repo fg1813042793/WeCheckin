@@ -33,6 +33,7 @@ const (
 	TypeAdminManual            = "admin_manual"
 	TypeScheduledTask          = "scheduled_task"
 	TypeSurveyStat             = "survey_stat"
+	TypeFeedbackStatus         = "feedback_status"
 
 	DingTalkMessageTypeAuto       = "auto"
 	DingTalkMessageTypeText       = "text"
@@ -84,6 +85,7 @@ var (
 		newDefaultStyle(TypeAdminManual, "系统通知", "email", TonePrimary),
 		newDefaultStyle(TypeScheduledTask, "定时通知", "clock", ToneInfo),
 		newDefaultStyle(TypeSurveyStat, "问卷统计", "file-text", ToneInfo),
+		newDefaultStyle(TypeFeedbackStatus, "用户反馈", "chat", TonePrimary),
 	}
 )
 

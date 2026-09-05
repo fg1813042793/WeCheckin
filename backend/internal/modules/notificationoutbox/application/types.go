@@ -11,8 +11,9 @@ type WebhookRecipient struct {
 }
 
 type MessagePayload struct {
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	SourceType string `json:"sourceType,omitempty"`
-	SourceID   string `json:"sourceId,omitempty"`
+	Title            string `json:"title"`
+	Content          string `json:"content"`
+	SourceType       string `json:"sourceType,omitempty"`
+	SourceID         string `json:"sourceId,omitempty"`
+	NotificationType string `json:"notificationType,omitempty"`
 }
