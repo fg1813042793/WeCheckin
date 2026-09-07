@@ -169,9 +169,48 @@ type InstanceSummary struct {
 }
 
 type FormRevisionCapability struct {
-	Allowed          bool                           `json:"allowed"`
-	Revision         int64                          `json:"revision"`
-	FieldPermissions []workflowcore.FieldPermission `json:"fieldPermissions"`
+	Allowed                bool                                       `json:"allowed"`
+	Revision               int64                                      `json:"revision"`
+	FieldPermissions       []workflowcore.FieldPermission             `json:"fieldPermissions"`
+	RunningRevisionAllowed bool                                       `json:"runningRevisionAllowed"`
+	CompletedRevisionNodes []workflowcore.CompletedRevisionCapability `json:"completedRevisionNodes"`
+}
+
+type PreviewCompletedFormRevisionRequest struct {
+	InstanceID       string                 `json:"-"`
+	SourceNodeID     string                 `json:"sourceNodeId"`
+	RequesterID      string                 `json:"-"`
+	ExpectedRevision int64                  `json:"expectedRevision"`
+	FormData         map[string]interface{} `json:"formData"`
+}
+
+type CreateCompletedFormRevisionRequest struct {
+	InstanceID       string                 `json:"-"`
+	SourceNodeID     string                 `json:"sourceNodeId"`
+	RequesterID      string                 `json:"-"`
+	ExpectedRevision int64                  `json:"expectedRevision"`
+	FormData         map[string]interface{} `json:"formData"`
+	Reason           string                 `json:"reason"`
+}
+
+type FormRevisionConfirmationNode struct {
+	NodeID         string   `json:"nodeId"`
+	NodeName       string   `json:"nodeName"`
+	ApprovalMode   string   `json:"approvalMode"`
+	CompletionRate int      `json:"completionRate"`
+	AssigneeIDs    []string `json:"assigneeIds"`
+	AssigneeNames  []string `json:"assigneeNames"`
+}
+
+type FormRevisionConfirmationStage struct {
+	Stage int                            `json:"stage"`
+	Nodes []FormRevisionConfirmationNode `json:"nodes"`
+}
+
+type FormRevisionPreview struct {
+	Mode               string                          `json:"mode"`
+	ChangedFields      []string                        `json:"changedFields"`
+	ConfirmationStages []FormRevisionConfirmationStage `json:"confirmationStages"`
 }
 
 type FormRevisionSummary struct {

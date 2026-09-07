@@ -62,6 +62,10 @@ var (
 	ErrFormRevisionNotificationRecipient     = errors.New("表单修改通知对象不是该流程参与人")
 	ErrDraftStoreUnavailable                 = errors.New("流程草稿存储未初始化")
 	ErrNotificationUnavailable               = errors.New("工作流通知服务未初始化")
+	ErrCompletedRevisionNotAllowed           = errors.New("当前用户没有完成后表单修订权限")
+	ErrCompletedRevisionInstanceNotCompleted = errors.New("只有已完成流程可以发起完成后表单修订")
+	ErrCompletedRevisionActive               = errors.New("当前流程已有进行中的表单修订")
+	ErrCompletedRevisionNoReviewPath         = errors.New("来源节点之后没有可确认的人工节点")
 )
 
 const (

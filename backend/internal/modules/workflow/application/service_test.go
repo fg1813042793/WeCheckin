@@ -1849,6 +1849,9 @@ type fakeStore struct {
 	workflowOverviewActorID       string
 	userDisplayName               string
 	userDisplayNameUserID         string
+	activeFormRevision            *workflowdomain.FormRevisionRequest
+	createdFormRevision           *workflowdomain.FormRevisionRequest
+	savedFormRevision             *workflowdomain.FormRevisionRequest
 }
 
 func (store *fakeStore) InTransaction(_ context.Context, fn func(TransactionStore) error) error {
@@ -1952,7 +1955,7 @@ func (store *fakeStore) LoadCompletedRevisionSourceForUpdate(_ context.Context, 
 }
 
 func (store *fakeStore) LoadActiveFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
-	return nil, nil
+	return store.activeFormRevision, nil
 }
 
 func (store *fakeStore) LoadFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
@@ -1963,11 +1966,13 @@ func (store *fakeStore) LoadFormRevisionByTaskForUpdate(context.Context, string)
 	return nil, nil
 }
 
-func (store *fakeStore) CreateFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error {
+func (store *fakeStore) CreateFormRevision(_ context.Context, revision *workflowdomain.FormRevisionRequest) error {
+	store.createdFormRevision = revision
 	return nil
 }
 
-func (store *fakeStore) SaveFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error {
+func (store *fakeStore) SaveFormRevision(_ context.Context, revision *workflowdomain.FormRevisionRequest) error {
+	store.savedFormRevision = revision
 	return nil
 }
 
