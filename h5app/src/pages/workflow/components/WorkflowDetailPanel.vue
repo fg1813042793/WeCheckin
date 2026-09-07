@@ -28,7 +28,13 @@ import {
   workflowFieldActionsMap,
   writableWorkflowFormData,
 } from '../workflow-form'
-import { workflowFormDetailContentKey, workflowFormRevisionContentKey, workflowStartContentKey } from '../workflow-route-keys'
+import {
+  workflowCompletedFormRevisionContentKey,
+  workflowFormDetailContentKey,
+  workflowFormRevisionContentKey,
+  workflowFormRevisionDetailContentKey,
+  workflowStartContentKey,
+} from '../workflow-route-keys'
 import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-status'
 import { isWorkflowTaskAssignedToUser } from '../workflow-task'
 import WorkflowImagePicker from './WorkflowImagePicker.vue'
@@ -337,6 +343,22 @@ const showFormRevisionAction = computed(() => {
     && auth.hasApiPermission('dingtalk_h5:api:workflow:form-revise'),
   )
 })
+
+const showCompletedFormRevisionAction = computed(() => {
+  const current = detail.value
+  return Boolean(
+    historyDrawer.value
+    && props.formRevisionAction
+    && current?.instance.status === 'completed'
+    && current.formRevision?.completedRevisionNodes?.length > 0
+    && auth.hasButtonPermission('dingtalk_h5:button:workflow:form-revision-create')
+    && auth.hasApiPermission('dingtalk_h5:api:workflow:form-revision-create'),
+  )
+})
+
+const showCompletedFormRevisionHistoryAction = computed(() => Boolean(
+  historyDrawer.value && detail.value?.formRevisions?.length,
+))
 
 const canModifyApplication = computed(() => {
   const instance = detail.value?.instance
@@ -990,6 +1012,39 @@ function openFormRevision() {
   popupVisible.value = false
 }
 
+function openCompletedFormRevision() {
+  const current = detail.value
+  if (!current || !showCompletedFormRevisionAction.value)
+    return
+  const key = workflowCompletedFormRevisionContentKey(current.instance.id)
+  if (!key)
+    return
+  appContent.openDynamicTab({
+    key,
+    label: `申请修订 · ${current.instance.instanceTitle || current.instance.definitionName || title.value}`,
+    icon: 'edit-pen',
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+  })
+  popupVisible.value = false
+}
+
+function openLatestCompletedFormRevision() {
+  const current = detail.value
+  const latest = current?.formRevisions?.[0]
+  if (!latest || !showCompletedFormRevisionHistoryAction.value)
+    return
+  const key = workflowFormRevisionDetailContentKey(latest.id)
+  if (!key)
+    return
+  appContent.openDynamicTab({
+    key,
+    label: `表单修订 · ${latest.sourceNodeName || latest.sourceNodeId}`,
+    icon: 'time',
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+  })
+  popupVisible.value = false
+}
+
 function openFormDetail() {
   const current = detail.value
   if (!current || !showFormDetailAction.value)
@@ -1313,9 +1368,9 @@ async function deleteApplication() {
           </view>
 
           <view
-            v-if="showApplicationActions || showCommentAction || showFormRevisionAction"
+            v-if="showApplicationActions || showCommentAction || showFormRevisionAction || showCompletedFormRevisionAction || showCompletedFormRevisionHistoryAction"
             class="workflow-detail-panel__application-actions"
-            :class="{ 'workflow-detail-panel__application-actions--comment-only': !showApplicationActions && !showFormRevisionAction }"
+            :class="{ 'workflow-detail-panel__application-actions--comment-only': !showApplicationActions && !showFormRevisionAction && !showCompletedFormRevisionAction && !showCompletedFormRevisionHistoryAction }"
           >
             <u-button
               v-if="showApplicationActions"
@@ -1348,6 +1403,26 @@ async function deleteApplication() {
             >
               <u-icon name="edit-pen" size="14px" color="#1677ff" />
               <text>修改表单</text>
+            </u-button>
+            <u-button
+              v-if="showCompletedFormRevisionAction"
+              custom-class="workflow-detail-panel__application-action"
+              plain
+              :disabled="applicationActionBusy"
+              @click="openCompletedFormRevision"
+            >
+              <u-icon name="edit-pen" size="14px" color="#1677ff" />
+              <text>申请修订</text>
+            </u-button>
+            <u-button
+              v-if="showCompletedFormRevisionHistoryAction"
+              custom-class="workflow-detail-panel__application-action"
+              plain
+              :disabled="applicationActionBusy"
+              @click="openLatestCompletedFormRevision"
+            >
+              <u-icon name="time" size="14px" color="#0f766e" />
+              <text>修订记录</text>
             </u-button>
             <u-button
               v-if="showCommentAction"
@@ -1402,7 +1477,9 @@ async function deleteApplication() {
                       {{ title }}
                     </text>
                     <text class="workflow-detail-panel__page-meta">
-                      {{ activeTask?.nodeName || '流程处理' }} · 流程名称：{{ workflowName }} · 版本 {{ detail.instance.definitionVersion }} · 发起人 {{ detail.instance.starterName || '未知用户' }}<template v-if="businessPeriodLabel"> · 业务期间：{{ businessPeriodLabel }}</template>
+                      {{ activeTask?.nodeName || '流程处理' }} · 流程名称：{{ workflowName }} · 版本 {{ detail.instance.definitionVersion }} · 发起人 {{ detail.instance.starterName || '未知用户' }}<template v-if="businessPeriodLabel">
+                        · 业务期间：{{ businessPeriodLabel }}
+                      </template>
                     </text>
                   </view>
                   <u-tag

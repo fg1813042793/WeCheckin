@@ -156,7 +156,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/index/index.vue',
-    patterns: ['workflowFormDetailInstanceIdFromContentKey', '? \'表单详情\'', '? \'file-text\''],
+    patterns: ['workflowFormDetailInstanceIdFromContentKey', 'workflowRouteTabLabel', '表单详情', '申请表单修订', '表单修订详情', '? \'file-text\''],
   },
   {
     file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
@@ -199,7 +199,7 @@ const requiredContent = [
       'instanceTitle,',
       'v-model="activeRecordFilters.instanceTitle"',
       'placeholder="输入单据标题"',
-      "{ key: 'name', label: '单据标题'",
+      '{ key: \'name\', label: \'单据标题\'',
       'instanceDisplayTitle(instance)',
       'taskInstanceTitle(task)',
     ],

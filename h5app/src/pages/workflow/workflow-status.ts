@@ -1,4 +1,5 @@
 import type {
+  WorkflowFormRevisionStatus,
   WorkflowInstanceStatus,
   WorkflowNodeProgressStatus,
   WorkflowTaskStatus,
@@ -30,6 +31,14 @@ const TASK_STATUS_META: Record<string, WorkflowStatusMeta> = {
   cancelled: { label: '已取消', type: 'info' },
 }
 
+const FORM_REVISION_STATUS_META: Record<WorkflowFormRevisionStatus, WorkflowStatusMeta> = {
+  pending: { label: '待确认', type: 'warning' },
+  applied: { label: '已生效', type: 'success' },
+  rejected: { label: '已驳回', type: 'error' },
+  cancelled: { label: '已取消', type: 'info' },
+  conflict: { label: '版本冲突', type: 'error' },
+}
+
 const NODE_PROGRESS_STATUS_META: Record<string, WorkflowStatusMeta> = {
   completed: { label: '已完成', type: 'success' },
   processing: { label: '处理中', type: 'warning' },
@@ -49,6 +58,10 @@ export function workflowInstanceStatusMeta(status: WorkflowInstanceStatus = ''):
 
 export function workflowTaskStatusMeta(status: WorkflowTaskStatus = ''): WorkflowStatusMeta {
   return TASK_STATUS_META[status] || unknownStatusMeta(status)
+}
+
+export function workflowFormRevisionStatusMeta(status: WorkflowFormRevisionStatus): WorkflowStatusMeta {
+  return FORM_REVISION_STATUS_META[status] || unknownStatusMeta(status)
 }
 
 export function workflowNodeProgressStatusMeta(

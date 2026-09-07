@@ -16,7 +16,7 @@ const expectations = [
   ['src/types/workflow.ts', [
     'WorkflowCompletedRevisionNode',
     'WorkflowFormRevisionDetail',
-    "taskType: 'workflow' | 'form_revision'",
+    'taskType: \'workflow\' | \'form_revision\'',
   ]],
   ['src/api/workflow.ts', [
     'listWorkflowFormRevisions',
@@ -38,5 +38,21 @@ const expectations = [
 
 for (const [file, snippets] of expectations)
   requireSnippets(file, snippets)
+
+requireSnippets('src/pages/workflow/components/WorkflowCompletedFormRevisionPage.vue', [
+  '选择来源节点',
+  '修改字段',
+  '修改原因',
+  '提交后立即生效',
+  '需要重新确认',
+])
+requireSnippets('src/pages/workflow/components/WorkflowFormRevisionDetailPage.vue', [
+  '修改前',
+  '修改后',
+  '确认记录',
+  '取消修订',
+  '通过',
+  '驳回',
+])
 
 console.log('workflow completed form revision checks passed')

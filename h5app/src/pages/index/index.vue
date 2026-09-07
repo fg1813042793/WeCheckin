@@ -15,8 +15,10 @@ import {
 } from '@/pages/feedback/feedback-route-keys'
 import {
   normalizeWorkflowDynamicContentKey,
+  workflowCompletedFormRevisionInstanceIdFromContentKey,
   workflowDefinitionIdFromContentKey,
   workflowFormDetailInstanceIdFromContentKey,
+  workflowFormRevisionDetailIdFromContentKey,
   workflowFormRevisionInstanceIdFromContentKey,
   workflowInstanceIdFromContentKey,
   workflowTaskIdFromContentKey,
@@ -66,20 +68,21 @@ function openWorkflowRouteTab(key: string) {
   const instanceId = workflowInstanceIdFromContentKey(key)
   const formDetailInstanceId = workflowFormDetailInstanceIdFromContentKey(key)
   const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
+  const completedRevisionInstanceId = workflowCompletedFormRevisionInstanceIdFromContentKey(key)
+  const revisionId = workflowFormRevisionDetailIdFromContentKey(key)
   const taskId = workflowTaskIdFromContentKey(key)
-  if (!definitionId && !instanceId && !formDetailInstanceId && !revisionInstanceId && !taskId)
+  if (!definitionId && !instanceId && !formDetailInstanceId && !revisionInstanceId && !completedRevisionInstanceId && !revisionId && !taskId)
     return false
 
-  const label = definitionId
-    ? '发起审批'
-    : formDetailInstanceId
-      ? '表单详情'
-      : revisionInstanceId
-        ? '修改表单'
-        : taskId
-          ? '流程办理'
-          : '流程详情'
-  const icon = definitionId ? 'add-circle' : formDetailInstanceId ? 'file-text' : revisionInstanceId ? 'edit-pen' : taskId ? 'checkmark-circle' : 'eye'
+  const label = workflowRouteTabLabel({
+    definitionId,
+    formDetailInstanceId,
+    revisionInstanceId,
+    completedRevisionInstanceId,
+    revisionId,
+    taskId,
+  })
+  const icon = definitionId ? 'add-circle' : formDetailInstanceId ? 'file-text' : revisionInstanceId || completedRevisionInstanceId || revisionId ? 'edit-pen' : taskId ? 'checkmark-circle' : 'eye'
   appContent.openDynamicTab({
     key,
     label,
@@ -87,6 +90,27 @@ function openWorkflowRouteTab(key: string) {
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
   return true
+}
+
+function workflowRouteTabLabel(route: {
+  definitionId: number
+  formDetailInstanceId: string
+  revisionInstanceId: string
+  completedRevisionInstanceId: string
+  revisionId: string
+  taskId: string
+}) {
+  if (route.definitionId)
+    return '发起审批'
+  if (route.formDetailInstanceId)
+    return '表单详情'
+  if (route.revisionInstanceId)
+    return '修改表单'
+  if (route.completedRevisionInstanceId)
+    return '申请表单修订'
+  if (route.revisionId)
+    return '表单修订详情'
+  return route.taskId ? '流程办理' : '流程详情'
 }
 
 function openFeedbackRouteTab(key: string) {

@@ -1,6 +1,8 @@
 import type { Component } from 'vue'
 import WorkflowCenter from './components/WorkflowCenter.vue'
+import WorkflowCompletedFormRevisionPage from './components/WorkflowCompletedFormRevisionPage.vue'
 import WorkflowFormDetailPage from './components/WorkflowFormDetailPage.vue'
+import WorkflowFormRevisionDetailPage from './components/WorkflowFormRevisionDetailPage.vue'
 import WorkflowFormRevisionPage from './components/WorkflowFormRevisionPage.vue'
 import WorkflowInstancePage from './components/WorkflowInstancePage.vue'
 import WorkflowStartPage from './components/WorkflowStartPage.vue'
@@ -15,9 +17,6 @@ import {
   workflowTaskIdFromContentKey,
   workflowTaskInstanceIdFromContentKey,
 } from './workflow-route-keys'
-
-const WorkflowCompletedFormRevisionPage = WorkflowFormRevisionPage
-const WorkflowFormRevisionDetailPage = WorkflowInstancePage
 
 export {
   workflowCompletedFormRevisionContentKey,
