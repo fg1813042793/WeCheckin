@@ -227,8 +227,14 @@ export interface WorkflowNotificationConfig {
   resultTypes?: WorkflowNotificationResultType[]
 }
 
+export interface WorkflowCompletedRevisionConfig {
+	enabled: boolean
+	directFields: string[]
+}
+
 export interface WorkflowPostHandleEditConfig {
-  enabled: boolean
+	enabled: boolean
+	completedRevision?: WorkflowCompletedRevisionConfig
 }
 
 export interface WorkflowNode {

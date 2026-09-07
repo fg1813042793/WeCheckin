@@ -47,3 +47,7 @@ export const workflowDetailColumnTypes = workflowFieldTypes.filter(item => ![
   'detail_list', 'calculation', 'attachment', 'user', 'user_multi', 'department', 'department_multi',
   'group', 'label', 'description', 'button',
 ].includes(item.type))
+
+export const workflowCompletedRevisionBlockedFieldTypes = new Set<WorkflowFormFieldType>([
+	'calculation',
+])

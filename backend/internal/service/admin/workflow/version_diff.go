@@ -59,7 +59,7 @@ func buildVersionChangeSummary(baseVersion int, before, after versionSnapshot) V
 	items := make([]VersionChangeItem, 0)
 	items = appendMetadataChanges(items, before.Metadata, after.Metadata)
 	items = appendFormChanges(items, before.Definition.Form, after.Definition.Form)
-	items = appendNodeChanges(items, before.Definition.Nodes, after.Definition.Nodes)
+	items = appendNodeChanges(items, before.Definition.Nodes, after.Definition.Nodes, before.Definition.Form, after.Definition.Form)
 	items = appendEdgeChanges(items, before.Definition.Edges, after.Definition.Edges)
 	if len(items) == 0 {
 		items = append(items, VersionChangeItem{Category: versionChangeCategoryBasic, Action: "update", Title: "重新发布", Detail: "流程内容未发生可识别的语义变化"})
@@ -182,7 +182,7 @@ func commonFieldOrderChanged(before, after []flatVersionFormField, beforeByKey, 
 	return !jsonEqual(beforeOrder, afterOrder)
 }
 
-func appendNodeChanges(items []VersionChangeItem, before, after []workflowcore.Node) []VersionChangeItem {
+func appendNodeChanges(items []VersionChangeItem, before, after []workflowcore.Node, beforeForm, afterForm []workflowcore.FormField) []VersionChangeItem {
 	beforeByID := make(map[string]workflowcore.Node, len(before))
 	afterByID := make(map[string]workflowcore.Node, len(after))
 	for _, node := range before {
@@ -207,6 +207,7 @@ func appendNodeChanges(items []VersionChangeItem, before, after []workflowcore.N
 			previous.CompletionRate != node.CompletionRate || !jsonEqual(previous.FormPermissions, node.FormPermissions) {
 			items = append(items, VersionChangeItem{Category: versionChangeCategoryNode, Action: "update", Title: "调整节点配置", Detail: firstNonEmpty(node.Name, node.ID) + "的处理人、审批方式或字段权限已修改"})
 		}
+		items = appendCompletedRevisionChange(items, previous, node, beforeForm, afterForm)
 		if !jsonEqual(previous.Initiator, node.Initiator) || !jsonEqual(previous.Availability, node.Availability) || !jsonEqual(previous.StartLimit, node.StartLimit) {
 			items = append(items, VersionChangeItem{Category: versionChangeCategoryStart, Action: "update", Title: "调整发起配置", Detail: "允许发起范围、可用时间或次数限制已修改"})
 		}
@@ -223,6 +224,75 @@ func appendNodeChanges(items []VersionChangeItem, before, after []workflowcore.N
 		}
 	}
 	return items
+}
+
+type normalizedCompletedRevision struct {
+	Enabled      bool
+	DirectFields []string
+}
+
+func appendCompletedRevisionChange(
+	items []VersionChangeItem,
+	before, after workflowcore.Node,
+	beforeForm, afterForm []workflowcore.FormField,
+) []VersionChangeItem {
+	previous := normalizeCompletedRevision(before.PostHandleEdit)
+	current := normalizeCompletedRevision(after.PostHandleEdit)
+	if jsonEqual(previous, current) {
+		return items
+	}
+	nodeName := firstNonEmpty(after.Name, after.ID)
+	detail := nodeName + "的完成后修订已关闭"
+	if current.Enabled {
+		labels := completedRevisionFieldLabels(current.DirectFields, beforeForm, afterForm)
+		fieldText := "无，所有修订均需下游确认"
+		if len(labels) > 0 {
+			fieldText = strings.Join(labels, "、")
+		}
+		detail = nodeName + "的完成后修订已开启；允许直接修订的低风险字段：" + fieldText
+	}
+	return append(items, VersionChangeItem{
+		Category: versionChangeCategoryNode,
+		Action:   "update",
+		Title:    "调整完成后修订",
+		Detail:   detail,
+	})
+}
+
+func normalizeCompletedRevision(config *workflowcore.PostHandleEditConfig) normalizedCompletedRevision {
+	if config == nil || config.CompletedRevision == nil || !config.CompletedRevision.Enabled {
+		return normalizedCompletedRevision{DirectFields: []string{}}
+	}
+	seen := make(map[string]struct{}, len(config.CompletedRevision.DirectFields))
+	fields := make([]string, 0, len(config.CompletedRevision.DirectFields))
+	for _, raw := range config.CompletedRevision.DirectFields {
+		field := strings.TrimSpace(raw)
+		if field == "" {
+			continue
+		}
+		if _, exists := seen[field]; exists {
+			continue
+		}
+		seen[field] = struct{}{}
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+	return normalizedCompletedRevision{Enabled: true, DirectFields: fields}
+}
+
+func completedRevisionFieldLabels(keys []string, beforeForm, afterForm []workflowcore.FormField) []string {
+	labels := make(map[string]string)
+	for _, field := range flattenVersionFormFields(beforeForm) {
+		labels[field.Key] = field.Label
+	}
+	for _, field := range flattenVersionFormFields(afterForm) {
+		labels[field.Key] = field.Label
+	}
+	result := make([]string, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, firstNonEmpty(labels[key], key))
+	}
+	return result
 }
 
 func appendEdgeChanges(items []VersionChangeItem, before, after []workflowcore.Edge) []VersionChangeItem {

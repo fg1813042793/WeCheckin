@@ -86,6 +86,38 @@ func TestBuildVersionChangeSummaryCapturesApprovalResultNotificationChange(t *te
 	}
 }
 
+func TestBuildVersionChangeSummaryCapturesCompletedRevisionChange(t *testing.T) {
+	before := newDefaultDefinition("expense", "费用审批")
+	before.Form = []workflowcore.FormField{
+		{Key: "amount", Label: "金额", Type: workflowcore.FormFieldTypeAmount},
+		{Key: "remark", Label: "备注", Type: workflowcore.FormFieldTypeTextarea},
+	}
+	before.Nodes = append(before.Nodes[:1], workflowcore.Node{
+		ID: "approve", Type: workflowcore.NodeTypeApproval, Name: "主管审批",
+		PostHandleEdit: &workflowcore.PostHandleEditConfig{Enabled: true},
+	}, before.Nodes[1])
+	after := before
+	after.Nodes = append([]workflowcore.Node(nil), before.Nodes...)
+	after.Nodes[1].PostHandleEdit = &workflowcore.PostHandleEditConfig{
+		Enabled: true,
+		CompletedRevision: &workflowcore.CompletedRevisionConfig{
+			Enabled: true, DirectFields: []string{"remark", "amount"},
+		},
+	}
+
+	summary := buildVersionChangeSummary(
+		1,
+		versionSnapshot{Metadata: versionMetadata{Name: before.Name}, Definition: before},
+		versionSnapshot{Metadata: versionMetadata{Name: after.Name}, Definition: after},
+	)
+	joined := changeItemText(summary.Items)
+	for _, want := range []string{"主管审批", "完成后修订", "金额", "备注"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("completed revision change summary missing %q: %#v", want, summary)
+		}
+	}
+}
+
 func TestVersionDeleteBlockReasonProtectsCurrentAndReferencedVersions(t *testing.T) {
 	cases := []struct {
 		name          string

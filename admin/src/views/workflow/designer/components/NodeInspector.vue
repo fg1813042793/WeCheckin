@@ -193,8 +193,8 @@
       </template>
 
       <template v-if="['approval', 'handle'].includes(selectedNode.type)">
-        <section class="inspector-section">
-          <h4>办理后修改</h4>
+		<section class="inspector-section">
+		  <h4>办理后修改</h4>
           <div class="setting-switch-row">
             <label class="field-label">办理完成后允许修改表单</label>
             <el-switch
@@ -203,8 +203,42 @@
               @change="updatePostHandleEditEnabled"
             />
           </div>
-          <p class="assignee-helper">仅实际办理人且流程仍在运行时可再次修改该节点有写权限的字段；已用于分支判断的字段不可修改。</p>
-        </section>
+		  <p class="assignee-helper">仅实际办理人且流程仍在运行时可再次修改该节点有写权限的字段；已用于分支判断的字段不可修改。</p>
+		  <div class="setting-switch-row spacing">
+			<label class="field-label">流程完成后允许修订</label>
+			<el-switch
+			  :model-value="selectedNode.postHandleEdit?.completedRevision?.enabled === true"
+			  :disabled="readonly"
+			  @change="updateCompletedRevisionEnabled"
+			/>
+		  </div>
+		  <template v-if="selectedNode.postHandleEdit?.completedRevision?.enabled">
+			<label class="field-label spacing">允许直接修订的低风险字段</label>
+			<el-checkbox-group
+			  :model-value="completedRevisionDirectFields"
+			  :disabled="readonly"
+			  class="completed-revision-fields"
+			  @change="updateCompletedRevisionDirectFields"
+			>
+			  <el-tooltip
+				v-for="field in completedRevisionFieldOptions"
+				:key="field.key"
+				:disabled="!field.disabledReason"
+				:content="field.disabledReason"
+				placement="left"
+			  >
+				<span class="completed-revision-field-option">
+				  <el-checkbox :value="field.key" :disabled="readonly || Boolean(field.disabledReason)">
+					{{ field.label }}
+				  </el-checkbox>
+				  <small v-if="field.disabledReason">{{ field.disabledReason }}</small>
+				</span>
+			  </el-tooltip>
+			</el-checkbox-group>
+			<el-empty v-if="completedRevisionFieldOptions.length === 0" :image-size="42" description="当前节点没有可修订字段" />
+			<p class="assignee-helper">勾选字段的修订可直接生效；其他可编辑字段需要由原实际流转路径中的后续人工节点确认。</p>
+		  </template>
+		</section>
       </template>
 
       <template v-if="['approval', 'handle', 'cc', 'notify'].includes(selectedNode.type)">
@@ -428,6 +462,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import { defaultNotificationConfig } from '../graph'
+import { workflowCompletedRevisionBlockedFieldTypes } from '../workflowFieldCatalog'
+import { workflowDataFields } from '../../formLayout'
 import WorkflowResultNotificationEditor from './WorkflowResultNotificationEditor.vue'
 import type {
   ApprovalMode,
@@ -513,6 +549,26 @@ const departmentApprovalChainEnabled = computed(() => selectedNode.value?.depart
 const departmentApprovalChainStopMode = computed(() => selectedNode.value?.departmentApprovalChain?.stopMode || 'root')
 const notificationEnabled = computed(() => selectedNode.value?.type === 'notify' || selectedNode.value?.notification?.enabled === true)
 const notificationChannels = computed(() => selectedNode.value?.notification?.channels || [])
+const completedRevisionDirectFields = computed(() => selectedNode.value?.postHandleEdit?.completedRevision?.directFields || [])
+const completedRevisionFieldOptions = computed(() => {
+	const node = selectedNode.value
+	if (!node) return []
+	const permissionByField = new Map((node.formPermissions || []).map(permission => [permission.field, permission.access]))
+	const routingFields = new Set(props.draft.edges
+		.map(edge => String(edge.condition?.field || '').trim())
+		.filter(Boolean))
+	return workflowDataFields(props.draft.form)
+		.filter(field => permissionByField.get(field.key) === 'write'
+			|| workflowCompletedRevisionBlockedFieldTypes.has(field.type)
+			|| routingFields.has(field.key))
+		.map((field) => {
+			let disabledReason = ''
+			if (workflowCompletedRevisionBlockedFieldTypes.has(field.type)) disabledReason = '计算字段不可直接修改'
+			else if (routingFields.has(field.key)) disabledReason = '用于流程路由，不能直接修改'
+			else if (permissionByField.get(field.key) !== 'write') disabledReason = '当前节点没有写权限'
+			return { key: field.key, label: field.label || field.key, disabledReason }
+		})
+})
 
 watch(() => props.selectedNodeId, () => {
   syncAutomationVariablesText()
@@ -618,10 +674,42 @@ function updateCompletionRate(value: number | undefined) {
 }
 
 function updatePostHandleEditEnabled(value: string | number | boolean) {
-  if (!selectedNode.value || !['approval', 'handle'].includes(selectedNode.value.type)) return
-  if (Boolean(value)) selectedNode.value.postHandleEdit = { enabled: true }
-  else delete selectedNode.value.postHandleEdit
-  emit('change')
+	if (!selectedNode.value || !['approval', 'handle'].includes(selectedNode.value.type)) return
+	const postHandleEdit = ensurePostHandleEdit()
+	if (!postHandleEdit) return
+	postHandleEdit.enabled = Boolean(value)
+	if (!postHandleEdit.enabled && !postHandleEdit.completedRevision) delete selectedNode.value.postHandleEdit
+	emit('change')
+}
+
+function ensurePostHandleEdit() {
+	if (!selectedNode.value || !['approval', 'handle'].includes(selectedNode.value.type)) return undefined
+	selectedNode.value.postHandleEdit ||= { enabled: false }
+	return selectedNode.value.postHandleEdit
+}
+
+function updateCompletedRevisionEnabled(value: string | number | boolean) {
+	const postHandleEdit = ensurePostHandleEdit()
+	if (!postHandleEdit) return
+	if (Boolean(value)) {
+		postHandleEdit.completedRevision = {
+			enabled: true,
+			directFields: postHandleEdit.completedRevision?.directFields || [],
+		}
+	} else {
+		delete postHandleEdit.completedRevision
+	}
+	emit('change')
+}
+
+function updateCompletedRevisionDirectFields(value: unknown) {
+	const postHandleEdit = ensurePostHandleEdit()
+	if (!postHandleEdit?.completedRevision) return
+	const selected = new Set(Array.isArray(value) ? value.map(item => String(item)) : [])
+	postHandleEdit.completedRevision.directFields = completedRevisionFieldOptions.value
+		.filter(field => !field.disabledReason && selected.has(field.key))
+		.map(field => field.key)
+	emit('change')
 }
 
 function syncAutomationVariablesText() {
@@ -1040,6 +1128,10 @@ function setDefaultBranch(edge: WorkflowEdge, checked: boolean) {
 .notification-help-button { width: 28px; height: 28px; padding: 0; font-size: 16px; }
 .notification-channels { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .notification-channels :deep(.el-checkbox) { margin-right: 0; }
+.completed-revision-fields { display: grid; gap: 7px; margin-top: 8px; }
+.completed-revision-field-option { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.completed-revision-field-option :deep(.el-checkbox) { min-width: 0; margin-right: 0; }
+.completed-revision-field-option small { flex: 0 0 auto; color: #909399; font-size: 11px; }
 .branch-editor { margin-bottom: 12px; padding: 12px; border: 1px solid #e5eaf0; border-radius: 7px; background: #fafbfd; }
 .branch-editor:last-child { margin-bottom: 0; }
 .branch-editor__heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #334155; font-size: 12px; }
