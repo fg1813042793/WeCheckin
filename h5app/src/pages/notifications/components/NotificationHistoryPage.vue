@@ -582,6 +582,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.notification-history__columns > :not(:first-child),
 .notification-history__status,
 .notification-history__time,
 .notification-history__actions {

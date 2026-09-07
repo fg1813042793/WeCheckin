@@ -232,6 +232,7 @@ const requiredContent = [
       'mobile.value ? \'92%\' : \'720px\'',
       '.notification-history__message-copy',
       'text-overflow: ellipsis;',
+      '.notification-history__columns > :not(:first-child),\n.notification-history__status,\n.notification-history__time,\n.notification-history__actions {\n  padding-left: 12px;\n}',
       'height: min(78vh, 680px);',
       'max-height: none;',
       '确认删除这条站内信吗',
