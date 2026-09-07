@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/cloudwego/hertz/pkg/app"
 )
 
 func TestValidateWorkflowLogoRejectsInvalidFiles(t *testing.T) {
@@ -29,6 +31,44 @@ func TestValidateWorkflowLogoRejectsInvalidFiles(t *testing.T) {
 	if err := validateWorkflowLogo(oversized); err == nil {
 		t.Fatal("oversized logo must be rejected")
 	}
+}
+
+func TestWorkflowUpdateMultipartDisplayNamePresence(t *testing.T) {
+	t.Run("omitted preserves existing value", func(t *testing.T) {
+		request := workflowUpdateRequestFromMultipart(multipartWorkflowContext(t, nil))
+		if request.DisplayName != nil {
+			t.Fatalf("display name = %q, want omitted", *request.DisplayName)
+		}
+	})
+
+	t.Run("explicit empty value clears display name", func(t *testing.T) {
+		empty := ""
+		request := workflowUpdateRequestFromMultipart(multipartWorkflowContext(t, &empty))
+		if request.DisplayName == nil || *request.DisplayName != "" {
+			t.Fatalf("display name = %#v, want explicit empty value", request.DisplayName)
+		}
+	})
+}
+
+func multipartWorkflowContext(t *testing.T, displayName *string) *app.RequestContext {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("name", "流程管理名称"); err != nil {
+		t.Fatal(err)
+	}
+	if displayName != nil {
+		if err := writer.WriteField("displayName", *displayName); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ctx := app.NewContext(0)
+	ctx.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	ctx.Request.SetBody(body.Bytes())
+	return ctx
 }
 
 func multipartFileHeader(t *testing.T, filename string, content []byte) *multipart.FileHeader {

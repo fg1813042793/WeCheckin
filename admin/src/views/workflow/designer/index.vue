@@ -109,8 +109,12 @@
 
     <el-drawer v-model="metadataDrawer" title="流程信息" size="440px" append-to-body>
       <el-form v-if="detail" label-position="top">
-        <el-form-item label="流程名称" required>
+        <el-form-item label="管理名称" required>
           <el-input v-model="detail.name" maxlength="80" @input="markDirty" />
+        </el-form-item>
+        <el-form-item label="用户显示名称">
+          <el-input v-model="detail.displayName" maxlength="80" placeholder="留空时使用管理名称" @input="markDirty" />
+          <div class="metadata-help">H5 与流程通知使用；重新发布后对新流程生效。</div>
         </el-form-item>
         <el-form-item label="流程编码">
           <el-input :model-value="detail.key" disabled />
@@ -146,7 +150,7 @@
       v-if="detail"
       v-model="formPreviewDialog"
       :draft="detail.draft"
-      :title="detail.name"
+      :title="detail.displayName || detail.name"
     />
   </div>
 </template>
@@ -362,9 +366,11 @@ async function saveDraft(showMessage = true) {
   try {
     detail.value.draft.key = detail.value.key
     detail.value.draft.name = name
+    detail.value.draft.displayName = detail.value.displayName.trim()
     normalizeWorkflowCalculationPermissions(detail.value.draft)
     const response = await adminApi.workflowDefinitionUpdate(detail.value.id, {
       name,
+      displayName: detail.value.displayName.trim(),
       category: detail.value.category.trim(),
       description: detail.value.description.trim(),
       status: detail.value.status,
@@ -488,6 +494,7 @@ onMounted(async () => {
 .validation-panel > button { display: flex; width: 100%; gap: 10px; padding: 10px 12px; border: 0; border-bottom: 1px solid #f1f3f6; background: #fff; color: #475569; text-align: left; cursor: pointer; }
 .validation-panel > button:hover { background: #fafbfc; }
 .validation-panel > button code { color: #b42318; font-size: 11px; }
+.metadata-help { margin-top: 6px; color: #94a3b8; font-size: 12px; line-height: 1.5; }
 @media (max-width: 1180px) {
   .designer-header { align-items: flex-start; flex-direction: column; padding: 12px 16px; }
   .designer-header__actions { width: 100%; overflow-x: auto; padding-bottom: 2px; }

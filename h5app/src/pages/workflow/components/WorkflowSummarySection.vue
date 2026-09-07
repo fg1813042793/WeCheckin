@@ -513,52 +513,36 @@ function formatTime(timestamp?: number) {
 }
 
 .workflow-summary__filters {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 12px 14px;
-  align-items: end;
 }
 
 .workflow-summary__filter {
-  min-width: 0;
+  min-width: 160px;
+  max-width: 220px;
+  flex: 1 1 180px;
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
 .workflow-summary__filter--instance-title {
-  grid-column: 1 / 4;
-  grid-row: 1;
+  max-width: 240px;
 }
 
-.workflow-summary__filter--definition-name {
-  grid-column: 4 / 7;
-  grid-row: 1;
-}
-
-.workflow-summary__filter--starter {
-  grid-column: 7 / 10;
-  grid-row: 1;
-}
-
-.workflow-summary__filter--status {
-  grid-column: 10 / 11;
-  grid-row: 1;
-}
-
+.workflow-summary__filter--status,
 .workflow-summary__filter--version {
-  grid-column: 11 / 13;
-  grid-row: 1;
+  min-width: 120px;
+  max-width: 140px;
+  flex: 0 1 140px;
 }
 
-.workflow-summary__filter--start {
-  grid-column: 1 / 7;
-  grid-row: 2;
-}
-
-.workflow-summary__filter--end {
-  grid-column: 7 / 13;
-  grid-row: 2;
+.workflow-summary__filter--range {
+  min-width: 280px;
+  max-width: 340px;
+  flex: 1 1 280px;
 }
 
 .workflow-summary__filter-label {
@@ -607,12 +591,22 @@ function formatTime(timestamp?: number) {
 }
 
 .workflow-summary__filter-actions {
-  grid-column: 11 / 13;
-  grid-row: 3;
+  flex: 0 0 auto;
   width: fit-content;
-  justify-self: end;
-  justify-content: flex-end;
   gap: 8px;
+}
+
+.workflow-summary__filter-action,
+:deep(.workflow-summary__filter-action) {
+  width: auto;
+  min-width: 64px;
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 34px;
 }
 
 .workflow-summary__toolbar {
@@ -750,49 +744,6 @@ function formatTime(timestamp?: number) {
   font-size: 15px;
 }
 
-@media (max-width: 1200px) {
-  .workflow-summary__filters {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .workflow-summary__filter--instance-title {
-    grid-column: 1 / 3;
-  }
-
-  .workflow-summary__filter--definition-name {
-    grid-column: 3 / 5;
-  }
-
-  .workflow-summary__filter--starter {
-    grid-column: 5 / 7;
-  }
-
-  .workflow-summary__filter--status {
-    grid-column: 1 / 2;
-    grid-row: 2;
-  }
-
-  .workflow-summary__filter--version {
-    grid-column: 2 / 3;
-    grid-row: 2;
-  }
-
-  .workflow-summary__filter-actions {
-    grid-column: 5 / 7;
-    grid-row: 4;
-  }
-
-  .workflow-summary__filter--start {
-    grid-column: 1 / 4;
-    grid-row: 3;
-  }
-
-  .workflow-summary__filter--end {
-    grid-column: 4 / 7;
-    grid-row: 3;
-  }
-}
-
 @media (max-width: 768px) {
   .workflow-summary {
     width: 100%;
@@ -802,8 +753,15 @@ function formatTime(timestamp?: number) {
   }
 
   .workflow-summary__filters {
+    display: grid;
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .workflow-summary__filter {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
   }
 
   .workflow-summary__filter--instance-title,

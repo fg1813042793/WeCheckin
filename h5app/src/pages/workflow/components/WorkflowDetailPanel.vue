@@ -21,6 +21,7 @@ import {
   withdrawWorkflowInstance,
 } from '@/api/workflow'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
+import { workflowDefinitionDisplayName } from '../workflow-definition'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
@@ -220,16 +221,16 @@ const definition = computed(() => {
 
 const title = computed(() => {
   return String(detail.value?.instance.instanceTitle || '').trim()
+    || String(detail.value?.instance.definitionName || '').trim()
     || props.displayTitle
-    || definition.value?.name
-    || detail.value?.instance.definitionName
+    || workflowDefinitionDisplayName(definition.value)
     || detail.value?.instance.definitionKey
     || '流程详情'
 })
 
 const workflowName = computed(() => (
-  definition.value?.name
-  || String(detail.value?.instance.definitionName || '').trim()
+  String(detail.value?.instance.definitionName || '').trim()
+  || workflowDefinitionDisplayName(definition.value)
   || detail.value?.instance.definitionKey
   || '流程审批'
 ))
@@ -1574,7 +1575,7 @@ async function deleteApplication() {
                 :disabled="submitting && submittingAction !== primaryTaskAction"
                 @click="submitTask(primaryTaskAction)"
               >
-                {{ activeNodeType === 'handle' ? '提交办理' : '同意' }}
+                {{ activeNodeType === 'handle' ? '提交办理' : '确认' }}
               </u-button>
             </template>
           </view>
@@ -2548,6 +2549,11 @@ async function deleteApplication() {
   padding: 20px;
   background: #fff;
   box-sizing: border-box;
+}
+
+.workflow-interaction-dialog--comment {
+  width: 100%;
+  max-width: none;
 }
 
 .workflow-interaction-dialog__header {

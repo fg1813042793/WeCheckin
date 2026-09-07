@@ -26,7 +26,7 @@
         :class="{ 'form-preview-sheet--mobile': previewMode === 'mobile' }"
       >
         <header class="form-preview-heading">
-          <h2>{{ title || draft.name || '未命名流程' }}</h2>
+          <h2>{{ title || draft.displayName || draft.name || '未命名流程' }}</h2>
         </header>
         <WorkflowRuntimeForm
           v-model="previewData"

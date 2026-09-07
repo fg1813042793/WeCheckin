@@ -48,6 +48,8 @@ func TestResolveInstanceIdentitySupportsFormDateAndFieldVariables(t *testing.T) 
 		t.Fatal(err)
 	}
 	definition := validLinearDefinition()
+	definition.Name = "请假审批（华东区）"
+	definition.DisplayName = "请假审批"
 	definition.Form = []FormField{
 		{Key: "reviewDate", Label: "考评日期", Type: FormFieldTypeDate},
 		{Key: "project", Label: "项目", Type: FormFieldTypeText},
@@ -73,6 +75,20 @@ func TestResolveInstanceIdentitySupportsFormDateAndFieldVariables(t *testing.T) 
 		t.Fatalf("business period = %#v", identity)
 	}
 	if identity.Title != "2026年第2季度 Phoenix - 请假审批" {
+		t.Fatalf("title = %q", identity.Title)
+	}
+}
+
+func TestResolveInstanceIdentityDefaultTitleUsesDisplayName(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Name = "采购审批（集团总部）"
+	definition.DisplayName = "采购申请"
+
+	identity, err := ResolveInstanceIdentity(definition, time.Now(), "Foster", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Title != "Foster提交的采购申请" {
 		t.Fatalf("title = %q", identity.Title)
 	}
 }

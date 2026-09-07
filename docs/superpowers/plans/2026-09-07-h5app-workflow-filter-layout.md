@@ -25,7 +25,7 @@ const workflowCenter = read('../src/pages/workflow/components/WorkflowCenter.vue
 
 assert.match(workflowCenter, /workflow-center__filter-field--category/)
 assert.match(workflowCenter, /\.workflow-center__record-filters\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/)
-assert.match(workflowCenter, /\.workflow-center__filter-field--category\s*\{[^}]*flex:\s*0 1 180px;[^}]*max-width:\s*180px;/)
+assert.match(workflowCenter, /\.workflow-center__filter-field--category\s*\{[^}]*flex:\s*0 1 160px;[^}]*max-width:\s*160px;/)
 assert.match(workflowCenter, /\.workflow-center__filter-actions\s*\{[^}]*flex:\s*0 0 auto;/)
 assert.match(workflowSummary, /\.workflow-summary__filters\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/)
 assert.match(workflowSummary, /\.workflow-summary__filter-actions\s*\{[^}]*flex:\s*0 0 auto;/)
@@ -53,7 +53,7 @@ Expected: FAIL，首个失败说明 `WorkflowCenter.vue` 尚不存在分类紧�
 
 - [ ] **Step 2: 将桌面筛选网格改为可换行 Flex**
 
-使用以下宽度职责：普通字段可在 `160px` 到 `240px` 之间伸缩，分类最大 `180px`，日期范围从 `240px` 起伸缩，按钮不压缩并跟在最后一个条件后面：
+使用以下宽度职责：普通字段约 `170px`，分类约 `160px`，日期范围约 `200px`，字段不主动吃满行尾空间，按钮不压缩并跟在最后一个条件后面：
 
 ```scss
 .workflow-center__record-filters {
@@ -64,21 +64,21 @@ Expected: FAIL，首个失败说明 `WorkflowCenter.vue` 尚不存在分类紧�
 }
 
 .workflow-center__filter-field {
-  min-width: 160px;
-  max-width: 240px;
-  flex: 1 1 160px;
+  min-width: 150px;
+  max-width: 220px;
+  flex: 0 1 170px;
 }
 
 .workflow-center__filter-field--category {
   min-width: 150px;
-  max-width: 180px;
-  flex: 0 1 180px;
+  flex: 0 1 160px;
+  max-width: 160px;
 }
 
 .workflow-center__filter-field--date {
-  min-width: 240px;
-  max-width: 280px;
-  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 240px;
+  flex: 0 1 200px;
 }
 
 .workflow-center__filter-actions {
@@ -178,4 +178,3 @@ Expected: 构建完成且退出码为 `0`。
 ```
 
 检查页面非空、无框架错误层、控制台无相关错误、页面 `scrollWidth <= clientWidth`，并点击查询或重置确认交互可用。
-

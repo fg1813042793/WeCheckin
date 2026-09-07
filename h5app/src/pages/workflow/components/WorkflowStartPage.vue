@@ -18,6 +18,7 @@ import {
   startWorkflowInstance,
 } from '@/api/workflow'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
+import { workflowDefinitionDisplayName } from '../workflow-definition'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
@@ -79,6 +80,7 @@ const selectedInstanceId = ref('')
 let unregisterCloseGuard: (() => void) | null = null
 
 const definitionId = computed(() => workflowDefinitionIdFromContentKey(props.contentKey))
+const definitionDisplayName = computed(() => workflowDefinitionDisplayName(definition.value))
 const canStart = computed(() => auth.hasApiPermission('dingtalk_h5:api:workflow:start'))
 const canView = computed(() => auth.hasApiPermission('dingtalk_h5:api:workflow:view'))
 const busy = computed(() => loading.value || draftSaving.value || draftDeleting.value || submitting.value)
@@ -393,7 +395,7 @@ function openHistoryInstance(instanceId: string) {
       return
     appContent.openDynamicTab({
       key,
-      label: historyInstances.value.find(item => item.id === instanceId)?.instanceTitle || definition.value?.name || '流程详情',
+      label: historyInstances.value.find(item => item.id === instanceId)?.instanceTitle || definitionDisplayName.value || '流程详情',
       icon: 'eye',
       path: `/pages/index/index?view=${encodeURIComponent(key)}`,
     })
@@ -556,7 +558,7 @@ function cancelStart() {
               </view>
               <view class="workflow-start-page__title-group">
                 <text class="workflow-start-page__title">
-                  {{ definition.name }}
+                  {{ definitionDisplayName }}
                 </text>
                 <text class="workflow-start-page__meta">
                   {{ definition.category || '流程审批' }} · 版本 {{ definition.version }}
@@ -760,7 +762,7 @@ function cancelStart() {
               @click="openHistoryInstance(instance.id)"
             >
               <text class="workflow-start-page__record-cell workflow-start-page__record-cell--name">
-                {{ instance.instanceTitle || definition.name }}
+                {{ instance.instanceTitle || instance.definitionName || definitionDisplayName }}
               </text>
               <text class="workflow-start-page__record-cell workflow-start-page__record-cell--key">
                 {{ instance.businessKey }}
@@ -831,7 +833,7 @@ function cancelStart() {
             </view>
             <view class="workflow-start-page__draft-main">
               <text class="workflow-start-page__draft-title">
-                {{ definition.name }}
+                {{ definitionDisplayName }}
               </text>
               <text class="workflow-start-page__draft-version">
                 版本 {{ savedDraft.definitionVersion }}

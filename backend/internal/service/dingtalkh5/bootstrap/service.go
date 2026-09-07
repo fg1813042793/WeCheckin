@@ -446,17 +446,23 @@ func dingTalkH5PermissionCatalogTypeHasMenuLabel(permissionType string) bool {
 }
 
 func dingTalkH5MenuDeclarationsFromCatalog(rows []dingTalkH5PermissionCatalogRow) []appmenuperm.Declaration {
-	declarations := append([]appmenuperm.Declaration(nil), appmenuperm.DingTalkH5MenuDeclarations()...)
-	declared := make(map[string]bool, len(declarations))
-	for _, declaration := range declarations {
-		declared[declaration.Key] = true
+	builtIns := appmenuperm.DingTalkH5MenuDeclarations()
+	builtInByKey := make(map[string]appmenuperm.Declaration, len(builtIns))
+	for _, declaration := range builtIns {
+		builtInByKey[declaration.Key] = declaration
 	}
+	declarations := make([]appmenuperm.Declaration, 0, len(rows))
+	declared := make(map[string]bool, len(rows))
 	for _, row := range rows {
 		key := strings.TrimSpace(row.Key)
-		if declared[key] || !strings.HasPrefix(key, "dingtalk_h5:menu:") || !dingTalkH5PermissionCatalogTypeHasMenuLabel(row.Type) {
+		if key == "" || declared[key] || !strings.HasPrefix(key, "dingtalk_h5:menu:") || !dingTalkH5PermissionCatalogTypeHasMenuLabel(row.Type) {
 			continue
 		}
 		declared[key] = true
+		if builtIn, ok := builtInByKey[key]; ok {
+			declarations = append(declarations, builtIn)
+			continue
+		}
 		declarations = append(declarations, appmenuperm.Declaration{
 			Key:       key,
 			Name:      strings.TrimSpace(row.Name),
@@ -508,9 +514,28 @@ func dingTalkH5MenusByKeysWithLabelsAndIcons(keys []string, labels, icons map[st
 func dingTalkH5MenusByDeclarations(keys []string, declarations []appmenuperm.Declaration, labels, icons map[string]string) []AppMenuDTO {
 	allowed := dingTalkH5AllowedMenuKeySet(keys)
 	expandDingTalkH5MenuAncestors(allowed, declarations)
+	declarationByKey := make(map[string]appmenuperm.Declaration, len(declarations))
+	for _, declaration := range declarations {
+		declarationByKey[declaration.Key] = declaration
+	}
+	hasActiveAncestors := func(declaration appmenuperm.Declaration) bool {
+		seen := make(map[string]bool)
+		for parentKey := declaration.ParentKey; parentKey != ""; {
+			if seen[parentKey] {
+				return false
+			}
+			seen[parentKey] = true
+			parent, ok := declarationByKey[parentKey]
+			if !ok {
+				return false
+			}
+			parentKey = parent.ParentKey
+		}
+		return true
+	}
 	nodes := make(map[string]*AppMenuDTO, len(declarations))
 	for _, declaration := range declarations {
-		if !allowed[declaration.Key] {
+		if !allowed[declaration.Key] || !hasActiveAncestors(declaration) {
 			continue
 		}
 		node := AppMenuDTO{

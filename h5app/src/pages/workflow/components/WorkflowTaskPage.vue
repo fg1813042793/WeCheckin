@@ -24,6 +24,7 @@ function handleVisibleChange(visible: boolean) {
 }
 
 function handleChanged() {
+  appContent.focusWorkflowTab('pending')
   appContent.switchContent('workflow')
   appContent.removeDynamicTab(props.contentKey)
   appContent.requestRefresh()

@@ -210,7 +210,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
-    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', '.workflow-summary__filter-actions {\n  grid-column: 11 / 13;\n  grid-row: 3;', 'width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    min-width: 0;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
+    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', '.workflow-summary__filters {\n  display: flex;\n  flex-wrap: wrap;', '.workflow-summary__filter-actions {\n  flex: 0 0 auto;\n  width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    min-width: 0;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -240,6 +240,10 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
     patterns: ['dingtalk_h5:api:workflow:remind', 'reminderNodes', 'remindWorkflowInstance', '提醒处理', '今日剩余', 'rejectVisible', 'rejectImages', 'commentImages', 'WorkflowImagePicker', 'WorkflowParticipantSelect', 'commentNotificationGroups', 'commentNotificationUserIds', 'commentNotificationChannels = ref<WorkflowNotificationChannel[]>([\'in_app\'])', ':groups="commentNotificationGroups"', 'value="in_app" label="站内信"', 'value="dingtalk_oa" label="钉钉"', 'notification: commentNotificationUserIds.value.length > 0', 'right.eventTime - left.eventTime'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
+    patterns: ['.workflow-interaction-dialog--comment {\n  width: 100%;\n  max-width: none;\n}'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowParticipantSelect.vue',
@@ -381,11 +385,11 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowTaskPage.vue',
-    patterns: ['workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'WorkflowDetailPanel', ':display-title="taskTitle"', 'presentation="page"', 'appContent.requestCloseTab', 'appContent.removeDynamicTab', 'appContent.requestRefresh', 'appContent.switchContent(\'workflow\')'],
+    patterns: ['workflowTaskIdFromContentKey', 'workflowTaskInstanceIdFromContentKey', 'WorkflowDetailPanel', ':display-title="taskTitle"', 'presentation="page"', 'appContent.requestCloseTab', 'appContent.removeDynamicTab', 'appContent.requestRefresh', 'appContent.focusWorkflowTab(\'pending\')', 'appContent.switchContent(\'workflow\')'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
-    patterns: ['workflowTaskTabTitle', 'workflowTaskTabTitle(taskStarterDisplayName(task), taskDefinitionName(task))'],
+    patterns: ['workflowTaskTabTitle', 'workflowTaskTabTitle(taskStarterDisplayName(task), taskDefinitionName(task))', 'function openWorkflowTaskTab(task: WorkflowTaskSummary) {\n  appContent.focusWorkflowTab(\'pending\')'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowStartPage.vue',
@@ -658,8 +662,7 @@ const requiredContent = [
       ':class="{ \'workflow-detail-panel__actions--page\': pagePresentation }"',
       '取消',
       '驳回',
-      '同意',
-      '提交办理',
+      '{{ activeNodeType === \'handle\' ? \'提交办理\' : \'确认\' }}',
       'z-index: 20;',
     ],
   },

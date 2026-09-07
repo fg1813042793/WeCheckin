@@ -15,6 +15,7 @@ import {
   listWorkflowTasks,
 } from '@/api/workflow'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
+import { workflowDefinitionDisplayName } from '../workflow-definition'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
 import {
   workflowInstanceContentKey,
@@ -185,7 +186,7 @@ const filteredDefinitions = computed(() => {
   if (!query)
     return list
   return list.filter((item) => {
-    return [item.name, item.key, item.category, item.description]
+    return [workflowDefinitionDisplayName(item), item.key, item.category, item.description]
       .some(value => String(value || '').toLowerCase().includes(query))
   })
 })
@@ -542,7 +543,7 @@ function openWorkflowStartTab(definition: WorkflowPublishedDefinition) {
   const key = workflowStartContentKey(definition.id)
   appContent.openDynamicTab({
     key,
-    label: definition.name,
+    label: workflowDefinitionDisplayName(definition),
     icon: 'file-text',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
@@ -585,6 +586,7 @@ function openFocusedWorkflowInstance() {
 }
 
 function openWorkflowTaskTab(task: WorkflowTaskSummary) {
+  appContent.focusWorkflowTab('pending')
   const key = workflowTaskContentKey(task.id, task.instanceId)
   if (!key)
     return
@@ -671,7 +673,11 @@ function handlePageChange(payload: WorkflowPaginationChangePayload) {
 function definitionName(instance?: WorkflowInstanceSummary) {
   if (!instance)
     return '流程审批'
-  return definitionMap.value.get(instance.definitionId)?.name || String(instance.definitionName || '').trim() || instance.definitionKey || '流程审批'
+  const snapshot = String(instance.definitionName || '').trim()
+  if (snapshot)
+    return snapshot
+  const definition = definitionMap.value.get(instance.definitionId)
+  return workflowDefinitionDisplayName(definition) || instance.definitionKey || '流程审批'
 }
 
 function instanceDisplayTitle(instance?: WorkflowInstanceSummary) {
@@ -842,7 +848,7 @@ function activeListTitle() {
                     v-if="hasDefinitionLogo(definition)"
                     class="workflow-definition__logo"
                     :src="definition.logoUrl"
-                    :alt="definition.name"
+                    :alt="workflowDefinitionDisplayName(definition)"
                     mode="aspectFill"
                     @error="markDefinitionLogoFailed(definition.id)"
                   />
@@ -850,7 +856,7 @@ function activeListTitle() {
                 </view>
                 <view class="workflow-definition__copy">
                   <text class="workflow-definition__name">
-                    {{ definition.name }}
+                    {{ workflowDefinitionDisplayName(definition) }}
                   </text>
                   <text class="workflow-definition__desc">
                     {{ definitionStartMeta(definition) }}
@@ -938,7 +944,7 @@ function activeListTitle() {
                 @keyup.enter="queryRecords"
               >
             </view>
-            <view class="workflow-center__filter-field">
+            <view class="workflow-center__filter-field workflow-center__filter-field--category">
               <text class="workflow-center__filter-label">
                 流程分类
               </text>
@@ -1447,17 +1453,30 @@ function activeListTitle() {
 }
 
 .workflow-center__record-filters {
-  display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(150px, 180px) minmax(300px, 430px) minmax(160px, 220px) auto;
-  align-items: end;
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 12px;
 }
 
 .workflow-center__filter-field {
-  min-width: 0;
+  min-width: 150px;
+  max-width: 220px;
+  flex: 0 1 170px;
   display: grid;
   gap: 7px;
+}
+
+.workflow-center__filter-field--category {
+  min-width: 150px;
+  flex: 0 1 160px;
+  max-width: 160px;
+}
+
+.workflow-center__filter-field--date {
+  min-width: 280px;
+  flex: 0 0 280px;
+  max-width: 280px;
 }
 
 .workflow-center__filter-label {
@@ -1522,7 +1541,7 @@ function activeListTitle() {
 }
 
 .workflow-center__filter-actions {
-  grid-column: -2 / -1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1642,7 +1661,15 @@ function activeListTitle() {
   }
 
   .workflow-center__record-filters {
+    display: grid;
     grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  }
+
+  .workflow-center__filter-field,
+  .workflow-center__filter-field--category,
+  .workflow-center__filter-field--date {
+    min-width: 0;
+    max-width: none;
   }
 
   .workflow-center__filter-field--date {
@@ -1697,6 +1724,14 @@ function activeListTitle() {
 
   .workflow-center__record-filters {
     grid-template-columns: 1fr;
+  }
+
+  .workflow-center__filter-field,
+  .workflow-center__filter-field--category,
+  .workflow-center__filter-field--date {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
   }
 
   .workflow-center__filter-field--date {

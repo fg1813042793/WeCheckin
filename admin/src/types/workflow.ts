@@ -272,6 +272,7 @@ export interface WorkflowDraft {
   schemaVersion: number
   key: string
   name: string
+  displayName?: string
   instanceIdentity?: WorkflowInstanceIdentityConfig
   form: WorkflowFormField[]
   nodes: WorkflowNode[]
@@ -282,6 +283,7 @@ export interface WorkflowDefinitionSummary {
   id: number
   key: string
   name: string
+  displayName: string
   description: string
   category: string
   logoUrl: string
@@ -301,6 +303,7 @@ export interface WorkflowPublishedDefinition {
   id: number
   key: string
   name: string
+  displayName: string
   description: string
   category: string
   version: number

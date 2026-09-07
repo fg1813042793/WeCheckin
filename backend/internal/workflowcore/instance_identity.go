@@ -125,7 +125,7 @@ func ResolveInstanceIdentity(
 ) (InstanceIdentity, error) {
 	config := definition.InstanceIdentity
 	if config == nil {
-		return InstanceIdentity{Title: defaultInstanceTitle(definition.Name, starterName)}, nil
+		return InstanceIdentity{Title: defaultInstanceTitle(definition.EffectiveName(), starterName)}, nil
 	}
 	fields, _ := validateFormSchema(definition.Form)
 	if errors := validateInstanceIdentity(config, fields, definitionStartAvailability(definition)); len(errors) > 0 {
@@ -143,7 +143,7 @@ func ResolveInstanceIdentity(
 	}
 
 	replacements := map[string]string{
-		"workflowName":   definition.Name,
+		"workflowName":   definition.EffectiveName(),
 		"starterName":    starterName,
 		"businessPeriod": identity.BusinessPeriodLabel,
 	}
@@ -159,7 +159,7 @@ func ResolveInstanceIdentity(
 	})
 	title = strings.Join(strings.Fields(title), " ")
 	if title == "" {
-		title = defaultInstanceTitle(definition.Name, starterName)
+		title = defaultInstanceTitle(definition.EffectiveName(), starterName)
 	}
 	identity.Title = truncateRunes(title, maxInstanceTitleLength)
 	return identity, nil

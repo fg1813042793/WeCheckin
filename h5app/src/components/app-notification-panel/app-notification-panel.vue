@@ -295,7 +295,7 @@ function formatTime(value: number) {
           title="返回站内信列表"
           @click="backToList"
         >
-          <u-icon name="arrow-left" size="20" color="#4e5969" />
+          <u-icon name="arrow-left" size="20px" color="#4e5969" />
         </u-button>
         <view class="notification-panel__heading">
           <text class="notification-panel__title">
@@ -307,7 +307,7 @@ function formatTime(value: number) {
             title="查看站内信历史"
             @click="openNotificationHistory"
           >
-            <u-icon name="clock" size="14" color="#008f72" />
+            <u-icon name="clock" size="14px" color="#008f72" />
             <text>历史</text>
           </u-button>
           <text v-if="!selectedNotification && unreadCount > 0" class="notification-panel__unread-copy">
@@ -323,7 +323,7 @@ function formatTime(value: number) {
           全部已读
         </u-button>
         <u-button custom-class="notification-panel__icon-btn app-icon-button" title="关闭站内信" @click="closePanel">
-          <u-icon name="close" size="20" color="#4e5969" />
+          <u-icon name="close" size="20px" color="#4e5969" />
         </u-button>
       </view>
 
@@ -335,7 +335,7 @@ function formatTime(value: number) {
           >
             <u-icon
               :name="notificationTypeMeta(selectedNotification).icon"
-              size="14"
+              size="14px"
               :color="notificationTypeMeta(selectedNotification).color"
             />
             <text>{{ notificationTypeMeta(selectedNotification).label }}</text>
@@ -354,18 +354,18 @@ function formatTime(value: number) {
 
       <scroll-view v-else scroll-y class="notification-panel__body">
         <view v-if="loading" class="notification-panel__state">
-          <u-loading mode="circle" size="36" />
+          <u-loading mode="circle" size="36px" />
           <text>加载中...</text>
         </view>
         <view v-else-if="errorMessage" class="notification-panel__state">
-          <u-icon name="error-circle" size="36" color="#86909c" />
+          <u-icon name="error-circle" size="36px" color="#86909c" />
           <text>{{ errorMessage }}</text>
           <u-button custom-class="notification-panel__retry" @click="loadNotifications(false)">
             重新加载
           </u-button>
         </view>
         <view v-else-if="notifications.length === 0" class="notification-panel__state">
-          <u-icon name="email" size="42" color="#c9cdd4" />
+          <u-icon name="email" size="42px" color="#c9cdd4" />
           <text class="notification-panel__empty-title">
             暂无未读消息
           </text>
@@ -385,7 +385,7 @@ function formatTime(value: number) {
             >
               <u-icon
                 :name="notificationTypeMeta(item).icon"
-                size="17"
+                size="20px"
                 :color="notificationTypeMeta(item).color"
               />
             </view>
@@ -408,7 +408,7 @@ function formatTime(value: number) {
                 {{ item.content || '暂无内容' }}
               </text>
             </view>
-            <u-icon name="arrow-right" size="16" color="#c9cdd4" />
+            <u-icon name="arrow-right" size="16px" color="#c9cdd4" />
           </view>
           <view class="notification-list__footer">
             <u-button
@@ -750,6 +750,13 @@ function formatTime(value: number) {
 @media (max-width: 768px) {
   .notification-panel__header {
     padding: 0 12px;
+  }
+
+  .notification-panel--mobile .notification-item__kind-icon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+    border-radius: 7px;
   }
 
   .notification-detail {

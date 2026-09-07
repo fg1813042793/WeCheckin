@@ -89,8 +89,13 @@ const todoStatusActions: Record<string, ReviewActionKey[]> = {
   employee_confirm: ['confirm-result', 'dispute-result', 'withdraw'],
   hr_final: ['return-hrbp', 'finalize', 'withdraw'],
 }
+const performanceTodoMenuKeys = [...new Set(Object.values(todoStatusMenuKeys))]
 const currentUserTodos = computed(() => reviews.value.filter(isCurrentUserTodo))
 const todos = computed(() => currentUserTodos.value.filter(canOpenTodo))
+const canViewPerformanceTodos = computed(() => (
+  auth.hasApiPermission('dingtalk_h5:api:review:list')
+  && performanceTodoMenuKeys.some(key => auth.hasMenuPermission(key))
+))
 const canViewWorkflowTodos = computed(() => (
   auth.hasMenuPermission('workflow')
   && auth.hasApiPermission('dingtalk_h5:api:workflow:view')
@@ -102,7 +107,9 @@ const todoToneColor = computed(() => hasTodos.value ? 'var(--u-type-warning)' : 
 const todoFilters = computed<Array<{ key: TodoFilter, label: string, count: number }>>(() => [
   { key: 'all', label: '全部', count: totalTodoCount.value },
   { key: 'workflow', label: '流程审批', count: workflowPendingCount.value },
-  { key: 'performance', label: '绩效任务', count: todos.value.length },
+  ...(canViewPerformanceTodos.value
+    ? [{ key: 'performance' as const, label: '绩效任务', count: todos.value.length }]
+    : []),
 ])
 const visibleWorkflowTasks = computed(() => todoFilter.value === 'performance' ? [] : workflowTasks.value)
 const visiblePerformanceTodos = computed(() => todoFilter.value === 'workflow' ? [] : todos.value)
@@ -256,6 +263,9 @@ function setTodoFilter(filter: TodoFilter) {
 }
 
 async function loadPerformanceTodos() {
+  reviews.value = []
+  if (!canViewPerformanceTodos.value)
+    return
   const res = await listReviews({
     scope: 'dashboard',
     pageSize: 100,
@@ -283,6 +293,11 @@ async function loadWorkbenchData() {
     loading.value = false
   }
 }
+
+watch(canViewPerformanceTodos, (visible) => {
+  if (!visible && todoFilter.value === 'performance')
+    todoFilter.value = 'all'
+}, { immediate: true })
 
 watch(
   () => [appContent.currentKey, appContent.refreshTick],

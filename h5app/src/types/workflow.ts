@@ -208,6 +208,7 @@ export interface WorkflowPublishedDefinition {
   id: number
   key: string
   name: string
+  displayName: string
   description: string
   category: string
   logoUrl?: string

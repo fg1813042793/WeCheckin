@@ -37,7 +37,7 @@ const pageSize = 20
 const total = ref(0)
 
 const hasMore = computed(() => notifications.value.length < total.value)
-const detailPopupWidth = computed(() => mobile.value ? '92%' : '520px')
+const detailPopupWidth = computed(() => mobile.value ? '92%' : '720px')
 
 function resolveMobile() {
   try {
@@ -77,6 +77,14 @@ function notificationToneColor(notification: InAppNotification) {
     danger: '#c93756',
     info: '#475569',
   }[notificationTone(notification)] || '#475569'
+}
+
+function notificationPreview(content: string) {
+  const firstLine = String(content || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .find(Boolean)
+  return firstLine || '暂无内容'
 }
 
 function formatTime(value: number) {
@@ -247,18 +255,18 @@ onBeforeUnmount(() => {
     </view>
 
     <view v-if="loading" class="notification-history__state">
-      <u-loading mode="circle" size="36" />
+      <u-loading mode="circle" size="36px" />
       <text>加载中...</text>
     </view>
     <view v-else-if="errorMessage" class="notification-history__state">
-      <u-icon name="error-circle" size="38" color="#86909c" />
+      <u-icon name="error-circle" size="38px" color="#86909c" />
       <text>{{ errorMessage }}</text>
       <u-button custom-class="notification-history__state-action" @click="loadNotifications(false)">
         重新加载
       </u-button>
     </view>
     <view v-else-if="notifications.length === 0" class="notification-history__state">
-      <u-icon name="email" size="44" color="#c9cdd4" />
+      <u-icon name="email" size="44px" color="#c9cdd4" />
       <text class="notification-history__empty-title">
         暂无历史消息
       </text>
@@ -278,7 +286,7 @@ onBeforeUnmount(() => {
       >
         <view class="notification-history__message" @click="openNotification(item)">
           <view class="notification-history__icon">
-            <u-icon :name="notificationIcon(item)" size="18" :color="notificationToneColor(item)" />
+            <u-icon :name="notificationIcon(item)" size="20px" :color="notificationToneColor(item)" />
           </view>
           <view class="notification-history__message-copy">
             <view class="notification-history__message-title-row">
@@ -290,7 +298,7 @@ onBeforeUnmount(() => {
               </text>
             </view>
             <text class="notification-history__summary">
-              {{ item.content || '暂无内容' }}
+              {{ notificationPreview(item.content) }}
             </text>
           </view>
         </view>
@@ -311,7 +319,7 @@ onBeforeUnmount(() => {
             title="查看消息"
             @click="openNotification(item)"
           >
-            <u-icon name="eye" size="14" color="#2563eb" />
+            <u-icon name="eye" size="16px" color="#2563eb" />
             <text>查看</text>
           </u-button>
           <u-button
@@ -320,7 +328,7 @@ onBeforeUnmount(() => {
             :disabled="deletingId > 0"
             @click="requestDelete(item)"
           >
-            <u-icon name="trash" size="14" color="#dc2626" />
+            <u-icon name="trash" size="16px" color="#dc2626" />
             <text>删除</text>
           </u-button>
         </view>
@@ -364,7 +372,7 @@ onBeforeUnmount(() => {
             title="关闭消息详情"
             @click="detailVisible = false"
           >
-            <u-icon name="close" size="20" color="#4e5969" />
+            <u-icon name="close" size="20px" color="#4e5969" />
           </u-button>
         </view>
         <text class="notification-history-detail__time">
@@ -491,6 +499,7 @@ onBeforeUnmount(() => {
   min-height: 82px;
   padding: 12px 16px;
   border-bottom: 1px solid #f0f1f2;
+  overflow: hidden;
 }
 
 .notification-history__item--unread {
@@ -499,7 +508,9 @@ onBeforeUnmount(() => {
 }
 
 .notification-history__message {
+  width: 100%;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -519,11 +530,15 @@ onBeforeUnmount(() => {
 }
 
 .notification-history__message-copy {
+  width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .notification-history__message-title-row {
+  width: 100%;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -546,9 +561,12 @@ onBeforeUnmount(() => {
 }
 
 .notification-history__summary {
+  width: 100%;
+  max-width: 100%;
   margin-top: 6px;
   overflow: hidden;
   display: block;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -599,7 +617,9 @@ onBeforeUnmount(() => {
 
 .notification-history-detail {
   width: 100%;
-  max-height: min(72vh, 620px);
+  height: min(78vh, 680px);
+  max-height: calc(100vh - 32px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -607,8 +627,10 @@ onBeforeUnmount(() => {
 }
 
 .notification-history-detail__head {
+  flex: 0 0 auto;
   min-height: 72px;
   padding: 14px 16px;
+  box-sizing: border-box;
   border-bottom: 1px solid #e5e6eb;
   display: flex;
   align-items: center;
@@ -649,12 +671,15 @@ onBeforeUnmount(() => {
 }
 
 .notification-history-detail__time {
+  flex: 0 0 auto;
   padding: 12px 16px 0;
 }
 
 .notification-history-detail__body {
-  min-height: 180px;
-  max-height: 460px;
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  flex: 1 1 auto;
   padding: 16px;
   box-sizing: border-box;
   color: #4e5969;
@@ -709,9 +734,16 @@ onBeforeUnmount(() => {
     grid-area: message;
   }
 
+  .notification-history__icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: 7px;
+  }
+
   .notification-history__status {
     grid-area: status;
-    padding-left: 48px;
+    padding-left: 52px;
   }
 
   .notification-history__time {
@@ -722,17 +754,21 @@ onBeforeUnmount(() => {
 
   .notification-history__actions {
     grid-area: actions;
-    padding-left: 48px;
+    padding-left: 52px;
     justify-content: flex-end;
   }
 
   .notification-history__action,
   :deep(.notification-history__action) {
-    min-width: 64px;
+    min-width: 66px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0 9px;
+    gap: 4px;
   }
 
   .notification-history-detail {
-    max-height: 78vh;
+    max-height: calc(100vh - 24px);
   }
 }
 </style>

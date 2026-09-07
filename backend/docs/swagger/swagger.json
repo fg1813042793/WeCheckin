@@ -9702,10 +9702,16 @@
                     },
                     {
                         "type": "string",
-                        "description": "流程名称",
+                        "description": "后台管理名称",
                         "name": "name",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户显示名称；留空时使用后台管理名称",
+                        "name": "displayName",
+                        "in": "formData"
                     },
                     {
                         "type": "string",
@@ -9795,8 +9801,14 @@
                     },
                     {
                         "type": "string",
-                        "description": "流程名称",
+                        "description": "后台管理名称",
                         "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户显示名称；传空字符串时恢复使用后台管理名称",
+                        "name": "displayName",
                         "in": "formData"
                     },
                     {
@@ -9881,7 +9893,7 @@
                         "AdminToken": []
                     }
                 ],
-                "description": "仅复制源流程当前设计草稿；名称、编码、分类、说明和图标使用本次请求，发布版本和版本历史不复制。兼容 application/json",
+                "description": "仅复制源流程当前设计草稿；管理名称、用户显示名称、编码、分类、说明和图标使用本次请求，发布版本和版本历史不复制。兼容 application/json",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -9906,10 +9918,16 @@
                     },
                     {
                         "type": "string",
-                        "description": "新流程名称",
+                        "description": "新后台管理名称",
                         "name": "name",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新用户显示名称；留空时使用后台管理名称",
+                        "name": "displayName",
+                        "in": "formData"
                     },
                     {
                         "type": "string",

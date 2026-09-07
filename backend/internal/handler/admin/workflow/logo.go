@@ -54,14 +54,29 @@ func workflowCopyRequestFromMultipart(c *app.RequestContext) workflowservice.Cop
 }
 
 func workflowUpdateRequestFromMultipart(c *app.RequestContext) workflowservice.UpdateRequest {
-	displayName := string(c.FormValue("displayName"))
 	return workflowservice.UpdateRequest{
 		Name:        string(c.FormValue("name")),
-		DisplayName: &displayName,
+		DisplayName: optionalWorkflowMultipartValue(c, "displayName"),
 		Description: string(c.FormValue("description")),
 		Category:    string(c.FormValue("category")),
 		Draft:       workflowDraftFromMultipart(c),
 	}
+}
+
+func optionalWorkflowMultipartValue(c *app.RequestContext, key string) *string {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil
+	}
+	values, exists := form.Value[key]
+	if !exists {
+		return nil
+	}
+	value := ""
+	if len(values) > 0 {
+		value = values[0]
+	}
+	return &value
 }
 
 func workflowDraftFromMultipart(c *app.RequestContext) json.RawMessage {

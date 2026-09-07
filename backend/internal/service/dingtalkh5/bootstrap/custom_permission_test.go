@@ -61,6 +61,32 @@ func TestDingTalkH5MenuDeclarationsIncludeCustomCatalogRows(t *testing.T) {
 	}
 }
 
+func TestDingTalkH5MenusExcludeInactiveParentAndItsActiveChildren(t *testing.T) {
+	declarations := dingTalkH5MenuDeclarationsFromCatalog([]dingTalkH5PermissionCatalogRow{
+		{
+			Key:  "dingtalk_h5:menu:dashboard",
+			Name: "工作台",
+			Type: appmenuperm.TypeMenu,
+		},
+		{
+			Key:       "dingtalk_h5:menu:performance:mine",
+			Name:      "我的绩效",
+			Type:      appmenuperm.TypeMenu,
+			ParentKey: "dingtalk_h5:menu:performance",
+		},
+	})
+
+	menus := dingTalkH5MenusByDeclarations([]string{
+		"dingtalk_h5:menu:dashboard",
+		"dingtalk_h5:menu:performance",
+		"dingtalk_h5:menu:performance:mine",
+	}, declarations, nil, nil)
+
+	if len(menus) != 1 || menus[0].Key != "dashboard" {
+		t.Fatalf("menus = %#v, want only active dashboard", menus)
+	}
+}
+
 func TestDingTalkH5MenusBuildCustomCatalogNodesAndAncestors(t *testing.T) {
 	declarations := append(appmenuperm.DingTalkH5MenuDeclarations(),
 		appmenuperm.Declaration{

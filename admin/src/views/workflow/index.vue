@@ -3,7 +3,7 @@
     <el-card class="admin-card" shadow="never">
       <div class="admin-toolbar workflow-filters">
         <div class="admin-toolbar__left">
-          <el-input v-model="filters.keyword" placeholder="搜索流程名称或编码" clearable style="width: 280px" @keyup.enter="search" />
+          <el-input v-model="filters.keyword" placeholder="搜索管理名称、显示名称或编码" clearable style="width: 300px" @keyup.enter="search" />
           <el-input v-model="filters.category" placeholder="流程分类" clearable style="width: 180px" @keyup.enter="search" />
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px" @change="search">
             <el-option label="草稿" :value="1" />
@@ -25,7 +25,7 @@
       </div>
 
       <el-table v-loading="loading" :data="list" stripe>
-        <el-table-column prop="name" label="流程名称" min-width="190">
+        <el-table-column prop="name" label="管理名称" min-width="190">
           <template #default="{ row }">
             <div class="workflow-name">
               <span class="workflow-name__icon">
@@ -35,6 +35,9 @@
               <strong>{{ row.name }}</strong>
             </div>
           </template>
+        </el-table-column>
+        <el-table-column prop="displayName" label="用户显示名称" min-width="170" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.displayName || row.name }}</template>
         </el-table-column>
         <el-table-column prop="key" label="流程编码" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
@@ -84,14 +87,18 @@
     </el-card>
 
     <el-dialog v-model="editDialog" title="修改流程信息" width="520px" destroy-on-close>
-      <el-form label-width="86px" @submit.prevent>
-        <el-form-item label="流程名称" required>
+      <el-form label-width="110px" @submit.prevent>
+        <el-form-item label="管理名称" required>
           <el-input
             v-model="editForm.name"
             maxlength="80"
-            placeholder="请输入流程名称"
+            placeholder="请输入后台管理名称"
             @keyup.enter="updateDefinitionMetadata"
           />
+        </el-form-item>
+        <el-form-item label="用户显示名称">
+          <el-input v-model="editForm.displayName" maxlength="80" placeholder="留空时使用管理名称" />
+          <div class="form-help">H5 与流程通知使用；修改后需重新发布才影响新流程。</div>
         </el-form-item>
         <el-form-item label="流程编码">
           <el-input :model-value="editTarget?.key" disabled />
@@ -126,9 +133,13 @@
     />
 
     <el-dialog v-model="createDialog" title="创建流程" width="520px" destroy-on-close>
-      <el-form label-width="86px" @submit.prevent>
-        <el-form-item label="流程名称" required>
-          <el-input v-model="createForm.name" maxlength="80" placeholder="例如：采购申请审批" />
+      <el-form label-width="110px" @submit.prevent>
+        <el-form-item label="管理名称" required>
+          <el-input v-model="createForm.name" maxlength="80" placeholder="例如：华东区采购审批" />
+        </el-form-item>
+        <el-form-item label="用户显示名称">
+          <el-input v-model="createForm.displayName" maxlength="80" placeholder="例如：采购申请" />
+          <div class="form-help">留空时，H5 与通知中显示管理名称。</div>
         </el-form-item>
         <el-form-item label="流程编码" required>
           <el-input v-model="createForm.key" maxlength="80" placeholder="例如：purchase_approval" />
@@ -151,9 +162,12 @@
     </el-dialog>
 
     <el-dialog v-model="copyDialog" title="复制流程" width="520px" destroy-on-close>
-      <el-form label-width="86px" @submit.prevent>
-        <el-form-item label="流程名称" required>
-          <el-input v-model="copyForm.name" maxlength="80" placeholder="请输入新流程名称" />
+      <el-form label-width="110px" @submit.prevent>
+        <el-form-item label="管理名称" required>
+          <el-input v-model="copyForm.name" maxlength="80" placeholder="请输入新的管理名称" />
+        </el-form-item>
+        <el-form-item label="用户显示名称">
+          <el-input v-model="copyForm.displayName" maxlength="80" placeholder="留空时使用管理名称" />
         </el-form-item>
         <el-form-item label="流程编码" required>
           <el-input v-model="copyForm.key" maxlength="80" placeholder="请输入新流程编码" />
@@ -211,17 +225,17 @@ const canDelete = computed(() => hasPerm('admin:menu:workflow:del'))
 
 const createDialog = ref(false)
 const creating = ref(false)
-const createForm = reactive({ name: '', key: '', category: '', description: '' })
+const createForm = reactive({ name: '', displayName: '', key: '', category: '', description: '' })
 const createLogoFile = ref<File | null>(null)
 const copyDialog = ref(false)
 const copying = ref(false)
 const copyTarget = ref<WorkflowDefinitionSummary | null>(null)
-const copyForm = reactive({ name: '', key: '', category: '', description: '' })
+const copyForm = reactive({ name: '', displayName: '', key: '', category: '', description: '' })
 const copyLogoFile = ref<File | null>(null)
 const editDialog = ref(false)
 const editing = ref(false)
 const editTarget = ref<WorkflowDefinitionSummary | null>(null)
-const editForm = reactive({ name: '', category: '', description: '' })
+const editForm = reactive({ name: '', displayName: '', category: '', description: '' })
 const editLogoFile = ref<File | null>(null)
 const editLogoRemoved = ref(false)
 const publishDialog = ref(false)
@@ -276,14 +290,20 @@ function handlePageSizeChange(size: number) {
 }
 
 function openCreate() {
-  Object.assign(createForm, { name: '', key: '', category: '', description: '' })
+  Object.assign(createForm, { name: '', displayName: '', key: '', category: '', description: '' })
   createLogoFile.value = null
   createDialog.value = true
 }
 
 function openCopy(row: WorkflowDefinitionSummary) {
   copyTarget.value = row
-  Object.assign(copyForm, { name: '', key: '', category: '', description: '' })
+  Object.assign(copyForm, {
+    name: '',
+    displayName: row.displayName || row.name,
+    key: '',
+    category: row.category || '',
+    description: row.description || '',
+  })
   copyLogoFile.value = null
   copyDialog.value = true
 }
@@ -292,6 +312,7 @@ function openEdit(row: WorkflowDefinitionSummary) {
   editTarget.value = row
   Object.assign(editForm, {
     name: row.name,
+    displayName: row.displayName || '',
     category: row.category || '',
     description: row.description || '',
   })
@@ -316,14 +337,16 @@ function buildWorkflowDefinitionFormData(values: Record<string, string>, logoFil
 async function updateDefinitionMetadata() {
   if (!editTarget.value) return
   const name = editForm.name.trim()
+  const displayName = editForm.displayName.trim()
   const category = editForm.category.trim()
   const description = editForm.description.trim()
   if (!name) {
-    ElMessage.warning('流程名称不能为空')
+    ElMessage.warning('管理名称不能为空')
     return
   }
   if (
     name === editTarget.value.name
+    && displayName === (editTarget.value.displayName || '')
     && category === editTarget.value.category
     && description === editTarget.value.description
     && !editLogoFile.value
@@ -336,6 +359,7 @@ async function updateDefinitionMetadata() {
   try {
     const formData = buildWorkflowDefinitionFormData({
       name,
+      displayName: editForm.displayName.trim(),
       description: editForm.description.trim(),
       category: editForm.category.trim(),
     }, editLogoFile.value, editLogoRemoved.value)
@@ -363,6 +387,7 @@ async function createDefinition() {
   try {
     const formData = buildWorkflowDefinitionFormData({
       name,
+      displayName: createForm.displayName.trim(),
       key,
       category: createForm.category.trim(),
       description: createForm.description.trim(),
@@ -393,6 +418,7 @@ async function copyDefinition() {
   try {
     const formData = buildWorkflowDefinitionFormData({
       name,
+      displayName: copyForm.displayName.trim(),
       key,
       category: copyForm.category.trim(),
       description: copyForm.description.trim(),
