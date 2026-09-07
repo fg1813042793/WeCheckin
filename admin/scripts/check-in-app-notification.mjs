@@ -86,6 +86,11 @@ for (const snippet of [
 for (const obsolete of ['unreadCount', 'loadUnreadCount', 'markAllRead', 'markRead(row.id)', '全部已读', '标为已读']) {
   if (page.includes(obsolete)) throw new Error(`notification record management must not expose inbox action ${obsolete}`)
 }
+const notificationContentStyle = page.match(/\.notification-content\s*\{([^}]*)\}/)?.[1] || ''
+for (const declaration of ['overflow: hidden', 'white-space: nowrap', 'text-overflow: ellipsis']) {
+  if (!notificationContentStyle.includes(declaration)) throw new Error(`notification content cell missing ${declaration}`)
+}
+if (notificationContentStyle.includes('line-clamp')) throw new Error('notification content cell must remain single-line')
 
 const styleDialog = read('src/views/notification/components/NotificationStyleDialog.vue')
 for (const snippet of [

@@ -503,7 +503,7 @@ onMounted(load)
 .record-view-tabs :deep(.el-tabs__header) { margin-bottom: 16px; }
 .record-filters { padding-bottom: 16px; border-bottom: 1px solid var(--admin-border); }
 .notification-table { border: 1px solid var(--admin-border); border-radius: 6px; }
-.notification-content { display: -webkit-box; overflow: hidden; color: var(--admin-text-secondary); line-height: 20px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.notification-content { width: 100%; overflow: hidden; color: var(--admin-text-secondary); line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .record-detail__source-id { overflow-wrap: anywhere; }
 .record-detail__content { min-height: 72px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
 @media (max-width: 720px) {
