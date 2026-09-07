@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -71,6 +72,7 @@ func encodeNode(encoder *xml.Encoder, node Node, defaultFlow string) error {
 	attributes := []xml.Attr{attr("id", node.ID), attr("name", node.Name)}
 	attributes = append(attributes, notificationAttributes(node.Notification)...)
 	attributes = append(attributes, resultNotificationAttributes(node.ResultNotification)...)
+	attributes = append(attributes, postHandleEditAttributes(node.PostHandleEdit)...)
 	switch node.Type {
 	case NodeTypeStart:
 		return encodeEmpty(encoder, startElement("startEvent", attributes...))
@@ -103,6 +105,25 @@ func encodeNode(encoder *xml.Encoder, node Node, defaultFlow string) error {
 	default:
 		return fmt.Errorf("unsupported node type %q", node.Type)
 	}
+}
+
+func postHandleEditAttributes(config *PostHandleEditConfig) []xml.Attr {
+	if config == nil {
+		return nil
+	}
+	attributes := []xml.Attr{attr("flowable:postHandleEditEnabled", strconv.FormatBool(config.Enabled))}
+	if config.CompletedRevision == nil {
+		return attributes
+	}
+	directFields := append([]string(nil), config.CompletedRevision.DirectFields...)
+	for index := range directFields {
+		directFields[index] = strings.TrimSpace(directFields[index])
+	}
+	sort.Strings(directFields)
+	return append(attributes,
+		attr("flowable:completedRevisionEnabled", strconv.FormatBool(config.CompletedRevision.Enabled)),
+		attr("flowable:completedRevisionDirectFields", strings.Join(directFields, ",")),
+	)
 }
 
 func notificationAttributes(config *NotificationConfig) []xml.Attr {

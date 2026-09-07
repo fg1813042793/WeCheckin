@@ -118,6 +118,11 @@ const (
 )
 
 const (
+	CompletedRevisionModeDirect           = "direct"
+	CompletedRevisionModeDownstreamReview = "downstream_review"
+)
+
+const (
 	InitiatorScopeAll       = "all"
 	InitiatorScopeSpecified = "specified"
 )
@@ -244,6 +249,7 @@ const (
 	ValidationStartAvailability        = "start_availability_invalid"
 	ValidationStartLimit               = "start_limit_invalid"
 	ValidationInstanceIdentity         = "instance_identity_invalid"
+	ValidationCompletedRevision        = "completed_revision_invalid"
 )
 
 type Definition struct {
@@ -397,7 +403,25 @@ type Node struct {
 }
 
 type PostHandleEditConfig struct {
-	Enabled bool `json:"enabled"`
+	Enabled           bool                     `json:"enabled"`
+	CompletedRevision *CompletedRevisionConfig `json:"completedRevision,omitempty"`
+}
+
+type CompletedRevisionConfig struct {
+	Enabled      bool     `json:"enabled"`
+	DirectFields []string `json:"directFields,omitempty"`
+}
+
+type CompletedRevisionCapability struct {
+	NodeID           string            `json:"nodeId"`
+	NodeName         string            `json:"nodeName"`
+	FieldPermissions []FieldPermission `json:"fieldPermissions"`
+	DirectFields     []string          `json:"directFields"`
+}
+
+type RevisionPlanStage struct {
+	Stage int      `json:"stage"`
+	Nodes []string `json:"nodes"`
 }
 
 type NotificationConfig struct {

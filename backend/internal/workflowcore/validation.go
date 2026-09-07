@@ -125,6 +125,7 @@ func ValidateDefinition(definition Definition) []ValidationError {
 		if node.Type == NodeTypeExclusive || node.Type == NodeTypeParallel {
 			errors = append(errors, validateGateway(node, incoming[nodeID], outgoing[nodeID])...)
 		}
+		errors = append(errors, validateCompletedRevision(node, formFields, revisionRoutingFields(definition))...)
 	}
 
 	if len(startIDs) == 1 {
@@ -676,6 +677,47 @@ func validateFieldPermissions(node Node, fields map[string]FormField) []Validati
 			if !validFieldPermissionActions(permission.Actions) {
 				errors = append(errors, ValidationError{Code: ValidationFieldPermissionAction, Message: "节点字段行级动作权限无效", NodeID: node.ID})
 			}
+		}
+	}
+	return errors
+}
+
+func validateCompletedRevision(node Node, fields map[string]FormField, routingFields map[string]struct{}) []ValidationError {
+	config := node.PostHandleEdit
+	if config == nil || config.CompletedRevision == nil || !config.CompletedRevision.Enabled {
+		return nil
+	}
+	if node.Type != NodeTypeApproval && node.Type != NodeTypeHandle {
+		return []ValidationError{{Code: ValidationCompletedRevision, Message: "流程完成后修订只能配置在审批或办理节点", NodeID: node.ID}}
+	}
+	permissionByField := make(map[string]FieldPermission, len(node.FormPermissions))
+	for _, permission := range node.FormPermissions {
+		permissionByField[strings.TrimSpace(permission.Field)] = permission
+	}
+	errors := make([]ValidationError, 0)
+	seen := make(map[string]struct{}, len(config.CompletedRevision.DirectFields))
+	for _, raw := range config.CompletedRevision.DirectFields {
+		field := strings.TrimSpace(raw)
+		formField, exists := fields[field]
+		if !exists {
+			errors = append(errors, ValidationError{Code: ValidationCompletedRevision, Message: "直接修订字段不存在：" + field, NodeID: node.ID})
+			continue
+		}
+		if _, duplicate := seen[field]; duplicate {
+			errors = append(errors, ValidationError{Code: ValidationCompletedRevision, Message: "直接修订字段重复：" + field, NodeID: node.ID})
+			continue
+		}
+		seen[field] = struct{}{}
+		if permissionByField[field].Access != FieldAccessWrite {
+			errors = append(errors, ValidationError{Code: ValidationCompletedRevision, Message: "直接修订字段必须在当前节点可编辑：" + field, NodeID: node.ID})
+			continue
+		}
+		if formField.Type == FormFieldTypeCalculation {
+			errors = append(errors, ValidationError{Code: ValidationCompletedRevision, Message: "计算字段不能直接修订：" + field, NodeID: node.ID})
+			continue
+		}
+		if _, routing := routingFields[field]; routing {
+			errors = append(errors, ValidationError{Code: ValidationCompletedRevision, Message: "流程路由字段不能直接修订：" + field, NodeID: node.ID})
 		}
 	}
 	return errors
