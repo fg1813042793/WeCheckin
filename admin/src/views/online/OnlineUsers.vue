@@ -32,7 +32,7 @@
             </div>
           </div>
           <el-table
-            :data="filteredUsers"
+            :data="pagedUsers"
             v-loading="usersLoading"
             stripe
             style="width:100%"
@@ -69,11 +69,17 @@
               </template>
             </el-table-column>
           </el-table>
-          <div class="online-summary admin-muted">
-            共 {{ userList.length }} 人在线
-            <span v-if="userKeyword && filteredUsers.length !== userList.length">
-              （已过滤 {{ filteredUsers.length }} 条）
-            </span>
+          <div class="admin-pagination">
+            <el-pagination
+              v-model:current-page="userPage"
+              v-model:page-size="userPageSize"
+              background
+              layout="total, sizes, prev, pager, next"
+              :page-sizes="pageSizes"
+              :total="filteredUsers.length"
+              @current-change="handleUserPageChange"
+              @size-change="handleUserPageSizeChange"
+            />
           </div>
         </el-tab-pane>
 
@@ -107,7 +113,7 @@
             </div>
           </div>
           <el-table
-            :data="filteredAdmins"
+            :data="pagedAdmins"
             v-loading="adminsLoading"
             stripe
             style="width:100%"
@@ -143,11 +149,17 @@
               </template>
             </el-table-column>
           </el-table>
-          <div class="online-summary admin-muted">
-            共 {{ adminList.length }} 人在线
-            <span v-if="adminKeyword && filteredAdmins.length !== adminList.length">
-              （已过滤 {{ filteredAdmins.length }} 条）
-            </span>
+          <div class="admin-pagination">
+            <el-pagination
+              v-model:current-page="adminPage"
+              v-model:page-size="adminPageSize"
+              background
+              layout="total, sizes, prev, pager, next"
+              :page-sizes="pageSizes"
+              :total="filteredAdmins.length"
+              @current-change="handleAdminPageChange"
+              @size-change="handleAdminPageSizeChange"
+            />
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -171,9 +183,16 @@ const adminSelection = ref<any[]>([])
 
 const userKeyword = ref('')
 const adminKeyword = ref('')
+const userPage = ref(1)
+const userPageSize = ref(10)
+const adminPage = ref(1)
+const adminPageSize = ref(10)
+const pageSizes = [10, 20, 50, 100]
 
 const filteredUsers = computed(() => filterList(userList.value, userKeyword.value, ['name', 'mobile', 'source', 'device', 'loginIp']))
 const filteredAdmins = computed(() => filterList(adminList.value, adminKeyword.value, ['name', 'desc', 'roleName', 'device', 'loginIp']))
+const pagedUsers = computed(() => paginateList(filteredUsers.value, userPage.value, userPageSize.value))
+const pagedAdmins = computed(() => paginateList(filteredAdmins.value, adminPage.value, adminPageSize.value))
 
 function filterList(list: any[], kw: string, fields: string[]) {
   const k = kw.trim().toLowerCase()
@@ -181,15 +200,44 @@ function filterList(list: any[], kw: string, fields: string[]) {
   return list.filter(row => fields.some(f => String(row[f] ?? '').toLowerCase().includes(k)))
 }
 
-let userSearchTimer: any = null
-let adminSearchTimer: any = null
+function paginateList<T>(list: T[], page: number, pageSize: number) {
+  const start = (page - 1) * pageSize
+  return list.slice(start, start + pageSize)
+}
+
+function validPage(page: number, total: number, pageSize: number) {
+  return Math.min(page, Math.max(1, Math.ceil(total / pageSize)))
+}
+
 function onUserSearch() {
-  clearTimeout(userSearchTimer)
-  userSearchTimer = setTimeout(() => { userSelection.value = [] }, 200)
+  userPage.value = 1
+  userSelection.value = []
 }
 function onAdminSearch() {
-  clearTimeout(adminSearchTimer)
-  adminSearchTimer = setTimeout(() => { adminSelection.value = [] }, 200)
+  adminPage.value = 1
+  adminSelection.value = []
+}
+
+function handleUserPageChange(page: number) {
+  userPage.value = page
+  userSelection.value = []
+}
+
+function handleUserPageSizeChange(pageSize: number) {
+  userPageSize.value = pageSize
+  userPage.value = 1
+  userSelection.value = []
+}
+
+function handleAdminPageChange(page: number) {
+  adminPage.value = page
+  adminSelection.value = []
+}
+
+function handleAdminPageSizeChange(pageSize: number) {
+  adminPageSize.value = pageSize
+  adminPage.value = 1
+  adminSelection.value = []
 }
 
 function fmtTTL(seconds: number) {
@@ -214,6 +262,7 @@ async function loadUsers() {
   } catch {
     userList.value = []
   }
+  userPage.value = validPage(userPage.value, filteredUsers.value.length, userPageSize.value)
   userSelection.value = []
   usersLoading.value = false
 }
@@ -226,6 +275,7 @@ async function loadAdmins() {
   } catch {
     adminList.value = []
   }
+  adminPage.value = validPage(adminPage.value, filteredAdmins.value.length, adminPageSize.value)
   adminSelection.value = []
   adminsLoading.value = false
 }
@@ -289,11 +339,5 @@ onMounted(() => {
 <style scoped>
 .online-tabs :deep(.el-tabs__header) {
   margin-bottom: 16px;
-}
-
-.online-summary {
-  margin-top: 12px;
-  font-size: 13px;
-  line-height: 1.5;
 }
 </style>

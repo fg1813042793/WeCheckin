@@ -305,6 +305,7 @@ const canWithdraw = computed(() => {
   const instance = detail.value?.instance
   return Boolean(
     instance
+    && !props.taskId
     && instance.status === 'running'
     && instance.starterId === currentUserId.value
     && auth.hasApiPermission('dingtalk_h5:api:workflow:withdraw'),
@@ -324,7 +325,7 @@ const showFormDetailAction = computed(() => {
 })
 
 const showCommentAction = computed(() => {
-  return Boolean(props.commentAction && detail.value)
+  return Boolean(!props.taskId && props.commentAction && detail.value)
 })
 
 const showTaskActionBar = computed(() => {

@@ -47,7 +47,6 @@
         :active-scope="activeScope"
         :total="total"
         :question-title="questionTitle"
-        :tag-list="tagList"
         :type-name="typeName"
         :format-time="formatTime"
         @load="load"
@@ -303,10 +302,6 @@ function confirmRichFullEdit() {
 
 function questionTitle(row: any) {
   return stripHtml(row?.title || '') || '未命名题目'
-}
-
-function tagList(tags: string) {
-  return String(tags || '').split(',').map(item => item.trim()).filter(Boolean)
 }
 
 function formatTime(value: number) {

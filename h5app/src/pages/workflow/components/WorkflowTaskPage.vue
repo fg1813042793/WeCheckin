@@ -39,7 +39,6 @@ function handleChanged() {
       :task-id="taskId"
       :display-title="taskTitle"
       presentation="page"
-      comment-action
       @update:model-value="handleVisibleChange"
       @changed="handleChanged"
     />

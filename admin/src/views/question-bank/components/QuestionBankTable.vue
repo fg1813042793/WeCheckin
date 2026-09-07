@@ -4,11 +4,10 @@
     <el-table-column label="题目" min-width="260" show-overflow-tooltip>
       <template #default="{ row }">
         <div class="bank-question-title">{{ questionTitle(row) }}</div>
-        <div v-if="row.tags || row.category" class="bank-question-meta">
-          <el-tag v-if="row.category" size="small" round>{{ row.category }}</el-tag>
-          <span v-for="tag in tagList(row.tags)" :key="tag" class="bank-tag">{{ tag }}</span>
-        </div>
       </template>
+    </el-table-column>
+    <el-table-column prop="category" label="题库名" min-width="140" show-overflow-tooltip>
+      <template #default="{ row }">{{ row.category || '-' }}</template>
     </el-table-column>
     <el-table-column label="题型" width="150">
       <template #default="{ row }">
@@ -66,7 +65,6 @@ const props = defineProps<{
   pageSize: number
   total: number
   questionTitle: (row: any) => string
-  tagList: (tags: string) => string[]
   typeName: (type: string) => string
   formatTime: (value: number) => string
 }>()
@@ -99,23 +97,6 @@ const pageSizeModel = computed({
   white-space: nowrap;
   color: #1f2937;
   font-weight: 600;
-}
-
-.bank-question-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 5px;
-  min-width: 0;
-}
-
-.bank-tag {
-  overflow: hidden;
-  max-width: 96px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #64748b;
-  font-size: 12px;
 }
 
 .bank-type-cell {

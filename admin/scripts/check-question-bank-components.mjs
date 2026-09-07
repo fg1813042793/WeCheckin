@@ -30,6 +30,7 @@ function requireFile(path) {
 
 const page = read('views/question-bank/QuestionBank.vue')
 const editorDialog = read('views/question-bank/components/QuestionEditorDialog.vue')
+const table = read('views/question-bank/components/QuestionBankTable.vue')
 
 for (const componentPath of [
   'views/question-bank/components/QuestionBankTable.vue',
@@ -67,3 +68,17 @@ for (const snippet of [
 }
 
 forbidSnippet(editorDialog, 'class="bank-rich-full-dialog"', 'question editor dialog')
+
+for (const snippet of [
+  '<el-table-column prop="category" label="题库名"',
+  "{{ row.category || '-' }}",
+]) {
+  requireSnippet(table, snippet, 'question bank table')
+}
+
+for (const snippet of [
+  'class="bank-question-meta"',
+  ':tag-list="tagList"',
+]) {
+  forbidSnippet(`${page}\n${table}`, snippet, 'question bank single-line title')
+}

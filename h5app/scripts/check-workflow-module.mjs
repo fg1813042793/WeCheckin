@@ -295,7 +295,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowTaskPage.vue',
-    patterns: ['presentation="page"', 'comment-action'],
+    patterns: ['presentation="page"'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowStartPage.vue',
@@ -1149,6 +1149,17 @@ if (existsSync(resolve(root, workflowDetailPath))) {
     failures.push(`${workflowDetailPath} must display workflow history actor names instead of user IDs`)
   if (source.includes(':loading="submitting"'))
     failures.push(`${workflowDetailPath} action buttons must bind loading to the active submission action`)
+  if (!/const canWithdraw = computed\(\(\) => \{[\s\S]*?!props\.taskId[\s\S]*?\n\}\)/.test(source))
+    failures.push(`${workflowDetailPath} must not allow withdrawal while handling an approval task`)
+  if (!/const showCommentAction = computed\(\(\) => \{[\s\S]*?!props\.taskId[\s\S]*?\n\}\)/.test(source))
+    failures.push(`${workflowDetailPath} must not show comments while handling an approval task`)
+}
+
+const workflowTaskPagePath = 'src/pages/workflow/components/WorkflowTaskPage.vue'
+if (existsSync(resolve(root, workflowTaskPagePath))) {
+  const source = readFileSync(resolve(root, workflowTaskPagePath), 'utf8')
+  if (source.includes('comment-action'))
+    failures.push(`${workflowTaskPagePath} must not opt approval tasks into instance comments`)
 }
 
 const workflowStatusPath = 'src/pages/workflow/workflow-status.ts'
