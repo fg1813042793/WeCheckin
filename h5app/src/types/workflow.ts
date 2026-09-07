@@ -280,10 +280,21 @@ export interface WorkflowFormRevisionCapability {
   allowed: boolean
   revision: number
   fieldPermissions: WorkflowFieldPermission[]
+  runningRevisionAllowed: boolean
+  completedRevisionNodes: WorkflowCompletedRevisionNode[]
+}
+
+export interface WorkflowCompletedRevisionNode {
+  nodeId: string
+  nodeName: string
+  fieldPermissions: WorkflowFieldPermission[]
+  directFields: string[]
 }
 
 export interface WorkflowTaskSummary {
   id: string
+  taskType: 'workflow' | 'form_revision'
+  revisionRequestId?: string
   instanceId: string
   nodeId: string
   nodeName: string
@@ -374,6 +385,7 @@ export interface WorkflowInstanceDetail {
   reminderPolicy: WorkflowReminderPolicy
   reminderNodes: WorkflowReminderNode[]
   formRevision: WorkflowFormRevisionCapability
+  formRevisions: WorkflowFormRevisionDetail[]
 }
 
 export interface WorkflowInstanceList {
@@ -395,6 +407,75 @@ export interface WorkflowTaskList {
   total: number
   page: number
   pageSize: number
+}
+
+export type WorkflowFormRevisionMode = 'direct' | 'downstream_review'
+export type WorkflowFormRevisionStatus = 'pending' | 'applied' | 'rejected' | 'cancelled' | 'conflict'
+export type WorkflowFormRevisionTaskStatus = 'waiting' | 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type WorkflowFormRevisionAction = 'approve' | 'reject' | ''
+
+export interface WorkflowFormRevisionConfirmationNode {
+  nodeId: string
+  nodeName: string
+  approvalMode: string
+  completionRate: number
+  assigneeIds: string[]
+  assigneeNames: string[]
+}
+
+export interface WorkflowFormRevisionConfirmationStage {
+  stage: number
+  nodes: WorkflowFormRevisionConfirmationNode[]
+}
+
+export interface WorkflowFormRevisionPreview {
+  mode: WorkflowFormRevisionMode
+  changedFields: string[]
+  confirmationStages: WorkflowFormRevisionConfirmationStage[]
+}
+
+export interface WorkflowFormRevisionSummary {
+  id: string
+  sourceInstanceId: string
+  sourceNodeId: string
+  sourceNodeName: string
+  requesterId: string
+  baseFormRevision: number
+  appliedFormRevision: number
+  changedFieldLabels: string[]
+  reason: string
+  mode: WorkflowFormRevisionMode
+  status: WorkflowFormRevisionStatus
+  createdAt: number
+  completedAt: number
+}
+
+export interface WorkflowFormRevisionTaskSummary {
+  id: string
+  sourceTaskId: string
+  nodeId: string
+  nodeName: string
+  stage: number
+  assigneeId: string
+  assigneeName: string
+  approvalMode: string
+  completionRate: number
+  sequence: number
+  total: number
+  status: WorkflowFormRevisionTaskStatus
+  action: WorkflowFormRevisionAction
+  comment: string
+  images?: WorkflowAttachment[]
+  handledBy: string
+  handledAt: number
+}
+
+export interface WorkflowFormRevisionDetail extends WorkflowFormRevisionSummary {
+  beforeFormData: WorkflowFormData
+  patch: WorkflowFormData
+  proposedFormData: WorkflowFormData
+  tasks: WorkflowFormRevisionTaskSummary[]
+  idempotent?: boolean
 }
 
 export interface WorkflowMutationTask {
@@ -475,6 +556,22 @@ export interface WorkflowReviseFormRequest {
   formData: WorkflowFormData
   reason: string
   notification?: WorkflowCommentNotificationRequest
+}
+
+export interface WorkflowPreviewFormRevisionRequest {
+  sourceNodeId: string
+  expectedRevision: number
+  formData: WorkflowFormData
+}
+
+export interface WorkflowCreateFormRevisionRequest extends WorkflowPreviewFormRevisionRequest {
+  reason: string
+}
+
+export interface WorkflowCompleteFormRevisionTaskRequest {
+  action: 'approve' | 'reject'
+  comment?: string
+  images?: WorkflowAttachment[]
 }
 
 export interface WorkflowInstanceQuery {

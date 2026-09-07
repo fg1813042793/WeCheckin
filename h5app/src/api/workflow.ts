@@ -1,7 +1,12 @@
 import type {
   WorkflowAttachment,
   WorkflowCommentRequest,
+  WorkflowCompleteFormRevisionTaskRequest,
   WorkflowCompleteTaskRequest,
+  WorkflowCreateFormRevisionRequest,
+  WorkflowFormRevisionDetail,
+  WorkflowFormRevisionPreview,
+  WorkflowFormRevisionSummary,
   WorkflowInstanceDetail,
   WorkflowInstanceList,
   WorkflowInstanceQuery,
@@ -9,6 +14,7 @@ import type {
   WorkflowOptionSource,
   WorkflowOverview,
   WorkflowPublishedDefinition,
+  WorkflowPreviewFormRevisionRequest,
   WorkflowRemindInstanceRequest,
   WorkflowRemindInstanceResult,
   WorkflowReviseFormRequest,
@@ -66,6 +72,46 @@ export function listWorkflowInstances(query: WorkflowInstanceQuery = {}) {
 
 export function getWorkflowInstance(id: string) {
   return get<WorkflowInstanceDetail>(`${WORKFLOW_API}/instances/${encodeURIComponent(id)}`)
+}
+
+export function listWorkflowFormRevisions(instanceId: string) {
+  return get<WorkflowFormRevisionSummary[]>(
+    `${WORKFLOW_API}/instances/${encodeURIComponent(instanceId)}/form-revisions`,
+  )
+}
+
+export function previewWorkflowFormRevision(instanceId: string, data: WorkflowPreviewFormRevisionRequest) {
+  return post<WorkflowFormRevisionPreview>(
+    `${WORKFLOW_API}/instances/${encodeURIComponent(instanceId)}/form-revisions/preview`,
+    data,
+  )
+}
+
+export function createWorkflowFormRevision(instanceId: string, data: WorkflowCreateFormRevisionRequest) {
+  return post<WorkflowFormRevisionDetail>(
+    `${WORKFLOW_API}/instances/${encodeURIComponent(instanceId)}/form-revisions`,
+    data,
+  )
+}
+
+export function getWorkflowFormRevision(revisionId: string) {
+  return get<WorkflowFormRevisionDetail>(
+    `${WORKFLOW_API}/form-revisions/${encodeURIComponent(revisionId)}`,
+  )
+}
+
+export function cancelWorkflowFormRevision(revisionId: string) {
+  return post<WorkflowFormRevisionDetail>(
+    `${WORKFLOW_API}/form-revisions/${encodeURIComponent(revisionId)}/cancel`,
+    {},
+  )
+}
+
+export function completeWorkflowFormRevisionTask(taskId: string, data: WorkflowCompleteFormRevisionTaskRequest) {
+  return post<WorkflowFormRevisionDetail>(
+    `${WORKFLOW_API}/form-revision-tasks/${encodeURIComponent(taskId)}/complete`,
+    data,
+  )
 }
 
 export function listWorkflowSummaryDefinitions() {

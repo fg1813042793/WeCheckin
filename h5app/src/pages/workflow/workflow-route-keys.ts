@@ -3,6 +3,8 @@ const workflowInstancePrefix = 'workflow:instance:'
 const workflowFormDetailPrefix = 'workflow:form-detail:'
 const workflowTaskPrefix = 'workflow:task:'
 const workflowFormRevisionPrefix = 'workflow:form-revision:'
+const workflowCompletedFormRevisionPrefix = 'workflow:completed-form-revision:'
+const workflowFormRevisionDetailPrefix = 'workflow:form-revision-detail:'
 const workflowTaskInstanceSeparator = ':instance:'
 
 export function workflowStartContentKey(definitionId: number) {
@@ -55,6 +57,32 @@ export function workflowFormRevisionInstanceIdFromContentKey(key: string) {
   return decodeWorkflowRouteValue(key.slice(workflowFormRevisionPrefix.length))
 }
 
+export function workflowCompletedFormRevisionContentKey(instanceId: string) {
+  const normalizedInstanceId = String(instanceId || '').trim()
+  return normalizedInstanceId
+    ? `${workflowCompletedFormRevisionPrefix}${encodeURIComponent(normalizedInstanceId)}`
+    : ''
+}
+
+export function workflowCompletedFormRevisionInstanceIdFromContentKey(key: string) {
+  if (!key.startsWith(workflowCompletedFormRevisionPrefix))
+    return ''
+  return decodeWorkflowRouteValue(key.slice(workflowCompletedFormRevisionPrefix.length))
+}
+
+export function workflowFormRevisionDetailContentKey(revisionId: string) {
+  const normalizedRevisionId = String(revisionId || '').trim()
+  return normalizedRevisionId
+    ? `${workflowFormRevisionDetailPrefix}${encodeURIComponent(normalizedRevisionId)}`
+    : ''
+}
+
+export function workflowFormRevisionDetailIdFromContentKey(key: string) {
+  if (!key.startsWith(workflowFormRevisionDetailPrefix))
+    return ''
+  return decodeWorkflowRouteValue(key.slice(workflowFormRevisionDetailPrefix.length))
+}
+
 export function workflowTaskContentKey(taskId: string, instanceId: string) {
   const normalizedTaskId = String(taskId || '').trim()
   const normalizedInstanceId = String(instanceId || '').trim()
@@ -89,6 +117,14 @@ export function normalizeWorkflowDynamicContentKey(key: string) {
   const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
   if (revisionInstanceId)
     return workflowFormRevisionContentKey(revisionInstanceId)
+
+  const completedRevisionInstanceId = workflowCompletedFormRevisionInstanceIdFromContentKey(key)
+  if (completedRevisionInstanceId)
+    return workflowCompletedFormRevisionContentKey(completedRevisionInstanceId)
+
+  const revisionId = workflowFormRevisionDetailIdFromContentKey(key)
+  if (revisionId)
+    return workflowFormRevisionDetailContentKey(revisionId)
 
   const taskId = workflowTaskIdFromContentKey(key)
   const taskInstanceId = workflowTaskInstanceIdFromContentKey(key)

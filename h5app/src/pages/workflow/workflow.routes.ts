@@ -6,19 +6,28 @@ import WorkflowInstancePage from './components/WorkflowInstancePage.vue'
 import WorkflowStartPage from './components/WorkflowStartPage.vue'
 import WorkflowTaskPage from './components/WorkflowTaskPage.vue'
 import {
+  workflowCompletedFormRevisionInstanceIdFromContentKey,
   workflowDefinitionIdFromContentKey,
   workflowFormDetailInstanceIdFromContentKey,
+  workflowFormRevisionDetailIdFromContentKey,
   workflowFormRevisionInstanceIdFromContentKey,
   workflowInstanceIdFromContentKey,
   workflowTaskIdFromContentKey,
   workflowTaskInstanceIdFromContentKey,
 } from './workflow-route-keys'
 
+const WorkflowCompletedFormRevisionPage = WorkflowFormRevisionPage
+const WorkflowFormRevisionDetailPage = WorkflowInstancePage
+
 export {
+  workflowCompletedFormRevisionContentKey,
+  workflowCompletedFormRevisionInstanceIdFromContentKey,
   workflowDefinitionIdFromContentKey,
   workflowFormDetailContentKey,
   workflowFormDetailInstanceIdFromContentKey,
   workflowFormRevisionContentKey,
+  workflowFormRevisionDetailContentKey,
+  workflowFormRevisionDetailIdFromContentKey,
   workflowFormRevisionInstanceIdFromContentKey,
   workflowInstanceContentKey,
   workflowInstanceIdFromContentKey,
@@ -41,6 +50,10 @@ export function resolveWorkflowContentComponent(key: string): Component | undefi
     return WorkflowFormDetailPage
   if (workflowFormRevisionInstanceIdFromContentKey(key))
     return WorkflowFormRevisionPage
+  if (workflowCompletedFormRevisionInstanceIdFromContentKey(key))
+    return WorkflowCompletedFormRevisionPage
+  if (workflowFormRevisionDetailIdFromContentKey(key))
+    return WorkflowFormRevisionDetailPage
   if (workflowTaskIdFromContentKey(key) && workflowTaskInstanceIdFromContentKey(key))
     return WorkflowTaskPage
   return workflowContentRoutes[key]
