@@ -18,6 +18,7 @@ import WorkflowFilterPanel from './WorkflowFilterPanel.vue'
 import WorkflowHistoryDatePicker from './WorkflowHistoryDatePicker.vue'
 
 interface SummaryFilters extends WorkflowHistoryDateFilters {
+  instanceTitle: string
   definitionName: string
   starterName: string
   status: string
@@ -51,6 +52,7 @@ const allCurrentPageSelected = computed(() => {
   return instances.value.length > 0 && instances.value.every(item => selectedIds.value.includes(item.id))
 })
 const filterCount = computed(() => [
+  filters.value.instanceTitle.trim(),
   filters.value.definitionName.trim(),
   filters.value.starterName.trim(),
   filters.value.status,
@@ -74,6 +76,7 @@ onMounted(() => void loadSummary())
 
 function emptyFilters(): SummaryFilters {
   return {
+    instanceTitle: '',
     definitionName: '',
     starterName: '',
     status: '',
@@ -107,6 +110,7 @@ async function loadSummary() {
   loading.value = true
   try {
     const response = await listWorkflowSummaryInstances({
+      instanceTitle: appliedFilters.value.instanceTitle.trim() || undefined,
       definitionName: appliedFilters.value.definitionName.trim() || undefined,
       definitionVersion: Number(appliedFilters.value.definitionVersion) || undefined,
       starterName: appliedFilters.value.starterName.trim() || undefined,
@@ -205,6 +209,19 @@ function formatTime(timestamp?: number) {
   <view class="workflow-summary">
     <WorkflowFilterPanel :active-count="filterCount">
       <view class="workflow-summary__filters">
+        <view class="workflow-summary__filter workflow-summary__filter--instance-title">
+          <text class="workflow-summary__filter-label">
+            单据标题
+          </text>
+          <u-input
+            v-model="filters.instanceTitle"
+            :border="true"
+            clearable
+            :maxlength="100"
+            placeholder="输入单据标题"
+            @confirm="querySummary"
+          />
+        </view>
         <view class="workflow-summary__filter workflow-summary__filter--definition-name">
           <text class="workflow-summary__filter-label">
             流程名称
@@ -324,6 +341,9 @@ function formatTime(timestamp?: number) {
               选择
             </text>
             <text class="workflow-summary__cell workflow-summary__cell--definition">
+              单据标题
+            </text>
+            <text class="workflow-summary__cell workflow-summary__cell--workflow-name">
               流程名称
             </text>
             <text class="workflow-summary__cell workflow-summary__cell--key">
@@ -359,6 +379,14 @@ function formatTime(timestamp?: number) {
               </text>
             </view>
             <view class="workflow-summary__cell workflow-summary__cell--definition">
+              <text class="workflow-summary__mobile-label">
+                单据标题
+              </text>
+              <text class="workflow-summary__cell-value">
+                {{ instance.instanceTitle || instance.definitionName || instance.definitionKey || '-' }}
+              </text>
+            </view>
+            <view class="workflow-summary__cell workflow-summary__cell--workflow-name workflow-summary__cell--mobile-secondary">
               <text class="workflow-summary__mobile-label">
                 流程名称
               </text>
@@ -498,23 +526,28 @@ function formatTime(timestamp?: number) {
   gap: 7px;
 }
 
-.workflow-summary__filter--definition-name {
+.workflow-summary__filter--instance-title {
   grid-column: 1 / 4;
   grid-row: 1;
 }
 
-.workflow-summary__filter--starter {
+.workflow-summary__filter--definition-name {
   grid-column: 4 / 7;
   grid-row: 1;
 }
 
+.workflow-summary__filter--starter {
+  grid-column: 7 / 10;
+  grid-row: 1;
+}
+
 .workflow-summary__filter--status {
-  grid-column: 7 / 8;
+  grid-column: 10 / 11;
   grid-row: 1;
 }
 
 .workflow-summary__filter--version {
-  grid-column: 8 / 9;
+  grid-column: 11 / 13;
   grid-row: 1;
 }
 
@@ -619,12 +652,12 @@ function formatTime(timestamp?: number) {
 
 .workflow-summary__table {
   width: 100%;
-  min-width: 1280px;
+  min-width: 1420px;
 }
 
 .workflow-summary__row {
   display: grid;
-  grid-template-columns: 66px minmax(140px, 1fr) minmax(190px, 1.45fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 76px 94px 168px 168px 112px;
+  grid-template-columns: 66px minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(190px, 1.45fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 76px 94px 168px 168px 112px;
   min-height: 58px;
   border-bottom: 1px solid #eef1f4;
   align-items: center;
@@ -722,33 +755,41 @@ function formatTime(timestamp?: number) {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
-  .workflow-summary__filter--definition-name {
+  .workflow-summary__filter--instance-title {
     grid-column: 1 / 3;
   }
 
-  .workflow-summary__filter--starter {
+  .workflow-summary__filter--definition-name {
     grid-column: 3 / 5;
   }
 
+  .workflow-summary__filter--starter {
+    grid-column: 5 / 7;
+  }
+
   .workflow-summary__filter--status {
-    grid-column: 5 / 6;
+    grid-column: 1 / 2;
+    grid-row: 2;
   }
 
   .workflow-summary__filter--version {
-    grid-column: 6 / 7;
+    grid-column: 2 / 3;
+    grid-row: 2;
   }
 
   .workflow-summary__filter-actions {
     grid-column: 5 / 7;
-    grid-row: 3;
+    grid-row: 4;
   }
 
   .workflow-summary__filter--start {
     grid-column: 1 / 4;
+    grid-row: 3;
   }
 
   .workflow-summary__filter--end {
     grid-column: 4 / 7;
+    grid-row: 3;
   }
 }
 
@@ -765,6 +806,7 @@ function formatTime(timestamp?: number) {
     gap: 12px;
   }
 
+  .workflow-summary__filter--instance-title,
   .workflow-summary__filter--definition-name,
   .workflow-summary__filter--starter,
   .workflow-summary__filter--status,

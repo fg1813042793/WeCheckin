@@ -36,6 +36,12 @@ func EvaluateStartAvailability(config *StartAvailabilityConfig, now time.Time) s
 	if config.EffectiveEndDate != "" && date > config.EffectiveEndDate {
 		return StartAvailabilityStateExpired
 	}
+	if mode == StartAvailabilityMonthlyWindow {
+		if _, _, matched := resolveMonthlyAvailabilityWindow(config, localNow); matched {
+			return StartAvailabilityStateAvailable
+		}
+		return StartAvailabilityStateOutsideWindow
+	}
 	if !startAvailabilityMatchesDay(config, localNow) {
 		return StartAvailabilityStateOutsideWindow
 	}
@@ -86,6 +92,8 @@ func validStartAvailabilityConfig(config *StartAvailabilityConfig) bool {
 		return (config.LastDayOfMonth || len(config.MonthDays) > 0) &&
 			(len(config.MonthDays) == 0 || validStartAvailabilityDays(config.MonthDays, 1, 31)) &&
 			validRecurringStartAvailability(config)
+	case StartAvailabilityMonthlyWindow:
+		return validMonthlyWindowStartAvailability(config)
 	default:
 		return false
 	}
@@ -100,6 +108,17 @@ func validRecurringStartAvailability(config *StartAvailabilityConfig) bool {
 	startDate, startOK := parseStartAvailabilityDate(config.EffectiveStartDate)
 	endDate, endOK := parseStartAvailabilityDate(config.EffectiveEndDate)
 	return startOK && endOK && (startDate.IsZero() || endDate.IsZero() || !startDate.After(endDate))
+}
+
+func validMonthlyWindowStartAvailability(config *StartAvailabilityConfig) bool {
+	_, startTimeOK := parseStartAvailabilityClock(config.WindowStartTime)
+	_, endTimeOK := parseStartAvailabilityClock(config.WindowEndTime)
+	startDate, startDateOK := parseStartAvailabilityDate(config.EffectiveStartDate)
+	endDate, endDateOK := parseStartAvailabilityDate(config.EffectiveEndDate)
+	return config.WindowStartDayFromEnd >= 1 && config.WindowStartDayFromEnd <= 28 &&
+		config.WindowEndDay >= 1 && config.WindowEndDay <= 31 &&
+		startTimeOK && endTimeOK && startDateOK && endDateOK &&
+		(startDate.IsZero() || endDate.IsZero() || !startDate.After(endDate))
 }
 
 func validStartAvailabilityDays(days []int, minimum, maximum int) bool {
@@ -160,6 +179,40 @@ func startAvailabilityMatchesDay(config *StartAvailabilityConfig, now time.Time)
 	default:
 		return false
 	}
+}
+
+func resolveMonthlyAvailabilityWindow(config *StartAvailabilityConfig, localNow time.Time) (time.Time, time.Time, bool) {
+	currentMonth := time.Date(localNow.Year(), localNow.Month(), 1, 0, 0, 0, 0, localNow.Location())
+	for _, startMonth := range []time.Time{currentMonth, currentMonth.AddDate(0, -1, 0)} {
+		startsAt, endsAt, ok := monthlyAvailabilityWindow(config, startMonth)
+		if ok && !localNow.Before(startsAt) && localNow.Before(endsAt) {
+			return startsAt, endsAt, true
+		}
+	}
+	return time.Time{}, time.Time{}, false
+}
+
+func monthlyAvailabilityWindow(config *StartAvailabilityConfig, startMonth time.Time) (time.Time, time.Time, bool) {
+	startMinute, startTimeOK := parseStartAvailabilityClock(config.WindowStartTime)
+	endMinute, endTimeOK := parseStartAvailabilityClock(config.WindowEndTime)
+	if !startTimeOK || !endTimeOK || config.WindowStartDayFromEnd < 1 || config.WindowStartDayFromEnd > 28 || config.WindowEndDay < 1 || config.WindowEndDay > 31 {
+		return time.Time{}, time.Time{}, false
+	}
+
+	location := startMonth.Location()
+	monthStart := time.Date(startMonth.Year(), startMonth.Month(), 1, 0, 0, 0, 0, location)
+	lastDay := monthStart.AddDate(0, 1, -1)
+	startDay := lastDay.Day() - config.WindowStartDayFromEnd + 1
+	startsAt := time.Date(lastDay.Year(), lastDay.Month(), startDay, startMinute/60, startMinute%60, 0, 0, location)
+
+	nextMonth := monthStart.AddDate(0, 1, 0)
+	nextMonthLastDay := nextMonth.AddDate(0, 1, -1).Day()
+	endDay := config.WindowEndDay
+	if endDay > nextMonthLastDay {
+		endDay = nextMonthLastDay
+	}
+	endsAt := time.Date(nextMonth.Year(), nextMonth.Month(), endDay, endMinute/60, endMinute%60, 0, 0, location)
+	return startsAt, endsAt, endsAt.After(startsAt)
 }
 
 func containsStartAvailabilityDay(days []int, expected int) bool {

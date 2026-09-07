@@ -246,6 +246,7 @@ func EditContext(ctx context.Context, key string, req SaveRequest) error {
 	}
 	invalidatePermissionTreeCache()
 	menuservice.InvalidateAdminPermCache()
+	permissionsupport.InvalidateRuntimePermissionCaches()
 	return nil
 }
 

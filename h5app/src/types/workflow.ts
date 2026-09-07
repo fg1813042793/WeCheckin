@@ -128,10 +128,12 @@ export interface WorkflowInitiatorConfig {
   excludedUserIds?: number[]
 }
 
-export type WorkflowStartAvailabilityMode = 'always' | 'fixed' | 'weekly' | 'monthly'
+export type WorkflowStartAvailabilityMode = 'always' | 'fixed' | 'weekly' | 'monthly' | 'monthly_window'
 export type WorkflowStartAvailabilityStatus = 'available' | 'not_started' | 'expired' | 'outside_window'
 export type WorkflowStartLimitMode = 'unlimited' | 'limited'
 export type WorkflowStartLimitPeriod = 'total' | 'day' | 'week' | 'month' | 'availability'
+export type WorkflowBusinessPeriodGranularity = 'day' | 'week' | 'month' | 'quarter' | 'year'
+export type WorkflowBusinessPeriodSource = 'submit_time' | 'availability_window_start' | 'availability_window_end' | 'form_field'
 
 export interface WorkflowStartAvailabilityConfig {
   mode: WorkflowStartAvailabilityMode
@@ -145,12 +147,29 @@ export interface WorkflowStartAvailabilityConfig {
   lastDayOfMonth?: boolean
   dailyStartTime?: string
   dailyEndTime?: string
+  windowStartDayFromEnd?: number
+  windowStartTime?: string
+  windowEndDay?: number
+  windowEndTime?: string
 }
 
 export interface WorkflowStartLimitConfig {
   mode: WorkflowStartLimitMode
   period?: WorkflowStartLimitPeriod
   maxCount?: number
+}
+
+export interface WorkflowBusinessPeriodConfig {
+  enabled: boolean
+  granularity?: WorkflowBusinessPeriodGranularity
+  source?: WorkflowBusinessPeriodSource
+  field?: string
+  offset?: number
+}
+
+export interface WorkflowInstanceIdentityConfig {
+  titleTemplate: string
+  businessPeriod?: WorkflowBusinessPeriodConfig
 }
 
 export interface WorkflowStartLimitStatus {
@@ -201,6 +220,7 @@ export interface WorkflowPublishedDefinition {
   availabilityStatus: WorkflowStartAvailabilityStatus
   startLimit: WorkflowStartLimitConfig
   startLimitStatus: WorkflowStartLimitStatus
+  instanceIdentity?: WorkflowInstanceIdentityConfig
   nodes?: WorkflowPublishedNode[]
   edges?: WorkflowPublishedEdge[]
 }
@@ -237,6 +257,10 @@ export interface WorkflowInstanceSummary {
   definitionVersion: number
   definitionKey: string
   definitionName: string
+  instanceTitle: string
+  businessPeriodType: string
+  businessPeriodKey: string
+  businessPeriodLabel: string
   businessType: string
   businessKey: string
   starterId: string
@@ -455,6 +479,8 @@ export interface WorkflowReviseFormRequest {
 export interface WorkflowInstanceQuery {
   definitionId?: number
   definitionName?: string
+  instanceTitle?: string
+  businessPeriodKey?: string
   definitionCategory?: string
   starterName?: string
   status?: string
@@ -474,6 +500,8 @@ export type WorkflowSummaryExportFormat = 'pdf' | 'xlsx' | 'docx'
 export interface WorkflowSummaryQuery {
   definitionId?: number
   definitionName?: string
+  instanceTitle?: string
+  businessPeriodKey?: string
   definitionVersion?: number
   starterName?: string
   status?: string
@@ -489,6 +517,7 @@ export interface WorkflowTaskQuery {
   instanceId?: string
   status?: string
   definitionName?: string
+  instanceTitle?: string
   definitionCategory?: string
   starterName?: string
   startTimeFrom?: number

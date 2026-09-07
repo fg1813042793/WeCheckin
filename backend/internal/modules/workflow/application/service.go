@@ -28,6 +28,7 @@ var (
 	ErrInstanceAccessDenied                  = errors.New("无权访问该流程实例")
 	ErrInstanceScopeInvalid                  = errors.New("流程实例查询范围无效")
 	ErrDefinitionNameSearchTooLong           = errors.New("流程名称关键字不能超过50个字符")
+	ErrInstanceTitleSearchTooLong            = errors.New("单据标题关键字不能超过100个字符")
 	ErrStarterNameSearchTooLong              = errors.New("发起人用户名关键字不能超过50个字符")
 	ErrRunningInstanceCannotDelete           = errors.New("审批中的申请不能删除，请先撤回")
 	ErrInstanceDeleteNotAllowed              = errors.New("当前流程状态不能删除")
@@ -87,6 +88,7 @@ type TransactionStore interface {
 	HasParticipant(ctx context.Context, instanceID, userID, role string) (bool, error)
 	LoadPublishedDefinition(ctx context.Context, definitionID uint, version int) (workflowcore.Definition, int, error)
 	IsActiveUser(ctx context.Context, userID string) (bool, error)
+	UserDisplayName(ctx context.Context, userID string) (string, error)
 	CanOperatorStartFor(ctx context.Context, operatorID, starterID string) (bool, error)
 	ConsumeStartQuota(ctx context.Context, definitionID uint, starterID string, window workflowcore.StartLimitWindow, maxCount int) (int, bool, error)
 	CreateState(ctx context.Context, state *workflowdomain.State) error

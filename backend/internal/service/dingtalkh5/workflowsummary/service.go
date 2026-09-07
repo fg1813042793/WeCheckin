@@ -46,6 +46,8 @@ type InstanceQuery struct {
 	DefinitionID      uint
 	DefinitionVersion int
 	DefinitionName    string
+	InstanceTitle     string
+	BusinessPeriodKey string
 	StarterName       string
 	Status            string
 	StartTimeFrom     int64
@@ -104,6 +106,8 @@ func (service *Service) ListInstances(ctx context.Context, user *model.DingTalkH
 		DefinitionID:      query.DefinitionID,
 		DefinitionVersion: query.DefinitionVersion,
 		DefinitionName:    query.DefinitionName,
+		InstanceTitle:     query.InstanceTitle,
+		BusinessPeriodKey: query.BusinessPeriodKey,
 		StarterName:       query.StarterName,
 		Status:            query.Status,
 		StartTimeFrom:     query.StartTimeFrom,

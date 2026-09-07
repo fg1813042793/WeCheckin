@@ -1211,6 +1211,13 @@ for (const componentFile of [
   assert.doesNotMatch(source(componentFile), /[\u3400-\u9FFF]/, `${componentFile} must read visible copy from locale`)
 }
 
+const feedbackCreateSource = source('src/pages/feedback/components/FeedbackCreatePage.vue')
+assert.match(
+  feedbackCreateSource,
+  /\.feedback-editor\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*860px;[^}]*margin:\s*0 auto;[^}]*box-sizing:\s*border-box;/,
+  'feedback create editor must stay centered within the PC content area',
+)
+
 const feedbackCenterSource = source('src/pages/feedback/components/FeedbackCenter.vue')
 assert.equal(/setInterval|setTimeout\s*\([^,]+,\s*\d+\s*\)/.test(feedbackCenterSource), false, 'feedback center must not poll')
 const feedbackCenterScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackCenter.vue')

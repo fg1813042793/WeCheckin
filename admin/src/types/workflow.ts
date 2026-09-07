@@ -18,10 +18,12 @@ export type WorkflowDetailRowAction = 'add' | 'delete'
 export type WorkflowOptionSourceType = 'static' | 'api'
 export type WorkflowCalculationDisplay = 'label' | 'field'
 export type WorkflowInitiatorScope = 'all' | 'specified'
-export type WorkflowStartAvailabilityMode = 'always' | 'fixed' | 'weekly' | 'monthly'
+export type WorkflowStartAvailabilityMode = 'always' | 'fixed' | 'weekly' | 'monthly' | 'monthly_window'
 export type WorkflowStartAvailabilityStatus = 'available' | 'not_started' | 'expired' | 'outside_window'
 export type WorkflowStartLimitMode = 'unlimited' | 'limited'
 export type WorkflowStartLimitPeriod = 'total' | 'day' | 'week' | 'month' | 'availability'
+export type WorkflowBusinessPeriodGranularity = 'day' | 'week' | 'month' | 'quarter' | 'year'
+export type WorkflowBusinessPeriodSource = 'submit_time' | 'availability_window_start' | 'availability_window_end' | 'form_field'
 export type WorkflowEdgeHandle = 'top' | 'right' | 'bottom' | 'left'
 export type WorkflowNotificationChannel = 'in_app' | 'dingtalk_oa'
 export type WorkflowNotificationResultType = 'approved' | 'rejected' | 'returned'
@@ -154,12 +156,29 @@ export interface WorkflowStartAvailabilityConfig {
   lastDayOfMonth?: boolean
   dailyStartTime?: string
   dailyEndTime?: string
+  windowStartDayFromEnd?: number
+  windowStartTime?: string
+  windowEndDay?: number
+  windowEndTime?: string
 }
 
 export interface WorkflowStartLimitConfig {
   mode: WorkflowStartLimitMode
   period?: WorkflowStartLimitPeriod
   maxCount?: number
+}
+
+export interface WorkflowBusinessPeriodConfig {
+  enabled: boolean
+  granularity?: WorkflowBusinessPeriodGranularity
+  source?: WorkflowBusinessPeriodSource
+  field?: string
+  offset?: number
+}
+
+export interface WorkflowInstanceIdentityConfig {
+  titleTemplate: string
+  businessPeriod?: WorkflowBusinessPeriodConfig
 }
 
 export interface WorkflowStartLimitStatus {
@@ -253,6 +272,7 @@ export interface WorkflowDraft {
   schemaVersion: number
   key: string
   name: string
+  instanceIdentity?: WorkflowInstanceIdentityConfig
   form: WorkflowFormField[]
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
@@ -292,6 +312,7 @@ export interface WorkflowPublishedDefinition {
   availabilityStatus: WorkflowStartAvailabilityStatus
   startLimit: WorkflowStartLimitConfig
   startLimitStatus: WorkflowStartLimitStatus
+  instanceIdentity?: WorkflowInstanceIdentityConfig
 }
 
 export interface WorkflowValidationError {
@@ -360,6 +381,10 @@ export interface WorkflowInstanceSummary {
   definitionVersion: number
   definitionKey: string
   definitionName: string
+  instanceTitle: string
+  businessPeriodType: string
+  businessPeriodKey: string
+  businessPeriodLabel: string
   businessType: string
   businessKey: string
   starterId: string
@@ -433,6 +458,8 @@ export interface WorkflowNotificationPayload {
   title: string
   content: string
   workflowName: string
+  instanceTitle: string
+  businessPeriod: string
   nodeName: string
   starterId: string
   starterName: string
@@ -445,6 +472,7 @@ export interface WorkflowNotificationPayload {
 export interface WorkflowNotificationRecord {
   id: string
   instanceId: string
+  businessKey: string
   nodeId: string
   taskId: string
   recipientUserId: string

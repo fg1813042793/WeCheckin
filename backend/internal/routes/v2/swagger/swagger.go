@@ -2638,7 +2638,8 @@ func swaggerV2AdminWorkflowDefinitionsGet() {}
 // @Accept multipart/form-data
 // @Description 同时兼容 application/json；上传流程图标时使用 multipart/form-data
 // @Param key formData string true "流程编码"
-// @Param name formData string true "流程名称"
+// @Param name formData string true "后台管理名称"
+// @Param displayName formData string false "用户显示名称；留空时使用后台管理名称"
 // @Param description formData string false "流程描述"
 // @Param category formData string false "流程分类"
 // @Param draft formData string false "流程草稿定义（JSON）"
@@ -2651,10 +2652,11 @@ func swaggerV2AdminWorkflowDefinitionsPost() {}
 // @Summary 复制工作流定义
 // @Security AdminToken
 // @Accept multipart/form-data
-// @Description 仅复制源流程当前设计草稿；名称、编码、分类、说明和图标使用本次请求，发布版本和版本历史不复制。兼容 application/json
+// @Description 仅复制源流程当前设计草稿；管理名称、用户显示名称、编码、分类、说明和图标使用本次请求，发布版本和版本历史不复制。兼容 application/json
 // @Param id path int true "源流程定义 ID"
 // @Param key formData string true "新流程编码"
-// @Param name formData string true "新流程名称"
+// @Param name formData string true "新后台管理名称"
+// @Param displayName formData string false "新用户显示名称；留空时使用后台管理名称"
 // @Param description formData string false "新流程描述"
 // @Param category formData string false "新流程分类"
 // @Param logo formData file false "新流程图标（PNG、JPG、JPEG 或 WebP，最大 2MB）"
@@ -2676,7 +2678,8 @@ func swaggerV2AdminWorkflowDefinitionsIDGet() {}
 // @Accept multipart/form-data
 // @Description 同时兼容 application/json；上传流程图标时使用 multipart/form-data
 // @Param id path int true "流程定义 ID"
-// @Param name formData string false "流程名称"
+// @Param name formData string false "后台管理名称"
+// @Param displayName formData string false "用户显示名称；传空字符串时恢复使用后台管理名称"
 // @Param description formData string false "流程描述"
 // @Param category formData string false "流程分类"
 // @Param status formData int false "流程状态"
@@ -2947,6 +2950,14 @@ func swaggerV2AdminWorkflowNotificationsDispatchDuePost() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-notifications/{id}/retry [post]
 func swaggerV2AdminWorkflowNotificationsIDRetryPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 手动发送单条工作流通知
+// @Security AdminToken
+// @Param id path string true "通知 Outbox ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-notifications/{id}/send [post]
+func swaggerV2AdminWorkflowNotificationsIDSendPost() {}
 
 // @Tags API v2-后台管理-定时任务
 // @Summary 查询定时任务列表

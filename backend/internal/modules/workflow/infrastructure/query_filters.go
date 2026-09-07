@@ -18,11 +18,21 @@ func applyInstanceFilters(db *gorm.DB, query application.InstanceQuery) *gorm.DB
 	if len(query.InstanceIDs) > 0 {
 		db = db.Where("id IN ?", query.InstanceIDs)
 	}
+	if value := strings.TrimSpace(query.InstanceTitle); value != "" {
+		db = db.Where("instance_title LIKE ? ESCAPE '!'", containsLikePattern(value))
+	}
+	if value := strings.TrimSpace(query.BusinessPeriodKey); value != "" {
+		db = db.Where("business_period_key = ?", value)
+	}
 	if value := strings.TrimSpace(query.DefinitionName); value != "" {
 		db = db.Where(`EXISTS (
 			SELECT 1 FROM workflow_definitions name_definition
 			WHERE name_definition.id = workflow_process_instances.definition_id
-			AND name_definition.definition_name LIKE ? ESCAPE '!'
+			AND COALESCE(
+				NULLIF(workflow_process_instances.definition_name_snapshot, ''),
+				NULLIF(name_definition.definition_display_name, ''),
+				name_definition.definition_name
+			) LIKE ? ESCAPE '!'
 		)`, containsLikePattern(value))
 	}
 	if value := strings.TrimSpace(query.DefinitionCategory); value != "" {
@@ -161,6 +171,7 @@ func applyTaskFilters(db *gorm.DB, query application.TaskQuery) *gorm.DB {
 			Model(&workflowmodel.ProcessInstance{}).
 			Select("id")
 		instances = applyInstanceFilters(instances, application.InstanceQuery{
+			InstanceTitle:      query.InstanceTitle,
 			DefinitionName:     query.DefinitionName,
 			DefinitionCategory: query.DefinitionCategory,
 			StarterName:        query.StarterName,
@@ -173,7 +184,8 @@ func applyTaskFilters(db *gorm.DB, query application.TaskQuery) *gorm.DB {
 }
 
 func hasTaskInstanceFilters(query application.TaskQuery) bool {
-	return strings.TrimSpace(query.DefinitionName) != "" ||
+	return strings.TrimSpace(query.InstanceTitle) != "" ||
+		strings.TrimSpace(query.DefinitionName) != "" ||
 		strings.TrimSpace(query.DefinitionCategory) != "" ||
 		strings.TrimSpace(query.StarterName) != "" ||
 		query.StartTimeFrom > 0 || query.StartTimeTo > 0

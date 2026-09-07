@@ -84,8 +84,18 @@ echo -e "${GREEN}正在启动定时任务服务...${NC}"
 echo -e "${YELLOW}该进程不监听 HTTP 端口${NC}"
 echo -e "${YELLOW}按 Ctrl+C 停止服务${NC}"
 
+TASKD_INTERRUPTED=false
+trap 'TASKD_INTERRUPTED=true' INT
+
 go run ./cmd/taskd "${TASKD_ARGS[@]}"
 TASKD_EXIT_CODE=$?
+
+trap - INT
+
+if [ "${TASKD_INTERRUPTED}" = true ] || [ "${TASKD_EXIT_CODE}" -eq 130 ]; then
+    echo -e "${GREEN}定时任务服务已停止${NC}"
+    exit 0
+fi
 
 if [ "${TASKD_EXIT_CODE}" -ne 0 ]; then
     echo -e "${RED}错误: 定时任务服务启动或运行失败${NC}"

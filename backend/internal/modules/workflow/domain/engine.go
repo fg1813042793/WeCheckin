@@ -61,8 +61,12 @@ func (engine *Engine) Start(ctx context.Context, definition workflowcore.Definit
 		Instance: ProcessInstance{
 			ID: engine.ids.NewID("instance"), DefinitionID: request.DefinitionID,
 			DefinitionVersion: request.DefinitionVersion, DefinitionKey: definition.Key,
+			DefinitionName: definition.EffectiveName(),
+			Title:          request.Title, BusinessPeriodType: request.BusinessPeriodType,
+			BusinessPeriodKey: request.BusinessPeriodKey, BusinessPeriodLabel: request.BusinessPeriodLabel,
 			BusinessType: request.BusinessType, BusinessKey: request.BusinessKey,
-			StarterID: request.StarterID, OperatorID: request.OperatorID, Status: InstanceStatusRunning,
+			StarterID: request.StarterID, OperatorID: request.OperatorID,
+			Status:    InstanceStatusRunning,
 			StartTime: request.StartTime, FormRevision: 1,
 		},
 		Variables: cloneVariables(request.Variables),
@@ -95,6 +99,7 @@ func (engine *Engine) Complete(ctx context.Context, definition workflowcore.Defi
 	if !ok {
 		return fmt.Errorf("流程节点 %s 不存在", task.NodeID)
 	}
+	workflowName := workflowNameForState(definition, state)
 	if node.Type == workflowcore.NodeTypeHandle {
 		if request.Action != TaskActionSubmit {
 			return ErrInvalidTaskAction
@@ -134,7 +139,7 @@ func (engine *Engine) Complete(ctx context.Context, definition workflowcore.Defi
 		task.Status = TaskStatusRejected
 		engine.addHistoryWithImages(state, HistoryTaskRejected, task.NodeID, task.ID, request.ActorID, request.Comment, request.Images)
 		engine.rejectInstance(state, request.ActorID)
-		engine.addApprovalResultNotificationIntent(state, definition.Name, node, *task, NotificationKindApprovalResultRejected)
+		engine.addApprovalResultNotificationIntent(state, workflowName, node, *task, NotificationKindApprovalResultRejected)
 		return nil
 	}
 	if request.Action == TaskActionReturn {
@@ -148,7 +153,7 @@ func (engine *Engine) Complete(ctx context.Context, definition workflowcore.Defi
 		if err := engine.returnToNode(ctx, definition, state, returnTarget, request.ActorID); err != nil {
 			return err
 		}
-		engine.addApprovalReturnNotificationIntents(state, definition.Name, node, *task, returnTarget, state.Tasks[newTaskStart:])
+		engine.addApprovalReturnNotificationIntents(state, workflowName, node, *task, returnTarget, state.Tasks[newTaskStart:])
 		return nil
 	}
 
@@ -162,7 +167,7 @@ func (engine *Engine) Complete(ctx context.Context, definition workflowcore.Defi
 		if next := nextWaitingTask(state.Tasks, task.GroupKey); next >= 0 {
 			state.Tasks[next].Status = TaskStatusPending
 			engine.addHistory(state, HistoryTaskActivated, state.Tasks[next].NodeID, state.Tasks[next].ID, state.Tasks[next].AssigneeID, "顺序审批任务已激活")
-			engine.addTaskNotificationIntent(state, definition.Name, node, state.Tasks[next])
+			engine.addTaskNotificationIntent(state, workflowName, node, state.Tasks[next])
 		} else {
 			shouldAdvance = true
 		}
@@ -179,7 +184,7 @@ func (engine *Engine) Complete(ctx context.Context, definition workflowcore.Defi
 	if !shouldAdvance {
 		return nil
 	}
-	if task.ApprovalChainKey != "" && engine.activateNextApprovalLayer(state, definition.Name, node, *task) {
+	if task.ApprovalChainKey != "" && engine.activateNextApprovalLayer(state, workflowName, node, *task) {
 		return nil
 	}
 	tokenIndex := findTokenIndex(state.Tokens, task.TokenID)
@@ -190,7 +195,7 @@ func (engine *Engine) Complete(ctx context.Context, definition workflowcore.Defi
 	if err := engine.leaveNode(ctx, definition, state, tokenIndex, 0); err != nil {
 		return err
 	}
-	engine.addApprovalResultNotificationIntent(state, definition.Name, node, *task, NotificationKindApprovalResultApproved)
+	engine.addApprovalResultNotificationIntent(state, workflowName, node, *task, NotificationKindApprovalResultApproved)
 	return nil
 }
 
@@ -279,9 +284,9 @@ func (engine *Engine) advanceToken(ctx context.Context, definition workflowcore.
 	case workflowcore.NodeTypeStart:
 		return engine.leaveNode(ctx, definition, state, tokenIndex, depth+1)
 	case workflowcore.NodeTypeApproval:
-		return engine.createApprovalTasks(ctx, definition.Name, state, tokenIndex, node)
+		return engine.createApprovalTasks(ctx, workflowNameForState(definition, state), state, tokenIndex, node)
 	case workflowcore.NodeTypeHandle:
-		return engine.createHandleTask(ctx, definition.Name, state, tokenIndex, node)
+		return engine.createHandleTask(ctx, workflowNameForState(definition, state), state, tokenIndex, node)
 	case workflowcore.NodeTypeCC:
 		return engine.executeCC(ctx, definition, state, tokenIndex, node, depth+1)
 	case workflowcore.NodeTypeNotify:
@@ -349,7 +354,7 @@ func (engine *Engine) executeCC(ctx context.Context, definition workflowcore.Def
 			ID: engine.ids.NewID("participant"), UserID: assigneeID, Role: ParticipantRoleCC, NodeID: node.ID,
 		})
 		engine.addHistory(state, HistoryNodeCC, node.ID, "", assigneeID, "流程节点已抄送")
-		engine.addNotificationIntent(state, definition.Name, node, "", assigneeID, NotificationKindNodeCC)
+		engine.addNotificationIntent(state, workflowNameForState(definition, state), node, "", assigneeID, NotificationKindNodeCC)
 	}
 	return engine.leaveNode(ctx, definition, state, tokenIndex, depth+1)
 }
@@ -365,9 +370,18 @@ func (engine *Engine) executeNotify(ctx context.Context, definition workflowcore
 	}
 	for _, assigneeID := range assignees {
 		engine.addHistory(state, HistoryNodeNotify, node.ID, "", assigneeID, "流程通知节点已触发")
-		engine.addNotificationIntent(state, definition.Name, node, "", assigneeID, NotificationKindNodeNotify)
+		engine.addNotificationIntent(state, workflowNameForState(definition, state), node, "", assigneeID, NotificationKindNodeNotify)
 	}
 	return engine.leaveNode(ctx, definition, state, tokenIndex, depth+1)
+}
+
+func workflowNameForState(definition workflowcore.Definition, state *State) string {
+	if state != nil {
+		if name := strings.TrimSpace(state.Instance.DefinitionName); name != "" {
+			return name
+		}
+	}
+	return definition.EffectiveName()
 }
 
 func (engine *Engine) executeAutomation(ctx context.Context, definition workflowcore.Definition, state *State, tokenIndex int, node workflowcore.Node, depth int) error {

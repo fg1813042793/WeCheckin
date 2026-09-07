@@ -20,7 +20,7 @@ func TestDefinitionContentUpdatesOnlyIncludesChangedColumns(t *testing.T) {
 		DraftJSON:   `{"schemaVersion":1}`,
 	}
 
-	updates := definitionContentUpdates(item, "请假审批", "员工请假", "人事", model.DefinitionStatusDraft, `{"schemaVersion":1,"name":"请假审批"}`, nil)
+	updates := definitionContentUpdates(item, "请假审批", "", "员工请假", "人事", model.DefinitionStatusDraft, `{"schemaVersion":1,"name":"请假审批"}`, nil)
 	if len(updates) != 1 || updates["definition_draft_json"] == nil {
 		t.Fatalf("only changed draft should be updated, got %#v", updates)
 	}
@@ -40,7 +40,7 @@ func TestDefinitionContentUpdatesSkipsUnchangedSave(t *testing.T) {
 		DraftJSON:   `{"schemaVersion":1}`,
 	}
 
-	updates := definitionContentUpdates(item, item.Name, item.Description, item.Category, item.Status, item.DraftJSON, nil)
+	updates := definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, nil)
 	if len(updates) != 0 {
 		t.Fatalf("unchanged save should not write database, got %#v", updates)
 	}
@@ -50,13 +50,13 @@ func TestDefinitionContentUpdatesHandlesOptionalLogoChange(t *testing.T) {
 	item := model.WorkflowDefinition{LogoURL: "/uploads/workflow-logos/old.png"}
 
 	replacement := "/uploads/workflow-logos/new.png"
-	updates := definitionContentUpdates(item, item.Name, item.Description, item.Category, item.Status, item.DraftJSON, &replacement)
+	updates := definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, &replacement)
 	if updates["definition_logo_url"] != replacement {
 		t.Fatalf("replacement logo update = %#v", updates)
 	}
 
 	removed := ""
-	updates = definitionContentUpdates(item, item.Name, item.Description, item.Category, item.Status, item.DraftJSON, &removed)
+	updates = definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, &removed)
 	if value, exists := updates["definition_logo_url"]; !exists || value != "" {
 		t.Fatalf("removed logo update = %#v", updates)
 	}
@@ -99,7 +99,7 @@ func TestCopyCreateRequestUsesOnlySourceDraftAndNewMetadata(t *testing.T) {
 }
 
 func TestDefinitionModelForCreateAlwaysStartsAsUnpublishedDraft(t *testing.T) {
-	request := CreateRequest{Key: "leave_v2", Name: "新请假审批", Description: "说明", Category: "人事"}
+	request := CreateRequest{Key: "leave_v2", Name: "新请假审批（华东）", DisplayName: "请假审批", Description: "说明", Category: "人事"}
 	item := definitionModelForCreate(66, request, `{"schemaVersion":1}`, "/uploads/workflow-logos/new.png", 123456)
 
 	if item.Status != model.DefinitionStatusDraft || item.CurrentVersion != 0 {
@@ -107,6 +107,20 @@ func TestDefinitionModelForCreateAlwaysStartsAsUnpublishedDraft(t *testing.T) {
 	}
 	if item.AddUserID != 66 || item.EditUserID != 66 || item.AddTime != 123456 || item.EditTime != 123456 {
 		t.Fatalf("copied definition audit fields are invalid: %#v", item)
+	}
+	if item.DisplayName != "请假审批" {
+		t.Fatalf("definition display name = %q, want %q", item.DisplayName, "请假审批")
+	}
+}
+
+func TestNormalizeDraftStoresOptionalDisplayName(t *testing.T) {
+	raw := json.RawMessage(`{"schemaVersion":1,"key":"client","name":"客户端名称","nodes":[],"edges":[]}`)
+	definition, encoded, err := normalizeDraft(raw, "performance_review", "绩效考评单（运维组）", "绩效考评单")
+	if err != nil {
+		t.Fatalf("normalize draft: %v", err)
+	}
+	if definition.DisplayName != "绩效考评单" || !strings.Contains(encoded, `"displayName":"绩效考评单"`) {
+		t.Fatalf("normalized display name missing: definition=%#v encoded=%s", definition, encoded)
 	}
 }
 

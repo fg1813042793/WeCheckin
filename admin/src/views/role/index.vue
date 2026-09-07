@@ -129,7 +129,7 @@
         <el-form-item label="后台入口">
           <el-switch v-model="form.allowAdminLogin" active-text="授权" inactive-text="不授权" />
         </el-form-item>
-        <el-form-item label="权限配置" class="permission-form-item">
+        <el-form-item v-if="form.allowAdminLogin" label="权限配置" class="permission-form-item permission-form-item--backend">
           <div class="permission-layout">
             <section class="permission-column permission-column--menu">
               <div class="permission-column__header">
@@ -307,7 +307,7 @@ const form = reactive({
   dingtalkH5ApiPermissionKeys: [] as string[]
 })
 
-const clientMenuCheckedKeys = computed(() => checkableKeysForTree(form.clientMenuKeys, clientMenuTreeData.value))
+const clientMenuCheckedKeys = computed(() => form.clientMenuKeys)
 const dingtalkH5MenuCheckedKeys = computed(() => form.dingtalkH5MenuKeys)
 const clientApiCheckedKeys = computed(() => checkableKeysForTree(form.clientApiPermissionKeys, clientApiTreeData.value))
 const dingtalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(form.dingtalkH5ApiPermissionKeys, dingtalkH5ApiTreeData.value))
@@ -488,6 +488,34 @@ function onDingTalkH5ApiCheck() {
   })
 }
 
+function syncRolePermissionSelections() {
+  const adminMenuKeys = menuTreeRef.value?.getCheckedKeys?.()
+  if (Array.isArray(adminMenuKeys)) form.adminPermissionKeys = adminMenuKeys
+
+  const adminApiKeys = apiTreeRef.value?.getCheckedKeys?.()
+  if (Array.isArray(adminApiKeys)) {
+    form.adminApiPermissionKeys = adminApiKeys.filter((key: string) => key.startsWith('admin:api:'))
+  }
+
+  const clientMenuKeys = clientMenuTreeRef.value?.getCheckedKeys?.()
+  if (Array.isArray(clientMenuKeys)) form.clientMenuKeys = clientMenuKeys
+
+  const dingtalkH5MenuKeys = dingtalkH5MenuTreeRef.value?.getCheckedKeys?.()
+  if (Array.isArray(dingtalkH5MenuKeys)) {
+    form.dingtalkH5MenuKeys = dingtalkH5MenuKeys.filter((key: string) => dingtalkH5MenuButtonPrefixes.some((prefix) => key.startsWith(prefix)))
+  }
+
+  const clientApiKeys = clientApiTreeRef.value?.getCheckedKeys?.()
+  if (Array.isArray(clientApiKeys)) {
+    form.clientApiPermissionKeys = clientApiKeys.filter((key: string) => key.startsWith('client:api:'))
+  }
+
+  const dingtalkH5ApiKeys = dingtalkH5ApiTreeRef.value?.getCheckedKeys?.()
+  if (Array.isArray(dingtalkH5ApiKeys)) {
+    form.dingtalkH5ApiPermissionKeys = dingtalkH5ApiKeys.filter((key: string) => key.startsWith('dingtalk_h5:api:'))
+  }
+}
+
 function setApplicationPermissionTreeKeys() {
   clientMenuTreeRef.value?.setCheckedKeys(clientMenuCheckedKeys.value)
   dingtalkH5MenuTreeRef.value?.setCheckedKeys(dingtalkH5MenuCheckedKeys.value)
@@ -514,6 +542,7 @@ async function handleSave() {
     ElMessage.warning('请输入角色名称')
     return
   }
+  syncRolePermissionSelections()
   saving.value = true
   try {
     const payload: any = {

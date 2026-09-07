@@ -20,6 +20,7 @@ func normalizePage(page, pageSize int) (int, int) {
 
 const (
 	maxDefinitionNameSearchLength = 50
+	maxInstanceTitleSearchLength  = 100
 	maxStarterNameSearchLength    = 50
 )
 
@@ -27,6 +28,14 @@ func normalizeDefinitionNameSearch(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if utf8.RuneCountInString(value) > maxDefinitionNameSearchLength {
 		return "", ErrDefinitionNameSearchTooLong
+	}
+	return value, nil
+}
+
+func normalizeInstanceTitleSearch(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if utf8.RuneCountInString(value) > maxInstanceTitleSearchLength {
+		return "", ErrInstanceTitleSearchTooLong
 	}
 	return value, nil
 }

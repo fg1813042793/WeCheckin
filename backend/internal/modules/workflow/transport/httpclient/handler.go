@@ -266,6 +266,8 @@ func (handler *RuntimeHandler) ListMyInstances(ctx context.Context, c *app.Reque
 	data, err := handler.service.ListMyInstances(ctx, actorID, workflowapp.InstanceQuery{
 		DefinitionID:       uint(definitionID),
 		DefinitionName:     strings.TrimSpace(c.Query("definitionName")),
+		InstanceTitle:      strings.TrimSpace(c.Query("instanceTitle")),
+		BusinessPeriodKey:  strings.TrimSpace(c.Query("businessPeriodKey")),
 		DefinitionCategory: strings.TrimSpace(c.Query("definitionCategory")),
 		StarterName:        strings.TrimSpace(c.Query("starterName")),
 		Status:             strings.TrimSpace(c.Query("status")),
@@ -440,6 +442,7 @@ func (handler *RuntimeHandler) ListMyTasks(ctx context.Context, c *app.RequestCo
 		InstanceID:         strings.TrimSpace(c.Query("instanceId")),
 		Status:             strings.TrimSpace(c.Query("status")),
 		DefinitionName:     strings.TrimSpace(c.Query("definitionName")),
+		InstanceTitle:      strings.TrimSpace(c.Query("instanceTitle")),
 		DefinitionCategory: strings.TrimSpace(c.Query("definitionCategory")),
 		StarterName:        strings.TrimSpace(c.Query("starterName")),
 		StartTimeFrom:      queryInt64(c, "startTimeFrom"),

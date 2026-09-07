@@ -15,7 +15,10 @@ import (
 func TestInstanceToModelUsesWorkflowStartTimestamp(t *testing.T) {
 	row, err := instanceToModel(workflowdomain.ProcessInstance{
 		ID: "instance-1", DefinitionID: 9, DefinitionVersion: 3, DefinitionKey: "performance",
-		BusinessType: "performance", BusinessKey: "performance-7-2026-09", StarterID: "7",
+		DefinitionName: "绩效考评单",
+		BusinessType:   "performance", BusinessKey: "performance-7-2026-09", StarterID: "7",
+		Title: "2026年9月 Foster绩效考评", BusinessPeriodType: "month",
+		BusinessPeriodKey: "2026-09", BusinessPeriodLabel: "2026年9月",
 		OperatorID: "66", Status: workflowdomain.InstanceStatusRunning, StartTime: 1788364800000,
 	}, nil, 1788364800123)
 	if err != nil {
@@ -23,6 +26,12 @@ func TestInstanceToModelUsesWorkflowStartTimestamp(t *testing.T) {
 	}
 	if row.StartTime != 1788364800000 {
 		t.Fatalf("start time = %d", row.StartTime)
+	}
+	if row.Title != "2026年9月 Foster绩效考评" || row.BusinessPeriodKey != "2026-09" || row.BusinessPeriodLabel != "2026年9月" {
+		t.Fatalf("instance identity row = %#v", row)
+	}
+	if row.DefinitionNameSnapshot != "绩效考评单" {
+		t.Fatalf("definition name snapshot row = %q", row.DefinitionNameSnapshot)
 	}
 }
 
@@ -221,6 +230,31 @@ func TestRenderNotificationPayloadUsesActionCardForInteractiveUpdates(t *testing
 	}, "Foster")
 	if regular.MessageType != "" {
 		t.Fatalf("regular message type = %q, want empty", regular.MessageType)
+	}
+}
+
+func TestRenderNotificationPayloadIncludesInstanceIdentityVariables(t *testing.T) {
+	state := &workflowdomain.State{Instance: workflowdomain.ProcessInstance{
+		ID: "instance-1", StarterID: "7", Title: "2026年8月 Foster绩效考评",
+		BusinessPeriodLabel: "2026年8月",
+	}}
+	payload := renderNotificationPayload(state, workflowdomain.NotificationIntent{
+		NodeName: "上级评分",
+		Config: workflowcore.NotificationConfig{
+			Title:   "{{instanceTitle}}",
+			Content: "{{businessPeriod}}有一项待办：{{nodeName}}",
+		},
+		WorkflowName: "绩效考评单",
+	}, "Foster")
+
+	if payload.Title != "2026年8月 Foster绩效考评" {
+		t.Fatalf("notification title = %q", payload.Title)
+	}
+	if payload.Content != "2026年8月有一项待办：上级评分" {
+		t.Fatalf("notification content = %q", payload.Content)
+	}
+	if payload.InstanceTitle != state.Instance.Title || payload.BusinessPeriod != state.Instance.BusinessPeriodLabel {
+		t.Fatalf("notification identity = %#v", payload)
 	}
 }
 

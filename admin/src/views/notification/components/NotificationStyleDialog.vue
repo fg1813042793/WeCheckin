@@ -95,6 +95,12 @@
               </el-form-item>
               <el-form-item v-if="dingTalkFieldVisible('url')" label="跳转地址模板" required>
                 <el-input v-model="selectedStyle.dingTalk.url" :disabled="!canEdit" maxlength="5000" />
+                <div class="field-help field-help--url">
+                  <p>推荐保留 <code v-text="'{{url}}'" />，系统会按企业配置自动生成钉钉应用内跳转地址。</p>
+                  <p>手工配置时使用以下格式，不是将协议直接拼在 HTTPS 地址前：</p>
+                  <code class="field-help__protocol">dingtalk://dingtalkclient/action/openapp?corpid=&lt;CorpID&gt;&amp;container_type=work_platform&amp;app_id=&lt;UnifiedAppID&gt;&amp;redirect_type=jump&amp;redirect_url=&lt;URL 编码后的 HTTPS 地址&gt;</code>
+                  <p><code>app_id</code> 优先填 UnifiedAppID；只有 AgentID 时填 <code>0_&lt;AgentID&gt;</code>，<code>redirect_url</code> 必须先进行 URL 编码。</p>
+                </div>
               </el-form-item>
               <el-form-item v-if="dingTalkFieldVisible('sourceName')" label="来源名称模板">
                 <el-input v-model="selectedStyle.dingTalk.sourceName" :disabled="!canEdit" maxlength="5000" />
@@ -558,6 +564,9 @@ function tagType(tone: NotificationTone) {
 .template-help dt, .template-help dd { margin: 0; }
 .template-help code, .field-help code { color: #2563eb; }
 .field-help { margin-top: 5px; color: var(--admin-muted); font-size: 12px; line-height: 18px; }
+.field-help--url p { margin: 0 0 5px; }
+.field-help--url p:last-child { margin: 5px 0 0; }
+.field-help__protocol { display: block; overflow-wrap: anywhere; word-break: break-word; }
 .preview-heading { margin-top: 14px; }
 .message-preview { display: flex; min-height: 116px; gap: 14px; padding: 16px; border: 1px solid var(--admin-border); border-left-width: 3px; border-radius: 6px; background: #fff; }
 .message-preview--primary { border-left-color: #2563eb; }

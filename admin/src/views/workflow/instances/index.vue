@@ -3,6 +3,8 @@
     <el-card class="admin-card" shadow="never">
       <div class="admin-toolbar workflow-runtime-filters">
         <div class="admin-toolbar__left">
+          <el-input v-model="filters.instanceTitle" placeholder="单据标题" clearable style="width: 220px" @keyup.enter="search" />
+          <el-input v-model="filters.definitionName" placeholder="流程名称" clearable style="width: 180px" @keyup.enter="search" />
           <el-input v-model="filters.businessType" placeholder="业务类型" clearable style="width: 180px" @keyup.enter="search" />
           <el-input v-model="filters.businessKey" placeholder="业务标识" clearable style="width: 220px" @keyup.enter="search" />
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px" @change="search">
@@ -39,6 +41,11 @@
             <span class="mono-text">{{ row.id }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="instanceTitle" label="单据标题" min-width="210" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.instanceTitle || row.definitionName || row.definitionKey || `#${row.definitionId}` }}
+          </template>
+        </el-table-column>
         <el-table-column prop="definitionName" label="流程名称" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.definitionName || row.definitionKey || `#${row.definitionId}` }}
@@ -59,6 +66,9 @@
           <template #default="{ row }">
             <span class="mono-text">{{ row.businessKey || '-' }}</span>
           </template>
+        </el-table-column>
+        <el-table-column prop="businessPeriodLabel" label="业务期间" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.businessPeriodLabel || '-' }}</template>
         </el-table-column>
         <el-table-column label="发起人" width="120">
           <template #default="{ row }">{{ userDisplay(row.starterName, row.starterId) }}</template>
@@ -185,6 +195,8 @@
             <el-descriptions-item label="状态">
               <el-tag :type="workflowInstanceStatusMeta(detail.instance.status).type" size="small">{{ workflowInstanceStatusMeta(detail.instance.status).label }}</el-tag>
             </el-descriptions-item>
+            <el-descriptions-item label="单据标题" :span="2">{{ detail.instance.instanceTitle || detail.instance.definitionName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="业务期间">{{ detail.instance.businessPeriodLabel || '-' }}</el-descriptions-item>
             <el-descriptions-item label="流程定义">{{ detail.instance.definitionKey }} · v{{ detail.instance.definitionVersion }}</el-descriptions-item>
             <el-descriptions-item label="业务类型">{{ detail.instance.businessType }}</el-descriptions-item>
             <el-descriptions-item label="业务标识">{{ detail.instance.businessKey }}</el-descriptions-item>
@@ -358,7 +370,7 @@ const list = ref<WorkflowInstanceSummary[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-const filters = reactive({ businessType: '', businessKey: '', status: '', starterId: '' })
+const filters = reactive({ instanceTitle: '', definitionName: '', businessType: '', businessKey: '', status: '', starterId: '' })
 const selectedInstances = ref<WorkflowInstanceSummary[]>([])
 const deletingInstanceId = ref('')
 const batchDeleting = ref(false)
@@ -555,6 +567,7 @@ async function loadList() {
   try {
     const response = await adminApi.workflowInstanceList({
       page: page.value, pageSize: pageSize.value,
+      instanceTitle: filters.instanceTitle.trim(), definitionName: filters.definitionName.trim(),
       businessType: filters.businessType.trim(), businessKey: filters.businessKey.trim(),
       status: filters.status, starterId: filters.starterId.trim(),
     })
@@ -572,7 +585,7 @@ function search() {
 }
 
 function resetFilters() {
-  Object.assign(filters, { businessType: '', businessKey: '', status: '', starterId: '' })
+  Object.assign(filters, { instanceTitle: '', definitionName: '', businessType: '', businessKey: '', status: '', starterId: '' })
   search()
 }
 

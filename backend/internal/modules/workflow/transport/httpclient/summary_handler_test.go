@@ -40,11 +40,13 @@ func TestSummaryListInstancesParsesDefinitionNameWithoutDefinitionID(t *testing.
 	handler := NewSummaryHandler(stub)
 	requestContext := newUserContext(42)
 	dingtalkh5session.SetAuth(requestContext, &model.DingTalkH5PerfUser{ID: 42}, "token")
-	requestContext.Request.SetRequestURI("/api/v2/dingtalk/h5/workflows/summary/instances?definitionName=%E7%BB%A9%E6%95%88&page=2&pageSize=50")
+	requestContext.Request.SetRequestURI("/api/v2/dingtalk/h5/workflows/summary/instances?definitionName=%E7%BB%A9%E6%95%88&instanceTitle=2026%E5%B9%B48%E6%9C%88%E7%BB%A9%E6%95%88&businessPeriodKey=2026-08&page=2&pageSize=50")
 
 	handler.ListInstances(context.Background(), requestContext)
 
-	if stub.query.DefinitionID != 0 || stub.query.DefinitionName != "绩效" || stub.query.Page != 2 || stub.query.PageSize != 50 {
+	if stub.query.DefinitionID != 0 || stub.query.DefinitionName != "绩效" ||
+		stub.query.InstanceTitle != "2026年8月绩效" || stub.query.BusinessPeriodKey != "2026-08" ||
+		stub.query.Page != 2 || stub.query.PageSize != 50 {
 		t.Fatalf("summary query = %+v", stub.query)
 	}
 }

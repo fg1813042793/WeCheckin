@@ -90,6 +90,14 @@ func (service *Service) StartInstance(ctx context.Context, request StartInstance
 		if err != nil {
 			return err
 		}
+		starterName, err := store.UserDisplayName(ctx, request.StarterID)
+		if err != nil {
+			return err
+		}
+		identity, err := workflowcore.ResolveInstanceIdentity(definition, startedAt, starterName, request.FormData)
+		if err != nil {
+			return err
+		}
 		startLimit := definitionStartLimitConfig(definition)
 		if startLimit.Mode == workflowcore.StartLimitModeLimited {
 			window, ok := workflowcore.ResolveStartLimitWindow(&startLimit, availability, startedAt)
@@ -105,15 +113,19 @@ func (service *Service) StartInstance(ctx context.Context, request StartInstance
 			}
 		}
 		state, err = service.engine.Start(ctx, definition, workflowdomain.StartRequest{
-			DefinitionID:      request.DefinitionID,
-			DefinitionVersion: publishedVersion,
-			BusinessType:      request.BusinessType,
-			BusinessKey:       request.BusinessKey,
-			StarterID:         request.StarterID,
-			OperatorID:        request.OperatorID,
-			StartTime:         startedAt.UnixMilli(),
-			Variables:         request.Variables,
-			FormData:          request.FormData,
+			DefinitionID:        request.DefinitionID,
+			DefinitionVersion:   publishedVersion,
+			Title:               identity.Title,
+			BusinessPeriodType:  identity.BusinessPeriodType,
+			BusinessPeriodKey:   identity.BusinessPeriodKey,
+			BusinessPeriodLabel: identity.BusinessPeriodLabel,
+			BusinessType:        request.BusinessType,
+			BusinessKey:         request.BusinessKey,
+			StarterID:           request.StarterID,
+			OperatorID:          request.OperatorID,
+			StartTime:           startedAt.UnixMilli(),
+			Variables:           request.Variables,
+			FormData:            request.FormData,
 		})
 		if err != nil {
 			return err

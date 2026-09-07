@@ -109,6 +109,7 @@ func commentNotificationEffects(
 		DefinitionID:      detail.Instance.DefinitionID,
 		DefinitionVersion: detail.Instance.DefinitionVersion,
 		DefinitionKey:     detail.Instance.DefinitionKey,
+		DefinitionName:    workflowName,
 		BusinessType:      detail.Instance.BusinessType,
 		BusinessKey:       detail.Instance.BusinessKey,
 		StarterID:         detail.Instance.StarterID,

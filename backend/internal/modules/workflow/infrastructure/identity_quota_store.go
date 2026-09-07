@@ -30,6 +30,23 @@ func (store *GormStore) IsActiveUser(ctx context.Context, userID string) (bool, 
 	return count > 0, nil
 }
 
+func (store *GormStore) UserDisplayName(ctx context.Context, rawUserID string) (string, error) {
+	userID := parsePositiveUint(rawUserID)
+	if userID == 0 {
+		return "", errors.New("流程发起人无效")
+	}
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer cancel()
+	var user model.User
+	if err := db.Select("id", "user_name", "user_account").First(&user, userID).Error; err != nil {
+		return "", err
+	}
+	return workflowUserName(user), nil
+}
+
 func (store *GormStore) UserDepartmentIDs(ctx context.Context, rawUserID string) ([]uint, error) {
 	userID := parsePositiveUint(rawUserID)
 	if userID == 0 {

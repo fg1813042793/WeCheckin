@@ -6,7 +6,7 @@
           <el-icon><Bell /></el-icon>
           <div>
             <h2>通知记录管理</h2>
-            <span>共 {{ total }} 条站内信投递记录</span>
+            <span>{{ recordSummary }}</span>
           </div>
         </div>
         <div class="page-actions">
@@ -16,7 +16,13 @@
         </div>
       </header>
 
-      <div class="admin-toolbar record-filters">
+      <el-tabs v-model="activeRecordView" class="record-view-tabs">
+        <el-tab-pane label="站内信记录" name="in_app" />
+        <el-tab-pane v-if="canViewWorkflowNotifications" label="流程投递" name="workflow" />
+      </el-tabs>
+
+      <template v-if="activeRecordView === 'in_app'">
+        <div class="admin-toolbar record-filters">
         <div class="admin-toolbar__left">
           <el-input v-model="filters.title" clearable placeholder="通知标题" style="width: 180px" @keyup.enter="search" />
           <el-input v-model="filters.recipientName" clearable placeholder="接收人用户名" style="width: 180px" @keyup.enter="search" />
@@ -45,9 +51,9 @@
         <div class="admin-toolbar__right">
           <el-button circle :icon="Refresh" title="刷新" :loading="loading" @click="load" />
         </div>
-      </div>
+        </div>
 
-      <el-table v-loading="loading" :data="list" class="notification-table" empty-text="暂无通知投递记录" stripe>
+        <el-table v-loading="loading" :data="list" class="notification-table" empty-text="暂无通知投递记录" stripe>
         <el-table-column prop="id" label="记录 ID" width="92" />
         <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
         <el-table-column label="内容" min-width="300">
@@ -86,19 +92,25 @@
             >删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
 
-      <div class="admin-pagination">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="total"
-          layout="total, sizes, prev, pager, next"
-          @current-change="load"
-          @size-change="handlePageSizeChange"
-        />
-      </div>
+        <div class="admin-pagination">
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="total"
+            layout="total, sizes, prev, pager, next"
+            @current-change="load"
+            @size-change="handlePageSizeChange"
+          />
+        </div>
+      </template>
+
+      <WorkflowDeliveryRecords
+        v-else-if="activeRecordView === 'workflow' && canViewWorkflowNotifications"
+        :can-retry="canRetryWorkflowNotifications"
+      />
     </el-card>
 
     <el-dialog
@@ -219,6 +231,7 @@ import type {
 import { hasPerm } from '../../utils/permission'
 import WorkflowUserTreePicker from '../workflow/components/WorkflowUserTreePicker.vue'
 import NotificationStyleDialog from './components/NotificationStyleDialog.vue'
+import WorkflowDeliveryRecords from './components/WorkflowDeliveryRecords.vue'
 
 const list = ref<InAppNotificationItem[]>([])
 const total = ref(0)
@@ -234,6 +247,7 @@ const deletingID = ref<number | null>(null)
 const sending = ref(false)
 const sendRequestID = ref('')
 const sendChannel = ref<'in_app' | 'dingtalk'>('in_app')
+const activeRecordView = ref<'in_app' | 'workflow'>('in_app')
 const recipientOptionsLoading = ref(false)
 const recipientOptionsLoadedFor = ref<'in_app' | 'dingtalk' | ''>('')
 const emptyUserSelection = ref<number[]>([])
@@ -284,6 +298,11 @@ const canSendDingTalk = computed(() => hasPerm('admin:menu:notification:dingtalk
 const canStyleList = computed(() => hasPerm('admin:menu:notification:style:list'))
 const canStyleEdit = computed(() => hasPerm('admin:menu:notification:style:edit'))
 const canDelete = computed(() => hasPerm('admin:menu:notification:delete'))
+const canViewWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:list'))
+const canRetryWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:retry'))
+const recordSummary = computed(() => activeRecordView.value === 'workflow'
+  ? '查看流程站内信与钉钉的完整投递状态'
+  : `共 ${total.value} 条站内信投递记录`)
 const sendDialogTitle = computed(() => sendChannel.value === 'dingtalk' ? '发送钉钉通知' : '发送站内信')
 const departmentModelValue = computed<number[]>({
   get: () => sendForm.departmentIds,
@@ -480,7 +499,9 @@ onMounted(load)
 .page-title h2 { margin: 0; color: var(--admin-text); font-size: 18px; line-height: 26px; }
 .page-title span { color: var(--admin-muted); font-size: 12px; }
 .page-actions { display: flex; flex: 0 0 auto; gap: 8px; }
-.record-filters { margin: 18px 0 0; padding-bottom: 16px; border-bottom: 1px solid var(--admin-border); }
+.record-view-tabs { margin-top: 14px; }
+.record-view-tabs :deep(.el-tabs__header) { margin-bottom: 16px; }
+.record-filters { padding-bottom: 16px; border-bottom: 1px solid var(--admin-border); }
 .notification-table { border: 1px solid var(--admin-border); border-radius: 6px; }
 .notification-content { display: -webkit-box; overflow: hidden; color: var(--admin-text-secondary); line-height: 20px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .record-detail__source-id { overflow-wrap: anywhere; }

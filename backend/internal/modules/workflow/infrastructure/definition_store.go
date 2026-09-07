@@ -105,16 +105,29 @@ func loadDefinitionVersion(db *gorm.DB, definitionID uint, version int) (workflo
 
 func publishedDefinition(row workflowmodel.Definition, definition workflowcore.Definition, version int, labels publishedAssigneeLabels, includeGraph bool) application.PublishedDefinition {
 	result := application.PublishedDefinition{
-		ID: row.ID, Key: row.Key, Name: row.Name, Description: row.Description,
+		ID: row.ID, Key: row.Key, Name: definition.Name, DisplayName: definition.DisplayName, Description: row.Description,
 		Category: row.Category, LogoURL: row.LogoURL, Version: version, Form: cloneDefinitionForm(definition),
 		FieldPermissions: definitionFieldPermissions(definition), StartNodeID: definitionStartNodeID(definition),
 		Initiator: definitionInitiator(definition), Availability: definitionStartAvailability(definition),
 		StartLimit: definitionStartLimit(definition), StartLimitStatus: application.StartLimitStatus{Allowed: true},
+		InstanceIdentity: cloneInstanceIdentity(definition.InstanceIdentity),
 	}
 	if includeGraph {
 		result.Nodes, result.Edges = buildPublishedWorkflowGraph(definition, labels)
 	}
 	return result
+}
+
+func cloneInstanceIdentity(config *workflowcore.InstanceIdentityConfig) *workflowcore.InstanceIdentityConfig {
+	if config == nil {
+		return nil
+	}
+	cloned := *config
+	if config.BusinessPeriod != nil {
+		period := *config.BusinessPeriod
+		cloned.BusinessPeriod = &period
+	}
+	return &cloned
 }
 
 func definitionInitiator(definition workflowcore.Definition) workflowcore.InitiatorConfig {

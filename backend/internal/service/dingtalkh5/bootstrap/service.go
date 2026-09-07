@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -93,15 +94,16 @@ type workbenchStatusCountRow struct {
 }
 
 type dingTalkH5PermissionSnapshot struct {
-	menuKeys    []string
-	buttonKeys  []string
-	apiKeys     []string
-	labels      map[string]string
-	icons       map[string]string
-	menuReady   bool
-	buttonReady bool
-	apiReady    bool
-	version     int64
+	menuKeys         []string
+	buttonKeys       []string
+	apiKeys          []string
+	menuDeclarations []appmenuperm.Declaration
+	labels           map[string]string
+	icons            map[string]string
+	menuReady        bool
+	buttonReady      bool
+	apiReady         bool
+	version          int64
 }
 
 type dingTalkH5PermissionGrantRow struct {
@@ -113,11 +115,14 @@ type dingTalkH5PermissionGrantRow struct {
 }
 
 type dingTalkH5PermissionCatalogRow struct {
-	Key      string `gorm:"column:permission_key"`
-	Name     string `gorm:"column:permission_name"`
-	Type     string `gorm:"column:permission_type"`
-	Icon     string `gorm:"column:permission_icon"`
-	EditTime int64  `gorm:"column:permission_edit_time"`
+	Key          string `gorm:"column:permission_key"`
+	Name         string `gorm:"column:permission_name"`
+	Type         string `gorm:"column:permission_type"`
+	ParentKey    string `gorm:"column:permission_parent_key"`
+	ResourcePath string `gorm:"column:permission_resource_path"`
+	Icon         string `gorm:"column:permission_icon"`
+	Sort         int    `gorm:"column:permission_sort"`
+	EditTime     int64  `gorm:"column:permission_edit_time"`
 }
 
 func BootstrapContext(ctx context.Context, user *model.DingTalkH5PerfUser) (*BootstrapResponse, error) {
@@ -134,7 +139,7 @@ func bootstrapForUserDB(ctx context.Context, db *gorm.DB, user *model.DingTalkH5
 	appConfig := configsvc.AppConfigContext(ctx)
 	return &BootstrapResponse{
 		User:                  userDTO(user),
-		Menus:                 dingTalkH5MenusByKeysWithLabelsAndIcons(snapshot.menuKeys, snapshot.labels, snapshot.icons),
+		Menus:                 dingTalkH5MenusByDeclarations(snapshot.menuKeys, snapshot.menuDeclarations, snapshot.labels, snapshot.icons),
 		AppConfig:             appConfig,
 		AppTitle:              appConfig.AppTitle,
 		AppName:               appConfig.AppName,
@@ -187,8 +192,11 @@ func dingTalkH5MenusForUserDB(ctx context.Context, db *gorm.DB, user *model.Ding
 		return nil
 	}
 	if keys, ready, err := permissionsupport.DingTalkH5MenuPermissionKeysWithRoleIDsContext(ctx, db, user.ID, roleIDs); err == nil && ready {
-		labels, icons := dingTalkH5MenuMetadataByKeysContext(ctx, db, keys)
-		return dingTalkH5MenusByKeysWithLabelsAndIcons(keys, labels, icons)
+		labels, icons, declarations, _, catalogErr := dingTalkH5PermissionCatalogContext(ctx, db, keys, nil)
+		if catalogErr != nil {
+			return nil
+		}
+		return dingTalkH5MenusByDeclarations(keys, declarations, labels, icons)
 	}
 	return nil
 }
@@ -196,9 +204,10 @@ func dingTalkH5MenusForUserDB(ctx context.Context, db *gorm.DB, user *model.Ding
 func dingTalkH5PermissionSnapshotForUserDB(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser) (dingTalkH5PermissionSnapshot, error) {
 	ctx = normalizedDingTalkH5PermissionContext(ctx)
 	snapshot := dingTalkH5PermissionSnapshot{
-		labels:  map[string]string{},
-		icons:   map[string]string{},
-		version: permissionVersionFallback(user),
+		menuDeclarations: appmenuperm.DingTalkH5MenuDeclarations(),
+		labels:           map[string]string{},
+		icons:            map[string]string{},
+		version:          permissionVersionFallback(user),
 	}
 	if err := ctx.Err(); err != nil {
 		return snapshot, err
@@ -269,12 +278,13 @@ func dingTalkH5PermissionSnapshotForUserDB(ctx context.Context, db *gorm.DB, use
 	snapshot.menuReady = true
 	snapshot.buttonReady = true
 
-	labels, icons, permissionVersion, err := dingTalkH5PermissionCatalogContext(ctx, db, snapshot.menuKeys, snapshot.buttonKeys)
+	labels, icons, declarations, permissionVersion, err := dingTalkH5PermissionCatalogContext(ctx, db, snapshot.menuKeys, snapshot.buttonKeys)
 	if err != nil {
 		return snapshot, err
 	}
 	snapshot.labels = labels
 	snapshot.icons = icons
+	snapshot.menuDeclarations = declarations
 	if permissionVersion > snapshot.version {
 		snapshot.version = permissionVersion
 	}
@@ -340,47 +350,61 @@ func dingTalkH5PermissionGrantLikeClause() (string, []interface{}) {
 }
 
 func orderedDingTalkH5MenuKeys(selected map[string]bool) []string {
-	keys := make([]string, 0)
-	for _, declaration := range appmenuperm.DingTalkH5MenuDeclarations() {
-		if selected[declaration.Key] {
-			keys = append(keys, declaration.Key)
-		}
-	}
-	return keys
+	return orderedDingTalkH5DeclarationKeys(selected, "dingtalk_h5:menu:", appmenuperm.DingTalkH5MenuDeclarations())
 }
 
 func orderedDingTalkH5ButtonKeys(selected map[string]bool) []string {
-	keys := make([]string, 0)
-	for _, declaration := range appmenuperm.DingTalkH5ButtonDeclarations() {
-		if selected[declaration.Key] {
-			keys = append(keys, declaration.Key)
-		}
-	}
-	return keys
+	return orderedDingTalkH5DeclarationKeys(selected, "dingtalk_h5:button:", appmenuperm.DingTalkH5ButtonDeclarations())
 }
 
 func orderedDingTalkH5APIKeys(selected map[string]bool) []string {
-	keys := make([]string, 0)
+	keys := make([]string, 0, len(selected))
+	declared := make(map[string]bool)
 	for _, declaration := range appapiperm.DingTalkH5APIDeclarations() {
+		declared[declaration.Key] = true
 		if selected[declaration.Key] {
 			keys = append(keys, declaration.Key)
 		}
 	}
-	return keys
+	return appendCustomDingTalkH5PermissionKeys(keys, selected, declared, "dingtalk_h5:api:")
 }
 
-func dingTalkH5PermissionCatalogContext(ctx context.Context, db *gorm.DB, menuKeys, buttonKeys []string) (map[string]string, map[string]string, int64, error) {
+func orderedDingTalkH5DeclarationKeys(selected map[string]bool, prefix string, declarations []appmenuperm.Declaration) []string {
+	keys := make([]string, 0, len(selected))
+	declared := make(map[string]bool, len(declarations))
+	for _, declaration := range declarations {
+		declared[declaration.Key] = true
+		if selected[declaration.Key] {
+			keys = append(keys, declaration.Key)
+		}
+	}
+	return appendCustomDingTalkH5PermissionKeys(keys, selected, declared, prefix)
+}
+
+func appendCustomDingTalkH5PermissionKeys(keys []string, selected, declared map[string]bool, prefix string) []string {
+	custom := make([]string, 0)
+	for key, checked := range selected {
+		if checked && strings.HasPrefix(key, prefix) && !declared[key] {
+			custom = append(custom, key)
+		}
+	}
+	sort.Strings(custom)
+	return append(keys, custom...)
+}
+
+func dingTalkH5PermissionCatalogContext(ctx context.Context, db *gorm.DB, menuKeys, buttonKeys []string) (map[string]string, map[string]string, []appmenuperm.Declaration, int64, error) {
 	queryKeys := dingTalkH5PermissionCatalogKeys(menuKeys, buttonKeys)
 	if len(queryKeys) == 0 {
-		return map[string]string{}, map[string]string{}, 0, nil
+		return map[string]string{}, map[string]string{}, appmenuperm.DingTalkH5MenuDeclarations(), 0, nil
 	}
 	var rows []dingTalkH5PermissionCatalogRow
 	if err := db.WithContext(ctx).
 		Model(&model.Permission{}).
-		Select("`permission_key`, `permission_name`, `permission_type`, `permission_icon`, `permission_edit_time`").
-		Where("`permission_key` IN ? AND `permission_platform` = ? AND `permission_status` = 1", queryKeys, permissionsupport.PlatformDingTalkH5).
+		Select("`permission_key`, `permission_name`, `permission_type`, `permission_parent_key`, `permission_resource_path`, `permission_icon`, `permission_sort`, `permission_edit_time`").
+		Where("`permission_platform` = ? AND `permission_status` = 1", permissionsupport.PlatformDingTalkH5).
+		Where("(`permission_type` IN ? OR `permission_key` IN ?)", []string{permissionsupport.TypeDirectory, permissionsupport.TypeMenu}, queryKeys).
 		Find(&rows).Error; err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, 0, err
 	}
 	labels := make(map[string]string, len(rows))
 	icons := make(map[string]string, len(rows))
@@ -399,7 +423,7 @@ func dingTalkH5PermissionCatalogContext(ctx context.Context, db *gorm.DB, menuKe
 			icons[key] = icon
 		}
 	}
-	return labels, icons, version, nil
+	return labels, icons, dingTalkH5MenuDeclarationsFromCatalog(rows), version, nil
 }
 
 func dingTalkH5PermissionCatalogKeys(menuKeys, buttonKeys []string) []string {
@@ -421,6 +445,45 @@ func dingTalkH5PermissionCatalogTypeHasMenuLabel(permissionType string) bool {
 	return permissionType == permissionsupport.TypeDirectory || permissionType == permissionsupport.TypeMenu
 }
 
+func dingTalkH5MenuDeclarationsFromCatalog(rows []dingTalkH5PermissionCatalogRow) []appmenuperm.Declaration {
+	declarations := append([]appmenuperm.Declaration(nil), appmenuperm.DingTalkH5MenuDeclarations()...)
+	declared := make(map[string]bool, len(declarations))
+	for _, declaration := range declarations {
+		declared[declaration.Key] = true
+	}
+	for _, row := range rows {
+		key := strings.TrimSpace(row.Key)
+		if declared[key] || !strings.HasPrefix(key, "dingtalk_h5:menu:") || !dingTalkH5PermissionCatalogTypeHasMenuLabel(row.Type) {
+			continue
+		}
+		declared[key] = true
+		declarations = append(declarations, appmenuperm.Declaration{
+			Key:       key,
+			Name:      strings.TrimSpace(row.Name),
+			Platform:  permissionsupport.PlatformDingTalkH5,
+			Type:      strings.TrimSpace(row.Type),
+			Path:      dingTalkH5CustomMenuPath(key, row.ResourcePath),
+			Icon:      strings.TrimSpace(row.Icon),
+			ParentKey: strings.TrimSpace(row.ParentKey),
+			Sort:      row.Sort,
+		})
+	}
+	sort.SliceStable(declarations, func(i, j int) bool {
+		if declarations[i].Sort == declarations[j].Sort {
+			return declarations[i].Key < declarations[j].Key
+		}
+		return declarations[i].Sort < declarations[j].Sort
+	})
+	return declarations
+}
+
+func dingTalkH5CustomMenuPath(key, resourcePath string) string {
+	if path := strings.TrimSpace(resourcePath); path != "" {
+		return path
+	}
+	return strings.TrimPrefix(strings.TrimSpace(key), "dingtalk_h5:menu:")
+}
+
 func activeRoleIDsForPerfUserContext(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser) ([]uint, error) {
 	if user == nil {
 		return nil, nil
@@ -439,8 +502,12 @@ func activeRoleIDsForPerfUserContext(ctx context.Context, db *gorm.DB, user *mod
 }
 
 func dingTalkH5MenusByKeysWithLabelsAndIcons(keys []string, labels, icons map[string]string) []AppMenuDTO {
+	return dingTalkH5MenusByDeclarations(keys, appmenuperm.DingTalkH5MenuDeclarations(), labels, icons)
+}
+
+func dingTalkH5MenusByDeclarations(keys []string, declarations []appmenuperm.Declaration, labels, icons map[string]string) []AppMenuDTO {
 	allowed := dingTalkH5AllowedMenuKeySet(keys)
-	declarations := appmenuperm.DingTalkH5MenuDeclarations()
+	expandDingTalkH5MenuAncestors(allowed, declarations)
 	nodes := make(map[string]*AppMenuDTO, len(declarations))
 	for _, declaration := range declarations {
 		if !allowed[declaration.Key] {
@@ -479,6 +546,20 @@ func dingTalkH5MenusByKeysWithLabelsAndIcons(keys []string, labels, icons map[st
 		menus = append(menus, *node)
 	}
 	return menus
+}
+
+func expandDingTalkH5MenuAncestors(allowed map[string]bool, declarations []appmenuperm.Declaration) {
+	parents := make(map[string]string, len(declarations))
+	for _, declaration := range declarations {
+		parents[declaration.Key] = declaration.ParentKey
+	}
+	for key := range allowed {
+		seen := make(map[string]bool)
+		for parentKey := parents[key]; parentKey != "" && !seen[parentKey]; parentKey = parents[parentKey] {
+			seen[parentKey] = true
+			allowed[parentKey] = true
+		}
+	}
 }
 
 func dingTalkH5AllowedMenuKeySet(keys []string) map[string]bool {

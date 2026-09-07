@@ -20,6 +20,13 @@ func (service *Service) RetryNotification(ctx context.Context, id string) error 
 	return service.notifications.Retry(ctx, strings.TrimSpace(id))
 }
 
+func (service *Service) SendNotification(ctx context.Context, id string) error {
+	if service == nil || service.notifications == nil {
+		return ErrNotificationUnavailable
+	}
+	return service.notifications.Send(ctx, strings.TrimSpace(id))
+}
+
 func (service *Service) DispatchDueNotifications(ctx context.Context, limit int) (int, error) {
 	if service == nil || service.notifications == nil {
 		return 0, ErrNotificationUnavailable

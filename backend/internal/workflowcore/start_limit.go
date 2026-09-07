@@ -77,7 +77,7 @@ func validStartLimitConfig(limit *StartLimitConfig, availability *StartAvailabil
 			return false
 		}
 		switch strings.TrimSpace(availability.Mode) {
-		case StartAvailabilityFixed, StartAvailabilityWeekly, StartAvailabilityMonthly:
+		case StartAvailabilityFixed, StartAvailabilityWeekly, StartAvailabilityMonthly, StartAvailabilityMonthlyWindow:
 			return validStartAvailabilityConfig(availability)
 		default:
 			return false
@@ -104,6 +104,12 @@ func resolveAvailabilityStartLimitWindow(availability *StartAvailabilityConfig, 
 	case StartAvailabilityMonthly:
 		start := time.Date(localNow.Year(), localNow.Month(), 1, 0, 0, 0, 0, localNow.Location())
 		return calendarStartLimitWindow("availability:monthly", start, start.AddDate(0, 1, 0)), true
+	case StartAvailabilityMonthlyWindow:
+		start, end, ok := resolveMonthlyAvailabilityWindow(availability, localNow)
+		if !ok {
+			return StartLimitWindow{}, false
+		}
+		return calendarStartLimitWindow("availability:monthly_window", start, end), true
 	default:
 		return StartLimitWindow{}, false
 	}

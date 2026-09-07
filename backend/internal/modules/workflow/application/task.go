@@ -209,6 +209,10 @@ func (service *Service) DeleteTask(ctx context.Context, actorID, taskID string) 
 }
 
 func (service *Service) ListTasks(ctx context.Context, query TaskQuery) (*TaskList, error) {
+	instanceTitle, err := normalizeInstanceTitleSearch(query.InstanceTitle)
+	if err != nil {
+		return nil, err
+	}
 	definitionName, err := normalizeDefinitionNameSearch(query.DefinitionName)
 	if err != nil {
 		return nil, err
@@ -217,6 +221,7 @@ func (service *Service) ListTasks(ctx context.Context, query TaskQuery) (*TaskLi
 	if err != nil {
 		return nil, err
 	}
+	query.InstanceTitle = instanceTitle
 	query.DefinitionName = definitionName
 	query.StarterName = starterName
 	query.Page, query.PageSize = normalizePage(query.Page, query.PageSize)

@@ -185,8 +185,12 @@ for (const snippet of [
   'formData: writableWorkflowFormData',
   'detail.formData',
   '流程表单',
-  'workflowInstanceList',
-  'workflowInstanceStart',
+	'workflowInstanceList',
+	'filters.instanceTitle.trim()',
+	'filters.definitionName.trim()',
+	'prop="instanceTitle" label="单据标题"',
+	'prop="businessPeriodLabel" label="业务期间"',
+	'workflowInstanceStart',
   'startMode',
   '实例创建方式',
   '代一名用户发起',
@@ -289,11 +293,13 @@ for (const snippet of [
   '@click="openEdit(row)"',
   'title="修改流程信息"',
   'v-model="editForm.name"',
+  'v-model="editForm.displayName"',
   'v-model="editForm.category"',
   'v-model="editForm.description"',
   ':model-value="editTarget?.key"',
   'workflowDefinitionUpdate',
   'description: editForm.description.trim()',
+  'displayName: editForm.displayName.trim()',
   'category: editForm.category.trim()',
   '流程信息修改成功',
   '<WorkflowLogoPicker',
@@ -303,6 +309,16 @@ for (const snippet of [
   "formData.append('removeLogo', 'true')",
 ]) {
   requireSnippet(definitions, snippet, 'workflow definition metadata edit')
+}
+
+for (const snippet of [
+  'label="管理名称"',
+  'label="用户显示名称"',
+  'prop="displayName"',
+  'row.displayName || row.name',
+  '搜索管理名称、显示名称或编码',
+]) {
+  requireSnippet(definitions, snippet, 'workflow definition display name')
 }
 
 for (const snippet of [
@@ -348,6 +364,7 @@ assert.match(
 )
 
 requireSnippet(workflowTypes, 'logoUrl: string', 'workflow definition logo type')
+requireSnippet(workflowTypes, 'displayName: string', 'workflow definition display-name type')
 
 for (const snippet of [
   'workflowDefinitionPublish(id: ID, data:',
@@ -362,6 +379,17 @@ requireSnippet(workflowTypes, 'departmentIds?: number[]', 'workflow initiator ty
 requireSnippet(workflowTypes, 'excludedUserIds?: number[]', 'workflow initiator type')
 requireSnippet(workflowTypes, 'export interface WorkflowStartAvailabilityConfig', 'workflow start availability type')
 requireSnippet(workflowTypes, 'availability?: WorkflowStartAvailabilityConfig', 'workflow start availability type')
+requireSnippet(workflowTypes, 'export interface WorkflowInstanceIdentityConfig', 'workflow instance identity type')
+requireSnippet(workflowTypes, 'instanceIdentity?: WorkflowInstanceIdentityConfig', 'workflow instance identity type')
+for (const snippet of [
+  "'monthly_window'",
+  'windowStartDayFromEnd?: number',
+  'windowStartTime?: string',
+  'windowEndDay?: number',
+  'windowEndTime?: string',
+]) {
+  requireSnippet(workflowTypes, snippet, 'workflow monthly continuous availability type')
+}
 
 for (const snippet of [
   '<el-tab-pane label="流程配置" name="config" />',
@@ -389,9 +417,22 @@ for (const snippet of [
   '指定时间段',
   '每周周期开放',
   '每月周期开放',
+  '每月连续区间',
   'Asia/Shanghai',
   'lastDayOfMonth',
   '最后一天',
+  '本月倒数第',
+  '下月第',
+  'windowStartDayFromEnd',
+  'windowEndDay',
+  'windowStartTime',
+  'windowEndTime',
+  '单据标识',
+  '单据标题命名规则',
+  '业务期间',
+  "'availability_window_start'",
+  "'form_field'",
+  '{{businessPeriod}}',
   '.config-section {',
   'border-radius: 8px',
   'background: #fff',

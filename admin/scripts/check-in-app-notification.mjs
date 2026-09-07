@@ -8,6 +8,8 @@ const read = path => readFileSync(resolve(root, path), 'utf8')
 
 const pagePath = 'src/views/notification/index.vue'
 if (!existsSync(resolve(root, pagePath))) throw new Error(`in-app notification UI missing ${pagePath}`)
+const workflowRecordsPath = 'src/views/notification/components/WorkflowDeliveryRecords.vue'
+if (!existsSync(resolve(root, workflowRecordsPath))) throw new Error(`workflow delivery record UI missing ${workflowRecordsPath}`)
 
 const routes = read('src/router/adminRoutes.ts')
 for (const snippet of ["path: 'notifications'", "title: '通知记录管理'", "menuPath: '/notifications'", "../views/notification/index.vue"]) {
@@ -18,7 +20,7 @@ if (!routes.includes("path: 'survey/notify', name: 'SurveyNotify', component: ()
 }
 
 const api = read('src/api/index.ts')
-for (const method of ['inAppNotificationList', 'inAppNotificationDelete', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest']) {
+for (const method of ['inAppNotificationList', 'inAppNotificationDelete', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest', 'workflowNotificationSend']) {
   if (!api.includes(`${method}(`)) throw new Error(`in-app notification API missing ${method}`)
 }
 if (!api.includes('/in-app-notifications')) throw new Error('in-app notification API must use the canonical admin endpoint')
@@ -52,10 +54,34 @@ for (const snippet of [
   'requestId: sendRequestID.value',
   "sendChannel.value === 'dingtalk'",
   'NotificationStyleDialog',
+  'WorkflowDeliveryRecords',
+  "name=\"workflow\"",
+  "hasPerm('admin:menu:workflow:notification:list')",
   "消息样式",
   "hasPerm('admin:menu:notification:style:list')",
 ]) {
   if (!page.includes(snippet)) throw new Error(`in-app notification page missing ${snippet}`)
+}
+
+const workflowRecords = read(workflowRecordsPath)
+for (const snippet of [
+  '流程实例 ID',
+  '接收人 ID',
+  '全部事件',
+  '全部渠道',
+  '全部状态',
+  '最近错误',
+  '流程单号',
+  '投递详情',
+  '投递到期通知',
+  'adminApi.workflowNotificationList',
+  'adminApi.workflowNotificationRetry',
+  'adminApi.workflowNotificationSend',
+  'adminApi.workflowNotificationDispatchDue',
+  'manualSend(row)',
+  "row.status === 'failed' || row.status === 'dead'",
+]) {
+  if (!workflowRecords.includes(snippet)) throw new Error(`workflow delivery record UI missing ${snippet}`)
 }
 for (const obsolete of ['unreadCount', 'loadUnreadCount', 'markAllRead', 'markRead(row.id)', '全部已读', '标为已读']) {
   if (page.includes(obsolete)) throw new Error(`notification record management must not expose inbox action ${obsolete}`)
@@ -85,6 +111,9 @@ for (const snippet of [
   "'headColor'",
   '已发布流程定义的 Logo',
   'DINGTALK_H5_LOGO_URL',
+  'dingtalk://dingtalkclient/action/openapp',
+  'redirect_url',
+  '0_&lt;AgentID&gt;',
 ]) {
   if (!styleDialog.includes(snippet)) throw new Error(`notification style dialog missing ${snippet}`)
 }

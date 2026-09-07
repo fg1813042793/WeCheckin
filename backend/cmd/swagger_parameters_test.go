@@ -103,6 +103,7 @@ func TestSwaggerDocumentsWriteRequestPayloads(t *testing.T) {
 		"post /api/v2/admin/workflow-definitions/{id}/validate": true,
 		"post /api/v2/admin/workflow-instances/{id}/resume":     true,
 		"post /api/v2/admin/workflow-notifications/{id}/retry":  true,
+		"post /api/v2/admin/workflow-notifications/{id}/send":   true,
 		"post /api/v2/dingtalk/h5/logout":                       true,
 		"patch /api/v2/dingtalk/h5/notifications/read-all":      true,
 		"patch /api/v2/dingtalk/h5/notifications/{id}/read":     true,

@@ -30,6 +30,7 @@ type RuntimeService interface {
 	DeleteTask(context.Context, string, string) error
 	ListNotifications(context.Context, workflowapp.NotificationQuery) (*workflowapp.NotificationList, error)
 	RetryNotification(context.Context, string) error
+	SendNotification(context.Context, string) error
 	DispatchDueNotifications(context.Context, int) (int, error)
 }
 
@@ -231,6 +232,9 @@ func (handler *RuntimeHandler) ListInstances(ctx context.Context, c *app.Request
 	definitionID, _ := strconv.ParseUint(c.Query("definitionId"), 10, 64)
 	data, err := handler.service.ListInstances(ctx, workflowapp.InstanceQuery{
 		DefinitionID:       uint(definitionID),
+		DefinitionName:     strings.TrimSpace(c.Query("definitionName")),
+		InstanceTitle:      strings.TrimSpace(c.Query("instanceTitle")),
+		BusinessPeriodKey:  strings.TrimSpace(c.Query("businessPeriodKey")),
 		DefinitionCategory: strings.TrimSpace(c.Query("definitionCategory")),
 		Status:             strings.TrimSpace(c.Query("status")),
 		BusinessType:       strings.TrimSpace(c.Query("businessType")),
@@ -369,6 +373,23 @@ func (handler *RuntimeHandler) RetryNotification(ctx context.Context, c *app.Req
 	}
 	if err := handler.service.RetryNotification(ctx, id); err != nil {
 		workflowhttperror.Respond(ctx, c, "workflow.admin.retry_notification", err)
+		return
+	}
+	response.JSON(c, map[string]string{"id": id})
+}
+
+func (handler *RuntimeHandler) SendNotification(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedActorID(c); !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		response.Fail(c, "通知投递记录不能为空")
+		return
+	}
+	if err := handler.service.SendNotification(ctx, id); err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.send_notification", err)
 		return
 	}
 	response.JSON(c, map[string]string{"id": id})

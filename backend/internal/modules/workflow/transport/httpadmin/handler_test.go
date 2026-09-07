@@ -35,6 +35,8 @@ type runtimeServiceStub struct {
 	notificationListCalls  int
 	retryNotificationID    string
 	retryNotificationCalls int
+	sendNotificationID     string
+	sendNotificationCalls  int
 	dispatchDueLimit       int
 	dispatchDueCalls       int
 	deleteActorID          string
@@ -149,6 +151,12 @@ func (stub *runtimeServiceStub) ListNotifications(_ context.Context, query workf
 func (stub *runtimeServiceStub) RetryNotification(_ context.Context, id string) error {
 	stub.retryNotificationCalls++
 	stub.retryNotificationID = id
+	return nil
+}
+
+func (stub *runtimeServiceStub) SendNotification(_ context.Context, id string) error {
+	stub.sendNotificationCalls++
+	stub.sendNotificationID = id
 	return nil
 }
 
@@ -386,6 +394,14 @@ func TestNotificationManagementUsesAuthenticatedAdminAndStableInputs(t *testing.
 		t.Fatalf("retry notification = calls %d id %q", stub.retryNotificationCalls, stub.retryNotificationID)
 	}
 
+	sendContext := newAdminContext(42)
+	sendContext.Params = append(sendContext.Params, param.Param{Key: "id", Value: "outbox-send"})
+	sendContext.Request.SetBodyString(`{"id":"outbox-forged"}`)
+	handler.SendNotification(context.Background(), sendContext)
+	if stub.sendNotificationCalls != 1 || stub.sendNotificationID != "outbox-send" {
+		t.Fatalf("send notification = calls %d id %q", stub.sendNotificationCalls, stub.sendNotificationID)
+	}
+
 	dueContext := newAdminContext(42)
 	dueContext.Request.SetBodyString(`{"limit":25}`)
 	handler.DispatchDueNotifications(context.Background(), dueContext)
@@ -407,12 +423,12 @@ func TestListInstancesParsesStableFilters(t *testing.T) {
 	stub := &runtimeServiceStub{}
 	handler := NewRuntimeHandler(stub)
 	c := app.NewContext(1)
-	c.Request.SetRequestURI("/api/v2/admin/workflow-instances?definitionId=7&definitionCategory=performance&status=running&businessType=leave&businessKey=LEAVE-1001&starterId=42&startTimeFrom=1000&startTimeTo=1999&endTimeFrom=2000&endTimeTo=2999&page=2&pageSize=40")
+	c.Request.SetRequestURI("/api/v2/admin/workflow-instances?definitionId=7&definitionName=%E7%BB%A9%E6%95%88%E8%80%83%E8%AF%84&instanceTitle=2026%E5%B9%B48%E6%9C%88%E7%BB%A9%E6%95%88&businessPeriodKey=2026-08&definitionCategory=performance&status=running&businessType=leave&businessKey=LEAVE-1001&starterId=42&startTimeFrom=1000&startTimeTo=1999&endTimeFrom=2000&endTimeTo=2999&page=2&pageSize=40")
 
 	handler.ListInstances(context.Background(), c)
 
 	want := workflowapp.InstanceQuery{
-		DefinitionID: 7, DefinitionCategory: "performance",
+		DefinitionID: 7, DefinitionName: "绩效考评", InstanceTitle: "2026年8月绩效", BusinessPeriodKey: "2026-08", DefinitionCategory: "performance",
 		Status: "running", BusinessType: "leave", BusinessKey: "LEAVE-1001", StarterID: "42",
 		StartTimeFrom: 1000, StartTimeTo: 1999, EndTimeFrom: 2000, EndTimeTo: 2999,
 		Page: 2, PageSize: 40,

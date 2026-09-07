@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"errors"
+	"net/url"
 	"reflect"
 	"testing"
 
@@ -47,6 +48,31 @@ func TestDingTalkManualPayloadIncludesTitleInTextMode(t *testing.T) {
 	payload := dingTalkManualNotificationPayload(configsvc.DingTalkH5CorpConfig{}, "系统通知", "维护公告")
 	if payload.Title != "系统通知" || payload.Content != "系统通知\n维护公告" {
 		t.Fatalf("text payload = %#v", payload)
+	}
+}
+
+func TestDingTalkManualPayloadWrapsConfiguredAppURLForInAppOpen(t *testing.T) {
+	payload := dingTalkManualNotificationPayload(configsvc.DingTalkH5CorpConfig{
+		CorpID: "ding-corp", AgentID: "123456", AppURL: "https://oa.example.com/dingtalk-h5/?corpId=ding-corp",
+	}, "测试通知", "测试内容")
+
+	parsed, err := url.Parse(payload.URL)
+	if err != nil {
+		t.Fatalf("parse notification url: %v", err)
+	}
+	if parsed.Scheme != "dingtalk" || parsed.Host != "dingtalkclient" || parsed.Path != "/action/openapp" {
+		t.Fatalf("notification url = %q, want DingTalk openapp link", payload.URL)
+	}
+	query := parsed.Query()
+	if query.Get("corpid") != "ding-corp" || query.Get("app_id") != "0_123456" {
+		t.Fatalf("openapp query = %s", parsed.RawQuery)
+	}
+	redirect, err := url.Parse(query.Get("redirect_url"))
+	if err != nil {
+		t.Fatalf("parse redirect url: %v", err)
+	}
+	if redirect.Host != "oa.example.com" || redirect.Path != "/dingtalk-h5/" {
+		t.Fatalf("redirect_url = %q", query.Get("redirect_url"))
 	}
 }
 

@@ -68,6 +68,8 @@ func (handler *SummaryHandler) ListInstances(ctx context.Context, c *app.Request
 		DefinitionID:      uint(definitionID),
 		DefinitionVersion: definitionVersion,
 		DefinitionName:    strings.TrimSpace(c.Query("definitionName")),
+		InstanceTitle:     strings.TrimSpace(c.Query("instanceTitle")),
+		BusinessPeriodKey: strings.TrimSpace(c.Query("businessPeriodKey")),
 		StarterName:       strings.TrimSpace(c.Query("starterName")),
 		Status:            strings.TrimSpace(c.Query("status")),
 		StartTimeFrom:     queryInt64(c, "startTimeFrom"),

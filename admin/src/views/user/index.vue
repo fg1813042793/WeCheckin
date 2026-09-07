@@ -547,6 +547,7 @@ import { adminApi } from '../../api'
 import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
+import { checkedKeys } from '../../utils/permissionAssignment'
 import { showRequestError } from '../../utils/request'
 
 const loading = ref(false)
@@ -622,11 +623,11 @@ const denyClientMenuKeys = computed(() => applicationKeysByPrefix(form.denyPermi
 const denyDingTalkH5MenuKeys = computed(() => applicationKeysByPrefixes(form.denyPermissionKeys, dingtalkH5MenuButtonPrefixes))
 const denyClientApiKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'client:api:'))
 const denyDingTalkH5ApiKeys = computed(() => applicationKeysByPrefix(form.denyPermissionKeys, 'dingtalk_h5:api:'))
-const allowClientMenuCheckedKeys = computed(() => checkableKeysForTree(allowClientMenuKeys.value, clientMenuTreeData.value))
+const allowClientMenuCheckedKeys = computed(() => allowClientMenuKeys.value)
 const allowDingTalkH5MenuCheckedKeys = computed(() => allowDingTalkH5MenuKeys.value)
 const allowClientApiCheckedKeys = computed(() => checkableKeysForTree(allowClientApiKeys.value, clientApiTreeData.value))
 const allowDingTalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(allowDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
-const denyClientMenuCheckedKeys = computed(() => checkableKeysForTree(denyClientMenuKeys.value, clientMenuTreeData.value))
+const denyClientMenuCheckedKeys = computed(() => denyClientMenuKeys.value)
 const denyDingTalkH5MenuCheckedKeys = computed(() => denyDingTalkH5MenuKeys.value)
 const denyClientApiCheckedKeys = computed(() => checkableKeysForTree(denyClientApiKeys.value, clientApiTreeData.value))
 const denyDingTalkH5ApiCheckedKeys = computed(() => checkableKeysForTree(denyDingTalkH5ApiKeys.value, dingtalkH5ApiTreeData.value))
@@ -925,40 +926,35 @@ function applicationKeysByPrefixes(keys: string[], prefixes: string[]) {
   return (keys || []).filter((key: string) => prefixes.some((prefix) => key.startsWith(prefix)))
 }
 
-function checkedKeys(treeRef: any, options: { includeHalfChecked?: boolean; prefix?: string; prefixes?: string[] } = {}) {
-  const checked = treeRef.value?.getCheckedKeys?.() || []
-  const halfChecked = options.includeHalfChecked ? (treeRef.value?.getHalfCheckedKeys?.() || []) : []
-  const keys = Array.from(new Set([...checked, ...halfChecked])) as string[]
-  const prefixes = options.prefixes || (options.prefix ? [options.prefix] : [])
-  if (prefixes.length === 0) return keys
-  return keys.filter((key) => prefixes.some((prefix) => key.startsWith(prefix)))
-}
-
 function onUserApplicationPermissionCheck(source: 'allow' | 'deny') {
   nextTick(() => {
-    const allowKeys = Array.from(new Set([
-      ...checkedKeys(allowClientMenuTreeRef, { prefix: 'client:menu:' }),
-      ...checkedKeys(allowDingTalkH5MenuTreeRef, { prefixes: dingtalkH5MenuButtonPrefixes }),
-      ...checkedKeys(allowClientApiTreeRef, { prefix: 'client:api:' }),
-      ...checkedKeys(allowDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
-    ])) as string[]
-    const denyKeys = Array.from(new Set([
-      ...checkedKeys(denyClientMenuTreeRef, { prefix: 'client:menu:' }),
-      ...checkedKeys(denyDingTalkH5MenuTreeRef, { prefixes: dingtalkH5MenuButtonPrefixes }),
-      ...checkedKeys(denyClientApiTreeRef, { prefix: 'client:api:' }),
-      ...checkedKeys(denyDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
-    ])) as string[]
-    const allowSet = new Set(allowKeys)
-    const denySet = new Set(denyKeys)
-    if (source === 'deny') {
-      form.allowPermissionKeys = allowKeys.filter((key) => !denySet.has(key))
-      form.denyPermissionKeys = denyKeys
-    } else {
-      form.allowPermissionKeys = allowKeys
-      form.denyPermissionKeys = denyKeys.filter((key) => !allowSet.has(key))
-    }
+    syncUserApplicationPermissionSelections(source)
     nextTick(() => setUserApplicationPermissionTreeKeys())
   })
+}
+
+function syncUserApplicationPermissionSelections(source: 'allow' | 'deny') {
+  const allowKeys = Array.from(new Set([
+    ...checkedKeys(allowClientMenuTreeRef, { prefix: 'client:menu:' }),
+    ...checkedKeys(allowDingTalkH5MenuTreeRef, { prefixes: dingtalkH5MenuButtonPrefixes }),
+    ...checkedKeys(allowClientApiTreeRef, { prefix: 'client:api:' }),
+    ...checkedKeys(allowDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
+  ])) as string[]
+  const denyKeys = Array.from(new Set([
+    ...checkedKeys(denyClientMenuTreeRef, { prefix: 'client:menu:' }),
+    ...checkedKeys(denyDingTalkH5MenuTreeRef, { prefixes: dingtalkH5MenuButtonPrefixes }),
+    ...checkedKeys(denyClientApiTreeRef, { prefix: 'client:api:' }),
+    ...checkedKeys(denyDingTalkH5ApiTreeRef, { prefix: 'dingtalk_h5:api:' })
+  ])) as string[]
+  const allowSet = new Set(allowKeys)
+  const denySet = new Set(denyKeys)
+  if (source === 'deny') {
+    form.allowPermissionKeys = allowKeys.filter((key) => !denySet.has(key))
+    form.denyPermissionKeys = denyKeys
+    return
+  }
+  form.allowPermissionKeys = allowKeys
+  form.denyPermissionKeys = denyKeys.filter((key) => !allowSet.has(key))
 }
 
 function setUserApplicationPermissionTreeKeys() {
@@ -1291,6 +1287,7 @@ async function saveUser() {
     ElMessage.warning('请输入登录密码')
     return
   }
+  syncUserApplicationPermissionSelections('allow')
   saving.value = true
   try {
     const payload: any = {

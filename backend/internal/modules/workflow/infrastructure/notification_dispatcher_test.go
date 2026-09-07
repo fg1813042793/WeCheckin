@@ -60,7 +60,7 @@ func TestNotificationRecordFromModelDecodesPayloadSnapshot(t *testing.T) {
 
 func TestNotificationRecordsUseRecipientNamesWithoutIDFallback(t *testing.T) {
 	rows := []workflowmodel.NotificationOutbox{
-		{ID: "named", RecipientUserID: "7", PayloadJSON: `{}`},
+		{ID: "named", InstanceID: "instance-1", BusinessKey: "FLOW-202609-001", RecipientUserID: "7", PayloadJSON: `{}`},
 		{ID: "missing", RecipientUserID: "404", PayloadJSON: `{}`},
 	}
 	users := []model.User{{ID: 7, Name: " 张三 "}}
@@ -71,6 +71,9 @@ func TestNotificationRecordsUseRecipientNamesWithoutIDFallback(t *testing.T) {
 	}
 	if records[0].RecipientUserName != "张三" || records[1].RecipientUserName != "" {
 		t.Fatalf("notification recipient names = %#v", records)
+	}
+	if records[0].BusinessKey != "FLOW-202609-001" || records[1].BusinessKey != "" {
+		t.Fatalf("notification business keys = %#v", records)
 	}
 }
 
@@ -161,6 +164,40 @@ func TestDingTalkNotificationChannelBatchesSameCorpAndPayload(t *testing.T) {
 	}
 	if len(results) != 3 || results[0].Err != nil || results[1].Err != nil || results[2].Err == nil {
 		t.Fatalf("delivery results = %#v", results)
+	}
+}
+
+func TestDingTalkNotificationChannelSendsRecipientsThroughTheirBoundCorps(t *testing.T) {
+	corpA := configsvc.DingTalkH5CorpConfig{CorpID: "corp-a", AppKey: "key-a", AppSecret: "secret-a", AgentID: "101", Enabled: 1, NotifyEnabled: 1}
+	corpB := configsvc.DingTalkH5CorpConfig{CorpID: "corp-b", AppKey: "key-b", AppSecret: "secret-b", AgentID: "202", Enabled: 1, NotifyEnabled: 1}
+	resolver := &dingTalkNotificationResolverStub{
+		targets: map[string]DingTalkNotificationTarget{
+			"outbox-a": {Config: corpA, DingTalkUserID: "ding-a"},
+			"outbox-b": {Config: corpB, DingTalkUserID: "ding-b"},
+		},
+		errors: map[string]error{},
+	}
+	client := &dingTalkNotificationClientStub{}
+	channel := newDingTalkNotificationChannel(client, resolver)
+	payload := application.NotificationPayload{Title: "审批待办", Content: "请及时处理"}
+
+	results := channel.Deliver(context.Background(), []application.NotificationRecord{
+		{ID: "outbox-a", InstanceID: "instance-1", Channel: workflowcore.NotificationChannelDingTalkOA, Payload: payload},
+		{ID: "outbox-b", InstanceID: "instance-1", Channel: workflowcore.NotificationChannelDingTalkOA, Payload: payload},
+	})
+
+	if len(results) != 2 || results[0].Err != nil || results[1].Err != nil {
+		t.Fatalf("delivery results = %#v", results)
+	}
+	if len(client.calls) != 2 {
+		t.Fatalf("DingTalk calls = %d, want one call per recipient enterprise", len(client.calls))
+	}
+	selected := map[string][]string{}
+	for _, call := range client.calls {
+		selected[call.config.CorpID] = call.userIDs
+	}
+	if !reflect.DeepEqual(selected["corp-a"], []string{"ding-a"}) || !reflect.DeepEqual(selected["corp-b"], []string{"ding-b"}) {
+		t.Fatalf("selected enterprise recipients = %#v", selected)
 	}
 }
 

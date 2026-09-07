@@ -44,6 +44,7 @@ interface WorkflowPaginationChangePayload {
 }
 
 interface WorkflowHistoryFilters extends WorkflowHistoryDateFilters {
+  instanceTitle: string
   status: string
 }
 
@@ -111,6 +112,7 @@ const historyStatusOptions = [
   { label: '已取消', value: 'cancelled' },
 ]
 const historyFilterCount = computed(() => [
+  historyFilters.value.instanceTitle.trim(),
   historyFilters.value.status,
   historyFilters.value.startDateFrom,
   historyFilters.value.startDateTo,
@@ -302,6 +304,7 @@ function switchSection(section: WorkflowStartSection) {
 
 function emptyHistoryFilters(): WorkflowHistoryFilters {
   return {
+    instanceTitle: '',
     status: '',
     startDateFrom: '',
     startDateTo: '',
@@ -341,6 +344,7 @@ async function loadHistory() {
     const response = await listWorkflowInstances({
       definitionId: value.id,
       scope: 'started',
+      instanceTitle: appliedHistoryFilters.value.instanceTitle.trim() || undefined,
       status: appliedHistoryFilters.value.status || undefined,
       ...timeQuery,
       page: historyPage.value,
@@ -389,7 +393,7 @@ function openHistoryInstance(instanceId: string) {
       return
     appContent.openDynamicTab({
       key,
-      label: definition.value?.name || '流程详情',
+      label: historyInstances.value.find(item => item.id === instanceId)?.instanceTitle || definition.value?.name || '流程详情',
       icon: 'eye',
       path: `/pages/index/index?view=${encodeURIComponent(key)}`,
     })
@@ -630,6 +634,20 @@ function cancelStart() {
           <view class="workflow-start-page__history-filters">
             <view class="workflow-start-page__filter-field">
               <text class="workflow-start-page__filter-label">
+                单据标题
+              </text>
+              <input
+                v-model="historyFilters.instanceTitle"
+                class="workflow-start-page__filter-input"
+                type="text"
+                :maxlength="100"
+                placeholder="输入单据标题"
+                :disabled="historyLoading"
+                @keyup.enter="queryHistory"
+              >
+            </view>
+            <view class="workflow-start-page__filter-field">
+              <text class="workflow-start-page__filter-label">
                 审批状态
               </text>
               <!-- H5 PC 使用原生选择控件，避免 u-select 在桌面端弹出底部选择层。 -->
@@ -714,7 +732,7 @@ function cancelStart() {
           <view class="workflow-start-page__records-table">
             <view class="workflow-start-page__record workflow-start-page__record--header">
               <text class="workflow-start-page__record-cell workflow-start-page__record-cell--name">
-                流程名称
+                单据标题
               </text>
               <text class="workflow-start-page__record-cell workflow-start-page__record-cell--key">
                 申请编号
@@ -742,7 +760,7 @@ function cancelStart() {
               @click="openHistoryInstance(instance.id)"
             >
               <text class="workflow-start-page__record-cell workflow-start-page__record-cell--name">
-                {{ definition.name }}
+                {{ instance.instanceTitle || definition.name }}
               </text>
               <text class="workflow-start-page__record-cell workflow-start-page__record-cell--key">
                 {{ instance.businessKey }}
@@ -1125,7 +1143,7 @@ function cancelStart() {
 
 .workflow-start-page__history-filters {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(180px, 240px) 150px minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: end;
   gap: 12px;
 }
@@ -1142,7 +1160,8 @@ function cancelStart() {
   font-weight: 600;
 }
 
-.workflow-start-page__filter-select {
+.workflow-start-page__filter-select,
+.workflow-start-page__filter-input {
   width: 100%;
   height: 36px;
   min-width: 0;
@@ -1155,19 +1174,28 @@ function cancelStart() {
   font-size: 13px;
   letter-spacing: 0;
   box-sizing: border-box;
+}
+
+.workflow-start-page__filter-select {
   cursor: pointer;
 }
 
-.workflow-start-page__filter-select:focus {
+.workflow-start-page__filter-select:focus,
+.workflow-start-page__filter-input:focus {
   border-color: #0f766e;
   outline: none;
   box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
 }
 
-.workflow-start-page__filter-select:disabled {
+.workflow-start-page__filter-select:disabled,
+.workflow-start-page__filter-input:disabled {
   background: #f2f3f5;
   color: #a9b0bb;
   cursor: not-allowed;
+}
+
+.workflow-start-page__filter-input::placeholder {
+  color: #a9b0bb;
 }
 
 .workflow-start-page__filter-date-range {

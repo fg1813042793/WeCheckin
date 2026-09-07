@@ -48,7 +48,7 @@ func TestApplyInstanceFiltersIncludesLiteralDefinitionName(t *testing.T) {
 	statement := applyInstanceFilters(db.Model(&workflowmodel.ProcessInstance{}), query).Find(&rows).Statement
 	sqlText := statement.SQL.String()
 
-	for _, fragment := range []string{"workflow_definitions", "definition_name LIKE ?", "ESCAPE '!'"} {
+	for _, fragment := range []string{"workflow_definitions", "definition_name_snapshot", "definition_display_name", "definition_name", "LIKE ?", "ESCAPE '!'"} {
 		if !strings.Contains(sqlText, fragment) {
 			t.Fatalf("definition name query missing %q: %s", fragment, sqlText)
 		}
@@ -58,10 +58,27 @@ func TestApplyInstanceFiltersIncludesLiteralDefinitionName(t *testing.T) {
 	}
 }
 
+func TestApplyInstanceFiltersIncludesTitleAndBusinessPeriod(t *testing.T) {
+	db := openWorkflowSearchDryRunDB(t)
+	query := application.InstanceQuery{InstanceTitle: " 8月%_!绩效 ", BusinessPeriodKey: "2026-08"}
+	var rows []workflowmodel.ProcessInstance
+	statement := applyInstanceFilters(db.Model(&workflowmodel.ProcessInstance{}), query).Find(&rows).Statement
+	sqlText := statement.SQL.String()
+
+	for _, fragment := range []string{"instance_title LIKE ?", "ESCAPE '!'", "business_period_key = ?"} {
+		if !strings.Contains(sqlText, fragment) {
+			t.Fatalf("instance identity query missing %q: %s", fragment, sqlText)
+		}
+	}
+	if want := []interface{}{"%8月!%!_!!绩效%", "2026-08"}; !reflect.DeepEqual(statement.Vars, want) {
+		t.Fatalf("query vars = %#v, want %#v", statement.Vars, want)
+	}
+}
+
 func TestApplyTaskFiltersIncludesInstanceSearchFilters(t *testing.T) {
 	db := openWorkflowSearchDryRunDB(t)
 	query := application.TaskQuery{
-		Status: "pending", DefinitionName: "绩效", DefinitionCategory: "performance", StarterName: "张",
+		Status: "pending", InstanceTitle: "8月", DefinitionName: "绩效", DefinitionCategory: "performance", StarterName: "张",
 		StartTimeFrom: 1000, StartTimeTo: 1999,
 	}
 	var rows []workflowmodel.ProcessTask
@@ -70,14 +87,14 @@ func TestApplyTaskFiltersIncludesInstanceSearchFilters(t *testing.T) {
 
 	for _, fragment := range []string{
 		"task_status = ?", "instance_id IN", "workflow_process_instances",
-		"workflow_definitions", "definition_name LIKE ?", "definition_category = ?", "users",
+		"instance_title LIKE ?", "workflow_definitions", "definition_name_snapshot", "definition_display_name", "definition_name", "definition_category = ?", "users",
 		"user_name LIKE ?", "start_time >= ?", "start_time <= ?",
 	} {
 		if !strings.Contains(sqlText, fragment) {
 			t.Fatalf("task query missing %q: %s", fragment, sqlText)
 		}
 	}
-	if want := []interface{}{"pending", "%绩效%", "performance", "%张%", int64(1000), int64(1999)}; !reflect.DeepEqual(statement.Vars, want) {
+	if want := []interface{}{"pending", "%8月%", "%绩效%", "performance", "%张%", int64(1000), int64(1999)}; !reflect.DeepEqual(statement.Vars, want) {
 		t.Fatalf("query vars = %#v, want %#v", statement.Vars, want)
 	}
 }

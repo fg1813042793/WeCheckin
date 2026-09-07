@@ -728,6 +728,9 @@ export const adminApi = {
   },
   workflowInstanceList(params?: PageQuery & {
     definitionId?: ID
+    definitionName?: string
+    instanceTitle?: string
+    businessPeriodKey?: string
     status?: string
     businessType?: string
     businessKey?: string
@@ -770,6 +773,9 @@ export const adminApi = {
   },
   workflowNotificationRetry(id: ID) {
     return request.post(`${ADMIN_V2}/workflow-notifications/${encodePath(id)}/retry`, {}, jsonConfig)
+  },
+  workflowNotificationSend(id: ID) {
+    return request.post(`${ADMIN_V2}/workflow-notifications/${encodePath(id)}/send`, {}, jsonConfig)
   },
   workflowNotificationDispatchDue(data: { limit?: number } = {}) {
     return request.post<{ dispatched: number }, typeof data>(`${ADMIN_V2}/workflow-notifications/dispatch-due`, data, jsonConfig)

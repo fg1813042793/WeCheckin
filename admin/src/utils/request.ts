@@ -86,6 +86,10 @@ const axiosInstance = axios.create({
 })
 
 axiosInstance.interceptors.request.use(config => {
+  if (config.method?.toLowerCase() === 'get') {
+    config.headers.set('Cache-Control', 'no-cache')
+    config.headers.set('Pragma', 'no-cache')
+  }
   const token = localStorage.getItem('admin_token')
   if (token) {
     config.headers.Authorization = token

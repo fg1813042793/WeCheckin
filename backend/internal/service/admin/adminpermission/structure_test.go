@@ -178,3 +178,14 @@ func TestAdminPermissionServiceCanRenamePermissionKey(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminPermissionEditInvalidatesRuntimePermissionCaches(t *testing.T) {
+	src, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := testAdminPermissionFunctionBody(t, string(src), "EditContext")
+	if !strings.Contains(body, "permissionsupport.InvalidateRuntimePermissionCaches()") {
+		t.Fatal("permission edit must invalidate runtime permission caches")
+	}
+}

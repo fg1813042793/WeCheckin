@@ -25,6 +25,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowReadOnlyGraph.vue',
   'src/pages/workflow/workflow-graph-layout.ts',
   'src/pages/workflow/workflow-status.ts',
+  'src/pages/workflow/workflow-definition.ts',
   'src/pages/workflow/components/WorkflowRuntimeForm.vue',
   'src/pages/workflow/components/WorkflowFieldControl.vue',
   'src/pages/workflow/components/WorkflowAttachmentControl.vue',
@@ -39,6 +40,7 @@ const requiredFiles = [
   'src/pages/workflow/workflow-select-placement.ts',
   'src/pages/workflow/workflow-history-filter.ts',
   'src/pages/workflow/workflow-task.ts',
+  'src/pages/workflow/workflow-start-restrictions.ts',
 ]
 
 const requiredContent = [
@@ -110,7 +112,7 @@ const requiredContent = [
   },
   {
     file: 'src/types/workflow.ts',
-    patterns: ['logoUrl?: string', 'minVisibleRows?: number', 'maxVisibleRows?: number', 'export interface WorkflowAttachment', 'mimeType: string', 'size: number', 'starterName: string', 'starterName?: string', 'assigneeName: string', 'handledByName: string', 'approvalChainKey?: string', 'approvalLayer?: number', 'approvalLayerTotal?: number', 'sourceDepartmentName?: string', 'currentNodeNames: string[]', 'currentAssigneeNames: string[]', 'WorkflowNodeProgressStatus', 'WorkflowNodeProgressSummary', 'nodeProgress?: WorkflowNodeProgressSummary[]', 'WorkflowReminderPolicy', 'WorkflowReminderNode', 'reminderPolicy: WorkflowReminderPolicy', 'reminderNodes: WorkflowReminderNode[]', 'nodes?: WorkflowPublishedNode[]', 'edges?: WorkflowPublishedEdge[]', 'userNames: Record<string, string>', 'WorkflowCommentNotificationRequest', 'WorkflowNotificationChannel', 'notification?: WorkflowCommentNotificationRequest', 'definitionCategory?: string', 'startTimeFrom?: number', 'startTimeTo?: number', 'endTimeFrom?: number', 'endTimeTo?: number', '| \'calculation\'', 'WorkflowCalculationDisplay', 'WorkflowFormCalculation', 'calculation?: WorkflowFormCalculation'],
+    patterns: ['logoUrl?: string', 'minVisibleRows?: number', 'maxVisibleRows?: number', 'export interface WorkflowAttachment', 'mimeType: string', 'size: number', 'starterName: string', 'starterName?: string', 'assigneeName: string', 'handledByName: string', 'approvalChainKey?: string', 'approvalLayer?: number', 'approvalLayerTotal?: number', 'sourceDepartmentName?: string', 'currentNodeNames: string[]', 'currentAssigneeNames: string[]', 'WorkflowNodeProgressStatus', 'WorkflowNodeProgressSummary', 'nodeProgress?: WorkflowNodeProgressSummary[]', 'WorkflowReminderPolicy', 'WorkflowReminderNode', 'reminderPolicy: WorkflowReminderPolicy', 'reminderNodes: WorkflowReminderNode[]', 'nodes?: WorkflowPublishedNode[]', 'edges?: WorkflowPublishedEdge[]', 'userNames: Record<string, string>', 'WorkflowCommentNotificationRequest', 'WorkflowNotificationChannel', 'notification?: WorkflowCommentNotificationRequest', 'definitionCategory?: string', 'startTimeFrom?: number', 'startTimeTo?: number', 'endTimeFrom?: number', 'endTimeTo?: number', '| \'calculation\'', 'WorkflowCalculationDisplay', 'WorkflowFormCalculation', 'calculation?: WorkflowFormCalculation', 'instanceTitle: string', 'businessPeriodType: string', 'businessPeriodKey: string', 'businessPeriodLabel: string', 'instanceTitle?: string', 'businessPeriodKey?: string'],
   },
   {
     file: 'src/pages/workflow/workflow-form.ts',
@@ -161,12 +163,46 @@ const requiredContent = [
     patterns: ['workflowFormDetailContentKey', 'showFormDetailAction', 'openFormDetail', 'workflow-detail-panel__form-detail-action', '<text>详情</text>'],
   },
   {
+    file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
+    patterns: ['detail.value?.instance.instanceTitle', '流程名称：', '业务期间：'],
+  },
+  {
     file: 'src/pages/workflow/components/WorkflowFormDetailPage.vue',
     patterns: ['getWorkflowInstance', 'workflowFormDetailInstanceIdFromContentKey', 'workflowFieldAccessMap', '\'read\'', 'initialWorkflowFormData', '<WorkflowRuntimeForm', ':readonly="true"', 'readonly-appearance="plain"', '发起时提交的表单内容'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
     patterns: ['发起审批', '我的待办', '已处理', '我的申请', '抄送我的', '汇总', 'WorkflowSummaryPage', 'activeTab === \'summary\'', 'definitionStartMeta(definition)', '当前周期剩余', '当前周期已达上限', 'openWorkflowStartTab', 'openWorkflowTaskTab', 'openWorkflowInstanceTab', 'workflowInstanceContentKey', 'workflowTaskContentKey', 'resolveMobilePage', 'mobileHidden', 'focusedWorkflowInstanceId', 'focusedWorkflowTab', 'openFocusedWorkflowTab', 'clearFocusedWorkflowTab', 'dingtalk_h5:api:workflow:view', 'dingtalk_h5:api:workflow:start', 'definitionCategory', 'definition.logoUrl', '<image', '@error', 'markDefinitionLogoFailed', 'WorkflowFilterPanel', ':active-count="catalogFilterCount"', 'class="workflow-center__catalog-filters"', ':active-count="applicationFilterCount"', 'WorkflowHistoryDatePicker', 'WorkflowRecordTable', 'recordColumns', 'recordRows', 'openRecord', 'WorkflowRecordFilters', 'recordFilters', 'appliedRecordFilters', 'activeRecordFilters', 'activeAppliedRecordFilters', 'showStarterNameFilter', 'showStatusFilter', 'historyStatusOptions', 'listWorkflowCategories', 'workflowCategories', 'recordCategoryOptions', 'queryRecords', 'resetRecordFilters', 'placeholder="输入发起人用户名"', ':maxlength="50"', 'buildWorkflowHistoryTimeQuery', 'definitionCategory:', 'class="workflow-center__record-filters"', 'class="workflow-center__filter-input"', 'class="workflow-center__filter-select"', ':columns="recordColumns"', ':rows="recordRows"', '#actions="{ row }"', 'activeTab === \'pending\' ? \'办理\' : \'查看\'', 'activeTab === \'pending\'', 'activeTab.value === \'handled\'', 'activeTab.value === \'copied\'', 'name="eye"', 'presentation="history-drawer"', ':application-actions="activeTab === \'started\'"', 'showStarterColumn', '[\'pending\', \'handled\', \'copied\'].includes(activeTab.value)', 'key: \'starterName\'', 'label: \'发起人\'', 'starterDisplayName(instance)', 'key: \'currentNode\'', 'label: \'当前节点\'', 'key: \'currentAssignees\'', 'label: \'节点处理人\'', 'currentNodeDisplay(instance)', 'currentAssigneeDisplay(instance)', '流程分类', '提交时间', '审批状态', '查看', '查询', '重置'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowCenter.vue',
+    patterns: [
+      'workflowStartRestrictionSummary',
+      'definitionRestrictionMap',
+      'class="workflow-definition__restriction"',
+      'role="tooltip"',
+      'role="button"',
+      ':tabindex="0"',
+      '@keydown.enter.prevent="openWorkflowStartTab(definition)"',
+      '@keydown.space.prevent="openWorkflowStartTab(definition)"',
+      '@media screen and (min-width: 769px) and (hover: hover) and (pointer: fine)',
+      '.workflow-definition:hover .workflow-definition__restriction',
+      '.workflow-definition:focus-visible .workflow-definition__restriction',
+    ],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowCenter.vue',
+    patterns: [
+      'instanceTitle: string',
+      'filters.instanceTitle.trim()',
+      'const instanceTitle = filters.instanceTitle.trim() || undefined',
+      'instanceTitle,',
+      'v-model="activeRecordFilters.instanceTitle"',
+      'placeholder="输入单据标题"',
+      "{ key: 'name', label: '单据标题'",
+      'instanceDisplayTitle(instance)',
+      'taskInstanceTitle(task)',
+    ],
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummaryPage.vue',
@@ -259,6 +295,26 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
     patterns: ['workflowInstanceStatusMeta', 'workflowTaskStatusMeta'],
+  },
+  {
+    file: 'src/pages/workflow/workflow-definition.ts',
+    patterns: ['workflowDefinitionDisplayName', 'definition.displayName', 'definition.name'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowCenter.vue',
+    patterns: [
+      'workflowDefinitionDisplayName',
+      'String(instance.definitionName || \'\').trim()',
+      'workflowDefinitionDisplayName(definition)',
+    ],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowStartPage.vue',
+    patterns: ['workflowDefinitionDisplayName', 'definitionDisplayName'],
+  },
+  {
+    file: 'src/types/workflow.ts',
+    patterns: ['displayName: string'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -867,6 +923,109 @@ if (existsSync(resolve(root, workflowTaskPath))) {
   }
 }
 
+const workflowStartRestrictionsPath = 'src/pages/workflow/workflow-start-restrictions.ts'
+if (existsSync(resolve(root, workflowStartRestrictionsPath))) {
+  try {
+    const { workflowStartRestrictionSummary } = await loadTypeScriptModule(workflowStartRestrictionsPath)
+    const createDefinition = overrides => ({
+      id: 1,
+      key: 'performance-review',
+      name: '绩效考评单',
+      category: '工作',
+      description: '',
+      logoUrl: '',
+      version: 1,
+      publishedAt: 0,
+      initiator: { scope: 'all' },
+      availability: { mode: 'always', timezone: 'Asia/Shanghai' },
+      availabilityStatus: 'available',
+      startLimit: { mode: 'unlimited' },
+      startLimitStatus: { allowed: true, usedCount: 0, remainingCount: 0 },
+      ...overrides,
+    })
+
+    const always = workflowStartRestrictionSummary(createDefinition())
+    assert.equal(always.allowed, true)
+    assert.equal(always.statusLabel, '当前可发起')
+    assert.equal(always.reason, '')
+    assert.deepEqual(always.items.map(item => item.value), ['长期有效', '不限次数', '当前账号可发起'])
+
+    const fixed = workflowStartRestrictionSummary(createDefinition({
+      availability: {
+        mode: 'fixed',
+        timezone: 'Asia/Shanghai',
+        startsAt: Date.parse('2026-09-08T01:00:00.000Z'),
+        endsAt: Date.parse('2026-09-10T10:00:00.000Z'),
+      },
+      availabilityStatus: 'not_started',
+    }))
+    assert.equal(fixed.allowed, false)
+    assert.equal(fixed.statusLabel, '尚未开放')
+    assert.equal(fixed.reason, '流程尚未到允许发起时间')
+    assert.equal(fixed.items[0].value, '2026-09-08 09:00 至 2026-09-10 18:00')
+
+    const weekly = workflowStartRestrictionSummary(createDefinition({
+      availability: {
+        mode: 'weekly',
+        timezone: 'Asia/Shanghai',
+        weekdays: [1, 3],
+        dailyStartTime: '09:00',
+        dailyEndTime: '18:00',
+      },
+      availabilityStatus: 'outside_window',
+    }))
+    assert.equal(weekly.statusLabel, '当前时段不可发起')
+    assert.equal(weekly.reason, '当前不在流程允许发起时间内')
+    assert.equal(weekly.items[0].value, '每周一、周三 09:00-18:00')
+
+    const monthly = workflowStartRestrictionSummary(createDefinition({
+      availability: {
+        mode: 'monthly',
+        timezone: 'Asia/Shanghai',
+        monthDays: [1, 15],
+        lastDayOfMonth: true,
+        dailyStartTime: '09:00',
+        dailyEndTime: '18:00',
+      },
+      startLimit: { mode: 'limited', period: 'month', maxCount: 2 },
+      startLimitStatus: {
+        allowed: true,
+        usedCount: 1,
+        remainingCount: 1,
+        resetsAt: Date.parse('2026-09-30T16:00:00.000Z'),
+      },
+    }))
+    assert.equal(monthly.items[0].value, '每月1日、15日、最后一天 09:00-18:00')
+    assert.equal(monthly.items[1].value, '每月最多 2 次，已用 1 次，剩余 1 次')
+    assert.equal(monthly.items[3].value, '2026-10-01 00:00')
+
+    const monthlyWindow = workflowStartRestrictionSummary(createDefinition({
+      availability: {
+        mode: 'monthly_window',
+        timezone: 'Asia/Shanghai',
+        windowStartDayFromEnd: 2,
+        windowStartTime: '09:00',
+        windowEndDay: 5,
+        windowEndTime: '18:00',
+      },
+      startLimit: { mode: 'limited', period: 'availability', maxCount: 1 },
+      startLimitStatus: { allowed: false, usedCount: 1, remainingCount: 0 },
+    }))
+    assert.equal(monthlyWindow.allowed, false)
+    assert.equal(monthlyWindow.statusLabel, '次数已用完')
+    assert.equal(monthlyWindow.reason, '当前周期的流程发起次数已用完')
+    assert.equal(monthlyWindow.items[0].value, '每月倒数第2天 09:00 至次月5日 18:00')
+    assert.equal(monthlyWindow.items[1].value, '每个开放周期最多 1 次，已用 1 次，剩余 0 次')
+
+    const expired = workflowStartRestrictionSummary(createDefinition({ availabilityStatus: 'expired' }))
+    assert.equal(expired.statusLabel, '开放时间已结束')
+    assert.equal(expired.reason, '流程已超过允许发起时间')
+  }
+  catch (error) {
+    failures.push(`${workflowStartRestrictionsPath} restriction summary check failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 const workflowCalculationPath = 'src/pages/workflow/workflow-calculation.ts'
 if (existsSync(resolve(root, workflowCalculationPath))) {
   try {
@@ -945,6 +1104,8 @@ if (existsSync(resolve(root, workflowDetailPath))) {
     failures.push(`${workflowDetailPath} must not render a persistent handling-comment field`)
   if (source.includes('操作人 #') || source.includes('用户 #'))
     failures.push(`${workflowDetailPath} must display workflow history actor names instead of user IDs`)
+  if (source.includes(':loading="submitting"'))
+    failures.push(`${workflowDetailPath} action buttons must bind loading to the active submission action`)
 }
 
 const workflowStatusPath = 'src/pages/workflow/workflow-status.ts'

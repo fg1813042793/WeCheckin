@@ -63,12 +63,14 @@ func renderNotificationPayload(state *workflowdomain.State, intent workflowdomai
 		}
 	}
 	replacements := map[string]string{
-		"{{workflowName}}": intent.WorkflowName,
-		"{{nodeName}}":     intent.NodeName,
-		"{{starterName}}":  starterName,
-		"{{instanceId}}":   state.Instance.ID,
-		"{{taskId}}":       intent.TaskID,
-		"{{result}}":       result,
+		"{{workflowName}}":   intent.WorkflowName,
+		"{{instanceTitle}}":  state.Instance.Title,
+		"{{businessPeriod}}": state.Instance.BusinessPeriodLabel,
+		"{{nodeName}}":       intent.NodeName,
+		"{{starterName}}":    starterName,
+		"{{instanceId}}":     state.Instance.ID,
+		"{{taskId}}":         intent.TaskID,
+		"{{result}}":         result,
 	}
 	render := func(value string, limit int) string {
 		for token, replacement := range replacements {
@@ -82,7 +84,8 @@ func renderNotificationPayload(state *workflowdomain.State, intent workflowdomai
 	}
 	payload := application.NotificationPayload{
 		Title: render(intent.Config.Title, 64), Content: render(intent.Config.Content, 1000),
-		WorkflowName: intent.WorkflowName, NodeName: intent.NodeName,
+		WorkflowName: intent.WorkflowName, InstanceTitle: state.Instance.Title,
+		BusinessPeriod: state.Instance.BusinessPeriodLabel, NodeName: intent.NodeName,
 		StarterID: state.Instance.StarterID, StarterName: starterName,
 		InstanceID: state.Instance.ID, TaskID: intent.TaskID,
 		RecipientUserID: intent.RecipientUserID, Kind: string(intent.Kind),

@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"wecheckin/backend/internal/model"
 )
 
 func TestApplicationPermissionTreeContainsBuiltInMenus(t *testing.T) {
@@ -58,7 +60,7 @@ func findApplicationPermissionNode(nodes []ApplicationPermissionNode, key string
 	return nil
 }
 
-func TestApplicationPermissionTreeEndpointUsesDatabaseNames(t *testing.T) {
+func TestApplicationPermissionTreeEndpointUsesDatabaseRows(t *testing.T) {
 	serviceSrc, err := os.ReadFile("service.go")
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -70,13 +72,32 @@ func TestApplicationPermissionTreeEndpointUsesDatabaseNames(t *testing.T) {
 	combined := string(serviceSrc) + string(handlerSrc)
 	for _, snippet := range []string{
 		"func ApplicationPermissionTreeContext(ctx context.Context) ApplicationPermissionTreeResponse",
-		"applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton)",
-		"appmenuperm.DingTalkH5PermissionDeclarations()",
+		"applicationPermissionRowsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton)",
+		"applicationPermissionNodesFromRows",
 		"roleservice.ApplicationPermissionTreeContext(ctx)",
 	} {
 		if !strings.Contains(combined, snippet) {
-			t.Fatalf("application permission tree must use current permissions table labels with %q", snippet)
+			t.Fatalf("application permission tree must use current permissions table rows with %q", snippet)
 		}
+	}
+}
+
+func TestApplicationPermissionNodesFromRowsContainsCustomPermissions(t *testing.T) {
+	rows := []model.Permission{
+		{Key: "client:menu:custom", Name: "自定义功能", Platform: "client", Type: "menu", Sort: 10},
+		{Key: "client:menu:custom:detail", Name: "自定义详情", Platform: "client", Type: "menu", ParentKey: "client:menu:custom", Sort: 20},
+	}
+
+	tree := applicationPermissionNodesFromRows(rows)
+	root := findApplicationPermissionNode(tree, "client:menu:custom")
+	if root == nil {
+		t.Fatalf("custom permission stored in permissions table must appear in application tree")
+	}
+	if root.Name != "自定义功能" {
+		t.Fatalf("custom permission must use database name, got %q", root.Name)
+	}
+	if findApplicationPermissionNode(root.Children, "client:menu:custom:detail") == nil {
+		t.Fatalf("custom child permission must keep database parent relation")
 	}
 }
 

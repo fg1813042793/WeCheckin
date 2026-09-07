@@ -8,12 +8,36 @@ import (
 	"time"
 )
 
+func TestDefinitionEffectiveNamePrefersDisplayName(t *testing.T) {
+	definition := Definition{Key: "performance_review", Name: "绩效考评单（运维组）", DisplayName: "绩效考评单"}
+	if got := definition.EffectiveName(); got != "绩效考评单" {
+		t.Fatalf("effective name = %q, want %q", got, "绩效考评单")
+	}
+
+	definition.DisplayName = "  "
+	if got := definition.EffectiveName(); got != "绩效考评单（运维组）" {
+		t.Fatalf("fallback effective name = %q, want management name", got)
+	}
+}
+
 func TestValidateDefinitionAcceptsLinearApproval(t *testing.T) {
 	definition := validLinearDefinition()
 
 	errors := ValidateDefinition(definition)
 	if len(errors) != 0 {
 		t.Fatalf("expected valid definition, got errors: %#v", errors)
+	}
+}
+
+func TestValidateDefinitionAcceptsInstanceIdentityNotificationVariables(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.InstanceIdentity = &InstanceIdentityConfig{TitleTemplate: "{{starterName}}提交的{{workflowName}}"}
+	definition.Nodes[1].Notification = &NotificationConfig{
+		Enabled: true, Channels: []string{NotificationChannelInApp},
+		Title: "{{instanceTitle}}", Content: "{{businessPeriod}}{{nodeName}}",
+	}
+	if errors := ValidateDefinition(definition); len(errors) != 0 {
+		t.Fatalf("expected instance identity notification variables to be valid, got %#v", errors)
 	}
 }
 
@@ -111,6 +135,11 @@ func TestValidateDefinitionAcceptsStartAvailabilityModes(t *testing.T) {
 			Mode: StartAvailabilityMonthly, Timezone: "Asia/Shanghai", LastDayOfMonth: true,
 			DailyStartTime: "09:00", DailyEndTime: "18:00",
 		}},
+		{name: "monthly continuous window", availability: &StartAvailabilityConfig{
+			Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+			WindowStartDayFromEnd: 2, WindowStartTime: "09:30", WindowEndDay: 5, WindowEndTime: "18:00",
+			EffectiveStartDate: "2026-01-01", EffectiveEndDate: "2026-12-31",
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -136,6 +165,9 @@ func TestValidateDefinitionRejectsInvalidStartAvailability(t *testing.T) {
 		{name: "monthly invalid day", availability: StartAvailabilityConfig{Mode: StartAvailabilityMonthly, Timezone: "Asia/Shanghai", MonthDays: []int{32}, DailyStartTime: "09:00", DailyEndTime: "18:00"}},
 		{name: "invalid daily range", availability: StartAvailabilityConfig{Mode: StartAvailabilityWeekly, Timezone: "Asia/Shanghai", Weekdays: []int{1}, DailyStartTime: "18:00", DailyEndTime: "09:00"}},
 		{name: "invalid effective range", availability: StartAvailabilityConfig{Mode: StartAvailabilityMonthly, Timezone: "Asia/Shanghai", MonthDays: []int{1}, DailyStartTime: "09:00", DailyEndTime: "18:00", EffectiveStartDate: "2026-12-31", EffectiveEndDate: "2026-01-01"}},
+		{name: "monthly window invalid start day", availability: StartAvailabilityConfig{Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai", WindowStartDayFromEnd: 29, WindowStartTime: "09:00", WindowEndDay: 5, WindowEndTime: "18:00"}},
+		{name: "monthly window missing end day", availability: StartAvailabilityConfig{Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai", WindowStartDayFromEnd: 1, WindowStartTime: "09:00", WindowEndTime: "18:00"}},
+		{name: "monthly window invalid clock", availability: StartAvailabilityConfig{Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai", WindowStartDayFromEnd: 1, WindowStartTime: "morning", WindowEndDay: 5, WindowEndTime: "18:00"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -184,6 +216,41 @@ func TestEvaluateStartAvailability(t *testing.T) {
 	monthly.LastDayOfMonth = true
 	if state := EvaluateStartAvailability(monthly, at(2026, time.September, 30, 10, 0)); state != StartAvailabilityStateAvailable {
 		t.Fatalf("monthly last day state = %q", state)
+	}
+
+	monthlyWindow := &StartAvailabilityConfig{
+		Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+		WindowStartDayFromEnd: 2, WindowStartTime: "09:30", WindowEndDay: 5, WindowEndTime: "18:00",
+	}
+	for _, test := range []struct {
+		name  string
+		at    time.Time
+		state string
+	}{
+		{name: "before window", at: at(2026, time.August, 30, 9, 29), state: StartAvailabilityStateOutsideWindow},
+		{name: "at start", at: at(2026, time.August, 30, 9, 30), state: StartAvailabilityStateAvailable},
+		{name: "after crossing month", at: at(2026, time.September, 1, 0, 0), state: StartAvailabilityStateAvailable},
+		{name: "before end", at: at(2026, time.September, 5, 17, 59), state: StartAvailabilityStateAvailable},
+		{name: "at end", at: at(2026, time.September, 5, 18, 0), state: StartAvailabilityStateOutsideWindow},
+		{name: "next cycle", at: at(2026, time.September, 29, 9, 30), state: StartAvailabilityStateAvailable},
+		{name: "cross year", at: at(2027, time.January, 3, 10, 0), state: StartAvailabilityStateAvailable},
+	} {
+		t.Run("monthly window "+test.name, func(t *testing.T) {
+			if state := EvaluateStartAvailability(monthlyWindow, test.at); state != test.state {
+				t.Fatalf("state = %q, want %q", state, test.state)
+			}
+		})
+	}
+
+	shortMonthWindow := &StartAvailabilityConfig{
+		Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+		WindowStartDayFromEnd: 1, WindowStartTime: "20:00", WindowEndDay: 31, WindowEndTime: "18:00",
+	}
+	if state := EvaluateStartAvailability(shortMonthWindow, at(2027, time.February, 28, 17, 59)); state != StartAvailabilityStateAvailable {
+		t.Fatalf("monthly window short month state = %q", state)
+	}
+	if state := EvaluateStartAvailability(shortMonthWindow, at(2027, time.February, 28, 18, 0)); state != StartAvailabilityStateOutsideWindow {
+		t.Fatalf("monthly window short month end state = %q", state)
 	}
 }
 

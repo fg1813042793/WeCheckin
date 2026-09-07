@@ -32,6 +32,9 @@ import (
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
 	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
 	scheduledtaskhttp "wecheckin/backend/internal/modules/scheduledtask/transport/httpadmin"
+	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
+	userfeedbackinfra "wecheckin/backend/internal/modules/userfeedback/infrastructure"
+	userfeedbackhttp "wecheckin/backend/internal/modules/userfeedback/transport/httpadmin"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpadmin"
@@ -45,15 +48,28 @@ func Register(h *server.Hertz) {
 	aMgr := adminmgr.NewAdminMgrHandler()
 	h.POST("/api/v2/admin/auth/login", aMgr.AdminLogin)
 
-	admin := h.Group("/api/v2/admin", adminmw.AdminAuth(), adminmw.AdminPerm())
+	admin := h.Group("/api/v2/admin", adminmw.NoStore(), adminmw.AdminAuth(), adminmw.AdminPerm())
 	registerBaseRoutes(admin, aMgr)
 	registerContentRoutes(admin)
 	registerSystemRoutes(admin)
 	registerSurveyRoutes(admin)
 	registerExamRoutes(admin)
+	registerUserFeedbackRoutes(admin)
 	workflowRuntime := registerWorkflowRoutes(admin)
 	notificationService := registerNotificationRoutes(admin)
 	registerScheduledTaskRoutes(admin, workflowRuntime, notificationService)
+}
+
+func registerUserFeedbackRoutes(admin *route.RouterGroup) {
+	store := userfeedbackinfra.NewGormStore(database.GetDB())
+	objectStorage := userfeedbackinfra.NewObjectStorage()
+	service := userfeedbackapp.NewService(store, objectStorage)
+	handler := userfeedbackhttp.NewHandler(service)
+
+	admin.GET("/user-feedbacks/overview", handler.Overview)
+	admin.GET("/user-feedbacks", handler.List)
+	admin.GET("/user-feedbacks/:id", handler.Detail)
+	admin.PATCH("/user-feedbacks/:id/status", handler.UpdateStatus)
 }
 
 func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.Service {
@@ -130,6 +146,7 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	admin.GET("/workflow-notifications", runtimeHandler.ListNotifications)
 	admin.POST("/workflow-notifications/dispatch-due", runtimeHandler.DispatchDueNotifications)
 	admin.POST("/workflow-notifications/:id/retry", runtimeHandler.RetryNotification)
+	admin.POST("/workflow-notifications/:id/send", runtimeHandler.SendNotification)
 	return runtimeService
 }
 

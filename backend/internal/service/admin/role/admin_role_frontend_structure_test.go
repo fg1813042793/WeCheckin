@@ -30,6 +30,9 @@ func TestAdminRolePageShowsApplicationPermissionTrees(t *testing.T) {
 		"payload.dingtalkH5MenuKeys = form.dingtalkH5MenuKeys.join(',')",
 		"payload.clientApiPermissionKeys = form.clientApiPermissionKeys.join(',')",
 		"payload.dingtalkH5ApiPermissionKeys = form.dingtalkH5ApiPermissionKeys.join(',')",
+		"function syncRolePermissionSelections()",
+		"syncRolePermissionSelections()",
+		"const clientMenuCheckedKeys = computed(() => form.clientMenuKeys)",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("admin role page must expose app permission tree with %s", snippet)

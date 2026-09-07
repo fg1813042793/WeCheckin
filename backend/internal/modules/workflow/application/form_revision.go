@@ -93,7 +93,7 @@ func (service *Service) ReviseInstanceForm(ctx context.Context, request ReviseIn
 		}
 		loaded.History = append(loaded.History, event)
 		if notification != nil {
-			appendFormRevisionNotificationIntents(loaded, definition.Name, nodeID, nodeName, event, fieldLabels, request.Reason, *notification, service.ids)
+			appendFormRevisionNotificationIntents(loaded, workflowNameForState(definition, loaded), nodeID, nodeName, event, fieldLabels, request.Reason, *notification, service.ids)
 		}
 		state = loaded
 		if err := store.SaveState(ctx, state); err != nil {

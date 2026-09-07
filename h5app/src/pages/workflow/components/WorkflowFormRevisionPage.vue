@@ -59,7 +59,7 @@ const canRevise = computed(() => Boolean(
   && auth.hasButtonPermission('dingtalk_h5:button:workflow:form-revise')
   && auth.hasApiPermission('dingtalk_h5:api:workflow:form-revise'),
 ))
-const title = computed(() => detail.value?.instance.definitionName || '修改流程表单')
+const title = computed(() => detail.value?.instance.instanceTitle || detail.value?.instance.definitionName || '修改流程表单')
 const fieldAccess = computed<WorkflowFieldAccessMap>(() => workflowFieldAccessMap(
   detail.value?.form || [],
   detail.value?.formRevision?.fieldPermissions || [],

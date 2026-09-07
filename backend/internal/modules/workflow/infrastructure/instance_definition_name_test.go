@@ -21,3 +21,15 @@ func TestInstanceSummariesIncludeDefinitionName(t *testing.T) {
 		t.Fatalf("definition name = %q, want %q", list[0].DefinitionName, "绩效单")
 	}
 }
+
+func TestInstanceSummariesPreferDefinitionNameSnapshot(t *testing.T) {
+	rows := []workflowmodel.ProcessInstance{{
+		ID: "instance-1", DefinitionID: 7, DefinitionKey: "performance-review",
+		DefinitionNameSnapshot: "绩效考评单",
+	}}
+
+	list := instanceSummariesWithDefinitionNames(rows, nil, map[uint]string{7: "绩效考评单（当前管理名称）"})
+	if len(list) != 1 || list[0].DefinitionName != "绩效考评单" {
+		t.Fatalf("summary must preserve start-time display name snapshot, got %#v", list)
+	}
+}

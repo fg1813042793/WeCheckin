@@ -16,6 +16,7 @@ type notificationRepositoryStub struct {
 	claimed          []NotificationRecord
 	due              []NotificationRecord
 	resetID          string
+	sendResetID      string
 	inAppDelivered   []string
 	sent             []string
 	failed           []notificationFailure
@@ -72,6 +73,11 @@ func (stub *notificationRepositoryStub) MarkFailed(_ context.Context, id string,
 
 func (stub *notificationRepositoryStub) ResetForRetry(_ context.Context, id string, _ int64) error {
 	stub.resetID = id
+	return nil
+}
+
+func (stub *notificationRepositoryStub) ResetForSend(_ context.Context, id string, _ int64) error {
+	stub.sendResetID = id
 	return nil
 }
 
@@ -178,6 +184,20 @@ func TestNotificationDispatcherRetriesSingleRecordImmediately(t *testing.T) {
 	}
 	if repository.resetID != "ding-retry" || len(repository.sent) != 1 || repository.sent[0] != "ding-retry" {
 		t.Fatalf("retry state = reset %q sent %#v", repository.resetID, repository.sent)
+	}
+}
+
+func TestNotificationDispatcherManuallySendsSingleRecordImmediately(t *testing.T) {
+	now := time.Date(2026, 9, 5, 12, 0, 0, 0, time.Local)
+	repository := &notificationRepositoryStub{claimed: []NotificationRecord{{ID: "ding-sent", Channel: workflowcore.NotificationChannelDingTalkOA}}}
+	dingTalk := &notificationChannelStub{name: workflowcore.NotificationChannelDingTalkOA, errByID: map[string]error{}}
+	dispatcher := newNotificationDispatcherWithClock(repository, func() time.Time { return now }, dingTalk)
+
+	if err := dispatcher.Send(context.Background(), "ding-sent"); err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	if repository.sendResetID != "ding-sent" || len(repository.sent) != 1 || repository.sent[0] != "ding-sent" {
+		t.Fatalf("manual send state = reset %q sent %#v", repository.sendResetID, repository.sent)
 	}
 }
 

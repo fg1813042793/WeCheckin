@@ -1,6 +1,7 @@
 package workflowcore
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -122,5 +123,15 @@ func TestResolveStartLimitWindowUsesAvailabilityCycle(t *testing.T) {
 	}, now)
 	if !ok || window.PeriodKey != "availability:monthly:1788192000000" || window.EndsAt != time.Date(2026, 10, 1, 0, 0, 0, 0, location).UnixMilli() {
 		t.Fatalf("monthly window = %#v, ok = %v", window, ok)
+	}
+
+	window, ok = ResolveStartLimitWindow(limit, &StartAvailabilityConfig{
+		Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+		WindowStartDayFromEnd: 2, WindowStartTime: "09:30", WindowEndDay: 5, WindowEndTime: "18:00",
+	}, now)
+	wantStart := time.Date(2026, time.August, 30, 9, 30, 0, 0, location)
+	wantEnd := time.Date(2026, time.September, 5, 18, 0, 0, 0, location)
+	if !ok || window.PeriodKey != "availability:monthly_window:"+fmt.Sprint(wantStart.UnixMilli()) || window.StartsAt != wantStart.UnixMilli() || window.EndsAt != wantEnd.UnixMilli() {
+		t.Fatalf("monthly continuous window = %#v, ok = %v", window, ok)
 	}
 }

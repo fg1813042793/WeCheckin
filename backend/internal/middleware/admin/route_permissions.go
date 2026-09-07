@@ -133,6 +133,8 @@ var routeMethodPerms = map[string]string{
 	"PUT /api/v2/admin/notification-styles":                      "notification:style:edit",
 	"POST /api/v2/admin/notification-styles/test/in-app":         "notification:send",
 	"POST /api/v2/admin/notification-styles/test/dingtalk":       "notification:dingtalk:send",
+	"GET /api/v2/admin/user-feedbacks/overview":                  "user-feedback:list",
+	"GET /api/v2/admin/user-feedbacks":                           "user-feedback:list",
 
 	"GET /api/v2/admin/scheduled-tasks":               "scheduled-task:list",
 	"POST /api/v2/admin/scheduled-tasks":              "scheduled-task:add",
@@ -279,8 +281,11 @@ var routeMethodPermPatterns = []routeMethodPerm{
 	{method: "POST", path: "/api/v2/admin/workflow-tasks/:id/complete", perm: "workflow:task:complete"},
 	{method: "DELETE", path: "/api/v2/admin/workflow-tasks/:id", perm: "workflow:task:delete"},
 	{method: "POST", path: "/api/v2/admin/workflow-notifications/:id/retry", perm: "workflow:notification:retry"},
+	{method: "POST", path: "/api/v2/admin/workflow-notifications/:id/send", perm: "workflow:notification:retry"},
 	{method: "DELETE", path: "/api/v2/admin/in-app-notifications/:id", perm: "notification:delete"},
 	{method: "PATCH", path: "/api/v2/admin/in-app-notifications/:id/read", perm: "notification:read"},
+	{method: "GET", path: "/api/v2/admin/user-feedbacks/:id", perm: "user-feedback:list"},
+	{method: "PATCH", path: "/api/v2/admin/user-feedbacks/:id/status", perm: "user-feedback:handle"},
 
 	{method: "GET", path: "/api/v2/admin/scheduled-tasks/:id", perm: "scheduled-task:list"},
 	{method: "PUT", path: "/api/v2/admin/scheduled-tasks/:id", perm: "scheduled-task:edit"},

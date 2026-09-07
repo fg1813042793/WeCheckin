@@ -124,7 +124,10 @@ func populateInstanceNodeProgress(detail *application.InstanceDetail, definition
 func instanceSummary(row workflowmodel.ProcessInstance) application.InstanceSummary {
 	return application.InstanceSummary{
 		ID: row.ID, DefinitionID: row.DefinitionID, DefinitionVersion: row.DefinitionVersion,
-		DefinitionKey: row.DefinitionKey, BusinessType: row.BusinessType, BusinessKey: row.BusinessKey,
+		DefinitionKey: row.DefinitionKey, DefinitionName: strings.TrimSpace(row.DefinitionNameSnapshot),
+		BusinessType: row.BusinessType, BusinessKey: row.BusinessKey,
+		InstanceTitle: row.Title, BusinessPeriodType: row.BusinessPeriodType,
+		BusinessPeriodKey: row.BusinessPeriodKey, BusinessPeriodLabel: row.BusinessPeriodLabel,
 		StarterID: row.StarterID, OperatorID: row.OperatorID,
 		CurrentNodeNames: []string{}, CurrentAssigneeNames: []string{},
 		Status: row.Status, StartTime: row.StartTime, EndTime: row.EndTime,
@@ -203,11 +206,13 @@ func loadWorkflowDefinitionNames(db *gorm.DB, definitionIDs []uint) (map[uint]st
 		return names, nil
 	}
 	var definitions []workflowmodel.Definition
-	if err := db.Select("id", "definition_name").Where("id IN ?", definitionIDs).Find(&definitions).Error; err != nil {
+	if err := db.Select("id", "definition_key", "definition_name", "definition_display_name").Where("id IN ?", definitionIDs).Find(&definitions).Error; err != nil {
 		return nil, err
 	}
 	for _, definition := range definitions {
-		names[definition.ID] = strings.TrimSpace(definition.Name)
+		names[definition.ID] = (workflowcore.Definition{
+			Key: definition.Key, Name: definition.Name, DisplayName: definition.DisplayName,
+		}).EffectiveName()
 	}
 	return names, nil
 }
@@ -294,7 +299,9 @@ func instanceSummariesWithCurrentTasks(rows []workflowmodel.ProcessInstance, use
 	list := make([]application.InstanceSummary, 0, len(rows))
 	for _, row := range rows {
 		summary := instanceSummary(row)
-		summary.DefinitionName = definitionNames[summary.DefinitionID]
+		if summary.DefinitionName == "" {
+			summary.DefinitionName = definitionNames[summary.DefinitionID]
+		}
 		summary.StarterName = names[summary.StarterID]
 		summary.OperatorName = names[summary.OperatorID]
 		if summary.Status == workflowmodel.InstanceStatusRunning {

@@ -157,6 +157,7 @@ export interface DingTalkCorpConfig {
   notifyMode?: string
   robotCode?: string
   appSecretSet?: boolean
+  enabled?: number
 }
 
 export interface DingTalkSettings extends DingTalkCorpConfig {

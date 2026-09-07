@@ -111,6 +111,18 @@ forbidSnippet(loginSource, ": '/dashboard'", 'login must not default to an unaut
 const forbiddenSource = read('src/views/errors/ForbiddenView.vue')
 forbidSnippet(forbiddenSource, "router.replace('/dashboard')", 'the forbidden page must return through authorized root routing')
 
+const roleSource = read('src/views/role/index.vue')
+requireSnippet(
+  roleSource,
+  '<el-form-item v-if="form.allowAdminLogin" label="权限配置" class="permission-form-item permission-form-item--backend">',
+  'role editor must hide backend permission trees when admin login is not granted',
+)
+requireSnippet(
+  roleSource,
+  '<el-form-item label="权限配置" class="permission-form-item permission-form-item--application">',
+  'role editor application permissions must remain independent from admin login authorization',
+)
+
 const layoutSource = read('src/views/layout/index.vue')
 requireSnippet(layoutSource, 'loadAdminAccessSnapshot', 'layout and router must share one access snapshot')
 forbidSnippet(layoutSource, "request.get('/api/v2/home/setup'", 'admin settings must use an authenticated admin endpoint')

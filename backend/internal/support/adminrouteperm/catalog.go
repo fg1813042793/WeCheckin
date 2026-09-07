@@ -122,7 +122,7 @@ func Declarations() []Declaration {
 		{"workflow:task:complete", "流程任务处理接口"},
 		{"workflow:task:delete", "流程任务删除接口"},
 		{"workflow:notification:list", "流程通知查看接口"},
-		{"workflow:notification:retry", "流程通知重试接口"},
+		{"workflow:notification:retry", "流程通知发送与重试接口"},
 		{"workflow:org-approver:list", "组织审批身份查看接口"},
 		{"workflow:org-approver:edit", "组织审批身份维护接口"},
 		{"scheduled-task:list", "定时任务查看接口"},
@@ -146,6 +146,8 @@ func Declarations() []Declaration {
 		{"notification:dingtalk:send", "钉钉通知发送接口"},
 		{"notification:style:list", "通知样式查看接口"},
 		{"notification:style:edit", "通知样式维护接口"},
+		{"user-feedback:list", "用户反馈查看接口"},
+		{"user-feedback:handle", "用户反馈处理接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -176,6 +178,7 @@ func Categories() []Category {
 		{Key: "admin:api-category:workflow", Name: "流程管理", Sort: 75},
 		{Key: "admin:api-category:scheduled-task", Name: "定时任务", Sort: 80},
 		{Key: "admin:api-category:notification", Name: "通知", Sort: 85},
+		{Key: "admin:api-category:user-feedback", Name: "用户反馈", Sort: 90},
 	}
 }
 
@@ -209,6 +212,8 @@ func categoryForPerms(categories map[string]Category, perms string) Category {
 		key = "admin:api-category:scheduled-task"
 	case "notification":
 		key = "admin:api-category:notification"
+	case "user-feedback":
+		key = "admin:api-category:user-feedback"
 	}
 	if item, ok := categories[key]; ok {
 		return item
@@ -359,4 +364,6 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"notification:dingtalk:send":   {method: "POST", path: "/api/v2/admin/dingtalk-notifications"},
 	"notification:style:list":      {method: "GET", path: "/api/v2/admin/notification-styles"},
 	"notification:style:edit":      {method: "PUT", path: "/api/v2/admin/notification-styles"},
+	"user-feedback:list":           {method: "GET", path: "/api/v2/admin/user-feedbacks"},
+	"user-feedback:handle":         {method: "PATCH", path: "/api/v2/admin/user-feedbacks/:id/status"},
 }

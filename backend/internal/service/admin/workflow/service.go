@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -19,6 +20,7 @@ import (
 type CreateRequest struct {
 	Key         string          `json:"key"`
 	Name        string          `json:"name"`
+	DisplayName string          `json:"displayName"`
 	Description string          `json:"description"`
 	Category    string          `json:"category"`
 	LogoURL     string          `json:"-"`
@@ -28,6 +30,7 @@ type CreateRequest struct {
 type CopyRequest struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
 	Category    string `json:"category"`
 	LogoURL     string `json:"-"`
@@ -35,6 +38,7 @@ type CopyRequest struct {
 
 type UpdateRequest struct {
 	Name        string          `json:"name"`
+	DisplayName *string         `json:"displayName"`
 	Description string          `json:"description"`
 	Category    string          `json:"category"`
 	LogoURL     *string         `json:"-"`
@@ -46,6 +50,7 @@ type DefinitionSummary struct {
 	ID             uint   `json:"id"`
 	Key            string `json:"key"`
 	Name           string `json:"name"`
+	DisplayName    string `json:"displayName"`
 	Description    string `json:"description"`
 	Category       string `json:"category"`
 	LogoURL        string `json:"logoUrl"`
@@ -101,7 +106,7 @@ func GetListContext(ctx context.Context, keyword, category string, status, page,
 	query := db.Model(&model.WorkflowDefinition{})
 	if text := strings.TrimSpace(keyword); text != "" {
 		like := "%" + text + "%"
-		query = query.Where("definition_name LIKE ? OR definition_key LIKE ?", like, like)
+		query = query.Where("definition_name LIKE ? OR definition_display_name LIKE ? OR definition_key LIKE ?", like, like, like)
 	}
 	if text := strings.TrimSpace(category); text != "" {
 		query = query.Where("definition_category = ?", text)
@@ -135,7 +140,7 @@ func GetDetailContext(ctx context.Context, id uint) (*DefinitionDetail, error) {
 	if err := db.First(&item, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
-	draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name)
+	draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name, item.DisplayName)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +153,11 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	if request.Key == "" || request.Name == "" {
 		return nil, errors.New("流程编码和流程名称不能为空")
 	}
+	displayName, err := normalizeDefinitionDisplayName(request.DisplayName)
+	if err != nil {
+		return nil, err
+	}
+	request.DisplayName = displayName
 	logoURL, err := normalizeDefinitionLogoURL(request.LogoURL)
 	if err != nil {
 		return nil, err
@@ -155,13 +165,14 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	draftInput := request.Draft
 	if len(bytes.TrimSpace(draftInput)) == 0 {
 		initial := newDefaultDefinition(request.Key, request.Name)
+		initial.DisplayName = request.DisplayName
 		encoded, err := json.Marshal(initial)
 		if err != nil {
 			return nil, err
 		}
 		draftInput = encoded
 	}
-	draft, encoded, err := normalizeDraft(draftInput, request.Key, request.Name)
+	draft, encoded, err := normalizeDraft(draftInput, request.Key, request.Name, request.DisplayName)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +220,7 @@ func createRequestForCopy(source model.WorkflowDefinition, request CopyRequest) 
 	return CreateRequest{
 		Key:         request.Key,
 		Name:        request.Name,
+		DisplayName: request.DisplayName,
 		Description: request.Description,
 		Category:    request.Category,
 		LogoURL:     request.LogoURL,
@@ -220,6 +232,7 @@ func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, lo
 	return model.WorkflowDefinition{
 		Key:            request.Key,
 		Name:           request.Name,
+		DisplayName:    request.DisplayName,
 		Description:    strings.TrimSpace(request.Description),
 		Category:       strings.TrimSpace(request.Category),
 		LogoURL:        logoURL,
@@ -247,11 +260,19 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 	if name == "" {
 		name = item.Name
 	}
+	displayName := item.DisplayName
+	if request.DisplayName != nil {
+		normalizedDisplayName, err := normalizeDefinitionDisplayName(*request.DisplayName)
+		if err != nil {
+			return nil, err
+		}
+		displayName = normalizedDisplayName
+	}
 	draftInput := request.Draft
 	if len(bytes.TrimSpace(draftInput)) == 0 {
 		draftInput = json.RawMessage(item.DraftJSON)
 	}
-	draft, encoded, err := normalizeDraft(draftInput, item.Key, name)
+	draft, encoded, err := normalizeDraft(draftInput, item.Key, name, displayName)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +296,7 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		}
 		logoURL = &normalized
 	}
-	updates := definitionContentUpdates(item, name, description, category, status, encoded, logoURL)
+	updates := definitionContentUpdates(item, name, displayName, description, category, status, encoded, logoURL)
 	if len(updates) > 0 {
 		now := database.Now()
 		updates["definition_edit_user_id"] = adminID
@@ -288,6 +309,7 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		item.EditTime = now
 	}
 	item.Name = name
+	item.DisplayName = displayName
 	item.Description = description
 	item.Category = category
 	if logoURL != nil {
@@ -298,10 +320,13 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
 
-func definitionContentUpdates(item model.WorkflowDefinition, name, description, category string, status int, draftJSON string, logoURL *string) map[string]interface{} {
-	updates := make(map[string]interface{}, 6)
+func definitionContentUpdates(item model.WorkflowDefinition, name, displayName, description, category string, status int, draftJSON string, logoURL *string) map[string]interface{} {
+	updates := make(map[string]interface{}, 7)
 	if name != item.Name {
 		updates["definition_name"] = name
+	}
+	if displayName != item.DisplayName {
+		updates["definition_display_name"] = displayName
 	}
 	if description != item.Description {
 		updates["definition_description"] = description
@@ -319,6 +344,14 @@ func definitionContentUpdates(item model.WorkflowDefinition, name, description, 
 		updates["definition_logo_url"] = *logoURL
 	}
 	return updates
+}
+
+func normalizeDefinitionDisplayName(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if utf8.RuneCountInString(value) > 200 {
+		return "", errors.New("用户显示名称不能超过 200 个字符")
+	}
+	return value, nil
 }
 
 func normalizeDefinitionLogoURL(value string) (string, error) {
@@ -369,7 +402,7 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
-		draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name)
+		draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name, item.DisplayName)
 		if err != nil {
 			return err
 		}
@@ -491,7 +524,7 @@ func newDefaultDefinition(key, name string) workflowcore.Definition {
 	}
 }
 
-func normalizeDraft(raw json.RawMessage, key, name string) (workflowcore.Definition, string, error) {
+func normalizeDraft(raw json.RawMessage, key, name string, displayNames ...string) (workflowcore.Definition, string, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	decoder.DisallowUnknownFields()
@@ -520,6 +553,9 @@ func normalizeDraft(raw json.RawMessage, key, name string) (workflowcore.Definit
 	}
 	definition.Key = strings.TrimSpace(key)
 	definition.Name = strings.TrimSpace(name)
+	if len(displayNames) > 0 {
+		definition.DisplayName = strings.TrimSpace(displayNames[0])
+	}
 	encoded, err := json.Marshal(definition)
 	if err != nil {
 		return workflowcore.Definition{}, "", err
@@ -529,7 +565,7 @@ func normalizeDraft(raw json.RawMessage, key, name string) (workflowcore.Definit
 
 func summaryFromModel(ctx context.Context, item model.WorkflowDefinition) DefinitionSummary {
 	return DefinitionSummary{
-		ID: item.ID, Key: item.Key, Name: item.Name, Description: item.Description,
+		ID: item.ID, Key: item.Key, Name: item.Name, DisplayName: item.DisplayName, Description: item.Description,
 		Category: item.Category, LogoURL: media.FullURLWithStaticDomainContext(ctx, item.LogoURL), Status: item.Status, CurrentVersion: item.CurrentVersion,
 		AddUserID: item.AddUserID, EditUserID: item.EditUserID, AddTime: item.AddTime, EditTime: item.EditTime,
 	}

@@ -69,7 +69,7 @@ func (service *Service) RemindInstance(ctx context.Context, request RemindInstan
 			state.NotificationIntents = append(state.NotificationIntents, workflowdomain.NotificationIntent{
 				ID: service.ids.NewID("notification"), Kind: workflowdomain.NotificationKindTaskReminder,
 				NodeID: node.ID, NodeName: node.Name, TaskID: recipient.TaskID,
-				RecipientUserID: recipient.UserID, WorkflowName: definition.Name,
+				RecipientUserID: recipient.UserID, WorkflowName: workflowNameForState(definition, state),
 				Config: config, DedupeKeySuffix: reminderID,
 			})
 		}

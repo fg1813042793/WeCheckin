@@ -98,6 +98,7 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 		"waitForDependency(ctx, \"Redis\"",
 		"LogLevel:",
 		"gormlogger.Warn",
+		`Colorful: cfg.Server.Mode == "debug"`,
 		"redispkg.Init(",
 		"scheduledtaskruntime.NewScheduler(",
 		"RecoveryInterval:",

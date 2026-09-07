@@ -210,7 +210,7 @@ func run() error {
 			MaxIdleConns:   cfg.Database.MaxIdleConns, MaxOpenConns: cfg.Database.MaxOpenConns,
 			ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
 			ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
-			LogLevel:        gormlogger.Warn, Colorful: false,
+			LogLevel:        gormlogger.Warn, Colorful: cfg.Server.Mode == "debug",
 		})
 	}); err != nil {
 		return err

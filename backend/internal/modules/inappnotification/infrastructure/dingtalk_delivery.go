@@ -116,7 +116,7 @@ func (delivery *DingTalkDelivery) DeliverDingTalk(ctx context.Context, batch app
 
 func dingTalkManualNotificationPayload(config configsvc.DingTalkH5CorpConfig, title, content string) configsvc.DingTalkWorkNotificationPayload {
 	payload := configsvc.DingTalkWorkNotificationPayload{
-		Title: title, Content: content, URL: config.AppURL, SourceName: "WeCheckin 通知",
+		Title: title, Content: content, URL: configsvc.WrapDingTalkOpenAppURL(config.AppURL, config), SourceName: "WeCheckin 通知",
 	}
 	if strings.TrimSpace(payload.URL) == "" && strings.TrimSpace(title) != "" {
 		payload.Content = strings.TrimSpace(title) + "\n" + strings.TrimSpace(content)

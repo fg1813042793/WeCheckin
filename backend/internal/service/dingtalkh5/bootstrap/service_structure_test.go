@@ -31,7 +31,7 @@ func TestBootstrapResponseIsLightweight(t *testing.T) {
 		"`json:\"buttonPermissionKeys\"`",
 		"`json:\"buttonPermissionReady\"`",
 		"snapshot, err := dingTalkH5PermissionSnapshotForUserDB(ctx, db, user)",
-		"Menus:                 dingTalkH5MenusByKeysWithLabelsAndIcons(snapshot.menuKeys, snapshot.labels, snapshot.icons)",
+		"Menus:                 dingTalkH5MenusByDeclarations(snapshot.menuKeys, snapshot.menuDeclarations, snapshot.labels, snapshot.icons)",
 		"ButtonPermissionKeys:  snapshot.buttonKeys",
 		"APIPermissionKeys:     snapshot.apiKeys",
 		"if user.ID == 0 && user.RoleID == 0",

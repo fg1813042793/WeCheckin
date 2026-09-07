@@ -10613,6 +10613,36 @@
                 }
             }
         },
+        "/api/v2/admin/workflow-notifications/{id}/send": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "手动发送单条工作流通知",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "通知 Outbox ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-org-approver-assignments": {
             "get": {
                 "security": [

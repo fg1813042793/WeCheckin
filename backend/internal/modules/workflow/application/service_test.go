@@ -13,7 +13,10 @@ import (
 )
 
 func TestStartInstanceLoadsPublishedVersionAndPersistsState(t *testing.T) {
-	store := &fakeStore{definition: simpleDefinition(), publishedVersion: 3}
+	definition := simpleDefinition()
+	definition.Name = "请假审批（华东）"
+	definition.DisplayName = "请假审批"
+	store := &fakeStore{definition: definition, publishedVersion: 3}
 	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
 
 	state, err := service.StartInstance(context.Background(), StartInstanceRequest{
@@ -34,6 +37,9 @@ func TestStartInstanceLoadsPublishedVersionAndPersistsState(t *testing.T) {
 	if state.Instance.DefinitionVersion != 3 {
 		t.Fatalf("definition version = %d, want 3", state.Instance.DefinitionVersion)
 	}
+	if state.Instance.DefinitionName != "请假审批" {
+		t.Fatalf("definition name snapshot = %q, want display name", state.Instance.DefinitionName)
+	}
 	if state.Instance.BusinessType != "leave_request" || state.Instance.BusinessKey != "leave-2026-001" {
 		t.Fatalf("business reference = (%q, %q)", state.Instance.BusinessType, state.Instance.BusinessKey)
 	}
@@ -48,6 +54,50 @@ func TestStartInstanceLoadsPublishedVersionAndPersistsState(t *testing.T) {
 	}
 	if store.transactions != 1 {
 		t.Fatalf("transaction count = %d, want 1", store.transactions)
+	}
+}
+
+func TestStartInstanceSnapshotsResolvedIdentity(t *testing.T) {
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := simpleDefinition()
+	definition.Name = "绩效考评单"
+	definition.InstanceIdentity = &workflowcore.InstanceIdentityConfig{
+		TitleTemplate: "{{businessPeriod}} {{starterName}}绩效考评",
+		BusinessPeriod: &workflowcore.BusinessPeriodConfig{
+			Enabled: true, Granularity: workflowcore.BusinessPeriodGranularityMonth,
+			Source: workflowcore.BusinessPeriodSourceAvailabilityWindowStart,
+		},
+	}
+	definition.Nodes[0].Availability = &workflowcore.StartAvailabilityConfig{
+		Mode: workflowcore.StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+		WindowStartDayFromEnd: 2, WindowStartTime: "09:00",
+		WindowEndDay: 5, WindowEndTime: "18:00",
+	}
+	store := &fakeStore{definition: definition, publishedVersion: 3, userDisplayName: "Foster"}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+	service.now = func() time.Time {
+		return time.Date(2026, time.September, 3, 10, 0, 0, 0, location)
+	}
+
+	state, err := service.StartInstance(context.Background(), StartInstanceRequest{
+		DefinitionID: 9, BusinessType: "performance", BusinessKey: "performance-7-2026-08",
+		StarterID: "7", OperatorID: "7",
+	})
+	if err != nil {
+		t.Fatalf("StartInstance() error = %v", err)
+	}
+	if state.Instance.Title != "2026年8月 Foster绩效考评" {
+		t.Fatalf("instance title = %q", state.Instance.Title)
+	}
+	if state.Instance.BusinessPeriodType != workflowcore.BusinessPeriodGranularityMonth ||
+		state.Instance.BusinessPeriodKey != "2026-08" || state.Instance.BusinessPeriodLabel != "2026年8月" {
+		t.Fatalf("business period = %#v", state.Instance)
+	}
+	if store.userDisplayNameUserID != "7" {
+		t.Fatalf("display-name lookup user = %q", store.userDisplayNameUserID)
 	}
 }
 
@@ -1797,6 +1847,8 @@ type fakeStore struct {
 	startQuotaConsumeCalls        int
 	workflowOverview              WorkflowOverview
 	workflowOverviewActorID       string
+	userDisplayName               string
+	userDisplayNameUserID         string
 }
 
 func (store *fakeStore) InTransaction(_ context.Context, fn func(TransactionStore) error) error {
@@ -1848,6 +1900,14 @@ func (store *fakeStore) LoadPublishedDefinition(_ context.Context, definitionID 
 
 func (store *fakeStore) IsActiveUser(_ context.Context, userID string) (bool, error) {
 	return strings.TrimSpace(userID) != "", nil
+}
+
+func (store *fakeStore) UserDisplayName(_ context.Context, userID string) (string, error) {
+	store.userDisplayNameUserID = userID
+	if strings.TrimSpace(store.userDisplayName) != "" {
+		return store.userDisplayName, nil
+	}
+	return userID, nil
 }
 
 func (store *fakeStore) CanOperatorStartFor(_ context.Context, _, _ string) (bool, error) {
@@ -2016,6 +2076,8 @@ func (dispatcher *recordingNotificationDispatcher) DispatchDue(context.Context, 
 }
 
 func (dispatcher *recordingNotificationDispatcher) Retry(context.Context, string) error { return nil }
+
+func (dispatcher *recordingNotificationDispatcher) Send(context.Context, string) error { return nil }
 
 func (publisher *recordingPublisher) Publish(_ context.Context, event LifecycleEvent) {
 	publisher.events = append(publisher.events, event)

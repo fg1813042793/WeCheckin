@@ -21,6 +21,7 @@ func ValidateDefinition(definition Definition) []ValidationError {
 	}
 	formFields, formErrors := validateFormSchema(definition.Form)
 	errors = append(errors, formErrors...)
+	errors = append(errors, validateInstanceIdentity(definition.InstanceIdentity, formFields, definitionStartAvailability(definition))...)
 
 	nodes := make(map[string]Node, len(definition.Nodes))
 	incoming := make(map[string][]Edge, len(definition.Nodes))
@@ -858,7 +859,8 @@ func validateNotificationConfig(node Node, config *NotificationConfig, allowResu
 
 func validNotificationTemplate(value string, extraTokens ...string) bool {
 	allowed := map[string]struct{}{
-		"workflowName": {}, "nodeName": {}, "starterName": {}, "instanceId": {}, "taskId": {},
+		"workflowName": {}, "nodeName": {}, "starterName": {}, "instanceId": {}, "instanceTitle": {},
+		"businessPeriod": {}, "taskId": {},
 	}
 	for _, token := range extraTokens {
 		allowed[token] = struct{}{}

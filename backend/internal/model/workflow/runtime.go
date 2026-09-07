@@ -45,24 +45,29 @@ const (
 // ProcessInstance is the persistence root of the generic workflow runtime.
 // Business modules only associate through BusinessType and BusinessKey.
 type ProcessInstance struct {
-	ID                string    `json:"id" gorm:"size:64;primaryKey;comment:流程实例ID"`
-	DefinitionID      uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:idx_workflow_instance_business;index:idx_workflow_instances_definition_status,priority:1;index:idx_workflow_instances_definition_starter_time,priority:1;comment:流程定义ID"`
-	DefinitionVersion int       `json:"definitionVersion" gorm:"column:definition_version;comment:流程定义版本"`
-	DefinitionKey     string    `json:"definitionKey" gorm:"size:100;column:definition_key;comment:流程定义编码"`
-	BusinessType      string    `json:"businessType" gorm:"size:100;column:business_type;uniqueIndex:idx_workflow_instance_business;comment:业务类型"`
-	BusinessKey       string    `json:"businessKey" gorm:"size:160;column:business_key;uniqueIndex:idx_workflow_instance_business;comment:业务唯一标识"`
-	StarterID         string    `json:"starterId" gorm:"size:64;column:starter_id;index:idx_workflow_instances_starter_status,priority:1;index:idx_workflow_instances_starter_deleted_time,priority:1;index:idx_workflow_instances_definition_starter_time,priority:2;comment:发起人ID"`
-	OperatorID        string    `json:"operatorId" gorm:"size:64;column:operator_id;index:idx_workflow_instances_operator_status,priority:1;comment:实际发起操作人ID"`
-	Status            string    `json:"status" gorm:"size:24;column:instance_status;default:running;index:idx_workflow_instances_definition_status,priority:2;index:idx_workflow_instances_starter_status,priority:2;index:idx_workflow_instances_operator_status,priority:2;comment:实例状态"`
-	FormDataJSON      string    `json:"formDataJson" gorm:"type:mediumtext;column:form_data_json;comment:流程表单数据JSON"`
-	FormRevision      int64     `json:"formRevision" gorm:"column:form_revision;default:1;comment:流程表单修订版本"`
-	StartTime         int64     `json:"startTime" gorm:"column:start_time;index:idx_workflow_instances_starter_deleted_time,priority:3;index:idx_workflow_instances_definition_starter_time,priority:3;comment:开始时间"`
-	EndTime           int64     `json:"endTime" gorm:"column:end_time;comment:结束时间"`
-	StarterDeletedAt  int64     `json:"-" gorm:"column:starter_deleted_at;index:idx_workflow_instances_starter_deleted_time,priority:2;comment:发起人从我的申请删除时间"`
-	AdminDeletedAt    int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_instances_admin_deleted_time,priority:1;comment:管理员删除时间"`
-	AdminDeletedBy    string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
-	CreatedAt         time.Time `json:"-"`
-	UpdatedAt         time.Time `json:"-"`
+	ID                     string    `json:"id" gorm:"size:64;primaryKey;comment:流程实例ID"`
+	DefinitionID           uint      `json:"definitionId" gorm:"column:definition_id;uniqueIndex:idx_workflow_instance_business;index:idx_workflow_instances_definition_status,priority:1;index:idx_workflow_instances_definition_starter_time,priority:1;index:idx_workflow_instances_definition_period_time,priority:1;comment:流程定义ID"`
+	DefinitionVersion      int       `json:"definitionVersion" gorm:"column:definition_version;comment:流程定义版本"`
+	DefinitionKey          string    `json:"definitionKey" gorm:"size:100;column:definition_key;comment:流程定义编码"`
+	DefinitionNameSnapshot string    `json:"definitionNameSnapshot" gorm:"size:200;column:definition_name_snapshot;comment:流程用户显示名称快照"`
+	Title                  string    `json:"title" gorm:"size:200;column:instance_title;index:idx_workflow_instances_title;comment:单据标题快照"`
+	BusinessPeriodType     string    `json:"businessPeriodType" gorm:"size:16;column:business_period_type;comment:业务期间类型"`
+	BusinessPeriodKey      string    `json:"businessPeriodKey" gorm:"size:40;column:business_period_key;index:idx_workflow_instances_definition_period_time,priority:2;comment:业务期间唯一标识"`
+	BusinessPeriodLabel    string    `json:"businessPeriodLabel" gorm:"size:80;column:business_period_label;comment:业务期间显示文本"`
+	BusinessType           string    `json:"businessType" gorm:"size:100;column:business_type;uniqueIndex:idx_workflow_instance_business;comment:业务类型"`
+	BusinessKey            string    `json:"businessKey" gorm:"size:160;column:business_key;uniqueIndex:idx_workflow_instance_business;comment:业务唯一标识"`
+	StarterID              string    `json:"starterId" gorm:"size:64;column:starter_id;index:idx_workflow_instances_starter_status,priority:1;index:idx_workflow_instances_starter_deleted_time,priority:1;index:idx_workflow_instances_definition_starter_time,priority:2;comment:发起人ID"`
+	OperatorID             string    `json:"operatorId" gorm:"size:64;column:operator_id;index:idx_workflow_instances_operator_status,priority:1;comment:实际发起操作人ID"`
+	Status                 string    `json:"status" gorm:"size:24;column:instance_status;default:running;index:idx_workflow_instances_definition_status,priority:2;index:idx_workflow_instances_starter_status,priority:2;index:idx_workflow_instances_operator_status,priority:2;comment:实例状态"`
+	FormDataJSON           string    `json:"formDataJson" gorm:"type:mediumtext;column:form_data_json;comment:流程表单数据JSON"`
+	FormRevision           int64     `json:"formRevision" gorm:"column:form_revision;default:1;comment:流程表单修订版本"`
+	StartTime              int64     `json:"startTime" gorm:"column:start_time;index:idx_workflow_instances_starter_deleted_time,priority:3;index:idx_workflow_instances_definition_starter_time,priority:3;index:idx_workflow_instances_definition_period_time,priority:3;comment:开始时间"`
+	EndTime                int64     `json:"endTime" gorm:"column:end_time;comment:结束时间"`
+	StarterDeletedAt       int64     `json:"-" gorm:"column:starter_deleted_at;index:idx_workflow_instances_starter_deleted_time,priority:2;comment:发起人从我的申请删除时间"`
+	AdminDeletedAt         int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_instances_admin_deleted_time,priority:1;comment:管理员删除时间"`
+	AdminDeletedBy         string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
+	CreatedAt              time.Time `json:"-"`
+	UpdatedAt              time.Time `json:"-"`
 }
 
 func (ProcessInstance) TableName() string { return "workflow_process_instances" }
@@ -180,6 +185,7 @@ func (InstanceParticipant) TableName() string { return "workflow_instance_partic
 type NotificationOutbox struct {
 	ID                string    `json:"id" gorm:"size:64;primaryKey;comment:通知Outbox ID"`
 	InstanceID        string    `json:"instanceId" gorm:"size:64;column:instance_id;index:idx_workflow_notification_instance,priority:1;comment:流程实例ID"`
+	BusinessKey       string    `json:"businessKey" gorm:"size:160;column:business_key;index:idx_workflow_notification_business_key;comment:流程业务标识快照"`
 	NodeID            string    `json:"nodeId" gorm:"size:100;column:node_id;comment:来源节点ID"`
 	TaskID            string    `json:"taskId" gorm:"size:64;column:task_id;comment:来源任务ID"`
 	RecipientUserID   string    `json:"recipientUserId" gorm:"size:64;column:recipient_user_id;index:idx_workflow_notification_recipient,priority:1;comment:本地接收人ID"`

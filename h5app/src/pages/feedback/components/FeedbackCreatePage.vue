@@ -219,7 +219,10 @@ onBeforeUnmount(() => {
 }
 
 .feedback-editor {
+  width: 100%;
   max-width: 860px;
+  margin: 0 auto;
+  box-sizing: border-box;
   padding: 22px 20px 28px;
 }
 

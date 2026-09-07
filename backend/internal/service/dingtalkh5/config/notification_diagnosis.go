@@ -45,8 +45,8 @@ type DingTalkH5NotificationDiagnosisStep struct {
 	Error      string                 `json:"error,omitempty"`
 }
 
-// DiagnoseDingTalkH5WorkNotificationContext performs the same legacy work-notification
-// token and asyncsend_v2 path used by AgentId/OA mode, but returns sanitized evidence.
+// DiagnoseDingTalkH5WorkNotificationContext follows the configured notification mode
+// and returns sanitized evidence for the same channel used by real notifications.
 func DiagnoseDingTalkH5WorkNotificationContext(ctx context.Context, corpID, recipientUserID string) (DingTalkH5NotificationDiagnosis, error) {
 	corpID = strings.TrimSpace(corpID)
 	config, err := loadDingTalkH5CorpConfigContext(ctx, corpID)
@@ -75,18 +75,53 @@ func DiagnoseDingTalkH5WorkNotificationContext(ctx context.Context, corpID, reci
 	result.Steps = append(result.Steps, dingTalkH5DiagnosisConfigStep(config, recipientUserID))
 
 	client := defaultDingTalkIdentityClient{}
-	accessToken, tokenStep := client.diagnoseOldAccessTokenContext(ctx, config.AppKey, config.AppSecret)
-	result.Steps = append(result.Steps, tokenStep)
-	if tokenStep.Status != "success" {
-		result.Conclusion = dingTalkH5NotificationDiagnosisConclusion(result)
-		return result, nil
-	}
-
-	sendStep := client.diagnoseOldAgentWorkNotificationContext(ctx, accessToken, config.AgentID, recipientUserID)
-	result.Steps = append(result.Steps, sendStep)
-	result.Success = sendStep.Status == "success"
+	steps, success := client.diagnoseWorkNotificationContext(ctx, config, recipientUserID)
+	result.Steps = append(result.Steps, steps...)
+	result.Success = success
 	result.Conclusion = dingTalkH5NotificationDiagnosisConclusion(result)
 	return result, nil
+}
+
+func (client defaultDingTalkIdentityClient) diagnoseWorkNotificationContext(
+	ctx context.Context,
+	config DingTalkH5CorpConfig,
+	recipientUserID string,
+) ([]DingTalkH5NotificationDiagnosisStep, bool) {
+	mode := normalizeDingTalkH5NotifyMode(config.NotifyMode, config.AgentID, config.RobotCode)
+	if mode == "robot" {
+		return client.diagnoseRobotNotificationContext(ctx, config, recipientUserID)
+	}
+
+	accessToken, tokenStep := client.diagnoseOldAccessTokenContext(ctx, config.AppKey, config.AppSecret)
+	steps := []DingTalkH5NotificationDiagnosisStep{tokenStep}
+	if tokenStep.Status != "success" {
+		return steps, false
+	}
+	sendStep := client.diagnoseOldAgentWorkNotificationContext(ctx, accessToken, config.AgentID, recipientUserID)
+	steps = append(steps, sendStep)
+	if sendStep.Status == "success" {
+		return steps, true
+	}
+	if mode != "agent_fallback" || !shouldFallbackDingTalkAgentNotificationToRobot(errors.New(sendStep.Error)) {
+		return steps, false
+	}
+
+	robotSteps, success := client.diagnoseRobotNotificationContext(ctx, config, recipientUserID)
+	return append(steps, robotSteps...), success
+}
+
+func (client defaultDingTalkIdentityClient) diagnoseRobotNotificationContext(
+	ctx context.Context,
+	config DingTalkH5CorpConfig,
+	recipientUserID string,
+) ([]DingTalkH5NotificationDiagnosisStep, bool) {
+	accessToken, tokenStep := client.diagnoseOpenAPIAccessTokenContext(ctx, config.AppKey, config.AppSecret)
+	steps := []DingTalkH5NotificationDiagnosisStep{tokenStep}
+	if tokenStep.Status != "success" {
+		return steps, false
+	}
+	sendStep := client.diagnoseRobotWorkNotificationContext(ctx, accessToken, config.AppKey, config.RobotCode, recipientUserID)
+	return append(steps, sendStep), sendStep.Status == "success"
 }
 
 func diagnosisRecipientForCorpContext(ctx context.Context, corpID, recipientUserID string) (string, error) {
@@ -189,6 +224,56 @@ func (client defaultDingTalkIdentityClient) diagnoseOldAccessTokenContext(ctx co
 	return strings.TrimSpace(payload.AccessToken), step
 }
 
+func (client defaultDingTalkIdentityClient) diagnoseOpenAPIAccessTokenContext(ctx context.Context, appKey, appSecret string) (string, DingTalkH5NotificationDiagnosisStep) {
+	endpoint := strings.TrimRight(client.openAPIBaseURL(), "/") + "/v1.0/oauth2/accessToken"
+	step := DingTalkH5NotificationDiagnosisStep{
+		Name:     "获取新版 access_token",
+		Method:   http.MethodPost,
+		Endpoint: endpoint,
+		Request: map[string]interface{}{
+			"appKey":    dingTalkH5MaskLogValue(appKey),
+			"appSecret": "***",
+		},
+	}
+	if strings.TrimSpace(appKey) == "" || strings.TrimSpace(appSecret) == "" {
+		step.Status = "failed"
+		step.Error = "请先配置钉钉 H5 AppKey 和 AppSecret"
+		return "", step
+	}
+
+	body, _ := json.Marshal(map[string]string{"appKey": strings.TrimSpace(appKey), "appSecret": strings.TrimSpace(appSecret)})
+	start := time.Now()
+	var payload struct {
+		AccessToken string `json:"accessToken"`
+		ExpireIn    int64  `json:"expireIn"`
+		Code        string `json:"code"`
+		Message     string `json:"message"`
+	}
+	err := client.doJSONContext(ctx, http.MethodPost, endpoint, body, &payload)
+	step.DurationMs = time.Since(start).Milliseconds()
+	if err != nil {
+		step.Status = "failed"
+		step.Error = err.Error()
+		return "", step
+	}
+	step.Response = map[string]interface{}{
+		"code": payload.Code, "message": payload.Message,
+		"accessTokenReceived": strings.TrimSpace(payload.AccessToken) != "", "expireIn": payload.ExpireIn,
+	}
+	if strings.TrimSpace(payload.Code) != "" {
+		step.Status = "failed"
+		step.Error = "获取钉钉新版访问凭证失败：" + strings.TrimSpace(payload.Message)
+		return "", step
+	}
+	if strings.TrimSpace(payload.AccessToken) == "" {
+		step.Status = "failed"
+		step.Error = "钉钉新版访问凭证为空"
+		return "", step
+	}
+	step.Status = "success"
+	return strings.TrimSpace(payload.AccessToken), step
+}
+
 func (client defaultDingTalkIdentityClient) diagnoseOldAgentWorkNotificationContext(ctx context.Context, accessToken, rawAgentID, recipientUserID string) DingTalkH5NotificationDiagnosisStep {
 	step := DingTalkH5NotificationDiagnosisStep{
 		Name:     "发送旧版工作通知 asyncsend_v2",
@@ -252,8 +337,78 @@ func (client defaultDingTalkIdentityClient) diagnoseOldAgentWorkNotificationCont
 	return step
 }
 
+func (client defaultDingTalkIdentityClient) diagnoseRobotWorkNotificationContext(
+	ctx context.Context,
+	accessToken string,
+	appKey string,
+	rawRobotCode string,
+	recipientUserID string,
+) DingTalkH5NotificationDiagnosisStep {
+	robotCode := strings.TrimSpace(rawRobotCode)
+	if robotCode == "" {
+		robotCode = strings.TrimSpace(appKey)
+	}
+	endpoint := strings.TrimRight(client.openAPIBaseURL(), "/") + "/v1.0/robot/oToMessages/batchSend"
+	step := DingTalkH5NotificationDiagnosisStep{
+		Name:     "发送新版机器人单聊通知",
+		Method:   http.MethodPost,
+		Endpoint: endpoint,
+		Request: map[string]interface{}{
+			"robotCode": dingTalkH5MaskLogValue(robotCode),
+			"userIds":   []string{strings.TrimSpace(recipientUserID)},
+			"msgKey":    "sampleText",
+		},
+	}
+	if robotCode == "" {
+		step.Status = "failed"
+		step.Error = "请先配置钉钉机器人编码"
+		return step
+	}
+	if strings.TrimSpace(recipientUserID) == "" {
+		step.Status = "failed"
+		step.Error = "钉钉通知接收人不能为空"
+		return step
+	}
+	msgParam, _ := json.Marshal(map[string]string{"content": "WeCheckin 钉钉通知诊断测试，请忽略。"})
+	body, _ := json.Marshal(map[string]interface{}{
+		"robotCode": robotCode,
+		"userIds":   []string{strings.TrimSpace(recipientUserID)},
+		"msgKey":    "sampleText",
+		"msgParam":  string(msgParam),
+	})
+	var payload struct {
+		Code            string `json:"code"`
+		Message         string `json:"message"`
+		ProcessQueryKey string `json:"processQueryKey"`
+	}
+	start := time.Now()
+	err := client.doDingTalkJSONContext(ctx, http.MethodPost, endpoint, body, strings.TrimSpace(accessToken), &payload)
+	step.DurationMs = time.Since(start).Milliseconds()
+	if err != nil {
+		step.Status = "failed"
+		step.Error = err.Error()
+		return step
+	}
+	step.Response = map[string]interface{}{
+		"code": payload.Code, "message": payload.Message, "processQueryKey": payload.ProcessQueryKey,
+	}
+	if strings.TrimSpace(payload.Code) != "" {
+		step.Status = "failed"
+		step.Error = "发送钉钉机器人通知失败：" + strings.TrimSpace(payload.Message)
+		return step
+	}
+	step.Status = "success"
+	return step
+}
+
 func dingTalkH5NotificationDiagnosisConclusion(result DingTalkH5NotificationDiagnosis) string {
 	if result.Success {
+		if strings.EqualFold(result.NotifyMode, "robot") {
+			return "新版机器人通知链路可用：access_token 获取成功，机器人单聊通知发送成功。"
+		}
+		if len(result.Steps) > 0 && result.Steps[len(result.Steps)-1].Name == "发送新版机器人单聊通知" {
+			return "旧版 AgentId 通道不可用，已通过新版机器人通道发送成功。"
+		}
 		return "旧版工作通知链路可用：access_token 获取成功，asyncsend_v2 发送成功。"
 	}
 	for _, step := range result.Steps {

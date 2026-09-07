@@ -3,6 +3,7 @@ package dingtalk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -20,7 +21,10 @@ const (
 	defaultDingTalkH5RedisPrefix = "dingtalk_h5_token:"
 	defaultDingTalkH5AppName     = "OA管理"
 	defaultDingTalkH5LogoText    = "OA"
+	dingTalkCorpH5URLRequired    = "启用的企业应用必须配置 H5 应用地址"
 )
+
+var errDingTalkCorpH5URLRequired = errors.New(dingTalkCorpH5URLRequired)
 
 type AdminDingTalkHandler struct {
 	service *admindingtalkservice.Service
@@ -129,12 +133,10 @@ func (h *AdminDingTalkHandler) SaveSettings(ctx context.Context, c *app.RequestC
 			logoText = defaultDingTalkH5LogoText
 		}
 		logoURL := strings.TrimSpace(c.PostForm("logoUrl"))
-		appURL := strings.TrimSpace(c.PostForm("appUrl"))
 		setupItems = append(setupItems,
 			setupservice.SetupItem{Key: "DINGTALK_H5_APP_NAME", Value: appName, Type: "string"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_LOGO_TEXT", Value: logoText, Type: "string"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_LOGO_URL", Value: logoURL, Type: "string"},
-			setupservice.SetupItem{Key: "DINGTALK_H5_APP_URL", Value: appURL, Type: "string"},
 		)
 	}
 
@@ -144,6 +146,7 @@ func (h *AdminDingTalkHandler) SaveSettings(ctx context.Context, c *app.RequestC
 		appSecret := strings.TrimSpace(c.PostForm("appSecret"))
 		agentID := strings.TrimSpace(c.PostForm("agentId"))
 		unifiedAppID := strings.TrimSpace(c.PostForm("unifiedAppId"))
+		appURL := strings.TrimSpace(c.PostForm("appUrl"))
 		notifyMode := strings.TrimSpace(c.PostForm("notifyMode"))
 		robotCode := strings.TrimSpace(c.PostForm("robotCode"))
 		notifyEnabled := switchPostFormInt(c.PostForm("notifyEnabled"))
@@ -161,11 +164,16 @@ func (h *AdminDingTalkHandler) SaveSettings(ctx context.Context, c *app.RequestC
 				AppSecret:     appSecret,
 				AgentID:       agentID,
 				UnifiedAppID:  unifiedAppID,
+				AppURL:        appURL,
 				NotifyEnabled: notifyEnabled,
 				NotifyMode:    notifyMode,
 				RobotCode:     robotCode,
 				Enabled:       1,
 			}}
+		}
+		if err := validateDingTalkCorpConfigs(corpConfigs); err != nil {
+			response.Fail(c, dingTalkCorpH5URLRequired)
+			return
 		}
 		if len(corpConfigs) > 0 {
 			if corpID == "" {
@@ -307,6 +315,16 @@ func parseDingTalkCorpConfigInputs(raw string) ([]dingtalkh5service.DingTalkH5Co
 		})
 	}
 	return configs, nil
+}
+
+func validateDingTalkCorpConfigs(configs []dingtalkh5service.DingTalkH5CorpConfig) error {
+	for _, config := range configs {
+		if config.Enabled != 1 || strings.TrimSpace(config.AppURL) != "" {
+			continue
+		}
+		return errDingTalkCorpH5URLRequired
+	}
+	return nil
 }
 
 func adminDingTalkCorpConfigResponses(configs []dingtalkh5service.DingTalkH5CorpConfig) []admindingtalkservice.CorpConfigResponse {

@@ -38,6 +38,7 @@ import WorkflowRuntimeForm from './WorkflowRuntimeForm.vue'
 import WorkflowTextarea from './WorkflowTextarea.vue'
 
 type WorkflowDetailSection = 'form' | 'history' | 'graph'
+type WorkflowSubmittingAction = 'approve' | 'submit' | 'reject' | 'return' | 'withdraw' | 'modify' | 'delete'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -74,6 +75,7 @@ const auth = useDingtalkAuthStore()
 const appContent = useAppContentStore()
 const loading = ref(false)
 const submitting = ref(false)
+const submittingAction = ref<WorkflowSubmittingAction | ''>('')
 const commentSubmitting = ref(false)
 const reminderSubmittingNodeId = ref('')
 const detail = ref<WorkflowInstanceDetail | null>(null)
@@ -217,8 +219,22 @@ const definition = computed(() => {
 })
 
 const title = computed(() => {
-  return props.displayTitle || definition.value?.name || detail.value?.instance.definitionKey || '流程详情'
+  return String(detail.value?.instance.instanceTitle || '').trim()
+    || props.displayTitle
+    || definition.value?.name
+    || detail.value?.instance.definitionName
+    || detail.value?.instance.definitionKey
+    || '流程详情'
 })
+
+const workflowName = computed(() => (
+  definition.value?.name
+  || String(detail.value?.instance.definitionName || '').trim()
+  || detail.value?.instance.definitionKey
+  || '流程审批'
+))
+
+const businessPeriodLabel = computed(() => String(detail.value?.instance.businessPeriodLabel || '').trim())
 
 const currentUserId = computed(() => String(auth.user?.workflowActorId || auth.user?.id || ''))
 
@@ -234,6 +250,7 @@ const activeNodeType = computed(() => {
   const task = activeTask.value
   return task ? detail.value?.nodeTypes?.[task.nodeId] || 'approval' : ''
 })
+const primaryTaskAction = computed<'approve' | 'submit'>(() => activeNodeType.value === 'handle' ? 'submit' : 'approve')
 
 const canHandle = computed(() => {
   return Boolean(
@@ -642,6 +659,16 @@ function resolveActionConfirmation(confirmed: boolean) {
   resolve?.(confirmed)
 }
 
+function beginSubmission(action: WorkflowSubmittingAction) {
+  submittingAction.value = action
+  submitting.value = true
+}
+
+function finishSubmission() {
+  submitting.value = false
+  submittingAction.value = ''
+}
+
 async function submitTask(action: 'approve' | 'submit') {
   const task = activeTask.value
   const current = detail.value
@@ -659,7 +686,7 @@ async function submitTask(action: 'approve' | 'submit') {
   if (!await confirmAction(`${label}流程`, `确认执行“${label}”操作吗？`))
     return
 
-  submitting.value = true
+  beginSubmission(action)
   try {
     const response = await completeWorkflowTask(task.id, {
       action,
@@ -677,7 +704,7 @@ async function submitTask(action: 'approve' | 'submit') {
     uni.showToast({ title: `${label}失败`, icon: 'none' })
   }
   finally {
-    submitting.value = false
+    finishSubmission()
   }
 }
 
@@ -713,7 +740,7 @@ async function submitReject() {
     return
   }
 
-  submitting.value = true
+  beginSubmission('reject')
   try {
     const response = await completeWorkflowTask(task.id, {
       action: 'reject',
@@ -734,7 +761,7 @@ async function submitReject() {
     uni.showToast({ title: '驳回失败', icon: 'none' })
   }
   finally {
-    submitting.value = false
+    finishSubmission()
   }
 }
 
@@ -776,7 +803,7 @@ async function submitReturn() {
     return
   }
 
-  submitting.value = true
+  beginSubmission('return')
   try {
     const response = await completeWorkflowTask(task.id, {
       action: 'return',
@@ -799,7 +826,7 @@ async function submitReturn() {
     uni.showToast({ title: '退回失败', icon: 'none' })
   }
   finally {
-    submitting.value = false
+    finishSubmission()
   }
 }
 
@@ -808,7 +835,7 @@ async function withdraw() {
     return
   if (!await confirmAction('撤回申请', '撤回后流程将停止，确认继续吗？'))
     return
-  submitting.value = true
+  beginSubmission('withdraw')
   applicationAction.value = 'withdraw'
   try {
     const response = await withdrawWorkflowInstance(props.instanceId, '发起人主动撤回')
@@ -823,7 +850,7 @@ async function withdraw() {
     uni.showToast({ title: '撤回失败', icon: 'none' })
   }
   finally {
-    submitting.value = false
+    finishSubmission()
     applicationAction.value = ''
   }
 }
@@ -912,7 +939,7 @@ async function modifyApplication() {
   if (!await confirmAction(actionTitle, content))
     return
 
-  submitting.value = true
+  beginSubmission('modify')
   applicationAction.value = 'modify'
   try {
     if (running) {
@@ -941,7 +968,7 @@ async function modifyApplication() {
     uni.showToast({ title: running ? '撤销并复制申请失败' : '复制申请失败', icon: 'none' })
   }
   finally {
-    submitting.value = false
+    finishSubmission()
     applicationAction.value = ''
   }
 }
@@ -955,7 +982,7 @@ function openFormRevision() {
     return
   appContent.openDynamicTab({
     key,
-    label: `修改 · ${current.instance.definitionName || title.value}`,
+    label: `修改 · ${current.instance.instanceTitle || current.instance.definitionName || title.value}`,
     icon: 'edit-pen',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
@@ -971,7 +998,7 @@ function openFormDetail() {
     return
   appContent.openDynamicTab({
     key,
-    label: `表单 · ${current.instance.definitionName || title.value}`,
+    label: `表单 · ${current.instance.instanceTitle || current.instance.definitionName || title.value}`,
     icon: 'file-text',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
@@ -992,7 +1019,7 @@ async function deleteApplication() {
   if (!await confirmAction('删除申请', '删除后将不再出现在“我的申请”中，后台审计记录仍会保留。确认删除吗？'))
     return
 
-  submitting.value = true
+  beginSubmission('delete')
   applicationAction.value = 'delete'
   try {
     await deleteWorkflowInstance(props.instanceId)
@@ -1004,7 +1031,7 @@ async function deleteApplication() {
     uni.showToast({ title: workflowRequestErrorMessage(error, '申请删除失败'), icon: 'none' })
   }
   finally {
-    submitting.value = false
+    finishSubmission()
     applicationAction.value = ''
   }
 }
@@ -1053,7 +1080,11 @@ async function deleteApplication() {
             v-if="historyPresentation && detail"
             class="workflow-detail-panel__subtitle workflow-detail-panel__subtitle--business"
           >
-            业务编号：{{ detail.instance.businessKey || '-' }}
+            流程名称：{{ workflowName }}
+            <template v-if="businessPeriodLabel">
+              · 业务期间：{{ businessPeriodLabel }}
+            </template>
+            · 业务编号：{{ detail.instance.businessKey || '-' }}
           </text>
           <text v-else-if="detail" class="workflow-detail-panel__subtitle">
             {{ detail.instance.id }} · 发起于 {{ formatTime(detail.instance.startTime) }}
@@ -1105,6 +1136,18 @@ async function deleteApplication() {
               业务编号
             </text>
             <text>{{ detail.instance.businessKey }}</text>
+          </view>
+          <view>
+            <text class="workflow-detail-panel__summary-label">
+              流程名称
+            </text>
+            <text>{{ workflowName }}</text>
+          </view>
+          <view v-if="businessPeriodLabel">
+            <text class="workflow-detail-panel__summary-label">
+              业务期间
+            </text>
+            <text>{{ businessPeriodLabel }}</text>
           </view>
           <view v-if="activeTask">
             <text class="workflow-detail-panel__summary-label">
@@ -1358,7 +1401,7 @@ async function deleteApplication() {
                       {{ title }}
                     </text>
                     <text class="workflow-detail-panel__page-meta">
-                      {{ activeTask?.nodeName || '流程处理' }} · 版本 {{ detail.instance.definitionVersion }} · 发起人 {{ detail.instance.starterName || '未知用户' }}
+                      {{ activeTask?.nodeName || '流程处理' }} · 流程名称：{{ workflowName }} · 版本 {{ detail.instance.definitionVersion }} · 发起人 {{ detail.instance.starterName || '未知用户' }}<template v-if="businessPeriodLabel"> · 业务期间：{{ businessPeriodLabel }}</template>
                     </text>
                   </view>
                   <u-tag
@@ -1495,7 +1538,8 @@ async function deleteApplication() {
               custom-class="workflow-detail-panel__action"
               type="error"
               plain
-              :loading="submitting"
+              :loading="submittingAction === 'withdraw'"
+              :disabled="submitting && submittingAction !== 'withdraw'"
               @click="withdraw"
             >
               撤回申请
@@ -1506,7 +1550,8 @@ async function deleteApplication() {
                 custom-class="workflow-detail-panel__action"
                 type="warning"
                 plain
-                :loading="submitting"
+                :loading="submittingAction === 'return'"
+                :disabled="submitting && submittingAction !== 'return'"
                 @click="openReturn"
               >
                 退回
@@ -1516,7 +1561,8 @@ async function deleteApplication() {
                 custom-class="workflow-detail-panel__action"
                 type="error"
                 plain
-                :loading="submitting"
+                :loading="submittingAction === 'reject'"
+                :disabled="submitting && submittingAction !== 'reject'"
                 @click="openReject"
               >
                 驳回
@@ -1524,8 +1570,9 @@ async function deleteApplication() {
               <u-button
                 custom-class="workflow-detail-panel__action workflow-detail-panel__action--primary"
                 type="primary"
-                :loading="submitting"
-                @click="submitTask(activeNodeType === 'handle' ? 'submit' : 'approve')"
+                :loading="submittingAction === primaryTaskAction"
+                :disabled="submitting && submittingAction !== primaryTaskAction"
+                @click="submitTask(primaryTaskAction)"
               >
                 {{ activeNodeType === 'handle' ? '提交办理' : '同意' }}
               </u-button>
@@ -1621,7 +1668,7 @@ async function deleteApplication() {
         <u-button plain :disabled="submitting || returnUploading" @click="closeReturn">
           取消
         </u-button>
-        <u-button type="warning" :loading="submitting" :disabled="returnUploading" @click="submitReturn">
+        <u-button type="warning" :loading="submittingAction === 'return'" :disabled="returnUploading" @click="submitReturn">
           确认退回
         </u-button>
       </view>
@@ -1680,7 +1727,7 @@ async function deleteApplication() {
         <u-button plain :disabled="submitting || rejectUploading" @click="closeReject">
           取消
         </u-button>
-        <u-button type="error" :loading="submitting" :disabled="rejectUploading" @click="submitReject">
+        <u-button type="error" :loading="submittingAction === 'reject'" :disabled="rejectUploading" @click="submitReject">
           确认驳回
         </u-button>
       </view>

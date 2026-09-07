@@ -21,7 +21,7 @@ import {
   resolveFeedbackListPage,
 } from './feedback-center-state'
 import FeedbackList from './FeedbackList.vue'
-import FeedbackStatusOverview from './FeedbackStatusOverview.vue'
+// import FeedbackStatusOverview from './FeedbackStatusOverview.vue'
 
 type FeedbackStatusFilter = UserFeedbackStatus | ''
 
@@ -158,7 +158,7 @@ function resetFilters() {
 function selectFilterStatus(status: FeedbackStatusFilter) {
   filters.status = status
 }
-
+/*
 function selectStatus(status: UserFeedbackStatus) {
   filters.status = status
   appliedFilters.status = status
@@ -166,7 +166,7 @@ function selectStatus(status: UserFeedbackStatus) {
   page.value = 1
   void Promise.all([loadOverview(), loadFeedbacks()])
 }
-
+*/
 function changePage(nextPage: number) {
   page.value = Math.max(1, Number(nextPage || 1))
   void loadFeedbacks()
@@ -236,14 +236,14 @@ onBeforeUnmount(() => {
       </view>
     </view>
 
-    <FeedbackStatusOverview
+    <!-- <FeedbackStatusOverview
       :active-status="appliedFilters.status"
       :error="overviewError"
       :loading="overviewLoading"
       :overview="overview"
       @retry="loadOverview"
       @select="selectStatus"
-    />
+    /> -->
 
     <view class="app-filter-bar feedback-center__filters">
       <view class="app-filter-field feedback-center__keyword-field">

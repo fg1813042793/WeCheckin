@@ -21,6 +21,7 @@ type PublishedDefinition struct {
 	ID                 uint                                      `json:"id"`
 	Key                string                                    `json:"key"`
 	Name               string                                    `json:"name"`
+	DisplayName        string                                    `json:"displayName"`
 	Description        string                                    `json:"description"`
 	Category           string                                    `json:"category"`
 	LogoURL            string                                    `json:"logoUrl"`
@@ -33,6 +34,7 @@ type PublishedDefinition struct {
 	AvailabilityStatus string                                    `json:"availabilityStatus"`
 	StartLimit         workflowcore.StartLimitConfig             `json:"startLimit"`
 	StartLimitStatus   StartLimitStatus                          `json:"startLimitStatus"`
+	InstanceIdentity   *workflowcore.InstanceIdentityConfig      `json:"instanceIdentity,omitempty"`
 	Nodes              []PublishedNode                           `json:"nodes,omitempty"`
 	Edges              []PublishedEdge                           `json:"edges,omitempty"`
 }
@@ -79,6 +81,8 @@ type InstanceQuery struct {
 	DefinitionID       uint
 	DefinitionVersion  int
 	DefinitionName     string
+	InstanceTitle      string
+	BusinessPeriodKey  string
 	DefinitionCategory string
 	StarterName        string
 	Status             string
@@ -114,6 +118,8 @@ type NotificationPayload struct {
 	Content         string `json:"content"`
 	MessageType     string `json:"messageType,omitempty"`
 	WorkflowName    string `json:"workflowName"`
+	InstanceTitle   string `json:"instanceTitle"`
+	BusinessPeriod  string `json:"businessPeriod"`
 	NodeName        string `json:"nodeName"`
 	StarterID       string `json:"starterId"`
 	StarterName     string `json:"starterName"`
@@ -129,6 +135,7 @@ type TaskQuery struct {
 	Status             string
 	HideAdminDeleted   bool
 	DefinitionName     string
+	InstanceTitle      string
 	DefinitionCategory string
 	StarterName        string
 	StartTimeFrom      int64
@@ -143,6 +150,10 @@ type InstanceSummary struct {
 	DefinitionVersion    int      `json:"definitionVersion"`
 	DefinitionKey        string   `json:"definitionKey"`
 	DefinitionName       string   `json:"definitionName"`
+	InstanceTitle        string   `json:"instanceTitle"`
+	BusinessPeriodType   string   `json:"businessPeriodType"`
+	BusinessPeriodKey    string   `json:"businessPeriodKey"`
+	BusinessPeriodLabel  string   `json:"businessPeriodLabel"`
 	BusinessType         string   `json:"businessType"`
 	BusinessKey          string   `json:"businessKey"`
 	StarterID            string   `json:"starterId"`

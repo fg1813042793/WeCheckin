@@ -36,6 +36,7 @@ var (
 type NotificationRecord struct {
 	ID                string              `json:"id"`
 	InstanceID        string              `json:"instanceId"`
+	BusinessKey       string              `json:"businessKey"`
 	NodeID            string              `json:"nodeId"`
 	TaskID            string              `json:"taskId"`
 	RecipientUserID   string              `json:"recipientUserId"`
@@ -79,6 +80,7 @@ type NotificationRepository interface {
 	MarkSent(ctx context.Context, id, providerMessageID string, now int64) error
 	MarkFailed(ctx context.Context, id string, attempts int, status string, nextRetryAt int64, message string, now int64) error
 	ResetForRetry(ctx context.Context, id string, now int64) error
+	ResetForSend(ctx context.Context, id string, now int64) error
 }
 
 type NotificationDeliveryResult struct {
@@ -97,6 +99,7 @@ type NotificationDispatcher interface {
 	Dispatch(ctx context.Context, ids []string) (int, error)
 	DispatchDue(ctx context.Context, limit int) (int, error)
 	Retry(ctx context.Context, id string) error
+	Send(ctx context.Context, id string) error
 }
 
 type notificationLogger interface {
@@ -179,6 +182,20 @@ func (dispatcher *notificationDispatcher) Retry(ctx context.Context, id string) 
 		return err
 	}
 	dispatcher.logf("[WorkflowNotification] retry_requested notificationId=%s", id)
+	_, err := dispatcher.Dispatch(ctx, []string{id})
+	return err
+}
+
+func (dispatcher *notificationDispatcher) Send(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return errors.New("通知 ID 不能为空")
+	}
+	if err := dispatcher.repository.ResetForSend(ctx, id, dispatcher.now().UnixMilli()); err != nil {
+		dispatcher.logf("[WorkflowNotification] manual_send_reset_failed notificationId=%s err=%s", id, notificationLogError(err))
+		return err
+	}
+	dispatcher.logf("[WorkflowNotification] manual_send_requested notificationId=%s", id)
 	_, err := dispatcher.Dispatch(ctx, []string{id})
 	return err
 }

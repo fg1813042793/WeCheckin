@@ -89,17 +89,22 @@ const (
 )
 
 type ProcessInstance struct {
-	ID                string
-	DefinitionID      uint
-	DefinitionVersion int
-	DefinitionKey     string
-	BusinessType      string
-	BusinessKey       string
-	StarterID         string
-	OperatorID        string
-	Status            InstanceStatus
-	StartTime         int64
-	FormRevision      int64
+	ID                  string
+	DefinitionID        uint
+	DefinitionVersion   int
+	DefinitionKey       string
+	DefinitionName      string
+	Title               string
+	BusinessPeriodType  string
+	BusinessPeriodKey   string
+	BusinessPeriodLabel string
+	BusinessType        string
+	BusinessKey         string
+	StarterID           string
+	OperatorID          string
+	Status              InstanceStatus
+	StartTime           int64
+	FormRevision        int64
 }
 
 type Token struct {
@@ -185,15 +190,19 @@ func (state *State) PendingTasks() []Task {
 }
 
 type StartRequest struct {
-	DefinitionID      uint
-	DefinitionVersion int
-	BusinessType      string
-	BusinessKey       string
-	StarterID         string
-	OperatorID        string
-	StartTime         int64
-	Variables         map[string]interface{}
-	FormData          map[string]interface{}
+	DefinitionID        uint
+	DefinitionVersion   int
+	Title               string
+	BusinessPeriodType  string
+	BusinessPeriodKey   string
+	BusinessPeriodLabel string
+	BusinessType        string
+	BusinessKey         string
+	StarterID           string
+	OperatorID          string
+	StartTime           int64
+	Variables           map[string]interface{}
+	FormData            map[string]interface{}
 }
 
 type CompleteRequest struct {

@@ -116,6 +116,9 @@ func stateFromModels(
 		Instance: workflowdomain.ProcessInstance{
 			ID: instance.ID, DefinitionID: instance.DefinitionID,
 			DefinitionVersion: instance.DefinitionVersion, DefinitionKey: instance.DefinitionKey,
+			DefinitionName: instance.DefinitionNameSnapshot,
+			Title:          instance.Title, BusinessPeriodType: instance.BusinessPeriodType,
+			BusinessPeriodKey: instance.BusinessPeriodKey, BusinessPeriodLabel: instance.BusinessPeriodLabel,
 			BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
 			StarterID: instance.StarterID, OperatorID: instance.OperatorID,
 			Status: workflowdomain.InstanceStatus(instance.Status), StartTime: instance.StartTime,

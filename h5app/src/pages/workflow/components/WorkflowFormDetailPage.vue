@@ -27,7 +27,8 @@ const loadError = ref('')
 
 const instanceId = computed(() => workflowFormDetailInstanceIdFromContentKey(props.contentKey))
 const title = computed(() => (
-  detail.value?.instance.definitionName
+  detail.value?.instance.instanceTitle
+  || detail.value?.instance.definitionName
   || appContent.dynamicTab(props.contentKey)?.label
   || '表单详情'
 ))
@@ -75,7 +76,7 @@ async function loadDetail() {
           {{ title }}
         </text>
         <text v-if="detail" class="workflow-form-detail-page__meta">
-          业务编号：{{ detail.instance.businessKey || '-' }} · 发起人：{{ detail.instance.starterName || '未知用户' }}
+          流程名称：{{ detail.instance.definitionName || detail.instance.definitionKey || '-' }}<template v-if="detail.instance.businessPeriodLabel"> · 业务期间：{{ detail.instance.businessPeriodLabel }}</template> · 业务编号：{{ detail.instance.businessKey || '-' }} · 发起人：{{ detail.instance.starterName || '未知用户' }}
         </text>
       </view>
       <u-tag

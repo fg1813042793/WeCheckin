@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/config"
 )
 
 func TestDingTalkSettingsExposeSSOConfigWithoutSecret(t *testing.T) {
@@ -72,7 +74,7 @@ func TestDingTalkSettingsExposeMultiCorpConfigsWithoutRawSecrets(t *testing.T) {
 	}
 }
 
-func TestDingTalkSettingsExposeH5BrandConfig(t *testing.T) {
+func TestDingTalkSettingsExposeH5BrandConfigWithoutEditableGlobalURL(t *testing.T) {
 	src, err := os.ReadFile("handler.go")
 	if err != nil {
 		t.Fatalf("read handler.go: %v", err)
@@ -90,20 +92,32 @@ func TestDingTalkSettingsExposeH5BrandConfig(t *testing.T) {
 		"DINGTALK_H5_APP_NAME",
 		"DINGTALK_H5_LOGO_TEXT",
 		"DINGTALK_H5_LOGO_URL",
-		"DINGTALK_H5_APP_URL",
 		`json:"appName"`,
 		`json:"logoText"`,
 		`json:"logoUrl"`,
-		`json:"appUrl"`,
 		`<el-tabs v-model="activeTab"`,
 		`<el-tab-pane label="配置" name="app">`,
 		`form.appName`,
 		`form.logoText`,
 		`form.logoUrl`,
-		`form.appUrl`,
 	} {
 		if !strings.Contains(combined, want) {
 			t.Fatalf("dingtalk settings should expose configurable H5 branding with %q", want)
+		}
+	}
+	viewText := string(viewSrc)
+	appStart := strings.Index(viewText, `<el-tab-pane label="配置" name="app">`)
+	if appStart < 0 {
+		t.Fatalf("dingtalk setup app tab not found")
+	}
+	appEnd := strings.Index(viewText[appStart:], `</el-tab-pane>`)
+	if appEnd < 0 {
+		t.Fatalf("dingtalk setup app tab end not found")
+	}
+	appPane := viewText[appStart : appStart+appEnd]
+	for _, forbidden := range []string{`label="H5 应用地址"`, `form.appUrl`} {
+		if strings.Contains(appPane, forbidden) {
+			t.Fatalf("global app config must not expose an editable H5 URL with %q", forbidden)
 		}
 	}
 }
@@ -225,7 +239,7 @@ func TestDingTalkSettingsEnterpriseAppCarriesNotificationJumpURL(t *testing.T) {
 		`corpConfig.appUrl`,
 		`appUrl: item.appUrl.trim()`,
 		`H5 应用地址`,
-		`通知点击时优先打开该企业应用地址`,
+		`例如 https://.../?corpId=...`,
 	} {
 		if !strings.Contains(combined, want) {
 			t.Fatalf("enterprise app config should carry notification jump URL with %q", want)
@@ -280,6 +294,14 @@ func TestDingTalkSettingsSaveOnlyPersistsActiveTabScope(t *testing.T) {
 		{Key: "TOKEN_DINGTALK_H5_EXPIRE"`) {
 		t.Fatalf("dingtalk settings save should not build one unconditional setup payload for all tabs")
 	}
+	appScopeStart := strings.Index(handlerText, `if dingTalkSettingsSaveScopeIncludes(saveScope, "app") {`)
+	corpScopeStart := strings.Index(handlerText, `if dingTalkSettingsSaveScopeIncludes(saveScope, "corp") {`)
+	if appScopeStart < 0 || corpScopeStart < 0 || corpScopeStart <= appScopeStart {
+		t.Fatalf("dingtalk settings handler should define app scope before corp scope")
+	}
+	if strings.Contains(handlerText[appScopeStart:corpScopeStart], "DINGTALK_H5_APP_URL") {
+		t.Fatalf("app brand settings must not overwrite the enterprise H5 URL compatibility key")
+	}
 
 	for _, want := range []string{
 		`function buildSettingsPayload()`,
@@ -311,8 +333,46 @@ func TestDingTalkSettingsSaveOnlyPersistsActiveTabScope(t *testing.T) {
 	if strings.Contains(appPayload, "notifyEnabled") {
 		t.Fatalf("app brand settings payload should not include notifyEnabled")
 	}
-	if !strings.Contains(appPayload, "appUrl: form.appUrl.trim()") {
-		t.Fatalf("app settings payload should include H5 operation URL")
+	if strings.Contains(appPayload, "appUrl") {
+		t.Fatalf("app brand settings payload should not include the enterprise H5 operation URL")
+	}
+}
+
+func TestValidateDingTalkCorpConfigsRequiresURLForEnabledApps(t *testing.T) {
+	tests := []struct {
+		name    string
+		configs []dingtalkh5service.DingTalkH5CorpConfig
+		wantErr bool
+	}{
+		{name: "empty list may clear all enterprise apps"},
+		{
+			name: "enabled enterprise requires H5 URL",
+			configs: []dingtalkh5service.DingTalkH5CorpConfig{{
+				CorpID: "ding-enabled", Enabled: 1,
+			}},
+			wantErr: true,
+		},
+		{
+			name: "disabled enterprise may omit H5 URL",
+			configs: []dingtalkh5service.DingTalkH5CorpConfig{{
+				CorpID: "ding-disabled", Enabled: 0,
+			}},
+		},
+		{
+			name: "enabled enterprise accepts H5 URL",
+			configs: []dingtalkh5service.DingTalkH5CorpConfig{{
+				CorpID: "ding-enabled", AppURL: "https://oa.example.com/?corpId=ding-enabled", Enabled: 1,
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateDingTalkCorpConfigs(tt.configs)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateDingTalkCorpConfigs() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

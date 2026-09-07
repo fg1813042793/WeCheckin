@@ -236,6 +236,7 @@ func (resolver *gormDingTalkNotificationResolver) Resolve(ctx context.Context, n
 		configs[strings.TrimSpace(config.CorpID)] = config
 	}
 
+	// 接收人存在多个企业绑定时，优先选择与发起人共有的企业，避免跨企业应用投递。
 	starterCorpIDs := make([]string, 0)
 	if strings.TrimSpace(notification.CorpID) == "" {
 		if starterID, parseErr := parseNotificationUserID(notification.Payload.StarterID); parseErr == nil {

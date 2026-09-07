@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"sort"
 	"strings"
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/appapiperm"
@@ -200,53 +201,59 @@ func scopeValueByKey(key, value string) map[string]string {
 }
 
 func normalizeRoleApplicationMenuKeys(clientMenuKeys, dingtalkH5MenuKeys []string) []string {
-	selected := map[string]bool{}
-	for _, key := range normalizePermissionKeys(clientMenuKeys) {
-		if strings.HasPrefix(key, "client:menu:") {
-			selected[key] = true
-		}
-	}
+	result := make([]string, 0, len(clientMenuKeys)+len(dingtalkH5MenuKeys))
+	seen := make(map[string]bool, cap(result))
+	result = appendPermissionKeysWithPrefixes(result, seen, clientMenuKeys, "client:menu:")
 	for _, key := range normalizePermissionKeys(dingtalkH5MenuKeys) {
-		if strings.HasPrefix(key, "dingtalk_h5:menu:") {
-			selected[key] = true
+		if !strings.HasPrefix(key, "dingtalk_h5:menu:") && !strings.HasPrefix(key, "dingtalk_h5:button:") {
+			continue
 		}
-		if strings.HasPrefix(key, "dingtalk_h5:button:") {
-			selected[key] = true
+		if strings.HasPrefix(key, "dingtalk_h5:menu:performance:") && !seen["dingtalk_h5:menu:performance"] {
+			seen["dingtalk_h5:menu:performance"] = true
+			result = append(result, "dingtalk_h5:menu:performance")
 		}
-		if strings.HasPrefix(key, "dingtalk_h5:menu:performance:") {
-			selected["dingtalk_h5:menu:performance"] = true
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, key)
 		}
 	}
-	keys := orderedApplicationMenuKeys(selected, appmenuperm.ClientMenuDeclarations())
-	keys = append(keys, orderedApplicationMenuKeys(selected, appmenuperm.DingTalkH5PermissionDeclarations())...)
-	return keys
+	return result
+}
+
+func normalizeRoleApplicationAPIKeys(clientAPIPermissionKeys, dingtalkH5APIPermissionKeys []string) []string {
+	result := make([]string, 0, len(clientAPIPermissionKeys)+len(dingtalkH5APIPermissionKeys))
+	seen := make(map[string]bool, cap(result))
+	result = appendPermissionKeysWithPrefixes(result, seen, clientAPIPermissionKeys, "client:api:")
+	return appendPermissionKeysWithPrefixes(result, seen, dingtalkH5APIPermissionKeys, "dingtalk_h5:api:")
+}
+
+func appendPermissionKeysWithPrefixes(result []string, seen map[string]bool, keys []string, prefixes ...string) []string {
+	for _, key := range normalizePermissionKeys(keys) {
+		matched := false
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(key, prefix) {
+				matched = true
+				break
+			}
+		}
+		if matched && !seen[key] {
+			seen[key] = true
+			result = append(result, key)
+		}
+	}
+	return result
 }
 
 func orderedApplicationMenuKeys(selected map[string]bool, declarations []appmenuperm.Declaration) []string {
 	keys := make([]string, 0, len(declarations))
+	declared := make(map[string]bool, len(declarations))
 	for _, declaration := range declarations {
+		declared[declaration.Key] = true
 		if selected[declaration.Key] {
 			keys = append(keys, declaration.Key)
 		}
 	}
-	return keys
-}
-
-func normalizeRoleApplicationAPIKeys(clientAPIPermissionKeys, dingtalkH5APIPermissionKeys []string) []string {
-	selected := map[string]bool{}
-	for _, key := range normalizePermissionKeys(clientAPIPermissionKeys) {
-		if strings.HasPrefix(key, "client:api:") {
-			selected[key] = true
-		}
-	}
-	for _, key := range normalizePermissionKeys(dingtalkH5APIPermissionKeys) {
-		if strings.HasPrefix(key, "dingtalk_h5:api:") {
-			selected[key] = true
-		}
-	}
-	keys := orderedApplicationAPIKeys(selected, appapiperm.ClientAPIDeclarations())
-	keys = append(keys, orderedApplicationAPIKeys(selected, appapiperm.DingTalkH5APIDeclarations())...)
-	return keys
+	return appendCustomPermissionKeys(keys, selected, declared)
 }
 
 func normalizeUserApplicationPermissionKeys(keys []string) []string {
@@ -289,10 +296,23 @@ func normalizeUserApplicationPermissionKeySets(allowKeys, denyKeys []string) ([]
 
 func orderedApplicationAPIKeys(selected map[string]bool, declarations []appapiperm.Declaration) []string {
 	keys := make([]string, 0, len(declarations))
+	declared := make(map[string]bool, len(declarations))
 	for _, declaration := range declarations {
+		declared[declaration.Key] = true
 		if selected[declaration.Key] {
 			keys = append(keys, declaration.Key)
 		}
 	}
-	return keys
+	return appendCustomPermissionKeys(keys, selected, declared)
+}
+
+func appendCustomPermissionKeys(keys []string, selected, declared map[string]bool) []string {
+	custom := make([]string, 0)
+	for key, checked := range selected {
+		if checked && !declared[key] {
+			custom = append(custom, key)
+		}
+	}
+	sort.Strings(custom)
+	return append(keys, custom...)
 }

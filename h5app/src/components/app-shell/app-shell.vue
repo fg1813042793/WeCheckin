@@ -69,6 +69,11 @@ let tabResizeObserver: ResizeObserver | null = null
 let notificationCountRequest = 0
 const sidebarCollapsed = computed(() => shell.sidebarCollapsed)
 const isTopMenuLayout = computed(() => !mobileShell.value && shell.menuLayout === 'top')
+const mobileExpandedNavItem = computed(() => {
+  if (!mobileShell.value)
+    return null
+  return props.navItems.find(item => hasChildren(item) && shell.isRootExpanded(item.key)) || null
+})
 const appShellClass = computed(() => ({
   'app-shell--mobile': mobileShell.value,
   'app-shell--sidebar-collapsed': sidebarCollapsed.value && !isTopMenuLayout.value,
@@ -1000,7 +1005,7 @@ onBeforeUnmount(() => {
             />
           </u-button>
 
-          <view v-if="isExpanded(item)" class="sidebar-nav__children">
+          <view v-if="!mobileShell && isExpanded(item)" class="sidebar-nav__children">
             <u-button
               v-for="child in item.children"
               :key="child.key"
@@ -1011,6 +1016,17 @@ onBeforeUnmount(() => {
             </u-button>
           </view>
         </view>
+      </view>
+
+      <view v-if="mobileExpandedNavItem" class="sidebar-nav__mobile-children" @click.stop>
+        <u-button
+          v-for="child in mobileExpandedNavItem.children"
+          :key="child.key"
+          :custom-class="childNavClass(child)"
+          @click.stop="navigateByKey(child.key)"
+        >
+          {{ child.label }}
+        </u-button>
       </view>
 
       <view class="sidebar-bottom">
@@ -1258,9 +1274,16 @@ onBeforeUnmount(() => {
   .sidebar-nav {
     position: relative;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   .sidebar-nav__group {
@@ -1271,22 +1294,31 @@ onBeforeUnmount(() => {
   .sidebar-nav__item,
   :deep(.sidebar-nav__item) {
     width: auto;
+    flex: 0 0 auto;
     padding: 0 12px;
     justify-content: flex-start;
+    white-space: nowrap;
   }
 
-  .sidebar-nav__children {
+  .sidebar-nav__label {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .sidebar-nav__mobile-children {
     position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
+    top: calc(100% - 4px);
+    right: 12px;
+    left: 12px;
     z-index: 560;
-    min-width: 148px;
+    max-height: min(280px, calc(100vh - 128px));
     margin: 0;
     padding: 6px;
     border: 1px solid #e5eaf3;
     border-radius: 6px;
     display: grid;
     gap: 2px;
+    overflow-y: auto;
     background: #fff;
     box-shadow: 0 12px 30px rgba(31, 35, 41, 0.14);
   }

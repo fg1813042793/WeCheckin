@@ -31,6 +31,18 @@ func TestWorkflowSearchRejectsLongDefinitionName(t *testing.T) {
 	}
 }
 
+func TestWorkflowSearchRejectsLongInstanceTitle(t *testing.T) {
+	service := &Service{store: &fakeStore{}}
+	keyword := strings.Repeat("单", 101)
+
+	if _, err := service.ListInstances(context.Background(), InstanceQuery{InstanceTitle: keyword}); !errors.Is(err, ErrInstanceTitleSearchTooLong) {
+		t.Fatalf("ListInstances error = %v, want %v", err, ErrInstanceTitleSearchTooLong)
+	}
+	if _, err := service.ListTasks(context.Background(), TaskQuery{InstanceTitle: keyword}); !errors.Is(err, ErrInstanceTitleSearchTooLong) {
+		t.Fatalf("ListTasks error = %v, want %v", err, ErrInstanceTitleSearchTooLong)
+	}
+}
+
 func TestListPublishedDefinitionCategoriesReturnsSortedUniqueValues(t *testing.T) {
 	service := &Service{store: &fakeStore{publishedDefinitions: []PublishedDefinition{
 		{Category: " hr "},

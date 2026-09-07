@@ -239,6 +239,38 @@ func (repository *GormNotificationRepository) ResetForRetry(ctx context.Context,
 	return nil
 }
 
+func (repository *GormNotificationRepository) ResetForSend(ctx context.Context, id string, now int64) error {
+	db, cancel, err := repository.contextDB(ctx)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+	return db.Transaction(func(tx *gorm.DB) error {
+		var row workflowmodel.NotificationOutbox
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", strings.TrimSpace(id)).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotificationNotFound
+			}
+			return err
+		}
+		if row.Status != workflowmodel.NotificationStatusPending &&
+			row.Status != workflowmodel.NotificationStatusFailed &&
+			row.Status != workflowmodel.NotificationStatusDead &&
+			row.Status != workflowmodel.NotificationStatusSent {
+			return fmt.Errorf("通知状态 %q 不可手动发送", row.Status)
+		}
+		return tx.Model(&workflowmodel.NotificationOutbox{}).Where("id = ?", row.ID).Updates(map[string]interface{}{
+			"notification_status": workflowmodel.NotificationStatusPending,
+			"provider_message_id": "",
+			"attempts":            0,
+			"next_retry_at":       now,
+			"last_error":          "",
+			"sent_at":             0,
+			"edit_time":           now,
+		}).Error
+	})
+}
+
 func (repository *GormNotificationRepository) updateClaimed(ctx context.Context, id string, updates map[string]interface{}) error {
 	db, cancel, err := repository.contextDB(ctx)
 	if err != nil {
@@ -280,7 +312,7 @@ func notificationRecordFromModel(row workflowmodel.NotificationOutbox) (applicat
 		return application.NotificationRecord{}, fmt.Errorf("解析通知 %s 负载失败: %w", row.ID, err)
 	}
 	return application.NotificationRecord{
-		ID: row.ID, InstanceID: row.InstanceID, NodeID: row.NodeID, TaskID: row.TaskID,
+		ID: row.ID, InstanceID: row.InstanceID, BusinessKey: row.BusinessKey, NodeID: row.NodeID, TaskID: row.TaskID,
 		RecipientUserID: row.RecipientUserID, Kind: row.Kind, Channel: row.Channel,
 		Status: row.Status, Payload: payload, CorpID: row.CorpID,
 		ProviderMessageID: row.ProviderMessageID, Attempts: row.Attempts,

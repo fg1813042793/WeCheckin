@@ -16,6 +16,8 @@ const requiredSnippets = [
   'function encodeFormBody',
   'data instanceof FormData',
   'headers.delete',
+  "config.headers.set('Cache-Control', 'no-cache')",
+  "config.headers.set('Pragma', 'no-cache')",
 ]
 
 for (const snippet of requiredSnippets) {

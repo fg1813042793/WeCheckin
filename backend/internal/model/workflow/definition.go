@@ -12,6 +12,7 @@ type Definition struct {
 	ID             uint      `json:"id" gorm:"primaryKey;comment:流程定义ID"`
 	Key            string    `json:"key" gorm:"size:100;column:definition_key;uniqueIndex;comment:流程编码"`
 	Name           string    `json:"name" gorm:"size:200;column:definition_name;index;comment:流程名称"`
+	DisplayName    string    `json:"displayName" gorm:"size:200;column:definition_display_name;comment:用户显示名称"`
 	Description    string    `json:"description" gorm:"size:500;column:definition_description;comment:流程说明"`
 	Category       string    `json:"category" gorm:"size:100;column:definition_category;index;comment:流程分类"`
 	LogoURL        string    `json:"logoUrl" gorm:"size:500;column:definition_logo_url;comment:流程Logo地址"`

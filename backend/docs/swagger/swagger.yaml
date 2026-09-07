@@ -8292,6 +8292,24 @@ paths:
       summary: 重试单条工作流通知
       tags:
       - API v2-后台管理-工作流
+  /api/v2/admin/workflow-notifications/{id}/send:
+    post:
+      parameters:
+      - description: 通知 Outbox ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 手动发送单条工作流通知
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/admin/workflow-notifications/dispatch-due:
     post:
       consumes:

@@ -103,6 +103,8 @@
 - `apiPermissionKeys`：当前用户可访问接口。
 - `permissionVersion`：权限版本，用于感知权限变化。
 
+后台新增并完成角色或用户授权的 `dingtalk_h5:button:*`、`dingtalk_h5:api:*` 权限，会追加到 bootstrap 对应权限数组中，不要求先加入后端内置声明。自定义 `dingtalk_h5:menu:*` 权限也会从数据库读取名称、父级、路径、图标和排序后进入 `menus`；但要在页面中真正显示并可跳转，其“路径”必须与 H5App 已注册的菜单 key 一致，H5App 也必须已有对应页面实现。
+
 菜单显示主要使用后端返回的 `menus`，如果只改菜单权限 key、不改菜单 `path`，H5 页面通常不用改路由逻辑。
 
 菜单图标也跟随 `menus[].icon` 返回。后端优先读取 `permissions.permission_icon`，没有配置时使用 `appmenuperm.DingTalkH5MenuDeclarations()` 里的默认图标。当前钉钉 H5 权威前端是 `h5app/`，图标解析和导航装配分别位于 `h5app/src/config/app-icons.ts` 和 `h5app/src/config/app-navigation.ts`；新增图标键时，需要同时更新后台可选项和这两处映射。

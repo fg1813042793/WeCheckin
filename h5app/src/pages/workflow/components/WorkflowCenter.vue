@@ -21,6 +21,7 @@ import {
   workflowStartContentKey,
   workflowTaskContentKey,
 } from '../workflow-route-keys'
+import { workflowStartRestrictionSummary } from '../workflow-start-restrictions'
 import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-status'
 import { workflowTaskTabTitle } from '../workflow-task'
 import WorkflowDetailPanel from './WorkflowDetailPanel.vue'
@@ -38,6 +39,7 @@ interface WorkflowPaginationChangePayload {
 }
 
 interface WorkflowRecordFilters extends WorkflowHistoryDateFilters {
+  instanceTitle: string
   definitionName: string
   definitionCategory: string
   starterName: string
@@ -110,6 +112,9 @@ const navigationTabs = computed(() => [
 ])
 
 const definitionMap = computed(() => new Map(definitions.value.map(item => [item.id, item])))
+const definitionRestrictionMap = computed(() => new Map(
+  definitions.value.map(definition => [definition.id, workflowStartRestrictionSummary(definition)]),
+))
 const activeListTab = computed<WorkflowListTab>(() => (
   activeTab.value === 'start' || activeTab.value === 'summary'
     ? 'pending'
@@ -135,6 +140,7 @@ const historyStatusOptions = [
 const applicationFilterCount = computed(() => {
   const filters = activeRecordFilters.value
   return [
+    filters.instanceTitle.trim(),
     filters.definitionName.trim(),
     filters.definitionCategory,
     filters.startDateFrom,
@@ -205,7 +211,8 @@ const showStarterColumn = computed(() => ['pending', 'handled', 'copied'].includ
 const showCurrentProgressColumns = computed(() => activeTab.value === 'started')
 
 const recordColumns = computed(() => [
-  { key: 'name', label: '流程名称', width: 'minmax(140px, 1.2fr)' },
+  { key: 'name', label: '单据标题', width: 'minmax(180px, 1.4fr)' },
+  { key: 'definitionName', label: '流程名称', width: 'minmax(130px, 1fr)', mobileHidden: true },
   { key: 'businessKey', label: '流程单号', width: 'minmax(180px, 1.35fr)', mobileHidden: true },
   ...(showStarterColumn.value
     ? [{ key: 'starterName', label: '发起人', width: 'minmax(100px, 0.8fr)', mobileHidden: true }]
@@ -237,7 +244,8 @@ const recordRows = computed(() => {
       return {
         id: task.id,
         cells: {
-          name: taskDefinitionName(task),
+          name: taskInstanceTitle(task),
+          definitionName: taskDefinitionName(task),
           businessKey: instance?.businessKey || task.instanceId,
           starterName: taskStarterDisplayName(task),
           context: task.nodeName || '-',
@@ -252,7 +260,8 @@ const recordRows = computed(() => {
   return instances.value.map(instance => ({
     id: instance.id,
     cells: {
-      name: definitionName(instance),
+      name: instanceDisplayTitle(instance),
+      definitionName: definitionName(instance),
       businessKey: instance.businessKey || '-',
       starterName: starterDisplayName(instance),
       context: definitionCategory(instance),
@@ -410,11 +419,13 @@ async function loadCurrentList() {
     const listTab = activeListTab.value
     const filters = activeAppliedRecordFilters.value
     const timeQuery = buildWorkflowHistoryTimeQuery(filters) || {}
+    const instanceTitle = filters.instanceTitle.trim() || undefined
     const definitionName = filters.definitionName.trim() || undefined
     const definitionCategory = filters.definitionCategory || undefined
     if (listTab === 'pending') {
       const response = await listWorkflowTasks({
         status: 'pending',
+        instanceTitle,
         definitionName,
         definitionCategory,
         starterName: filters.starterName.trim() || undefined,
@@ -431,6 +442,7 @@ async function loadCurrentList() {
     else {
       const response = await listWorkflowInstances({
         scope: listTab,
+        instanceTitle,
         definitionName,
         definitionCategory,
         starterName: listTab === 'handled' ? filters.starterName.trim() || undefined : undefined,
@@ -480,6 +492,7 @@ function switchTab(tab: WorkflowCenterTab) {
 
 function emptyRecordFilters(): WorkflowRecordFilters {
   return {
+    instanceTitle: '',
     definitionName: '',
     definitionCategory: '',
     starterName: '',
@@ -521,6 +534,11 @@ function openWorkflowStartTab(definition: WorkflowPublishedDefinition) {
     uni.showToast({ title: '无流程发起权限', icon: 'none' })
     return
   }
+  const restriction = definitionRestriction(definition)
+  if (!restriction.allowed) {
+    uni.showToast({ title: restriction.reason, icon: 'none' })
+    return
+  }
   const key = workflowStartContentKey(definition.id)
   appContent.openDynamicTab({
     key,
@@ -528,6 +546,11 @@ function openWorkflowStartTab(definition: WorkflowPublishedDefinition) {
     icon: 'file-text',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
+}
+
+function definitionRestriction(definition: WorkflowPublishedDefinition) {
+  return definitionRestrictionMap.value.get(definition.id)
+    || workflowStartRestrictionSummary(definition)
 }
 
 function definitionStartMeta(definition: WorkflowPublishedDefinition) {
@@ -567,7 +590,7 @@ function openWorkflowTaskTab(task: WorkflowTaskSummary) {
     return
   appContent.openDynamicTab({
     key,
-    label: workflowTaskTabTitle(taskStarterDisplayName(task), taskDefinitionName(task)),
+    label: taskInstanceTitle(task) || workflowTaskTabTitle(taskStarterDisplayName(task), taskDefinitionName(task)),
     icon: 'checkmark-circle',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
@@ -580,7 +603,7 @@ function openWorkflowInstanceTab(instanceId: string) {
   const instance = instances.value.find(item => item.id === instanceId)
   appContent.openDynamicTab({
     key,
-    label: instance ? definitionName(instance) : '流程详情',
+    label: instance ? instanceDisplayTitle(instance) : '流程详情',
     icon: 'eye',
     path: `/pages/index/index?view=${encodeURIComponent(key)}`,
   })
@@ -648,11 +671,21 @@ function handlePageChange(payload: WorkflowPaginationChangePayload) {
 function definitionName(instance?: WorkflowInstanceSummary) {
   if (!instance)
     return '流程审批'
-  return definitionMap.value.get(instance.definitionId)?.name || instance.definitionKey || '流程审批'
+  return definitionMap.value.get(instance.definitionId)?.name || String(instance.definitionName || '').trim() || instance.definitionKey || '流程审批'
+}
+
+function instanceDisplayTitle(instance?: WorkflowInstanceSummary) {
+  if (!instance)
+    return ''
+  return String(instance.instanceTitle || '').trim() || definitionName(instance)
 }
 
 function taskDefinitionName(task: WorkflowTaskSummary) {
   return String(task.definitionName || '').trim() || definitionName(taskInstances[task.instanceId])
+}
+
+function taskInstanceTitle(task: WorkflowTaskSummary) {
+  return instanceDisplayTitle(taskInstances[task.instanceId]) || taskDefinitionName(task)
 }
 
 function taskStarterDisplayName(task: WorkflowTaskSummary) {
@@ -795,7 +828,14 @@ function activeListTitle() {
                 v-for="(definition, index) in group.list"
                 :key="definition.id"
                 class="workflow-definition"
+                :class="{ 'is-disabled': !definitionRestriction(definition).allowed }"
+                role="button"
+                :tabindex="0"
+                :aria-disabled="!definitionRestriction(definition).allowed"
+                :aria-describedby="`workflow-definition-restriction-${definition.id}`"
                 @click="openWorkflowStartTab(definition)"
+                @keydown.enter.prevent="openWorkflowStartTab(definition)"
+                @keydown.space.prevent="openWorkflowStartTab(definition)"
               >
                 <view class="workflow-definition__icon" :class="`tone-${index % 5}`">
                   <image
@@ -817,6 +857,37 @@ function activeListTitle() {
                   </text>
                 </view>
                 <u-icon name="arrow-right" size="14px" color="#c3cad4" />
+                <!-- #ifdef H5 -->
+                <view
+                  :id="`workflow-definition-restriction-${definition.id}`"
+                  class="workflow-definition__restriction"
+                  role="tooltip"
+                >
+                  <view class="workflow-definition__restriction-head">
+                    <text class="workflow-definition__restriction-title">
+                      发起限制
+                    </text>
+                    <text
+                      class="workflow-definition__restriction-status"
+                      :class="`is-${definitionRestriction(definition).statusTone}`"
+                    >
+                      {{ definitionRestriction(definition).statusLabel }}
+                    </text>
+                  </view>
+                  <view
+                    v-for="item in definitionRestriction(definition).items"
+                    :key="item.key"
+                    class="workflow-definition__restriction-row"
+                  >
+                    <text class="workflow-definition__restriction-label">
+                      {{ item.label }}
+                    </text>
+                    <text class="workflow-definition__restriction-value">
+                      {{ item.value }}
+                    </text>
+                  </view>
+                </view>
+                <!-- #endif -->
               </view>
             </view>
           </section>
@@ -839,6 +910,20 @@ function activeListTitle() {
 
         <WorkflowFilterPanel :active-count="applicationFilterCount">
           <view class="workflow-center__record-filters">
+            <view class="workflow-center__filter-field">
+              <text class="workflow-center__filter-label">
+                单据标题
+              </text>
+              <input
+                v-model="activeRecordFilters.instanceTitle"
+                class="workflow-center__filter-input"
+                type="text"
+                :maxlength="100"
+                placeholder="输入单据标题"
+                :disabled="listLoading"
+                @keyup.enter="queryRecords"
+              >
+            </view>
             <view class="workflow-center__filter-field">
               <text class="workflow-center__filter-label">
                 流程名称
@@ -1159,6 +1244,7 @@ function activeListTitle() {
 }
 
 .workflow-definition {
+  position: relative;
   min-width: 0;
   min-height: 78px;
   padding: 14px;
@@ -1171,6 +1257,11 @@ function activeListTitle() {
   cursor: pointer;
   box-sizing: border-box;
   transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.workflow-definition.is-disabled {
+  background: #f8fafc;
+  cursor: not-allowed;
 }
 
 .workflow-definition:hover {
@@ -1224,6 +1315,112 @@ function activeListTitle() {
   margin-top: 5px;
   color: #86909c;
   font-size: 11px;
+}
+
+.workflow-definition__restriction {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 320px;
+  max-width: calc(100vw - 48px);
+  padding: 14px 16px;
+  border: 1px solid #d9e0e9;
+  border-radius: 8px;
+  display: none;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.workflow-definition__restriction-head,
+.workflow-definition__restriction-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.workflow-definition__restriction-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.workflow-definition__restriction-row {
+  padding-top: 9px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.workflow-definition__restriction-title {
+  color: #1f2329;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.workflow-definition__restriction-status {
+  flex: 0 0 auto;
+  color: #5f6b7a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workflow-definition__restriction-status.is-success {
+  color: #059669;
+}
+
+.workflow-definition__restriction-status.is-warning {
+  color: #b45309;
+}
+
+.workflow-definition__restriction-status.is-danger {
+  color: #dc2626;
+}
+
+.workflow-definition__restriction-label {
+  flex: 0 0 84px;
+  color: #86909c;
+}
+
+.workflow-definition__restriction-value {
+  min-width: 0;
+  color: #344054;
+  text-align: right;
+  word-break: break-word;
+}
+
+@media screen and (min-width: 769px) and (hover: hover) and (pointer: fine) {
+  .workflow-definition:hover .workflow-definition__restriction,
+  .workflow-definition:focus-visible .workflow-definition__restriction {
+    display: block;
+  }
+
+  .workflow-definition:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.3);
+    outline-offset: 2px;
+  }
+}
+
+@media screen and (min-width: 1201px) and (hover: hover) and (pointer: fine) {
+  .workflow-definition:nth-child(4n) .workflow-definition__restriction {
+    right: 0;
+    left: auto;
+  }
+}
+
+@media screen and (min-width: 901px) and (max-width: 1200px) and (hover: hover) and (pointer: fine) {
+  .workflow-definition:nth-child(3n) .workflow-definition__restriction {
+    right: 0;
+    left: auto;
+  }
+}
+
+@media screen and (min-width: 769px) and (max-width: 900px) and (hover: hover) and (pointer: fine) {
+  .workflow-definition:nth-child(2n) .workflow-definition__restriction {
+    right: 0;
+    left: auto;
+  }
 }
 
 .workflow-center__list-head {

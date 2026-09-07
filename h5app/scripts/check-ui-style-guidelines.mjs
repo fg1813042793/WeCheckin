@@ -105,6 +105,10 @@ assert.match(appShell, /app-shell__tab-scroll-control--left/)
 assert.match(appShell, /app-shell__tab-scroll-control--right/)
 assert.match(appShell, /\.app-shell__tabs--overflow\s*\{[^}]*padding:\s*0 46px;/)
 assert.match(appShell, /\.app-shell__tab-scroll-control\s*\{[^}]*position:\s*absolute;[^}]*top:\s*50%;[^}]*transform:\s*translateY\(-50%\);/)
+assert.match(appShell, /\.sidebar-nav\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;/)
+assert.match(appShell, /\.sidebar-nav__group\s*\{[^}]*flex:\s*0 0 auto;/)
+assert.match(appShell, /v-if="!mobileShell && isExpanded\(item\)"/)
+assert.match(appShell, /v-if="mobileExpandedNavItem" class="sidebar-nav__mobile-children"/)
 assert.match(workflowRuntimeForm, /class="workflow-form app-workflow-form app-pc-control-scope"/)
 for (const selector of [
   '.app-workflow-form .workflow-form__field-label',

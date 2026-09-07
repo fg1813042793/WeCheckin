@@ -123,10 +123,11 @@ const (
 )
 
 const (
-	StartAvailabilityAlways  = "always"
-	StartAvailabilityFixed   = "fixed"
-	StartAvailabilityWeekly  = "weekly"
-	StartAvailabilityMonthly = "monthly"
+	StartAvailabilityAlways        = "always"
+	StartAvailabilityFixed         = "fixed"
+	StartAvailabilityWeekly        = "weekly"
+	StartAvailabilityMonthly       = "monthly"
+	StartAvailabilityMonthlyWindow = "monthly_window"
 )
 
 const (
@@ -143,6 +144,21 @@ const (
 )
 
 const MaxStartLimitCount = 10000
+
+const (
+	BusinessPeriodGranularityDay     = "day"
+	BusinessPeriodGranularityWeek    = "week"
+	BusinessPeriodGranularityMonth   = "month"
+	BusinessPeriodGranularityQuarter = "quarter"
+	BusinessPeriodGranularityYear    = "year"
+)
+
+const (
+	BusinessPeriodSourceSubmitTime              = "submit_time"
+	BusinessPeriodSourceAvailabilityWindowStart = "availability_window_start"
+	BusinessPeriodSourceAvailabilityWindowEnd   = "availability_window_end"
+	BusinessPeriodSourceFormField               = "form_field"
+)
 
 const (
 	StartAvailabilityStateAvailable     = "available"
@@ -227,15 +243,47 @@ const (
 	ValidationInitiator                = "initiator_invalid"
 	ValidationStartAvailability        = "start_availability_invalid"
 	ValidationStartLimit               = "start_limit_invalid"
+	ValidationInstanceIdentity         = "instance_identity_invalid"
 )
 
 type Definition struct {
-	SchemaVersion int         `json:"schemaVersion"`
-	Key           string      `json:"key"`
-	Name          string      `json:"name"`
-	Form          []FormField `json:"form,omitempty"`
-	Nodes         []Node      `json:"nodes"`
-	Edges         []Edge      `json:"edges"`
+	SchemaVersion    int                     `json:"schemaVersion"`
+	Key              string                  `json:"key"`
+	Name             string                  `json:"name"`
+	DisplayName      string                  `json:"displayName,omitempty"`
+	InstanceIdentity *InstanceIdentityConfig `json:"instanceIdentity,omitempty"`
+	Form             []FormField             `json:"form,omitempty"`
+	Nodes            []Node                  `json:"nodes"`
+	Edges            []Edge                  `json:"edges"`
+}
+
+func (definition Definition) EffectiveName() string {
+	for _, value := range []string{definition.DisplayName, definition.Name, definition.Key} {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return "流程"
+}
+
+type InstanceIdentityConfig struct {
+	TitleTemplate  string                `json:"titleTemplate"`
+	BusinessPeriod *BusinessPeriodConfig `json:"businessPeriod,omitempty"`
+}
+
+type BusinessPeriodConfig struct {
+	Enabled     bool   `json:"enabled"`
+	Granularity string `json:"granularity,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Field       string `json:"field,omitempty"`
+	Offset      int    `json:"offset,omitempty"`
+}
+
+type InstanceIdentity struct {
+	Title               string
+	BusinessPeriodType  string
+	BusinessPeriodKey   string
+	BusinessPeriodLabel string
 }
 
 type FormField struct {
@@ -383,17 +431,21 @@ type InitiatorConfig struct {
 }
 
 type StartAvailabilityConfig struct {
-	Mode               string `json:"mode"`
-	Timezone           string `json:"timezone,omitempty"`
-	StartsAt           int64  `json:"startsAt,omitempty"`
-	EndsAt             int64  `json:"endsAt,omitempty"`
-	EffectiveStartDate string `json:"effectiveStartDate,omitempty"`
-	EffectiveEndDate   string `json:"effectiveEndDate,omitempty"`
-	Weekdays           []int  `json:"weekdays,omitempty"`
-	MonthDays          []int  `json:"monthDays,omitempty"`
-	LastDayOfMonth     bool   `json:"lastDayOfMonth,omitempty"`
-	DailyStartTime     string `json:"dailyStartTime,omitempty"`
-	DailyEndTime       string `json:"dailyEndTime,omitempty"`
+	Mode                  string `json:"mode"`
+	Timezone              string `json:"timezone,omitempty"`
+	StartsAt              int64  `json:"startsAt,omitempty"`
+	EndsAt                int64  `json:"endsAt,omitempty"`
+	EffectiveStartDate    string `json:"effectiveStartDate,omitempty"`
+	EffectiveEndDate      string `json:"effectiveEndDate,omitempty"`
+	Weekdays              []int  `json:"weekdays,omitempty"`
+	MonthDays             []int  `json:"monthDays,omitempty"`
+	LastDayOfMonth        bool   `json:"lastDayOfMonth,omitempty"`
+	DailyStartTime        string `json:"dailyStartTime,omitempty"`
+	DailyEndTime          string `json:"dailyEndTime,omitempty"`
+	WindowStartDayFromEnd int    `json:"windowStartDayFromEnd,omitempty"`
+	WindowStartTime       string `json:"windowStartTime,omitempty"`
+	WindowEndDay          int    `json:"windowEndDay,omitempty"`
+	WindowEndTime         string `json:"windowEndTime,omitempty"`
 }
 
 type StartLimitConfig struct {

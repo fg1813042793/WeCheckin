@@ -299,6 +299,7 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 		metadata := targetSnapshot.Metadata
 		if err := tx.Model(&model.WorkflowDefinition{}).Where("id = ?", definition.ID).Updates(map[string]interface{}{
 			"definition_name":            metadata.Name,
+			"definition_display_name":    metadata.DisplayName,
 			"definition_description":     metadata.Description,
 			"definition_category":        metadata.Category,
 			"definition_logo_url":        metadata.LogoURL,

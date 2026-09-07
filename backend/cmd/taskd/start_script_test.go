@@ -59,3 +59,25 @@ func TestStartTaskdScriptPropagatesTaskdFailure(t *testing.T) {
 		t.Fatalf("start-taskd.sh exit code = %d, want 23", exitError.ExitCode())
 	}
 }
+
+func TestStartTaskdScriptTreatsInterruptAsNormalStop(t *testing.T) {
+	binDir := t.TempDir()
+	fakeGo := filepath.Join(binDir, "go")
+	fakeGoScript := "#!/bin/sh\nif [ \"$1 $2\" = \"mod download\" ]; then exit 0; fi\nkill -INT \"$PPID\"\nexit 1\n"
+	if err := os.WriteFile(fakeGo, []byte(fakeGoScript), 0o755); err != nil {
+		t.Fatalf("write fake go command: %v", err)
+	}
+
+	command := exec.Command("bash", "../../start-taskd.sh")
+	command.Env = append(os.Environ(), "PATH="+binDir+":/usr/bin:/bin")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("start-taskd.sh interrupted error = %v, output:\n%s", err, output)
+	}
+	if strings.Contains(string(output), "错误: 定时任务服务启动或运行失败") {
+		t.Fatalf("start-taskd.sh reported an interrupt as failure:\n%s", output)
+	}
+	if !strings.Contains(string(output), "定时任务服务已停止") {
+		t.Fatalf("start-taskd.sh missing normal stop message:\n%s", output)
+	}
+}

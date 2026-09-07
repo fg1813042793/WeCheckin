@@ -26,6 +26,9 @@ func instanceToModel(instance workflowdomain.ProcessInstance, formData map[strin
 	return workflowmodel.ProcessInstance{
 		ID: instance.ID, DefinitionID: instance.DefinitionID,
 		DefinitionVersion: instance.DefinitionVersion, DefinitionKey: instance.DefinitionKey,
+		DefinitionNameSnapshot: instance.DefinitionName,
+		Title:                  instance.Title, BusinessPeriodType: instance.BusinessPeriodType,
+		BusinessPeriodKey: instance.BusinessPeriodKey, BusinessPeriodLabel: instance.BusinessPeriodLabel,
 		BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
 		StarterID: instance.StarterID, OperatorID: instance.OperatorID,
 		Status: string(instance.Status), FormDataJSON: formDataJSON,

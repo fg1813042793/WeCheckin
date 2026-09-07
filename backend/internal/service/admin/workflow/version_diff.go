@@ -39,6 +39,7 @@ type VersionChangeSummary struct {
 
 type versionMetadata struct {
 	Name        string `json:"name"`
+	DisplayName string `json:"displayName,omitempty"`
 	Description string `json:"description"`
 	Category    string `json:"category"`
 	LogoURL     string `json:"logoUrl"`
@@ -78,6 +79,7 @@ func appendMetadataChanges(items []VersionChangeItem, before, after versionMetad
 		after  string
 	}{
 		{label: "流程名称", before: before.Name, after: after.Name},
+		{label: "用户显示名称", before: before.DisplayName, after: after.DisplayName},
 		{label: "流程分类", before: before.Category, after: after.Category},
 		{label: "流程说明", before: before.Description, after: after.Description},
 		{label: "流程 Logo", before: before.LogoURL, after: after.LogoURL},
@@ -280,12 +282,13 @@ func versionSnapshotFromModel(row model.WorkflowDefinitionVersion, fallback vers
 	if !recorded {
 		metadata = fallback
 		metadata.Name = definition.Name
+		metadata.DisplayName = definition.DisplayName
 	}
 	return versionSnapshot{Metadata: metadata, Definition: definition}, recorded, nil
 }
 
 func metadataFromDefinition(item model.WorkflowDefinition) versionMetadata {
-	return versionMetadata{Name: item.Name, Description: item.Description, Category: item.Category, LogoURL: item.LogoURL}
+	return versionMetadata{Name: item.Name, DisplayName: item.DisplayName, Description: item.Description, Category: item.Category, LogoURL: item.LogoURL}
 }
 
 func encodeVersionMetadata(metadata versionMetadata) (string, error) {

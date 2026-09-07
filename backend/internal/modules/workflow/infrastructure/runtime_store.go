@@ -256,7 +256,7 @@ func (store *GormStore) PersistEffects(ctx context.Context, state *workflowdomai
 			channel = strings.TrimSpace(channel)
 			outboxID := intent.ID + "-" + channel
 			row := workflowmodel.NotificationOutbox{
-				ID: outboxID, InstanceID: state.Instance.ID, NodeID: intent.NodeID, TaskID: intent.TaskID,
+				ID: outboxID, InstanceID: state.Instance.ID, BusinessKey: state.Instance.BusinessKey, NodeID: intent.NodeID, TaskID: intent.TaskID,
 				RecipientUserID: intent.RecipientUserID, Kind: string(intent.Kind), Channel: channel,
 				Status:      workflowmodel.NotificationStatusPending,
 				DedupeKey:   notificationDedupeKey(state.Instance.ID, intent, channel),

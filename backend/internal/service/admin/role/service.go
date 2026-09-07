@@ -259,11 +259,97 @@ func ApplicationPermissionTreeContext(ctx context.Context) ApplicationPermission
 	if db == nil {
 		return ApplicationPermissionTree()
 	}
-	clientMenuLabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformClient, permissionsupport.TypeMenu)
-	dingtalkH5MenuLabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton)
-	clientAPILabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformClient, permissionsupport.TypeAPI, permissionsupport.TypeAPICategory)
-	dingtalkH5APILabels := applicationPermissionLabelsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeAPI, permissionsupport.TypeAPICategory)
-	return applicationPermissionTreeWithLabels(clientMenuLabels, dingtalkH5MenuLabels, clientAPILabels, dingtalkH5APILabels)
+	fallback := ApplicationPermissionTree()
+	return ApplicationPermissionTreeResponse{
+		Client: applicationPermissionNodesOrFallback(
+			applicationPermissionRowsContext(ctx, db, permissionsupport.PlatformClient, permissionsupport.TypeMenu),
+			fallback.Client,
+		),
+		DingTalkH5: applicationPermissionNodesOrFallback(
+			applicationPermissionRowsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton),
+			fallback.DingTalkH5,
+		),
+		ClientAPI: applicationPermissionNodesOrFallback(
+			applicationPermissionRowsContext(ctx, db, permissionsupport.PlatformClient, permissionsupport.TypeAPICategory, permissionsupport.TypeAPI),
+			fallback.ClientAPI,
+		),
+		DingTalkH5API: applicationPermissionNodesOrFallback(
+			applicationPermissionRowsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeAPICategory, permissionsupport.TypeAPI),
+			fallback.DingTalkH5API,
+		),
+	}
+}
+
+func applicationPermissionRowsContext(ctx context.Context, db *gorm.DB, platform string, types ...string) []model.Permission {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil || db == nil {
+		return nil
+	}
+	if err := permissionsupport.EnsureApplicationPermissionCatalogContext(ctx, db, platform, types); err != nil {
+		return nil
+	}
+	var rows []model.Permission
+	if err := db.WithContext(ctx).
+		Where("`permission_platform` = ? AND `permission_type` IN ?", platform, types).
+		Order("`permission_sort` ASC, `id` ASC").
+		Find(&rows).Error; err != nil {
+		return nil
+	}
+	return rows
+}
+
+func applicationPermissionNodesOrFallback(rows []model.Permission, fallback []ApplicationPermissionNode) []ApplicationPermissionNode {
+	if len(rows) == 0 {
+		return fallback
+	}
+	return applicationPermissionNodesFromRows(rows)
+}
+
+func applicationPermissionNodesFromRows(rows []model.Permission) []ApplicationPermissionNode {
+	rowByKey := make(map[string]model.Permission, len(rows))
+	childrenByParent := make(map[string][]model.Permission, len(rows))
+	roots := make([]model.Permission, 0, len(rows))
+	for _, row := range rows {
+		rowByKey[row.Key] = row
+	}
+	for _, row := range rows {
+		if row.ParentKey == "" || row.ParentKey == row.Key {
+			roots = append(roots, row)
+			continue
+		}
+		if _, ok := rowByKey[row.ParentKey]; !ok {
+			roots = append(roots, row)
+			continue
+		}
+		childrenByParent[row.ParentKey] = append(childrenByParent[row.ParentKey], row)
+	}
+	result := make([]ApplicationPermissionNode, 0, len(roots))
+	for _, root := range roots {
+		result = append(result, applicationPermissionNodeFromRow(root, childrenByParent, nil))
+	}
+	return result
+}
+
+func applicationPermissionNodeFromRow(row model.Permission, childrenByParent map[string][]model.Permission, ancestors map[string]bool) ApplicationPermissionNode {
+	name := strings.TrimSpace(row.Name)
+	if name == "" {
+		name = row.Key
+	}
+	node := ApplicationPermissionNode{Key: row.Key, Name: name, ParentKey: row.ParentKey}
+	if ancestors[row.Key] {
+		return node
+	}
+	nextAncestors := make(map[string]bool, len(ancestors)+1)
+	for key, value := range ancestors {
+		nextAncestors[key] = value
+	}
+	nextAncestors[row.Key] = true
+	for _, child := range childrenByParent[row.Key] {
+		node.Children = append(node.Children, applicationPermissionNodeFromRow(child, childrenByParent, nextAncestors))
+	}
+	return node
 }
 
 func applicationPermissionTreeWithLabels(clientMenuLabels, dingtalkH5MenuLabels, clientAPILabels, dingtalkH5APILabels map[string]string) ApplicationPermissionTreeResponse {
@@ -353,34 +439,6 @@ func applicationAPIPermissionNodesWithLabels(categories []appapiperm.Category, d
 		result = append(result, *root)
 	}
 	return result
-}
-
-func applicationPermissionLabelsContext(ctx context.Context, db *gorm.DB, platform string, types ...string) map[string]string {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := ctx.Err(); err != nil {
-		return nil
-	}
-	if db == nil || strings.TrimSpace(platform) == "" || len(types) == 0 {
-		return nil
-	}
-	var rows []model.Permission
-	if err := db.WithContext(ctx).
-		Select("`permission_key`, `permission_name`").
-		Where("`permission_platform` = ? AND `permission_type` IN ? AND `permission_status` = 1", platform, types).
-		Find(&rows).Error; err != nil {
-		return nil
-	}
-	labels := make(map[string]string, len(rows))
-	for _, row := range rows {
-		key := strings.TrimSpace(row.Key)
-		name := strings.TrimSpace(row.Name)
-		if key != "" && name != "" {
-			labels[key] = name
-		}
-	}
-	return labels
 }
 
 func applicationPermissionLabel(key, fallback string, labels map[string]string) string {
