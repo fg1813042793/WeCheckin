@@ -110,6 +110,9 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 		"scheduledtaskinfra.NewNotificationOutboxDispatchJob(",
 		"notificationoutboxapp.NewService(",
 		"notificationoutboxinfra.NewWebhookChannel(",
+		"inappnotificationapp.NewServiceWithDingTalk(",
+		"inappnotificationinfra.NewDingTalkDelivery(db, nil)",
+		"scheduledtaskinfra.NewDingTalkNotificationJob(notificationService)",
 		"runRole(ctx, selectedRole, scheduler, worker)",
 	} {
 		if !strings.Contains(text, want) {

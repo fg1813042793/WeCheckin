@@ -242,7 +242,10 @@ func run() error {
 	)
 	taskStore := scheduledtaskinfra.NewGormStore(db)
 	notificationStore := inappnotificationinfra.NewGormStore(db)
-	notificationService := inappnotificationapp.NewService(notificationStore)
+	notificationService := inappnotificationapp.NewServiceWithDingTalk(
+		notificationStore,
+		inappnotificationinfra.NewDingTalkDelivery(db, nil),
+	)
 	webhookClient, err := outboundhttp.NewClient(outboundhttp.Policy{
 		AllowAnyPublicHosts: true,
 		MaxRedirects:        cfg.ScheduledTask.HTTP.MaxRedirects,
@@ -264,6 +267,7 @@ func run() error {
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
 		scheduledtaskinfra.NewWorkflowBusinessEventJob(workflowBusinessEvents),
 		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
+		scheduledtaskinfra.NewDingTalkNotificationJob(notificationService),
 		scheduledtaskinfra.NewNotificationOutboxDispatchJob(outboxService),
 	)
 	if err != nil {

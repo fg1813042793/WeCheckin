@@ -159,6 +159,7 @@ func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *work
 		scheduledtaskinfra.NewCleanupJob(taskStore, config.Cfg.ScheduledTask.RunRetentionDays, config.Cfg.ScheduledTask.LogRetentionDays, nil),
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
 		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
+		scheduledtaskinfra.NewDingTalkNotificationJob(notificationService),
 	)
 	if err != nil {
 		panic(fmt.Sprintf("initialize scheduled task handlers: %v", err))

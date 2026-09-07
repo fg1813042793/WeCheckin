@@ -28,6 +28,7 @@ func TestAdminRoutesRegisterInAppNotificationEndpoints(t *testing.T) {
 		`admin.PATCH("/in-app-notifications/read-all", handler.MarkAllRead)`,
 		`admin.PATCH("/in-app-notifications/:id/read", handler.MarkRead)`,
 		"scheduledtaskinfra.NewInAppNotificationJob(notificationService)",
+		"scheduledtaskinfra.NewDingTalkNotificationJob(notificationService)",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("routes.go missing %q", snippet)

@@ -17,6 +17,16 @@ func TestRiskPermissionRequiresNotificationSendForInAppNotificationJob(t *testin
 	}
 }
 
+func TestRiskPermissionRequiresDingTalkSendForDingTalkNotificationJob(t *testing.T) {
+	permission := riskPermission(
+		scheduledtaskmodel.HandlerTypeGo,
+		json.RawMessage(`{"handlerKey":"notification.dingtalk.send","params":{}}`),
+	)
+	if permission != "notification:dingtalk:send" {
+		t.Fatalf("riskPermission() = %q, want notification:dingtalk:send", permission)
+	}
+}
+
 func TestRiskPermissionDoesNotApplyNotificationPermissionToOtherGoJobs(t *testing.T) {
 	permission := riskPermission(
 		scheduledtaskmodel.HandlerTypeGo,

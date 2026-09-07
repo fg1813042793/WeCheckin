@@ -54,7 +54,7 @@
               <code>注册键：{{ selectedGoJob.value }}</code>
             </div>
           </el-form-item>
-          <template v-if="isInAppNotificationJob">
+          <template v-if="isNotificationJob">
             <el-form-item label="通知标题" required>
               <el-input v-model="notificationParams.title" maxlength="255" show-word-limit placeholder="请输入通知标题" />
             </el-form-item>
@@ -310,6 +310,7 @@ const canShell = computed(() => hasPerm('admin:menu:scheduled-task:shell'))
 const canSQLRead = computed(() => hasPerm('admin:menu:scheduled-task:sql:read'))
 const canSQLWrite = computed(() => hasPerm('admin:menu:scheduled-task:sql:write'))
 const canNotificationSend = computed(() => hasPerm('admin:menu:notification:send'))
+const canDingTalkNotificationSend = computed(() => hasPerm('admin:menu:notification:dingtalk-send'))
 const availableHandlers = computed(() => props.handlers.filter(item => {
   if (item.type === 'http') return canHTTP.value
   if (item.type === 'shell') return canShell.value
@@ -319,7 +320,11 @@ const availableHandlers = computed(() => props.handlers.filter(item => {
 const goJobOptions = computed(() => {
   const property = schemaProperty('go', 'handlerKey')
   const labels = property?.['x-enum-labels'] || {}
-  return (property?.enum || []).filter(value => value !== 'notification.in_app.send' || canNotificationSend.value).map(value => ({
+  return (property?.enum || []).filter((value) => {
+    if (value === 'notification.in_app.send') return canNotificationSend.value
+    if (value === 'notification.dingtalk.send') return canDingTalkNotificationSend.value
+    return true
+  }).map(value => ({
     value,
     label: labels[value]?.trim() || value,
   }))
@@ -328,6 +333,8 @@ const selectedGoJob = computed(() => (
   goJobOptions.value.find(option => option.value === handlerConfig.handlerKey) || null
 ))
 const isInAppNotificationJob = computed(() => handlerConfig.handlerKey === 'notification.in_app.send')
+const isDingTalkNotificationJob = computed(() => handlerConfig.handlerKey === 'notification.dingtalk.send')
+const isNotificationJob = computed(() => isInAppNotificationJob.value || isDingTalkNotificationJob.value)
 const selectedWorkflowDefinition = computed(() => (
   workflowDefinitions.value.find(definition => Number(definition.id) === Number(handlerConfig.definitionId)) || null
 ))
@@ -364,7 +371,7 @@ watch(() => props.modelValue, async visible => {
   if (!visible) return
   loadTask(props.task)
   if (form.handlerType === 'workflow') await loadWorkflowOptions()
-  if (isInAppNotificationJob.value) await loadNotificationOptions()
+  if (isNotificationJob.value) await loadNotificationOptions()
 }, { immediate: true })
 
 function clearObject(target: Record<string, any>) {
@@ -419,13 +426,13 @@ function resetHandlerConfig(existing?: Record<string, any>) {
 async function handleHandlerTypeChange() {
   resetHandlerConfig()
   if (form.handlerType === 'workflow') await loadWorkflowOptions()
-  if (isInAppNotificationJob.value) await loadNotificationOptions()
+  if (isNotificationJob.value) await loadNotificationOptions()
 }
 
 async function handleGoJobChange() {
   resetNotificationParams()
   jsonFields.params = '{}'
-  if (isInAppNotificationJob.value) await loadNotificationOptions()
+  if (isNotificationJob.value) await loadNotificationOptions()
 }
 
 function resetNotificationParams(value: Record<string, unknown> = {}) {
@@ -440,10 +447,14 @@ function resetNotificationParams(value: Record<string, unknown> = {}) {
 }
 
 async function loadNotificationOptions() {
-  if (notificationOptionsLoaded.value || !canNotificationSend.value) return
+  if (notificationOptionsLoaded.value || !isNotificationJob.value) return
+  if (isInAppNotificationJob.value && !canNotificationSend.value) return
+  if (isDingTalkNotificationJob.value && !canDingTalkNotificationSend.value) return
   notificationOptionsLoading.value = true
   try {
-    const response = await adminApi.inAppNotificationRecipientOptions()
+    const response = isDingTalkNotificationJob.value
+      ? await adminApi.dingTalkNotificationRecipientOptions()
+      : await adminApi.inAppNotificationRecipientOptions()
     notificationRecipientOptions.users = Array.isArray(response.data?.users) ? response.data.users : []
     notificationRecipientOptions.departments = Array.isArray(response.data?.departments) ? response.data.departments : []
     notificationOptionsLoaded.value = true
@@ -518,7 +529,7 @@ function requiredJSON<T>(label: string, text: string, type: 'object' | 'array'):
 function buildHandlerConfig() {
   const value = { ...handlerConfig }
   if (form.handlerType === 'go') {
-    value.params = isInAppNotificationJob.value ? {
+    value.params = isNotificationJob.value ? {
       title: notificationParams.title.trim(),
       content: notificationParams.content,
       scope: notificationParams.scope,
@@ -561,10 +572,11 @@ async function save() {
   if (form.handlerType === 'workflow' && workflowStarterIds.value.length === 0) return ElMessage.warning('请选择流程发起人')
   if (form.handlerType === 'workflow' && workflowStarterIds.value.length > 100) return ElMessage.warning('流程发起人最多选择 100 人')
   if (isInAppNotificationJob.value && !canNotificationSend.value) return ElMessage.error('缺少站内信发送权限')
-  if (isInAppNotificationJob.value && !notificationParams.title.trim()) return ElMessage.warning('请输入通知标题')
-  if (isInAppNotificationJob.value && !notificationParams.content.trim()) return ElMessage.warning('请输入通知正文')
-  if (isInAppNotificationJob.value && notificationParams.scope === 'departments' && notificationParams.departmentIds.length === 0) return ElMessage.warning('请选择收件部门')
-  if (isInAppNotificationJob.value && notificationParams.scope === 'users' && notificationParams.userIds.length === 0) return ElMessage.warning('请选择收件用户')
+  if (isDingTalkNotificationJob.value && !canDingTalkNotificationSend.value) return ElMessage.error('缺少钉钉通知发送权限')
+  if (isNotificationJob.value && !notificationParams.title.trim()) return ElMessage.warning('请输入通知标题')
+  if (isNotificationJob.value && !notificationParams.content.trim()) return ElMessage.warning('请输入通知正文')
+  if (isNotificationJob.value && notificationParams.scope === 'departments' && notificationParams.departmentIds.length === 0) return ElMessage.warning('请选择收件部门')
+  if (isNotificationJob.value && notificationParams.scope === 'users' && notificationParams.userIds.length === 0) return ElMessage.warning('请选择收件用户')
   if (form.handlerType === 'sql' && handlerConfig.mode === 'write' && !canSQLWrite.value) return ElMessage.error('缺少 SQL 写入任务权限')
   let config: Record<string, unknown>
   try { config = buildHandlerConfig() } catch (error) { return ElMessage.error((error as Error).message) }

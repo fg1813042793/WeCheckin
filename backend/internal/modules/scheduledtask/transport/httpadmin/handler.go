@@ -272,8 +272,14 @@ func riskPermission(handlerType string, raw json.RawMessage) string {
 		var value struct {
 			HandlerKey string `json:"handlerKey"`
 		}
-		if json.Unmarshal(raw, &value) == nil && strings.TrimSpace(value.HandlerKey) == "notification.in_app.send" {
+		if json.Unmarshal(raw, &value) != nil {
+			return ""
+		}
+		switch strings.TrimSpace(value.HandlerKey) {
+		case "notification.in_app.send":
 			return "notification:send"
+		case "notification.dingtalk.send":
+			return "notification:dingtalk:send"
 		}
 		return ""
 	case scheduledtaskmodel.HandlerTypeHTTP:
