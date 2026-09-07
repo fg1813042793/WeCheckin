@@ -2,7 +2,7 @@
 import type { InAppNotification } from '@/api/notifications'
 import type { FeedbackNotificationDynamicTab } from '@/pages/notifications/feedback-notification-open'
 import { useLocale } from 'uview-pro'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   deleteNotification,
   listNotifications,
@@ -10,8 +10,10 @@ import {
 } from '@/api/notifications'
 import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
+import NotificationMarkdown from '@/pages/notifications/components/NotificationMarkdown.vue'
 import { isFeedbackNotification, openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
+import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
 import {
   isWorkflowNotification,
   openWorkflowNotification,
@@ -20,7 +22,7 @@ import {
 import { workflowFormRevisionDetailContentKey, workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
 
-defineProps<{
+const props = defineProps<{
   contentKey?: string
 }>()
 
@@ -246,6 +248,14 @@ onMounted(() => {
     window.addEventListener('resize', syncMobile)
 })
 
+watch(
+  () => appContent.refreshTick,
+  () => {
+    if (appContent.currentKey === (props.contentKey || NOTIFICATION_HISTORY_CONTENT_KEY))
+      void loadNotifications(false)
+  },
+)
+
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined')
     window.removeEventListener('resize', syncMobile)
@@ -390,7 +400,7 @@ onBeforeUnmount(() => {
           {{ formatTime(selectedNotification.addTime) }}
         </text>
         <scroll-view scroll-y class="notification-history-detail__body">
-          <text>{{ selectedNotification.content || '暂无内容' }}</text>
+          <NotificationMarkdown :content="selectedNotification.content" />
         </scroll-view>
       </view>
     </u-popup>
@@ -694,10 +704,6 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   padding: 16px;
   box-sizing: border-box;
-  color: #4e5969;
-  font-size: 14px;
-  line-height: 24px;
-  white-space: pre-wrap;
 }
 
 @media (max-width: 768px) {

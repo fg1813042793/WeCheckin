@@ -10,6 +10,7 @@ import {
 } from '@/api/notifications'
 import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
+import NotificationMarkdown from '@/pages/notifications/components/NotificationMarkdown.vue'
 import { isFeedbackNotification, openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
 import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
@@ -353,9 +354,7 @@ function formatTime(value: number) {
             {{ formatTime(selectedNotification.addTime) }}
           </text>
         </view>
-        <text class="notification-detail__content">
-          {{ selectedNotification.content || '暂无内容' }}
-        </text>
+        <NotificationMarkdown class="notification-detail__content" :content="selectedNotification.content" />
       </view>
 
       <scroll-view v-else scroll-y class="notification-panel__body">
@@ -747,10 +746,6 @@ function formatTime(value: number) {
 
 .notification-detail__content {
   margin-top: 20px;
-  color: #4e5969;
-  font-size: 14px;
-  line-height: 24px;
-  white-space: pre-wrap;
 }
 
 @media (max-width: 768px) {

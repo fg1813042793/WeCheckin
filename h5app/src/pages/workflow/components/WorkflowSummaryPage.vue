@@ -38,7 +38,7 @@ async function loadDefinitions() {
 
 <template>
   <view class="workflow-summary-page">
-    <WorkflowSummarySection :definitions="definitions" />
+    <WorkflowSummarySection :definitions="definitions" :refresh-tick="appContent.refreshTick" />
   </view>
 </template>
 

@@ -246,11 +246,11 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummaryPage.vue',
-    patterns: ['listWorkflowSummaryDefinitions', 'WorkflowSummarySection', ':definitions="definitions"'],
+    patterns: ['listWorkflowSummaryDefinitions', 'WorkflowSummarySection', ':definitions="definitions"', ':refresh-tick="appContent.refreshTick"'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
-    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', '.workflow-summary__filters {\n  display: flex;\n  flex-wrap: wrap;', '.workflow-summary__filter-actions {\n  flex: 0 0 auto;\n  width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    min-width: 0;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
+    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', 'refreshTick?: number', 'watch(\n  () => props.refreshTick,\n  () => void loadSummary(),\n)', '.workflow-summary__filters {\n  display: flex;\n  flex-wrap: wrap;', '.workflow-summary__filter-actions {\n  flex: 0 0 auto;\n  width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    min-width: 0;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -434,6 +434,10 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowStartPage.vue',
     patterns: ['发起审批', '历史记录', '草稿箱', '流程', 'getWorkflowStartDraft', 'saveWorkflowStartDraft', 'listWorkflowInstances', 'WorkflowRuntimeForm', 'WorkflowReadOnlyGraph', 'WorkflowDetailPanel', 'presentation="history-drawer"', 'WorkflowFilterPanel', ':active-count="historyFilterCount"', 'WorkflowHistoryDatePicker', '保存草稿', '提交申请', 'registerTabCloseGuard', 'workflowRequestErrorMessage', 'catch (error)', 'workflowRequestErrorMessage(error, \'草稿保存失败\')', 'historyStatusOptions', 'queryHistory', 'resetHistoryFilters', 'buildWorkflowHistoryTimeQuery', 'workflowInstanceStatusMeta', 'class="workflow-start-page__history-filters"', 'class="workflow-start-page__filter-select"', '审批状态', '发起时间', '完成时间', '查询', '重置', 'workflowInstanceContentKey', 'function resolveMobilePage()', 'if (resolveMobilePage())', 'appContent.openDynamicTab({', 'path: `/pages/index/index?view=', 'encodeURIComponent(key)', 'takeWorkflowStartSeed', 'workflowStartSeedTick', 'appContent.requestRefresh()', '提交成功'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowStartPage.vue',
+    patterns: ['watch(\n  () => appContent.refreshTick,\n  () => {\n    if (appContent.currentKey === props.contentKey && activeSection.value === \'history\')\n      void loadHistory()\n  },\n)'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowStartPage.vue',

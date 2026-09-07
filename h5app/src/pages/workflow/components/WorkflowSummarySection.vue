@@ -5,7 +5,7 @@ import type {
   WorkflowPublishedDefinition,
   WorkflowSummaryExportFormat,
 } from '@/types/workflow'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   listWorkflowSummaryInstances,
   workflowSummaryExportUrl,
@@ -29,8 +29,9 @@ interface PaginationChangePayload {
   current: number
 }
 
-defineProps<{
+const props = defineProps<{
   definitions: WorkflowPublishedDefinition[]
+  refreshTick?: number
 }>()
 
 const auth = useDingtalkAuthStore()
@@ -73,6 +74,11 @@ const statusOptions = [
 ]
 
 onMounted(() => void loadSummary())
+
+watch(
+  () => props.refreshTick,
+  () => void loadSummary(),
+)
 
 function emptyFilters(): SummaryFilters {
   return {

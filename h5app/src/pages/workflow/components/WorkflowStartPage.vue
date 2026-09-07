@@ -169,6 +169,14 @@ watch(
   () => applyWorkflowStartSeed(),
 )
 
+watch(
+  () => appContent.refreshTick,
+  () => {
+    if (appContent.currentKey === props.contentKey && activeSection.value === 'history')
+      void loadHistory()
+  },
+)
+
 function currentWritableData() {
   const value = definition.value
   if (!value)
