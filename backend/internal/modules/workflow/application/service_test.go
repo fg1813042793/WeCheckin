@@ -1789,69 +1789,74 @@ func assertNotificationDispatch(t *testing.T, dispatcher *recordingNotificationD
 }
 
 type fakeStore struct {
-	definition                    workflowcore.Definition
-	publishedVersion              int
-	state                         *workflowdomain.State
-	loadDefinitionID              uint
-	loadDefinitionVersion         int
-	loadedTaskID                  string
-	loadedInstanceID              string
-	createdState                  *workflowdomain.State
-	createErr                     error
-	savedState                    *workflowdomain.State
-	transactions                  int
-	instanceQuery                 InstanceQuery
-	taskQuery                     TaskQuery
-	denyStarterAccess             bool
-	operatorAccessChecks          int
-	persistedEffects              *workflowdomain.State
-	persistEffectsCalls           int
-	persistEffectsErr             error
-	effectOutboxIDs               []string
-	persistedEffectsInTransaction bool
-	instanceDetail                *InstanceDetail
-	hasParticipant                bool
-	participantUserID             string
-	participantRole               string
-	inTransaction                 bool
-	publishedDefinitions          []PublishedDefinition
-	publishedDefinition           *PublishedDefinition
-	userDepartmentIDs             []uint
-	userDepartmentQueries         int
-	userDepartmentUserID          string
-	savedDraft                    *StartDraft
-	deletedDraftDefinitionID      uint
-	deletedDraftStarterID         string
-	deletedDraftInTransaction     bool
-	hiddenInstanceID              string
-	hiddenStarterID               string
-	hiddenAt                      int64
-	appendedHistoryInstanceID     string
-	appendedHistory               workflowdomain.HistoryEvent
-	appendedHistoryAt             int64
-	appendedHistoryInTransaction  bool
-	deleteInstances               []InstanceSummary
-	softDeletedInstanceIDs        []string
-	softDeletedBy                 string
-	softDeletedAt                 int64
-	softDeleteInTransaction       bool
-	deleteTask                    *TaskSummary
-	softDeletedTaskID             string
-	softDeletedTaskBy             string
-	softDeletedTaskAt             int64
-	softDeleteTaskInTransaction   bool
-	startQuotaUsedCount           int
-	startQuotaCountDefinition     uint
-	startQuotaCountStarter        string
-	startQuotaCountWindow         workflowcore.StartLimitWindow
-	startQuotaConsumeCalls        int
-	workflowOverview              WorkflowOverview
-	workflowOverviewActorID       string
-	userDisplayName               string
-	userDisplayNameUserID         string
-	activeFormRevision            *workflowdomain.FormRevisionRequest
-	createdFormRevision           *workflowdomain.FormRevisionRequest
-	savedFormRevision             *workflowdomain.FormRevisionRequest
+	definition                         workflowcore.Definition
+	publishedVersion                   int
+	state                              *workflowdomain.State
+	loadDefinitionID                   uint
+	loadDefinitionVersion              int
+	loadedTaskID                       string
+	loadedInstanceID                   string
+	createdState                       *workflowdomain.State
+	createErr                          error
+	savedState                         *workflowdomain.State
+	transactions                       int
+	instanceQuery                      InstanceQuery
+	taskQuery                          TaskQuery
+	denyStarterAccess                  bool
+	operatorAccessChecks               int
+	persistedEffects                   *workflowdomain.State
+	persistEffectsCalls                int
+	persistEffectsErr                  error
+	effectOutboxIDs                    []string
+	persistedEffectsInTransaction      bool
+	instanceDetail                     *InstanceDetail
+	hasParticipant                     bool
+	participantUserID                  string
+	participantRole                    string
+	inTransaction                      bool
+	publishedDefinitions               []PublishedDefinition
+	publishedDefinition                *PublishedDefinition
+	userDepartmentIDs                  []uint
+	userDepartmentQueries              int
+	userDepartmentUserID               string
+	savedDraft                         *StartDraft
+	deletedDraftDefinitionID           uint
+	deletedDraftStarterID              string
+	deletedDraftInTransaction          bool
+	hiddenInstanceID                   string
+	hiddenStarterID                    string
+	hiddenAt                           int64
+	appendedHistoryInstanceID          string
+	appendedHistory                    workflowdomain.HistoryEvent
+	appendedHistoryAt                  int64
+	appendedHistoryInTransaction       bool
+	deleteInstances                    []InstanceSummary
+	softDeletedInstanceIDs             []string
+	softDeletedBy                      string
+	softDeletedAt                      int64
+	softDeleteInTransaction            bool
+	deleteTask                         *TaskSummary
+	softDeletedTaskID                  string
+	softDeletedTaskBy                  string
+	softDeletedTaskAt                  int64
+	softDeleteTaskInTransaction        bool
+	startQuotaUsedCount                int
+	startQuotaCountDefinition          uint
+	startQuotaCountStarter             string
+	startQuotaCountWindow              workflowcore.StartLimitWindow
+	startQuotaConsumeCalls             int
+	workflowOverview                   WorkflowOverview
+	workflowOverviewActorID            string
+	userDisplayName                    string
+	userDisplayNameUserID              string
+	activeFormRevision                 *workflowdomain.FormRevisionRequest
+	createdFormRevision                *workflowdomain.FormRevisionRequest
+	savedFormRevision                  *workflowdomain.FormRevisionRequest
+	persistedRevisionNotifications     []FormRevisionNotificationIntent
+	revisionNotificationOutboxIDs      []string
+	revisionNotificationsInTransaction bool
+	createdBusinessEvents              []WorkflowBusinessEvent
+	businessEventsInTransaction        bool
 }
 
 func (store *fakeStore) InTransaction(_ context.Context, fn func(TransactionStore) error) error {
@@ -1997,6 +2002,23 @@ func (store *fakeStore) SaveFormRevision(_ context.Context, revision *workflowdo
 	} else {
 		store.activeFormRevision = nil
 	}
+	return nil
+}
+
+func (store *fakeStore) PersistRevisionNotifications(
+	_ context.Context,
+	_ *workflowdomain.State,
+	_ *workflowdomain.FormRevisionRequest,
+	intents []FormRevisionNotificationIntent,
+) ([]string, error) {
+	store.persistedRevisionNotifications = append(store.persistedRevisionNotifications, intents...)
+	store.revisionNotificationsInTransaction = store.inTransaction
+	return append([]string(nil), store.revisionNotificationOutboxIDs...), nil
+}
+
+func (store *fakeStore) CreateBusinessEvent(_ context.Context, event WorkflowBusinessEvent) error {
+	store.createdBusinessEvents = append(store.createdBusinessEvents, event)
+	store.businessEventsInTransaction = store.inTransaction
 	return nil
 }
 

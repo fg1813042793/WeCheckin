@@ -40,6 +40,60 @@ func TestCreateReviewedRevisionRebuildsActualDownstreamStages(t *testing.T) {
 	}
 }
 
+func TestCreateReviewedRevisionPersistsFirstStageNotifications(t *testing.T) {
+	_, store := reviewedRevisionServiceFixture()
+	store.revisionNotificationOutboxIDs = []string{"revision-notification-1-in_app"}
+	dispatcher := &recordingNotificationDispatcher{store: store}
+	service := NewServiceWithNotifications(
+		store, fixedResolver{"99"}, &sequenceIDs{}, noopEventPublisher{}, dispatcher,
+	)
+
+	created, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(store.persistedRevisionNotifications) != 1 {
+		t.Fatalf("notifications=%#v", store.persistedRevisionNotifications)
+	}
+	intent := store.persistedRevisionNotifications[0]
+	if intent.Kind != string(workflowdomain.NotificationKindInstanceFormRevisionRequested) ||
+		intent.RecipientUserID != "99" || intent.Payload.SourceType != "workflow_form_revision" ||
+		intent.Payload.SourceID != created.ID || intent.Payload.View != "workflow:form-revision-detail:"+created.ID {
+		t.Fatalf("intent=%#v", intent)
+	}
+	if !store.revisionNotificationsInTransaction {
+		t.Fatal("revision notifications must be persisted in the workflow transaction")
+	}
+	assertNotificationDispatch(t, dispatcher, store.revisionNotificationOutboxIDs)
+}
+
+func TestCreateDirectRevisionPersistsBusinessEventInTransaction(t *testing.T) {
+	definition, state := completedRevisionApplicationFixture()
+	state.Instance.BusinessType = "purchase"
+	state.Instance.BusinessKey = "PO-1"
+	state.History = append(state.History, workflowdomain.HistoryEvent{
+		Type: workflowdomain.HistoryTaskApproved, NodeID: "manager", ActorID: "21",
+	})
+	store := &fakeStore{definition: definition, state: state}
+	service := NewService(store, fixedResolver{"99"}, &sequenceIDs{})
+
+	result, err := service.CreateCompletedFormRevision(context.Background(), CreateCompletedFormRevisionRequest{
+		InstanceID: "instance-1", SourceNodeID: "manager", RequesterID: "21",
+		ExpectedRevision: 3, FormData: map[string]interface{}{"remark": "已更正"}, Reason: "修正说明",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(store.createdBusinessEvents) != 1 || !store.businessEventsInTransaction {
+		t.Fatalf("events=%#v inTransaction=%v", store.createdBusinessEvents, store.businessEventsInTransaction)
+	}
+	event := store.createdBusinessEvents[0].Event
+	if event.Type != LifecycleInstanceFormRevised || event.RevisionRequestID != result.ID ||
+		event.FormRevision != 4 || !reflect.DeepEqual(event.FormPatch, map[string]interface{}{"remark": "已更正"}) {
+		t.Fatalf("event=%#v", event)
+	}
+}
+
 func TestCompleteRevisionTaskAppliesOnlyAfterRequiredApprovals(t *testing.T) {
 	service, store := reviewedRevisionServiceFixture()
 	created, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest())
@@ -61,6 +115,12 @@ func TestCompleteRevisionTaskAppliesOnlyAfterRequiredApprovals(t *testing.T) {
 	if err != nil || result.Status != "applied" || store.savedState == nil || store.savedState.Instance.FormRevision != 4 {
 		t.Fatalf("created=%#v result=%#v state=%#v err=%v", created, result, store.savedState, err)
 	}
+	if len(store.createdBusinessEvents) != 1 || len(store.persistedRevisionNotifications) != 5 {
+		t.Fatalf("events=%#v notifications=%#v", store.createdBusinessEvents, store.persistedRevisionNotifications)
+	}
+	if got := store.persistedRevisionNotifications[len(store.persistedRevisionNotifications)-1].Kind; got != string(workflowdomain.NotificationKindInstanceFormRevisionApproved) {
+		t.Fatalf("last notification kind=%q", got)
+	}
 }
 
 func TestRejectRevisionKeepsSourceFormUntouched(t *testing.T) {
@@ -76,6 +136,9 @@ func TestRejectRevisionKeepsSourceFormUntouched(t *testing.T) {
 	if err != nil || result.Status != "rejected" || !reflect.DeepEqual(store.state.FormData, before) {
 		t.Fatalf("result=%#v form=%#v err=%v", result, store.state.FormData, err)
 	}
+	if len(store.createdBusinessEvents) != 0 || len(store.persistedRevisionNotifications) != 3 {
+		t.Fatalf("events=%#v notifications=%#v", store.createdBusinessEvents, store.persistedRevisionNotifications)
+	}
 }
 
 func TestCancelRevisionAllowedBeforeFirstHandledTask(t *testing.T) {
@@ -89,6 +152,9 @@ func TestCancelRevisionAllowedBeforeFirstHandledTask(t *testing.T) {
 	})
 	if err != nil || cancelled.Status != "cancelled" {
 		t.Fatalf("cancelled=%#v err=%v", cancelled, err)
+	}
+	if len(store.persistedRevisionNotifications) != 2 || store.persistedRevisionNotifications[1].Kind != string(workflowdomain.NotificationKindInstanceFormRevisionCancelled) {
+		t.Fatalf("notifications=%#v", store.persistedRevisionNotifications)
 	}
 
 	service, store = reviewedRevisionServiceFixture()
@@ -128,6 +194,9 @@ func TestApplyRevisionMarksConflictWhenSourceRevisionChanged(t *testing.T) {
 	if err != nil || result.Status != "conflict" || store.state.Instance.FormRevision != 4 {
 		t.Fatalf("result=%#v revision=%d err=%v", result, store.state.Instance.FormRevision, err)
 	}
+	if len(store.createdBusinessEvents) != 0 || store.persistedRevisionNotifications[len(store.persistedRevisionNotifications)-1].Kind != string(workflowdomain.NotificationKindInstanceFormRevisionConflict) {
+		t.Fatalf("events=%#v notifications=%#v", store.createdBusinessEvents, store.persistedRevisionNotifications)
+	}
 }
 
 func TestCompleteRevisionTaskIsIdempotent(t *testing.T) {
@@ -142,9 +211,12 @@ func TestCompleteRevisionTaskIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	historyCount := len(store.state.History)
+	notificationCount := len(store.persistedRevisionNotifications)
+	businessEventCount := len(store.createdBusinessEvents)
 	result, err := service.CompleteFormRevisionTask(context.Background(), request)
-	if err != nil || !result.Idempotent || len(store.state.History) != historyCount {
-		t.Fatalf("result=%#v history=%d err=%v", result, len(store.state.History), err)
+	if err != nil || !result.Idempotent || len(store.state.History) != historyCount ||
+		len(store.persistedRevisionNotifications) != notificationCount || len(store.createdBusinessEvents) != businessEventCount {
+		t.Fatalf("result=%#v history=%d notifications=%d events=%d err=%v", result, len(store.state.History), len(store.persistedRevisionNotifications), len(store.createdBusinessEvents), err)
 	}
 }
 

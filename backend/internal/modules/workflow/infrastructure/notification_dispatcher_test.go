@@ -96,6 +96,31 @@ func TestWorkflowInAppNotifyUsesInstanceSourceContract(t *testing.T) {
 	}
 }
 
+func TestRevisionNotificationUsesRevisionDeepLink(t *testing.T) {
+	record := application.NotificationRecord{
+		ID: "outbox-revision-1", InstanceID: "instance-1",
+		Kind:            workflowmodel.NotificationKindInstanceFormRevisionRequested,
+		RecipientUserID: "7", Payload: application.NotificationPayload{
+			Title: "表单修订待确认", Content: "请确认修订内容",
+			SourceType: "workflow_form_revision", SourceID: "revision-1",
+			View: "workflow:form-revision-detail:revision-1",
+		},
+	}
+
+	notify := workflowInAppNotify(record, 1234)
+	if notify.SourceType != "workflow_form_revision" || notify.SourceID != "revision-1" {
+		t.Fatalf("revision notify source = %s/%s", notify.SourceType, notify.SourceID)
+	}
+	operationURL := buildWorkflowNotificationRecordURL("https://example.test/h5", configsvc.DingTalkH5CorpConfig{}, record)
+	parsed, err := url.Parse(operationURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.Query().Get("view"); got != "workflow:form-revision-detail:revision-1" {
+		t.Fatalf("notification view=%q", got)
+	}
+}
+
 func TestSelectDingTalkNotificationTargetPrefersSmallestCommonEnabledCorp(t *testing.T) {
 	bindings := []model.DingTalkH5UserBinding{
 		{CorpID: "corp-c", DingTalkUserID: "user-c", Enabled: 1},

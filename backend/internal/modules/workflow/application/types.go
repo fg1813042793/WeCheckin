@@ -127,6 +127,20 @@ type NotificationPayload struct {
 	TaskID          string `json:"taskId"`
 	RecipientUserID string `json:"recipientUserId"`
 	Kind            string `json:"kind"`
+	SourceType      string `json:"sourceType,omitempty"`
+	SourceID        string `json:"sourceId,omitempty"`
+	View            string `json:"view,omitempty"`
+}
+
+type FormRevisionNotificationIntent struct {
+	ID              string
+	Kind            string
+	NodeID          string
+	TaskID          string
+	RecipientUserID string
+	Channels        []string
+	DedupeKeySuffix string
+	Payload         NotificationPayload
 }
 
 type TaskQuery struct {

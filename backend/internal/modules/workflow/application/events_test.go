@@ -5,6 +5,9 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
+
+	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 )
 
 func TestLifecycleEventBusDispatchesByBusinessType(t *testing.T) {
@@ -112,4 +115,98 @@ func TestBusinessStatusLifecycleHandlerRejectsNilUpdater(t *testing.T) {
 	if handler := NewBusinessStatusLifecycleHandler(nil); handler != nil {
 		t.Fatalf("handler = %#v, want nil", handler)
 	}
+}
+
+func TestFormRevisedBusinessEventCarriesBusinessReferenceAndPatch(t *testing.T) {
+	instance := workflowdomain.ProcessInstance{
+		ID: "instance-1", BusinessType: "purchase", BusinessKey: "PO-1",
+		Status: workflowdomain.InstanceStatusCompleted,
+	}
+	patch := map[string]interface{}{"remark": "x"}
+
+	event := NewFormRevisedBusinessEvent(instance, "revision-1", 4, patch)
+
+	if event.Type != LifecycleInstanceFormRevised || event.InstanceID != "instance-1" ||
+		event.BusinessType != "purchase" || event.BusinessKey != "PO-1" ||
+		event.RevisionRequestID != "revision-1" || event.FormRevision != 4 ||
+		!reflect.DeepEqual(event.FormPatch, patch) {
+		t.Fatalf("event=%#v", event)
+	}
+}
+
+func TestBusinessEventDispatcherRetriesHandlerFailure(t *testing.T) {
+	now := time.Date(2026, time.September, 7, 12, 0, 0, 0, time.UTC)
+	repository := &businessEventRepositoryStub{claimed: []BusinessEventRecord{{
+		ID: "event-1", Attempts: 0,
+		Event: LifecycleEvent{Type: LifecycleInstanceFormRevised, BusinessType: "purchase"},
+	}}}
+	bus := NewLifecycleEventBus(nil)
+	if err := bus.Register("purchase", LifecycleEventHandlerFunc(func(context.Context, LifecycleEvent) error {
+		return errors.New("temporary downstream failure")
+	})); err != nil {
+		t.Fatal(err)
+	}
+	dispatcher := newBusinessEventDispatcherWithClock(repository, bus, func() time.Time { return now })
+
+	count, err := dispatcher.DispatchDueBusinessEvents(context.Background(), 25)
+	if err != nil || count != 1 {
+		t.Fatalf("count=%d err=%v", count, err)
+	}
+	if repository.failedStatus != BusinessEventStatusFailed || repository.failedAttempts != 1 ||
+		repository.nextRetryAt != now.Add(30*time.Second).UnixMilli() {
+		t.Fatalf("repository=%#v", repository)
+	}
+}
+
+func TestBusinessEventDispatcherMarksFifthFailureDead(t *testing.T) {
+	repository := &businessEventRepositoryStub{claimed: []BusinessEventRecord{{
+		ID: "event-1", Attempts: 4,
+		Event: LifecycleEvent{Type: LifecycleInstanceFormRevised, BusinessType: "purchase"},
+	}}}
+	bus := NewLifecycleEventBus(nil)
+	if err := bus.Register("purchase", LifecycleEventHandlerFunc(func(context.Context, LifecycleEvent) error {
+		return errors.New("permanent failure")
+	})); err != nil {
+		t.Fatal(err)
+	}
+	dispatcher := NewBusinessEventDispatcher(repository, bus)
+
+	if _, err := dispatcher.DispatchDueBusinessEvents(context.Background(), 100); err != nil {
+		t.Fatal(err)
+	}
+	if repository.failedStatus != BusinessEventStatusDead || repository.failedAttempts != 5 || repository.nextRetryAt != 0 {
+		t.Fatalf("repository=%#v", repository)
+	}
+}
+
+type businessEventRepositoryStub struct {
+	claimed        []BusinessEventRecord
+	failedStatus   string
+	failedAttempts int
+	nextRetryAt    int64
+}
+
+func (repository *businessEventRepositoryStub) ClaimDue(
+	context.Context, int64, int64, int,
+) ([]BusinessEventRecord, error) {
+	return append([]BusinessEventRecord(nil), repository.claimed...), nil
+}
+
+func (repository *businessEventRepositoryStub) MarkSent(context.Context, string, int64) error {
+	return nil
+}
+
+func (repository *businessEventRepositoryStub) MarkFailed(
+	_ context.Context,
+	_ string,
+	attempts int,
+	status string,
+	nextRetryAt int64,
+	_ string,
+	_ int64,
+) error {
+	repository.failedAttempts = attempts
+	repository.failedStatus = status
+	repository.nextRetryAt = nextRetryAt
+	return nil
 }

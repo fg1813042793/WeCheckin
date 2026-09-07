@@ -183,9 +183,17 @@ func workflowInAppNotify(notification application.NotificationRecord, now int64)
 	if notificationType == "" {
 		notificationType = workflowNotificationType
 	}
+	sourceType := strings.TrimSpace(notification.Payload.SourceType)
+	if sourceType == "" {
+		sourceType = workflowNotificationSourceType
+	}
+	sourceID := strings.TrimSpace(notification.Payload.SourceID)
+	if sourceID == "" {
+		sourceID = notification.InstanceID
+	}
 	return &model.Notify{
 		Title: notification.Payload.Title, Content: notification.Payload.Content, Type: notificationType,
-		SourceID: notification.InstanceID, SourceType: workflowNotificationSourceType,
+		SourceID: sourceID, SourceType: sourceType,
 		UserID: notification.RecipientUserID, IsRead: 0, AddTime: now,
 	}
 }

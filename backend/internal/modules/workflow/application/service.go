@@ -125,6 +125,8 @@ type FormRevisionTransactionStore interface {
 	LoadFormRevisionByTaskForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error)
 	CreateFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error
 	SaveFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error
+	PersistRevisionNotifications(context.Context, *workflowdomain.State, *workflowdomain.FormRevisionRequest, []FormRevisionNotificationIntent) ([]string, error)
+	CreateBusinessEvent(context.Context, WorkflowBusinessEvent) error
 }
 
 type StartDraftStore interface {

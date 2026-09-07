@@ -236,6 +236,10 @@ func run() error {
 		workflowapp.DefaultLifecycleEventPublisher(),
 		notificationDispatcher,
 	)
+	workflowBusinessEvents := workflowapp.NewBusinessEventDispatcher(
+		workflowinfra.NewGormBusinessEventRepository(db),
+		workflowapp.DefaultLifecycleEventBus(),
+	)
 	taskStore := scheduledtaskinfra.NewGormStore(db)
 	notificationStore := inappnotificationinfra.NewGormStore(db)
 	notificationService := inappnotificationapp.NewService(notificationStore)
@@ -258,6 +262,7 @@ func run() error {
 		workflowRuntime,
 		scheduledtaskinfra.NewCleanupJob(taskStore, cfg.ScheduledTask.RunRetentionDays, cfg.ScheduledTask.LogRetentionDays, nil),
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
+		scheduledtaskinfra.NewWorkflowBusinessEventJob(workflowBusinessEvents),
 		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
 		scheduledtaskinfra.NewNotificationOutboxDispatchJob(outboxService),
 	)

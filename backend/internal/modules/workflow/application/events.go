@@ -7,31 +7,73 @@ import (
 	"log"
 	"strings"
 	"sync"
+
+	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 )
 
 type LifecycleEventType string
 
 const (
-	LifecycleInstanceStarted   LifecycleEventType = "instance_started"
-	LifecycleTaskCompleted     LifecycleEventType = "task_completed"
-	LifecycleInstanceCompleted LifecycleEventType = "instance_completed"
-	LifecycleInstanceRejected  LifecycleEventType = "instance_rejected"
-	LifecycleInstanceWithdrawn LifecycleEventType = "instance_withdrawn"
-	LifecycleInstanceCancelled LifecycleEventType = "instance_cancelled"
+	LifecycleInstanceStarted     LifecycleEventType = "instance_started"
+	LifecycleTaskCompleted       LifecycleEventType = "task_completed"
+	LifecycleInstanceCompleted   LifecycleEventType = "instance_completed"
+	LifecycleInstanceRejected    LifecycleEventType = "instance_rejected"
+	LifecycleInstanceWithdrawn   LifecycleEventType = "instance_withdrawn"
+	LifecycleInstanceCancelled   LifecycleEventType = "instance_cancelled"
+	LifecycleInstanceFormRevised LifecycleEventType = "workflow.instance.form_revised"
 )
 
 type LifecycleEvent struct {
-	Type         LifecycleEventType `json:"type"`
-	InstanceID   string             `json:"instanceId"`
-	TaskID       string             `json:"taskId,omitempty"`
-	ActorID      string             `json:"actorId,omitempty"`
-	BusinessType string             `json:"businessType,omitempty"`
-	BusinessKey  string             `json:"businessKey,omitempty"`
-	Status       string             `json:"status"`
+	Type              LifecycleEventType     `json:"type"`
+	InstanceID        string                 `json:"instanceId"`
+	TaskID            string                 `json:"taskId,omitempty"`
+	ActorID           string                 `json:"actorId,omitempty"`
+	BusinessType      string                 `json:"businessType,omitempty"`
+	BusinessKey       string                 `json:"businessKey,omitempty"`
+	Status            string                 `json:"status"`
+	FormRevision      int64                  `json:"formRevision,omitempty"`
+	RevisionRequestID string                 `json:"revisionRequestId,omitempty"`
+	FormPatch         map[string]interface{} `json:"formPatch,omitempty"`
+}
+
+func NewFormRevisedBusinessEvent(
+	instance workflowdomain.ProcessInstance,
+	revisionRequestID string,
+	formRevision int64,
+	formPatch map[string]interface{},
+) LifecycleEvent {
+	return LifecycleEvent{
+		Type: LifecycleInstanceFormRevised, InstanceID: instance.ID,
+		BusinessType: instance.BusinessType, BusinessKey: instance.BusinessKey,
+		Status: string(instance.Status), FormRevision: formRevision,
+		RevisionRequestID: strings.TrimSpace(revisionRequestID),
+		FormPatch:         cloneEventFormPatch(formPatch),
+	}
+}
+
+func cloneEventFormPatch(patch map[string]interface{}) map[string]interface{} {
+	if patch == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(patch))
+	for key, value := range patch {
+		result[key] = value
+	}
+	return result
 }
 
 type EventPublisher interface {
 	Publish(context.Context, LifecycleEvent)
+}
+
+type LifecycleEventDispatcher interface {
+	Dispatch(context.Context, LifecycleEvent) error
+}
+
+type WorkflowBusinessEvent struct {
+	ID        string
+	DedupeKey string
+	Event     LifecycleEvent
 }
 
 type LifecycleEventHandler interface {
@@ -129,21 +171,32 @@ func (bus *LifecycleEventBus) Register(businessType string, handler LifecycleEve
 }
 
 func (bus *LifecycleEventBus) Publish(ctx context.Context, event LifecycleEvent) {
+	_ = bus.Dispatch(ctx, event)
+}
+
+func (bus *LifecycleEventBus) Dispatch(ctx context.Context, event LifecycleEvent) error {
 	if bus == nil {
-		return
+		return nil
 	}
 	businessType := strings.TrimSpace(event.BusinessType)
 	if businessType == "" {
-		return
+		return nil
 	}
 	bus.mu.RLock()
 	handlers := append([]LifecycleEventHandler(nil), bus.handlers[businessType]...)
 	bus.mu.RUnlock()
+	var firstErr error
 	for _, handler := range handlers {
-		if err := invokeLifecycleEventHandler(ctx, handler, event); err != nil && bus.onError != nil {
-			bus.onError(event, err)
+		if err := invokeLifecycleEventHandler(ctx, handler, event); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			if bus.onError != nil {
+				bus.onError(event, err)
+			}
 		}
 	}
+	return firstErr
 }
 
 func invokeLifecycleEventHandler(ctx context.Context, handler LifecycleEventHandler, event LifecycleEvent) (err error) {
@@ -161,6 +214,10 @@ var defaultLifecycleEventBus = NewLifecycleEventBus(func(event LifecycleEvent, e
 })
 
 func DefaultLifecycleEventPublisher() EventPublisher {
+	return defaultLifecycleEventBus
+}
+
+func DefaultLifecycleEventBus() *LifecycleEventBus {
 	return defaultLifecycleEventBus
 }
 

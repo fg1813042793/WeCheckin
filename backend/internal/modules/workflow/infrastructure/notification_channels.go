@@ -100,7 +100,7 @@ func (channel *DingTalkNotificationChannel) Deliver(ctx context.Context, notific
 			MessageType: notification.Payload.MessageType,
 			Title:       notification.Payload.Title,
 			Content:     notification.Payload.Content,
-			URL:         buildWorkflowNotificationURL(target.Config.AppURL, target.Config, notification.InstanceID),
+			URL:         buildWorkflowNotificationRecordURL(target.Config.AppURL, target.Config, notification),
 			SourceName:  "WeCheckin 流程",
 			PicURL:      target.PicURL,
 		}
@@ -134,20 +134,32 @@ func (channel *DingTalkNotificationChannel) Deliver(ctx context.Context, notific
 }
 
 func buildWorkflowNotificationURL(baseURL string, config configsvc.DingTalkH5CorpConfig, instanceID string) string {
+	return buildWorkflowNotificationViewURL(baseURL, config, "workflow:instance:"+strings.TrimSpace(instanceID))
+}
+
+func buildWorkflowNotificationRecordURL(baseURL string, config configsvc.DingTalkH5CorpConfig, notification application.NotificationRecord) string {
+	view := strings.TrimSpace(notification.Payload.View)
+	if view == "" && strings.TrimSpace(notification.InstanceID) != "" {
+		view = "workflow:instance:" + strings.TrimSpace(notification.InstanceID)
+	}
+	return buildWorkflowNotificationViewURL(baseURL, config, view)
+}
+
+func buildWorkflowNotificationViewURL(baseURL string, config configsvc.DingTalkH5CorpConfig, view string) string {
 	operationURL := strings.TrimSpace(baseURL)
 	if operationURL == "" {
 		return ""
 	}
-	if instanceID = strings.TrimSpace(instanceID); instanceID != "" {
+	if view = strings.TrimSpace(view); view != "" {
 		parsed, err := url.Parse(operationURL)
 		if err == nil {
 			query := parsed.Query()
-			query.Set("view", "workflow:instance:"+instanceID)
+			query.Set("view", view)
 			parsed.RawQuery = query.Encode()
 			operationURL = parsed.String()
 		} else {
 			query := url.Values{}
-			query.Set("view", "workflow:instance:"+instanceID)
+			query.Set("view", view)
 			separator := "?"
 			if strings.Contains(operationURL, "?") {
 				separator = "&"

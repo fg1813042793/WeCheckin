@@ -66,6 +66,7 @@ func (service *Service) CreateCompletedFormRevision(ctx context.Context, request
 	}
 
 	var result *FormRevisionDetail
+	var outboxIDs []string
 	err = service.store.InTransaction(ctx, func(store TransactionStore) error {
 		plan, err := service.planCompletedRevision(ctx, store, normalized)
 		if err != nil {
@@ -113,9 +114,31 @@ func (service *Service) CreateCompletedFormRevision(ctx context.Context, request
 		if err := store.SaveState(ctx, plan.state); err != nil {
 			return err
 		}
+		kind := workflowdomain.NotificationKindInstanceFormRevisionRequested
+		recipients := formRevisionTaskRecipients(revision.Tasks, nil)
+		eventKey := "requested:stage:1"
+		if revision.Status == workflowdomain.FormRevisionStatusApplied {
+			kind = workflowdomain.NotificationKindInstanceFormRevisionApproved
+			recipients = formRevisionResultRecipients(plan.state, revision, false)
+			eventKey = "approved"
+			if err := store.CreateBusinessEvent(ctx, revisionBusinessEvent(service, plan.state, revision)); err != nil {
+				return err
+			}
+		}
+		intents, err := service.buildFormRevisionNotifications(ctx, store, plan.definition, plan.state, revision, kind, recipients, eventKey)
+		if err != nil {
+			return err
+		}
+		outboxIDs, err = store.PersistRevisionNotifications(ctx, plan.state, revision, intents)
+		if err != nil {
+			return err
+		}
 		result = completedRevisionDetail(revision)
 		return nil
 	})
+	if err == nil {
+		service.dispatchNotifications(ctx, outboxIDs)
+	}
 	return result, err
 }
 
@@ -145,6 +168,7 @@ func (service *Service) CompleteFormRevisionTask(ctx context.Context, request Co
 	}
 
 	var detail *FormRevisionDetail
+	var outboxIDs []string
 	err = service.store.InTransaction(ctx, func(store TransactionStore) error {
 		revision, err := store.LoadFormRevisionByTaskForUpdate(ctx, request.TaskID)
 		if err != nil {
@@ -163,7 +187,7 @@ func (service *Service) CompleteFormRevisionTask(ctx context.Context, request Co
 			return nil
 		}
 
-		_, state, err := store.LoadCompletedRevisionSourceForUpdate(ctx, revision.SourceInstanceID)
+		definition, state, err := store.LoadCompletedRevisionSourceForUpdate(ctx, revision.SourceInstanceID)
 		if err != nil {
 			return err
 		}
@@ -209,9 +233,52 @@ func (service *Service) CompleteFormRevisionTask(ctx context.Context, request Co
 				return err
 			}
 		}
+		var kind workflowdomain.NotificationKind
+		var recipients []formRevisionNotificationRecipient
+		eventKey := ""
+		switch revision.Status {
+		case workflowdomain.FormRevisionStatusRejected:
+			kind = workflowdomain.NotificationKindInstanceFormRevisionRejected
+			recipients = formRevisionResultRecipients(state, revision, false)
+			eventKey = "rejected"
+		case workflowdomain.FormRevisionStatusApplied:
+			kind = workflowdomain.NotificationKindInstanceFormRevisionApproved
+			recipients = formRevisionResultRecipients(state, revision, true)
+			eventKey = "approved"
+			if err := store.CreateBusinessEvent(ctx, revisionBusinessEvent(service, state, revision)); err != nil {
+				return err
+			}
+		case workflowdomain.FormRevisionStatusConflict:
+			kind = workflowdomain.NotificationKindInstanceFormRevisionConflict
+			recipients = formRevisionResultRecipients(state, revision, false)
+			eventKey = "conflict"
+		default:
+			if len(transition.ActivatedTaskIDs) > 0 {
+				kind = workflowdomain.NotificationKindInstanceFormRevisionRequested
+				activated := make(map[string]struct{}, len(transition.ActivatedTaskIDs))
+				for _, taskID := range transition.ActivatedTaskIDs {
+					activated[taskID] = struct{}{}
+				}
+				recipients = formRevisionTaskRecipients(revision.Tasks, activated)
+				eventKey = fmt.Sprintf("requested:stage:%d", completedRevisionTaskByID(revision, transition.ActivatedTaskIDs[0]).Stage)
+			}
+		}
+		if kind != "" {
+			intents, err := service.buildFormRevisionNotifications(ctx, store, definition, state, revision, kind, recipients, eventKey)
+			if err != nil {
+				return err
+			}
+			outboxIDs, err = store.PersistRevisionNotifications(ctx, state, revision, intents)
+			if err != nil {
+				return err
+			}
+		}
 		detail = completedRevisionDetail(revision)
 		return nil
 	})
+	if err == nil {
+		service.dispatchNotifications(ctx, outboxIDs)
+	}
 	return detail, err
 }
 
@@ -229,6 +296,7 @@ func (service *Service) CancelCompletedFormRevision(ctx context.Context, request
 	}
 
 	var detail *FormRevisionDetail
+	var outboxIDs []string
 	err := service.store.InTransaction(ctx, func(store TransactionStore) error {
 		revision, err := store.LoadFormRevisionForUpdate(ctx, request.RevisionID)
 		if err != nil {
@@ -240,6 +308,7 @@ func (service *Service) CancelCompletedFormRevision(ctx context.Context, request
 		if revision.Status != workflowdomain.FormRevisionStatusPending || completedRevisionHasHandledTask(revision) {
 			return ErrCompletedRevisionCannotCancel
 		}
+		recipients := formRevisionTaskRecipients(revision.Tasks, nil)
 		now := service.currentTime().UnixMilli()
 		for index := range revision.Tasks {
 			if revision.Tasks[index].Status == workflowdomain.RevisionTaskStatusPending ||
@@ -249,7 +318,7 @@ func (service *Service) CancelCompletedFormRevision(ctx context.Context, request
 		}
 		revision.Status = workflowdomain.FormRevisionStatusCancelled
 		revision.CompletedAt = now
-		_, state, err := store.LoadCompletedRevisionSourceForUpdate(ctx, revision.SourceInstanceID)
+		definition, state, err := store.LoadCompletedRevisionSourceForUpdate(ctx, revision.SourceInstanceID)
 		if err != nil {
 			return err
 		}
@@ -263,9 +332,24 @@ func (service *Service) CancelCompletedFormRevision(ctx context.Context, request
 		if err := store.SaveState(ctx, state); err != nil {
 			return err
 		}
+		intents, err := service.buildFormRevisionNotifications(
+			ctx, store, definition, state, revision,
+			workflowdomain.NotificationKindInstanceFormRevisionCancelled,
+			recipients, "cancelled",
+		)
+		if err != nil {
+			return err
+		}
+		outboxIDs, err = store.PersistRevisionNotifications(ctx, state, revision, intents)
+		if err != nil {
+			return err
+		}
 		detail = completedRevisionDetail(revision)
 		return nil
 	})
+	if err == nil {
+		service.dispatchNotifications(ctx, outboxIDs)
+	}
 	return detail, err
 }
 

@@ -82,15 +82,20 @@ const ParticipantRoleCC ParticipantRole = "cc"
 type NotificationKind string
 
 const (
-	NotificationKindNodeCC                 NotificationKind = "node_cc"
-	NotificationKindNodeNotify             NotificationKind = "node_notify"
-	NotificationKindTaskArrived            NotificationKind = "task_arrived"
-	NotificationKindTaskReminder           NotificationKind = "task_reminder"
-	NotificationKindInstanceCommented      NotificationKind = "instance_commented"
-	NotificationKindInstanceFormRevised    NotificationKind = "instance_form_revised"
-	NotificationKindApprovalResultApproved NotificationKind = "approval_result_approved"
-	NotificationKindApprovalResultRejected NotificationKind = "approval_result_rejected"
-	NotificationKindApprovalResultReturned NotificationKind = "approval_result_returned"
+	NotificationKindNodeCC                        NotificationKind = "node_cc"
+	NotificationKindNodeNotify                    NotificationKind = "node_notify"
+	NotificationKindTaskArrived                   NotificationKind = "task_arrived"
+	NotificationKindTaskReminder                  NotificationKind = "task_reminder"
+	NotificationKindInstanceCommented             NotificationKind = "instance_commented"
+	NotificationKindInstanceFormRevised           NotificationKind = "instance_form_revised"
+	NotificationKindInstanceFormRevisionRequested NotificationKind = "instance_form_revision_requested"
+	NotificationKindInstanceFormRevisionApproved  NotificationKind = "instance_form_revision_approved"
+	NotificationKindInstanceFormRevisionRejected  NotificationKind = "instance_form_revision_rejected"
+	NotificationKindInstanceFormRevisionCancelled NotificationKind = "instance_form_revision_cancelled"
+	NotificationKindInstanceFormRevisionConflict  NotificationKind = "instance_form_revision_conflict"
+	NotificationKindApprovalResultApproved        NotificationKind = "approval_result_approved"
+	NotificationKindApprovalResultRejected        NotificationKind = "approval_result_rejected"
+	NotificationKindApprovalResultReturned        NotificationKind = "approval_result_returned"
 )
 
 type ProcessInstance struct {
