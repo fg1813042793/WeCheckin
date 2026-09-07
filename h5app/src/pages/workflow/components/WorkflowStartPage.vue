@@ -1272,7 +1272,7 @@ function cancelStart() {
   min-width: 960px;
   border: 1px solid #e5eaf3;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   background: #ffffff;
   box-sizing: border-box;
 }
@@ -1352,8 +1352,22 @@ function cancelStart() {
 }
 
 .workflow-start-page__record-cell--action {
+  position: sticky;
+  right: 0;
+  z-index: 2;
   gap: 3px;
+  background: #ffffff;
   color: #0f766e;
+  box-shadow: -8px 0 12px -12px rgba(31, 35, 41, 0.4);
+}
+
+.workflow-start-page__record--header .workflow-start-page__record-cell--action {
+  z-index: 3;
+  background: #f7f8fa;
+}
+
+.workflow-start-page__record:hover .workflow-start-page__record-cell--action {
+  background: #f7fbfa;
 }
 
 .workflow-start-page__draft-grid {
@@ -1654,9 +1668,12 @@ function cancelStart() {
   }
 
   .workflow-start-page__record-cell--action {
+    position: static;
     grid-column: 3;
     grid-row: 2;
     justify-content: flex-end;
+    background: transparent;
+    box-shadow: none;
   }
 
   .workflow-start-page__section--graph {

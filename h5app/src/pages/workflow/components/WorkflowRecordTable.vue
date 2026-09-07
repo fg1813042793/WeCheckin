@@ -31,52 +31,63 @@ const gridStyle = computed(() => ({
     .map(column => column.width || 'minmax(100px, 1fr)')
     .join(' '),
 }))
+
+const tableStyle = computed(() => {
+  const columnWidth = props.columns.reduce((total, column) => {
+    const matched = String(column.width || '').match(/(\d+(?:\.\d+)?)px/)
+    return total + (matched ? Number(matched[1]) : 100)
+  }, 0)
+  const gaps = Math.max(props.columns.length - 1, 0) * 14
+  return { minWidth: `${columnWidth + gaps + 32}px` }
+})
 </script>
 
 <template>
   <view class="workflow-record-table">
-    <view class="workflow-record-table__header" :style="gridStyle">
-      <text
-        v-for="column in columns"
-        :key="column.key"
-        :class="{ 'workflow-record-table__header-cell--actions': column.key === 'actions' }"
-      >
-        {{ column.label }}
-      </text>
-    </view>
-
-    <view
-      v-for="row in rows"
-      :key="row.id"
-      class="workflow-record-table__row"
-      :style="gridStyle"
-    >
-      <view
-        v-for="column in columns"
-        :key="column.key"
-        class="workflow-record-table__cell"
-        :class="{
-          'workflow-record-table__cell--name': column.key === 'name',
-          'workflow-record-table__cell--status': column.key === 'status',
-          'workflow-record-table__cell--submitted-at': column.key === 'submittedAt',
-          'workflow-record-table__cell--mobile-hidden': column.mobileHidden,
-          'workflow-record-table__actions': column.key === 'actions',
-        }"
-      >
-        <text class="workflow-record-table__cell-label">
+    <view class="workflow-record-table__content" :style="tableStyle">
+      <view class="workflow-record-table__header" :style="gridStyle">
+        <text
+          v-for="column in columns"
+          :key="column.key"
+          :class="{ 'workflow-record-table__header-cell--actions': column.key === 'actions' }"
+        >
           {{ column.label }}
         </text>
-        <slot v-if="column.key === 'actions'" name="actions" :row="row" />
-        <u-tag
-          v-else-if="column.key === 'status' && row.status"
-          custom-class="workflow-record-table__status-tag"
-          :text="row.status.label"
-          :type="row.status.type"
-          size="mini"
-        />
-        <text v-else class="workflow-record-table__cell-value">
-          {{ row.cells[column.key] || '-' }}
-        </text>
+      </view>
+
+      <view
+        v-for="row in rows"
+        :key="row.id"
+        class="workflow-record-table__row"
+        :style="gridStyle"
+      >
+        <view
+          v-for="column in columns"
+          :key="column.key"
+          class="workflow-record-table__cell"
+          :class="{
+            'workflow-record-table__cell--name': column.key === 'name',
+            'workflow-record-table__cell--status': column.key === 'status',
+            'workflow-record-table__cell--submitted-at': column.key === 'submittedAt',
+            'workflow-record-table__cell--mobile-hidden': column.mobileHidden,
+            'workflow-record-table__actions': column.key === 'actions',
+          }"
+        >
+          <text class="workflow-record-table__cell-label">
+            {{ column.label }}
+          </text>
+          <slot v-if="column.key === 'actions'" name="actions" :row="row" />
+          <u-tag
+            v-else-if="column.key === 'status' && row.status"
+            custom-class="workflow-record-table__status-tag"
+            :text="row.status.label"
+            :type="row.status.type"
+            size="mini"
+          />
+          <text v-else class="workflow-record-table__cell-value">
+            {{ row.cells[column.key] || '-' }}
+          </text>
+        </view>
       </view>
     </view>
   </view>
@@ -86,8 +97,15 @@ const gridStyle = computed(() => ({
 .workflow-record-table {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   background: #fff;
+}
+
+.workflow-record-table__content {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .workflow-record-table__header,
@@ -145,7 +163,17 @@ const gridStyle = computed(() => ({
   font-weight: 700;
 }
 
+.workflow-record-table__header-cell--actions,
+.workflow-record-table__actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -8px 0 12px -12px rgba(31, 35, 41, 0.4);
+}
+
 .workflow-record-table__header-cell--actions {
+  z-index: 3;
+  background: #f7f8fa;
   text-align: center;
 }
 
@@ -154,6 +182,11 @@ const gridStyle = computed(() => ({
   align-items: center;
   justify-content: center;
   gap: 8px;
+  background: #fff;
+}
+
+.workflow-record-table__row:hover .workflow-record-table__actions {
+  background: #f8fafc;
 }
 
 .workflow-record-table__status-tag,
@@ -170,6 +203,14 @@ const gridStyle = computed(() => ({
 }
 
 @media screen and (max-width: 900px) {
+  .workflow-record-table {
+    overflow: hidden;
+  }
+
+  .workflow-record-table__content {
+    min-width: 0 !important;
+  }
+
   .workflow-record-table__header {
     display: none;
   }
@@ -219,12 +260,15 @@ const gridStyle = computed(() => ({
   }
 
   .workflow-record-table__actions {
+    position: static;
     grid-column: 2;
     grid-row: 2;
     display: flex;
     align-self: end;
     justify-self: end;
     justify-content: flex-end;
+    background: transparent;
+    box-shadow: none;
   }
 }
 

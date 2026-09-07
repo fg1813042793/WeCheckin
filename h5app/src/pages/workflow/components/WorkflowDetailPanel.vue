@@ -2564,7 +2564,7 @@ async function deleteApplication() {
   padding: 10px 12px;
   border-top: 1px solid #dfe5ee;
   display: grid;
-  grid-template-columns: repeat(auto-fit, 120px);
+  grid-template-columns: repeat(auto-fit, 96px);
   align-items: center;
   justify-content: start;
   gap: 8px;
@@ -2574,14 +2574,14 @@ async function deleteApplication() {
 }
 
 .workflow-detail-panel__application-actions--comment-only {
-  grid-template-columns: 120px;
+  grid-template-columns: 96px;
   justify-content: start;
 }
 
 .workflow-detail-panel--history-drawer .workflow-detail-panel__application-actions--comment-only {
   min-height: 56px;
   padding: 10px 16px;
-  grid-template-columns: 120px;
+  grid-template-columns: 96px;
   border-top-color: #eef1f4;
   box-shadow: 0 -2px 10px rgba(31, 35, 41, 0.04);
 }
@@ -2912,12 +2912,12 @@ async function deleteApplication() {
   }
 
   .workflow-detail-panel__application-actions--comment-only {
-    grid-template-columns: 120px;
+    grid-template-columns: 96px;
   }
 
   .workflow-detail-panel--history-drawer .workflow-detail-panel__application-actions--comment-only {
     padding: 10px 12px;
-    grid-template-columns: 120px;
+    grid-template-columns: 96px;
   }
 
   .workflow-detail-panel__action,

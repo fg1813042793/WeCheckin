@@ -60,6 +60,28 @@ const requiredContent = [
     ],
   },
   {
+    file: 'src/pages/workflow/components/WorkflowRecordTable.vue',
+    patterns: [
+      'overflow-x: auto;',
+      '.workflow-record-table__header-cell--actions,\n.workflow-record-table__actions {\n  position: sticky;',
+      'right: 0;',
+    ],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowStartPage.vue',
+    patterns: [
+      '.workflow-start-page__record-cell--action {\n  position: sticky;',
+      'border-radius: 6px;\n  overflow: visible;',
+    ],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
+    patterns: [
+      'grid-template-columns: repeat(auto-fit, 96px);',
+      'grid-template-columns: 96px;',
+    ],
+  },
+  {
     file: 'src/common/style.scss',
     patterns: ['--app-pc-content-max-width: 1080px;'],
   },
