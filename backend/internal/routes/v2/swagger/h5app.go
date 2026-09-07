@@ -547,6 +547,83 @@ func swaggerV2H5AppWorkflowInstancesIDRemindersPost() {}
 func swaggerV2H5AppWorkflowInstancesIDFormDataPatch() {}
 
 // @Tags API v2-H5App-OA流程
+// @Summary 查询已完成流程的表单修订记录
+// @Description 仅流程发起人、原流程参与人、修订发起人或修订确认任务参与人可访问
+// @Security H5AppToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp{data=[]workflowapp.FormRevisionSummary}
+// @Failure 403 {object} response.Resp
+// @Failure 404 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions [get]
+func swaggerV2H5AppWorkflowInstancesIDFormRevisionsGet() {}
+
+// @Tags API v2-H5App-OA流程
+// @Summary 预览已完成流程的表单修订
+// @Description 校验实际办理身份、字段权限和原流程路径，并返回直接生效或下游确认模式；预览不写数据库，创建时会完整重算
+// @Security H5AppToken
+// @Param id path string true "流程实例 ID"
+// @Param body body WorkflowCompletedFormRevisionPreviewRequest true "修订预览数据"
+// @Success 200 {object} response.Resp{data=workflowapp.FormRevisionPreview}
+// @Failure 400 {object} response.Resp
+// @Failure 403 {object} response.Resp
+// @Failure 404 {object} response.Resp
+// @Failure 409 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions/preview [post]
+func swaggerV2H5AppWorkflowInstancesIDFormRevisionsPreviewPost() {}
+
+// @Tags API v2-H5App-OA流程
+// @Summary 发起已完成流程的表单修订
+// @Description 低风险字段可直接生效；其他字段按原实际流转路径生成下游确认任务。源实例保持已完成状态
+// @Security H5AppToken
+// @Param id path string true "流程实例 ID"
+// @Param body body WorkflowCompletedFormRevisionCreateRequest true "表单修订数据"
+// @Success 200 {object} response.Resp{data=workflowapp.FormRevisionDetail}
+// @Failure 400 {object} response.Resp
+// @Failure 403 {object} response.Resp
+// @Failure 404 {object} response.Resp
+// @Failure 409 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions [post]
+func swaggerV2H5AppWorkflowInstancesIDFormRevisionsPost() {}
+
+// @Tags API v2-H5App-OA流程
+// @Summary 查询表单修订详情
+// @Description 返回修订前表单、修改补丁、候选表单和全部确认任务
+// @Security H5AppToken
+// @Param id path string true "表单修订请求 ID"
+// @Success 200 {object} response.Resp{data=workflowapp.FormRevisionDetail}
+// @Failure 403 {object} response.Resp
+// @Failure 404 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/form-revisions/{id} [get]
+func swaggerV2H5AppWorkflowFormRevisionsIDGet() {}
+
+// @Tags API v2-H5App-OA流程
+// @Summary 取消表单修订
+// @Description 仅修订发起人可取消；任一确认任务已处理后不可取消
+// @Security H5AppToken
+// @Param id path string true "表单修订请求 ID"
+// @Success 200 {object} response.Resp{data=workflowapp.FormRevisionDetail}
+// @Failure 400 {object} response.Resp
+// @Failure 403 {object} response.Resp
+// @Failure 404 {object} response.Resp
+// @Failure 409 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/form-revisions/{id}/cancel [post]
+func swaggerV2H5AppWorkflowFormRevisionsIDCancelPost() {}
+
+// @Tags API v2-H5App-OA流程
+// @Summary 处理表单修订确认任务
+// @Description 仅任务实际处理人可操作，action 只允许 approve 或 reject；相同终态请求幂等返回，冲突终态返回 409
+// @Security H5AppToken
+// @Param id path string true "表单修订任务 ID"
+// @Param body body WorkflowFormRevisionTaskCompleteRequest true "修订确认数据"
+// @Success 200 {object} response.Resp{data=workflowapp.FormRevisionDetail}
+// @Failure 400 {object} response.Resp
+// @Failure 403 {object} response.Resp
+// @Failure 404 {object} response.Resp
+// @Failure 409 {object} response.Resp
+// @Router /api/v2/dingtalk/h5/workflows/form-revision-tasks/{id}/complete [post]
+func swaggerV2H5AppWorkflowFormRevisionTasksIDCompletePost() {}
+
+// @Tags API v2-H5App-OA流程
 // @Summary 查询 H5App 待办任务
 // @Security H5AppToken
 // @Param instanceId query string false "流程实例 ID"

@@ -123,6 +123,33 @@ type WorkflowReasonRequest struct {
 	Reason string `json:"reason" example:"业务申请撤销"`
 }
 
+// WorkflowCompletedFormRevisionPreviewRequest describes a completed-instance form revision preview.
+type WorkflowCompletedFormRevisionPreviewRequest struct {
+	// SourceNodeID 是本次修订来源的实际已办理人工节点 ID。
+	SourceNodeID string `json:"sourceNodeId" example:"manager_review"`
+	// ExpectedRevision 是调用方读取到的源实例表单版本。
+	ExpectedRevision int64 `json:"expectedRevision" example:"3"`
+	// FormData 是包含本次修改值的表单数据；服务端只提取发生变化且被授权的字段。
+	FormData map[string]interface{} `json:"formData"`
+}
+
+// WorkflowCompletedFormRevisionCreateRequest describes a completed-instance form revision request.
+type WorkflowCompletedFormRevisionCreateRequest struct {
+	WorkflowCompletedFormRevisionPreviewRequest
+	// Reason 是修订原因，不能为空且最多 500 个字符。
+	Reason string `json:"reason" example:"修正最终验收结果"`
+}
+
+// WorkflowFormRevisionTaskCompleteRequest describes an approval action for a form revision task.
+type WorkflowFormRevisionTaskCompleteRequest struct {
+	// Action 仅允许 approve 或 reject。
+	Action string `json:"action" enums:"approve,reject" example:"approve"`
+	// Comment 是确认意见。
+	Comment string `json:"comment" example:"确认修订内容无误"`
+	// Images 是随确认意见提交的流程附件。
+	Images []H5AppWorkflowImage `json:"images,omitempty"`
+}
+
 // WorkflowDispatchDueRequest limits one manual notification dispatch batch.
 type WorkflowDispatchDueRequest struct {
 	// Limit 是本次最多投递的通知数量。

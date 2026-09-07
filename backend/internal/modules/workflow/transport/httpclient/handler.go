@@ -31,6 +31,12 @@ type RuntimeService interface {
 	CommentInstance(context.Context, workflowapp.CommentInstanceRequest) error
 	RemindInstance(context.Context, workflowapp.RemindInstanceRequest) (*workflowapp.RemindInstanceResult, error)
 	ReviseInstanceForm(context.Context, workflowapp.ReviseInstanceFormRequest) (*workflowdomain.State, error)
+	ListFormRevisions(context.Context, string, string) ([]workflowapp.FormRevisionSummary, error)
+	PreviewCompletedFormRevision(context.Context, workflowapp.PreviewCompletedFormRevisionRequest) (*workflowapp.FormRevisionPreview, error)
+	CreateCompletedFormRevision(context.Context, workflowapp.CreateCompletedFormRevisionRequest) (*workflowapp.FormRevisionDetail, error)
+	GetFormRevision(context.Context, string, string) (*workflowapp.FormRevisionDetail, error)
+	CancelCompletedFormRevision(context.Context, workflowapp.CancelCompletedFormRevisionRequest) (*workflowapp.FormRevisionDetail, error)
+	CompleteFormRevisionTask(context.Context, workflowapp.CompleteFormRevisionTaskRequest) (*workflowapp.FormRevisionDetail, error)
 	DeleteMyInstance(context.Context, string, string) error
 	GetMyOverview(context.Context, string) (*workflowapp.WorkflowOverview, error)
 	ListMyInstances(context.Context, string, workflowapp.InstanceQuery) (*workflowapp.InstanceList, error)

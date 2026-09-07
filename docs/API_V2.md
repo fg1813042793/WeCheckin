@@ -202,6 +202,46 @@
 - 修改、审计记录与通知 Outbox 在同一事务中提交；修改成功后会新增“表单已修改”流转记录。历史流程版本未配置该能力时保持不可修改。
 - H5 入口同时要求 `dingtalk_h5:button:workflow:form-revise` 与 `dingtalk_h5:api:workflow:form-revise` 权限，后端接口权限是最终边界。
 
+### 钉钉 H5 已完成流程表单修订
+
+已完成流程不恢复为运行中状态。实际办理过且在流程设计中启用了“流程完成后允许修订”的人工节点处理人，可以从该节点发起独立表单修订：
+
+- `GET /api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions`：查询源实例的修订记录。
+- `POST /api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions/preview`：校验并预览修订模式与确认路径，不写数据库。
+- `POST /api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions`：创建修订请求；创建时重新执行与预览相同的完整校验。
+- `GET /api/v2/dingtalk/h5/workflows/form-revisions/{id}`：查询修订前数据、补丁、候选表单和全部确认任务。
+- `POST /api/v2/dingtalk/h5/workflows/form-revisions/{id}/cancel`：修订发起人在尚无确认任务被处理时取消请求。
+- `POST /api/v2/dingtalk/h5/workflows/form-revision-tasks/{id}/complete`：实际任务处理人通过或驳回修订。
+
+预览和创建请求示例：
+
+```json
+{
+  "sourceNodeId": "manager_review",
+  "expectedRevision": 3,
+  "formData": {
+    "finalResult": "修订后的结果"
+  },
+  "reason": "修正最终验收结果"
+}
+```
+
+预览响应中的 `mode` 为 `direct` 或 `downstream_review`；`changedFields` 是变更字段标签，`confirmationStages` 是依据原实例实际经过的后续人工节点和当前组织关系解析出的确认阶段。配置为低风险直接修订的字段使用 `direct`，在创建事务内立即更新源实例表单并递增 `formRevision`；其他字段使用 `downstream_review`，全部确认通过且基准版本未变化时才生效。
+
+修订状态为 `pending`、`applied`、`rejected`、`cancelled` 或 `conflict`；确认任务状态为 `waiting`、`pending`、`approved`、`rejected` 或 `cancelled`。任务动作只允许：
+
+```json
+{
+  "action": "approve",
+  "comment": "确认修订内容无误",
+  "images": []
+}
+```
+
+同一实例同一时间只允许一个 `pending` 修订。`expectedRevision` 与源实例当前版本不一致，或最终通过时源实例版本已变化，返回冲突；后者会将修订记为 `conflict`，不会覆盖较新的表单。相同处理人以相同动作重复处理已完成任务时幂等返回原结果，换动作或处理其他终态任务返回 409。
+
+新增接口使用 HTTP 状态表达错误：参数、非法字段、无确认路径和不可取消为 400；非实际节点处理人或确认任务处理人为 403；实例、修订请求或任务不存在为 404；活动修订、表单版本变化和重复终态冲突为 409。创建和处理入口分别要求 `workflow:form-revision-create` 与 `workflow:form-revision-handle` 权限。
+
 ### 钉钉 H5 流程附件
 
 - `POST /api/v2/dingtalk/h5/workflows/attachments`：上传流程表单附件，文件字段名为 `file`，单文件最大 20MB。

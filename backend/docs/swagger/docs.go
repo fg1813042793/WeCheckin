@@ -12798,6 +12798,204 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/dingtalk/h5/workflows/form-revision-tasks/{id}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅任务实际处理人可操作，action 只允许 approve 或 reject；相同终态请求幂等返回，冲突终态返回 409",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "处理表单修订确认任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "表单修订任务 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "修订确认数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowFormRevisionTaskCompleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FormRevisionDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/form-revisions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "返回修订前表单、修改补丁、候选表单和全部确认任务",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询表单修订详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "表单修订请求 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FormRevisionDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/form-revisions/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅修订发起人可取消；任一确认任务已处理后不可取消",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "取消表单修订",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "表单修订请求 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FormRevisionDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/dingtalk/h5/workflows/instances": {
             "get": {
                 "security": [
@@ -13067,6 +13265,214 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions": {
+            "get": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "仅流程发起人、原流程参与人、修订发起人或修订确认任务参与人可访问",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "查询已完成流程的表单修订记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/application.FormRevisionSummary"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "低风险字段可直接生效；其他字段按原实际流转路径生成下游确认任务。源实例保持已完成状态",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "发起已完成流程的表单修订",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "表单修订数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowCompletedFormRevisionCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FormRevisionDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/workflows/instances/{id}/form-revisions/preview": {
+            "post": {
+                "security": [
+                    {
+                        "H5AppToken": []
+                    }
+                ],
+                "description": "校验实际办理身份、字段权限和原流程路径，并返回直接生效或下游确认模式；预览不写数据库，创建时会完整重算",
+                "tags": [
+                    "API v2-H5App-OA流程"
+                ],
+                "summary": "预览已完成流程的表单修订",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "修订预览数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowCompletedFormRevisionPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FormRevisionPreview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
                         }
@@ -16200,6 +16606,243 @@ const docTemplate = `{
                 }
             }
         },
+        "application.FormRevisionConfirmationNode": {
+            "type": "object",
+            "properties": {
+                "approvalMode": {
+                    "type": "string"
+                },
+                "assigneeIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "assigneeNames": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "completionRate": {
+                    "type": "integer"
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "nodeName": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.FormRevisionConfirmationStage": {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.FormRevisionConfirmationNode"
+                    }
+                },
+                "stage": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.FormRevisionDetail": {
+            "type": "object",
+            "properties": {
+                "appliedFormRevision": {
+                    "type": "integer"
+                },
+                "baseFormRevision": {
+                    "type": "integer"
+                },
+                "beforeFormData": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "changedFieldLabels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "completedAt": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idempotent": {
+                    "type": "boolean"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "patch": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "proposedFormData": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "requesterId": {
+                    "type": "string"
+                },
+                "sourceInstanceId": {
+                    "type": "string"
+                },
+                "sourceNodeId": {
+                    "type": "string"
+                },
+                "sourceNodeName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.FormRevisionTaskSummary"
+                    }
+                }
+            }
+        },
+        "application.FormRevisionPreview": {
+            "type": "object",
+            "properties": {
+                "changedFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "confirmationStages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.FormRevisionConfirmationStage"
+                    }
+                },
+                "mode": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.FormRevisionSummary": {
+            "type": "object",
+            "properties": {
+                "appliedFormRevision": {
+                    "type": "integer"
+                },
+                "baseFormRevision": {
+                    "type": "integer"
+                },
+                "changedFieldLabels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "completedAt": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "requesterId": {
+                    "type": "string"
+                },
+                "sourceInstanceId": {
+                    "type": "string"
+                },
+                "sourceNodeId": {
+                    "type": "string"
+                },
+                "sourceNodeName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.FormRevisionTaskSummary": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "approvalMode": {
+                    "type": "string"
+                },
+                "assigneeId": {
+                    "type": "string"
+                },
+                "assigneeName": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "completionRate": {
+                    "type": "integer"
+                },
+                "handledAt": {
+                    "type": "integer"
+                },
+                "handledBy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormAttachment"
+                    }
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "nodeName": {
+                    "type": "string"
+                },
+                "sequence": {
+                    "type": "integer"
+                },
+                "sourceTaskId": {
+                    "type": "string"
+                },
+                "stage": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "application.Message": {
             "type": "object",
             "properties": {
@@ -18312,6 +18955,51 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.WorkflowCompletedFormRevisionCreateRequest": {
+            "type": "object",
+            "properties": {
+                "expectedRevision": {
+                    "description": "ExpectedRevision 是调用方读取到的源实例表单版本。",
+                    "type": "integer",
+                    "example": 3
+                },
+                "formData": {
+                    "description": "FormData 是包含本次修改值的表单数据；服务端只提取发生变化且被授权的字段。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "reason": {
+                    "description": "Reason 是修订原因，不能为空且最多 500 个字符。",
+                    "type": "string",
+                    "example": "修正最终验收结果"
+                },
+                "sourceNodeId": {
+                    "description": "SourceNodeID 是本次修订来源的实际已办理人工节点 ID。",
+                    "type": "string",
+                    "example": "manager_review"
+                }
+            }
+        },
+        "swagger.WorkflowCompletedFormRevisionPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "expectedRevision": {
+                    "description": "ExpectedRevision 是调用方读取到的源实例表单版本。",
+                    "type": "integer",
+                    "example": 3
+                },
+                "formData": {
+                    "description": "FormData 是包含本次修改值的表单数据；服务端只提取发生变化且被授权的字段。",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "sourceNodeId": {
+                    "description": "SourceNodeID 是本次修订来源的实际已办理人工节点 ID。",
+                    "type": "string",
+                    "example": "manager_review"
+                }
+            }
+        },
         "swagger.WorkflowDispatchDueRequest": {
             "type": "object",
             "properties": {
@@ -18319,6 +19007,32 @@ const docTemplate = `{
                     "description": "Limit 是本次最多投递的通知数量。",
                     "type": "integer",
                     "example": 100
+                }
+            }
+        },
+        "swagger.WorkflowFormRevisionTaskCompleteRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action 仅允许 approve 或 reject。",
+                    "type": "string",
+                    "enum": [
+                        "approve",
+                        "reject"
+                    ],
+                    "example": "approve"
+                },
+                "comment": {
+                    "description": "Comment 是确认意见。",
+                    "type": "string",
+                    "example": "确认修订内容无误"
+                },
+                "images": {
+                    "description": "Images 是随确认意见提交的流程附件。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/swagger.H5AppWorkflowImage"
+                    }
                 }
             }
         },
@@ -18441,6 +19155,26 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/template.ValueRubric"
                     }
+                }
+            }
+        },
+        "workflowcore.FormAttachment": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "mimeType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },

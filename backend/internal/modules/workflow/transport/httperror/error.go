@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
@@ -28,7 +29,9 @@ var permissionErrors = []error{
 	workflowapp.ErrReminderStarterOnly,
 	workflowapp.ErrInstanceFormRevisionNotAllowed,
 	workflowapp.ErrFormRevisionNotificationRecipient,
+	workflowapp.ErrCompletedRevisionNotAllowed,
 	workflowdomain.ErrTaskActorMismatch,
+	workflowdomain.ErrRevisionTaskActorMismatch,
 	workflowdomain.ErrInstanceStarterMismatch,
 	workflowsummary.ErrSummaryAccessDenied,
 }
@@ -80,6 +83,11 @@ var publicErrors = []publicError{
 	{workflowapp.ErrFormRevisionNotificationTooMany, "表单修改通知对象不能超过100人"},
 	{workflowapp.ErrFormRevisionNotificationChannels, "请选择表单修改通知方式"},
 	{workflowapp.ErrFormRevisionNotificationChannel, "表单修改通知方式无效"},
+	{workflowapp.ErrCompletedRevisionInstanceNotCompleted, "只有已完成流程可以发起完成后表单修订"},
+	{workflowapp.ErrCompletedRevisionActive, "当前流程已有进行中的表单修订"},
+	{workflowapp.ErrCompletedRevisionNoReviewPath, "来源节点之后没有可确认的人工节点"},
+	{workflowapp.ErrCompletedRevisionCannotCancel, "表单修订已有确认任务被处理，不能取消"},
+	{workflowapp.ErrCompletedRevisionIDRequired, "表单修订请求不能为空"},
 	{workflowapp.ErrWorkflowImageInvalid, "流程图片数据无效"},
 	{workflowapp.ErrWorkflowImageTooMany, "流程图片最多上传9张"},
 	{workflowdomain.ErrTaskNotFound, "工作流任务不存在"},
@@ -90,16 +98,58 @@ var publicErrors = []publicError{
 	{workflowdomain.ErrReturnTargetUnavailable, "当前任务没有可退回的上一节点"},
 	{workflowdomain.ErrReturnTargetInvalid, "退回目标必须是已执行过的上游人工节点"},
 	{workflowdomain.ErrReturnParallelUnsupported, "并行流程暂不支持退回"},
+	{workflowdomain.ErrRevisionNotPending, "表单修订请求已结束"},
+	{workflowdomain.ErrRevisionTaskNotFound, "表单修订任务不存在"},
+	{workflowdomain.ErrRevisionTaskAlreadyHandled, "表单修订任务已处理"},
+	{workflowdomain.ErrInvalidRevisionTaskAction, "表单修订任务操作无效"},
+	{workflowdomain.ErrInvalidRevisionTaskPlan, "表单修订确认路径无效"},
 	{workflowinfra.ErrDefinitionNotPublished, "流程定义尚未发布"},
 	{workflowinfra.ErrInstanceNotFound, "流程实例不存在"},
 	{workflowinfra.ErrTaskNotFound, "流程任务不存在"},
 	{workflowinfra.ErrNotificationNotFound, "通知投递记录不存在"},
+	{workflowinfra.ErrFormRevisionNotFound, "表单修订请求不存在"},
+	{workflowinfra.ErrFormRevisionTaskNotFound, "表单修订任务不存在"},
 	{workflowsummary.ErrDefinitionRequired, "流程定义不能为空"},
 	{workflowsummary.ErrInstanceRequired, "流程实例不能为空"},
 	{workflowsummary.ErrExportInstancesEmpty, "请选择需要导出的流程实例"},
 	{workflowsummary.ErrExportInstancesMany, "单次最多导出50个流程实例"},
 	{workflowsummary.ErrExportFormatInvalid, "导出格式仅支持 pdf、xlsx、docx"},
 	{workflowsummary.ErrExportBodyTooLarge, "导出文件过大，请减少本次导出数量"},
+}
+
+func HTTPStatus(err error) int {
+	if err == nil {
+		return consts.StatusOK
+	}
+	for _, target := range permissionErrors {
+		if errors.Is(err, target) {
+			return consts.StatusForbidden
+		}
+	}
+	for _, target := range []error{
+		workflowinfra.ErrInstanceNotFound,
+		workflowinfra.ErrFormRevisionNotFound,
+		workflowinfra.ErrFormRevisionTaskNotFound,
+		workflowdomain.ErrRevisionTaskNotFound,
+	} {
+		if errors.Is(err, target) {
+			return consts.StatusNotFound
+		}
+	}
+	for _, target := range []error{
+		workflowapp.ErrCompletedRevisionActive,
+		workflowapp.ErrInstanceFormRevisionChanged,
+		workflowdomain.ErrRevisionNotPending,
+		workflowdomain.ErrRevisionTaskAlreadyHandled,
+	} {
+		if errors.Is(err, target) {
+			return consts.StatusConflict
+		}
+	}
+	if _, ok := PublicMessage(err); ok || errors.Is(err, workflowcore.ErrFormDataInvalid) {
+		return consts.StatusBadRequest
+	}
+	return consts.StatusInternalServerError
 }
 
 func PublicMessage(err error) (string, bool) {
@@ -129,4 +179,14 @@ func Respond(ctx context.Context, c *app.RequestContext, operation string, err e
 		return
 	}
 	response.FailInternal(ctx, c, operation, defaultPublicMessage, err)
+}
+
+func RespondWithStatus(ctx context.Context, c *app.RequestContext, operation string, err error) {
+	message, ok := PublicMessage(err)
+	if !ok {
+		response.FailInternal(ctx, c, operation, defaultPublicMessage, err)
+		c.Response.Header.SetStatusCode(consts.StatusInternalServerError)
+		return
+	}
+	c.JSON(HTTPStatus(err), response.Resp{Code: 1, Msg: message})
 }

@@ -17,31 +17,37 @@ import (
 )
 
 type runtimeServiceStub struct {
-	startRequest       workflowapp.StartInstanceRequest
-	completeRequest    workflowapp.CompleteTaskRequest
-	withdrawRequest    workflowapp.WithdrawInstanceRequest
-	commentRequest     workflowapp.CommentInstanceRequest
-	remindRequest      workflowapp.RemindInstanceRequest
-	reviseFormRequest  workflowapp.ReviseInstanceFormRequest
-	instanceQuery      workflowapp.InstanceQuery
-	taskQuery          workflowapp.TaskQuery
-	actorID            string
-	instanceID         string
-	startCalls         int
-	completeCalls      int
-	withdrawCalls      int
-	commentCalls       int
-	remindCalls        int
-	reviseFormCalls    int
-	saveDraftRequest   workflowapp.SaveStartDraftRequest
-	draft              *workflowapp.StartDraft
-	deleteDraftID      uint
-	deleteDraftActor   string
-	deleteInstanceID   string
-	deleteActorID      string
-	instanceDetail     *workflowapp.InstanceDetail
-	listDefinitionsErr error
-	workflowOverview   workflowapp.WorkflowOverview
+	startRequest                workflowapp.StartInstanceRequest
+	completeRequest             workflowapp.CompleteTaskRequest
+	withdrawRequest             workflowapp.WithdrawInstanceRequest
+	commentRequest              workflowapp.CommentInstanceRequest
+	remindRequest               workflowapp.RemindInstanceRequest
+	reviseFormRequest           workflowapp.ReviseInstanceFormRequest
+	previewRevisionRequest      workflowapp.PreviewCompletedFormRevisionRequest
+	createRevisionRequest       workflowapp.CreateCompletedFormRevisionRequest
+	completeRevisionTaskRequest workflowapp.CompleteFormRevisionTaskRequest
+	cancelRevisionRequest       workflowapp.CancelCompletedFormRevisionRequest
+	instanceQuery               workflowapp.InstanceQuery
+	taskQuery                   workflowapp.TaskQuery
+	actorID                     string
+	instanceID                  string
+	startCalls                  int
+	completeCalls               int
+	withdrawCalls               int
+	commentCalls                int
+	remindCalls                 int
+	reviseFormCalls             int
+	completeRevisionTaskCalls   int
+	saveDraftRequest            workflowapp.SaveStartDraftRequest
+	draft                       *workflowapp.StartDraft
+	deleteDraftID               uint
+	deleteDraftActor            string
+	deleteInstanceID            string
+	deleteActorID               string
+	instanceDetail              *workflowapp.InstanceDetail
+	listDefinitionsErr          error
+	workflowOverview            workflowapp.WorkflowOverview
+	cancelRevisionErr           error
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitionsForStarter(_ context.Context, actorID string) ([]workflowapp.PublishedDefinition, error) {
@@ -139,6 +145,41 @@ func (stub *runtimeServiceStub) ReviseInstanceForm(_ context.Context, request wo
 	stub.reviseFormCalls++
 	stub.reviseFormRequest = request
 	return &workflowdomain.State{Instance: workflowdomain.ProcessInstance{ID: request.InstanceID, Status: workflowdomain.InstanceStatusRunning, FormRevision: request.ExpectedRevision + 1}}, nil
+}
+
+func (stub *runtimeServiceStub) ListFormRevisions(_ context.Context, instanceID, actorID string) ([]workflowapp.FormRevisionSummary, error) {
+	stub.instanceID = instanceID
+	stub.actorID = actorID
+	return []workflowapp.FormRevisionSummary{{ID: "revision-1", SourceInstanceID: instanceID, RequesterID: actorID}}, nil
+}
+
+func (stub *runtimeServiceStub) PreviewCompletedFormRevision(_ context.Context, request workflowapp.PreviewCompletedFormRevisionRequest) (*workflowapp.FormRevisionPreview, error) {
+	stub.previewRevisionRequest = request
+	return &workflowapp.FormRevisionPreview{Mode: workflowdomain.FormRevisionModeDirect}, nil
+}
+
+func (stub *runtimeServiceStub) CreateCompletedFormRevision(_ context.Context, request workflowapp.CreateCompletedFormRevisionRequest) (*workflowapp.FormRevisionDetail, error) {
+	stub.createRevisionRequest = request
+	return &workflowapp.FormRevisionDetail{FormRevisionSummary: workflowapp.FormRevisionSummary{ID: "revision-1"}}, nil
+}
+
+func (stub *runtimeServiceStub) GetFormRevision(_ context.Context, revisionID, actorID string) (*workflowapp.FormRevisionDetail, error) {
+	stub.actorID = actorID
+	return &workflowapp.FormRevisionDetail{FormRevisionSummary: workflowapp.FormRevisionSummary{ID: revisionID}}, nil
+}
+
+func (stub *runtimeServiceStub) CancelCompletedFormRevision(_ context.Context, request workflowapp.CancelCompletedFormRevisionRequest) (*workflowapp.FormRevisionDetail, error) {
+	stub.cancelRevisionRequest = request
+	if stub.cancelRevisionErr != nil {
+		return nil, stub.cancelRevisionErr
+	}
+	return &workflowapp.FormRevisionDetail{FormRevisionSummary: workflowapp.FormRevisionSummary{ID: request.RevisionID}}, nil
+}
+
+func (stub *runtimeServiceStub) CompleteFormRevisionTask(_ context.Context, request workflowapp.CompleteFormRevisionTaskRequest) (*workflowapp.FormRevisionDetail, error) {
+	stub.completeRevisionTaskCalls++
+	stub.completeRevisionTaskRequest = request
+	return &workflowapp.FormRevisionDetail{FormRevisionSummary: workflowapp.FormRevisionSummary{ID: "revision-1"}}, nil
 }
 
 func (stub *runtimeServiceStub) DeleteMyInstance(_ context.Context, actorID, instanceID string) error {

@@ -5,9 +5,29 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
+
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 )
+
+func TestFormRevisionHTTPStatus(t *testing.T) {
+	tests := []struct {
+		err  error
+		want int
+	}{
+		{err: workflowapp.ErrCompletedRevisionNoReviewPath, want: consts.StatusBadRequest},
+		{err: workflowapp.ErrCompletedRevisionNotAllowed, want: consts.StatusForbidden},
+		{err: workflowapp.ErrCompletedRevisionActive, want: consts.StatusConflict},
+		{err: workflowdomain.ErrRevisionTaskNotFound, want: consts.StatusNotFound},
+		{err: fmt.Errorf("wrapped: %w", workflowdomain.ErrRevisionTaskAlreadyHandled), want: consts.StatusConflict},
+	}
+	for _, test := range tests {
+		if actual := HTTPStatus(test.err); actual != test.want {
+			t.Fatalf("HTTPStatus(%v) = %d, want %d", test.err, actual, test.want)
+		}
+	}
+}
 
 func TestPublicMessageMapsWrappedWorkflowSentinels(t *testing.T) {
 	tests := []struct {

@@ -12,6 +12,39 @@ import (
 	"wecheckin/backend/internal/workflowcore"
 )
 
+func (service *Service) ListFormRevisions(ctx context.Context, instanceID, actorID string) ([]FormRevisionSummary, error) {
+	instanceID = strings.TrimSpace(instanceID)
+	actorID = strings.TrimSpace(actorID)
+	if instanceID == "" {
+		return nil, ErrInstanceIDRequired
+	}
+	if actorID == "" {
+		return nil, ErrActorRequired
+	}
+	if service == nil || service.store == nil {
+		return nil, errors.New("工作流应用服务未初始化")
+	}
+	if _, err := service.GetMyInstance(ctx, actorID, instanceID); err != nil {
+		return nil, err
+	}
+	return service.store.ListFormRevisions(ctx, instanceID, actorID)
+}
+
+func (service *Service) GetFormRevision(ctx context.Context, revisionID, actorID string) (*FormRevisionDetail, error) {
+	revisionID = strings.TrimSpace(revisionID)
+	actorID = strings.TrimSpace(actorID)
+	if revisionID == "" {
+		return nil, ErrCompletedRevisionIDRequired
+	}
+	if actorID == "" {
+		return nil, ErrActorRequired
+	}
+	if service == nil || service.store == nil {
+		return nil, errors.New("工作流应用服务未初始化")
+	}
+	return service.store.GetFormRevision(ctx, revisionID, actorID)
+}
+
 type completedRevisionPlan struct {
 	definition         workflowcore.Definition
 	state              *workflowdomain.State
