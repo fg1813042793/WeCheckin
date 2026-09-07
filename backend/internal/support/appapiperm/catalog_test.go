@@ -133,6 +133,58 @@ func TestDingTalkH5UserFeedbackCatalogMatchesPermissionMigration(t *testing.T) {
 	}
 }
 
+func TestDingTalkH5CompletedRevisionAPIsAndRoutesAreDeclared(t *testing.T) {
+	wantAPIs := map[string]struct {
+		perms  string
+		method string
+		path   string
+	}{
+		"dingtalk_h5:api:workflow:form-revision-create": {
+			perms: "workflow:form-revision-create", method: "POST",
+			path: "/api/v2/dingtalk/h5/workflows/instances/:id/form-revisions",
+		},
+		"dingtalk_h5:api:workflow:form-revision-handle": {
+			perms: "workflow:form-revision-handle", method: "POST",
+			path: "/api/v2/dingtalk/h5/workflows/form-revision-tasks/:id/complete",
+		},
+	}
+	for _, declaration := range DingTalkH5APIDeclarations() {
+		expected, ok := wantAPIs[declaration.Key]
+		if !ok {
+			continue
+		}
+		if declaration.CategoryKey != "dingtalk_h5:api-category:workflow" || declaration.Perms != expected.perms ||
+			declaration.Method != expected.method || declaration.Path != expected.path {
+			t.Fatalf("revision API declaration=%#v", declaration)
+		}
+		delete(wantAPIs, declaration.Key)
+	}
+	if len(wantAPIs) != 0 {
+		t.Fatalf("missing revision API declarations: %#v", wantAPIs)
+	}
+
+	wantRoutes := map[string]string{
+		"GET /api/v2/dingtalk/h5/workflows/instances/:id/form-revisions":          "dingtalk_h5:api:workflow:view",
+		"POST /api/v2/dingtalk/h5/workflows/instances/:id/form-revisions/preview": "dingtalk_h5:api:workflow:form-revision-create",
+		"POST /api/v2/dingtalk/h5/workflows/instances/:id/form-revisions":         "dingtalk_h5:api:workflow:form-revision-create",
+		"GET /api/v2/dingtalk/h5/workflows/form-revisions/:id":                    "dingtalk_h5:api:workflow:view",
+		"POST /api/v2/dingtalk/h5/workflows/form-revisions/:id/cancel":            "dingtalk_h5:api:workflow:form-revision-create",
+		"POST /api/v2/dingtalk/h5/workflows/form-revision-tasks/:id/complete":     "dingtalk_h5:api:workflow:form-revision-handle",
+	}
+	for _, route := range DingTalkH5RouteDeclarations() {
+		key := route.Method + " " + route.Path
+		if expected, ok := wantRoutes[key]; ok {
+			if route.PermissionKey != expected {
+				t.Fatalf("revision route %s permission=%q, want %q", key, route.PermissionKey, expected)
+			}
+			delete(wantRoutes, key)
+		}
+	}
+	if len(wantRoutes) != 0 {
+		t.Fatalf("missing revision routes: %#v", wantRoutes)
+	}
+}
+
 func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 	categories := ClientAPICategories()
 	if len(categories) == 0 {

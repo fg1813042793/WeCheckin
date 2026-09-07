@@ -52,6 +52,8 @@ func DingTalkH5MenuDeclarations() []Declaration {
 func DingTalkH5ButtonDeclarations() []Declaration {
 	return []Declaration{
 		{Key: "dingtalk_h5:button:workflow:form-revise", Name: "修改已办理流程表单", Platform: "dingtalk_h5", Path: "workflow:form-revise", ParentKey: "dingtalk_h5:menu:workflow", Sort: 80},
+		{Key: "dingtalk_h5:button:workflow:form-revision-create", Name: "发起完成后表单修订", Platform: "dingtalk_h5", Path: "workflow:form-revision-create", ParentKey: "dingtalk_h5:menu:workflow", Sort: 81},
+		{Key: "dingtalk_h5:button:workflow:form-revision-handle", Name: "处理完成后表单修订", Platform: "dingtalk_h5", Path: "workflow:form-revision-handle", ParentKey: "dingtalk_h5:menu:workflow", Sort: 82},
 		{Key: "dingtalk_h5:button:workflow:summary", Name: "流程汇总", Platform: "dingtalk_h5", Path: "workflow:summary", ParentKey: "dingtalk_h5:menu:workflow", Sort: 101},
 		{Key: "dingtalk_h5:button:review:create", Name: "创建考评单", Platform: "dingtalk_h5", Path: "review:create", ParentKey: "dingtalk_h5:menu:performance:mine", Sort: 31},
 		{Key: "dingtalk_h5:button:review:self_save", Name: "保存员工自评", Platform: "dingtalk_h5", Path: "review:self_save", ParentKey: "dingtalk_h5:menu:performance:mine", Sort: 32},
