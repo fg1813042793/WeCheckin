@@ -174,6 +174,50 @@ type FormRevisionCapability struct {
 	FieldPermissions []workflowcore.FieldPermission `json:"fieldPermissions"`
 }
 
+type FormRevisionSummary struct {
+	ID                  string   `json:"id"`
+	SourceInstanceID    string   `json:"sourceInstanceId"`
+	SourceNodeID        string   `json:"sourceNodeId"`
+	SourceNodeName      string   `json:"sourceNodeName"`
+	RequesterID         string   `json:"requesterId"`
+	BaseFormRevision    int64    `json:"baseFormRevision"`
+	AppliedFormRevision int64    `json:"appliedFormRevision"`
+	ChangedFieldLabels  []string `json:"changedFieldLabels"`
+	Reason              string   `json:"reason"`
+	Mode                string   `json:"mode"`
+	Status              string   `json:"status"`
+	CreatedAt           int64    `json:"createdAt"`
+	CompletedAt         int64    `json:"completedAt"`
+}
+
+type FormRevisionTaskSummary struct {
+	ID             string                        `json:"id"`
+	SourceTaskID   string                        `json:"sourceTaskId"`
+	NodeID         string                        `json:"nodeId"`
+	NodeName       string                        `json:"nodeName"`
+	Stage          int                           `json:"stage"`
+	AssigneeID     string                        `json:"assigneeId"`
+	AssigneeName   string                        `json:"assigneeName"`
+	ApprovalMode   string                        `json:"approvalMode"`
+	CompletionRate int                           `json:"completionRate"`
+	Sequence       int                           `json:"sequence"`
+	Total          int                           `json:"total"`
+	Status         string                        `json:"status"`
+	Action         string                        `json:"action"`
+	Comment        string                        `json:"comment"`
+	Images         []workflowcore.FormAttachment `json:"images,omitempty"`
+	HandledBy      string                        `json:"handledBy"`
+	HandledAt      int64                         `json:"handledAt"`
+}
+
+type FormRevisionDetail struct {
+	FormRevisionSummary
+	BeforeFormData   map[string]interface{}    `json:"beforeFormData"`
+	Patch            map[string]interface{}    `json:"patch"`
+	ProposedFormData map[string]interface{}    `json:"proposedFormData"`
+	Tasks            []FormRevisionTaskSummary `json:"tasks"`
+}
+
 type FormRevisionNotificationRequest struct {
 	UserIDs  []string `json:"userIds"`
 	Channels []string `json:"channels"`

@@ -71,6 +71,7 @@ const (
 
 type Store interface {
 	UserDepartmentReader
+	FormRevisionStore
 	InTransaction(ctx context.Context, fn func(TransactionStore) error) error
 	ListPublishedDefinitions(ctx context.Context) ([]PublishedDefinition, error)
 	GetPublishedDefinition(ctx context.Context, definitionID uint) (*PublishedDefinition, error)
@@ -85,6 +86,7 @@ type Store interface {
 
 type TransactionStore interface {
 	UserDepartmentReader
+	FormRevisionTransactionStore
 	HasParticipant(ctx context.Context, instanceID, userID, role string) (bool, error)
 	LoadPublishedDefinition(ctx context.Context, definitionID uint, version int) (workflowcore.Definition, int, error)
 	IsActiveUser(ctx context.Context, userID string) (bool, error)
@@ -103,6 +105,20 @@ type TransactionStore interface {
 	SoftDeleteInstances(ctx context.Context, instanceIDs []string, actorID string, deletedAt int64) (int64, error)
 	LoadTaskForDelete(ctx context.Context, taskID string) (*TaskSummary, error)
 	SoftDeleteTask(ctx context.Context, taskID, actorID string, deletedAt int64) (int64, error)
+}
+
+type FormRevisionStore interface {
+	ListFormRevisions(context.Context, string, string) ([]FormRevisionSummary, error)
+	GetFormRevision(context.Context, string, string) (*FormRevisionDetail, error)
+}
+
+type FormRevisionTransactionStore interface {
+	LoadCompletedRevisionSourceForUpdate(context.Context, string) (workflowcore.Definition, *workflowdomain.State, error)
+	LoadActiveFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error)
+	LoadFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error)
+	LoadFormRevisionByTaskForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error)
+	CreateFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error
+	SaveFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error
 }
 
 type StartDraftStore interface {

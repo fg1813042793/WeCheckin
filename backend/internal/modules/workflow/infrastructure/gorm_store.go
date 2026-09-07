@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	ErrDefinitionNotPublished = errors.New("流程定义尚未发布")
-	ErrInstanceNotFound       = errors.New("流程实例不存在")
-	ErrTaskNotFound           = errors.New("流程任务不存在")
+	ErrDefinitionNotPublished   = errors.New("流程定义尚未发布")
+	ErrInstanceNotFound         = errors.New("流程实例不存在")
+	ErrTaskNotFound             = errors.New("流程任务不存在")
+	ErrFormRevisionNotFound     = errors.New("表单修订请求不存在")
+	ErrFormRevisionTaskNotFound = errors.New("表单修订任务不存在")
 )
 
 type GormStore struct {

@@ -1946,6 +1946,31 @@ func (store *fakeStore) LoadDefinitionAndStateByInstanceForUpdate(_ context.Cont
 	return store.definition, store.state, nil
 }
 
+func (store *fakeStore) LoadCompletedRevisionSourceForUpdate(_ context.Context, instanceID string) (workflowcore.Definition, *workflowdomain.State, error) {
+	store.loadedInstanceID = instanceID
+	return store.definition, store.state, nil
+}
+
+func (store *fakeStore) LoadActiveFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
+	return nil, nil
+}
+
+func (store *fakeStore) LoadFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
+	return nil, nil
+}
+
+func (store *fakeStore) LoadFormRevisionByTaskForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
+	return nil, nil
+}
+
+func (store *fakeStore) CreateFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error {
+	return nil
+}
+
+func (store *fakeStore) SaveFormRevision(context.Context, *workflowdomain.FormRevisionRequest) error {
+	return nil
+}
+
 func (store *fakeStore) SaveState(_ context.Context, state *workflowdomain.State) error {
 	store.savedState = state
 	return nil
@@ -1984,6 +2009,14 @@ func (store *fakeStore) GetInstance(context.Context, string) (*InstanceDetail, e
 		return store.instanceDetail, nil
 	}
 	return &InstanceDetail{}, nil
+}
+
+func (store *fakeStore) ListFormRevisions(context.Context, string, string) ([]FormRevisionSummary, error) {
+	return nil, nil
+}
+
+func (store *fakeStore) GetFormRevision(context.Context, string, string) (*FormRevisionDetail, error) {
+	return nil, nil
 }
 
 func (store *fakeStore) HideStartedInstance(_ context.Context, instanceID, starterID string, deletedAt int64) error {
