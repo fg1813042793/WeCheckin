@@ -9,6 +9,11 @@ const (
 )
 
 const (
+	TaskTypeWorkflow     = "workflow"
+	TaskTypeFormRevision = "form_revision"
+)
+
+const (
 	NodeProgressCompleted  = "completed"
 	NodeProgressProcessing = "processing"
 	NodeProgressNotStarted = "not_started"
@@ -144,18 +149,19 @@ type FormRevisionNotificationIntent struct {
 }
 
 type TaskQuery struct {
-	InstanceID         string
-	AssigneeID         string
-	Status             string
-	HideAdminDeleted   bool
-	DefinitionName     string
-	InstanceTitle      string
-	DefinitionCategory string
-	StarterName        string
-	StartTimeFrom      int64
-	StartTimeTo        int64
-	Page               int
-	PageSize           int
+	InstanceID           string
+	AssigneeID           string
+	Status               string
+	HideAdminDeleted     bool
+	DefinitionName       string
+	InstanceTitle        string
+	DefinitionCategory   string
+	StarterName          string
+	StartTimeFrom        int64
+	StartTimeTo          int64
+	IncludeFormRevisions bool
+	Page                 int
+	PageSize             int
 }
 
 type InstanceSummary struct {
@@ -296,6 +302,8 @@ type TokenSummary struct {
 
 type TaskSummary struct {
 	ID                   string                        `json:"id"`
+	TaskType             string                        `json:"taskType"`
+	RevisionRequestID    string                        `json:"revisionRequestId,omitempty"`
 	InstanceID           string                        `json:"instanceId"`
 	NodeID               string                        `json:"nodeId"`
 	NodeName             string                        `json:"nodeName"`
@@ -378,6 +386,7 @@ type InstanceDetail struct {
 	ReminderPolicy   ReminderPolicy                            `json:"reminderPolicy"`
 	ReminderNodes    []ReminderNodeSummary                     `json:"reminderNodes"`
 	FormRevision     FormRevisionCapability                    `json:"formRevision"`
+	FormRevisions    []FormRevisionSummary                     `json:"formRevisions"`
 }
 
 type InstanceList struct {

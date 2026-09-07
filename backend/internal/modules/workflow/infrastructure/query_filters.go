@@ -78,16 +78,28 @@ func applyInstanceFilters(db *gorm.DB, query application.InstanceQuery) *gorm.DB
 		case application.InstanceScopeStarted:
 			db = db.Where("starter_id = ? AND starter_deleted_at = ?", userID, int64(0))
 		case application.InstanceScopeHandled:
-			db = db.Where(`EXISTS (
+			db = db.Where(`(EXISTS (
 				SELECT 1 FROM workflow_process_tasks scope_task
 				WHERE scope_task.instance_id = workflow_process_instances.id
 				AND scope_task.task_status IN (?, ?, ?, ?)
 				AND (scope_task.task_assignee_id = ? OR scope_task.handled_by = ?)
-			)`,
+			) OR EXISTS (
+				SELECT 1
+				FROM workflow_form_revision_tasks scope_revision_task
+				INNER JOIN workflow_form_revision_requests scope_revision
+					ON scope_revision.id = scope_revision_task.revision_request_id
+				WHERE scope_revision.source_instance_id = workflow_process_instances.id
+				AND scope_revision_task.task_status IN (?, ?)
+				AND (scope_revision_task.assignee_id = ? OR scope_revision_task.handled_by = ?)
+			))`,
 				workflowmodel.TaskStatusCompleted,
 				workflowmodel.TaskStatusApproved,
 				workflowmodel.TaskStatusRejected,
 				workflowmodel.TaskStatusReturned,
+				userID,
+				userID,
+				workflowmodel.FormRevisionTaskStatusApproved,
+				workflowmodel.FormRevisionTaskStatusRejected,
 				userID,
 				userID,
 			)

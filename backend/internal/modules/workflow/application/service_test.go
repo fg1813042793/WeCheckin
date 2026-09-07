@@ -996,8 +996,8 @@ func TestUserScopedQueriesCannotOverrideActor(t *testing.T) {
 		t.Fatalf("authenticated instance scope = %#v", store.instanceQuery)
 	}
 	_, _ = service.ListMyTasks(context.Background(), "7", TaskQuery{AssigneeID: "99"})
-	if store.taskQuery.AssigneeID != "7" {
-		t.Fatalf("assignee filter = %q, want 7", store.taskQuery.AssigneeID)
+	if store.taskQuery.AssigneeID != "7" || !store.taskQuery.IncludeFormRevisions {
+		t.Fatalf("task query = %#v, want authenticated actor with form revisions", store.taskQuery)
 	}
 }
 

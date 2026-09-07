@@ -29,6 +29,9 @@ func TestApplyInstanceFiltersHandledScopeRequiresTerminalTaskStatus(t *testing.T
 	for _, fragment := range []string{
 		"scope_task.task_status IN (?, ?, ?, ?)",
 		"scope_task.task_assignee_id = ? OR scope_task.handled_by = ?",
+		"workflow_form_revision_tasks scope_revision_task",
+		"scope_revision_task.task_status IN (?, ?)",
+		"scope_revision_task.assignee_id = ? OR scope_revision_task.handled_by = ?",
 	} {
 		if !strings.Contains(sqlText, fragment) {
 			t.Fatalf("handled instance query missing %q: %s", fragment, sqlText)
@@ -39,6 +42,10 @@ func TestApplyInstanceFiltersHandledScopeRequiresTerminalTaskStatus(t *testing.T
 		workflowmodel.TaskStatusApproved,
 		workflowmodel.TaskStatusRejected,
 		workflowmodel.TaskStatusReturned,
+		"7",
+		"7",
+		workflowmodel.FormRevisionTaskStatusApproved,
+		workflowmodel.FormRevisionTaskStatusRejected,
 		"7",
 		"7",
 	}

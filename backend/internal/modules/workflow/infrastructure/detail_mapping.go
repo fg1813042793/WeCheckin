@@ -36,6 +36,7 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 	var tasks []workflowmodel.ProcessTask
 	var variables []workflowmodel.ProcessVariable
 	var history []workflowmodel.ProcessHistory
+	var revisionRows []workflowmodel.FormRevisionRequest
 	definition, _, err := loadDefinitionVersion(db, instance.DefinitionID, instance.DefinitionVersion)
 	if err != nil {
 		return nil, err
@@ -55,6 +56,17 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 	}
 	if err := db.Where("instance_id = ?", instance.ID).Order("event_time ASC").Order("id ASC").Find(&history).Error; err != nil {
 		return nil, err
+	}
+	if err := db.Where("source_instance_id = ?", instance.ID).Order("add_time DESC").Order("id DESC").Find(&revisionRows).Error; err != nil {
+		return nil, err
+	}
+	formRevisions := make([]application.FormRevisionSummary, 0, len(revisionRows))
+	for _, row := range revisionRows {
+		summary, err := formRevisionSummaryFromModel(row)
+		if err != nil {
+			return nil, err
+		}
+		formRevisions = append(formRevisions, summary)
 	}
 	instances, err := loadInstanceSummaries(db, []workflowmodel.ProcessInstance{instance})
 	if err != nil {
@@ -78,13 +90,22 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 		Tokens:           make([]application.TokenSummary, 0, len(tokens)),
 		Tasks:            taskList,
 		History:          historyList,
+		FormRevisions:    formRevisions,
 	}
 	formData, err := decodeFormData(instance.FormDataJSON)
 	if err != nil {
 		return nil, err
 	}
 	detail.FormData = formData
-	users, err := loadWorkflowUsers(db, collectInstanceUserIDs(instance, tasks, history, definition.Form, formData))
+	userIDs := collectInstanceUserIDs(instance, tasks, history, definition.Form, formData)
+	seenUserIDs := make(map[uint]struct{}, len(userIDs)+len(revisionRows))
+	for _, userID := range userIDs {
+		seenUserIDs[userID] = struct{}{}
+	}
+	for _, revision := range revisionRows {
+		appendWorkflowUserID(&userIDs, seenUserIDs, revision.RequesterID)
+	}
+	users, err := loadWorkflowUsers(db, userIDs)
 	if err != nil {
 		return nil, err
 	}

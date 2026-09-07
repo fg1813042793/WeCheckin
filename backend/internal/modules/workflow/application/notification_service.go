@@ -40,6 +40,7 @@ func (service *Service) ListMyTasks(ctx context.Context, actorID string, query T
 		return nil, ErrActorRequired
 	}
 	query.AssigneeID = actorID
+	query.IncludeFormRevisions = true
 	return service.ListTasks(ctx, query)
 }
 
