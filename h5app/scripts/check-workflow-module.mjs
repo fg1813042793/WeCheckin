@@ -33,6 +33,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowParticipantSelect.vue',
   'src/pages/workflow/components/WorkflowTextarea.vue',
   'src/pages/workflow/components/WorkflowDetailPanel.vue',
+  'src/pages/workflow/components/WorkflowCopyableText.vue',
   'src/pages/workflow/components/WorkflowNodeProgressList.vue',
   'src/pages/performance/components/PerformanceWorkbench.vue',
   'src/pages/workflow/workflow-form.ts',
@@ -57,11 +58,26 @@ const requiredContent = [
       'document.removeEventListener(\'visibilitychange\', handleVisibilityChange)',
       'void loadCounts()',
       'await Promise.all([loadCounts(), loadCurrentList()])',
+      '{ key: \'businessKey\', label: \'流程单号\', width: \'minmax(180px, 1.35fr)\', mobileHidden: true, copyable: true }',
+    ],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowCopyableText.vue',
+    patterns: [
+      'import { clipboard } from \'uview-pro\'',
+      'navigator.clipboard?.writeText',
+      'uni.showToast({ title: \'流程单号已复制\', icon: \'success\' })',
+      'uni.showToast({ title: \'复制失败，请重试\', icon: \'none\' })',
+      '@click.stop="copyValue"',
+      'aria-label="复制流程单号"',
     ],
   },
   {
     file: 'src/pages/workflow/components/WorkflowRecordTable.vue',
     patterns: [
+      'copyable?: boolean',
+      'v-else-if="column.copyable"',
+      ':value="row.cells[column.key] || \'-\'"',
       'overflow-x: auto;',
       '.workflow-record-table__header-cell--actions,\n.workflow-record-table__actions {\n  position: sticky;',
       'right: 0;',
@@ -77,6 +93,8 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowDetailPanel.vue',
     patterns: [
+      'import WorkflowCopyableText from \'./WorkflowCopyableText.vue\'',
+      '<WorkflowCopyableText :value="detail.instance.businessKey || \'-\'" />',
       'grid-template-columns: repeat(auto-fit, 96px);',
       'grid-template-columns: 96px;',
     ],
@@ -573,7 +591,7 @@ const requiredContent = [
       ':deep(.workflow-detail-panel__status-tag)',
       'height: 24px;',
       'class="workflow-detail-panel__subtitle workflow-detail-panel__subtitle--business"',
-      '业务编号：{{ detail.instance.businessKey || \'-\' }}',
+      '<WorkflowCopyableText :value="detail.instance.businessKey || \'-\'" />',
       'v-if="!historyPresentation && !pagePresentation" class="workflow-detail-panel__summary"',
       'class="workflow-detail-panel__history-form-section"',
       'class="workflow-detail-panel__history-record-section"',

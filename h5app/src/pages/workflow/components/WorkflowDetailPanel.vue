@@ -37,6 +37,7 @@ import {
 } from '../workflow-route-keys'
 import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-status'
 import { isWorkflowTaskAssignedToUser } from '../workflow-task'
+import WorkflowCopyableText from './WorkflowCopyableText.vue'
 import WorkflowImagePicker from './WorkflowImagePicker.vue'
 import WorkflowNodeProgressList from './WorkflowNodeProgressList.vue'
 import WorkflowParticipantSelect from './WorkflowParticipantSelect.vue'
@@ -1132,16 +1133,17 @@ async function deleteApplication() {
               />
             </template>
           </view>
-          <text
+          <view
             v-if="historyPresentation && detail"
             class="workflow-detail-panel__subtitle workflow-detail-panel__subtitle--business"
           >
-            流程名称：{{ workflowName }}
-            <template v-if="businessPeriodLabel">
+            <text>流程名称：{{ workflowName }}</text>
+            <text v-if="businessPeriodLabel">
               · 业务期间：{{ businessPeriodLabel }}
-            </template>
-            · 业务编号：{{ detail.instance.businessKey || '-' }}
-          </text>
+            </text>
+            <text>· 业务编号：</text>
+            <WorkflowCopyableText :value="detail.instance.businessKey || '-'" />
+          </view>
           <text v-else-if="detail" class="workflow-detail-panel__subtitle">
             {{ detail.instance.id }} · 发起于 {{ formatTime(detail.instance.startTime) }}
           </text>
@@ -1191,7 +1193,7 @@ async function deleteApplication() {
             <text class="workflow-detail-panel__summary-label">
               业务编号
             </text>
-            <text>{{ detail.instance.businessKey }}</text>
+            <WorkflowCopyableText :value="detail.instance.businessKey || '-'" />
           </view>
           <view>
             <text class="workflow-detail-panel__summary-label">
@@ -2029,6 +2031,10 @@ async function deleteApplication() {
 }
 
 .workflow-detail-panel__subtitle--business {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 0;
   line-height: 1.4;
   overflow-wrap: anywhere;
   white-space: normal;

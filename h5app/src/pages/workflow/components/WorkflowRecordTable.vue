@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { WorkflowStatusMeta } from '../workflow-status'
 import { computed } from 'vue'
+import WorkflowCopyableText from './WorkflowCopyableText.vue'
 
 interface WorkflowRecordColumn {
   key: string
   label: string
   width?: string
   mobileHidden?: boolean
+  copyable?: boolean
 }
 
 interface WorkflowRecordRow {
@@ -83,6 +85,10 @@ const tableStyle = computed(() => {
             :text="row.status.label"
             :type="row.status.type"
             size="mini"
+          />
+          <WorkflowCopyableText
+            v-else-if="column.copyable"
+            :value="row.cells[column.key] || '-'"
           />
           <text v-else class="workflow-record-table__cell-value">
             {{ row.cells[column.key] || '-' }}

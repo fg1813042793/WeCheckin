@@ -4,7 +4,7 @@
 
 **Goal:** 在钉钉 H5 流程中心列表和流程详情抽屉中，为流程单号提供统一的图标复制能力。
 
-**Architecture:** 新增流程域内共用组件 `WorkflowCopyableText.vue`，封装文本省略、复制按钮、uView Pro `clipboard` 调用与用户反馈。`WorkflowRecordTable.vue` 通过列级 `copyable` 配置启用该能力，`WorkflowDetailPanel.vue` 在详情标题中复用同一组件，不改变后端契约。
+**Architecture:** 新增流程域内共用组件 `WorkflowCopyableText.vue`，封装文本省略、复制按钮、H5 标准剪贴板优先且 uView Pro `clipboard` 回退的复制策略与用户反馈。`WorkflowRecordTable.vue` 通过列级 `copyable` 配置启用该能力，`WorkflowDetailPanel.vue` 在详情标题中复用同一组件，不改变后端契约。
 
 **Tech Stack:** Vue 3 `<script setup>`、TypeScript、uni-app、uView Pro、SCSS、Node.js 契约检查。
 
@@ -18,7 +18,7 @@
 - Modify: `h5app/src/pages/workflow/components/WorkflowCenter.vue`
 - Test: `h5app/scripts/check-workflow-module.mjs`
 
-- [ ] **Step 1: 先补失败契约检查**
+- [x] **Step 1: 先补失败契约检查**
 
 在 `h5app/scripts/check-workflow-module.mjs` 中增加对共用复制组件、`copyable` 列和列表启用点的断言：
 
@@ -49,7 +49,7 @@
 },
 ```
 
-- [ ] **Step 2: 运行检查并确认先失败**
+- [x] **Step 2: 运行检查并确认先失败**
 
 Run:
 
@@ -59,7 +59,7 @@ cd h5app && node scripts/check-workflow-module.mjs
 
 Expected: FAIL，报告 `WorkflowCopyableText.vue` 不存在或缺少 `copyable` 相关内容。
 
-- [ ] **Step 3: 实现共用复制组件**
+- [x] **Step 3: 实现共用复制组件**
 
 创建 `WorkflowCopyableText.vue`，核心实现为：
 
@@ -105,7 +105,7 @@ function copyValue() {
 
 复制图标使用两个边框方块的 CSS 绘制，按钮保持 `28px` 固定尺寸，不引入新图标依赖。
 
-- [ ] **Step 4: 通过列配置启用复制**
+- [x] **Step 4: 通过列配置启用复制**
 
 在 `WorkflowRecordTable.vue` 的列类型中增加：
 
@@ -128,7 +128,7 @@ copyable?: boolean
 { key: 'businessKey', label: '流程单号', width: 'minmax(180px, 1.35fr)', mobileHidden: true, copyable: true }
 ```
 
-- [ ] **Step 5: 运行定向检查**
+- [x] **Step 5: 运行定向检查**
 
 Run:
 
@@ -140,7 +140,7 @@ node scripts/check-workflow-module.mjs
 
 Expected: 两个命令均 PASS。
 
-- [ ] **Step 6: 提交列表复制能力**
+- [x] **Step 6: 提交列表复制能力**
 
 ```bash
 git add h5app/scripts/check-workflow-module.mjs h5app/src/pages/workflow/components/WorkflowCopyableText.vue h5app/src/pages/workflow/components/WorkflowRecordTable.vue h5app/src/pages/workflow/components/WorkflowCenter.vue
@@ -153,7 +153,7 @@ git commit -m "feat: 支持复制流程单号"
 - Modify: `h5app/src/pages/workflow/components/WorkflowDetailPanel.vue`
 - Test: `h5app/scripts/check-workflow-module.mjs`
 
-- [ ] **Step 1: 先增加详情接入的失败检查**
+- [x] **Step 1: 先增加详情接入的失败检查**
 
 为 `WorkflowDetailPanel.vue` 增加以下契约断言：
 
@@ -167,7 +167,7 @@ git commit -m "feat: 支持复制流程单号"
 },
 ```
 
-- [ ] **Step 2: 运行检查并确认先失败**
+- [x] **Step 2: 运行检查并确认先失败**
 
 Run:
 
@@ -177,7 +177,7 @@ cd h5app && node scripts/check-workflow-module.mjs
 
 Expected: FAIL，报告 `WorkflowDetailPanel.vue` 缺少复制组件接入。
 
-- [ ] **Step 3: 调整详情标题区域**
+- [x] **Step 3: 调整详情标题区域**
 
 导入 `WorkflowCopyableText.vue`，将原有完整的副标题 `<text>` 改为可容纳按钮的 `<view>`，业务编号部分改为：
 
@@ -190,7 +190,7 @@ Expected: FAIL，报告 `WorkflowDetailPanel.vue` 缺少复制组件接入。
 
 非历史展示中的“业务编号”摘要值同样改为 `WorkflowCopyableText`，保持详情组件内行为一致。
 
-- [ ] **Step 4: 运行定向检查**
+- [x] **Step 4: 运行定向检查**
 
 Run:
 
@@ -202,7 +202,7 @@ node scripts/check-workflow-module.mjs
 
 Expected: 两个命令均 PASS。
 
-- [ ] **Step 5: 运行 H5App 回归检查**
+- [x] **Step 5: 运行 H5App 回归检查**
 
 Run:
 
@@ -215,7 +215,7 @@ npm run build:h5
 
 Expected: TypeScript、UI 规范检查和 H5 构建全部 PASS。如全量 lint 仍有与本次文件无关的既有基线问题，单独记录，不修改无关文件。
 
-- [ ] **Step 6: 执行浏览器验收**
+- [x] **Step 6: 执行浏览器验收**
 
 在 H5 开发服务中验证：
 
@@ -224,7 +224,7 @@ Expected: TypeScript、UI 规范检查和 H5 构建全部 PASS。如全量 lint 
 3. 详情抽屉的业务编号后显示同款按钮，复制结果一致。
 4. `1024px`、`920px` 和 `768px` 宽度下没有标题或表格溢出；列表原有横向滚动、固定操作列及手机卡片布局保持不变。
 
-- [ ] **Step 7: 提交详情接入与回归检查**
+- [x] **Step 7: 提交详情接入与回归检查**
 
 ```bash
 git add h5app/scripts/check-workflow-module.mjs h5app/src/pages/workflow/components/WorkflowDetailPanel.vue

@@ -215,7 +215,7 @@ const showCurrentProgressColumns = computed(() => activeTab.value === 'started')
 const recordColumns = computed(() => [
   { key: 'name', label: '单据标题', width: 'minmax(180px, 1.4fr)' },
   { key: 'definitionName', label: '流程名称', width: 'minmax(130px, 1fr)', mobileHidden: true },
-  { key: 'businessKey', label: '流程单号', width: 'minmax(180px, 1.35fr)', mobileHidden: true },
+  { key: 'businessKey', label: '流程单号', width: 'minmax(180px, 1.35fr)', mobileHidden: true, copyable: true },
   ...(showStarterColumn.value
     ? [{ key: 'starterName', label: '发起人', width: 'minmax(100px, 0.8fr)', mobileHidden: true }]
     : []),

@@ -25,7 +25,8 @@
 
 ## 复制与反馈
 
-- 复用 uView Pro 提供的 `clipboard` 能力，不直接依赖浏览器 `navigator.clipboard`，保持 uni-app 兼容性。
+- H5 优先使用浏览器 `navigator.clipboard.writeText`，确保能够复制完整原值；浏览器不支持或受权限限制时回退到 uView Pro `clipboard`。
+- 非 H5 平台继续使用 uView Pro `clipboard`，保持 uni-app 兼容性。
 - 复制成功时显示“流程单号已复制”。
 - 复制失败时显示“复制失败，请重试”。
 - 图标按钮不改变表格列宽，且不破坏右侧操作列固定和小屏横向滚动。
