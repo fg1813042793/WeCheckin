@@ -1959,20 +1959,44 @@ func (store *fakeStore) LoadActiveFormRevisionForUpdate(context.Context, string)
 }
 
 func (store *fakeStore) LoadFormRevisionForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
-	return nil, nil
+	if store.activeFormRevision != nil {
+		return store.activeFormRevision, nil
+	}
+	if store.savedFormRevision != nil {
+		return store.savedFormRevision, nil
+	}
+	return store.createdFormRevision, nil
 }
 
-func (store *fakeStore) LoadFormRevisionByTaskForUpdate(context.Context, string) (*workflowdomain.FormRevisionRequest, error) {
-	return nil, nil
+func (store *fakeStore) LoadFormRevisionByTaskForUpdate(_ context.Context, taskID string) (*workflowdomain.FormRevisionRequest, error) {
+	for _, revision := range []*workflowdomain.FormRevisionRequest{store.activeFormRevision, store.savedFormRevision, store.createdFormRevision} {
+		if revision == nil {
+			continue
+		}
+		for _, task := range revision.Tasks {
+			if task.ID == taskID {
+				return revision, nil
+			}
+		}
+	}
+	return nil, workflowdomain.ErrRevisionTaskNotFound
 }
 
 func (store *fakeStore) CreateFormRevision(_ context.Context, revision *workflowdomain.FormRevisionRequest) error {
 	store.createdFormRevision = revision
+	if revision.Status == workflowdomain.FormRevisionStatusPending {
+		store.activeFormRevision = revision
+	}
 	return nil
 }
 
 func (store *fakeStore) SaveFormRevision(_ context.Context, revision *workflowdomain.FormRevisionRequest) error {
 	store.savedFormRevision = revision
+	if revision.Status == workflowdomain.FormRevisionStatusPending {
+		store.activeFormRevision = revision
+	} else {
+		store.activeFormRevision = nil
+	}
 	return nil
 }
 

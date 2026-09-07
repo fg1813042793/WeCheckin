@@ -255,6 +255,7 @@ type FormRevisionDetail struct {
 	Patch            map[string]interface{}    `json:"patch"`
 	ProposedFormData map[string]interface{}    `json:"proposedFormData"`
 	Tasks            []FormRevisionTaskSummary `json:"tasks"`
+	Idempotent       bool                      `json:"idempotent,omitempty"`
 }
 
 type FormRevisionNotificationRequest struct {

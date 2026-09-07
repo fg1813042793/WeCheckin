@@ -3,6 +3,9 @@ package application
 import (
 	"context"
 	"errors"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
@@ -21,6 +24,211 @@ func TestCreateCompletedFormRevisionDoesNotGrantStarterIdentity(t *testing.T) {
 	if !errors.Is(err, ErrCompletedRevisionNotAllowed) {
 		t.Fatalf("err=%v", err)
 	}
+}
+
+func TestCreateReviewedRevisionRebuildsActualDownstreamStages(t *testing.T) {
+	service, store := reviewedRevisionServiceFixture()
+	result, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "pending" || store.createdFormRevision == nil || len(store.createdFormRevision.Tasks) != 3 {
+		t.Fatalf("result=%#v revision=%#v", result, store.createdFormRevision)
+	}
+	if got := revisionTaskNodeStages(store.createdFormRevision.Tasks); got != "finance:1:pending,legal:1:pending,hr:2:waiting" {
+		t.Fatalf("stages=%s", got)
+	}
+}
+
+func TestCompleteRevisionTaskAppliesOnlyAfterRequiredApprovals(t *testing.T) {
+	service, store := reviewedRevisionServiceFixture()
+	created, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, nodeID := range []string{"finance", "legal"} {
+		taskID := revisionTaskIDByNode(store.createdFormRevision, nodeID)
+		result, err := service.CompleteFormRevisionTask(context.Background(), CompleteFormRevisionTaskRequest{
+			TaskID: taskID, ActorID: "99", Action: workflowdomain.RevisionActionApprove,
+		})
+		if err != nil || result.Status != "pending" {
+			t.Fatalf("node=%s result=%#v err=%v", nodeID, result, err)
+		}
+	}
+	result, err := service.CompleteFormRevisionTask(context.Background(), CompleteFormRevisionTaskRequest{
+		TaskID: revisionTaskIDByNode(store.createdFormRevision, "hr"), ActorID: "99", Action: workflowdomain.RevisionActionApprove,
+	})
+	if err != nil || result.Status != "applied" || store.savedState == nil || store.savedState.Instance.FormRevision != 4 {
+		t.Fatalf("created=%#v result=%#v state=%#v err=%v", created, result, store.savedState, err)
+	}
+}
+
+func TestRejectRevisionKeepsSourceFormUntouched(t *testing.T) {
+	service, store := reviewedRevisionServiceFixture()
+	before := workflowcore.MergeFormData(nil, store.state.FormData)
+	if _, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest()); err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.CompleteFormRevisionTask(context.Background(), CompleteFormRevisionTaskRequest{
+		TaskID: revisionTaskIDByNode(store.createdFormRevision, "finance"), ActorID: "99",
+		Action: workflowdomain.RevisionActionReject, Comment: "数据不正确",
+	})
+	if err != nil || result.Status != "rejected" || !reflect.DeepEqual(store.state.FormData, before) {
+		t.Fatalf("result=%#v form=%#v err=%v", result, store.state.FormData, err)
+	}
+}
+
+func TestCancelRevisionAllowedBeforeFirstHandledTask(t *testing.T) {
+	service, store := reviewedRevisionServiceFixture()
+	created, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled, err := service.CancelCompletedFormRevision(context.Background(), CancelCompletedFormRevisionRequest{
+		RevisionID: created.ID, ActorID: "21",
+	})
+	if err != nil || cancelled.Status != "cancelled" {
+		t.Fatalf("cancelled=%#v err=%v", cancelled, err)
+	}
+
+	service, store = reviewedRevisionServiceFixture()
+	created, err = service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.CompleteFormRevisionTask(context.Background(), CompleteFormRevisionTaskRequest{
+		TaskID: revisionTaskIDByNode(store.createdFormRevision, "finance"), ActorID: "99", Action: workflowdomain.RevisionActionApprove,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.CancelCompletedFormRevision(context.Background(), CancelCompletedFormRevisionRequest{
+		RevisionID: created.ID, ActorID: "21",
+	})
+	if !errors.Is(err, ErrCompletedRevisionCannotCancel) {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestApplyRevisionMarksConflictWhenSourceRevisionChanged(t *testing.T) {
+	service, store := reviewedRevisionServiceFixture()
+	if _, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest()); err != nil {
+		t.Fatal(err)
+	}
+	store.state.Instance.FormRevision = 4
+	for _, nodeID := range []string{"finance", "legal"} {
+		if _, err := service.CompleteFormRevisionTask(context.Background(), CompleteFormRevisionTaskRequest{
+			TaskID: revisionTaskIDByNode(store.createdFormRevision, nodeID), ActorID: "99", Action: workflowdomain.RevisionActionApprove,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result, err := service.CompleteFormRevisionTask(context.Background(), CompleteFormRevisionTaskRequest{
+		TaskID: revisionTaskIDByNode(store.createdFormRevision, "hr"), ActorID: "99", Action: workflowdomain.RevisionActionApprove,
+	})
+	if err != nil || result.Status != "conflict" || store.state.Instance.FormRevision != 4 {
+		t.Fatalf("result=%#v revision=%d err=%v", result, store.state.Instance.FormRevision, err)
+	}
+}
+
+func TestCompleteRevisionTaskIsIdempotent(t *testing.T) {
+	service, store := reviewedRevisionServiceFixture()
+	if _, err := service.CreateCompletedFormRevision(context.Background(), reviewedRevisionRequest()); err != nil {
+		t.Fatal(err)
+	}
+	request := CompleteFormRevisionTaskRequest{
+		TaskID: revisionTaskIDByNode(store.createdFormRevision, "finance"), ActorID: "99", Action: workflowdomain.RevisionActionApprove,
+	}
+	if _, err := service.CompleteFormRevisionTask(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	historyCount := len(store.state.History)
+	result, err := service.CompleteFormRevisionTask(context.Background(), request)
+	if err != nil || !result.Idempotent || len(store.state.History) != historyCount {
+		t.Fatalf("result=%#v history=%d err=%v", result, len(store.state.History), err)
+	}
+}
+
+func reviewedRevisionServiceFixture() (*Service, *fakeStore) {
+	definition, state := completedRevisionApplicationFixture()
+	definition.Form = append(definition.Form, workflowcore.FormField{Key: "amount", Label: "金额", Type: workflowcore.FormFieldTypeNumber})
+	definition.Nodes[1].FormPermissions = append(definition.Nodes[1].FormPermissions,
+		workflowcore.FieldPermission{Field: "amount", Access: workflowcore.FieldAccessWrite})
+	definition.Nodes = []workflowcore.Node{
+		definition.Nodes[0], definition.Nodes[1],
+		{ID: "parallel-split", Type: workflowcore.NodeTypeParallel, Name: "并行开始", GatewayMode: workflowcore.GatewayModeSplit},
+		{ID: "finance", Type: workflowcore.NodeTypeApproval, Name: "财务审批", ApprovalMode: workflowcore.ApprovalModeParallel, CompletionRate: 100, Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "99"}},
+		{ID: "legal", Type: workflowcore.NodeTypeApproval, Name: "法务审批", ApprovalMode: workflowcore.ApprovalModeParallel, CompletionRate: 100, Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "99"}},
+		{ID: "parallel-join", Type: workflowcore.NodeTypeParallel, Name: "并行汇合", GatewayMode: workflowcore.GatewayModeJoin},
+		{ID: "hr", Type: workflowcore.NodeTypeApproval, Name: "HR 审批", ApprovalMode: workflowcore.ApprovalModeSingle, CompletionRate: 100, Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "99"}},
+		{ID: "audit", Type: workflowcore.NodeTypeApproval, Name: "未经过审计", ApprovalMode: workflowcore.ApprovalModeSingle, CompletionRate: 100, Assignee: &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "99"}},
+		definition.Nodes[len(definition.Nodes)-1],
+	}
+	definition.Edges = []workflowcore.Edge{
+		{ID: "e1", Source: "start", Target: "manager"},
+		{ID: "e2", Source: "manager", Target: "parallel-split"},
+		{ID: "e3", Source: "parallel-split", Target: "finance"},
+		{ID: "e4", Source: "parallel-split", Target: "legal"},
+		{ID: "e5", Source: "finance", Target: "parallel-join"},
+		{ID: "e6", Source: "legal", Target: "parallel-join"},
+		{ID: "e7", Source: "parallel-join", Target: "hr"},
+		{ID: "e8", Source: "hr", Target: "end"},
+		{ID: "e9", Source: "manager", Target: "audit"},
+		{ID: "e10", Source: "audit", Target: "end"},
+	}
+	state.FormData["amount"] = float64(100)
+	state.History = append(state.History,
+		workflowdomain.HistoryEvent{Type: workflowdomain.HistoryTaskApproved, NodeID: "manager", ActorID: "21", EventTime: 100},
+		workflowdomain.HistoryEvent{Type: workflowdomain.HistoryTaskApproved, NodeID: "finance", ActorID: "31", EventTime: 200},
+		workflowdomain.HistoryEvent{Type: workflowdomain.HistoryTaskApproved, NodeID: "legal", ActorID: "32", EventTime: 200},
+		workflowdomain.HistoryEvent{Type: workflowdomain.HistoryTaskApproved, NodeID: "hr", ActorID: "33", EventTime: 300},
+	)
+	store := &fakeStore{definition: definition, state: state}
+	service := NewService(store, fixedResolver{"99"}, &sequenceIDs{})
+	return service, store
+}
+
+func reviewedRevisionRequest() CreateCompletedFormRevisionRequest {
+	return CreateCompletedFormRevisionRequest{
+		InstanceID: "instance-1", SourceNodeID: "manager", RequesterID: "21",
+		ExpectedRevision: 3, FormData: map[string]interface{}{"amount": float64(200)}, Reason: "修正金额",
+	}
+}
+
+func revisionTaskNodeStages(tasks []workflowdomain.FormRevisionTask) string {
+	ordered := append([]workflowdomain.FormRevisionTask(nil), tasks...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].Stage == ordered[j].Stage {
+			return ordered[i].NodeID < ordered[j].NodeID
+		}
+		return ordered[i].Stage < ordered[j].Stage
+	})
+	values := make([]string, 0, len(ordered))
+	for _, task := range ordered {
+		values = append(values, task.NodeID+":"+fmtInt(task.Stage)+":"+string(task.Status))
+	}
+	return strings.Join(values, ",")
+}
+
+func revisionTaskIDByNode(revision *workflowdomain.FormRevisionRequest, nodeID string) string {
+	if revision == nil {
+		return ""
+	}
+	for _, task := range revision.Tasks {
+		if task.NodeID == nodeID {
+			return task.ID
+		}
+	}
+	return ""
+}
+
+func fmtInt(value int) string {
+	if value == 1 {
+		return "1"
+	}
+	if value == 2 {
+		return "2"
+	}
+	return ""
 }
 
 func TestCreateCompletedFormRevisionDoesNotMergeHandledNodePermissions(t *testing.T) {

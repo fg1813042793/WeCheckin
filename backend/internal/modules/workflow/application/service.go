@@ -66,6 +66,8 @@ var (
 	ErrCompletedRevisionInstanceNotCompleted = errors.New("只有已完成流程可以发起完成后表单修订")
 	ErrCompletedRevisionActive               = errors.New("当前流程已有进行中的表单修订")
 	ErrCompletedRevisionNoReviewPath         = errors.New("来源节点之后没有可确认的人工节点")
+	ErrCompletedRevisionCannotCancel         = errors.New("表单修订已有任务被处理，不能取消")
+	ErrCompletedRevisionIDRequired           = errors.New("表单修订请求不能为空")
 )
 
 const (
@@ -219,6 +221,19 @@ type CancelInstanceRequest struct {
 	InstanceID string `json:"instanceId"`
 	ActorID    string `json:"actorId"`
 	Reason     string `json:"reason"`
+}
+
+type CompleteFormRevisionTaskRequest struct {
+	TaskID  string                        `json:"-"`
+	ActorID string                        `json:"-"`
+	Action  workflowdomain.RevisionAction `json:"action"`
+	Comment string                        `json:"comment"`
+	Images  []workflowcore.FormAttachment `json:"images"`
+}
+
+type CancelCompletedFormRevisionRequest struct {
+	RevisionID string `json:"-"`
+	ActorID    string `json:"-"`
 }
 
 type CommentInstanceRequest struct {

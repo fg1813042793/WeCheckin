@@ -119,6 +119,180 @@ func (service *Service) CreateCompletedFormRevision(ctx context.Context, request
 	return result, err
 }
 
+func (service *Service) CompleteFormRevisionTask(ctx context.Context, request CompleteFormRevisionTaskRequest) (*FormRevisionDetail, error) {
+	request.TaskID = strings.TrimSpace(request.TaskID)
+	request.ActorID = strings.TrimSpace(request.ActorID)
+	request.Comment = strings.TrimSpace(request.Comment)
+	if request.TaskID == "" {
+		return nil, ErrTaskIDRequired
+	}
+	if request.ActorID == "" {
+		return nil, ErrActorRequired
+	}
+	if request.Action == workflowdomain.RevisionActionReject && request.Comment == "" {
+		return nil, ErrTaskRejectCommentRequired
+	}
+	if utf8.RuneCountInString(request.Comment) > 500 {
+		return nil, ErrTaskCommentTooLong
+	}
+	images, err := normalizeWorkflowImages(request.Images)
+	if err != nil {
+		return nil, err
+	}
+	request.Images = images
+	if service == nil || service.store == nil || service.ids == nil {
+		return nil, errors.New("工作流应用服务未初始化")
+	}
+
+	var detail *FormRevisionDetail
+	err = service.store.InTransaction(ctx, func(store TransactionStore) error {
+		revision, err := store.LoadFormRevisionByTaskForUpdate(ctx, request.TaskID)
+		if err != nil {
+			return err
+		}
+		now := service.currentTime().UnixMilli()
+		transition, err := revision.CompleteTask(
+			request.TaskID, request.ActorID, request.Action, request.Comment, request.Images, now,
+		)
+		if err != nil {
+			return err
+		}
+		if transition.Idempotent {
+			detail = completedRevisionDetail(revision)
+			detail.Idempotent = true
+			return nil
+		}
+
+		_, state, err := store.LoadCompletedRevisionSourceForUpdate(ctx, revision.SourceInstanceID)
+		if err != nil {
+			return err
+		}
+		stateChanged := false
+		task := completedRevisionTaskByID(revision, request.TaskID)
+		switch revision.Status {
+		case workflowdomain.FormRevisionStatusRejected:
+			state.History = append(state.History, workflowdomain.HistoryEvent{
+				ID: service.ids.NewID("history"), Type: workflowdomain.HistoryInstanceFormRevisionRejected,
+				NodeID: task.NodeID, TaskID: task.ID, ActorID: request.ActorID,
+				Message: "表单修订已驳回：" + request.Comment,
+				Images:  append([]workflowcore.FormAttachment(nil), request.Images...), EventTime: now,
+			})
+			stateChanged = true
+		case workflowdomain.FormRevisionStatusApplied:
+			if state.Instance.FormRevision != revision.BaseFormRevision {
+				revision.Status = workflowdomain.FormRevisionStatusConflict
+				revision.AppliedFormRevision = 0
+				state.History = append(state.History, workflowdomain.HistoryEvent{
+					ID: service.ids.NewID("history"), Type: workflowdomain.HistoryInstanceFormRevisionConflict,
+					NodeID: task.NodeID, TaskID: task.ID, ActorID: request.ActorID,
+					Message:   fmt.Sprintf("表单版本已变化，修订基准版本：%d，当前版本：%d", revision.BaseFormRevision, state.Instance.FormRevision),
+					EventTime: now,
+				})
+				stateChanged = true
+				break
+			}
+			state.FormData = workflowcore.MergeFormData(nil, revision.ProposedFormData)
+			state.Instance.FormRevision++
+			revision.AppliedFormRevision = state.Instance.FormRevision
+			state.History = append(state.History, workflowdomain.HistoryEvent{
+				ID: service.ids.NewID("history"), Type: workflowdomain.HistoryInstanceFormRevisionApplied,
+				NodeID: task.NodeID, TaskID: task.ID, ActorID: request.ActorID,
+				Message: fmt.Sprintf("表单修订已完成确认并生效，当前版本：%d", revision.AppliedFormRevision), EventTime: now,
+			})
+			stateChanged = true
+		}
+		if err := store.SaveFormRevision(ctx, revision); err != nil {
+			return err
+		}
+		if stateChanged {
+			if err := store.SaveState(ctx, state); err != nil {
+				return err
+			}
+		}
+		detail = completedRevisionDetail(revision)
+		return nil
+	})
+	return detail, err
+}
+
+func (service *Service) CancelCompletedFormRevision(ctx context.Context, request CancelCompletedFormRevisionRequest) (*FormRevisionDetail, error) {
+	request.RevisionID = strings.TrimSpace(request.RevisionID)
+	request.ActorID = strings.TrimSpace(request.ActorID)
+	if request.RevisionID == "" {
+		return nil, ErrCompletedRevisionIDRequired
+	}
+	if request.ActorID == "" {
+		return nil, ErrActorRequired
+	}
+	if service == nil || service.store == nil || service.ids == nil {
+		return nil, errors.New("工作流应用服务未初始化")
+	}
+
+	var detail *FormRevisionDetail
+	err := service.store.InTransaction(ctx, func(store TransactionStore) error {
+		revision, err := store.LoadFormRevisionForUpdate(ctx, request.RevisionID)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(revision.RequesterID) != request.ActorID {
+			return ErrCompletedRevisionNotAllowed
+		}
+		if revision.Status != workflowdomain.FormRevisionStatusPending || completedRevisionHasHandledTask(revision) {
+			return ErrCompletedRevisionCannotCancel
+		}
+		now := service.currentTime().UnixMilli()
+		for index := range revision.Tasks {
+			if revision.Tasks[index].Status == workflowdomain.RevisionTaskStatusPending ||
+				revision.Tasks[index].Status == workflowdomain.RevisionTaskStatusWaiting {
+				revision.Tasks[index].Status = workflowdomain.RevisionTaskStatusCancelled
+			}
+		}
+		revision.Status = workflowdomain.FormRevisionStatusCancelled
+		revision.CompletedAt = now
+		_, state, err := store.LoadCompletedRevisionSourceForUpdate(ctx, revision.SourceInstanceID)
+		if err != nil {
+			return err
+		}
+		state.History = append(state.History, workflowdomain.HistoryEvent{
+			ID: service.ids.NewID("history"), Type: workflowdomain.HistoryInstanceFormRevisionCancelled,
+			NodeID: revision.SourceNodeID, ActorID: request.ActorID, Message: "表单修订已取消", EventTime: now,
+		})
+		if err := store.SaveFormRevision(ctx, revision); err != nil {
+			return err
+		}
+		if err := store.SaveState(ctx, state); err != nil {
+			return err
+		}
+		detail = completedRevisionDetail(revision)
+		return nil
+	})
+	return detail, err
+}
+
+func completedRevisionTaskByID(revision *workflowdomain.FormRevisionRequest, taskID string) workflowdomain.FormRevisionTask {
+	if revision == nil {
+		return workflowdomain.FormRevisionTask{}
+	}
+	for _, task := range revision.Tasks {
+		if task.ID == taskID {
+			return task
+		}
+	}
+	return workflowdomain.FormRevisionTask{}
+}
+
+func completedRevisionHasHandledTask(revision *workflowdomain.FormRevisionRequest) bool {
+	if revision == nil {
+		return false
+	}
+	for _, task := range revision.Tasks {
+		if task.HandledAt > 0 || task.Status == workflowdomain.RevisionTaskStatusApproved || task.Status == workflowdomain.RevisionTaskStatusRejected {
+			return true
+		}
+	}
+	return false
+}
+
 func normalizeCompletedRevisionPreviewRequest(request PreviewCompletedFormRevisionRequest) (PreviewCompletedFormRevisionRequest, error) {
 	request.InstanceID = strings.TrimSpace(request.InstanceID)
 	request.SourceNodeID = strings.TrimSpace(request.SourceNodeID)
