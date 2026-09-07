@@ -13,7 +13,8 @@ import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
 import { isFeedbackNotification, openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
 import { NOTIFICATION_HISTORY_CONTENT_KEY } from '@/pages/notifications/notification-route-keys'
-import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
+import { openWorkflowNotification } from '@/pages/notifications/workflow-notification-open'
+import { workflowFormRevisionDetailContentKey, workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
 
 const props = withDefaults(defineProps<{
@@ -62,6 +63,11 @@ const notificationTypeMetas: Record<string, NotificationTypeMeta> = {
   node_notify: { label: '流程通知', icon: 'email', color: '#2563eb', tone: 'primary' },
   instance_commented: { label: '流程评论', icon: 'chat', color: '#2563eb', tone: 'primary' },
   instance_form_revised: { label: '表单修改', icon: 'edit-pen', color: '#2563eb', tone: 'primary' },
+  instance_form_revision_requested: { label: '修订待确认', icon: 'clock', color: '#b45309', tone: 'warning' },
+  instance_form_revision_approved: { label: '修订已生效', icon: 'checkmark-circle', color: '#00875a', tone: 'success' },
+  instance_form_revision_rejected: { label: '修订已驳回', icon: 'error-circle', color: '#c93756', tone: 'danger' },
+  instance_form_revision_cancelled: { label: '修订已取消', icon: 'close-circle', color: '#475569', tone: 'info' },
+  instance_form_revision_conflict: { label: '修订冲突', icon: 'error-circle', color: '#c93756', tone: 'danger' },
   feedback_status: { label: '', icon: 'chat', color: '#2563eb', tone: 'primary' },
   workflow: { label: '流程消息', icon: 'file-text', color: '#475569', tone: 'info' },
   admin_manual: { label: '系统通知', icon: 'email', color: '#2563eb', tone: 'primary' },
@@ -213,15 +219,13 @@ function handleFeedbackNotification(notification: InAppNotification) {
   })
 }
 
-function openWorkflowNotification(notification: InAppNotification) {
-  const key = workflowInstanceContentKey(notification.sourceId)
-  if (!key)
-    return
-  void openNotificationTabAndClose({
-    key,
-    label: notification.title || '流程详情',
-    icon: 'file-text',
-    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+function handleWorkflowNotification(notification: InAppNotification) {
+  void openWorkflowNotification(notification, {
+    markRead: () => markRead(notification, { requireExplicitSuccess: true }),
+    workflowInstanceContentKey,
+    workflowFormRevisionDetailContentKey,
+    openDynamicTab: tab => openNotificationTab(tab),
+    closePanel,
   })
 }
 
@@ -231,9 +235,11 @@ function openNotification(notification: InAppNotification) {
     handleFeedbackNotification(notification)
     return
   }
+  if (notification.sourceType === 'workflow_form_revision' || notification.sourceType === 'workflow_instance') {
+    handleWorkflowNotification(notification)
+    return
+  }
   void markRead(notification)
-  if (notification.sourceType === 'workflow_instance' && notification.sourceId)
-    openWorkflowNotification(notification)
 }
 
 function openNotificationHistory() {

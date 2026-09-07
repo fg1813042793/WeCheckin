@@ -18,6 +18,7 @@ import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import { workflowDefinitionDisplayName } from '../workflow-definition'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
 import {
+  workflowFormRevisionDetailContentKey,
   workflowInstanceContentKey,
   workflowStartContentKey,
   workflowTaskContentKey,
@@ -245,7 +246,9 @@ const recordRows = computed(() => {
       return {
         id: task.id,
         cells: {
-          name: taskInstanceTitle(task),
+          name: task.taskType === 'form_revision'
+            ? `表单修订 · ${task.nodeName || taskInstanceTitle(task)}`
+            : taskInstanceTitle(task),
           definitionName: taskDefinitionName(task),
           businessKey: instance?.businessKey || task.instanceId,
           starterName: taskStarterDisplayName(task),
@@ -587,6 +590,20 @@ function openFocusedWorkflowInstance() {
 
 function openWorkflowTaskTab(task: WorkflowTaskSummary) {
   appContent.focusWorkflowTab('pending')
+  if (task.taskType === 'form_revision') {
+    const key = workflowFormRevisionDetailContentKey(task.revisionRequestId || '')
+    if (!key) {
+      uni.showToast({ title: '表单修订任务缺少关联记录', icon: 'none' })
+      return
+    }
+    appContent.openDynamicTab({
+      key,
+      label: `表单修订 · ${task.nodeName || taskInstanceTitle(task)}`,
+      icon: 'edit-pen',
+      path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+    })
+    return
+  }
   const key = workflowTaskContentKey(task.id, task.instanceId)
   if (!key)
     return

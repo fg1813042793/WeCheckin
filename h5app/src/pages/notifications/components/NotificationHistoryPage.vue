@@ -12,7 +12,12 @@ import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
 import { isFeedbackNotification, openFeedbackNotification } from '@/pages/notifications/feedback-notification-open'
 import { runNotificationMarkRead } from '@/pages/notifications/notification-mark-read'
-import { workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
+import {
+  isWorkflowNotification,
+  openWorkflowNotification,
+  workflowNotificationLabel,
+} from '@/pages/notifications/workflow-notification-open'
+import { workflowFormRevisionDetailContentKey, workflowInstanceContentKey } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore } from '@/stores'
 
 defineProps<{
@@ -57,6 +62,8 @@ function syncMobile() {
 function notificationLabel(notification: InAppNotification) {
   if (isFeedbackNotification(notification))
     return String(notification.style?.label || '').trim() || notificationT('feedbackStatus')
+  if (isWorkflowNotification(notification))
+    return String(notification.style?.label || '').trim() || workflowNotificationLabel(notification)
   return String(notification.style?.label || '').trim() || '系统消息'
 }
 
@@ -146,7 +153,7 @@ function confirmNavigationDiscard() {
   })
 }
 
-function openFeedbackTab(tab: FeedbackNotificationDynamicTab) {
+function openNotificationTab(tab: FeedbackNotificationDynamicTab) {
   return navigateWithUnsavedGuard({
     activeKey: appContent.currentKey,
     targetKey: tab.key,
@@ -167,9 +174,21 @@ function handleFeedbackNotification(notification: InAppNotification) {
   void openFeedbackNotification(notification, {
     markRead: () => markRead(notification, { requireExplicitSuccess: true }),
     feedbackDetailContentKey: sourceID => feedbackDetailContentKey(sourceID),
-    openDynamicTab: tab => openFeedbackTab(tab),
+    openDynamicTab: tab => openNotificationTab(tab),
     closePanel: closeFeedbackMessage,
     fallbackLabel: notificationT('feedbackDetail'),
+  })
+}
+
+function handleWorkflowNotification(notification: InAppNotification) {
+  selectedNotification.value = notification
+  detailVisible.value = true
+  void openWorkflowNotification(notification, {
+    markRead: () => markRead(notification, { requireExplicitSuccess: true }),
+    workflowInstanceContentKey,
+    workflowFormRevisionDetailContentKey,
+    openDynamicTab: tab => openNotificationTab(tab),
+    closePanel: closeFeedbackMessage,
   })
 }
 
@@ -178,19 +197,11 @@ function openNotification(notification: InAppNotification) {
     handleFeedbackNotification(notification)
     return
   }
-  void markRead(notification)
-  if (notification.sourceType === 'workflow_instance' && notification.sourceId) {
-    const key = workflowInstanceContentKey(notification.sourceId)
-    if (!key)
-      return
-    appContent.openDynamicTab({
-      key,
-      label: notification.title || '流程详情',
-      icon: 'file-text',
-      path: `/pages/index/index?view=${encodeURIComponent(key)}`,
-    })
+  if (isWorkflowNotification(notification)) {
+    handleWorkflowNotification(notification)
     return
   }
+  void markRead(notification)
   selectedNotification.value = notification
   detailVisible.value = true
 }
