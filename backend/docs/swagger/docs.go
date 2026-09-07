@@ -4,16 +4,16 @@ package swagger
 import "github.com/swaggo/swag"
 
 const docTemplate = `{
-    "schemes": {{ marshal .Schemes }},
+    "schemes": {% marshal .Schemes %},
     "swagger": "2.0",
     "info": {
-        "description": "{{escape .Description}}",
-        "title": "{{.Title}}",
+        "description": "{%escape .Description%}",
+        "title": "{%.Title%}",
         "contact": {},
-        "version": "{{.Version}}"
+        "version": "{%.Version%}"
     },
-    "host": "{{.Host}}",
-    "basePath": "{{.BasePath}}",
+    "host": "{%.Host%}",
+    "basePath": "{%.BasePath%}",
     "paths": {
         "/api/v2/admin/admin-sessions": {
             "get": {
@@ -19279,8 +19279,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "微信小程序打卡项目后端 API。包含用户认证、打卡管理、问卷系统、考试系统、报表导出等功能。",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
+	LeftDelim:        "{%",
+	RightDelim:       "%}",
 }
 
 func init() {

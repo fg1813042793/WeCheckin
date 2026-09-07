@@ -30,7 +30,31 @@ for (const snippet of [
 }
 
 const vite = readAdmin('vite.config.ts')
-if (!vite.includes("'/swagger'")) throw new Error('Vite must proxy /swagger to the backend')
+const swaggerProxyMatch = vite.match(/'([^']*swagger[^']*)'\s*:\s*\{/)
+if (!swaggerProxyMatch) throw new Error('Vite must proxy /swagger to the backend')
+
+const swaggerProxyPattern = new RegExp(swaggerProxyMatch[1])
+for (const path of ['/swagger', '/swagger?url=/swagger/doc.json', '/swagger/index.html']) {
+  if (!swaggerProxyPattern.test(path)) throw new Error(`Vite Swagger proxy must match ${path}`)
+}
+if (swaggerProxyPattern.test('/swagger-docs')) {
+  throw new Error('Vite Swagger proxy must not intercept the /swagger-docs admin route')
+}
+
+const swaggerRoute = readWorkspace('backend/internal/routes/common/swagger.go')
+for (const snippet of ['swagger.WrapHandler', 'serveSwaggerIndex(c)', '/swagger/doc.json']) {
+  if (!swaggerRoute.includes(snippet)) throw new Error(`backend Swagger route missing ${snippet}`)
+}
+
+const swaggerIndex = readWorkspace('backend/internal/routes/common/swagger_index.go')
+for (const snippet of ['SwaggerUIBundle({', 'url: "/swagger/doc.json"', 'filter: true', '<title>WeCheckin API</title>']) {
+  if (!swaggerIndex.includes(snippet)) throw new Error(`backend Swagger index missing ${snippet}`)
+}
+
+const backendMain = readWorkspace('backend/cmd/main.go')
+if (!backendMain.includes("--templateDelims '{%,%}'")) {
+  throw new Error('Swagger generation must use template delimiters that preserve workflow {{variables}}')
+}
 
 for (const path of ['nginx/default.conf.template', 'admin/nginx/default.conf.template']) {
   const source = readWorkspace(path)
