@@ -37,6 +37,9 @@ func TestMySQLConfigPreservesCredentialsAndTimeouts(t *testing.T) {
 	if !parsed.ParseTime || parsed.Params["charset"] != "utf8mb4" {
 		t.Fatalf("database protocol options = %#v", parsed)
 	}
+	if !parsed.InterpolateParams {
+		t.Fatal("database connections must interpolate parameters to avoid prepared-query round trips")
+	}
 }
 
 func TestDatabaseLoggerAlwaysUsesParameterizedQueries(t *testing.T) {

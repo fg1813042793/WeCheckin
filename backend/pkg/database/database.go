@@ -112,6 +112,7 @@ func mysqlConfig(options Options) *mysqlDriver.Config {
 	config.Params = map[string]string{"charset": "utf8mb4"}
 	config.ParseTime = true
 	config.Loc = time.Local
+	config.InterpolateParams = true
 	config.Timeout = options.ConnectTimeout
 	config.ReadTimeout = options.ReadTimeout
 	config.WriteTimeout = options.WriteTimeout

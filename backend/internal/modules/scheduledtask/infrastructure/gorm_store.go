@@ -197,7 +197,7 @@ func (store *GormStore) LockDueTasks(ctx context.Context, now int64, limit int) 
 	var tasks []scheduledtaskmodel.Task
 	err = db.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 		Where("enabled = 1 AND deleted_at = 0 AND next_run_at > 0 AND next_run_at <= ?", now).
-		Order("next_run_at ASC").Limit(limit).Find(&tasks).Error
+		Order("next_run_at ASC, id ASC").Limit(limit).Find(&tasks).Error
 	return tasks, err
 }
 
@@ -416,7 +416,7 @@ func (store *GormStore) ListUndeliveredRuns(ctx context.Context, queuedBefore in
 	var ids []string
 	err = db.Model(&scheduledtaskmodel.Run{}).
 		Where("run_status = ? AND redis_message_id = '' AND queued_at <= ?", scheduledtaskmodel.RunStatusQueued, queuedBefore).
-		Order("queued_at ASC").Limit(limit).Pluck("id", &ids).Error
+		Order("queued_at ASC, id ASC").Limit(limit).Pluck("id", &ids).Error
 	return ids, err
 }
 
@@ -494,7 +494,7 @@ func (store *GormStore) RecoverStaleRuns(ctx context.Context, staleBefore int64,
 		var runs []scheduledtaskmodel.Run
 		if err := db.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 			Where("run_status = ? AND heartbeat_at > 0 AND heartbeat_at <= ?", scheduledtaskmodel.RunStatusRunning, staleBefore).
-			Order("heartbeat_at ASC").Limit(limit).Find(&runs).Error; err != nil {
+			Order("heartbeat_at ASC, id ASC").Limit(limit).Find(&runs).Error; err != nil {
 			return err
 		}
 		for _, run := range runs {
