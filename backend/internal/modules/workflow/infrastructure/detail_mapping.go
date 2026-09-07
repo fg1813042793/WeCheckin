@@ -60,13 +60,32 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 	if err := db.Where("source_instance_id = ?", instance.ID).Order("add_time DESC").Order("id DESC").Find(&revisionRows).Error; err != nil {
 		return nil, err
 	}
-	formRevisions := make([]application.FormRevisionSummary, 0, len(revisionRows))
+	revisionIDs := make([]string, 0, len(revisionRows))
 	for _, row := range revisionRows {
-		summary, err := formRevisionSummaryFromModel(row)
+		revisionIDs = append(revisionIDs, row.ID)
+	}
+	revisionTaskRows := make([]workflowmodel.FormRevisionTask, 0)
+	if len(revisionIDs) > 0 {
+		if err := db.Where("revision_request_id IN ?", revisionIDs).
+			Order("stage ASC").Order("node_id ASC").Order("task_sequence ASC").Order("id ASC").
+			Find(&revisionTaskRows).Error; err != nil {
+			return nil, err
+		}
+	}
+	revisionTasksByRequest := make(map[string][]workflowmodel.FormRevisionTask, len(revisionRows))
+	for _, task := range revisionTaskRows {
+		revisionTasksByRequest[task.RevisionRequestID] = append(revisionTasksByRequest[task.RevisionRequestID], task)
+	}
+	formRevisions := make([]application.FormRevisionDetail, 0, len(revisionRows))
+	for _, row := range revisionRows {
+		revision, err := formRevisionFromModels(row, revisionTasksByRequest[row.ID])
 		if err != nil {
 			return nil, err
 		}
-		formRevisions = append(formRevisions, summary)
+		detail := formRevisionDetail(revision)
+		if detail != nil {
+			formRevisions = append(formRevisions, *detail)
+		}
 	}
 	instances, err := loadInstanceSummaries(db, []workflowmodel.ProcessInstance{instance})
 	if err != nil {
@@ -98,12 +117,16 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 	}
 	detail.FormData = formData
 	userIDs := collectInstanceUserIDs(instance, tasks, history, definition.Form, formData)
-	seenUserIDs := make(map[uint]struct{}, len(userIDs)+len(revisionRows))
+	seenUserIDs := make(map[uint]struct{}, len(userIDs)+len(revisionRows)+len(revisionTaskRows))
 	for _, userID := range userIDs {
 		seenUserIDs[userID] = struct{}{}
 	}
 	for _, revision := range revisionRows {
 		appendWorkflowUserID(&userIDs, seenUserIDs, revision.RequesterID)
+	}
+	for _, task := range revisionTaskRows {
+		appendWorkflowUserID(&userIDs, seenUserIDs, task.AssigneeID)
+		appendWorkflowUserID(&userIDs, seenUserIDs, task.HandledBy)
 	}
 	users, err := loadWorkflowUsers(db, userIDs)
 	if err != nil {

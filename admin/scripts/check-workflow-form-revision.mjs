@@ -8,6 +8,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const typeSource = read('src/types/workflow.ts')
 const inspectorSource = read('src/views/workflow/designer/components/NodeInspector.vue')
 const fieldCatalogSource = read('src/views/workflow/designer/workflowFieldCatalog.ts')
+const recordsSource = read('src/views/workflow/instances/components/WorkflowFormRevisionRecords.vue')
 const notificationPageSource = read('src/views/notification/index.vue')
 const notificationStyleSource = read('src/views/notification/components/NotificationStyleDialog.vue')
 
@@ -37,6 +38,11 @@ for (const snippet of [
 
 if (!fieldCatalogSource.includes('workflowCompletedRevisionBlockedFieldTypes'))
   throw new Error('workflow field catalog missing completed revision eligibility metadata')
+
+for (const snippet of ['字段差异', '修改原因', '确认记录', '通知投递']) {
+  if (!recordsSource.includes(snippet))
+    throw new Error(`revision records missing ${snippet}`)
+}
 
 if (!notificationPageSource.includes("{ label: '表单修改', value: 'instance_form_revised' }"))
   throw new Error('notification page missing instance form revised type')

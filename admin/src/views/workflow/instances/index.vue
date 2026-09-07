@@ -227,6 +227,20 @@
           </section>
 
           <section class="detail-section">
+            <el-collapse v-model="detailExpandedSections.revisions" class="detail-collapse">
+              <el-collapse-item name="revisions">
+                <template #title><span class="detail-collapse__title">表单修订</span></template>
+                <WorkflowFormRevisionRecords
+                  :revisions="detail.formRevisions || []"
+                  :fields="detail.form || []"
+                  :user-names="detail.userNames || {}"
+                  :notifications="notifications"
+                />
+              </el-collapse-item>
+            </el-collapse>
+          </section>
+
+          <section class="detail-section">
             <el-collapse v-model="detailExpandedSections.variables" class="detail-collapse">
               <el-collapse-item name="variables">
                 <template #title><span class="detail-collapse__title">流程变量</span></template>
@@ -339,6 +353,7 @@ import type { AdminUser } from '../../../api/types'
 import { hasPerm } from '../../../utils/permission'
 import WorkflowRuntimeForm from '../components/WorkflowRuntimeForm.vue'
 import WorkflowUserTreePicker from '../components/WorkflowUserTreePicker.vue'
+import WorkflowFormRevisionRecords from './components/WorkflowFormRevisionRecords.vue'
 import { initialWorkflowFormData, workflowFieldActionMap, workflowFieldAccessMap, writableWorkflowFormData } from '../runtimeForm'
 import type {
   WorkflowInstanceDetail,
@@ -406,8 +421,9 @@ const notifications = ref<WorkflowNotificationRecord[]>([])
 const notificationsLoading = ref(false)
 const dispatchingDueNotifications = ref(false)
 const retryingNotificationId = ref('')
-const detailExpandedSections = reactive<{ form: string[]; variables: string[]; history: string[] }>({
+const detailExpandedSections = reactive<{ form: string[]; revisions: string[]; variables: string[]; history: string[] }>({
   form: [],
+  revisions: [],
   variables: [],
   history: [],
 })
@@ -533,6 +549,11 @@ const notificationKindMetas: Record<WorkflowNotificationKind, { label: string, t
   task_reminder: { label: '处理提醒', type: 'warning' },
   instance_commented: { label: '流程评论', type: 'primary' },
   instance_form_revised: { label: '表单修改', type: 'primary' },
+  instance_form_revision_requested: { label: '修订待确认', type: 'warning' },
+  instance_form_revision_approved: { label: '修订已生效', type: 'success' },
+  instance_form_revision_rejected: { label: '修订已驳回', type: 'danger' },
+  instance_form_revision_cancelled: { label: '修订已取消', type: 'info' },
+  instance_form_revision_conflict: { label: '修订版本冲突', type: 'danger' },
   approval_result_approved: { label: '审批通过结果', type: 'success' },
   approval_result_rejected: { label: '审批驳回结果', type: 'danger' },
   approval_result_returned: { label: '审批退回结果', type: 'warning' },
@@ -726,6 +747,7 @@ async function openDetail(row: WorkflowInstanceSummary) {
   notifications.value = []
   detailDialog.value = true
   detailExpandedSections.form = []
+  detailExpandedSections.revisions = []
   detailExpandedSections.variables = []
   detailExpandedSections.history = []
   detailLoading.value = true

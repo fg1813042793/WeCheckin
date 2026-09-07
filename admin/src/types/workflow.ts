@@ -440,6 +440,56 @@ export interface WorkflowTaskSummary {
   handledAt: number
 }
 
+export type WorkflowFormRevisionMode = 'direct' | 'downstream_review'
+export type WorkflowFormRevisionStatus = 'pending' | 'applied' | 'rejected' | 'cancelled' | 'conflict'
+export type WorkflowFormRevisionTaskStatus = 'waiting' | 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type WorkflowFormRevisionAction = 'approve' | 'reject' | ''
+
+export interface WorkflowFormRevisionSummary {
+  id: string
+  sourceInstanceId: string
+  sourceNodeId: string
+  sourceNodeName: string
+  requesterId: string
+  requesterName?: string
+  baseFormRevision: number
+  appliedFormRevision: number
+  changedFieldLabels: string[]
+  reason: string
+  mode: WorkflowFormRevisionMode
+  status: WorkflowFormRevisionStatus
+  createdAt: number
+  completedAt: number
+}
+
+export interface WorkflowFormRevisionTaskSummary {
+  id: string
+  sourceTaskId: string
+  nodeId: string
+  nodeName: string
+  stage: number
+  assigneeId: string
+  assigneeName: string
+  approvalMode: string
+  completionRate: number
+  sequence: number
+  total: number
+  status: WorkflowFormRevisionTaskStatus
+  action: WorkflowFormRevisionAction
+  comment: string
+  images?: WorkflowAttachment[]
+  handledBy: string
+  handledAt: number
+}
+
+export interface WorkflowFormRevisionDetail extends WorkflowFormRevisionSummary {
+  beforeFormData: Record<string, unknown>
+  patch: Record<string, unknown>
+  proposedFormData: Record<string, unknown>
+  tasks: WorkflowFormRevisionTaskSummary[]
+  idempotent?: boolean
+}
+
 export interface WorkflowHistorySummary {
   id: string
   eventType: string
@@ -458,6 +508,11 @@ export type WorkflowNotificationKind
     | 'task_reminder'
     | 'instance_commented'
     | 'instance_form_revised'
+    | 'instance_form_revision_requested'
+    | 'instance_form_revision_approved'
+    | 'instance_form_revision_rejected'
+    | 'instance_form_revision_cancelled'
+    | 'instance_form_revision_conflict'
     | 'approval_result_approved'
     | 'approval_result_rejected'
     | 'approval_result_returned'
@@ -476,6 +531,9 @@ export interface WorkflowNotificationPayload {
   taskId: string
   recipientUserId: string
   kind: WorkflowNotificationKind
+  sourceType?: string
+  sourceId?: string
+  view?: string
 }
 
 export interface WorkflowNotificationRecord {
@@ -519,6 +577,7 @@ export interface WorkflowInstanceDetail {
   tasks: WorkflowTaskSummary[]
   history: WorkflowHistorySummary[]
   userNames: Record<string, string>
+  formRevisions: WorkflowFormRevisionDetail[]
 }
 
 export function cloneDraft(draft: WorkflowDraft): WorkflowDraft {

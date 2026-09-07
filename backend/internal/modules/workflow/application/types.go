@@ -386,7 +386,7 @@ type InstanceDetail struct {
 	ReminderPolicy   ReminderPolicy                            `json:"reminderPolicy"`
 	ReminderNodes    []ReminderNodeSummary                     `json:"reminderNodes"`
 	FormRevision     FormRevisionCapability                    `json:"formRevision"`
-	FormRevisions    []FormRevisionSummary                     `json:"formRevisions"`
+	FormRevisions    []FormRevisionDetail                      `json:"formRevisions"`
 }
 
 type InstanceList struct {
