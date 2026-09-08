@@ -59,30 +59,7 @@
             <template v-if="middleTab==='item'">
               <el-tabs v-model="sideSubTab" class="side-sub-tabs">
                 <el-tab-pane label="题型" name="types">
-                  <div class="question-panel">
-                    <div class="type-tabs-bar" ref="tabsBarRef">
-                      <button class="tab-scroll-btn tab-scroll-prev" @click="scrollTabs(-1)" :disabled="atTabStart">‹</button>
-                      <div class="tab-scroll-viewport" ref="tabViewportRef">
-                        <div class="tab-scroll-track" ref="tabTrackRef">
-                          <button
-                            v-for="cat in categories" :key="cat.name"
-                            class="type-tab-btn"
-                            :class="{ active: activeCategory===cat.name }"
-                            @click="activeCategory=cat.name"
-                          >{{ cat.label }}</button>
-                        </div>
-                      </div>
-                      <button class="tab-scroll-btn tab-scroll-next" @click="scrollTabs(1)" :disabled="atTabEnd">›</button>
-                    </div>
-                    <div class="question-type">
-                      <dl class="menu-group" v-for="(items, group) in groupedBySub" :key="group">
-                        <dd v-for="t in items" :key="t.type" class="menu-group-item" @click="addQuestion(t)">
-                          <span class="itemIcon"><question-icon :type="t.type" /></span>
-                          <span class="item-label">{{ t.displayName }}</span>
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
+                  <SurveyDesignerQuestionPalette :types="types" @add="addQuestion" />
                 </el-tab-pane>
                 <el-tab-pane label="题库" name="bank">
                   <div class="bank-panel">
@@ -1512,7 +1489,9 @@ import QuestionPreview from './formkit/QuestionPreview.vue'
 import SurveyDesignerIssues from './components/SurveyDesignerIssues.vue'
 import SurveyDesignerOutline from './components/SurveyDesignerOutline.vue'
 import SurveyDesignerPanelTitle from './components/SurveyDesignerPanelTitle.vue'
-import { categoryDefs, FALLBACK_TYPES } from './survey-designer-question-types'
+import SurveyDesignerQuestionPalette from './components/SurveyDesignerQuestionPalette.vue'
+import { FALLBACK_TYPES, getSurveyQuestionTypeName as typeName } from './survey-designer-question-types'
+import { parseSurveyText, serializeSurveyText, stripSurveyMarkup as stripHtmlTag, type ParsedSurveyTextQuestion } from './survey-designer-text-transfer'
 import { collectSurveyDesignerIssues, isValidRedirectUrl, type SurveyDesignerIssue } from './survey-designer-validation'
 import { useSurveyDesignerHistory } from './composables/useSurveyDesignerHistory'
 import './survey-designer-responsive.css'
@@ -1588,7 +1567,6 @@ const reportData = ref<any>(null)
 const reportLoading = ref(false)
 const chartTypes = ref<Record<string,string>>({})
 const sideSubTab = ref('types')
-const activeCategory = ref('')
 const appearanceTab = ref('bg')
 const allBgResources = ref<any[]>([])
 const allHeaderResources = ref<any[]>([])
@@ -1648,15 +1626,15 @@ const textImport = reactive({
   visible: false,
   mode: 'paste' as 'paste' | 'file',
   text: '',
-  parsed: [] as any[],
-  preview: [] as any[],
+  parsed: [] as ParsedSurveyTextQuestion[],
+  preview: [] as ParsedSurveyTextQuestion[],
   importing: false,
   surveyTitle: ''
 })
 
 watch(() => textImport.text, (val) => {
   if (textImport.mode === 'paste' && val) {
-    const result = parseTextToQuestions(val)
+    const result = parseSurveyText(val)
     textImport.surveyTitle = result.title
     textImport.parsed = result.questions
     textImport.preview = textImport.parsed.slice(0, 20)
@@ -1671,150 +1649,6 @@ watch(() => textImport.mode, () => {
   textImport.parsed = []
   textImport.preview = []
 })
-
-function stripHtmlTag(html: string) {
-  return html.replace(/<[^>]*>/g, '')
-}
-
-function parseTextToQuestions(text: string) {
-  const lines = text.split('\n')
-  const questions: any[] = []
-  let current: any = null
-  let surveyTitle = ''
-  let lineIdx = 0
-  // 跳过首行（问卷标题）和 === 下划线
-  const trimmed = lines.map(l => l.trim()).filter(l => l.length > 0)
-  if (trimmed.length >= 2 && /^[=\-~]{3,}$/.test(trimmed[1])) {
-    surveyTitle = trimmed[0]
-    // 过滤掉原始行中的标题两行
-    const nonEmptyIdx = lines.reduce<number[]>((acc, l, i) => { if (l.trim()) acc.push(i); return acc }, [])
-    if (nonEmptyIdx.length >= 2 && nonEmptyIdx[0] + 1 === nonEmptyIdx[1] && /^[=\-~]{3,}$/.test(lines[nonEmptyIdx[1]].trim())) {
-      lineIdx = 2 // skip title
-    }
-  }
-
-  const typeMap: Record<string, string> = {
-    '单选': 'radio', '单选择': 'radio', '单选题': 'radio',
-    '多选': 'checkbox', '多选题': 'checkbox', '多选择': 'checkbox',
-    '下拉': 'select', '下拉选择': 'select', '下拉框': 'select',
-    '选择器': 'picker', 'picker': 'picker',
-    '级联选择': 'cascade', '级联': 'cascade', 'cascade': 'cascade',
-    '判断': 'judge', '判断题': 'judge',
-    '上传文件': 'file', '文件上传': 'file', '图片上传': 'file', '文件': 'file',
-    '单行文本': 'input', '文本': 'input',
-    '多行': 'textarea', '多行文本': 'textarea', 'textarea': 'textarea',
-    '数字': 'number',
-    '多项填空': 'multiInput', 'multiInput': 'multiInput',
-    '横向填空': 'hInput', 'hInput': 'hInput',
-    '签名': 'signature', 'signature': 'signature',
-    '扫码': 'scanCode', 'scanCode': 'scanCode',
-    '评分': 'rating', 'rating': 'rating',
-    'NPS评分': 'nps', 'nps': 'nps', 'NPS': 'nps',
-    '手机': 'phone', '手机号': 'phone', 'phone': 'phone',
-    '邮箱': 'email', 'email': 'email',
-    '身份证': 'idCard', '身份证号': 'idCard', 'idCard': 'idCard',
-    '密码': 'password', 'password': 'password',
-    '姓名': 'name', 'name': 'name',
-    '学号': 'studentId', 'studentId': 'studentId',
-    '工号': 'employeeId', 'employeeId': 'employeeId',
-    '班级': 'class', 'class': 'class',
-    '开关': 'switch', 'switch': 'switch',
-    '地理位置': 'location', '位置': 'location', '打卡': 'location', 'location': 'location',
-    '日期': 'date', 'date': 'date',
-    '时间': 'time', 'time': 'time',
-    '日期范围': 'dateRange', 'dateRange': 'dateRange',
-    '矩阵单选': 'matrixRadio', 'matrixRadio': 'matrixRadio',
-    '矩阵多选': 'matrixCheckbox', 'matrixCheckbox': 'matrixCheckbox',
-    '矩阵填空': 'matrixFillBlank', 'matrixFillBlank': 'matrixFillBlank',
-    '表格自增': 'matrixAuto', '矩阵自增': 'matrixAuto', 'matrixAuto': 'matrixAuto',
-    '成员': 'user', '人员': 'user', 'user': 'user',
-    '部门': 'dept', 'dept': 'dept',
-    '富文本': 'richText', 'richText': 'richText',
-    '自动填充': 'autopop', 'autopop': 'autopop',
-    '自动获取': 'autopop',
-  }
-
-  for (const raw of lines) {
-    if (lineIdx > 0) { lineIdx--; continue }
-    const line = raw.trim()
-    if (!line) {
-      if (current && current.title) { questions.push(current); current = null }
-      continue
-    }
-    // 检测选项行
-    const optMatch = line.match(/^([A-Za-z])[.、）)]\s*(.*)/)
-    if (optMatch) {
-      if (!current) current = { type: 'radio', title: '', options: [], rows: [], columns: [], fields: [] }
-      if (!current.options) current.options = []
-      const text = stripHtmlTag(optMatch[2])
-      if (text) {
-        let label = text
-        let value = optMatch[1]
-        const bracketMatch = text.match(/^\[(.+?)\]\s*(.*)/)
-        if (bracketMatch) {
-          value = bracketMatch[1]
-          label = bracketMatch[2]
-        }
-        current.options.push({ label, value })
-        if (current.type === 'input') current.type = 'radio'
-      }
-      continue
-    }
-    // 检测矩阵行/列/字段
-    const rowMatch = line.match(/^行[:：]\s*(.+)/)
-    const colMatch = line.match(/^列[:：]\s*(.+)/)
-    const fieldMatch = line.match(/^字段[:：]\s*(.+)/)
-    if (rowMatch || colMatch || fieldMatch) {
-      if (!current) current = { type: 'input', title: '', options: [], rows: [], columns: [], fields: [] }
-      if (!current.rows) current.rows = []
-      if (!current.columns) current.columns = []
-      if (!current.fields) current.fields = []
-      if (rowMatch) {
-        current.rows = rowMatch[1].split('/').map((s: string) => ({ title: s.trim() }))
-      }
-      if (colMatch) {
-        current.columns = colMatch[1].split('/').map((s: string) => ({ title: s.trim() }))
-      }
-      if (fieldMatch) {
-        current.fields = fieldMatch[1].split('/').map((s: string) => ({ label: s.trim(), placeholder: '' }))
-      }
-      continue
-    }
-    // 新题目
-    if (current && current.title) { questions.push(current) }
-    // 检测类型标记 [类型名]
-    const typeMatch = line.match(/^\d*[.、）)]?\s*\[(.+?)\]\s*(.*)/)
-    if (typeMatch) {
-      const typeName2 = typeMatch[1].trim()
-      const rawTitle = typeMatch[2]
-      const mappedType = typeMap[typeName2] || 'input'
-      let qTitle = stripHtmlTag(rawTitle)
-      if (!qTitle) {
-        qTitle = stripHtmlTag(line.replace(/^\d*[.、）)]?\s*/, '').replace(/\[.*?\]/, '').trim())
-      }
-      current = { type: mappedType, title: qTitle, options: [], rows: [], columns: [], fields: [] }
-      if (mappedType === 'judge') {
-        current.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
-      }
-    } else {
-      // 去掉序号前缀
-      const title = stripHtmlTag(line.replace(/^\d+[.、）)]?\s*/, ''))
-      current = { type: 'input', title, options: [], rows: [], columns: [], fields: [] }
-    }
-  }
-  if (current && current.title) questions.push(current)
-  // 没有选项的改为 input；有选项的修正类型
-  questions.forEach(q => {
-    const needsOptions = ['radio', 'checkbox', 'select', 'picker', 'cascade', 'user', 'dept']
-    if (q.options && q.options.length > 0) {
-      if (q.type === 'input') q.type = 'radio'
-    } else if (needsOptions.includes(q.type)) {
-      q.type = 'input'
-      q.options = []
-    }
-  })
-  return { title: surveyTitle, questions }
-}
 
 async function onTextFileChange(file: any) {
   const f = file.raw || file
@@ -1834,7 +1668,7 @@ async function onTextFileChange(file: any) {
   } else {
     textImport.text = await f.text()
   }
-  const result = parseTextToQuestions(textImport.text)
+  const result = parseSurveyText(textImport.text)
   textImport.surveyTitle = result.title
   textImport.parsed = result.questions
   textImport.preview = textImport.parsed.slice(0, 20)
@@ -1847,7 +1681,7 @@ function confirmTextImport() {
     if (textImport.surveyTitle) {
       form.title = textImport.surveyTitle
     }
-    textImport.parsed.forEach((q: any) => {
+    textImport.parsed.forEach(q => {
       const newQ: any = {
         id: genId(),
         type: q.type,
@@ -1898,51 +1732,8 @@ function openTextImport() {
   textImport.surveyTitle = ''
 }
 
-function surveyToText() {
-  const lines: string[] = []
-  const title = form.title || '未命名问卷'
-  lines.push(title)
-  lines.push('='.repeat(title.length))
-  if (form.description) lines.push('', form.description)
-  lines.push('')
-  let idx = 0
-  questions.value.forEach((q: any) => {
-    if (['description', 'divider', 'pagination', 'questionSet'].includes(q.type)) {
-      if (q.type === 'description') lines.push('--- ' + stripHtmlTag(q.title) + ' ---')
-      return
-    }
-    idx++
-    const qTitle = stripHtmlTag(q.title || '未命名')
-    const typeName2 = typeName(q.type)
-    const required = q.required ? '（必填）' : ''
-    lines.push(`${idx}. [${typeName2}] ${qTitle}${required}`)
-    if (q.props?.options?.length) {
-      q.props.options.forEach((o: any, oi: number) => {
-        const prefix = String.fromCharCode(65 + oi) // A, B, C...
-        const label = stripHtmlTag(o.label || '')
-        if (o.value && o.value !== prefix) {
-          lines.push(`   ${prefix}. [${o.value}] ${label}`)
-        } else {
-          lines.push(`   ${prefix}. ${label}`)
-        }
-      })
-    }
-    if (q.props?.fields?.length) {
-      lines.push(`   字段: ${q.props.fields.map((f: any) => f.label).join(' / ')}`)
-    }
-    if (q.props?.rows?.length) {
-      lines.push(`   行: ${q.props.rows.map((r: any) => r.title).join(' / ')}`)
-    }
-    if (q.props?.columns?.length) {
-      lines.push(`   列: ${q.props.columns.map((c: any) => c.title || c.label).join(' / ')}`)
-    }
-    lines.push('')
-  })
-  return lines.join('\n')
-}
-
 function exportSurvey() {
-  const text = surveyToText()
+  const text = serializeSurveyText({ title: form.title, description: form.description, questions: questions.value })
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -2139,32 +1930,6 @@ function bankQuestionTitle(q: any) {
   return title || '未命名'
 }
 
-// 题型 tab 滚动
-const tabsBarRef = ref<HTMLElement | null>(null)
-const tabViewportRef = ref<HTMLElement | null>(null)
-const tabTrackRef = ref<HTMLElement | null>(null)
-const scrollPos = ref(0)
-const atTabStart = computed(() => scrollPos.value <= 0)
-const atTabEnd = ref(false)
-function scrollTabs(dir: number) {
-  const vp = tabViewportRef.value
-  const tr = tabTrackRef.value
-  if (!vp || !tr) return
-  const step = vp.clientWidth * 0.6
-  let newPos = scrollPos.value + dir * step
-  newPos = Math.max(0, Math.min(newPos, tr.scrollWidth - vp.clientWidth))
-  scrollPos.value = newPos
-  tr.style.transform = `translateX(${-newPos}px)`
-  atTabEnd.value = newPos >= tr.scrollWidth - vp.clientWidth - 1
-}
-function updateTabScroll() {
-  const vp = tabViewportRef.value
-  const tr = tabTrackRef.value
-  if (!vp || !tr) return
-  scrollPos.value = 0
-  tr.style.transform = 'translateX(0)'
-  atTabEnd.value = tr.scrollWidth <= vp.clientWidth
-}
 const collapseActive = ref('')
 const mediaCollapseActive = ref('')
 const newRowName = ref('')
@@ -2173,28 +1938,6 @@ const optDrawerIdx = ref(0)
 const optDrawerVisible = ref(false)
 const batchAddVisible = ref(false)
 const batchAddText = ref('')
-
-function typeName(t: string) {
-  const map: Record<string, string> = {
-    input: '单行文本', text: '文本', textarea: '多行', number: '数字',
-    select: '下拉', radio: '单选', checkbox: '多选', picker: '选择器',
-    cascade: '级联选择', judge: '判断',
-    multiInput: '多项填空', hInput: '横向填空', scanCode: '扫码',
-    signature: '签名', file: '上传文件',
-    rating: '评分', nps: 'NPS评分',
-    phone: '手机', email: '邮箱', idCard: '身份证', password: '密码',
-    name: '姓名', studentId: '学号', employeeId: '工号', class: '班级',
-    switch: '开关', location: '地理位置',
-    date: '日期', time: '时间', dateRange: '日期范围',
-    matrixRadio: '矩阵单选', matrixCheckbox: '矩阵多选',
-    matrixFillBlank: '矩阵填空', matrixAuto: '表格自增',
-    divider: '分割线', description: '说明',
-    questionSet: '问题组', pagination: '分页',
-    user: '成员', dept: '部门', richText: '富文本',
-    autopop: '自动填充',
-  }
-  return map[t] || t
-}
 
 const formulaVisible = ref(false)
 const formulaTitle = ref('')
@@ -2949,21 +2692,6 @@ function importUserOpt() {
 }
 
 const types = ref<any[]>([])
-const categories = computed(() => categoryDefs.filter(c => types.value.some(t => c.types.includes(t.type))))
-const typesByCategory = computed(() => {
-  const m: Record<string, any[]> = {}
-  for (const cat of categoryDefs) {
-    const items = types.value.filter(t => cat.types.includes(t.type))
-    if (items.length) m[cat.name] = items
-  }
-  return m
-})
-const groupedBySub = computed(() => {
-  const cat = activeCategory.value
-  if (!cat || !typesByCategory.value[cat]?.length) return {}
-  return { [cat]: typesByCategory.value[cat] }
-})
-
 interface Question { id: string; type: string; title: string; description?: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; dataType?: string; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; mediaType?: string; mediaUrl?: string; mediaWidth?: string; mediaAlign?: string; [key: string]: any }
 const questions = ref<Question[]>([])
 const selected = ref<Question | null>(null)
@@ -3604,13 +3332,9 @@ onMounted(async () => {
       const api = apiMap.get(ft.type)
       return api || ft
     })
-    const cats = categories.value
-    if (cats.length) activeCategory.value = cats[0].name
   } catch {
     types.value = FALLBACK_TYPES
   }
-  await nextTick()
-  updateTabScroll()
   await load()
 })
 
@@ -3624,525 +3348,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-/* ======= 主布局 ======= */
-.survey-main {
-  --designer-accent:#2563eb;
-  --designer-accent-soft:#eff6ff;
-  --designer-accent-border:#bfdbfe;
-  --designer-accent-hover:#dbeafe;
-  --designer-bg:#f4f6fa;
-  --designer-panel:#ffffff;
-  --designer-panel-muted:#f8fafc;
-  --designer-border:#e6eaf0;
-  --designer-text:#1f2937;
-  --designer-muted:#6b7280;
-  --designer-shadow:0 12px 32px rgba(15, 23, 42, 0.08);
-  display:flex;
-  height:calc(100vh - 56px);
-  min-width:0;
-  background:var(--designer-bg);
-  color:var(--designer-text);
-}
-
-/* ======= 左侧导航 ======= */
-.survey-main-navigator {
-  display:flex; flex:0 0 54px; flex-direction:column; justify-content:space-between;
-  border-right:1px solid var(--designer-border); background:#fff; padding:10px 0; align-items:center;
-  box-shadow:1px 0 0 rgba(15,23,42,0.02);
-}
-.nav-actions { display:flex; flex-direction:column; align-items:center; gap:6px; }
-.nav-bottom { display:flex; flex-direction:column; align-items:center; }
-.nav-btn {
-  width:38px; height:38px; min-width:38px; padding:0; margin:0;
-  border:1px solid transparent; border-radius:10px; color:#8a94a6; font-size:13px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  background:transparent; outline:none; line-height:1;
-  transition:background .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease;
-}
-.nav-btn:hover { background:#f7f8fb; color:#374151; border-color:#eef1f5; }
-.nav-btn.active { background:var(--designer-accent-soft); color:var(--designer-accent); border-color:var(--designer-accent-border); box-shadow:0 6px 14px rgba(37,99,235,0.12); }
-.nav-btn svg { display:block; flex-shrink:0; }
-
-/* ======= 主内容 ======= */
-.survey-main-content { position:relative; flex:1 1 auto; overflow:hidden; }
-
-/* ======= 编辑器 ======= */
-.survey-editor { display:flex; height:100%; min-width:0; font-family:"PingFang SC",-apple-system,"Helvetica Neue",Helvetica,BlinkMacSystemFont,"Microsoft YaHei",tahoma,Arial,"Open Sans","Hiragino Sans GB","Heiti SC","WenQuanYi Micro Hei",sans-serif; }
-
-/* ======= 左侧题型面板 ======= */
-.survey-sidebar-panel { position:relative; z-index:2; display:flex; flex-grow:0; flex-shrink:0; user-select:none; box-shadow:2px 0 14px rgba(15,23,42,0.04); }
-.survey-sidebar-panel-tabs {
-  display:flex; flex-direction:column; font-size:12px;
-  background:#f7f8fb; border-right:1px solid var(--designer-border); padding:6px 0;
-}
-.survey-sidebar-panel-tabs-pane {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  width:44px; height:42px; color:#8a94a6; cursor:pointer; border-radius:10px;
-  margin:2px 5px; transition:all 0.15s;
-}
-.survey-sidebar-panel-tabs-pane:hover { color:#374151; background:#fff; }
-.survey-sidebar-panel-tabs-pane.active { color:var(--designer-accent); background:#fff; border-radius:10px; box-shadow:0 6px 14px rgba(15,23,42,0.08); }
-.survey-sidebar-panel-tabs-pane .tab-badge { position:absolute; top:-2px; right:-6px; font-size:9px; background:var(--designer-accent); color:#fff; border-radius:8px; padding:1px 4px; line-height:1.4; }
-.survey-sidebar-panel-tabs-pane { position:relative; }
-.survey-sidebar-panel-tabs-content {
-  display:flex; flex-direction:column; width:256px; height:100%;
-  border-right:1px solid var(--designer-border); overflow-y:auto; background:#fff;
-}
-
-/* 题型 / 大纲 tab 切换 */
-.side-sub-tabs { display:flex; flex-direction:column; height:100%; }
-.side-sub-tabs :deep(.el-tabs__header) { margin:0; padding:0 10px; background:#fff; border-bottom:1px solid var(--designer-border); }
-.side-sub-tabs :deep(.el-tabs__nav-wrap) { margin-bottom:0; }
-.side-sub-tabs :deep(.el-tabs__nav-scroll) { display:flex; }
-.side-sub-tabs :deep(.el-tabs__nav) { display:flex; width:100%; }
-.side-sub-tabs :deep(.el-tabs__active-bar) { background:var(--designer-accent); height:2px; }
-.side-sub-tabs :deep(.el-tabs__item) {
-  flex:1; justify-content:center; padding:0; font-size:13px; height:36px; line-height:36px; color:#667085; text-align:center; transition:color 0.15s;
-}
-.side-sub-tabs :deep(.el-tabs__item:hover) { color:#1f2937; }
-.side-sub-tabs :deep(.el-tabs__item.is-active) { color:var(--designer-accent); font-weight:600; }
-.side-sub-tabs :deep(.el-tabs__content) { flex:1; overflow-y:auto; }
-
-/* 题型分类标签（自定义按钮滚动） */
-.question-panel { padding:10px; }
-.type-tabs-bar { display:flex; align-items:stretch; gap:4px; margin-bottom:12px; }
-.tab-scroll-viewport { flex:1; overflow:hidden; }
-.tab-scroll-track { display:flex; gap:4px; transition:transform .2s ease; }
-.tab-scroll-btn {
-  flex:0 0 24px; border:1px solid var(--designer-border); border-radius:6px; background:#fff;
-  color:#999; cursor:pointer; font-size:14px; line-height:1;
-  display:flex; align-items:center; justify-content:center; padding:0;
-  transition:all .15s;
-}
-.tab-scroll-btn:hover:not(:disabled) { color:var(--designer-accent); border-color:var(--designer-accent); }
-.tab-scroll-btn:disabled { opacity:0.3; cursor:default; }
-.type-tab-btn {
-  flex:0 0 auto; min-width:0; padding:4px 8px; font-size:12px; line-height:20px; height:30px;
-  border:1px solid var(--designer-border); border-radius:7px; color:#667085; cursor:pointer; text-align:center;
-  background:#fff; transition:all 0.15s; white-space:nowrap;
-}
-.type-tab-btn:hover { border-color:var(--designer-accent-border); color:var(--designer-accent); background:var(--designer-accent-soft); }
-.type-tab-btn.active { color:#fff; background:var(--designer-accent); border-color:var(--designer-accent); font-weight:600; box-shadow:0 6px 14px rgba(37,99,235,0.16); }
-
-.question-type { padding:2px 0 8px; }
-.menu-group { margin:0 0 14px; padding:0; }
-.menu-group-item {
-  display:flex; align-items:center; gap:8px; padding:8px 10px; margin:0 0 6px;
-  border:1px solid #edf0f5; border-radius:8px; cursor:pointer; transition:all 0.14s; line-height:20px;
-  background:#fff;
-}
-.menu-group-item:hover { background:var(--designer-accent-soft); color:var(--designer-accent); border-color:var(--designer-accent-border); box-shadow:0 8px 18px rgba(37,99,235,0.08); transform:translateY(-1px); }
-.itemIcon {
-  flex-shrink:0; width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center;
-  color:#999; font-size:15px; line-height:1;
-}
-.itemIcon :deep(svg) { display:block; width:1em; height:1em; }
-.menu-group-item:hover .itemIcon { color:var(--designer-accent); }
-.item-label { font-size:13px; flex:1; }
-
-/* 外观面板 */
-.appearance-panel { padding:14px 16px 14px 18px; }
-.appearance-panel :deep(.el-tabs__header) { margin:0 0 8px; }
-.appearance-panel :deep(.el-tabs__item) { font-size:12px; padding:0 12px; }
-.appearance-grid { display:grid; grid-template-columns:repeat(auto-fill, 86px); gap:10px; justify-content:start; padding-left:2px; }
-.appearance-grid :deep(.el-upload) { width:86px; }
-.appearance-add, .appearance-thumb {
-  width:86px; height:86px; border-radius:8px; overflow:hidden; flex-shrink:0;
-}
-.appearance-add {
-  display:flex; align-items:center; justify-content:center;
-  border:2px dashed var(--designer-border); background:#fff; cursor:pointer;
-  font-size:24px; color:#ccc; transition:all .15s;
-}
-.appearance-add:hover { border-color:var(--designer-accent); color:var(--designer-accent); background:var(--designer-accent-soft); }
-.appearance-thumb {
-  position:relative; cursor:pointer;
-  border:2px solid transparent; transition:border-color .15s;
-}
-.appearance-thumb:hover { border-color:var(--designer-accent); }
-.appearance-thumb.active { border-color:var(--designer-accent); background:var(--designer-accent-soft); box-shadow:0 8px 18px rgba(37,99,235,0.12); }
-.appearance-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
-.appearance-overlay {
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(0,0,0,0.4); opacity:0; transition:opacity .15s;
-  font-size:11px; color:#fff;
-}
-.appearance-thumb:hover .appearance-overlay { opacity:1; }
-.appearance-remove {
-  position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
-  border:none; background:rgba(0,0,0,0.5); color:#fff; font-size:10px; line-height:1;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-}
-
-/* ======= 逻辑面板（全宽） ======= */
-.logic-full-panel {
-  display:flex; flex:1; flex-direction:column; overflow:hidden;
-  background:var(--designer-bg); padding:24px 32px;
-}
-.logic-toolbar {
-  display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:14px; flex-shrink:0; padding:12px 14px;
-  border:1px solid var(--designer-border); border-radius:10px; background:#fff;
-  box-shadow:0 8px 18px rgba(15,23,42,0.04);
-}
-.logic-body {
-  display:flex; gap:16px; flex:1; overflow:hidden;
-}
-.logic-editor-area {
-  flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0;
-}
-.logic-sidebar {
-  width:260px; flex-shrink:0; overflow-y:auto;
-  background:#fff; border-radius:10px; padding:14px;
-  border:1px solid var(--designer-border); line-height:1.8;
-  box-shadow:0 8px 18px rgba(15,23,42,0.04);
-}
-.logic-rule-card {
-  background:#fff; border:1px solid var(--designer-border); border-radius:9px; margin-bottom:8px; transition:box-shadow .15s, border-color .15s;
-}
-.logic-rule-card:hover { border-color:var(--designer-accent-border); box-shadow:0 8px 18px rgba(37,99,235,0.08); }
-.rule-header { display:flex; align-items:center; gap:8px; padding:10px 12px; }
-.rule-index { font-size:11px; color:#999; font-weight:600; width:24px; flex-shrink:0; }
-.rule-dsl { font-size:12px; font-family:Consolas,Monaco,"Courier New",monospace; flex:1; color:#303133; }
-.rule-actions { flex-shrink:0; }
-
-/* ======= 中间画布 ======= */
-.survey-main-panel {
-  display:flex; flex:1 1; flex-direction:column; overflow:hidden;
-  min-width:0; background:linear-gradient(180deg,#f8fafc 0%, #eef2f7 100%); padding:0;
-}
-.survey-main-panel-toolbar {
-  display:flex; align-items:center; justify-content:space-between;
-  min-height:58px; padding:9px 18px; background:rgba(255,255,255,0.92);
-  border-bottom:1px solid var(--designer-border); gap:14px;
-  backdrop-filter:saturate(120%) blur(10px);
-}
-.toolbar-left,
-.toolbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.toolbar-center {
-  min-width:0; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; text-align:center;
-}
-.toolbar-title-row { display:flex; align-items:center; justify-content:center; gap:8px; max-width:100%; }
-.toolbar-title {
-  max-width:min(420px, 42vw); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font-size:14px; font-weight:650; color:#1f2937; line-height:20px;
-}
-.toolbar-mode {
-  flex-shrink:0; padding:1px 7px; border-radius:999px; background:#f2f4f7;
-  color:#667085; font-size:11px; line-height:18px;
-}
-.toolbar-meta { display:flex; align-items:center; justify-content:center; gap:10px; color:#98a2b3; font-size:11px; line-height:16px; }
-.toolbar-save-status { font-weight:600; }
-.toolbar-save-status.is-saved { color:#059669; }
-.toolbar-save-status.is-saving,
-.toolbar-save-status.is-dirty { color:#b45309; }
-.toolbar-save-status.is-error { color:#dc2626; }
-.toolbar-meta span + span { position:relative; }
-.toolbar-meta span + span::before {
-  content:''; position:absolute; left:-6px; top:50%; width:2px; height:2px; border-radius:50%;
-  background:#cbd5e1; transform:translateY(-50%);
-}
-.toolbar-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.toolbar-btn-group { display:inline-flex; align-items:center; background:#f3f5f8; border:1px solid #edf0f5; border-radius:9px; padding:3px; gap:2px; }
-.toolbar-btn-group .el-button { border:none; }
-.toolbar-btn {
-  width:30px; height:30px; min-width:30px; padding:0!important; margin:0!important;
-  color:#667085; border-radius:7px!important;
-}
-.toolbar-btn:hover { color:#1f2937; background:#fff!important; }
-.toolbar-btn.active { color:var(--designer-accent); background:#fff!important; box-shadow:0 5px 12px rgba(15,23,42,0.08); }
-.toolbar-divider { width:1px; height:24px; background:var(--designer-border); margin:0 2px; display:inline-block; }
-
-.survey-main-panel-content { flex:1; overflow-y:auto; padding:26px 44px 36px; }
-.editor-wrapper { max-width:210mm; margin:0 auto; }
-.editor {
-  min-height:calc(100vh - 174px); border-radius:14px; box-shadow:var(--designer-shadow);
-  overflow:hidden; background:#fff; border:1px solid rgba(226,232,240,0.9);
-}
-.json-panel, .survey-preview-panel { display:flex; flex-direction:column; height:100%; }
-.json-panel { padding:0; }
-.json-panel :deep(.el-textarea__inner) { height:100% !important; min-height:500px; font-size:13px; }
-.preview-iframe-wrapper { flex:1; }
-.preview-iframe { width:100%; height:100%; border-radius:8px; }
-.survey-preview-panel { max-width:210mm; margin:0 auto; background-color:#fff; border-radius:14px; box-shadow:var(--designer-shadow); overflow-y:auto; border:1px solid rgba(226,232,240,0.9); }
-.survey-preview-header { padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0; }
-.preview-form-title { font-size:22px; font-weight:600; color:#303133; }
-.preview-form-desc { font-size:14px; color:#666; margin-top:6px; white-space:pre-wrap; word-break:break-word; text-align:left; }
-.survey-preview-body { flex:1; overflow-y:auto; padding:16px 28px; }
-.survey-preview-footer { text-align:center; padding:16px 28px 24px; color:#999; font-size:13px; border-top:1px solid #f0f0f0; }
-.preview-question-card { margin-bottom:12px; }
-
-/* 问卷头 */
-.header {
-  padding:24px 28px 12px; text-align:center; border-bottom:1px solid #f0f0f0;
-  position:relative; min-height:60px; transition:background 0.3s;
-  background:rgba(255,255,255,0.85); backdrop-filter:blur(4px);
-}
-.editor-header-img { width:100%; overflow:hidden; cursor:pointer; line-height:0; border-radius:12px 12px 0 0; }
-.preview-header-img { width:100%; overflow:hidden; line-height:0; flex-shrink:0; }
-.preview-header-img img { width:100%; max-height:240px; object-fit:cover; display:block; }
-.editor-header-img img { width:100%; max-height:240px; object-fit:cover; display:block; }
-.prefix { font-size:13px; color:#999; margin-bottom:4px; }
-.header-content .title { font-size:22px; font-weight:600; color:#303133; line-height:1.4; }
-.header-title-input :deep(.el-input__wrapper) { box-shadow:none!important; padding:0; background:transparent; }
-.header-title-input :deep(.el-input__inner) { font-size:22px; font-weight:600; color:#303133; text-align:center; border:none; cursor:pointer; }
-.header-title-input :deep(.el-input__inner):focus { cursor:text; }
-.header-desc { font-size:14px; color:#666; margin-top:6px; white-space:pre-wrap; word-break:break-word; text-align:left; }
-
-.questions-area { padding:18px 26px 22px; min-height:320px; }
-.questions-area :deep(.draggable-list) { gap:10px; }
-.designer-empty-canvas {
-  margin:8px 0 4px; min-height:230px; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  border:1px dashed #d6dae3; border-radius:12px; background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%);
-  color:#98a2b3; text-align:center; padding:28px 20px;
-}
-.empty-canvas-icon {
-  width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-  color:var(--designer-accent); background:var(--designer-accent-soft); font-size:28px; line-height:1; margin-bottom:12px;
-}
-.empty-canvas-title { font-size:15px; font-weight:650; color:#344054; margin-bottom:6px; }
-.empty-canvas-desc { font-size:12px; color:#98a2b3; margin-bottom:14px; }
-.empty-canvas-actions { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
-
-.applied-image-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px; background:#fff; border-radius:6px; border:1px solid #eee; }
-.applied-image-thumb { width:40px; height:40px; border-radius:4px; object-fit:cover; flex-shrink:0; }
-.applied-image-label { font-size:12px; color:#666; flex:1; }
-.applied-image-remove { width:22px; height:22px; border-radius:50%; border:none; background:#fee; color:#fb454c; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
-.applied-image-remove:hover { background:#fb454c; color:#fff; }
-
-.footer {
-  padding:24px 28px; text-align:center; border-top:1px solid #f0f0f0;
-}
-.footer-inner { font-size:13px; color:#999; }
-
-/* ======= 右侧属性面板 ======= */
-.survey-setting-panel {
-  width:380px; flex-shrink:0; border-left:1px solid var(--designer-border);
-  background:#fff; overflow-y:auto; box-shadow:-2px 0 14px rgba(15,23,42,0.04);
-}
-.props-panel { padding:14px; min-height:100%; box-sizing:border-box; }
-.props-panel :deep(.el-form-item) { margin-bottom:10px; }
-.props-panel :deep(.el-form-item__label) { font-size:12px; color:#667085; padding-bottom:4px; font-weight:600; line-height:1.2; }
-.props-panel :deep(.el-divider) { margin:12px 0; }
-.props-panel :deep(.el-collapse-item__header) { font-size:12px; font-weight:600; }
-.props-panel :deep(.el-input__wrapper),
-.props-panel :deep(.el-textarea__inner),
-.props-panel :deep(.el-select__wrapper),
-.props-panel :deep(.el-input-number .el-input__wrapper) {
-  border-radius:7px;
-}
-.props-footer {
-  padding:10px 0 0; border-top:1px solid var(--designer-border); background:#fff;
-  position:sticky; bottom:0; z-index:1; margin-top:12px;
-}
-.setting-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; font-size:12px; color:#667085; }
-.setting-row .setting-label { font-weight:500; }
-.props-options-section { margin-bottom:10px; padding:10px; background:#f8fafc; border:1px solid #edf0f5; border-radius:9px; }
-.setting-opt-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; min-width:0; }
-.props-empty-panel { display:flex; align-items:center; justify-content:center; }
-.props-empty-panel :deep(.el-empty) { width:100%; }
-
-/* ======= 设置/投放视图 ======= */
-.setting-wrapper { height:100%; overflow-y:auto; background:var(--designer-bg); }
-.setting-header {
-  position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between;
-  gap:16px; padding:18px 24px; background:rgba(248,250,252,0.94);
-  border-bottom:1px solid var(--designer-border); backdrop-filter:saturate(120%) blur(10px);
-}
-.setting-page-title { font-size:18px; font-weight:700; color:#1f2937; line-height:1.3; }
-.setting-page-desc { margin-top:3px; font-size:12px; color:#667085; line-height:1.5; }
-.setting-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-shrink:0; }
-.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:18px; padding:24px; align-items:start; }
-.setting-group {
-  padding:18px 20px; background:#fff; border-radius:10px;
-  border:1px solid var(--designer-border); box-shadow:0 8px 18px rgba(15,23,42,0.04);
-}
-.group-title { font-size:14px; font-weight:650; color:#344054; margin-bottom:14px; letter-spacing:0;}
-.settings-grid { display:flex; flex-direction:column; gap:0; }
-.settings-grid .el-form-item { width:100%; min-width:0; box-sizing:border-box; }
-.settings-grid .el-form-item .el-input,
-.settings-grid .el-form-item .el-select,
-.settings-grid .el-form-item .el-input-number,
-.settings-grid .el-form-item .el-date-editor { width:100% !important; }
-.settings-grid .el-form-item .el-form-item__content { min-width:0; overflow:hidden; }
-.setting-group { overflow:hidden; }
-.setting-control-stack { display:flex; flex-direction:column; gap:4px; width:100%; min-width:0; }
-.setting-help { width:100%; margin-top:4px; font-size:12px; color:#98a2b3; line-height:1.5; }
-.setting-help.danger { color:#f04438; }
-.setting-tree-box {
-  width:100%; max-height:300px; overflow:auto; border:1px solid #dcdfe6;
-  border-radius:7px; padding:8px; box-sizing:border-box; transition:border-color 0.15s, box-shadow 0.15s;
-}
-.setting-tree-box.invalid { border-color:#fda29b; box-shadow:0 0 0 2px rgba(240,68,56,0.08); }
-.completion-radio-group { display:flex; width:100%; min-width:0; }
-.completion-radio-group :deep(.el-radio-button) { flex:1; min-width:0; }
-.completion-radio-group :deep(.el-radio-button__inner) { width:100%; padding-left:8px; padding-right:8px; }
-:deep(.el-table .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-:deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.settings-full { width:100%; }
-.hint { font-size:12px; color:#aaa; margin-left:8px; }
-.save-tip { padding:60px 0; text-align:center; color:#98a2b3; font-size:14px; }
-.share-card { max-width:600px; }
-.share-title { font-size:13px; font-weight:500; color:#555; margin:16px 0 8px; }
-.share-row { margin-bottom:8px; }
-.qr-box { margin-top:12px; display:inline-block; padding:12px; background:#fff; border:1px solid #f0f0f0; border-radius:12px; }
-
-/* ======= 概览视图 ======= */
-.overview-wrapper { height:100%; overflow-y:auto; background:var(--designer-bg); padding:20px 24px; }
-.overview-scroll { max-width:860px; margin:0 auto; }
-.overview-card { margin-bottom:20px; padding:20px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
-.overview-card-title { font-size:14px; font-weight:600; color:#303133; margin-bottom:16px; }
-.chart-placeholder { padding:10px 0; }
-.chart-bars { display:flex; align-items:flex-end; justify-content:space-around; height:150px; gap:8px; }
-.chart-bar-group { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
-.chart-bar { width:100%; max-width:40px; border-radius:4px 4px 0 0; background:linear-gradient(to top,#2563eb,#60a5fa); transition:height 0.3s; min-height:8px; }
-.chart-label { font-size:11px; color:#999; }
-.overview-settings { display:flex; flex-direction:column; gap:14px; }
-.overview-settings .setting-row { display:flex; align-items:center; gap:12px; }
-.overview-settings .setting-label { font-size:13px; color:#555; min-width:80px; flex-shrink:0; }
-.overview-settings .setting-value { flex:1; }
-
-/* 题库面板 */
-.bank-panel { padding:10px 8px 12px; display:flex; flex-direction:column; height:100%; background:#fff; box-sizing:border-box; }
-.bank-search { margin-bottom:10px; flex-shrink:0; }
-.bank-search :deep(.el-input__wrapper) { border-radius:8px; box-shadow:0 0 0 1px #e5e7eb inset; }
-.bank-search :deep(.el-input__wrapper:hover) { box-shadow:0 0 0 1px #bfdbfe inset; }
-.bank-search :deep(.el-input__wrapper.is-focus) { box-shadow:0 0 0 1px var(--designer-accent) inset; }
-.bank-list { flex:1; min-height:0; overflow-y:auto; padding-right:2px; display:flex; flex-direction:column; gap:6px; }
-.bank-cat { border:1px solid #eef2f7; border-radius:9px; background:#fff; overflow:hidden; }
-.bank-cat-title,
-.bank-type-title {
-  display:flex; align-items:center; gap:7px; min-width:0; cursor:pointer;
-  transition:background 0.12s, color 0.12s, border-color 0.12s;
-}
-.bank-cat-title { padding:7px 8px; font-size:13px; font-weight:650; color:#1f2937; background:#f8fafc; }
-.bank-cat-title:hover { background:#eff6ff; color:var(--designer-accent); }
-.bank-cat-name,
-.bank-type-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bank-arrow {
-  width:16px; height:16px; flex-shrink:0; border-radius:5px; color:#94a3b8;
-  display:flex; align-items:center; justify-content:center;
-}
-.bank-arrow::before {
-  content:''; width:5px; height:5px; border:solid currentColor; border-width:0 1.5px 1.5px 0;
-  transform:rotate(-45deg); transition:transform 0.12s; margin-left:-2px;
-}
-.bank-arrow.expanded::before { transform:rotate(45deg); margin-left:0; margin-top:-2px; }
-.bank-count {
-  flex-shrink:0; font-size:11px; color:var(--designer-accent); font-weight:600;
-  background:var(--designer-accent-soft); border:1px solid var(--designer-accent-border);
-  border-radius:999px; padding:1px 7px; line-height:18px;
-}
-.bank-cat-body { padding:4px 6px 6px; }
-.bank-type-group { margin-bottom:3px; }
-.bank-type-group:last-child { margin-bottom:0; }
-.bank-type-title { padding:5px 6px; font-size:12px; font-weight:600; color:#475569; border-radius:7px; }
-.bank-type-title:hover { background:#f8fafc; color:var(--designer-accent); }
-.bank-type-title .bank-count { color:#64748b; background:#f8fafc; border-color:#e2e8f0; }
-.bank-type-body {
-  display:flex; flex-direction:column; gap:2px; padding:1px 0 1px 28px;
-}
-.bank-item {
-  display:flex; align-items:center; gap:6px; min-height:30px; padding:4px 6px;
-  border:1px solid transparent; border-radius:7px; background:transparent; cursor:pointer;
-  transition:background 0.12s, border-color 0.12s, color 0.12s;
-}
-.bank-item:hover {
-  background:#f8fbff; border-color:#dbeafe;
-}
-.bank-icon {
-  flex-shrink:0; width:16px; height:16px; border-radius:5px; background:#f1f5f9;
-  color:#64748b; display:flex; align-items:center; justify-content:center; font-size:10px;
-}
-.bank-type-title:hover .bank-icon { background:var(--designer-accent-soft); color:var(--designer-accent); }
-.bank-item-main { flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
-.bank-title { flex:1; min-width:0; font-size:13px; color:#1f2937; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bank-meta { flex-shrink:0; max-width:42px; font-size:11px; line-height:16px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bank-type {
-  flex-shrink:0; max-width:54px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font-size:11px; color:var(--designer-accent); background:var(--designer-accent-soft);
-  border:1px solid var(--designer-accent-border); border-radius:999px; padding:1px 6px; line-height:16px;
-}
-.bank-loading {
-  display:flex; align-items:center; justify-content:center; gap:8px; padding:18px 0;
-  color:#64748b; font-size:12px;
-}
-.bank-loading::before {
-  content:''; width:12px; height:12px; border:2px solid #dbeafe; border-top-color:var(--designer-accent);
-  border-radius:50%; animation:bank-spin 0.8s linear infinite;
-}
-.bank-list :deep(.el-empty) { padding:34px 0; }
-@keyframes bank-spin { to { transform:rotate(360deg); } }
-
-.chart-type-btns { display:flex; gap:2px; flex-shrink:0; }
-.chart-type-btns button {
-  width:26px; height:26px; border:1px solid #e8e8e8; border-radius:4px; background:#fff;
-  font-size:14px; line-height:1; cursor:pointer; color:#888; display:flex; align-items:center; justify-content:center;
-}
-.chart-type-btns button:hover { border-color:var(--designer-accent); color:var(--designer-accent); }
-.chart-type-btns button.active { background:var(--designer-accent); border-color:var(--designer-accent); color:#fff; }
-.survey-sidebar-panel-tabs-content::-webkit-scrollbar,
-.survey-setting-panel::-webkit-scrollbar,
-.survey-main-panel-content::-webkit-scrollbar,
-.setting-wrapper::-webkit-scrollbar,
-.logic-editor-area::-webkit-scrollbar,
-.logic-sidebar::-webkit-scrollbar {
-  width:8px;
-  height:8px;
-}
-.survey-sidebar-panel-tabs-content::-webkit-scrollbar-thumb,
-.survey-setting-panel::-webkit-scrollbar-thumb,
-.survey-main-panel-content::-webkit-scrollbar-thumb,
-.setting-wrapper::-webkit-scrollbar-thumb,
-.logic-editor-area::-webkit-scrollbar-thumb,
-.logic-sidebar::-webkit-scrollbar-thumb {
-  background:#cfd6e2;
-  border-radius:999px;
-  border:2px solid transparent;
-  background-clip:content-box;
-}
-.survey-sidebar-panel-tabs-content::-webkit-scrollbar-thumb:hover,
-.survey-setting-panel::-webkit-scrollbar-thumb:hover,
-.survey-main-panel-content::-webkit-scrollbar-thumb:hover,
-.setting-wrapper::-webkit-scrollbar-thumb:hover,
-.logic-editor-area::-webkit-scrollbar-thumb:hover,
-.logic-sidebar::-webkit-scrollbar-thumb:hover {
-  background:#aeb8c8;
-  border:2px solid transparent;
-  background-clip:content-box;
-}
-
-@media (max-width: 1440px) {
-  .survey-sidebar-panel-tabs-content { width:232px; }
-  .survey-setting-panel { width:350px; }
-  .survey-main-panel-content { padding:22px 28px 32px; }
-  .toolbar-title { max-width:34vw; }
-}
-
-@media (max-width: 1240px) {
-  .toolbar-center { align-items:flex-start; text-align:left; }
-  .toolbar-title-row,
-  .toolbar-meta { justify-content:flex-start; }
-  .survey-sidebar-panel-tabs-content { width:216px; }
-  .survey-setting-panel { width:324px; }
-  .setting-header { align-items:flex-start; flex-direction:column; }
-  .setting-header-actions { width:100%; justify-content:flex-start; flex-wrap:wrap; }
-  .setting-scroll { grid-template-columns:1fr; }
-}
-
-@media (max-width: 1080px) {
-  .survey-main-navigator { flex-basis:48px; }
-  .nav-btn { width:34px; height:34px; min-width:34px; border-radius:9px; }
-  .survey-sidebar-panel-tabs-pane { width:38px; height:38px; margin:2px 4px; }
-  .survey-sidebar-panel-tabs-content { width:196px; }
-  .toolbar-center { display:none; }
-  .survey-setting-panel { width:300px; }
-  .survey-main-panel-content { padding:18px; }
-  .questions-area { padding:16px 18px 20px; }
-  .logic-full-panel { padding:18px; }
-  .logic-body { flex-direction:column; overflow-y:auto; }
-  .logic-sidebar { width:auto; }
-}
-</style>
+<style scoped src="./survey-designer.css"></style>

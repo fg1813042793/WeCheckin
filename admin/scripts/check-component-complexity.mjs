@@ -8,7 +8,7 @@ const rootDir = resolve(currentDir, '..')
 // These legacy pages are intentionally frozen at their current size. New
 // responsibilities must be extracted into typed components, composables or API modules.
 const legacyBudgets = {
-  'src/views/survey/SurveyDesigner.vue': 4258,
+  'src/views/survey/SurveyDesigner.vue': 3380,
   'src/views/exam/ExamDesigner.vue': 2847,
   'src/views/user/index.vue': 1859,
   'src/views/workflow/designer/components/WorkflowFormDesigner.vue': 1479,
