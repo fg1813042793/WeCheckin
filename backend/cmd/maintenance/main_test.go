@@ -12,7 +12,7 @@ func TestMaintenanceUsesDatabaseOptionsAndStopsOnConnectionFailure(t *testing.T)
 		t.Fatal(err)
 	}
 	text := string(source)
-	for _, required := range []string{"database.ConnectDatabaseWithOptions(", "database.Options{", "log.Fatalf"} {
+	for _, required := range []string{"logger.Init(", "database.ConnectDatabaseWithOptions(", "database.Options{", "LogWriter: logger.SQLWriter()", "log.Fatalf"} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("maintenance main missing %q", required)
 		}
@@ -22,5 +22,8 @@ func TestMaintenanceUsesDatabaseOptionsAndStopsOnConnectionFailure(t *testing.T)
 	}
 	if strings.Index(text, "database.ConnectDatabaseWithOptions(") > strings.Index(text, "bootstrap.RunMaintenance(") {
 		t.Fatal("maintenance must connect before running migrations")
+	}
+	if strings.Index(text, "logger.Init(") > strings.Index(text, "database.ConnectDatabaseWithOptions(") {
+		t.Fatal("maintenance must initialize file logging before creating the database logger")
 	}
 }

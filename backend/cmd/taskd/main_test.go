@@ -94,6 +94,7 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 		"ConnectTimeout:",
 		"ReadTimeout:",
 		"WriteTimeout:",
+		"LogWriter: logger.SQLWriter()",
 		"waitForDependency(ctx, \"database\"",
 		"waitForDependency(ctx, \"Redis\"",
 		"LogLevel:",

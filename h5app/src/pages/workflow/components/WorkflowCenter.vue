@@ -1345,7 +1345,7 @@ function activeListTitle() {
   z-index: 30;
   top: calc(100% + 8px);
   left: 0;
-  width: 320px;
+  width: 440px;
   max-width: calc(100vw - 48px);
   padding: 14px 16px;
   border: 1px solid #d9e0e9;
@@ -1410,7 +1410,7 @@ function activeListTitle() {
   min-width: 0;
   color: #344054;
   text-align: right;
-  word-break: break-word;
+  white-space: nowrap;
 }
 
 @media screen and (min-width: 769px) and (hover: hover) and (pointer: fine) {

@@ -211,6 +211,7 @@ func run() error {
 			ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
 			ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
 			LogLevel:        gormlogger.Warn, Colorful: cfg.Server.Mode == "debug",
+			LogWriter: logger.SQLWriter(),
 		})
 	}); err != nil {
 		return err

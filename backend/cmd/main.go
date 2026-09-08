@@ -54,6 +54,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
+		log.Printf("Warning: logger init: %v", err)
+	}
 
 	databaseLogLevel := gormlogger.Warn
 	databaseLogColorful := false
@@ -71,12 +74,9 @@ func main() {
 		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
 		ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
 		LogLevel:        databaseLogLevel, Colorful: databaseLogColorful,
+		LogWriter: logger.SQLWriter(),
 	}); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
-	}
-
-	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
-		logger.Logger.Printf("Warning: logger init: %v", err)
 	}
 
 	if err := rd.Init(cfg.Redis); err != nil {

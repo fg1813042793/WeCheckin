@@ -9,6 +9,7 @@ import (
 	"wecheckin/backend/internal/bootstrap"
 	"wecheckin/backend/internal/config"
 	"wecheckin/backend/pkg/database"
+	"wecheckin/backend/pkg/logger"
 )
 
 func main() {
@@ -21,6 +22,9 @@ func main() {
 	cfg, err := config.LoadConfig(*env)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxAge, cfg.Log.Compress); err != nil {
+		log.Printf("Warning: logger init: %v", err)
 	}
 
 	databaseLogLevel := gormlogger.Warn
@@ -39,6 +43,7 @@ func main() {
 		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetimeMin) * time.Minute,
 		ConnMaxIdleTime: time.Duration(cfg.Database.ConnMaxIdleTimeMin) * time.Minute,
 		LogLevel:        databaseLogLevel, Colorful: databaseLogColorful,
+		LogWriter: logger.SQLWriter(),
 	}); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

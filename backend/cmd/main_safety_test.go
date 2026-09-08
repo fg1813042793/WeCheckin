@@ -94,10 +94,13 @@ func TestMainUsesDatabaseOptions(t *testing.T) {
 		t.Fatalf("read main.go: %v", err)
 	}
 	text := string(src)
-	for _, snippet := range []string{"database.ConnectDatabaseWithOptions(", "database.Options{", "ConnectTimeout:", "ReadTimeout:", "WriteTimeout:"} {
+	for _, snippet := range []string{"database.ConnectDatabaseWithOptions(", "database.Options{", "ConnectTimeout:", "ReadTimeout:", "WriteTimeout:", "LogWriter: logger.SQLWriter()"} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("main.go must use database option %q", snippet)
 		}
+	}
+	if strings.Index(text, "logger.Init(") > strings.Index(text, "database.ConnectDatabaseWithOptions(") {
+		t.Fatal("main.go must initialize file logging before creating the database logger")
 	}
 	if strings.Contains(text, "database.InitDatabase(") {
 		t.Fatal("main.go must not use fatal database compatibility wrapper")

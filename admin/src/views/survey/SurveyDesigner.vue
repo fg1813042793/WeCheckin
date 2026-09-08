@@ -501,17 +501,17 @@
             <div class="toolbar-left">
               <el-button-group class="toolbar-btn-group">
                 <el-tooltip content="撤销" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" disabled>
+                  <el-button text size="small" class="toolbar-btn" :disabled="!canUndo" @click="undoDesignerChange">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="重做" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" disabled>
+                  <el-button text size="small" class="toolbar-btn" :disabled="!canRedo" @click="redoDesignerChange">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="快捷键" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn">
+                  <el-button text size="small" class="toolbar-btn" @click="showShortcutHelp">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01M18 16h.01"/></svg>
                   </el-button>
                 </el-tooltip>
@@ -536,6 +536,7 @@
                 <span>总题数 {{ questions.length }}</span>
                 <span>可答 {{ answerableQuestionCount }}</span>
                 <span>{{ panelModeLabel }}</span>
+                <span class="toolbar-save-status" :class="saveStatusClass">{{ saveStatusLabel }}</span>
               </div>
             </div>
             <div class="toolbar-right">
@@ -969,7 +970,7 @@
             <div class="setting-page-desc">管理问卷展示、回收规则、投放链接和协作人员</div>
           </div>
           <div class="setting-header-actions">
-            <el-tag size="small" :type="form.id ? 'success' : 'info'">{{ form.id ? '配置自动保存' : '保存后启用自动保存' }}</el-tag>
+            <el-tag size="small" :type="saveStatusTagType">{{ saveStatusLabel }}</el-tag>
             <el-button type="primary" size="small" :loading="saving" @click="save">保存配置</el-button>
           </div>
         </div>
@@ -1512,9 +1513,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, nextTick, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'
 import request, { showRequestError } from '../../utils/request'
 import { normalizeQuestions, importFromSurveyKing, exportToSurveyKing, isSurveyKingFormat, toSkType, toWcType } from '../../utils/surveyKingBridge'
@@ -1522,6 +1523,7 @@ import DraggableList from './formkit/DraggableList.vue'
 
 import QuestionIcon from './formkit/QuestionIcon.vue'
 import QuestionPreview from './formkit/QuestionPreview.vue'
+import { useSurveyDesignerHistory } from './composables/useSurveyDesignerHistory'
 
 const route = useRoute()
 const router = useRouter()
@@ -3420,60 +3422,78 @@ watch(() => activeView.value, (v) => { if (v === 'data') loadResponses() })
 
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let dataLoaded = false
-const settingsSnapshot = computed(() => JSON.stringify({
-  questionNumber: form.questionNumber,
-  progressBar: form.progressBar,
-  autoSave: form.autoSave,
-  password: form.password,
-  loginRequired: form.loginRequired,
-  onePageOneQuestion: form.onePageOneQuestion,
-  answerSheetVisible: form.answerSheetVisible,
-  copyEnabled: form.copyEnabled,
-  triggerType: form.triggerType,
-  redirectUrl: form.redirectUrl,
-  endContent: form.endContent,
-  examRankingEnabled: form.examRankingEnabled,
-  exerciseMode: form.exerciseMode,
-  randomOrder: form.randomOrder,
-  minSubmitMinutes: form.minSubmitMinutes,
-  maxSubmitMinutes: form.maxSubmitMinutes,
-  backgroundImages: form.backgroundImages,
-  headerImages: form.headerImages,
-  defaultAnswer: form.defaultAnswer,
-  defaultLang: form.defaultLang,
-  deviceLimit: form.deviceLimit,
-  ipLimit: form.ipLimit,
-  userLimit: form.userLimit,
-  publicQuery: form.publicQuery,
-  showAnswerAnalysis: form.showAnswerAnalysis,
-  collaborators: form.collaborators,
-  timeLimit: form.timeLimit,
-  fillTemplate: form.fillTemplate,
-  resultConfig: form.resultConfig,
-  visibility: form.visibility,
-  allowMultiBool: form.allowMultiBool,
-  anonymousBool: form.anonymousBool,
-  showResultBool: form.showResultBool,
-  startDate: form.startDate,
-  endDate: form.endDate,
-  maxResponse: form.maxResponse,
-  deptIds: form.deptIds,
-  statusBool: form.statusBool,
-  mode: form.mode,
-  title: form.title,
-  description: form.description,
-  category: form.category,
-  tags: form.tags
-}))
-watch(settingsSnapshot, () => {
+let savePending = false
+const saveFailed = ref(false)
+const savedSnapshot = ref('')
+const designerSnapshot = computed(() => JSON.stringify(buildSurveyPayload(
+  JSON.stringify({ version: '2.0', questions: questions.value }),
+  JSON.stringify(buildSettingsPayload()),
+)))
+const historySnapshot = computed(() => JSON.stringify({ questions: questions.value, logicRules: logicRuleList.value }))
+const hasUnsavedChanges = computed(() => dataLoaded && designerSnapshot.value !== savedSnapshot.value)
+const saveStatusLabel = computed(() => saving.value ? '保存中' : saveFailed.value ? '保存失败' : hasUnsavedChanges.value ? '未保存' : form.id ? '已保存' : '尚未保存')
+const saveStatusClass = computed(() => saveFailed.value ? 'is-error' : hasUnsavedChanges.value ? 'is-dirty' : saving.value ? 'is-saving' : 'is-saved')
+const saveStatusTagType = computed<'success' | 'warning' | 'danger' | 'info'>(() => saveFailed.value ? 'danger' : hasUnsavedChanges.value ? 'warning' : form.id ? 'success' : 'info')
+
+const designerHistory = useSurveyDesignerHistory({
+  capture: () => historySnapshot.value,
+  restore: (snapshot) => {
+    const state = JSON.parse(snapshot) as { questions: Question[]; logicRules: LogicRuleItem[] }
+    const selectedId = selected.value?.id
+    questions.value.splice(0, questions.value.length, ...normalizeQuestions(state.questions))
+    logicRuleList.value = state.logicRules
+    syncIdCounterFromQuestions()
+    selected.value = questions.value.find(question => question.id === selectedId) || null
+  },
+})
+const { canUndo, canRedo } = designerHistory
+watch(historySnapshot, snapshot => designerHistory.record(snapshot))
+
+function scheduleAutoSave() {
   if (!form.id || !dataLoaded) return
+  saveFailed.value = false
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => { save(false) }, 800)
+  autoSaveTimer = setTimeout(() => { void save(false) }, 800)
+}
+watch(designerSnapshot, scheduleAutoSave)
+
+function undoDesignerChange() { designerHistory.undo() }
+function redoDesignerChange() { designerHistory.redo() }
+function showShortcutHelp() {
+  ElMessageBox.alert('Ctrl/Cmd + S：保存问卷\nCtrl/Cmd + Z：撤销\nCtrl/Cmd + Shift + Z 或 Ctrl/Cmd + Y：重做', '快捷键', { confirmButtonText: '知道了' })
+}
+function isTextEditingTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest('input, textarea, [contenteditable="true"]'))
+}
+function handleDesignerKeydown(event: KeyboardEvent) {
+  if (!event.metaKey && !event.ctrlKey) return
+  const key = event.key.toLowerCase()
+  if (key === 's') { event.preventDefault(); void save(); return }
+  if (isTextEditingTarget(event.target)) return
+  if (key === 'z') { event.preventDefault(); event.shiftKey ? redoDesignerChange() : undoDesignerChange() }
+  else if (key === 'y') { event.preventDefault(); redoDesignerChange() }
+}
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!hasUnsavedChanges.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+onBeforeRouteLeave(async () => {
+  if (!hasUnsavedChanges.value) return true
+  try {
+    await ElMessageBox.confirm('当前问卷还有未保存的修改，离开后将丢失这些内容。', '确认离开', { confirmButtonText: '离开', cancelButtonText: '继续编辑', type: 'warning' })
+    return true
+  } catch { return false }
 })
 
 async function load() {
   const id = Number(route.query.id || 0)
-  if (!id) return
+  if (!id) {
+    dataLoaded = true
+    savedSnapshot.value = designerSnapshot.value
+    designerHistory.reset(historySnapshot.value)
+    return
+  }
   try {
     const res: any = await adminApi.surveyDetail(id)
     const sv = res.data.survey
@@ -3548,13 +3568,22 @@ async function load() {
     }
     await nextTick()
     dataLoaded = true
+    savedSnapshot.value = designerSnapshot.value
+    designerHistory.reset(historySnapshot.value)
+    saveFailed.value = false
   } catch (error) { showRequestError(error, '加载失败') }
 }
 
 async function save(showMessage: boolean | Event = true) {
   const shouldShowMessage = typeof showMessage === 'boolean' ? showMessage : true
+  if (saving.value) { savePending = true; return false }
   if (!validateSurveySettings(shouldShowMessage)) return false
   normalizeCompletionSettings()
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = null
+  const snapshotToSave = designerSnapshot.value
+  const creating = !form.id
+  saveFailed.value = false
   saving.value = true
   try {
     const schema = JSON.stringify({ version: '2.0', questions: questions.value })
@@ -3570,13 +3599,20 @@ async function save(showMessage: boolean | Event = true) {
       if (shouldShowMessage) ElMessage.success('已创建')
       router.replace({ query: { id: String(form.id) } })
     }
-    await loadAdminTree()
+    savedSnapshot.value = snapshotToSave
+    if (creating) await loadAdminTree()
     return true
   } catch (error) {
+    saveFailed.value = true
     if (shouldShowMessage) showRequestError(error, '保存失败')
     return false
   }
-  finally { saving.value = false }
+  finally {
+    const shouldRetry = savePending
+    savePending = false
+    saving.value = false
+    if (shouldRetry && form.id && hasUnsavedChanges.value) queueMicrotask(() => { void save(false) })
+  }
 }
 
 function goBack() { router.push('/survey') }
@@ -3641,6 +3677,8 @@ const FALLBACK_TYPES = [
 ]
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleDesignerKeydown)
+  window.addEventListener('beforeunload', handleBeforeUnload)
   try {
     const res: any = await adminApi.formkitTypes()
     const apiTypes: any[] = res.data || []
@@ -3657,7 +3695,16 @@ onMounted(async () => {
   }
   await nextTick()
   updateTabScroll()
-  load()
+  await load()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleDesignerKeydown)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  clearTimeout(bankTimer)
+  if (bankLoadingTimer) clearTimeout(bankLoadingTimer)
+  designerHistory.dispose()
 })
 </script>
 
@@ -3871,6 +3918,11 @@ onMounted(async () => {
   color:#667085; font-size:11px; line-height:18px;
 }
 .toolbar-meta { display:flex; align-items:center; justify-content:center; gap:10px; color:#98a2b3; font-size:11px; line-height:16px; }
+.toolbar-save-status { font-weight:600; }
+.toolbar-save-status.is-saved { color:#059669; }
+.toolbar-save-status.is-saving,
+.toolbar-save-status.is-dirty { color:#b45309; }
+.toolbar-save-status.is-error { color:#dc2626; }
 .toolbar-meta span + span { position:relative; }
 .toolbar-meta span + span::before {
   content:''; position:absolute; left:-6px; top:50%; width:2px; height:2px; border-radius:50%;

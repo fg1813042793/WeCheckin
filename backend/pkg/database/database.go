@@ -30,6 +30,7 @@ type Options struct {
 	ConnMaxIdleTime time.Duration
 	LogLevel        gormLogger.LogLevel
 	Colorful        bool
+	LogWriter       gormLogger.Writer
 }
 
 func InitDatabase(host string, port int, user, password, dbname string) {
@@ -46,7 +47,7 @@ func ConnectDatabaseWithOptions(options Options) error {
 	options = normalizeOptions(options)
 	dsn := mysqlConfig(options).FormatDSN()
 	db, err := gorm.Open(gormMySQL.Open(dsn), &gorm.Config{
-		Logger: newDatabaseLogger(options, nil),
+		Logger: newDatabaseLogger(options, options.LogWriter),
 	})
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
