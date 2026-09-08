@@ -37,7 +37,7 @@ func validateInstanceIdentity(config *InstanceIdentityConfig, fields map[string]
 		}
 		name := matches[1]
 		switch name {
-		case "workflowName", "starterName":
+		case "workflowName", "displayName", "starterName":
 		case "businessPeriod":
 			valid = valid && periodEnabled
 		default:
@@ -144,6 +144,7 @@ func ResolveInstanceIdentity(
 
 	replacements := map[string]string{
 		"workflowName":   definition.EffectiveName(),
+		"displayName":    definition.EffectiveName(),
 		"starterName":    starterName,
 		"businessPeriod": identity.BusinessPeriodLabel,
 	}

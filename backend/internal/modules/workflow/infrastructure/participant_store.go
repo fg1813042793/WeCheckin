@@ -64,6 +64,7 @@ func renderNotificationPayload(state *workflowdomain.State, intent workflowdomai
 	}
 	replacements := map[string]string{
 		"{{workflowName}}":   intent.WorkflowName,
+		"{{displayName}}":    intent.WorkflowName,
 		"{{instanceTitle}}":  state.Instance.Title,
 		"{{businessPeriod}}": state.Instance.BusinessPeriodLabel,
 		"{{nodeName}}":       intent.NodeName,

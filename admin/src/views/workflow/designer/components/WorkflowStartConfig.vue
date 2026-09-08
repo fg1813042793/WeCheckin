@@ -393,6 +393,7 @@ const businessPeriodGranularityOptions: Array<{ label: string, value: WorkflowBu
 ]
 const titleVariables = [
   { label: '流程名称', value: '{{workflowName}}' },
+  { label: '用户显示名称', value: '{{displayName}}' },
   { label: '发起人', value: '{{starterName}}' },
   { label: '业务期间', value: '{{businessPeriod}}' },
 ]

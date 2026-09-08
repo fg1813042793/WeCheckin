@@ -31,10 +31,10 @@ func TestValidateDefinitionAcceptsLinearApproval(t *testing.T) {
 
 func TestValidateDefinitionAcceptsInstanceIdentityNotificationVariables(t *testing.T) {
 	definition := validLinearDefinition()
-	definition.InstanceIdentity = &InstanceIdentityConfig{TitleTemplate: "{{starterName}}提交的{{workflowName}}"}
+	definition.InstanceIdentity = &InstanceIdentityConfig{TitleTemplate: "{{starterName}}提交的{{displayName}}"}
 	definition.Nodes[1].Notification = &NotificationConfig{
 		Enabled: true, Channels: []string{NotificationChannelInApp},
-		Title: "{{instanceTitle}}", Content: "{{businessPeriod}}{{nodeName}}",
+		Title: "{{displayName}} - {{instanceTitle}}", Content: "{{businessPeriod}}{{nodeName}}",
 	}
 	if errors := ValidateDefinition(definition); len(errors) != 0 {
 		t.Fatalf("expected instance identity notification variables to be valid, got %#v", errors)

@@ -14,8 +14,9 @@ ENV VITE_DEV_PROXY_TARGET=${VITE_DEV_PROXY_TARGET}
 
 COPY package.json ./
 COPY pnpm-lock.yaml ./
-#RUN pnpm install --frozen-lockfile
-RUN pnpm install
+COPY pnpm-workspace.yaml ./
+COPY .npmrc ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm build:h5

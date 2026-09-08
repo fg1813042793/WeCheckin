@@ -154,6 +154,7 @@ for (const [source, snippet, message] of [
   [inspectorSource, 'title="通知消息配置说明"', '通知说明弹窗缺少清晰标题'],
   [inspectorSource, 'append-to-body', '通知说明弹窗必须挂载到 body，避免被节点抽屉遮挡'],
   [inspectorSource, '{{workflowName}}', '通知说明缺少流程名称占位符'],
+  [inspectorSource, '{{displayName}}', '通知说明缺少用户显示名称占位符'],
   [inspectorSource, '{{nodeName}}', '通知说明缺少节点名称占位符'],
   [inspectorSource, '{{starterName}}', '通知说明缺少发起人占位符'],
   [inspectorSource, '{{instanceId}}', '通知说明缺少流程实例占位符'],

@@ -901,7 +901,7 @@ func validateNotificationConfig(node Node, config *NotificationConfig, allowResu
 
 func validNotificationTemplate(value string, extraTokens ...string) bool {
 	allowed := map[string]struct{}{
-		"workflowName": {}, "nodeName": {}, "starterName": {}, "instanceId": {}, "instanceTitle": {},
+		"workflowName": {}, "displayName": {}, "nodeName": {}, "starterName": {}, "instanceId": {}, "instanceTitle": {},
 		"businessPeriod": {}, "taskId": {},
 	}
 	for _, token := range extraTokens {

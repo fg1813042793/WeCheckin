@@ -93,6 +93,21 @@ func TestResolveInstanceIdentityDefaultTitleUsesDisplayName(t *testing.T) {
 	}
 }
 
+func TestResolveInstanceIdentitySupportsDisplayNameVariable(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Name = "采购审批（集团总部）"
+	definition.DisplayName = "采购申请"
+	definition.InstanceIdentity = &InstanceIdentityConfig{TitleTemplate: "{{starterName}}提交的{{displayName}}"}
+
+	identity, err := ResolveInstanceIdentity(definition, time.Now(), "Foster", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Title != "Foster提交的采购申请" {
+		t.Fatalf("title = %q", identity.Title)
+	}
+}
+
 func TestValidateDefinitionRejectsInvalidInstanceIdentity(t *testing.T) {
 	tests := []struct {
 		name   string

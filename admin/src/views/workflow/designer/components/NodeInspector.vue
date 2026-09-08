@@ -498,6 +498,7 @@ const automationVariablesText = ref('{}')
 const notificationHelpVisible = ref(false)
 const notificationPlaceholderRows = [
   { placeholder: '{{workflowName}}', description: '当前流程定义名称', example: '请假审批' },
+  { placeholder: '{{displayName}}', description: '流程的用户显示名称；未设置时使用管理名称', example: '请假审批' },
   { placeholder: '{{instanceTitle}}', description: '发起时生成的单据标题', example: '2026年8月 张三绩效考评' },
   { placeholder: '{{businessPeriod}}', description: '发起时生成的业务期间', example: '2026年8月' },
   { placeholder: '{{nodeName}}', description: '当前审批、办理、抄送或通知节点名称', example: '部门负责人审批' },

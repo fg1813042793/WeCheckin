@@ -433,6 +433,7 @@ for (const snippet of [
   "'availability_window_start'",
   "'form_field'",
   '{{businessPeriod}}',
+  '{{displayName}}',
   '.config-section {',
   'border-radius: 8px',
   'background: #fff',

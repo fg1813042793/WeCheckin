@@ -241,13 +241,13 @@ func TestRenderNotificationPayloadIncludesInstanceIdentityVariables(t *testing.T
 	payload := renderNotificationPayload(state, workflowdomain.NotificationIntent{
 		NodeName: "上级评分",
 		Config: workflowcore.NotificationConfig{
-			Title:   "{{instanceTitle}}",
+			Title:   "{{displayName}} - {{instanceTitle}}",
 			Content: "{{businessPeriod}}有一项待办：{{nodeName}}",
 		},
 		WorkflowName: "绩效考评单",
 	}, "Foster")
 
-	if payload.Title != "2026年8月 Foster绩效考评" {
+	if payload.Title != "绩效考评单 - 2026年8月 Foster绩效考评" {
 		t.Fatalf("notification title = %q", payload.Title)
 	}
 	if payload.Content != "2026年8月有一项待办：上级评分" {
