@@ -22,14 +22,14 @@
         <text 
           class="history-item" 
           v-for="(item, index) in historyList" 
-          :key="index"
+          :key="item"
           @click="searchByHistory(item)"
         >{{ item }}</text>
       </view>
     </view>
 
     <view class="result-list" v-if="keyword">
-      <view class="result-item" v-for="(item, index) in resultList" :key="index" @click="goDetail(item)">
+      <view class="result-item" v-for="item in resultList" :key="item.type + '-' + (item.id || item._id)" @click="goDetail(item)">
         <text class="result-title">{{ item.title }}</text>
         <text class="result-type">{{ item.type === 'enroll' ? '打卡任务' : '通知' }}</text>
       </view>
@@ -43,8 +43,8 @@
 </template>
 
 <script>
-import { homeApi, enrollApi, newsApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
+import { enrollApi, newsApi } from '../../api/index'
+import { createLatestRequestTracker } from '../../utils/latestRequest'
 
 export default {
   data() {
@@ -52,7 +52,8 @@ export default {
       keyword: '',
       historyList: [],
       resultList: [],
-      loading: false
+      loading: false,
+      requestTracker: createLatestRequestTracker()
     }
   },
 
@@ -72,18 +73,18 @@ export default {
       this.search()
     },
 
-    getUserId() {
-      return getClientUserId()
-    },
-
     async search() {
+      const keyword = this.keyword.trim()
+      if (!keyword) return
+      const requestID = this.requestTracker.begin()
       this.loading = true
       try {
-        const uid = this.getUserId()
         const [enrollRes, newsRes] = await Promise.all([
-          enrollApi.getList({ user_id: uid }),
-          newsApi.getList({ user_id: uid })
+          enrollApi.getList({ keyword, page: 1, pageSize: 20 }),
+          newsApi.getList({ keyword, page: 1, pageSize: 20 })
         ])
+
+        if (!this.requestTracker.isLatest(requestID)) return
 
         const enrollRaw = Array.isArray(enrollRes.data) ? enrollRes.data : (enrollRes.data.list || [])
         const newsRaw = Array.isArray(newsRes.data) ? newsRes.data : (newsRes.data.list || [])
@@ -100,9 +101,13 @@ export default {
 
         this.resultList = [...enrollList, ...newsList]
       } catch (e) {
-        console.error('搜索失败', e)
+        if (this.requestTracker.isLatest(requestID)) {
+          console.error('搜索失败', e)
+        }
       } finally {
-        this.loading = false
+        if (this.requestTracker.isLatest(requestID)) {
+          this.loading = false
+        }
       }
     },
 

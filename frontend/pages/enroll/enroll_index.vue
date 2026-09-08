@@ -21,7 +21,7 @@
 
     <view class="content">
       <view class="enroll-list" v-if="list.length > 0">
-        <view class="enroll-card" v-for="(item, index) in list" :key="index" @click="goDetail(item.id)">
+        <view class="enroll-card" v-for="(item, index) in list" :key="item.id" @click="goDetail(item.id)">
           <view v-if="item.img" class="card-img">
             <image :src="item.img" mode="aspectFill" class="card-img-inner" lazy-load />
           </view>
@@ -63,6 +63,7 @@
 import { enrollApi, favApi } from '../../api/index'
 import { getClientUserId, getClientUserInfo } from '../../utils/auth'
 import { guardClientMenuPage } from '../../utils/clientPermission'
+import { createLatestRequestTracker } from '../../utils/latestRequest'
 
 export default {
   data() {
@@ -75,7 +76,8 @@ export default {
       isAdmin: false,
       hasMore: true,
       loading: false,
-      favSet: new Set()
+      favSet: new Set(),
+      requestTracker: createLatestRequestTracker()
     }
   },
 
@@ -92,9 +94,8 @@ export default {
       this.cur = 'all'
       uni.removeStorageSync('enrollTab')
     }
-    this.page = 1
     this.hasMore = true
-    this.loadData()
+    this.loadData(1)
   },
 
   onReachBottom() {
@@ -102,9 +103,8 @@ export default {
   },
 
   onPullDownRefresh() {
-    this.page = 1
     this.hasMore = true
-    this.loadData().then(() => {
+    this.loadData(1).then(() => {
       uni.stopPullDownRefresh()
     })
   },
@@ -116,20 +116,18 @@ export default {
     },
 
     handleSearch() {
-      this.page = 1
       this.list = []
       this.hasMore = true
-      this.loadData()
+      this.loadData(1)
     },
 
     switchTab(tab) {
       if (this.cur === tab) return
       this.cur = tab
       this.keyword = ''
-      this.page = 1
       this.list = []
       this.hasMore = true
-      this.loadData()
+      this.loadData(1)
     },
 
     getUserId() {
@@ -138,9 +136,7 @@ export default {
 
     async loadFav() {
       try {
-        const uid = this.getUserId()
-        if (!uid) return
-        const res = await favApi.list({ user_id: uid })
+        const res = await favApi.list()
         const list = Array.isArray(res.data) ? res.data : (res.data.list || [])
         this.favSet = new Set(list.map(f => String(f.id)))
       } catch (e) {
@@ -158,10 +154,10 @@ export default {
       const id = String(item.id)
       try {
         if (this.favSet.has(id)) {
-          await favApi.del({ oid: id, user_id: uid })
+          await favApi.del({ oid: id })
           this.favSet.delete(id)
         } else {
-          await favApi.insert({ oid: id, title: item.title, typ: 'enroll', user_id: uid, path: '/pages/enroll/enroll_detail?id=' + id })
+          await favApi.insert({ oid: id, title: item.title, typ: 'enroll', path: '/pages/enroll/enroll_detail?id=' + id })
           this.favSet.add(id)
         }
       } catch (e) {
@@ -169,42 +165,48 @@ export default {
       }
     },
 
-    async loadData() {
-      if ((!this.hasMore && this.page > 1) || this.loading) return
+    async loadData(targetPage = 1) {
+      if (targetPage > 1 && (!this.hasMore || this.loading)) return false
+      const requestID = this.requestTracker.begin()
+      const currentTab = this.cur
+      const keyword = this.keyword.trim()
       this.loading = true
       try {
-        const uid = this.getUserId()
-        const params = { page: this.page, pageSize: this.pageSize, user_id: uid }
+        const params = { page: targetPage, pageSize: this.pageSize }
         let res
-        if (this.cur === 'join') {
-          res = await enrollApi.myJoinList({ user_id: uid })
+        if (currentTab === 'join') {
+          res = await enrollApi.myJoinList(params)
         } else {
-          res = await enrollApi.getList({ ...params, keyword: this.keyword })
+          res = await enrollApi.getList({ ...params, keyword })
         }
+        if (!this.requestTracker.isLatest(requestID)) return false
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])
-        if (this.cur === 'join') {
-          this.list = data
-          this.hasMore = false
-        } else if (this.page === 1) {
+        if (targetPage === 1) {
           this.list = data
         } else {
           this.list = [...this.list, ...data]
         }
-        this.hasMore = this.cur === 'join' ? false : data.length >= this.pageSize
-        if (this.page === 1) {
+        this.page = targetPage
+        this.hasMore = data.length >= this.pageSize
+        if (targetPage === 1) {
           this.loadFav()
         }
+        return true
       } catch (e) {
-        console.error('加载打卡任务失败', e)
+        if (this.requestTracker.isLatest(requestID)) {
+          console.error('加载打卡任务失败', e)
+        }
+        return false
       } finally {
-        this.loading = false
+        if (this.requestTracker.isLatest(requestID)) {
+          this.loading = false
+        }
       }
     },
 
     loadMore() {
       if (this.hasMore && !this.loading) {
-        this.page++
-        this.loadData()
+        this.loadData(this.page + 1)
       }
     },
 
@@ -246,7 +248,7 @@ export default {
       }
       // No enrollment form, join directly
       try {
-        await enrollApi.enrollSubmit({ enroll_id: item.id, user_id: uid, forms: '[]' })
+        await enrollApi.enrollSubmit({ enroll_id: item.id, forms: '[]' })
         item.isJoin = true
         uni.showToast({ title: '参与成功', icon: 'success' })
       } catch (e) {

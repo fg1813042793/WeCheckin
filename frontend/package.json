@@ -11,7 +11,7 @@
     "build:app": "UNI_INPUT_DIR=. uni build --platform app",
     "build:mp-weixin": "UNI_INPUT_DIR=. uni build --platform mp-weixin",
     "check:config": "node scripts/check-config.mjs",
-    "check:request": "node scripts/check-request.mjs && node scripts/check-client-api-v2.mjs && node scripts/check-request-dedupe.mjs",
+    "check:request": "node scripts/check-request.mjs && node scripts/check-client-api-v2.mjs && node scripts/check-request-dedupe.mjs && node scripts/check-latest-request.mjs",
     "check:logs": "node scripts/check-production-logs.mjs",
     "check:auth": "node scripts/check-auth.mjs",
     "check:formkit-logic": "node scripts/check-formkit-logic.mjs",

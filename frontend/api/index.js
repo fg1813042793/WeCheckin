@@ -124,13 +124,13 @@ export const favApi = {
 
 export const eventApi = {
   getList(params) {
-    return get(`${API_V2}/events`, params)
+    return get(`${API_V2}/me/event-catalog`, params)
   },
   getDetail(params) {
-    return get(`${API_V2}/events/${pathParam(params)}`, params)
+    return get(`${API_V2}/me/event-catalog/${pathParam(params)}`, params)
   },
   detail(params) {
-    return get(`${API_V2}/events/${pathParam(params)}`, params)
+    return get(`${API_V2}/me/event-catalog/${pathParam(params)}`, params)
   },
   participate(data) {
     return post(`${API_V2}/events/${pathParam(data, ['event_id', 'eventId', 'id'])}/participants`, data)

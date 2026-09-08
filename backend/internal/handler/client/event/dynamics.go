@@ -6,13 +6,13 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	eventservice "wecheckin/backend/internal/service/client/event"
+	"wecheckin/backend/internal/support/clientidentity"
 	"wecheckin/backend/pkg/response"
 )
 
 // @Tags 客户端-赛事活动
 // @Summary 发布活动动态
 // @Param event_id formData string true "活动ID"
-// @Param user_id formData string true "用户ID"
 // @Param title formData string false "动态标题"
 // @Param content formData string false "动态内容"
 // @Param images formData string false "图片列表(JSON)"
@@ -21,13 +21,17 @@ import (
 // @Router /event/dynamic_post [post]
 func (h *EventHandler) PostEventDynamic(ctx context.Context, c *app.RequestContext) {
 	eventID := c.PostForm("event_id")
-	userID := c.PostForm("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	title := c.PostForm("title")
 	content := c.PostForm("content")
 	images := c.PostForm("images")
 	videos := c.PostForm("videos")
 	addIP := c.ClientIP()
-	if eventID == "" || userID == "" {
+	if eventID == "" {
 		response.Fail(c, "参数错误")
 		return
 	}

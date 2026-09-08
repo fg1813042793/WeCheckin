@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	enrollservice "wecheckin/backend/internal/service/client/enroll"
+	"wecheckin/backend/internal/support/clientidentity"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -29,7 +30,11 @@ func (h *EnrollHandler) GetEnrollList(ctx context.Context, c *app.RequestContext
 	if ps, err := strconv.Atoi(c.Query("pageSize")); err == nil && ps > 0 {
 		pageSize = ps
 	}
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	keyword := c.Query("keyword")
 	data, err := enrollservice.GetEnrollListContext(ctx, page, pageSize, userID, keyword)
 	if err != nil {
@@ -42,13 +47,16 @@ func (h *EnrollHandler) GetEnrollList(ctx context.Context, c *app.RequestContext
 // @Tags 客户端-打卡
 // @Summary 查看打卡详情
 // @Param id query string true "打卡ID"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /enroll/view [get]
 func (h *EnrollHandler) ViewEnroll(ctx context.Context, c *app.RequestContext) {
 	id := c.Query("id")
-	userID := c.Query("user_id")
-	data, err := enrollservice.ViewEnroll(id, userID)
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
+	data, err := enrollservice.ViewEnrollContext(ctx, id, userID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -60,7 +68,6 @@ func (h *EnrollHandler) ViewEnroll(ctx context.Context, c *app.RequestContext) {
 // @Summary 按日获取打卡记录
 // @Param enroll_id query string true "打卡ID"
 // @Param day query string true "日期"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /enroll/join_day [get]
 func (h *EnrollHandler) GetEnrollJoinByDay(ctx context.Context, c *app.RequestContext) {
@@ -84,7 +91,6 @@ func (h *EnrollHandler) GetEnrollJoinByDay(ctx context.Context, c *app.RequestCo
 // @Summary 用户打卡
 // @Param enroll_id formData string true "打卡ID"
 // @Param day formData string true "日期"
-// @Param user_id formData string false "用户ID"
 // @Param forms formData string false "表单数据"
 // @Success 200 {object} response.Resp
 // @Router /enroll/join [post]
@@ -97,9 +103,10 @@ func (h *EnrollHandler) EnrollJoin(ctx context.Context, c *app.RequestContext) {
 	if day == "" {
 		day = time.Now().Format("2006-01-02")
 	}
-	userID := c.PostForm("user_id")
-	if userID == "" {
-		userID = c.PostForm("token")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
 	}
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
@@ -116,7 +123,6 @@ func (h *EnrollHandler) EnrollJoin(ctx context.Context, c *app.RequestContext) {
 // @Tags 客户端-打卡
 // @Summary 用户打卡(提交打卡表单)
 // @Param enroll_id formData string true "项目ID"
-// @Param user_id formData string true "用户ID"
 // @Param forms formData string false "打卡表单数据JSON"
 // @Success 200 {object} response.Resp
 // @Router /enroll/enroll_submit [post]
@@ -125,9 +131,10 @@ func (h *EnrollHandler) EnrollUserSubmit(ctx context.Context, c *app.RequestCont
 	if enrollID == "" {
 		enrollID = c.PostForm("enrollId")
 	}
-	userID := c.PostForm("user_id")
-	if userID == "" {
-		userID = c.PostForm("token")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
 	}
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
@@ -141,13 +148,13 @@ func (h *EnrollHandler) EnrollUserSubmit(ctx context.Context, c *app.RequestCont
 
 // @Tags 客户端-打卡
 // @Summary 获取我的打卡记录
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /enroll/my_join_list [get]
 func (h *EnrollHandler) GetMyEnrollJoinList(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
-	if userID == "" {
-		userID = c.Query("id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
 	}
 	enrollID := c.Query("enrollId")
 	page, _ := strconv.Atoi(c.Query("page"))
@@ -172,13 +179,16 @@ func (h *EnrollHandler) GetMyEnrollJoinList(ctx context.Context, c *app.RequestC
 
 // @Tags 客户端-打卡
 // @Summary 获取我的打卡记录
-// @Param user_id query string false "用户ID"
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
 // @Success 200 {object} response.Resp
 // @Router /enroll/my_records [get]
 func (h *EnrollHandler) GetMyJoinRecords(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	page, _ := strconv.Atoi(c.Query("page"))
 	if page < 1 {
 		page = 1
@@ -197,12 +207,15 @@ func (h *EnrollHandler) GetMyJoinRecords(ctx context.Context, c *app.RequestCont
 
 // @Tags 客户端-打卡
 // @Summary 获取我的日历打卡数据
-// @Param user_id query string false "用户ID"
 // @Param month query string false "年月 (2026-06)"
 // @Success 200 {object} response.Resp
 // @Router /enroll/my_calendar [get]
 func (h *EnrollHandler) GetMyCalendar(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	month := c.Query("month")
 	data, err := enrollservice.GetMyCalendarDaysContext(ctx, userID, month)
 	if err != nil {
@@ -214,12 +227,15 @@ func (h *EnrollHandler) GetMyCalendar(ctx context.Context, c *app.RequestContext
 
 // @Tags 客户端-打卡
 // @Summary 获取我指定日期的打卡记录
-// @Param user_id query string false "用户ID"
 // @Param day query string false "日期 (2026-06-01)"
 // @Success 200 {object} response.Resp
 // @Router /enroll/my_day_records [get]
 func (h *EnrollHandler) GetMyDayRecords(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	day := c.Query("day")
 	data, err := enrollservice.GetMyDayRecordsContext(ctx, userID, day)
 	if err != nil {
@@ -231,11 +247,14 @@ func (h *EnrollHandler) GetMyDayRecords(ctx context.Context, c *app.RequestConte
 
 // @Tags 客户端-打卡
 // @Summary 获取我的打卡用户列表
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /enroll/my_user_list [get]
 func (h *EnrollHandler) GetMyEnrollUserList(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	data, err := enrollservice.GetMyEnrollUserList(userID)
 	if err != nil {
 		response.Fail(c, "获取失败")

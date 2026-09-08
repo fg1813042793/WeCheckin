@@ -11,6 +11,7 @@ import (
 	clientnews "wecheckin/backend/internal/handler/client/news"
 	clientpassport "wecheckin/backend/internal/handler/client/passport"
 	clientsurvey "wecheckin/backend/internal/handler/client/survey"
+	commonupload "wecheckin/backend/internal/handler/upload"
 	publicgeo "wecheckin/backend/internal/handler/public/geo"
 	publichome "wecheckin/backend/internal/handler/public/home"
 	clientmw "wecheckin/backend/internal/middleware/client"
@@ -35,6 +36,7 @@ func registerPublicRoutes(h *server.Hertz) {
 	ev := clientevent.NewEventHandler()
 	cSurvey := clientsurvey.NewClientSurveyHandler()
 	cExam := clientexam.NewClientExamHandler()
+	uploadHandler := commonupload.NewHandler()
 
 	h.GET("/api/v2/home", hm.GetHomeList)
 	h.GET("/api/v2/home/setup", hm.GetSetup)
@@ -89,6 +91,7 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	client.PUT("/me", pp.EditBase)
 	client.POST("/me/phone", pp.GetPhone)
 	client.POST("/me/logout", pp.Logout)
+	client.POST("/uploads", uploadHandler.Upload)
 	client.GET("/me/favorites", fa.GetMyFavList)
 	client.POST("/me/favorites", fa.UpdateFav)
 	client.DELETE("/me/favorites/:oid", routeparam.WithFormParam("oid", "oid", fa.DelFav))
@@ -99,6 +102,8 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	client.GET("/me/enrollment-calendar", el.GetMyCalendar)
 	client.GET("/me/enrollment-day-records", el.GetMyDayRecords)
 	client.GET("/me/events", ev.GetMyEventList)
+	client.GET("/me/event-catalog", ev.GetEventList)
+	client.GET("/me/event-catalog/:id", routeparam.WithQueryID(ev.ViewEvent))
 	client.GET("/me/event-roles", ev.GetMyEventRoles)
 	client.GET("/me/managed-events", ev.GetMyManagedList)
 	client.GET("/me/survey-responses", cSurvey.MyResponses)

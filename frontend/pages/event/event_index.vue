@@ -12,7 +12,7 @@
     </view>
     <view class="content">
       <view class="event-list" v-if="list.length > 0">
-        <view class="event-card" v-for="(item, index) in list" :key="index" @click="goDetail(item)">
+        <view class="event-card" v-for="(item, index) in list" :key="item.id" @click="goDetail(item)">
           <view v-if="item.img" class="card-img">
             <image :src="item.img" mode="aspectFill" class="card-img-inner" lazy-load />
           </view>
@@ -53,6 +53,7 @@
 import { eventApi } from '../../api/index'
 import { getClientUserId } from '../../utils/auth'
 import { guardClientMenuPage } from '../../utils/clientPermission'
+import { createLatestRequestTracker } from '../../utils/latestRequest'
 export default {
   data() {
     return {
@@ -62,7 +63,8 @@ export default {
       pageSize: 10,
       keyword: '',
       hasMore: true,
-      loading: false
+      loading: false,
+      requestTracker: createLatestRequestTracker()
     }
   },
   onLoad() {
@@ -77,47 +79,53 @@ export default {
       this.cur = typeFilter
       uni.removeStorageSync('eventTypeFilter')
     }
-    this.page = 1
     this.hasMore = true
-    this.loadData()
+    this.loadData(1)
   },
   onReachBottom() {
     this.loadMore()
   },
   onPullDownRefresh() {
-    this.page = 1
     this.hasMore = true
-    this.loadData().then(() => { uni.stopPullDownRefresh() })
+    this.loadData(1).then(() => { uni.stopPullDownRefresh() })
   },
   methods: {
     getUserId() {
       return getClientUserId()
     },
-    handleSearch() { this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
+    handleSearch() { this.list = []; this.hasMore = true; this.loadData(1) },
     switchTab(tab) {
       if (this.cur === tab) return
       this.cur = tab
       this.keyword = ''
-      this.page = 1
       this.list = []
       this.hasMore = true
-      this.loadData()
+      this.loadData(1)
     },
-    async loadData() {
-      if ((!this.hasMore && this.page > 1) || this.loading) return
+    async loadData(targetPage = 1) {
+      if (targetPage > 1 && (!this.hasMore || this.loading)) return false
+      const requestID = this.requestTracker.begin()
+      const currentTab = this.cur
+      const keyword = this.keyword.trim()
       this.loading = true
       try {
-        const uid = this.getUserId()
-        const params = { page: this.page, pageSize: this.pageSize, user_id: uid, keyword: this.keyword }
-        if (this.cur !== 'all') params.type = this.cur
+        const params = { page: targetPage, pageSize: this.pageSize, keyword }
+        if (currentTab !== 'all') params.type = currentTab
         const res = await eventApi.getList(params)
+        if (!this.requestTracker.isLatest(requestID)) return false
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])
-        if (this.page === 1) { this.list = data } else { this.list = [...this.list, ...data] }
+        if (targetPage === 1) { this.list = data } else { this.list = [...this.list, ...data] }
+        this.page = targetPage
         this.hasMore = data.length >= this.pageSize
-      } catch (e) { console.error('加载失败', e) }
-      this.loading = false
+        return true
+      } catch (e) {
+        if (this.requestTracker.isLatest(requestID)) console.error('加载失败', e)
+        return false
+      } finally {
+        if (this.requestTracker.isLatest(requestID)) this.loading = false
+      }
     },
-    loadMore() { if (this.hasMore && !this.loading) { this.page++; this.loadData() } },
+    loadMore() { if (this.hasMore && !this.loading) this.loadData(this.page + 1) },
     goDetail(item) { uni.navigateTo({ url: '/pages/event/event_detail?id=' + item.id }) },
     async handleJoin(item) {
       const uid = this.getUserId()
@@ -129,7 +137,7 @@ export default {
         return
       }
       try {
-        await eventApi.participate({ event_id: item.id, user_id: uid, forms: '[]' })
+        await eventApi.participate({ event_id: item.id, forms: '[]' })
         item.isJoin = true
         item.userCnt = (item.userCnt || 0) + 1
         uni.showToast({ title: '报名成功', icon: 'success' })

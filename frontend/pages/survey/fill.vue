@@ -48,7 +48,7 @@
             :file-list="fileLists[currentQuestion.id] || []"
             :show-number="settings.questionNumber !== false"
             @input="(v) => setAnswer(currentQuestion.id, v)"
-            @update:fileList="(v) => $set(fileLists, currentQuestion.id, v)"
+            @update:fileList="(v) => setFileList(currentQuestion.id, v)"
             @sig-open="isSigOpen = true" @sig-close="isSigOpen = false"
           />
         </view>
@@ -70,7 +70,7 @@
             :file-list="fileLists[q.id] || []"
             :show-number="settings.questionNumber !== false"
             @input="(v) => setAnswer(q.id, v)"
-            @update:fileList="(v) => $set(fileLists, q.id, v)"
+            @update:fileList="(v) => setFileList(q.id, v)"
             @sig-open="isSigOpen = true" @sig-close="isSigOpen = false"
           />
         </view>
@@ -274,9 +274,13 @@ export default {
       this.hiddenIds = Array.from(result.hiddenIds)
     },
     setAnswer(qid, val) {
-      this.$set(this.answers, qid, val)
+      this.answers[qid] = val
       this.reevaluateRules()
       this.autoSave()
+    },
+
+    setFileList(qid, files) {
+      this.fileLists[qid] = files
     },
 
     autoSave() {
@@ -379,8 +383,6 @@ export default {
       this.swipeStartX = e.touches[0].clientX
       this.swipeStartY = e.touches[0].clientY
     },
-    goNext() { if (this.currentQIndex < this.totalQuestions - 1) this.currentQIndex++ },
-    goPrev() { if (this.currentQIndex > 0) this.currentQIndex-- },
     onSwipeEnd(e) {
       if (!this.settings.onePageOneQuestion) return
       if (this.isSigOpen) return

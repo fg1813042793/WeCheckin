@@ -83,8 +83,7 @@ export function hasClientAuth() {
 export function getClientUserId(fallback = '') {
   if (fallback) return fallback
   const userInfo = getClientUserInfo()
-  const token = getClientToken()
-  return (userInfo && (userInfo.miniOpenID || userInfo.id)) || token || ''
+  return (userInfo && (userInfo.miniOpenID || userInfo.id)) || ''
 }
 
 export function getAdminToken() {

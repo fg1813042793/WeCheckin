@@ -1523,6 +1523,7 @@ import DraggableList from './formkit/DraggableList.vue'
 
 import QuestionIcon from './formkit/QuestionIcon.vue'
 import QuestionPreview from './formkit/QuestionPreview.vue'
+import { categoryDefs, FALLBACK_TYPES } from './survey-designer-question-types'
 import { useSurveyDesignerHistory } from './composables/useSurveyDesignerHistory'
 
 const route = useRoute()
@@ -3002,15 +3003,6 @@ function importUserOpt() {
 }
 
 const types = ref<any[]>([])
-const categoryDefs = [
-  { name: 'select', label: '选择题', types: ['radio','checkbox','select','cascade','picker','judge','file'] },
-  { name: 'fill', label: '填空题', types: ['input','textarea','number','multiInput','hInput','signature','scanCode'] },
-  { name: 'rating', label: '打分题', types: ['rating','nps'] },
-  { name: 'matrix', label: '矩阵题', types: ['matrixRadio','matrixCheckbox','matrixFillBlank','matrixAuto'] },
-  { name: 'layout', label: '辅助布局', types: ['divider','description','questionSet','pagination'] },
-  { name: 'advanced', label: '高级题型', types: ['user','dept','richText','autopop'] },
-  { name: 'personal', label: '个人信息', types: ['name','studentId','employeeId','class','phone','email','idCard','password','date','time','dateRange','switch','location'] },
-]
 const categories = computed(() => categoryDefs.filter(c => types.value.some(t => c.types.includes(t.type))))
 const typesByCategory = computed(() => {
   const m: Record<string, any[]> = {}
@@ -3624,57 +3616,6 @@ function goToStatReport() {
   }
   window.open(`/survey/stat-report?surveyId=${id}&title=${encodeURIComponent(form.title || '')}`, '_blank')
 }
-
-const FALLBACK_TYPES = [
-  // 选择题
-  { type:'radio', displayName:'单选题', category:'select' },
-  { type:'checkbox', displayName:'多选题', category:'select' },
-  { type:'select', displayName:'下拉题', category:'select' },
-  { type:'picker', displayName:'选择器', category:'select' },
-  { type:'cascade', displayName:'级联选择', category:'select' },
-  { type:'judge', displayName:'判断题', category:'select' },
-  { type:'file', displayName:'上传文件', category:'select' },
-  // 填空题
-  { type:'input', displayName:'单行文本', category:'fill' },
-  { type:'textarea', displayName:'多行文本', category:'fill' },
-  { type:'number', displayName:'数字', category:'fill' },
-  { type:'multiInput', displayName:'多项填空', category:'fill' },
-  { type:'hInput', displayName:'横向填空', category:'fill' },
-  { type:'signature', displayName:'电子签名', category:'fill' },
-  { type:'scanCode', displayName:'扫码', category:'fill' },
-  // 打分题
-  { type:'rating', displayName:'评分', category:'rating' },
-  { type:'nps', displayName:'NPS', category:'rating' },
-  // 矩阵题
-  { type:'matrixRadio', displayName:'矩阵单选', category:'matrix' },
-  { type:'matrixCheckbox', displayName:'矩阵多选', category:'matrix' },
-  { type:'matrixFillBlank', displayName:'矩阵填空', category:'matrix' },
-  { type:'matrixAuto', displayName:'表格自增', category:'matrix' },
-  // 辅助布局
-  { type:'divider', displayName:'分割线', category:'layout' },
-  { type:'description', displayName:'文字描述', category:'layout' },
-  { type:'questionSet', displayName:'问题组', category:'layout' },
-  { type:'pagination', displayName:'分页', category:'layout' },
-  // 高级题型
-  { type:'user', displayName:'成员', category:'advanced' },
-  { type:'dept', displayName:'部门', category:'advanced' },
-  { type:'richText', displayName:'富文本', category:'advanced' },
-  { type:'autopop', displayName:'自动填充', category:'advanced' },
-  // 个人信息
-  { type:'name', displayName:'姓名', category:'personal' },
-  { type:'studentId', displayName:'学号', category:'personal' },
-  { type:'employeeId', displayName:'工号', category:'personal' },
-  { type:'class', displayName:'班级', category:'personal' },
-  { type:'phone', displayName:'手机', category:'personal' },
-  { type:'email', displayName:'邮箱', category:'personal' },
-  { type:'idCard', displayName:'身份证', category:'personal' },
-  { type:'password', displayName:'密码', category:'personal' },
-  { type:'date', displayName:'日期', category:'personal' },
-  { type:'time', displayName:'时间', category:'personal' },
-  { type:'dateRange', displayName:'日期范围', category:'personal' },
-  { type:'switch', displayName:'开关', category:'personal' },
-  { type:'location', displayName:'地理位置', category:'personal' },
-]
 
 onMounted(async () => {
   window.addEventListener('keydown', handleDesignerKeydown)

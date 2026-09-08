@@ -50,6 +50,8 @@ assert.equal(formatRemainingTime(0), '已超时')
 assert.equal(formatRemainingTime(61_000), '1:01')
 
 const surveyFillPage = readFileSync(resolve(currentDir, '../pages/survey/fill.vue'), 'utf8')
+assert.ok(!surveyFillPage.includes('$set'), 'survey fill must use Vue 3 reactive property assignment')
+assert.equal((surveyFillPage.match(/\bgoNext\(\)\s*\{/g) || []).length, 1, 'survey fill must define goNext once')
 for (const required of [
   `:class="{ 'survey--with-progress': settings.progressBar && !loading && survey }"`,
   'top: var(--window-top, 0px)',
@@ -64,5 +66,8 @@ for (const required of [
 ]) {
   assert.ok(surveyFillPage.includes(required), `survey fill progress layout missing: ${required}`)
 }
+
+const examFillPage = readFileSync(resolve(currentDir, '../pages/exam/fill.vue'), 'utf8')
+assert.ok(!examFillPage.includes('$set'), 'exam fill must use Vue 3 reactive property assignment')
 
 assert.ok(!/\.survey-progress\s*\{[^}]*top:\s*0\b/s.test(surveyFillPage), 'survey progress must not be fixed to viewport top')

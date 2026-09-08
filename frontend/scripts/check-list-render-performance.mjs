@@ -11,6 +11,7 @@ const pageConfigs = [
     imageClass: 'news-img-inner',
     loadMethod: 'loadData',
     hasTabs: false,
+    requiresLatestRequest: true,
   },
   {
     label: '打卡任务',
@@ -18,6 +19,7 @@ const pageConfigs = [
     imageClass: 'card-img-inner',
     loadMethod: 'loadData',
     hasTabs: true,
+    requiresLatestRequest: true,
   },
   {
     label: '赛事活动',
@@ -25,6 +27,7 @@ const pageConfigs = [
     imageClass: 'card-img-inner',
     loadMethod: 'loadData',
     hasTabs: true,
+    requiresLatestRequest: true,
   },
   {
     label: '问卷列表',
@@ -81,20 +84,30 @@ for (const config of pageConfigs) {
   assertIncludes(config.label, source, 'loading: false')
   assertIncludes(config.label, source, 'onReachBottom()')
   assertIncludes(config.label, source, 'this.loadMore()')
-  assertIncludes(config.label, source, 'if ((!this.hasMore && this.page > 1) || this.loading) return')
   assertIncludes(config.label, source, 'this.loading = true')
   assertIncludes(config.label, source, 'this.loading = false')
-  assertIncludes(config.label, source, 'this.page === 1')
   assertIncludes(config.label, source, 'this.list = [...this.list, ...data]')
   assertIncludes(config.label, source, 'data.length >= this.pageSize')
   assertIncludes(config.label, source, 'if (this.hasMore && !this.loading)')
-  assertIncludes(config.label, source, 'this.page++')
-  assertIncludes(config.label, source, 'page: this.page')
   assertIncludes(config.label, source, 'pageSize: this.pageSize')
   assertNotIncludes(config.label, source, 'pageSize: 50')
 
   if (config.hasTabs) {
     assertIncludes(config.label, source, 'if (this.cur === tab) return')
+  }
+
+  if (config.requiresLatestRequest) {
+    assertIncludes(config.label, source, 'targetPage === 1')
+    assertNotIncludes(config.label, source, 'this.page++')
+    assertIncludes(config.label, source, 'requestTracker: createLatestRequestTracker()')
+    assertIncludes(config.label, source, 'const requestID = this.requestTracker.begin()')
+    assertIncludes(config.label, source, 'if (!this.requestTracker.isLatest(requestID)) return false')
+    assertIncludes(config.label, source, 'this.loadData(this.page + 1)')
+  } else {
+    assertIncludes(config.label, source, 'this.page === 1')
+    assertIncludes(config.label, source, 'if ((!this.hasMore && this.page > 1) || this.loading) return')
+    assertIncludes(config.label, source, 'this.page++')
+    assertIncludes(config.label, source, 'page: this.page')
   }
 
   if (config.requiresLimitMerge) {

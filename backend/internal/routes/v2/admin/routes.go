@@ -22,9 +22,9 @@ import (
 	adminrole "wecheckin/backend/internal/handler/admin/role"
 	adminsetup "wecheckin/backend/internal/handler/admin/setup"
 	adminsurvey "wecheckin/backend/internal/handler/admin/survey"
-	adminupload "wecheckin/backend/internal/handler/admin/upload"
 	adminuser "wecheckin/backend/internal/handler/admin/user"
 	adminworkflow "wecheckin/backend/internal/handler/admin/workflow"
+	commonupload "wecheckin/backend/internal/handler/upload"
 	adminmw "wecheckin/backend/internal/middleware/admin"
 	inappnotificationapp "wecheckin/backend/internal/modules/inappnotification/application"
 	inappnotificationinfra "wecheckin/backend/internal/modules/inappnotification/infrastructure"
@@ -199,7 +199,7 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	aSetup := adminsetup.NewAdminSetupHandler()
 	aUser := adminuser.NewAdminUserHandler()
 	aDingTalk := admindingtalk.NewAdminDingTalkHandler(admindingtalkservice.NewService(database.GetDB()))
-	aUpload := adminupload.NewHandler()
+	aUpload := commonupload.NewHandler()
 
 	admin.GET("/home", aHome.AdminHome)
 	admin.DELETE("/home/recommendations", aHome.ClearVouchData)

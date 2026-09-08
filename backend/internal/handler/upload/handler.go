@@ -47,16 +47,16 @@ func validateUploadContent(filename string, content []byte) bool {
 	return false
 }
 
-// Upload POST /api/v2/admin/uploads
-// @Tags PC端-文件上传
-// @Summary 上传后台图片或视频
+// Upload POST /api/v2/uploads or /api/v2/admin/uploads
+// @Tags 文件上传
+// @Summary 上传图片或视频
 // @Accept multipart/form-data
 // @Param file formData file true "文件"
 // @Success 200 {object} response.Resp
 func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		response.FailInternal(ctx, c, "admin.upload.handler", "上传失败，请稍后重试", err)
+		response.FailInternal(ctx, c, "upload.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	if !allowedUploadExtension(file.Filename) {
@@ -70,7 +70,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 
 	src, err := file.Open()
 	if err != nil {
-		response.FailInternal(ctx, c, "admin.upload.handler", "上传失败，请稍后重试", err)
+		response.FailInternal(ctx, c, "upload.handler", "上传失败，请稍后重试", err)
 		return
 	}
 	contentHeader := make([]byte, 512)
@@ -94,7 +94,7 @@ func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 		Now:      now,
 	})
 	if err != nil {
-		response.FailInternal(ctx, c, "admin.upload.handler", "上传失败，请稍后重试", err)
+		response.FailInternal(ctx, c, "upload.handler", "上传失败，请稍后重试", err)
 		return
 	}
 

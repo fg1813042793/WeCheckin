@@ -99,7 +99,7 @@
                 :file-list="fileLists[currentQuestion.id] || []"
                 :show-number="settings.questionNumber !== false"
                 @input="(v) => setAnswer(currentQuestion.id, v)"
-                @update:fileList="(v) => $set(fileLists, currentQuestion.id, v)"
+                @update:fileList="(v) => setFileList(currentQuestion.id, v)"
                 @sig-open="isSigOpen = true" @sig-close="isSigOpen = false"
               />
             </view>
@@ -133,7 +133,7 @@
               :file-list="fileLists[q.id] || []"
               :show-number="settings.questionNumber !== false"
               @input="(v) => setAnswer(q.id, v)"
-              @update:fileList="(v) => $set(fileLists, q.id, v)"
+              @update:fileList="(v) => setFileList(q.id, v)"
               @sig-open="isSigOpen = true" @sig-close="isSigOpen = false"
             />
           </view>
@@ -391,8 +391,12 @@ export default {
     },
 
     setAnswer(qid, val) {
-      this.$set(this.answers, qid, val)
+      this.answers[qid] = val
       this.autoSave()
+    },
+
+    setFileList(qid, files) {
+      this.fileLists[qid] = files
     },
 
     autoSave() {

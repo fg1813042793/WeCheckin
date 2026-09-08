@@ -6,6 +6,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	eventservice "wecheckin/backend/internal/service/client/event"
+	"wecheckin/backend/internal/support/clientidentity"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -17,7 +18,6 @@ func NewEventHandler() *EventHandler { return &EventHandler{} }
 // @Summary 获取活动列表
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
-// @Param user_id query string false "用户ID"
 // @Param keyword query string false "搜索关键词"
 // @Param type query string false "活动类型"
 // @Success 200 {object} response.Resp
@@ -30,7 +30,7 @@ func (h *EventHandler) GetEventList(ctx context.Context, c *app.RequestContext) 
 	if ps, err := strconv.Atoi(c.Query("pageSize")); err == nil && ps > 0 {
 		pageSize = ps
 	}
-	userID := c.Query("user_id")
+	userID, _ := clientidentity.OpenID(c)
 	keyword := c.Query("keyword")
 	typ := c.Query("type")
 	data, err := eventservice.GetEventListContext(ctx, page, pageSize, userID, keyword, typ)
@@ -44,12 +44,11 @@ func (h *EventHandler) GetEventList(ctx context.Context, c *app.RequestContext) 
 // @Tags 客户端-赛事活动
 // @Summary 查看活动详情
 // @Param id query string true "活动ID"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /event/view [get]
 func (h *EventHandler) ViewEvent(ctx context.Context, c *app.RequestContext) {
 	id := c.Query("id")
-	userID := c.Query("user_id")
+	userID, _ := clientidentity.OpenID(c)
 	if id == "" {
 		response.Fail(c, "参数错误")
 		return
@@ -65,15 +64,15 @@ func (h *EventHandler) ViewEvent(ctx context.Context, c *app.RequestContext) {
 // @Tags 客户端-赛事活动
 // @Summary 参与活动报名
 // @Param event_id formData string true "活动ID"
-// @Param user_id formData string true "用户ID"
 // @Param forms formData string false "报名表单数据(JSON)"
 // @Success 200 {object} response.Resp
 // @Router /event/participate [post]
 func (h *EventHandler) EventParticipate(ctx context.Context, c *app.RequestContext) {
 	eventID := c.PostForm("event_id")
-	userID := c.PostForm("user_id")
-	if userID == "" {
-		userID = c.PostForm("token")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
 	}
 	forms := c.PostForm("forms")
 	addIP := c.ClientIP()
@@ -87,7 +86,6 @@ func (h *EventHandler) EventParticipate(ctx context.Context, c *app.RequestConte
 
 // @Tags 客户端-赛事活动
 // @Summary 获取我的活动列表
-// @Param user_id query string true "用户ID"
 // @Param type query string false "活动类型"
 // @Param status query string false "活动状态"
 // @Param page query int false "页码"
@@ -95,15 +93,15 @@ func (h *EventHandler) EventParticipate(ctx context.Context, c *app.RequestConte
 // @Success 200 {object} response.Resp
 // @Router /event/my_list [get]
 func (h *EventHandler) GetMyEventList(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	typ := c.Query("type")
 	status := c.Query("status")
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
-	if userID == "" {
-		response.Fail(c, "参数错误")
-		return
-	}
 	if page < 1 {
 		page = 1
 	}
@@ -120,13 +118,12 @@ func (h *EventHandler) GetMyEventList(ctx context.Context, c *app.RequestContext
 
 // @Tags 客户端-赛事活动
 // @Summary 获取我的活动角色
-// @Param user_id query string true "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /event/my_roles [get]
 func (h *EventHandler) GetMyEventRoles(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
-	if userID == "" {
-		response.Fail(c, "参数错误")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
 		return
 	}
 	data, err := eventservice.GetMyEventRolesContext(ctx, userID)
@@ -139,7 +136,6 @@ func (h *EventHandler) GetMyEventRoles(ctx context.Context, c *app.RequestContex
 
 // @Tags 客户端-赛事活动
 // @Summary 获取我管理的活动列表
-// @Param user_id query string true "用户ID"
 // @Param type query string false "活动类型"
 // @Param status query string false "活动状态"
 // @Param keyword query string false "搜索关键词"
@@ -148,16 +144,16 @@ func (h *EventHandler) GetMyEventRoles(ctx context.Context, c *app.RequestContex
 // @Success 200 {object} response.Resp
 // @Router /event/my_managed [get]
 func (h *EventHandler) GetMyManagedList(ctx context.Context, c *app.RequestContext) {
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	typ := c.Query("type")
 	status := c.Query("status")
 	keyword := c.Query("keyword")
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
-	if userID == "" {
-		response.Fail(c, "参数错误")
-		return
-	}
 	if page < 1 {
 		page = 1
 	}

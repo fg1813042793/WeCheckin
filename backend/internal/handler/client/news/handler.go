@@ -2,9 +2,12 @@ package news
 
 import (
 	"context"
-	"github.com/cloudwego/hertz/pkg/app"
 	"strconv"
+
+	"github.com/cloudwego/hertz/pkg/app"
+
 	newsservice "wecheckin/backend/internal/service/client/news"
+	"wecheckin/backend/internal/support/clientidentity"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -27,7 +30,11 @@ func (h *NewsHandler) GetNewsList(ctx context.Context, c *app.RequestContext) {
 		pageSize = ps
 	}
 	keyword := c.Query("keyword")
-	userID := c.Query("user_id")
+	userID, ok := clientidentity.OpenID(c)
+	if !ok {
+		response.Fail(c, "未登录")
+		return
+	}
 	data, err := newsservice.GetNewsListContext(ctx, page, pageSize, keyword, userID)
 	if err != nil {
 		response.Fail(c, "获取失败")

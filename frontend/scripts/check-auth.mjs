@@ -45,6 +45,10 @@ if (violations.length > 0) {
 }
 
 const authSource = readFileSync(authPath, 'utf8')
+if (/getClientToken\(\)[\s\S]{0,160}\|\|\s*token\s*\|\|/.test(authSource)) {
+  throw new Error('getClientUserId must never fall back to the client token')
+}
+
 const requiredAuthSnippets = [
   'export const CLIENT_TOKEN_KEY',
   'export const CLIENT_INFO_KEY',

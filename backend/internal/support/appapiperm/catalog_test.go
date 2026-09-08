@@ -205,6 +205,7 @@ func TestClientAPIDeclarationsAreCategorized(t *testing.T) {
 	required := map[string]bool{
 		"client:api:bootstrap:view":    false,
 		"client:api:user:view":         false,
+		"client:api:upload:create":     false,
 		"client:api:news:view":         false,
 		"client:api:enroll:submit":     false,
 		"client:api:event:score":       false,

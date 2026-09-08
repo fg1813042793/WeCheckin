@@ -7,7 +7,7 @@
     </view>
 
     <view class="news-list" v-if="list.length > 0">
-      <view class="news-item" v-for="(item, index) in list" :key="index" @click="goDetail(item.id)">
+      <view class="news-item" v-for="(item, index) in list" :key="item.id" @click="goDetail(item.id)">
         <view v-if="item.img" class="news-img">
           <image :src="item.img" mode="aspectFill" class="news-img-inner" lazy-load />
         </view>
@@ -34,8 +34,8 @@
 
 <script>
 import { newsApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 import { guardClientMenuPage } from '../../utils/clientPermission'
+import { createLatestRequestTracker } from '../../utils/latestRequest'
 
 export default {
   data() {
@@ -45,19 +45,19 @@ export default {
       pageSize: 10,
       hasMore: true,
       keyword: '',
-      loading: false
+      loading: false,
+      requestTracker: createLatestRequestTracker()
     }
   },
 
   async onLoad() {
     if (!(await guardClientMenuPage('client:menu:news'))) return
-    this.loadData()
+    this.loadData(1)
   },
 
   onPullDownRefresh() {
-    this.page = 1
     this.hasMore = true
-    this.loadData().then(() => {
+    this.loadData(1).then(() => {
       uni.stopPullDownRefresh()
     })
   },
@@ -68,40 +68,44 @@ export default {
 
   methods: {
     onSearch() {
-      this.page = 1
       this.hasMore = true
-      this.loadData()
+      this.loadData(1)
     },
 
-    getUserId() {
-      return getClientUserId()
-    },
-
-    async loadData() {
-      if ((!this.hasMore && this.page > 1) || this.loading) return
+    async loadData(targetPage = 1) {
+      if (targetPage > 1 && (!this.hasMore || this.loading)) return false
+      const requestID = this.requestTracker.begin()
+      const keyword = this.keyword.trim()
       this.loading = true
       try {
-        const params = { page: this.page, pageSize: this.pageSize, user_id: this.getUserId() }
-        if (this.keyword) params.keyword = this.keyword
+        const params = { page: targetPage, pageSize: this.pageSize }
+        if (keyword) params.keyword = keyword
         const res = await newsApi.getList(params)
+        if (!this.requestTracker.isLatest(requestID)) return false
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])
-        if (this.page === 1) {
+        if (targetPage === 1) {
           this.list = data
         } else {
           this.list = [...this.list, ...data]
         }
+        this.page = targetPage
         this.hasMore = data.length >= this.pageSize
+        return true
       } catch (e) {
-        console.error('加载通知失败', e)
+        if (this.requestTracker.isLatest(requestID)) {
+          console.error('加载通知失败', e)
+        }
+        return false
       } finally {
-        this.loading = false
+        if (this.requestTracker.isLatest(requestID)) {
+          this.loading = false
+        }
       }
     },
 
     loadMore() {
       if (this.hasMore && !this.loading) {
-        this.page++
-        this.loadData()
+        this.loadData(this.page + 1)
       }
     },
 
