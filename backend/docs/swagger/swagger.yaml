@@ -8509,6 +8509,25 @@ paths:
       summary: 查询工作流通知投递记录
       tags:
       - API v2-后台管理-工作流
+  /api/v2/admin/workflow-notifications/{id}:
+    delete:
+      description: 仅从后台流程投递记录中移除；已发送通知不会被撤回，待发送或待重试通知不会再自动投递；发送中的记录不可删除
+      parameters:
+      - description: 通知 Outbox ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 删除单条工作流通知投递记录
+      tags:
+      - API v2-后台管理-工作流
   /api/v2/admin/workflow-notifications/{id}/retry:
     post:
       parameters:
@@ -8562,7 +8581,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       security:
       - AdminToken: []
-      summary: 投递到期的工作流通知
+      summary: 处理待投递的工作流通知
       tags:
       - API v2-后台管理-工作流
   /api/v2/admin/workflow-org-approver-assignments:

@@ -110,6 +110,7 @@
       <WorkflowDeliveryRecords
         v-else-if="activeRecordView === 'workflow' && canViewWorkflowNotifications"
         :can-retry="canRetryWorkflowNotifications"
+        :can-delete="canDeleteWorkflowNotifications"
       />
     </el-card>
 
@@ -300,6 +301,7 @@ const canStyleEdit = computed(() => hasPerm('admin:menu:notification:style:edit'
 const canDelete = computed(() => hasPerm('admin:menu:notification:delete'))
 const canViewWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:list'))
 const canRetryWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:retry'))
+const canDeleteWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:delete'))
 const recordSummary = computed(() => activeRecordView.value === 'workflow'
   ? '查看流程站内信与钉钉的完整投递状态'
   : `共 ${total.value} 条站内信投递记录`)

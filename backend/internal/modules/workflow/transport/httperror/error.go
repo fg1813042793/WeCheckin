@@ -107,6 +107,7 @@ var publicErrors = []publicError{
 	{workflowinfra.ErrInstanceNotFound, "流程实例不存在"},
 	{workflowinfra.ErrTaskNotFound, "流程任务不存在"},
 	{workflowinfra.ErrNotificationNotFound, "通知投递记录不存在"},
+	{workflowinfra.ErrNotificationDeleteInProgress, "发送中的通知不能删除，请稍后重试"},
 	{workflowinfra.ErrFormRevisionNotFound, "表单修订请求不存在"},
 	{workflowinfra.ErrFormRevisionTaskNotFound, "表单修订任务不存在"},
 	{workflowsummary.ErrDefinitionRequired, "流程定义不能为空"},

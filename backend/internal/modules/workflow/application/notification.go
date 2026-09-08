@@ -81,6 +81,7 @@ type NotificationRepository interface {
 	MarkFailed(ctx context.Context, id string, attempts int, status string, nextRetryAt int64, message string, now int64) error
 	ResetForRetry(ctx context.Context, id string, now int64) error
 	ResetForSend(ctx context.Context, id string, now int64) error
+	SoftDelete(ctx context.Context, id, actorID string, deletedAt int64) error
 }
 
 type NotificationDeliveryResult struct {
@@ -100,6 +101,7 @@ type NotificationDispatcher interface {
 	DispatchDue(ctx context.Context, limit int) (int, error)
 	Retry(ctx context.Context, id string) error
 	Send(ctx context.Context, id string) error
+	Delete(ctx context.Context, id, actorID string) error
 }
 
 type notificationLogger interface {
@@ -198,6 +200,18 @@ func (dispatcher *notificationDispatcher) Send(ctx context.Context, id string) e
 	dispatcher.logf("[WorkflowNotification] manual_send_requested notificationId=%s", id)
 	_, err := dispatcher.Dispatch(ctx, []string{id})
 	return err
+}
+
+func (dispatcher *notificationDispatcher) Delete(ctx context.Context, id, actorID string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return errors.New("通知 ID 不能为空")
+	}
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" {
+		return errors.New("删除操作人不能为空")
+	}
+	return dispatcher.repository.SoftDelete(ctx, id, actorID, dispatcher.now().UnixMilli())
 }
 
 func (dispatcher *notificationDispatcher) deliver(ctx context.Context, notifications []NotificationRecord, now int64) (int, error) {

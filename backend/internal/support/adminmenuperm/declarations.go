@@ -148,6 +148,7 @@ func Declarations(enableExam bool) []Declaration {
 		{Key: "admin:menu:workflow:instance:delete", Name: "删除流程实例", Perms: "workflow:instance:delete", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:workflow:instances"},
 		{Key: "admin:menu:workflow:notification:list", Name: "流程通知查看", Perms: "workflow:notification:list", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:workflow:instances"},
 		{Key: "admin:menu:workflow:notification:retry", Name: "流程通知重发", Perms: "workflow:notification:retry", Sort: 7, Type: TypeButton, ParentKey: "admin:menu:workflow:instances"},
+		{Key: "admin:menu:workflow:notification:delete", Name: "删除流程通知投递记录", Perms: "workflow:notification:delete", Sort: 8, Type: TypeButton, ParentKey: "admin:menu:workflow:instances"},
 		{Key: "admin:menu:workflow:task:list", Name: "流程任务查看", Perms: "workflow:task:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:workflow:tasks"},
 		{Key: "admin:menu:workflow:task:complete", Name: "处理流程任务", Perms: "workflow:task:complete", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:workflow:tasks"},
 		{Key: "admin:menu:workflow:task:delete", Name: "删除流程任务", Perms: "workflow:task:delete", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:workflow:tasks"},

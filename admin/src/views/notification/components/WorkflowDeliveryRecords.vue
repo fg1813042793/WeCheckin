@@ -60,7 +60,7 @@
       <el-table-column label="发送时间" width="180">
         <template #default="{ row }">{{ formatTime(row.sentAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right" align="center">
+      <el-table-column label="操作" width="210" fixed="right" align="center">
         <template #default="{ row }">
           <el-button link type="primary" :icon="View" @click="openDetail(row)">查看</el-button>
           <el-button
@@ -71,6 +71,14 @@
             :loading="sendingId === row.id"
             @click="manualSend(row)"
           >{{ isRetryable(row) ? '重发' : '发送' }}</el-button>
+          <el-button
+            v-if="canDelete && row.status !== 'sending'"
+            link
+            type="danger"
+            :icon="Delete"
+            :loading="deletingId === row.id"
+            @click="deleteRecord(row)"
+          >删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -111,6 +119,14 @@
     </el-descriptions>
     <template #footer>
       <el-button
+        v-if="detailRecord && canDelete && detailRecord.status !== 'sending'"
+        type="danger"
+        plain
+        :icon="Delete"
+        :loading="deletingId === detailRecord.id"
+        @click="deleteRecord(detailRecord)"
+      >删除记录</el-button>
+      <el-button
         v-if="detailRecord && canRetry && detailRecord.status !== 'sending'"
         type="primary"
         plain
@@ -124,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
+import { Delete, Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../../api'
@@ -135,7 +151,7 @@ import type {
   WorkflowNotificationStatus,
 } from '../../workflow/types'
 
-defineProps<{ canRetry?: boolean }>()
+defineProps<{ canRetry?: boolean; canDelete?: boolean }>()
 
 type TagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
 
@@ -169,6 +185,7 @@ const pageSize = ref(20)
 const loading = ref(false)
 const dispatching = ref(false)
 const sendingId = ref('')
+const deletingId = ref('')
 const detailVisible = ref(false)
 const detailRecord = ref<WorkflowNotificationRecord | null>(null)
 const filters = reactive({
@@ -257,6 +274,41 @@ async function manualSend(row: WorkflowNotificationRecord) {
     }
   } finally {
     sendingId.value = ''
+  }
+}
+
+function deleteWarning(row: WorkflowNotificationRecord) {
+  if (row.status === 'pending' || row.status === 'failed') {
+    return '删除待投递记录后，该通知将不会再自动发送。'
+  }
+  if (row.status === 'sent') {
+    return '删除只会移除后台投递记录，不会撤回接收人已经收到的通知。'
+  }
+  return '删除已停止的投递记录后，该记录无法恢复。'
+}
+
+async function deleteRecord(row: WorkflowNotificationRecord) {
+  try {
+    await ElMessageBox.confirm(
+      `${deleteWarning(row)}确定删除“${row.payload.title || row.id}”吗？`,
+      '删除流程投递记录',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  deletingId.value = row.id
+  try {
+    await adminApi.workflowNotificationDelete(row.id)
+    ElMessage.success('流程投递记录已删除')
+    if (detailRecord.value?.id === row.id) {
+      detailVisible.value = false
+      detailRecord.value = null
+    }
+    if (list.value.length === 1 && page.value > 1) page.value -= 1
+    await load()
+  } finally {
+    deletingId.value = ''
   }
 }
 

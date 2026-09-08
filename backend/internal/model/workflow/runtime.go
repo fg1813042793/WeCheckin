@@ -188,7 +188,7 @@ type InstanceParticipant struct {
 func (InstanceParticipant) TableName() string { return "workflow_instance_participants" }
 
 type NotificationOutbox struct {
-	ID                string    `json:"id" gorm:"size:64;primaryKey;comment:通知Outbox ID"`
+	ID                string    `json:"id" gorm:"size:64;primaryKey;index:idx_workflow_notification_admin_deleted_time,priority:3;comment:通知Outbox ID"`
 	InstanceID        string    `json:"instanceId" gorm:"size:64;column:instance_id;index:idx_workflow_notification_instance,priority:1;comment:流程实例ID"`
 	BusinessKey       string    `json:"businessKey" gorm:"size:160;column:business_key;index:idx_workflow_notification_business_key;comment:流程业务标识快照"`
 	NodeID            string    `json:"nodeId" gorm:"size:100;column:node_id;comment:来源节点ID"`
@@ -205,8 +205,10 @@ type NotificationOutbox struct {
 	NextRetryAt       int64     `json:"nextRetryAt" gorm:"column:next_retry_at;index:idx_workflow_notification_due,priority:2;comment:下次重试时间"`
 	LastError         string    `json:"lastError" gorm:"size:1000;column:last_error;comment:最近失败摘要"`
 	SentAt            int64     `json:"sentAt" gorm:"column:sent_at;comment:发送成功时间"`
-	AddTime           int64     `json:"addTime" gorm:"column:add_time;index:idx_workflow_notification_instance,priority:2;comment:创建时间"`
+	AddTime           int64     `json:"addTime" gorm:"column:add_time;index:idx_workflow_notification_instance,priority:2;index:idx_workflow_notification_admin_deleted_time,priority:2;comment:创建时间"`
 	EditTime          int64     `json:"editTime" gorm:"column:edit_time;comment:更新时间"`
+	AdminDeletedAt    int64     `json:"-" gorm:"column:admin_deleted_at;index:idx_workflow_notification_admin_deleted_time,priority:1;comment:管理员删除时间"`
+	AdminDeletedBy    string    `json:"-" gorm:"size:64;column:admin_deleted_by;comment:删除操作管理员ID"`
 	CreatedAt         time.Time `json:"-"`
 	UpdatedAt         time.Time `json:"-"`
 }

@@ -27,6 +27,13 @@ func (service *Service) SendNotification(ctx context.Context, id string) error {
 	return service.notifications.Send(ctx, strings.TrimSpace(id))
 }
 
+func (service *Service) DeleteNotification(ctx context.Context, actorID, id string) error {
+	if service == nil || service.notifications == nil {
+		return ErrNotificationUnavailable
+	}
+	return service.notifications.Delete(ctx, strings.TrimSpace(id), strings.TrimSpace(actorID))
+}
+
 func (service *Service) DispatchDueNotifications(ctx context.Context, limit int) (int, error) {
 	if service == nil || service.notifications == nil {
 		return 0, ErrNotificationUnavailable

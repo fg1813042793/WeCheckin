@@ -134,6 +134,7 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "POST", path: "/api/v2/admin/workflow-notifications/dispatch-due", want: "workflow:notification:retry"},
 		{method: "POST", path: "/api/v2/admin/workflow-notifications/outbox_99/retry", want: "workflow:notification:retry"},
 		{method: "POST", path: "/api/v2/admin/workflow-notifications/outbox_99/send", want: "workflow:notification:retry"},
+		{method: "DELETE", path: "/api/v2/admin/workflow-notifications/outbox_99", want: "workflow:notification:delete"},
 		{method: "DELETE", path: "/api/v2/admin/in-app-notifications/7", want: "notification:delete"},
 		{method: "GET", path: "/api/v2/admin/workflow-org-approver-identities", want: "workflow:org-approver:list"},
 		{method: "GET", path: "/api/v2/admin/workflow-org-approver-assignments", want: "workflow:org-approver:list"},

@@ -17,35 +17,38 @@ import (
 )
 
 type runtimeServiceStub struct {
-	startRequest           workflowapp.StartInstanceRequest
-	completeRequest        workflowapp.CompleteTaskRequest
-	cancelRequest          workflowapp.CancelInstanceRequest
-	resumeInstanceID       string
-	resumeActorID          string
-	instanceQuery          workflowapp.InstanceQuery
-	taskQuery              workflowapp.TaskQuery
-	definitionID           uint
-	listDefinitions        int
-	getDefinition          int
-	startCalls             int
-	completeCalls          int
-	cancelCalls            int
-	resumeCalls            int
-	notificationQuery      workflowapp.NotificationQuery
-	notificationListCalls  int
-	retryNotificationID    string
-	retryNotificationCalls int
-	sendNotificationID     string
-	sendNotificationCalls  int
-	dispatchDueLimit       int
-	dispatchDueCalls       int
-	deleteActorID          string
-	deleteInstanceIDs      []string
-	deleteCalls            int
-	deleteTaskActorID      string
-	deleteTaskID           string
-	deleteTaskCalls        int
-	listDefinitionsErr     error
+	startRequest              workflowapp.StartInstanceRequest
+	completeRequest           workflowapp.CompleteTaskRequest
+	cancelRequest             workflowapp.CancelInstanceRequest
+	resumeInstanceID          string
+	resumeActorID             string
+	instanceQuery             workflowapp.InstanceQuery
+	taskQuery                 workflowapp.TaskQuery
+	definitionID              uint
+	listDefinitions           int
+	getDefinition             int
+	startCalls                int
+	completeCalls             int
+	cancelCalls               int
+	resumeCalls               int
+	notificationQuery         workflowapp.NotificationQuery
+	notificationListCalls     int
+	retryNotificationID       string
+	retryNotificationCalls    int
+	sendNotificationID        string
+	sendNotificationCalls     int
+	dispatchDueLimit          int
+	dispatchDueCalls          int
+	deleteNotificationID      string
+	deleteNotificationActorID string
+	deleteNotificationCalls   int
+	deleteActorID             string
+	deleteInstanceIDs         []string
+	deleteCalls               int
+	deleteTaskActorID         string
+	deleteTaskID              string
+	deleteTaskCalls           int
+	listDefinitionsErr        error
 }
 
 func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error) {
@@ -164,6 +167,13 @@ func (stub *runtimeServiceStub) DispatchDueNotifications(_ context.Context, limi
 	stub.dispatchDueCalls++
 	stub.dispatchDueLimit = limit
 	return 3, nil
+}
+
+func (stub *runtimeServiceStub) DeleteNotification(_ context.Context, actorID, id string) error {
+	stub.deleteNotificationCalls++
+	stub.deleteNotificationActorID = actorID
+	stub.deleteNotificationID = id
+	return nil
 }
 
 func (stub *runtimeServiceStub) DeleteInstances(_ context.Context, actorID string, instanceIDs []string) (int, error) {
@@ -410,6 +420,17 @@ func TestNotificationManagementUsesAuthenticatedAdminAndStableInputs(t *testing.
 	}
 	if !strings.Contains(string(dueContext.Response.Body()), `"dispatched":3`) {
 		t.Fatalf("dispatch due response = %s", dueContext.Response.Body())
+	}
+
+	deleteContext := newAdminContext(42)
+	deleteContext.Params = append(deleteContext.Params, param.Param{Key: "id", Value: "outbox-delete"})
+	deleteContext.Request.SetBodyString(`{"id":"outbox-forged"}`)
+	handler.DeleteNotification(context.Background(), deleteContext)
+	if stub.deleteNotificationCalls != 1 || stub.deleteNotificationActorID != "42" || stub.deleteNotificationID != "outbox-delete" {
+		t.Fatalf("delete notification = calls %d actor %q id %q", stub.deleteNotificationCalls, stub.deleteNotificationActorID, stub.deleteNotificationID)
+	}
+	if !strings.Contains(string(deleteContext.Response.Body()), `"id":"outbox-delete"`) {
+		t.Fatalf("delete notification response = %s", deleteContext.Response.Body())
 	}
 
 	unauthenticated := app.NewContext(1)

@@ -20,7 +20,7 @@ if (!routes.includes("path: 'survey/notify', name: 'SurveyNotify', component: ()
 }
 
 const api = read('src/api/index.ts')
-for (const method of ['inAppNotificationList', 'inAppNotificationDelete', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest', 'workflowNotificationSend']) {
+for (const method of ['inAppNotificationList', 'inAppNotificationDelete', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest', 'workflowNotificationSend', 'workflowNotificationDelete']) {
   if (!api.includes(`${method}(`)) throw new Error(`in-app notification API missing ${method}`)
 }
 if (!api.includes('/in-app-notifications')) throw new Error('in-app notification API must use the canonical admin endpoint')
@@ -57,6 +57,7 @@ for (const snippet of [
   'WorkflowDeliveryRecords',
   "name=\"workflow\"",
   "hasPerm('admin:menu:workflow:notification:list')",
+	"hasPerm('admin:menu:workflow:notification:delete')",
   "消息样式",
   "hasPerm('admin:menu:notification:style:list')",
 ]) {
@@ -78,6 +79,10 @@ for (const snippet of [
   'adminApi.workflowNotificationRetry',
   'adminApi.workflowNotificationSend',
   'adminApi.workflowNotificationDispatchDue',
+	'adminApi.workflowNotificationDelete',
+	'canDelete',
+	'deleteRecord(row)',
+	'删除待投递记录后，该通知将不会再自动发送',
   'manualSend(row)',
   "row.status === 'failed' || row.status === 'dead'",
 ]) {

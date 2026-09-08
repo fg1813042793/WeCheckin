@@ -28,6 +28,10 @@ type notificationRepositoryStub struct {
 	claimErr         error
 	markSentErr      error
 	markFailedErr    error
+	deletedID        string
+	deletedActorID   string
+	deletedAt        int64
+	deleteErr        error
 }
 
 type notificationFailure struct {
@@ -79,6 +83,13 @@ func (stub *notificationRepositoryStub) ResetForRetry(_ context.Context, id stri
 func (stub *notificationRepositoryStub) ResetForSend(_ context.Context, id string, _ int64) error {
 	stub.sendResetID = id
 	return nil
+}
+
+func (stub *notificationRepositoryStub) SoftDelete(_ context.Context, id, actorID string, deletedAt int64) error {
+	stub.deletedID = id
+	stub.deletedActorID = actorID
+	stub.deletedAt = deletedAt
+	return stub.deleteErr
 }
 
 type notificationChannelStub struct {
@@ -198,6 +209,19 @@ func TestNotificationDispatcherManuallySendsSingleRecordImmediately(t *testing.T
 	}
 	if repository.sendResetID != "ding-sent" || len(repository.sent) != 1 || repository.sent[0] != "ding-sent" {
 		t.Fatalf("manual send state = reset %q sent %#v", repository.sendResetID, repository.sent)
+	}
+}
+
+func TestNotificationDispatcherSoftDeletesRecordWithAdminIdentity(t *testing.T) {
+	now := time.Date(2026, 9, 8, 10, 0, 0, 0, time.Local)
+	repository := &notificationRepositoryStub{}
+	dispatcher := newNotificationDispatcherWithClock(repository, func() time.Time { return now })
+
+	if err := dispatcher.Delete(context.Background(), " outbox-1 ", " 42 "); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if repository.deletedID != "outbox-1" || repository.deletedActorID != "42" || repository.deletedAt != now.UnixMilli() {
+		t.Fatalf("soft delete = id %q actor %q at %d", repository.deletedID, repository.deletedActorID, repository.deletedAt)
 	}
 }
 

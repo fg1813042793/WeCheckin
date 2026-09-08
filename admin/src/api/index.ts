@@ -777,6 +777,9 @@ export const adminApi = {
   workflowNotificationSend(id: ID) {
     return request.post(`${ADMIN_V2}/workflow-notifications/${encodePath(id)}/send`, {}, jsonConfig)
   },
+  workflowNotificationDelete(id: ID) {
+    return request.delete<{ id: string }>(`${ADMIN_V2}/workflow-notifications/${encodePath(id)}`)
+  },
   workflowNotificationDispatchDue(data: { limit?: number } = {}) {
     return request.post<{ dispatched: number }, typeof data>(`${ADMIN_V2}/workflow-notifications/dispatch-due`, data, jsonConfig)
   },

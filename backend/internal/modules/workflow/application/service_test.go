@@ -2163,6 +2163,10 @@ func (dispatcher *recordingNotificationDispatcher) Retry(context.Context, string
 
 func (dispatcher *recordingNotificationDispatcher) Send(context.Context, string) error { return nil }
 
+func (dispatcher *recordingNotificationDispatcher) Delete(context.Context, string, string) error {
+	return nil
+}
+
 func (publisher *recordingPublisher) Publish(_ context.Context, event LifecycleEvent) {
 	publisher.events = append(publisher.events, event)
 }

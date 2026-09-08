@@ -16,7 +16,10 @@ import (
 	"wecheckin/backend/pkg/database"
 )
 
-var ErrNotificationNotFound = errors.New("通知投递记录不存在")
+var (
+	ErrNotificationNotFound         = errors.New("通知投递记录不存在")
+	ErrNotificationDeleteInProgress = errors.New("发送中的通知不能删除，请稍后重试")
+)
 
 const (
 	workflowNotificationType       = "workflow"
@@ -39,7 +42,7 @@ func (repository *GormNotificationRepository) List(ctx context.Context, query ap
 	defer cancel()
 
 	page, pageSize := normalizeNotificationPage(query.Page, query.PageSize)
-	statement := db.Model(&workflowmodel.NotificationOutbox{})
+	statement := applyActiveNotificationFilter(db.Model(&workflowmodel.NotificationOutbox{}))
 	if value := strings.TrimSpace(query.InstanceID); value != "" {
 		statement = statement.Where("instance_id = ?", value)
 	}
@@ -106,7 +109,7 @@ func (repository *GormNotificationRepository) claim(
 
 	var claimed []application.NotificationRecord
 	err = db.Transaction(func(tx *gorm.DB) error {
-		query := tx.Model(&workflowmodel.NotificationOutbox{})
+		query := applyActiveNotificationFilter(tx.Model(&workflowmodel.NotificationOutbox{}))
 		query = filter(query)
 		query = applyClaimableNotificationFilter(query, now, staleBefore)
 		query = query.Clauses(clause.Locking{Strength: "UPDATE"}).Order("next_retry_at ASC").Order("add_time ASC").Order("id ASC")
@@ -148,7 +151,7 @@ func (repository *GormNotificationRepository) DeliverInApp(ctx context.Context, 
 	defer cancel()
 	return db.Transaction(func(tx *gorm.DB) error {
 		var row workflowmodel.NotificationOutbox
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", notification.ID).Error; err != nil {
+		if err := applyActiveNotificationFilter(tx.Clauses(clause.Locking{Strength: "UPDATE"})).First(&row, "id = ?", notification.ID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrNotificationNotFound
 			}
@@ -228,7 +231,7 @@ func (repository *GormNotificationRepository) ResetForRetry(ctx context.Context,
 		return err
 	}
 	defer cancel()
-	result := db.Model(&workflowmodel.NotificationOutbox{}).
+	result := applyActiveNotificationFilter(db.Model(&workflowmodel.NotificationOutbox{})).
 		Where("id = ? AND notification_status IN ?", strings.TrimSpace(id), []string{workflowmodel.NotificationStatusFailed, workflowmodel.NotificationStatusDead}).
 		Updates(map[string]interface{}{
 			"notification_status": workflowmodel.NotificationStatusPending,
@@ -255,7 +258,7 @@ func (repository *GormNotificationRepository) ResetForSend(ctx context.Context, 
 	defer cancel()
 	return db.Transaction(func(tx *gorm.DB) error {
 		var row workflowmodel.NotificationOutbox
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", strings.TrimSpace(id)).Error; err != nil {
+		if err := applyActiveNotificationFilter(tx.Clauses(clause.Locking{Strength: "UPDATE"})).First(&row, "id = ?", strings.TrimSpace(id)).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrNotificationNotFound
 			}
@@ -279,13 +282,51 @@ func (repository *GormNotificationRepository) ResetForSend(ctx context.Context, 
 	})
 }
 
+func (repository *GormNotificationRepository) SoftDelete(ctx context.Context, id, actorID string, deletedAt int64) error {
+	db, cancel, err := repository.contextDB(ctx)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	id = strings.TrimSpace(id)
+	actorID = strings.TrimSpace(actorID)
+	return db.Transaction(func(tx *gorm.DB) error {
+		var row workflowmodel.NotificationOutbox
+		query := applyActiveNotificationFilter(tx.Clauses(clause.Locking{Strength: "UPDATE"}))
+		if err := query.Select("id", "notification_status", "admin_deleted_at").First(&row, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotificationNotFound
+			}
+			return err
+		}
+		if !notificationCanBeDeleted(row.Status) {
+			return ErrNotificationDeleteInProgress
+		}
+		result := tx.Model(&workflowmodel.NotificationOutbox{}).
+			Where("id = ? AND admin_deleted_at = ? AND notification_status <> ?", row.ID, int64(0), workflowmodel.NotificationStatusSending).
+			Updates(map[string]interface{}{
+				"admin_deleted_at": deletedAt,
+				"admin_deleted_by": actorID,
+				"edit_time":        deletedAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrNotificationDeleteInProgress
+		}
+		return nil
+	})
+}
+
 func (repository *GormNotificationRepository) updateClaimed(ctx context.Context, id string, updates map[string]interface{}) error {
 	db, cancel, err := repository.contextDB(ctx)
 	if err != nil {
 		return err
 	}
 	defer cancel()
-	result := db.Model(&workflowmodel.NotificationOutbox{}).
+	result := applyActiveNotificationFilter(db.Model(&workflowmodel.NotificationOutbox{})).
 		Where("id = ? AND notification_status = ?", strings.TrimSpace(id), workflowmodel.NotificationStatusSending).
 		Updates(updates)
 	if result.Error != nil {
@@ -312,6 +353,22 @@ func applyClaimableNotificationFilter(query *gorm.DB, now, staleBefore int64) *g
 		workflowmodel.NotificationStatusFailed, now,
 		workflowmodel.NotificationStatusSending, staleBefore,
 	)
+}
+
+func applyActiveNotificationFilter(query *gorm.DB) *gorm.DB {
+	return query.Where("admin_deleted_at = ?", int64(0))
+}
+
+func notificationCanBeDeleted(status string) bool {
+	switch status {
+	case workflowmodel.NotificationStatusPending,
+		workflowmodel.NotificationStatusFailed,
+		workflowmodel.NotificationStatusDead,
+		workflowmodel.NotificationStatusSent:
+		return true
+	default:
+		return false
+	}
 }
 
 func notificationRecordFromModel(row workflowmodel.NotificationOutbox) (application.NotificationRecord, error) {

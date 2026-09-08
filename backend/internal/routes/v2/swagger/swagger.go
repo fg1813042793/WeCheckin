@@ -2933,7 +2933,7 @@ func swaggerV2AdminWorkflowTasksIDDelete() {}
 func swaggerV2AdminWorkflowNotificationsGet() {}
 
 // @Tags API v2-后台管理-工作流
-// @Summary 投递到期的工作流通知
+// @Summary 处理待投递的工作流通知
 // @Security AdminToken
 // @Accept application/json
 // @Param body body WorkflowDispatchDueRequest false "单次投递上限"
@@ -2956,6 +2956,15 @@ func swaggerV2AdminWorkflowNotificationsIDRetryPost() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-notifications/{id}/send [post]
 func swaggerV2AdminWorkflowNotificationsIDSendPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 删除单条工作流通知投递记录
+// @Description 仅从后台流程投递记录中移除；已发送通知不会被撤回，待发送或待重试通知不会再自动投递；发送中的记录不可删除
+// @Security AdminToken
+// @Param id path string true "通知 Outbox ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-notifications/{id} [delete]
+func swaggerV2AdminWorkflowNotificationsIDDelete() {}
 
 // @Tags API v2-后台管理-定时任务
 // @Summary 查询定时任务列表

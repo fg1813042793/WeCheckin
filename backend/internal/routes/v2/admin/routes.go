@@ -147,6 +147,7 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	admin.POST("/workflow-notifications/dispatch-due", runtimeHandler.DispatchDueNotifications)
 	admin.POST("/workflow-notifications/:id/retry", runtimeHandler.RetryNotification)
 	admin.POST("/workflow-notifications/:id/send", runtimeHandler.SendNotification)
+	admin.DELETE("/workflow-notifications/:id", runtimeHandler.DeleteNotification)
 	return runtimeService
 }
 

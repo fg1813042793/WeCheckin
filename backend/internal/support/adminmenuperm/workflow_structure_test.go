@@ -7,16 +7,17 @@ func TestWorkflowRuntimeMenuDeclarations(t *testing.T) {
 		parent string
 		perms  string
 	}{
-		"admin:menu:workflow:instances":         {parent: "admin:menu:workflow", perms: "workflow:instance:list"},
-		"admin:menu:workflow:tasks":             {parent: "admin:menu:workflow", perms: "workflow:task:list"},
-		"admin:menu:workflow:org-approvers":     {parent: "admin:menu:workflow", perms: "workflow:org-approver:list"},
-		"admin:menu:workflow:instance:start":    {parent: "admin:menu:workflow:instances", perms: "workflow:instance:start"},
-		"admin:menu:workflow:instance:cancel":   {parent: "admin:menu:workflow:instances", perms: "workflow:instance:cancel"},
-		"admin:menu:workflow:instance:delete":   {parent: "admin:menu:workflow:instances", perms: "workflow:instance:delete"},
-		"admin:menu:workflow:task:complete":     {parent: "admin:menu:workflow:tasks", perms: "workflow:task:complete"},
-		"admin:menu:workflow:task:delete":       {parent: "admin:menu:workflow:tasks", perms: "workflow:task:delete"},
-		"admin:menu:workflow:org-approver:list": {parent: "admin:menu:workflow:org-approvers", perms: "workflow:org-approver:list"},
-		"admin:menu:workflow:org-approver:edit": {parent: "admin:menu:workflow:org-approvers", perms: "workflow:org-approver:edit"},
+		"admin:menu:workflow:instances":           {parent: "admin:menu:workflow", perms: "workflow:instance:list"},
+		"admin:menu:workflow:tasks":               {parent: "admin:menu:workflow", perms: "workflow:task:list"},
+		"admin:menu:workflow:org-approvers":       {parent: "admin:menu:workflow", perms: "workflow:org-approver:list"},
+		"admin:menu:workflow:instance:start":      {parent: "admin:menu:workflow:instances", perms: "workflow:instance:start"},
+		"admin:menu:workflow:instance:cancel":     {parent: "admin:menu:workflow:instances", perms: "workflow:instance:cancel"},
+		"admin:menu:workflow:instance:delete":     {parent: "admin:menu:workflow:instances", perms: "workflow:instance:delete"},
+		"admin:menu:workflow:notification:delete": {parent: "admin:menu:workflow:instances", perms: "workflow:notification:delete"},
+		"admin:menu:workflow:task:complete":       {parent: "admin:menu:workflow:tasks", perms: "workflow:task:complete"},
+		"admin:menu:workflow:task:delete":         {parent: "admin:menu:workflow:tasks", perms: "workflow:task:delete"},
+		"admin:menu:workflow:org-approver:list":   {parent: "admin:menu:workflow:org-approvers", perms: "workflow:org-approver:list"},
+		"admin:menu:workflow:org-approver:edit":   {parent: "admin:menu:workflow:org-approvers", perms: "workflow:org-approver:edit"},
 	}
 
 	found := make(map[string]Declaration)

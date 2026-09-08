@@ -31,6 +31,7 @@ type RuntimeService interface {
 	ListNotifications(context.Context, workflowapp.NotificationQuery) (*workflowapp.NotificationList, error)
 	RetryNotification(context.Context, string) error
 	SendNotification(context.Context, string) error
+	DeleteNotification(context.Context, string, string) error
 	DispatchDueNotifications(context.Context, int) (int, error)
 }
 
@@ -390,6 +391,24 @@ func (handler *RuntimeHandler) SendNotification(ctx context.Context, c *app.Requ
 	}
 	if err := handler.service.SendNotification(ctx, id); err != nil {
 		workflowhttperror.Respond(ctx, c, "workflow.admin.send_notification", err)
+		return
+	}
+	response.JSON(c, map[string]string{"id": id})
+}
+
+func (handler *RuntimeHandler) DeleteNotification(ctx context.Context, c *app.RequestContext) {
+	actorID, ok := authenticatedActorID(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		response.Fail(c, "通知投递记录不能为空")
+		return
+	}
+	if err := handler.service.DeleteNotification(ctx, actorID, id); err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.delete_notification", err)
 		return
 	}
 	response.JSON(c, map[string]string{"id": id})
