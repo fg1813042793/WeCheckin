@@ -110,9 +110,8 @@
 </template>
 
 <script>
-import CONFIG from '../../../config/index'
 import { adminApi } from '../../../api/admin'
-import { getAdminToken } from '../../../utils/auth'
+import { uploadFile } from '../../../utils/upload'
 
 export default {
   data() {
@@ -296,35 +295,17 @@ export default {
     changeAvatar() {
       uni.chooseImage({
         count: 1,
-        success: (res) => {
+        success: async (res) => {
           const tempFile = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
-          const token = getAdminToken()
-          uni.uploadFile({
-            url: CONFIG.BASE_URL + '/upload',
-            filePath: tempFile,
-            name: 'file',
-            header: {
-              'Authorization': token || ''
-            },
-            success: (uploadRes) => {
-              uni.hideLoading()
-              try {
-                const data = JSON.parse(uploadRes.data)
-                if (data.code === 0 && data.data && data.data.url) {
-                  this.form.avatar = data.data.url
-                } else {
-                  uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                }
-              } catch (e) {
-                uni.showToast({ title: '上传失败', icon: 'none' })
-              }
-            },
-            fail: () => {
-              uni.hideLoading()
-              uni.showToast({ title: '上传失败', icon: 'none' })
-            }
-          })
+          try {
+            const uploaded = await uploadFile(tempFile, { scope: 'admin' })
+            this.form.avatar = uploaded.url
+          } catch (e) {
+            uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+          } finally {
+            uni.hideLoading()
+          }
         }
       })
     },

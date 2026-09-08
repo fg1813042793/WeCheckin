@@ -176,7 +176,7 @@
 
 <script>
 import { adminApi } from '../../../api/admin'
-import CONFIG from '../../../config/index'
+import { uploadFile } from '../../../utils/upload'
 
 export default {
   data() {
@@ -325,33 +325,17 @@ export default {
       uni.chooseImage({
         count: 1,
         sizeType: ['compressed'],
-        success: (res) => {
+        success: async (res) => {
           const tempFile = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
-          uni.uploadFile({
-            url: CONFIG.BASE_URL + '/upload',
-            filePath: tempFile,
-            name: 'file',
-            success: (uploadRes) => {
-              try {
-                const data = JSON.parse(uploadRes.data)
-                if (data.code === 0 && data.data && data.data.url) {
-                  const domain = data.data.domain || ''
-                  this.form.cover = domain + data.data.url
-                } else {
-                  uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                }
-              } catch (e) {
-                uni.showToast({ title: '上传失败', icon: 'none' })
-              }
-            },
-            fail: () => {
-              uni.showToast({ title: '上传失败，请重试', icon: 'none' })
-            },
-            complete: () => {
-              uni.hideLoading()
-            }
-          })
+          try {
+            const uploaded = await uploadFile(tempFile, { scope: 'admin' })
+            this.form.cover = uploaded.url
+          } catch (e) {
+            uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+          } finally {
+            uni.hideLoading()
+          }
         }
       })
     },

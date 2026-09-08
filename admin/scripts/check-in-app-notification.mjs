@@ -73,7 +73,7 @@ for (const snippet of [
   '最近错误',
   '流程单号',
   '投递详情',
-  '投递到期通知',
+  '处理待投递通知',
   'adminApi.workflowNotificationList',
   'adminApi.workflowNotificationRetry',
   'adminApi.workflowNotificationSend',

@@ -79,8 +79,7 @@
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { adminApi, dictApi } from '../../../api/admin'
-import CONFIG from '../../../config/index'
-import { getAdminToken } from '../../../utils/auth'
+import { uploadFile } from '../../../utils/upload'
 
 const form = reactive({
   id: 0,
@@ -201,28 +200,14 @@ async function handleSubmit() {
 function chooseCover() {
   uni.chooseImage({
     count: 1,
-    success: (res) => {
+    success: async (res) => {
       const tempPath = res.tempFilePaths[0]
-      uni.uploadFile({
-        url: CONFIG.BASE_URL + '/upload',
-        filePath: tempPath,
-        name: 'file',
-        header: {
-          Authorization: getAdminToken()
-        },
-        success: (uploadRes) => {
-          const data = JSON.parse(uploadRes.data)
-          if (data && data.data && data.data.url) {
-			const domain = data.data.domain || ''
-            form.img = domain + data.data.url
-          } else {
-            uni.showToast({ title: '上传失败', icon: 'none' })
-          }
-        },
-        fail: () => {
-          uni.showToast({ title: '上传失败', icon: 'none' })
-        }
-      })
+      try {
+        const uploaded = await uploadFile(tempPath, { scope: 'admin' })
+        form.img = uploaded.url
+      } catch (e) {
+        uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+      }
     }
   })
 }

@@ -244,7 +244,7 @@
 
 <script>
 import { adminApi, dictApi } from '../../../api/admin'
-import CONFIG from '../../../config/index'
+import { uploadFile } from '../../../utils/upload'
 export default {
   data() {
     return {
@@ -485,22 +485,17 @@ export default {
     },
 
     uploadImage() {
-      uni.chooseImage({ count: 1, success: (res) => {
+      uni.chooseImage({ count: 1, success: async (res) => {
         const tempPath = res.tempFilePaths[0]
         uni.showLoading({ title: '上传中...' })
-        uni.uploadFile({
-          url: CONFIG.BASE_URL + '/upload', filePath: tempPath, name: 'file',
-          success: (r) => {
-            try {
-              const data = JSON.parse(r.data)
-              if (data.code === 0) { 
-				  const domain = data.data.domain || ''
-				  this.form.cover = domain + data.data.url || data.data 
-			   }
-            } catch (e) { this.form.cover = r.data }
-          },
-          complete: () => { uni.hideLoading() }
-        })
+        try {
+          const uploaded = await uploadFile(tempPath, { scope: 'admin' })
+          this.form.cover = uploaded.url
+        } catch (e) {
+          uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+        } finally {
+          uni.hideLoading()
+        }
       }})
     },
 

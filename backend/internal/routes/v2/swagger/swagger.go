@@ -94,7 +94,6 @@ func swaggerV2DictItemsGet8() {}
 // @Summary 查询 /api/v2/events
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
-// @Param user_id query string false "用户ID"
 // @Param keyword query string false "搜索关键词"
 // @Param type query string false "活动类型"
 // @Success 200 {object} response.Resp
@@ -104,7 +103,6 @@ func swaggerV2EventsGet9() {}
 // @Tags API v2-公开接口-赛事活动
 // @Summary 查询 /api/v2/events/{id}
 // @Param id path int true "id"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/events/{id} [get]
 func swaggerV2EventsIdGet10() {}
@@ -218,7 +216,6 @@ func swaggerV2MeGet21() {}
 // @Param name formData string false "姓名"
 // @Param mobile formData string false "手机号"
 // @Param pic formData string false "头像"
-// @Param user_id formData string false "用户ID"
 // @Param forms formData string false "表单数据（JSON）"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me [put]
@@ -240,11 +237,19 @@ func swaggerV2MePhonePost23() {}
 // @Router /api/v2/me/logout [post]
 func swaggerV2MeLogoutPost24() {}
 
+// @Tags API v2-客户端-文件上传
+// @Summary 上传客户端图片或视频
+// @Security ClientToken
+// @Accept multipart/form-data
+// @Param file formData file true "图片或视频文件（最大 20MB）"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/uploads [post]
+func swaggerV2UploadsPost() {}
+
 // @Tags API v2-客户端-收藏
 // @Summary 查询 /api/v2/me/favorites
 // @Security ClientToken
 // @Param typ query string false "类型"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/favorites [get]
 func swaggerV2MeFavoritesGet25() {}
@@ -257,7 +262,6 @@ func swaggerV2MeFavoritesGet25() {}
 // @Param oid formData string true "对象ID"
 // @Param typ formData string true "类型"
 // @Param path formData string false "路径"
-// @Param user_id formData string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/favorites [post]
 func swaggerV2MeFavoritesPost26() {}
@@ -267,7 +271,6 @@ func swaggerV2MeFavoritesPost26() {}
 // @Security ClientToken
 // @Accept application/x-www-form-urlencoded
 // @Param oid path string true "oid"
-// @Param user_id formData string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/favorites/{oid} [delete]
 func swaggerV2MeFavoritesOidDelete27() {}
@@ -277,7 +280,6 @@ func swaggerV2MeFavoritesOidDelete27() {}
 // @Security ClientToken
 // @Param oid query string true "对象ID"
 // @Param typ query string true "类型"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/favorites/check [get]
 func swaggerV2MeFavoritesCheckGet28() {}
@@ -285,8 +287,6 @@ func swaggerV2MeFavoritesCheckGet28() {}
 // @Tags API v2-客户端-报名
 // @Summary 查询 /api/v2/me/enrollments
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
-// @Param id query string false "ID"
 // @Param enrollId query string false "报名项目 ID"
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
@@ -297,7 +297,6 @@ func swaggerV2MeEnrollmentsGet29() {}
 // @Tags API v2-客户端-报名
 // @Summary 查询 /api/v2/me/enrollment-users
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/enrollment-users [get]
 func swaggerV2MeEnrollmentUsersGet30() {}
@@ -305,7 +304,6 @@ func swaggerV2MeEnrollmentUsersGet30() {}
 // @Tags API v2-客户端-报名
 // @Summary 查询 /api/v2/me/enrollment-records
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
 // @Success 200 {object} response.Resp
@@ -315,7 +313,6 @@ func swaggerV2MeEnrollmentRecordsGet31() {}
 // @Tags API v2-客户端-报名
 // @Summary 查询 /api/v2/me/enrollment-calendar
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
 // @Param month query string false "年月 (2026-06)"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/enrollment-calendar [get]
@@ -324,7 +321,6 @@ func swaggerV2MeEnrollmentCalendarGet32() {}
 // @Tags API v2-客户端-报名
 // @Summary 查询 /api/v2/me/enrollment-day-records
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
 // @Param day query string false "日期 (2026-06-01)"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/enrollment-day-records [get]
@@ -333,7 +329,6 @@ func swaggerV2MeEnrollmentDayRecordsGet33() {}
 // @Tags API v2-客户端-赛事活动
 // @Summary 查询 /api/v2/me/events
 // @Security ClientToken
-// @Param user_id query string true "用户ID"
 // @Param type query string false "活动类型"
 // @Param status query string false "活动状态"
 // @Param page query int false "页码"
@@ -343,9 +338,27 @@ func swaggerV2MeEnrollmentDayRecordsGet33() {}
 func swaggerV2MeEventsGet34() {}
 
 // @Tags API v2-客户端-赛事活动
+// @Summary 查询当前用户可见的活动目录
+// @Security ClientToken
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param keyword query string false "搜索关键词"
+// @Param type query string false "活动类型"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/me/event-catalog [get]
+func swaggerV2MeEventCatalogGet() {}
+
+// @Tags API v2-客户端-赛事活动
+// @Summary 查询当前用户可见的活动详情
+// @Security ClientToken
+// @Param id path int true "活动 ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/me/event-catalog/{id} [get]
+func swaggerV2MeEventCatalogIDGet() {}
+
+// @Tags API v2-客户端-赛事活动
 // @Summary 查询 /api/v2/me/event-roles
 // @Security ClientToken
-// @Param user_id query string true "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/event-roles [get]
 func swaggerV2MeEventRolesGet35() {}
@@ -353,7 +366,6 @@ func swaggerV2MeEventRolesGet35() {}
 // @Tags API v2-客户端-赛事活动
 // @Summary 查询 /api/v2/me/managed-events
 // @Security ClientToken
-// @Param user_id query string true "用户ID"
 // @Param type query string false "活动类型"
 // @Param status query string false "活动状态"
 // @Param keyword query string false "搜索关键词"

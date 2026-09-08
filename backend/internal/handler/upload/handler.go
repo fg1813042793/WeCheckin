@@ -53,6 +53,8 @@ func validateUploadContent(filename string, content []byte) bool {
 // @Accept multipart/form-data
 // @Param file formData file true "文件"
 // @Success 200 {object} response.Resp
+// @Router /api/v2/uploads [post]
+// @Router /api/v2/admin/uploads [post]
 func (h *Handler) Upload(ctx context.Context, c *app.RequestContext) {
 	file, err := c.FormFile("file")
 	if err != nil {

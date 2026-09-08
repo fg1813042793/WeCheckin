@@ -117,10 +117,6 @@ export function hasAdminAuth() {
   return !!getAdminToken()
 }
 
-export function hasAnyAuth() {
-  return hasClientAuth() || hasAdminAuth()
-}
-
 export function getRequestAuthState(isAdmin) {
   return {
     isAdmin,

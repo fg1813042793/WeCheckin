@@ -11,9 +11,9 @@ import (
 	clientnews "wecheckin/backend/internal/handler/client/news"
 	clientpassport "wecheckin/backend/internal/handler/client/passport"
 	clientsurvey "wecheckin/backend/internal/handler/client/survey"
-	commonupload "wecheckin/backend/internal/handler/upload"
 	publicgeo "wecheckin/backend/internal/handler/public/geo"
 	publichome "wecheckin/backend/internal/handler/public/home"
+	commonupload "wecheckin/backend/internal/handler/upload"
 	clientmw "wecheckin/backend/internal/middleware/client"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
@@ -36,7 +36,6 @@ func registerPublicRoutes(h *server.Hertz) {
 	ev := clientevent.NewEventHandler()
 	cSurvey := clientsurvey.NewClientSurveyHandler()
 	cExam := clientexam.NewClientExamHandler()
-	uploadHandler := commonupload.NewHandler()
 
 	h.GET("/api/v2/home", hm.GetHomeList)
 	h.GET("/api/v2/home/setup", hm.GetSetup)
@@ -69,6 +68,7 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	ev := clientevent.NewEventHandler()
 	cSurvey := clientsurvey.NewClientSurveyHandler()
 	cExam := clientexam.NewClientExamHandler()
+	uploadHandler := commonupload.NewHandler()
 	db := database.GetDB()
 	workflowStore := workflowinfra.NewGormStore(db)
 	notificationRepository := workflowinfra.NewGormNotificationRepository(db)

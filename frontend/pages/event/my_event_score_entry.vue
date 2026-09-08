@@ -15,14 +15,14 @@
     </view>
     <view class="loading" v-if="loading"><text>加载中...</text></view>
     <view class="list" v-else-if="filteredParticipants.length > 0">
-      <view class="item" v-for="(p, i) in filteredParticipants" :key="i">
+      <view class="item" v-for="p in filteredParticipants" :key="p.miniOpenId || p.id">
         <view class="item-left">
           <text class="item-name">{{ p.userName || p.nickname || '匿名' }}</text>
           <text class="item-info">{{ [p.deptName, p.topDeptName].filter(Boolean).join(' / ') }}</text>
         </view>
         <view class="item-right">
           <view v-if="scoreFields.length > 0" class="score-fields">
-            <view class="score-field-row" v-for="(sf, j) in scoreFields" :key="j">
+            <view class="score-field-row" v-for="(sf, j) in scoreFields" :key="sf.id || sf.name || j">
               <text class="score-field-label">{{ sf.name }}</text>
               <input v-if="sf.type === 'text'" v-model="p._scores[j]" placeholder="输入" class="score-input-sm" />
               <view v-else-if="sf.type === 'select'" class="score-input-sm score-select" @click="showSelectPicker(p, j, sf)">{{ p._scores[j] || '选择' }}</view>
@@ -146,6 +146,7 @@ export default {
     exportCSV() {
       const csv = '\uFEFF' + this.buildCSV()
       const title = this.title || '成绩'
+      // #ifdef H5
       try {
         const a = document.createElement('a')
         a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
@@ -154,8 +155,17 @@ export default {
       } catch (e) {
         uni.setClipboardData({ data: csv, fail: () => uni.showToast({ title: '导出失败', icon: 'none' }) })
       }
+      // #endif
+      // #ifndef H5
+      uni.setClipboardData({
+        data: csv,
+        success: () => uni.showToast({ title: 'CSV 内容已复制', icon: 'none' }),
+        fail: () => uni.showToast({ title: '导出失败', icon: 'none' })
+      })
+      // #endif
     },
     triggerImport() {
+      // #ifdef H5
       try {
         const input = document.createElement('input')
         input.type = 'file'
@@ -172,6 +182,10 @@ export default {
       } catch (e) {
         uni.showToast({ title: '当前环境不支持导入', icon: 'none' })
       }
+      // #endif
+      // #ifndef H5
+      uni.showToast({ title: '当前环境不支持导入', icon: 'none' })
+      // #endif
     },
     parseCSV(text) {
       const lines = text.split('\n').filter(l => l.trim())

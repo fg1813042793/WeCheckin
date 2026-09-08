@@ -216,6 +216,7 @@
 import { isOldSchema, normalizeSchema, initAnswers, getAnswerValue, setAnswerValue } from '../../utils/formkit.js'
 import { applyFormkitCalcValues, getCalculatedQuestionIds } from '../../utils/formkitCalc.js'
 import { evaluateFrontendRules } from '../../utils/logicEngine.js'
+import { uploadFile } from '../../utils/upload.js'
 
 export default {
   name: 'FormRender',
@@ -450,21 +451,14 @@ export default {
     onFilePick(q) {
       uni.chooseImage({
         count: 1,
-        success: (res) => {
+        success: async (res) => {
           const path = res.tempFilePaths[0]
-          uni.uploadFile({
-            url: '/upload',
-            filePath: path,
-            name: 'file',
-            success: (up) => {
-              try {
-                const data = JSON.parse(up.data)
-                this.setVal(q, data.data || path)
-              } catch (e) {
-                this.setVal(q, path)
-              }
-            }
-          })
+          try {
+            const uploaded = await uploadFile(path)
+            this.setVal(q, uploaded.url)
+          } catch (e) {
+            uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+          }
         }
       })
     },

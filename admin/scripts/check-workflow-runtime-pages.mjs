@@ -237,7 +237,7 @@ for (const snippet of [
   "'failed'",
   "'dead'",
   '通知投递',
-  '投递到期通知',
+  '处理待投递通知',
 	'重发',
   "node_cc: '已记录抄送'",
   "node_notify: '通知节点已触发'",

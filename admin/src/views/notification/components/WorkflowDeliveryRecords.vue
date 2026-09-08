@@ -24,7 +24,7 @@
           :icon="RefreshRight"
           :loading="dispatching"
           @click="dispatchDue"
-        >投递到期通知</el-button>
+        >处理待投递通知</el-button>
         <el-button circle :icon="Refresh" title="刷新" :loading="loading" @click="load" />
       </div>
     </div>
@@ -264,7 +264,7 @@ async function dispatchDue() {
   dispatching.value = true
   try {
     const response = await adminApi.workflowNotificationDispatchDue({ limit: 100 })
-    ElMessage.success(`已处理 ${Number(response.data?.dispatched || 0)} 条到期通知`)
+    ElMessage.success(`本次处理 ${Number(response.data?.dispatched || 0)} 条待投递通知`)
     await load()
   } finally {
     dispatching.value = false

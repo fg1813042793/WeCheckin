@@ -1,5 +1,5 @@
 <template>
-  <div class="survey-main">
+  <div v-loading="designerLoading" class="survey-main">
     <!-- 最左侧导航: 概述 / 编辑 / 设置 / 数据 / 报表 / 项目 -->
     <div class="survey-main-navigator">
       <div class="nav-actions">
@@ -26,8 +26,13 @@
 
     <!-- 主内容 -->
     <div class="survey-main-content">
+      <div v-if="designerLoadError" class="designer-load-error">
+        <el-result icon="error" title="问卷加载失败" sub-title="未能读取当前问卷，请检查网络后重试">
+          <template #extra><el-button @click="goBack">返回列表</el-button><el-button type="primary" @click="retryLoad">重新加载</el-button></template>
+        </el-result>
+      </div>
       <!-- 编辑视图 -->
-      <div v-show="activeView==='edit'" id="editor" class="survey-editor survey-light survey-app pc">
+      <div v-show="activeView==='edit'" id="editor" class="survey-editor survey-light survey-app pc" :class="{ 'has-open-settings': selected || showSurveySettings }">
         <!-- 中间侧边栏: 项目 / 外观 / 逻辑 -->
         <div class="survey-sidebar-panel">
           <div class="survey-sidebar-panel-tabs">
@@ -564,6 +569,7 @@
               </el-button>
             </div>
           </div>
+          <SurveyDesignerIssues v-if="!designerLoading" :issues="designerIssues" @locate="locateDesignerIssue" />
           <div class="survey-main-panel-content">
             <div v-if="panelMode==='edit'" class="editor-wrapper">
               <div class="editor" :style="{ backgroundImage: form.backgroundImages?.length ? 'url('+form.backgroundImages[0].url+')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
@@ -581,7 +587,7 @@
 
                 <!-- 题目列表 -->
                 <div class="questions-area" @click.self="deselectQuestion">
-                  <draggable-list :questions="questions" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" @upload-bank="onUploadBank" />
+                  <draggable-list :questions="questions" :invalid-ids="invalidQuestionIds" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" @upload-bank="onUploadBank" />
                   <div v-if="!questions.length" class="designer-empty-canvas">
                     <div class="empty-canvas-icon">+</div>
                     <div class="empty-canvas-title">未添加题目</div>
@@ -1523,8 +1529,11 @@ import DraggableList from './formkit/DraggableList.vue'
 
 import QuestionIcon from './formkit/QuestionIcon.vue'
 import QuestionPreview from './formkit/QuestionPreview.vue'
+import SurveyDesignerIssues from './components/SurveyDesignerIssues.vue'
 import { categoryDefs, FALLBACK_TYPES } from './survey-designer-question-types'
+import { collectSurveyDesignerIssues, isValidRedirectUrl, type SurveyDesignerIssue } from './survey-designer-validation'
 import { useSurveyDesignerHistory } from './composables/useSurveyDesignerHistory'
+import './survey-designer-responsive.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -2460,18 +2469,6 @@ function buildSurveyPayload(schema: string, settings: string) {
   }
 }
 
-function isValidRedirectUrl(value: string) {
-  const raw = String(value || '').trim()
-  if (!raw) return true
-  if (raw.startsWith('/')) return true
-  try {
-    const url = new URL(raw)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 function normalizeCompletionSettings() {
   form.title = String(form.title || '').trim()
   if (completionAction.value === 'default') {
@@ -2486,23 +2483,10 @@ function normalizeCompletionSettings() {
 }
 
 function validateSurveySettings(showMessage = true) {
-  if (!String(form.title || '').trim()) {
-    if (showMessage) ElMessage.warning('请填写标题')
-    return false
-  }
-  if (form.visibility === 2 && selectedDeptCount.value === 0) {
-    if (showMessage) ElMessage.warning('请选择限定部门')
-    return false
-  }
-  if (hasInvalidTimeRange.value) {
-    if (showMessage) ElMessage.warning('结束时间不能早于开始时间')
-    return false
-  }
-  if (form.redirectUrl && !isValidRedirectUrl(form.redirectUrl)) {
-    if (showMessage) ElMessage.warning('请输入有效的跳转链接')
-    return false
-  }
-  return true
+  const blockingCodes = new Set(['survey_title_required', 'survey_department_required', 'survey_time_range_invalid', 'survey_redirect_url_invalid'])
+  const issue = designerIssues.value.find(item => blockingCodes.has(item.code))
+  if (issue && showMessage) { ElMessage.warning(issue.message); locateDesignerIssue(issue) }
+  return !issue
 }
 
 const choiceTypes = ['select','radio','checkbox','picker','cascade','judge','multiInput','hInput']
@@ -3415,8 +3399,12 @@ watch(() => activeView.value, (v) => { if (v === 'data') loadResponses() })
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let dataLoaded = false
 let savePending = false
+const designerLoading = ref(true)
+const designerLoadError = ref(false)
 const saveFailed = ref(false)
 const savedSnapshot = ref('')
+const designerIssues = computed(() => collectSurveyDesignerIssues({ form, questions: questions.value }))
+const invalidQuestionIds = computed(() => Array.from(new Set(designerIssues.value.filter(issue => issue.severity === 'error' && issue.questionId).map(issue => issue.questionId!))))
 const designerSnapshot = computed(() => JSON.stringify(buildSurveyPayload(
   JSON.stringify({ version: '2.0', questions: questions.value }),
   JSON.stringify(buildSettingsPayload()),
@@ -3451,6 +3439,17 @@ watch(designerSnapshot, scheduleAutoSave)
 
 function undoDesignerChange() { designerHistory.undo() }
 function redoDesignerChange() { designerHistory.redo() }
+function locateDesignerIssue(issue: SurveyDesignerIssue) {
+  const question = issue.questionId ? questions.value.find(item => item.id === issue.questionId) : questions.value[issue.questionIndex ?? -1]
+  if (question) {
+    activeView.value = 'edit'; middleTab.value = 'item'; sideSubTab.value = 'outline'; panelMode.value = 'edit'
+    selected.value = question; selectedOptIdx.value = -1; showSurveySettings.value = false
+    if (question.id) scrollQuestionIntoView(question.id)
+    return
+  }
+  if (issue.section === 'edit') { activeView.value = 'edit'; panelMode.value = 'edit'; openSurveySettings() }
+  else activeView.value = 'setting'
+}
 function showShortcutHelp() {
   ElMessageBox.alert('Ctrl/Cmd + S：保存问卷\nCtrl/Cmd + Z：撤销\nCtrl/Cmd + Shift + Z 或 Ctrl/Cmd + Y：重做', '快捷键', { confirmButtonText: '知道了' })
 }
@@ -3480,10 +3479,13 @@ onBeforeRouteLeave(async () => {
 
 async function load() {
   const id = Number(route.query.id || 0)
+  designerLoading.value = true
+  designerLoadError.value = false
   if (!id) {
     dataLoaded = true
     savedSnapshot.value = designerSnapshot.value
     designerHistory.reset(historySnapshot.value)
+    designerLoading.value = false
     return
   }
   try {
@@ -3563,8 +3565,13 @@ async function load() {
     savedSnapshot.value = designerSnapshot.value
     designerHistory.reset(historySnapshot.value)
     saveFailed.value = false
-  } catch (error) { showRequestError(error, '加载失败') }
+  } catch (error) {
+    designerLoadError.value = true
+    showRequestError(error, '加载失败')
+  } finally { designerLoading.value = false }
 }
+
+function retryLoad() { void load() }
 
 async function save(showMessage: boolean | Event = true) {
   const shouldShowMessage = typeof showMessage === 'boolean' ? showMessage : true

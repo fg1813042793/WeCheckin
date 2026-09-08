@@ -172,6 +172,7 @@ import { examApi } from '../../api/index'
 import QuestionField from '../../components/survey/QuestionField.vue'
 import CONFIG from '../../config/index'
 import { getClientToken } from '../../utils/auth'
+import { openExternalURL } from '../../utils/externalNavigation'
 import {
   LAYOUT_TYPES,
   formatRemainingTime,
@@ -567,7 +568,7 @@ export default {
       if (!this.settings.transcriptVisible && !this.settings.showAnalysis) {
         const url = this.settings?.redirectUrl
         const content = this.settings?.endContent
-        if (url) { uni.showToast({ title: '已交卷', icon: 'success' }); setTimeout(() => { window.location.href = url }, 500); return }
+        if (url) { uni.showToast({ title: '已交卷', icon: 'success' }); setTimeout(() => openExternalURL(url), 500); return }
         if (content) { this.endContent = content; this.submitted = true; setTimeout(() => { this.goBack() }, 2000); return }
       }
       uni.showToast({ title: '已交卷', icon: 'success' })
@@ -591,7 +592,7 @@ export default {
       }
       return id
     },
-    goRedirect() { if (this.settings.redirectUrl) window.location.href = this.settings.redirectUrl },
+    goRedirect() { openExternalURL(this.settings.redirectUrl) },
     goBack() { uni.navigateBack() },
     goRegister() {
       uni.navigateTo({ url: '/pages/login/login' })

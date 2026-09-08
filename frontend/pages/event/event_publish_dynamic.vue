@@ -48,9 +48,9 @@
 </template>
 
 <script>
-import CONFIG from '../../config/index'
 import { eventApi } from '../../api/index'
 import { getClientUserId } from '../../utils/auth'
+import { uploadFile } from '../../utils/upload'
 
 export default {
   data() {
@@ -72,39 +72,6 @@ export default {
     getUserId() {
       return getClientUserId()
     },
-    uploadFile(path) {
-      return new Promise((resolve, reject) => {
-        uni.uploadFile({
-          url: CONFIG.BASE_URL + '/upload',
-          filePath: path,
-          name: 'file',
-          success: (uploadRes) => {
-            if (uploadRes.statusCode !== 200) {
-              const msg = uploadRes.statusCode === 413 ? '上传文件过大' : ('上传失败(状态' + uploadRes.statusCode + ')')
-              uni.showToast({ title: msg, icon: 'none' })
-              reject(new Error(msg))
-              return
-            }
-            try {
-              const data = JSON.parse(uploadRes.data)
-              if (data.code === 0 && data.data && data.data.url) {
-                resolve(data.data.url)
-              } else {
-                uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                reject(new Error(data.msg || '上传失败'))
-              }
-            } catch (e) {
-              uni.showToast({ title: '上传失败', icon: 'none' })
-              reject(e)
-            }
-          },
-          fail: () => {
-            uni.showToast({ title: '网络错误', icon: 'none' })
-            reject(new Error('网络错误'))
-          }
-        })
-      })
-    },
     async chooseImage() {
       const remain = 9 - this.images.length
       const res = await new Promise((resolve) => {
@@ -120,10 +87,10 @@ export default {
       const tempFiles = res.tempFilePaths || []
       for (const path of tempFiles) {
         try {
-          const url = await this.uploadFile(path)
-          this.images.push(url)
+          const uploaded = await uploadFile(path, { scope: 'client' })
+          this.images.push(uploaded.url)
         } catch (e) {
-          // error already shown
+          uni.showToast({ title: e.message || '上传失败', icon: 'none' })
         }
       }
     },
@@ -139,10 +106,10 @@ export default {
       })
       if (!res) return
       try {
-        const url = await this.uploadFile(res.tempFilePath)
-        this.videos.push(url)
+        const uploaded = await uploadFile(res.tempFilePath, { scope: 'client' })
+        this.videos.push(uploaded.url)
       } catch (e) {
-        // error already shown
+        uni.showToast({ title: e.message || '上传失败', icon: 'none' })
       }
     },
     delImage(i) {

@@ -5,7 +5,7 @@
       :key="q.id"
       class="question-card"
       :data-survey-question-id="q.id"
-      :class="{ selected: q.id === selectedId, dragging: dragIndex === idx, 'drop-before': overIndex === idx && dragIndex !== idx }"
+      :class="{ selected: q.id === selectedId, invalid: invalidIds.includes(q.id), dragging: dragIndex === idx, 'drop-before': overIndex === idx && dragIndex !== idx }"
       @click="$emit('select', q.id)"
       @dragover.prevent
       @dragenter="onDragEnter(idx)"
@@ -31,6 +31,7 @@
           @select-option="(idx:number) => $emit('select-option', q.id, idx)"
         />
       </div>
+      <span v-if="invalidIds.includes(q.id)" class="card-invalid-label">待完善</span>
     </div>
     <div
       v-if="dragIndex >= 0" key="__tail__"
@@ -49,7 +50,7 @@
 import { ref, computed } from 'vue'
 import QuestionPreview from './QuestionPreview.vue'
 
-const props = defineProps<{ questions: any[]; selectedId: string | null; editing?: boolean }>()
+const props = withDefaults(defineProps<{ questions: any[]; selectedId: string | null; invalidIds?: string[]; editing?: boolean }>(), { invalidIds: () => [] })
 const layoutTypes = ['description', 'divider', 'pagination', 'questionSet']
 function visibleIdx(idx: number) {
   let c = 0
@@ -177,6 +178,12 @@ function patchQuestion(id: string, key: string, val: any) {
   background: #eff6ff;
   border-color: #2563eb;
   box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+}
+.question-card.invalid { border-color:#fda29b; }
+.question-card.invalid::before { background:#f04438; }
+.card-invalid-label {
+  position:absolute; z-index:2; top:-10px; right:12px; padding:1px 6px; border-radius:4px;
+  color:#b42318; background:#fff1f0; border:1px solid #fecaca; font-size:10px; line-height:18px;
 }
 .question-card.dragging {
   opacity: 0.3;

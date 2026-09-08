@@ -50,8 +50,7 @@
 
 <script>
 import { adminApi } from '../../../api/admin'
-import CONFIG from '../../../config/index'
-import { getAdminToken } from '../../../utils/auth'
+import { uploadFile } from '../../../utils/upload'
 
 export default {
   data() {
@@ -114,28 +113,14 @@ export default {
     chooseAvatar() {
       uni.chooseImage({
         count: 1,
-        success: (res) => {
+        success: async (res) => {
           const tempPath = res.tempFilePaths[0]
-          uni.uploadFile({
-            url: CONFIG.BASE_URL + '/upload',
-            filePath: tempPath,
-            name: 'file',
-            header: {
-              Authorization: getAdminToken()
-            },
-            success: (uploadRes) => {
-              const data = JSON.parse(uploadRes.data)
-              if (data && data.data && data.data.url) {
-				const domain = data.data.domain || ''
-                this.form.pic = domain + data.data.url
-              } else {
-                uni.showToast({ title: '上传失败', icon: 'none' })
-              }
-            },
-            fail: () => {
-              uni.showToast({ title: '上传失败', icon: 'none' })
-            }
-          })
+          try {
+            const uploaded = await uploadFile(tempPath, { scope: 'admin' })
+            this.form.pic = uploaded.url
+          } catch (e) {
+            uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+          }
         }
       })
     },

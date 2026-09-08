@@ -94,8 +94,8 @@
 
 <script>
 import { enrollApi } from '../../api/index'
-import CONFIG from '../../config'
 import { getClientUserId } from '../../utils/auth'
+import { uploadFile } from '../../utils/upload'
 
 export default {
   data() {
@@ -156,44 +156,20 @@ export default {
         count: 9 - current.length,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
-        success: (res) => {
+        success: async (res) => {
           uni.showLoading({ title: '上传中...' })
-          let uploaded = 0
-          const total = res.tempFilePaths.length
-          for (const tempFile of res.tempFilePaths) {
-            uni.uploadFile({
-              url: CONFIG.BASE_URL + '/upload',
-              filePath: tempFile,
-              name: 'file',
-              success: (uploadRes) => {
-                if (uploadRes.statusCode !== 200) {
-                  const msg = uploadRes.statusCode === 413 ? '上传文件过大' : ('上传失败(状态' + uploadRes.statusCode + ')')
-                  uni.showToast({ title: msg, icon: 'none' })
-                } else {
-                  try {
-                    const data = JSON.parse(uploadRes.data)
-                    if (data.code === 0 && data.data.url) {
-                      const fullUrl = (data.data.domain || '') + data.data.url
-                      field.value.push(fullUrl)
-                      field.error = false
-                    } else {
-                      uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                    }
-                  } catch (e) {
-                    uni.showToast({ title: '上传失败，文件可能过大或不支持', icon: 'none' })
-                  }
-                }
-              },
-              fail: (err) => {
-                uni.showToast({ title: err.errMsg || '网络异常，上传失败', icon: 'none' })
-              },
-              complete: () => {
-                uploaded++
-                if (uploaded >= total) {
-                  uni.hideLoading()
-                }
+          try {
+            for (const tempFile of res.tempFilePaths) {
+              try {
+                const uploaded = await uploadFile(tempFile, { scope: 'client' })
+                field.value.push(uploaded.url)
+                field.error = false
+              } catch (e) {
+                uni.showToast({ title: e.message || '上传失败', icon: 'none' })
               }
-            })
+            }
+          } finally {
+            uni.hideLoading()
           }
         }
       })

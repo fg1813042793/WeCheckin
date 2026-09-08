@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { hasAnyAuth } from './utils/auth'
+import { hasClientAuth } from './utils/auth'
 
 export default {
   globalData: {
@@ -13,7 +13,7 @@ export default {
     token: null
   },
   onLaunch: function() {
-    if (!hasAnyAuth()) {
+    if (!hasClientAuth()) {
       uni.reLaunch({ url: '/pages/login/login' })
     }
   },

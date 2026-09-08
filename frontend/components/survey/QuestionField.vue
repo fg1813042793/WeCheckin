@@ -255,8 +255,8 @@
 </template>
 
 <script>
-import CONFIG from '../../config'
 import { surveyApi } from '../../api/index'
+import { uploadFile } from '../../utils/upload'
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
 
@@ -523,44 +523,22 @@ export default {
         uni.showToast({ title: '暂不支持此文件类型', icon: 'none' })
       }
     },
-    doUpload(paths, tempFiles) {
+    async doUpload(paths, tempFiles) {
       if (!paths.length) return
       uni.showLoading({ title: '上传中...' })
-      let uploaded = 0
-      const total = paths.length
-      for (const p of paths) {
-        uni.uploadFile({
-          url: CONFIG.BASE_URL + '/upload',
-          filePath: p,
-          name: 'file',
-          success: (res) => {
-            if (res.statusCode !== 200) {
-              const msg = res.statusCode === 413 ? '上传文件过大' : ('上传失败(状态' + res.statusCode + ')')
-              uni.showToast({ title: msg, icon: 'none' })
-            } else {
-              try {
-                const data = JSON.parse(res.data)
-                if (data.code === 0 && data.data.url) {
-                  const fullUrl = (data.data.domain || '') + data.data.url
-                  this.fileList.push({ name: data.data.url.split('/').pop() || 'file', url: fullUrl })
-                } else {
-                  uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                }
-              } catch (e) {
-                uni.showToast({ title: '上传失败，文件可能过大或不支持', icon: 'none' })
-              }
-            }
-          },
-          fail: () => { uni.showToast({ title: '网络异常，上传失败', icon: 'none' }) },
-          complete: () => {
-            uploaded++
-            if (uploaded >= total) {
-              uni.hideLoading()
-              this.$emit('update:fileList', this.fileList)
-              this.setVal(this.fileList.map(f => f.url).join(','))
-            }
+      try {
+        for (const path of paths) {
+          try {
+            const uploaded = await uploadFile(path)
+            this.fileList.push({ name: uploaded.filename || uploaded.url.split('/').pop() || 'file', url: uploaded.url })
+          } catch (e) {
+            uni.showToast({ title: e.message || '上传失败', icon: 'none' })
           }
-        })
+        }
+        this.$emit('update:fileList', this.fileList)
+        this.setVal(this.fileList.map(f => f.url).join(','))
+      } finally {
+        uni.hideLoading()
       }
     },
 
@@ -572,34 +550,18 @@ export default {
     pickImage() {
       uni.chooseImage({
         count: 1,
-        success: (res) => {
+        success: async (res) => {
           const p = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
-          uni.uploadFile({
-            url: CONFIG.BASE_URL + '/upload',
-            filePath: p,
-            name: 'file',
-            success: (r) => {
-              if (r.statusCode !== 200) {
-                uni.showToast({ title: r.statusCode === 413 ? '图片过大' : '上传失败', icon: 'none' })
-              } else {
-                try {
-                  const data = JSON.parse(r.data)
-                  if (data.code === 0 && data.data.url) {
-                    const url = (data.data.domain || '') + data.data.url
-                    this.imageUrl = url
-                    this.setVal(url)
-                  } else {
-                    uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                  }
-                } catch (e) {
-                  uni.showToast({ title: '上传失败', icon: 'none' })
-                }
-              }
-            },
-            fail: () => { uni.showToast({ title: '图片上传失败', icon: 'none' }) },
-            complete: () => { uni.hideLoading() }
-          })
+          try {
+            const uploaded = await uploadFile(p)
+            this.imageUrl = uploaded.url
+            this.setVal(uploaded.url)
+          } catch (e) {
+            uni.showToast({ title: e.message || '图片上传失败', icon: 'none' })
+          } finally {
+            uni.hideLoading()
+          }
         },
         fail: () => { uni.showToast({ title: '选择图片失败', icon: 'none' }) }
       })

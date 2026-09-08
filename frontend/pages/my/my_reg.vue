@@ -52,8 +52,8 @@
 
 <script>
 import { passportApi, userFormFields } from '../../api/index'
-import CONFIG from '../../config/index'
 import { getClientUserId, getClientUserInfo, setClientUserInfo } from '../../utils/auth'
+import { uploadFile } from '../../utils/upload'
 
 export default {
   data() {
@@ -179,33 +179,19 @@ export default {
         count: 1,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
-        success: (res) => {
+        success: async (res) => {
           const tempFilePaths = res.tempFilePaths
           if (tempFilePaths.length > 0) {
             uni.showLoading({ title: '上传中...' })
-            uni.uploadFile({
-              url: CONFIG.BASE_URL + '/upload',
-              filePath: tempFilePaths[0],
-              name: 'file',
-              success: (uploadRes) => {
-                uni.hideLoading()
-                try {
-                  const data = JSON.parse(uploadRes.data)
-                  if (data.code === 0 && data.data && data.data.url) {
-                    this.formPic = data.data.url
-                    uni.showToast({ title: '上传成功', icon: 'success' })
-                  } else {
-                    uni.showToast({ title: data.msg || '上传失败', icon: 'none' })
-                  }
-                } catch (e) {
-                  uni.showToast({ title: '上传失败', icon: 'none' })
-                }
-              },
-              fail: () => {
-                uni.hideLoading()
-                uni.showToast({ title: '上传失败', icon: 'none' })
-              }
-            })
+            try {
+              const uploaded = await uploadFile(tempFilePaths[0])
+              this.formPic = uploaded.url
+              uni.showToast({ title: '上传成功', icon: 'success' })
+            } catch (e) {
+              uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+            } finally {
+              uni.hideLoading()
+            }
           }
         }
       })

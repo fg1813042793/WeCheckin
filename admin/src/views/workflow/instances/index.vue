@@ -283,7 +283,7 @@
                 plain
                 :loading="dispatchingDueNotifications"
                 @click="dispatchDueNotifications"
-              >投递到期通知</el-button>
+              >处理待投递通知</el-button>
             </div>
             <el-table v-loading="notificationsLoading" :data="notifications" size="small" border empty-text="该实例暂无通知投递记录">
               <el-table-column label="接收人" width="110">
@@ -839,7 +839,7 @@ async function dispatchDueNotifications() {
   dispatchingDueNotifications.value = true
   try {
     const response = await adminApi.workflowNotificationDispatchDue({ limit: 100 })
-    ElMessage.success(`已处理 ${Number(response.data?.dispatched || 0)} 条到期通知`)
+    ElMessage.success(`本次处理 ${Number(response.data?.dispatched || 0)} 条待投递通知`)
     await loadNotifications()
   } finally {
     dispatchingDueNotifications.value = false

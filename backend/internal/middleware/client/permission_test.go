@@ -14,6 +14,8 @@ func TestClientRoutePermissionMapsKnownV2ClientRoutes(t *testing.T) {
 	}{
 		{"GET", "/api/v2/me/bootstrap", "client:api:bootstrap:view"},
 		{"GET", "/api/v2/me", "client:api:user:view"},
+		{"POST", "/api/v2/uploads", "client:api:upload:create"},
+		{"GET", "/api/v2/me/event-catalog", "client:api:event:view"},
 		{"POST", "/api/v2/enrollments/12/submissions", "client:api:enroll:submit"},
 		{"POST", "/api/v2/events/8/scores", "client:api:event:score"},
 		{"PUT", "/api/v2/exam-records/3/answers", "client:api:exam:answer"},
