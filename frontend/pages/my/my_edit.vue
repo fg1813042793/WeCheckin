@@ -100,7 +100,7 @@ export default {
           return
         }
         const [userRes, configRes] = await Promise.all([
-          passportApi.getMyDetail({ user_id: uid }),
+          passportApi.getMyDetail({}),
           userFormFields()
         ])
         const data = userRes.data || {}
@@ -210,12 +210,10 @@ export default {
 
       try {
         uni.showLoading({ title: '保存中...', mask: true })
-        const uid = this.getUserId()
         const res = await passportApi.editBase({
           name: this.formName,
           mobile: this.formMobile,
           pic: this.formPic,
-          user_id: uid,
           forms: formsStr
         })
         uni.hideLoading()

@@ -105,7 +105,6 @@ func (h *PassportHandler) Register(ctx context.Context, c *app.RequestContext) {
 
 // @Tags 客户端-通行证
 // @Summary 获取我的详情
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /passport/my_detail [get]
 func (h *PassportHandler) GetMyDetail(ctx context.Context, c *app.RequestContext) {
@@ -146,7 +145,6 @@ func (h *PassportHandler) Bootstrap(ctx context.Context, c *app.RequestContext) 
 // @Param name formData string false "姓名"
 // @Param mobile formData string false "手机号"
 // @Param pic formData string false "头像"
-// @Param user_id formData string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /passport/edit_base [post]
 func (h *PassportHandler) EditBase(ctx context.Context, c *app.RequestContext) {

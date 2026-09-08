@@ -48,7 +48,6 @@
 
 <script>
 import { eventApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 export default {
   data() {
     return {
@@ -80,17 +79,13 @@ export default {
     this.loadData().then(() => { uni.stopPullDownRefresh() })
   },
   methods: {
-    getUserId() {
-      return getClientUserId()
-    },
     handleSearch() { this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
     switchTab(tab) { this.cur = tab; this.keyword = ''; this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
     async loadData() {
       if ((!this.hasMore && this.page > 1) || this.loading) return
       this.loading = true
       try {
-        const uid = this.getUserId()
-        const params = { user_id: uid, page: this.page, pageSize: this.pageSize, keyword: this.keyword }
+        const params = { page: this.page, pageSize: this.pageSize, keyword: this.keyword }
         if (this.cur !== 'all') params.type = this.cur
         const res = await eventApi.myManaged(params)
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])

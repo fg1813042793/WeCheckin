@@ -62,7 +62,7 @@
               <el-switch :model-value="row.status===1" :before-change="()=>toggleStatus(row)" />
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="340" fixed="right">
+          <el-table-column label="操作" width="440" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
                 <el-button size="small" @click="goEdit(row)">编辑</el-button>

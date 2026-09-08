@@ -124,27 +124,7 @@
                   </div>
                 </el-tab-pane>
                 <el-tab-pane label="大纲" name="outline">
-                  <div class="outline-tree">
-                    <div class="tree-root">
-                      <div class="tree-root-main">
-                        <span class="tree-root-icon">📋</span>
-                        <span class="tree-root-title">{{ outlineRoot.title }}</span>
-                      </div>
-                      <span class="tree-root-count">{{ outlineRoot.children.length }}题</span>
-                    </div>
-                    <div v-if="outlineRoot.children.length" class="tree-children">
-                      <div v-for="child in outlineRoot.children" :key="child.q.id" class="tree-child" :class="{ active: child.q.id === selected?.id }" @click="selectQuestion(child.q.id, true)">
-                        <span v-if="child.q.type !== 'description'" class="tree-index">{{ child.index }}.</span>
-                        <div class="tree-child-body">
-                          <question-icon :type="child.q.type" class="tree-icon" />
-                          <span class="tree-title" :title="outlineQuestionTitle(child.q)">{{ outlineQuestionTitle(child.q) }}</span>
-                          <span v-if="child.q.required" class="tree-required">必</span>
-                          <span class="tree-type">{{ typeName(child.q.type) }}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <el-empty v-else class="outline-empty" description="暂无题目" :image-size="40" />
-                  </div>
+                  <SurveyDesignerOutline :title="form.title" :questions="questions" :selected-id="selected?.id" :invalid-ids="invalidQuestionIds" :type-name="typeName" @select="selectQuestion($event, true)" />
                 </el-tab-pane>
               </el-tabs>
             </template>
@@ -638,7 +618,7 @@
             <!-- 矩阵行设置模式 -->
             <!-- 文件上传设置 -->
             <template v-if="selectedOptIdx>=0 && selected.type==='file'">
-              <h3>文件上传设置</h3>
+              <SurveyDesignerPanelTitle title="文件上传设置" :context="selectedQuestionContext" />
               <el-form label-position="top" size="small">
                 <el-form-item label="允许类型">
                   <el-checkbox-group v-model="selected.fileTypes">
@@ -662,7 +642,7 @@
 
             <!-- 矩阵行设置 -->
             <template v-else-if="selectedOptIdx>=0 && isMatrixAll(selected.type) && selected.props?.rows?.[selectedOptIdx]">
-              <h3>矩阵行设置</h3>
+              <SurveyDesignerPanelTitle title="矩阵行设置" :context="selectedQuestionContext" />
               <el-form label-position="top" size="small">
                 <el-form-item label="行名">
                   <el-input v-model="selected.props.rows[selectedOptIdx].title" />
@@ -676,7 +656,7 @@
 
             <!-- 成员/部门设置 -->
             <template v-else-if="selectedOptIdx>=0 && (selected.type==='user'||selected.type==='dept')">
-              <h3>{{ selected.type==='user'?'成员':'部门' }}设置</h3>
+              <SurveyDesignerPanelTitle :title="`${selected.type==='user'?'成员':'部门'}设置`" :context="selectedQuestionContext" />
               <el-form label-position="top" size="small">
                 <el-form-item v-if="selected.type==='user'" label="成员名称">
                   <el-input v-model="selected.props.options[selectedOptIdx].label" placeholder="输入成员名称" />
@@ -708,7 +688,7 @@
 
             <!-- 选项设置模式 -->
             <template v-else-if="selectedOptIdx>=0 && selected.props?.options?.[selectedOptIdx]">
-              <h3>选项设置-{{ stripHtml(selected.props.options[selectedOptIdx].label || '') }}</h3>
+              <SurveyDesignerPanelTitle :title="`选项设置 - ${stripHtml(selected.props.options[selectedOptIdx].label || '')}`" :context="selectedQuestionContext" />
               <el-form label-position="top" size="small">
                 <el-form-item label="选项值"><el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="默认同选项名称" /></el-form-item>
 
@@ -739,7 +719,7 @@
 
             <!-- 多项/横向填空子字段设置 -->
             <template v-else-if="selectedOptIdx>=0 && (selected.type==='multiInput'||selected.type==='hInput') && selected.props?.fields?.[selectedOptIdx]">
-              <h3>字段设置 - {{ selected.props.fields[selectedOptIdx].label }}</h3>
+              <SurveyDesignerPanelTitle :title="`字段设置 - ${selected.props.fields[selectedOptIdx].label}`" :context="selectedQuestionContext" />
               <el-form label-position="top" size="small">
                 <el-form-item label="字段名">
                   <el-input v-model="selected.props.fields[selectedOptIdx].label" placeholder="输入字段名" />
@@ -765,7 +745,7 @@
 
             <!-- 评分/NPS 设置（独立面板，点击评分输入时弹出） -->
             <template v-else-if="selectedOptIdx>=0 && (selected.type==='rating'||selected.type==='nps')">
-            <h3>{{ selected.type==='rating'?'评分':'NPS' }}设置</h3>
+            <SurveyDesignerPanelTitle :title="`${selected.type==='rating'?'评分':'NPS'}设置`" :context="selectedQuestionContext" />
             <el-form label-position="top" size="small">
               <el-form-item label="最大分值">
                 <el-input-number v-model="selected.props.maxRating" :min="2" :max="10" :step="1" style="width:100%" />
@@ -784,7 +764,7 @@
 
             <!-- 题目设置模式 -->
             <template v-else>
-            <h3>{{ typeName(selected.type) }}设置</h3>
+            <SurveyDesignerPanelTitle :title="`${typeName(selected.type)}设置`" :context="selectedQuestionContext" />
             <el-form label-position="top" size="small">
 
               <!-- ==== 通用基础字段 ==== -->
@@ -942,7 +922,7 @@
             </template>
           </div>
           <div v-else-if="showSurveySettings" class="props-panel">
-            <h3>问卷设置</h3>
+            <SurveyDesignerPanelTitle title="问卷设置" :context="form.title || '未命名问卷'" />
             <div class="setting-row"><span class="setting-label">标题</span><el-input v-model="form.title" placeholder="问卷标题" style="flex:1" /></div>
             <div class="setting-row" style="align-items:flex-start"><span class="setting-label" style="margin-top:4px">描述</span><el-input v-model="form.description" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="问卷描述" style="flex:1" /></div>
             <div class="setting-row"><span class="setting-label">模式</span><span>{{ form.mode === 'exam' ? '考试' : '问卷' }}</span></div>
@@ -1530,6 +1510,8 @@ import DraggableList from './formkit/DraggableList.vue'
 import QuestionIcon from './formkit/QuestionIcon.vue'
 import QuestionPreview from './formkit/QuestionPreview.vue'
 import SurveyDesignerIssues from './components/SurveyDesignerIssues.vue'
+import SurveyDesignerOutline from './components/SurveyDesignerOutline.vue'
+import SurveyDesignerPanelTitle from './components/SurveyDesignerPanelTitle.vue'
 import { categoryDefs, FALLBACK_TYPES } from './survey-designer-question-types'
 import { collectSurveyDesignerIssues, isValidRedirectUrl, type SurveyDesignerIssue } from './survey-designer-validation'
 import { useSurveyDesignerHistory } from './composables/useSurveyDesignerHistory'
@@ -2150,26 +2132,6 @@ async function confirmUploadBank() {
   } finally {
     bankDialog.saving = false
   }
-}
-
-interface OutlineNode {
-  key: string
-  title: string
-  isRoot?: boolean
-  children: { q: any; index: number }[]
-}
-const outlineRoot = computed<OutlineNode>(() => ({
-  key: 'root',
-  title: form.title || '未命名问卷',
-  isRoot: true,
-  children: questions.value
-    .filter((q: any) => q.type !== 'divider' && q.type !== 'pagination' && q.type !== 'description' && q.type !== 'questionSet')
-    .map((q: any, i: number) => ({ q, index: i + 1 }))
-}))
-
-function outlineQuestionTitle(q: any) {
-  const title = firstLine(stripHtml(String(q?.title || ''))).replace(/\s+/g, ' ').trim()
-  return title || '未命名'
 }
 
 function bankQuestionTitle(q: any) {
@@ -3005,6 +2967,12 @@ const groupedBySub = computed(() => {
 interface Question { id: string; type: string; title: string; description?: string; required: boolean; placeholder?: string; props?: any; validate?: any[]; logic?: any[]; calcValue?: any; readOnly?: boolean; dataType?: string; examScore?: number; examCorrectAnswer?: string; examAnalysis?: string; mediaType?: string; mediaUrl?: string; mediaWidth?: string; mediaAlign?: string; [key: string]: any }
 const questions = ref<Question[]>([])
 const selected = ref<Question | null>(null)
+const selectedQuestionContext = computed(() => {
+  if (!selected.value) return ''
+  const index = questions.value.findIndex(question => question.id === selected.value?.id)
+  const title = firstLine(stripHtmlTag(String(selected.value.title || ''))).replace(/\s+/g, ' ').trim() || '未命名'
+  return `${index >= 0 ? `第 ${index + 1} 项` : '当前项'} · ${title}`
+})
 
 let idCounter = 0
 
@@ -3955,15 +3923,6 @@ onBeforeUnmount(() => {
   background:#fff; overflow-y:auto; box-shadow:-2px 0 14px rgba(15,23,42,0.04);
 }
 .props-panel { padding:14px; min-height:100%; box-sizing:border-box; }
-.props-panel h3 {
-  position:sticky; top:0; z-index:2; font-size:14px; font-weight:650; color:#1f2937;
-  margin:-14px -14px 12px; padding:14px 14px 12px; border-bottom:1px solid var(--designer-border);
-  background:rgba(255,255,255,0.96); backdrop-filter:saturate(120%) blur(8px);
-}
-.props-panel h3::before {
-  content:''; display:inline-block; width:3px; height:14px; border-radius:999px;
-  background:var(--designer-accent); margin-right:8px; vertical-align:-2px;
-}
 .props-panel :deep(.el-form-item) { margin-bottom:10px; }
 .props-panel :deep(.el-form-item__label) { font-size:12px; color:#667085; padding-bottom:4px; font-weight:600; line-height:1.2; }
 .props-panel :deep(.el-divider) { margin:12px 0; }
@@ -4117,43 +4076,6 @@ onBeforeUnmount(() => {
 .bank-list :deep(.el-empty) { padding:34px 0; }
 @keyframes bank-spin { to { transform:rotate(360deg); } }
 
-/* 大纲树 */
-.outline-tree { height:100%; min-height:0; padding:6px 7px 10px; display:flex; flex-direction:column; background:#fff; box-sizing:border-box; }
-.tree-root {
-  display:flex; align-items:center; justify-content:space-between; gap:8px; flex-shrink:0;
-  padding:9px 8px 10px; border-bottom:1px solid var(--designer-border); margin-bottom:6px; background:#fff;
-}
-.tree-root-main { display:flex; align-items:center; gap:8px; min-width:0; }
-.tree-root-icon { font-size:16px; flex-shrink:0; }
-.tree-root-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:650; font-size:13px; color:#1f2937; }
-.tree-root-count {
-  flex-shrink:0; font-size:11px; color:var(--designer-accent); font-weight:600;
-  background:var(--designer-accent-soft); border:1px solid var(--designer-accent-border);
-  border-radius:999px; padding:1px 8px; line-height:18px;
-}
-.tree-children {
-  position:relative; flex:1; min-height:0; overflow-y:auto; padding:4px 2px 2px 18px;
-  display:flex; flex-direction:column; gap:3px;
-}
-.tree-children::before {
-  content:''; position:absolute; left:9px; top:10px; bottom:10px;
-  border-left:1px dashed #cbd5e1; pointer-events:none;
-}
-.tree-child {
-  display:flex; align-items:center; gap:7px; cursor:pointer; border-radius:8px; min-height:34px;
-  padding:5px 6px; border:1px solid transparent; position:relative;
-  transition:background 0.12s, border-color 0.12s, box-shadow 0.12s;
-}
-.tree-child::after {
-  content:''; position:absolute; left:-9px; top:50%; width:9px;
-  border-top:1px dashed #cbd5e1; transform:translateY(-50%); pointer-events:none;
-}
-.tree-child:hover { background:#f8fbff; border-color:#dbeafe; }
-.tree-child.active { background:var(--designer-accent-soft); border-color:var(--designer-accent-border); box-shadow:none; }
-.tree-child.active::before {
-  content:''; position:absolute; left:0; top:7px; bottom:7px; width:3px;
-  border-radius:999px; background:var(--designer-accent);
-}
 .chart-type-btns { display:flex; gap:2px; flex-shrink:0; }
 .chart-type-btns button {
   width:26px; height:26px; border:1px solid #e8e8e8; border-radius:4px; background:#fff;
@@ -4161,42 +4083,12 @@ onBeforeUnmount(() => {
 }
 .chart-type-btns button:hover { border-color:var(--designer-accent); color:var(--designer-accent); }
 .chart-type-btns button.active { background:var(--designer-accent); border-color:var(--designer-accent); color:#fff; }
-.tree-child-body {
-  display:flex; align-items:center; gap:6px; flex:1; min-width:0;
-}
-.tree-child.active .tree-child-body { font-weight:500; }
-.tree-index {
-  display:flex; align-items:center; justify-content:flex-end; flex:0 0 26px; height:22px;
-  color:#98a2b3; font-size:12px; font-weight:600; line-height:1;
-}
-.tree-child.active .tree-index { color:var(--designer-accent); }
-.tree-icon { flex-shrink:0; font-size:13px; width:16px; text-align:center; color:#98a2b3; }
-.tree-child:hover .tree-icon,
-.tree-child.active .tree-icon { color:var(--designer-accent); }
-.tree-title {
-  flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  color:#344054; font-size:13px; line-height:20px;
-}
-.tree-child.active .tree-title { color:#1f2937; font-weight:650; }
-.tree-type {
-  max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font-size:10px; color:#667085; padding:1px 6px; border-radius:999px; background:#f2f4f7; flex-shrink:0; line-height:16px;
-}
-.tree-required {
-  display:flex; align-items:center; justify-content:center; flex:0 0 16px; height:16px;
-  font-size:10px; color:#dc6803; border-radius:999px; background:#fff7ed;
-}
-.tree-child:hover .tree-type,
-.tree-child.active .tree-type { background:var(--designer-accent-soft); color:var(--designer-accent); }
-.outline-empty { flex:1; display:flex; align-items:center; justify-content:center; }
-
 .survey-sidebar-panel-tabs-content::-webkit-scrollbar,
 .survey-setting-panel::-webkit-scrollbar,
 .survey-main-panel-content::-webkit-scrollbar,
 .setting-wrapper::-webkit-scrollbar,
 .logic-editor-area::-webkit-scrollbar,
-.logic-sidebar::-webkit-scrollbar,
-.tree-children::-webkit-scrollbar {
+.logic-sidebar::-webkit-scrollbar {
   width:8px;
   height:8px;
 }
@@ -4205,8 +4097,7 @@ onBeforeUnmount(() => {
 .survey-main-panel-content::-webkit-scrollbar-thumb,
 .setting-wrapper::-webkit-scrollbar-thumb,
 .logic-editor-area::-webkit-scrollbar-thumb,
-.logic-sidebar::-webkit-scrollbar-thumb,
-.tree-children::-webkit-scrollbar-thumb {
+.logic-sidebar::-webkit-scrollbar-thumb {
   background:#cfd6e2;
   border-radius:999px;
   border:2px solid transparent;
@@ -4217,8 +4108,7 @@ onBeforeUnmount(() => {
 .survey-main-panel-content::-webkit-scrollbar-thumb:hover,
 .setting-wrapper::-webkit-scrollbar-thumb:hover,
 .logic-editor-area::-webkit-scrollbar-thumb:hover,
-.logic-sidebar::-webkit-scrollbar-thumb:hover,
-.tree-children::-webkit-scrollbar-thumb:hover {
+.logic-sidebar::-webkit-scrollbar-thumb:hover {
   background:#aeb8c8;
   border:2px solid transparent;
   background-clip:content-box;

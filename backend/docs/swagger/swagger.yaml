@@ -10574,10 +10574,6 @@ paths:
         in: query
         name: pageSize
         type: integer
-      - description: 用户 ID
-        in: query
-        name: user_id
-        type: string
       - description: 关键词
         in: query
         name: keyword
@@ -10600,10 +10596,6 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -10632,10 +10624,6 @@ paths:
         name: day
         required: true
         type: string
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -10661,10 +10649,6 @@ paths:
         name: day
         required: true
         type: string
-      - description: 用户ID
-        in: formData
-        name: user_id
-        type: string
       - description: 表单数据
         in: formData
         name: forms
@@ -10672,10 +10656,6 @@ paths:
       - description: 报名项目 ID
         in: formData
         name: enrollId
-        type: string
-      - description: 会话令牌
-        in: formData
-        name: token
         type: string
       responses:
         "200":
@@ -10697,11 +10677,6 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户ID
-        in: formData
-        name: user_id
-        required: true
-        type: string
       - description: 打卡表单数据JSON
         in: formData
         name: forms
@@ -10709,10 +10684,6 @@ paths:
       - description: 报名项目 ID
         in: formData
         name: enrollId
-        type: string
-      - description: 会话令牌
-        in: formData
-        name: token
         type: string
       responses:
         "200":
@@ -10735,10 +10706,6 @@ paths:
         in: query
         name: pageSize
         type: integer
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       - description: 搜索关键词
         in: query
         name: keyword
@@ -10763,10 +10730,6 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -10810,11 +10773,6 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户ID
-        in: formData
-        name: user_id
-        required: true
-        type: string
       - description: 动态标题
         in: formData
         name: title
@@ -10868,18 +10826,9 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户ID
-        in: formData
-        name: user_id
-        required: true
-        type: string
       - description: 报名表单数据(JSON)
         in: formData
         name: forms
-        type: string
-      - description: 会话令牌
-        in: formData
-        name: token
         type: string
       responses:
         "200":
@@ -11180,11 +11129,6 @@ paths:
       - API v2-公开接口-首页
   /api/v2/me:
     get:
-      parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -11210,10 +11154,6 @@ paths:
       - description: 头像
         in: formData
         name: pic
-        type: string
-      - description: 用户ID
-        in: formData
-        name: user_id
         type: string
       - description: 表单数据（JSON）
         in: formData
@@ -11244,10 +11184,6 @@ paths:
   /api/v2/me/enrollment-calendar:
     get:
       parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       - description: 年月 (2026-06)
         in: query
         name: month
@@ -11265,10 +11201,6 @@ paths:
   /api/v2/me/enrollment-day-records:
     get:
       parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       - description: 日期 (2026-06-01)
         in: query
         name: day
@@ -11286,10 +11218,6 @@ paths:
   /api/v2/me/enrollment-records:
     get:
       parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       - description: 页码
         in: query
         name: page
@@ -11310,11 +11238,6 @@ paths:
       - API v2-客户端-报名
   /api/v2/me/enrollment-users:
     get:
-      parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -11328,14 +11251,6 @@ paths:
   /api/v2/me/enrollments:
     get:
       parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
-      - description: ID
-        in: query
-        name: id
-        type: string
       - description: 报名项目 ID
         in: query
         name: enrollId
@@ -11358,14 +11273,55 @@ paths:
       summary: 查询 /api/v2/me/enrollments
       tags:
       - API v2-客户端-报名
-  /api/v2/me/event-roles:
+  /api/v2/me/event-catalog:
     get:
       parameters:
-      - description: 用户ID
+      - description: 页码
         in: query
-        name: user_id
-        required: true
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
         type: string
+      - description: 活动类型
+        in: query
+        name: type
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询当前用户可见的活动目录
+      tags:
+      - API v2-客户端-赛事活动
+  /api/v2/me/event-catalog/{id}:
+    get:
+      parameters:
+      - description: 活动 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 查询当前用户可见的活动详情
+      tags:
+      - API v2-客户端-赛事活动
+  /api/v2/me/event-roles:
+    get:
       responses:
         "200":
           description: OK
@@ -11379,11 +11335,6 @@ paths:
   /api/v2/me/events:
     get:
       parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        required: true
-        type: string
       - description: 活动类型
         in: query
         name: type
@@ -11429,10 +11380,6 @@ paths:
         in: query
         name: typ
         type: string
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -11466,10 +11413,6 @@ paths:
         in: formData
         name: path
         type: string
-      - description: 用户ID
-        in: formData
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -11489,10 +11432,6 @@ paths:
         in: path
         name: oid
         required: true
-        type: string
-      - description: 用户ID
-        in: formData
-        name: user_id
         type: string
       responses:
         "200":
@@ -11516,10 +11455,6 @@ paths:
         in: query
         name: typ
         required: true
-        type: string
-      - description: 用户ID
-        in: query
-        name: user_id
         type: string
       responses:
         "200":
@@ -11546,11 +11481,6 @@ paths:
   /api/v2/me/managed-events:
     get:
       parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        required: true
-        type: string
       - description: 活动类型
         in: query
         name: type
@@ -11603,11 +11533,6 @@ paths:
       - API v2-客户端-账户
   /api/v2/me/survey-responses:
     get:
-      parameters:
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -11626,10 +11551,6 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户ID
-        in: query
-        name: user_id
-        type: string
       responses:
         "200":
           description: OK
@@ -11654,10 +11575,6 @@ paths:
       - description: 关键词
         in: query
         name: keyword
-        type: string
-      - description: 用户 ID
-        in: query
-        name: user_id
         type: string
       responses:
         "200":
@@ -11812,6 +11729,26 @@ paths:
       summary: 提交 /api/v2/surveys/{id}/responses
       tags:
       - API v2-公开接口-问卷
+  /api/v2/uploads:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 图片或视频文件（最大 20MB）
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - ClientToken: []
+      summary: 上传客户端图片或视频
+      tags:
+      - API v2-客户端-文件上传
   /api/v2/user-form-fields:
     get:
       responses:

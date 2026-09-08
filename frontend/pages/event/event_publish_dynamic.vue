@@ -49,7 +49,6 @@
 
 <script>
 import { eventApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 import { uploadFile } from '../../utils/upload'
 
 export default {
@@ -69,9 +68,6 @@ export default {
     }
   },
   methods: {
-    getUserId() {
-      return getClientUserId()
-    },
     async chooseImage() {
       const remain = 9 - this.images.length
       const res = await new Promise((resolve) => {
@@ -126,10 +122,8 @@ export default {
       }
       this.submitting = true
       try {
-        const uid = this.getUserId()
         await eventApi.dynamicInsert({
           event_id: this.eventId,
-          user_id: uid,
           title: this.title,
           content: this.content,
           images: JSON.stringify(this.images),

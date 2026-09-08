@@ -12,6 +12,13 @@ const scanTargets = [
 ]
 const sourceExts = new Set(['.vue', '.js', '.ts'])
 const directAuthStoragePattern = /uni\.(getStorageSync|setStorageSync|removeStorageSync)\(['"](token|userInfo|admin_token|admin_info)['"]\)/g
+const clientIdentityParamPattern = /\buser_id\s*:/
+const clientIdentityParamAllowlist = new Set([
+  'pages/index/index.vue',
+  'pages/login/login.vue',
+  'pages/login/login_pwd.vue',
+  'pages/my/my_reg.vue'
+])
 
 if (!existsSync(authPath)) {
   throw new Error('frontend auth wrapper missing: utils/auth.js')
@@ -30,13 +37,17 @@ function collectFiles(path) {
 const violations = []
 for (const file of scanTargets.flatMap(collectFiles)) {
   if (file === authPath) continue
+  const relativeFile = file.replace(root + '/', '')
   const source = readFileSync(file, 'utf8')
   const lines = source.split(/\r?\n/)
   lines.forEach((line, index) => {
     if (directAuthStoragePattern.test(line)) {
-      violations.push(`${file.replace(root + '/', '')}:${index + 1}: ${line.trim()}`)
+      violations.push(`${relativeFile}:${index + 1}: ${line.trim()}`)
     }
     directAuthStoragePattern.lastIndex = 0
+    if (clientIdentityParamPattern.test(line) && !clientIdentityParamAllowlist.has(relativeFile)) {
+      violations.push(`${relativeFile}:${index + 1}: authenticated client requests must not submit user_id`)
+    }
   })
 }
 

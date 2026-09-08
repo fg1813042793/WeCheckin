@@ -94,7 +94,6 @@
 
 <script>
 import { enrollApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 import { uploadFile } from '../../utils/upload'
 
 export default {
@@ -262,21 +261,17 @@ export default {
       const today = new Date()
       const dayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
 
-      const uid = getClientUserId()
-
       this.submitting = true
       try {
         if (this.mode === 'enroll') {
           await enrollApi.enrollSubmit({
             enroll_id: this.enrollId,
-            user_id: uid,
             forms: JSON.stringify(forms)
           })
           uni.showToast({ title: '报名成功', icon: 'success' })
         } else {
           await enrollApi.join({
             enroll_id: this.enrollId,
-            user_id: uid,
             day: dayStr,
             forms: JSON.stringify(forms)
           })

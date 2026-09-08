@@ -28,7 +28,6 @@
 
 <script>
 import { newsApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -52,13 +51,9 @@ export default {
   },
 
   methods: {
-    getUserId() {
-      return getClientUserId()
-    },
-
     async loadData() {
       try {
-        const res = await newsApi.getList({ cateId: this.id, user_id: this.getUserId() })
+        const res = await newsApi.getList({ cateId: this.id })
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])
         if (this.page === 1) {
           this.list = data

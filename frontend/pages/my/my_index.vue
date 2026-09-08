@@ -64,7 +64,6 @@ import {
   clearClientAuth,
   getAdminAuth,
   getClientAuth,
-  getClientUserId,
   setClientUserInfo
 } from '../../utils/auth'
 import {
@@ -129,8 +128,7 @@ export default {
       const { token, info: local } = getClientAuth()
       if (token && local && local.id) {
         try {
-          const uid = getClientUserId()
-          const res = await passportApi.getMyDetail({ user_id: uid })
+          const res = await passportApi.getMyDetail({})
           const user = res.data && res.data.user
           if (user && user.id) {
             const domain = res.data.domain || ''
@@ -154,8 +152,7 @@ export default {
       if (!token || !local) return
       if (!hasClientMenuPermission('client:menu:event_manage')) return
       try {
-        const uid = getClientUserId()
-        const res = await eventApi.myRoles({ user_id: uid })
+        const res = await eventApi.myRoles({})
         if (res.data) {
           this.hasEventRole = res.data.hasOrganizer || res.data.hasAssistant || res.data.hasReferee
         }

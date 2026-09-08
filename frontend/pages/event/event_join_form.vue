@@ -44,8 +44,7 @@ export default {
     },
     async loadEvent() {
       try {
-        const uid = this.getUserId()
-        const res = await eventApi.getDetail({ id: this.id, user_id: uid })
+        const res = await eventApi.getDetail({ id: this.id })
         this.event = res.data || {}
         const isOld = isOldSchema(this.event.forms)
         this.isOld = isOld
@@ -76,7 +75,7 @@ export default {
         }
         // 老格式 / 新格式都直接序列化
         const forms = serializeAnswers(answersToSubmit)
-        await eventApi.participate({ event_id: this.id, user_id: uid, forms })
+        await eventApi.participate({ event_id: this.id, forms })
         uni.showToast({ title: '报名成功', icon: 'success' })
         setTimeout(() => { uni.navigateBack() }, 1500)
       } catch (e) {

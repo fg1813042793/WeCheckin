@@ -25,7 +25,6 @@
 
 <script>
 import { eventApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 export default {
   data() {
     return {
@@ -40,16 +39,12 @@ export default {
   onLoad() { this.loadData() },
   onReachBottom() { this.loadMore() },
   methods: {
-    getUserId() {
-      return getClientUserId()
-    },
     switchStatus(s) { this.status = s; this.page = 1; this.list = []; this.hasMore = true; this.loadData() },
     async loadData() {
       if (this.loading) return
       this.loading = true
       try {
-        const uid = this.getUserId()
-        const params = { page: this.page, pageSize: this.pageSize, user_id: uid, type: '1' }
+        const params = { page: this.page, pageSize: this.pageSize, type: '1' }
         if (this.status !== '') params.status = this.status
         const res = await eventApi.myParticipate(params)
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])

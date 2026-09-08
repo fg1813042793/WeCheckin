@@ -13956,12 +13956,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "用户 ID",
-                        "name": "user_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
                         "description": "关键词",
                         "name": "keyword",
                         "in": "query"
@@ -13995,12 +13989,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -14045,12 +14033,6 @@ const docTemplate = `{
                         "name": "day",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -14094,12 +14076,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
                         "description": "表单数据",
                         "name": "forms",
                         "in": "formData"
@@ -14108,12 +14084,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "报名项目 ID",
                         "name": "enrollId",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "会话令牌",
-                        "name": "token",
                         "in": "formData"
                     }
                 ],
@@ -14151,13 +14121,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "打卡表单数据JSON",
                         "name": "forms",
                         "in": "formData"
@@ -14166,12 +14129,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "报名项目 ID",
                         "name": "enrollId",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "会话令牌",
-                        "name": "token",
                         "in": "formData"
                     }
                 ],
@@ -14202,12 +14159,6 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "每页条数",
                         "name": "pageSize",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
                         "in": "query"
                     },
                     {
@@ -14246,12 +14197,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -14324,13 +14269,6 @@ const docTemplate = `{
                         "description": "id",
                         "name": "id",
                         "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData",
                         "required": true
                     },
                     {
@@ -14420,21 +14358,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "报名表单数据(JSON)",
                         "name": "forms",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "会话令牌",
-                        "name": "token",
                         "in": "formData"
                     }
                 ],
@@ -14911,14 +14836,6 @@ const docTemplate = `{
                     "API v2-客户端-账户"
                 ],
                 "summary": "查询 /api/v2/me",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -14958,12 +14875,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "头像",
                         "name": "pic",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
                         "in": "formData"
                     },
                     {
@@ -15018,12 +14929,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
                         "description": "年月 (2026-06)",
                         "name": "month",
                         "in": "query"
@@ -15053,12 +14958,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
                         "description": "日期 (2026-06-01)",
                         "name": "day",
                         "in": "query"
@@ -15086,12 +14985,6 @@ const docTemplate = `{
                 ],
                 "summary": "查询 /api/v2/me/enrollment-records",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    },
                     {
                         "type": "string",
                         "description": "页码",
@@ -15126,14 +15019,6 @@ const docTemplate = `{
                     "API v2-客户端-报名"
                 ],
                 "summary": "查询 /api/v2/me/enrollment-users",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -15156,18 +15041,6 @@ const docTemplate = `{
                 ],
                 "summary": "查询 /api/v2/me/enrollments",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "query"
-                    },
                     {
                         "type": "string",
                         "description": "报名项目 ID",
@@ -15197,6 +15070,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/me/event-catalog": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-赛事活动"
+                ],
+                "summary": "查询当前用户可见的活动目录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "活动类型",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/me/event-catalog/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端-赛事活动"
+                ],
+                "summary": "查询当前用户可见的活动详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "活动 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/me/event-roles": {
             "get": {
                 "security": [
@@ -15208,15 +15158,6 @@ const docTemplate = `{
                     "API v2-客户端-赛事活动"
                 ],
                 "summary": "查询 /api/v2/me/event-roles",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -15239,13 +15180,6 @@ const docTemplate = `{
                 ],
                 "summary": "查询 /api/v2/me/events",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "活动类型",
@@ -15319,12 +15253,6 @@ const docTemplate = `{
                         "description": "类型",
                         "name": "typ",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -15376,12 +15304,6 @@ const docTemplate = `{
                         "description": "路径",
                         "name": "path",
                         "in": "formData"
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -15419,12 +15341,6 @@ const docTemplate = `{
                         "name": "typ",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -15458,12 +15374,6 @@ const docTemplate = `{
                         "name": "oid",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -15509,13 +15419,6 @@ const docTemplate = `{
                 ],
                 "summary": "查询 /api/v2/me/managed-events",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "活动类型",
@@ -15601,14 +15504,6 @@ const docTemplate = `{
                     "API v2-客户端-问卷"
                 ],
                 "summary": "查询 /api/v2/me/survey-responses",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -15637,12 +15532,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -15683,12 +15572,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "关键词",
                         "name": "keyword",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "用户 ID",
-                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -15917,6 +15800,39 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/swagger.PublicSurveySubmissionRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/uploads": {
+            "post": {
+                "security": [
+                    {
+                        "ClientToken": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "API v2-客户端-文件上传"
+                ],
+                "summary": "上传客户端图片或视频",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "图片或视频文件（最大 20MB）",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {

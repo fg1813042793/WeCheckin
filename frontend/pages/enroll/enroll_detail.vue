@@ -128,7 +128,6 @@
 
 <script>
 import { enrollApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -205,8 +204,7 @@ export default {
   methods: {
     async loadDetail() {
       try {
-        const uid = getClientUserId()
-        const res = await enrollApi.detail({ id: this.id, user_id: uid })
+        const res = await enrollApi.detail({ id: this.id })
         if (!res.data) {
           this.isLoad = null
           return

@@ -11,7 +11,6 @@ import (
 // MyResponses GET /survey/my_responses
 // @Tags 客户端-问卷
 // @Summary 我的答卷列表
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /survey/my_responses [get]
 func (h *ClientSurveyHandler) MyResponses(ctx context.Context, c *app.RequestContext) {
@@ -33,7 +32,6 @@ func (h *ClientSurveyHandler) MyResponses(ctx context.Context, c *app.RequestCon
 // @Tags 客户端-问卷
 // @Summary 查看答卷详情
 // @Param id query int true "答卷ID"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /survey/my_response [get]
 func (h *ClientSurveyHandler) MyResponseDetail(ctx context.Context, c *app.RequestContext) {

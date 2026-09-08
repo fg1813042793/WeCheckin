@@ -26,7 +26,6 @@
 
 <script>
 import { favApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -51,14 +50,9 @@ export default {
   },
 
   methods: {
-    getUserId() {
-      return getClientUserId()
-    },
-
     async loadData() {
       try {
-        const uid = this.getUserId()
-        const res = await favApi.list({ user_id: uid })
+        const res = await favApi.list({})
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])
         this.list = data
       } catch (e) {

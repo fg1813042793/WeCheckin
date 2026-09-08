@@ -204,7 +204,6 @@ func swaggerV2MeBootstrapGet201() {}
 // @Tags API v2-客户端-账户
 // @Summary 查询 /api/v2/me
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me [get]
 func swaggerV2MeGet21() {}
@@ -378,7 +377,6 @@ func swaggerV2MeManagedEventsGet36() {}
 // @Tags API v2-客户端-问卷
 // @Summary 查询 /api/v2/me/survey-responses
 // @Security ClientToken
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/survey-responses [get]
 func swaggerV2MeSurveyResponsesGet37() {}
@@ -387,7 +385,6 @@ func swaggerV2MeSurveyResponsesGet37() {}
 // @Summary 查询 /api/v2/me/survey-responses/{id}
 // @Security ClientToken
 // @Param id path int true "id"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/me/survey-responses/{id} [get]
 func swaggerV2MeSurveyResponsesIdGet38() {}
@@ -405,7 +402,6 @@ func swaggerV2MeExamRecordsGet39() {}
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
 // @Param keyword query string false "关键词"
-// @Param user_id query string false "用户 ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/news [get]
 func swaggerV2NewsGet40() {}
@@ -430,7 +426,6 @@ func swaggerV2NewsIdGet42() {}
 // @Security ClientToken
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
-// @Param user_id query string false "用户 ID"
 // @Param keyword query string false "关键词"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/enrollments [get]
@@ -440,7 +435,6 @@ func swaggerV2EnrollmentsGet43() {}
 // @Summary 查询 /api/v2/enrollments/{id}
 // @Security ClientToken
 // @Param id path int true "id"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/enrollments/{id} [get]
 func swaggerV2EnrollmentsIdGet44() {}
@@ -451,7 +445,6 @@ func swaggerV2EnrollmentsIdGet44() {}
 // @Param id path int true "id"
 // @Param enroll_id query string true "打卡ID"
 // @Param day query string true "日期"
-// @Param user_id query string false "用户ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/enrollments/{id}/join-days [get]
 func swaggerV2EnrollmentsIdJoinDaysGet45() {}
@@ -462,10 +455,8 @@ func swaggerV2EnrollmentsIdJoinDaysGet45() {}
 // @Accept application/x-www-form-urlencoded
 // @Param id path int true "id"
 // @Param day formData string true "日期"
-// @Param user_id formData string false "用户ID"
 // @Param forms formData string false "表单数据"
 // @Param enrollId formData string false "报名项目 ID"
-// @Param token formData string false "会话令牌"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/enrollments/{id}/joins [post]
 func swaggerV2EnrollmentsIdJoinsPost46() {}
@@ -475,10 +466,8 @@ func swaggerV2EnrollmentsIdJoinsPost46() {}
 // @Security ClientToken
 // @Accept application/x-www-form-urlencoded
 // @Param id path int true "id"
-// @Param user_id formData string true "用户ID"
 // @Param forms formData string false "打卡表单数据JSON"
 // @Param enrollId formData string false "报名项目 ID"
-// @Param token formData string false "会话令牌"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/enrollments/{id}/submissions [post]
 func swaggerV2EnrollmentsIdSubmissionsPost47() {}
@@ -488,9 +477,7 @@ func swaggerV2EnrollmentsIdSubmissionsPost47() {}
 // @Security ClientToken
 // @Accept application/x-www-form-urlencoded
 // @Param id path int true "id"
-// @Param user_id formData string true "用户ID"
 // @Param forms formData string false "报名表单数据(JSON)"
-// @Param token formData string false "会话令牌"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/events/{id}/participants [post]
 func swaggerV2EventsIdParticipantsPost48() {}
@@ -518,7 +505,6 @@ func swaggerV2EventsIdDynamicsGet50() {}
 // @Security ClientToken
 // @Accept application/x-www-form-urlencoded
 // @Param id path int true "id"
-// @Param user_id formData string true "用户ID"
 // @Param title formData string false "动态标题"
 // @Param content formData string false "动态内容"
 // @Param images formData string false "图片列表(JSON)"

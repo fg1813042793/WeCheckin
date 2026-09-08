@@ -83,7 +83,7 @@ export default {
 
     async loadProfile() {
       try {
-        const res = await passportApi.getMyDetail({ user_id: this.userId })
+        const res = await passportApi.getMyDetail({})
         const data = res.data || {}
         if (data && data.id) {
           this.isEdit = true
@@ -215,7 +215,6 @@ export default {
             name: this.formName,
             mobile: this.formMobile,
             pic: this.formPic,
-            user_id: uid,
             forms: formsStr
           })
           const userInfo = getClientUserInfo() || {}

@@ -42,7 +42,6 @@
 
 <script>
 import { eventApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -64,9 +63,6 @@ export default {
     this.loadData().then(() => { uni.stopPullDownRefresh() })
   },
   methods: {
-    getUserId() {
-      return getClientUserId()
-    },
     switchTab(t) {
       this.tab = t
       this.page = 1
@@ -78,12 +74,11 @@ export default {
       if ((!this.hasMore && this.page > 1) || this.loading) return
       this.loading = true
       try {
-        const uid = this.getUserId()
         let res
         if (this.tab === 'today') {
-          res = await eventApi.myList({ page: this.page, pageSize: this.pageSize, user_id: uid, type: '2' })
+          res = await eventApi.myList({ page: this.page, pageSize: this.pageSize, type: '2' })
         } else {
-          res = await eventApi.myList({ page: this.page, pageSize: this.pageSize, user_id: uid, type: '2' })
+          res = await eventApi.myList({ page: this.page, pageSize: this.pageSize, type: '2' })
         }
         const data = Array.isArray(res.data) ? res.data : (res.data.list || [])
         let filtered = data

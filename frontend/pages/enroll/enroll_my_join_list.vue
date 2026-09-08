@@ -48,7 +48,6 @@
 
 <script>
 import { enrollApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -76,8 +75,7 @@ export default {
       if (this.loading || (!this.hasMore && this.page > 1)) return
       this.loading = true
       try {
-        const userID = getClientUserId()
-        const res = await enrollApi.myJoinList({ enrollId: this.id, page: this.page, pageSize: this.pageSize, user_id: userID })
+        const res = await enrollApi.myJoinList({ enrollId: this.id, page: this.page, pageSize: this.pageSize })
         const data = res.data ? (Array.isArray(res.data) ? res.data : (res.data.list || [])) : []
         if (this.page === 1) {
           this.list = data

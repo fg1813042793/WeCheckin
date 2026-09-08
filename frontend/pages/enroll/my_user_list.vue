@@ -88,7 +88,6 @@
 
 <script>
 import { enrollApi } from '../../api/index'
-import { getClientUserId } from '../../utils/auth'
 
 export default {
   data() {
@@ -153,14 +152,9 @@ export default {
       }
     },
 
-    getUserId() {
-      return getClientUserId()
-    },
-
     async loadData() {
       try {
-        const uid = this.getUserId()
-        const taskRes = await enrollApi.myUserList({ user_id: uid })
+        const taskRes = await enrollApi.myUserList({})
         this.tasks = Array.isArray(taskRes.data) ? taskRes.data : (taskRes.data.list || [])
         this.calcStats()
         this.loadCalendar()
@@ -171,9 +165,8 @@ export default {
 
     async loadCalendar() {
       try {
-        const uid = this.getUserId()
         const month = this.calendarYear + '-' + String(this.calendarMonth).padStart(2, '0')
-        const res = await enrollApi.myCalendar({ user_id: uid, month })
+        const res = await enrollApi.myCalendar({ month })
         const days = new Set()
         if (res.data) {
           for (const enrollId in res.data) {
@@ -212,8 +205,7 @@ export default {
       this.selectedDay = day
       this.dayRecords = []
       try {
-        const uid = this.getUserId()
-        const res = await enrollApi.myDayRecords({ user_id: uid, day })
+        const res = await enrollApi.myDayRecords({ day })
         this.dayRecords = Array.isArray(res.data) ? res.data : []
       } catch (e) {
         console.error('加载当日打卡记录失败', e)

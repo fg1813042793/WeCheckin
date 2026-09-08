@@ -172,8 +172,7 @@ export default {
       this.scorePage = 1
       this.hasMore = true
       try {
-        const uid = this.getUserId()
-        const res = await eventApi.getDetail({ id: this.id, user_id: uid })
+        const res = await eventApi.getDetail({ id: this.id })
         this.info = res.data || {}
         this.placeholderBg = this.getPlaceholderBg(0)
         this.loadDynamics()
@@ -227,7 +226,7 @@ export default {
         return
       }
       try {
-        await eventApi.participate({ event_id: this.id, user_id: uid, forms: '[]' })
+        await eventApi.participate({ event_id: this.id, forms: '[]' })
         uni.showToast({ title: '报名成功', icon: 'success' })
         await this.loadDetail()
       } catch (e) { uni.showToast({ title: '报名失败', icon: 'none' }) }
