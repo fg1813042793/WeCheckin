@@ -135,7 +135,7 @@
           <el-input v-model="form.dingTalkUserId" maxlength="160" placeholder="请输入钉钉 UserId" />
         </el-form-item>
         <el-form-item label="UnionId">
-          <el-input v-model="form.unionId" maxlength="160" placeholder="可选" />
+          <el-input v-model="form.unionId" maxlength="160" placeholder="客户端钉钉登录必填" />
         </el-form-item>
         <el-form-item label="本地用户">
           <el-tree-select
@@ -191,7 +191,7 @@
         </section>
         <section class="binding-field-help__section">
           <h3>UnionId</h3>
-          <p>钉钉开放平台的用户统一标识。可通过钉钉用户详情接口或免登录用户信息接口获取；如果暂时没有 UnionId，可以先使用钉钉 UserId 完成绑定。</p>
+          <p>钉钉开放平台的用户统一标识。客户端 App/H5 的钉钉验证登录按“企业 + UnionId”匹配本地用户，因此客户端钉钉登录必填；如果只使用钉钉工作台 H5，可先仅维护 UserId。</p>
         </section>
         <section class="binding-field-help__section">
           <h3>本地用户</h3>

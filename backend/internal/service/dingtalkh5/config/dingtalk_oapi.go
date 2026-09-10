@@ -25,8 +25,18 @@ type DingTalkUserIdentity struct {
 	Name    string
 }
 
+type DingTalkOAuthUserIdentity struct {
+	UnionID string
+	OpenID  string
+	Name    string
+}
+
 type DingTalkIdentityClient interface {
 	ExchangeAuthCodeContext(ctx context.Context, config DingTalkH5CorpConfig, authCode string) (DingTalkUserIdentity, error)
+}
+
+type DingTalkOAuthIdentityClient interface {
+	ExchangeOAuthCodeContext(ctx context.Context, config DingTalkH5CorpConfig, authCode string) (DingTalkOAuthUserIdentity, error)
 }
 
 type DingTalkWorkNotificationClient interface {
@@ -67,6 +77,10 @@ func DefaultDingTalkIdentityClient() DingTalkIdentityClient {
 	return defaultDingTalkIdentityClient{}
 }
 
+func DefaultDingTalkOAuthIdentityClient() DingTalkOAuthIdentityClient {
+	return defaultDingTalkIdentityClient{}
+}
+
 func DefaultDingTalkWorkNotificationClient() DingTalkWorkNotificationClient {
 	return defaultDingTalkIdentityClient{}
 }
@@ -86,6 +100,23 @@ func (client defaultDingTalkIdentityClient) ExchangeAuthCodeContext(ctx context.
 		return DingTalkUserIdentity{}, err
 	}
 	return client.userInfoContext(ctx, accessToken, authCode)
+}
+
+func (client defaultDingTalkIdentityClient) ExchangeOAuthCodeContext(ctx context.Context, config DingTalkH5CorpConfig, authCode string) (DingTalkOAuthUserIdentity, error) {
+	authCode = strings.TrimSpace(authCode)
+	if authCode == "" {
+		return DingTalkOAuthUserIdentity{}, fmt.Errorf("钉钉授权码不能为空")
+	}
+	appKey := strings.TrimSpace(config.AppKey)
+	appSecret := strings.TrimSpace(config.AppSecret)
+	if appKey == "" || appSecret == "" {
+		return DingTalkOAuthUserIdentity{}, fmt.Errorf("请先配置钉钉 H5 AppKey 和 AppSecret")
+	}
+	accessToken, err := client.oauthUserAccessTokenContext(ctx, appKey, appSecret, authCode)
+	if err != nil {
+		return DingTalkOAuthUserIdentity{}, err
+	}
+	return client.oauthUserIdentityContext(ctx, accessToken)
 }
 
 func (client defaultDingTalkIdentityClient) SendWorkNotificationContext(ctx context.Context, config DingTalkH5CorpConfig, userIDs []string, notification DingTalkWorkNotificationPayload) error {
@@ -422,6 +453,56 @@ func (client defaultDingTalkIdentityClient) openAPIAccessTokenContext(ctx contex
 		return "", fmt.Errorf("钉钉新版访问凭证为空")
 	}
 	return strings.TrimSpace(payload.AccessToken), nil
+}
+
+func (client defaultDingTalkIdentityClient) oauthUserAccessTokenContext(ctx context.Context, appKey, appSecret, authCode string) (string, error) {
+	endpoint := strings.TrimRight(client.openAPIBaseURL(), "/") + "/v1.0/oauth2/userAccessToken"
+	body, _ := json.Marshal(map[string]string{
+		"clientId":     appKey,
+		"clientSecret": appSecret,
+		"code":         authCode,
+		"grantType":    "authorization_code",
+	})
+	var payload struct {
+		AccessToken string `json:"accessToken"`
+		Code        string `json:"code"`
+		Message     string `json:"message"`
+	}
+	if err := client.doDingTalkJSONContext(ctx, http.MethodPost, endpoint, body, "", &payload); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(payload.Code) != "" {
+		return "", fmt.Errorf("获取钉钉用户授权凭证失败：%s", strings.TrimSpace(payload.Message))
+	}
+	if strings.TrimSpace(payload.AccessToken) == "" {
+		return "", fmt.Errorf("钉钉用户授权凭证为空")
+	}
+	return strings.TrimSpace(payload.AccessToken), nil
+}
+
+func (client defaultDingTalkIdentityClient) oauthUserIdentityContext(ctx context.Context, accessToken string) (DingTalkOAuthUserIdentity, error) {
+	endpoint := strings.TrimRight(client.openAPIBaseURL(), "/") + "/v1.0/contact/users/me"
+	var payload struct {
+		UnionID string `json:"unionId"`
+		OpenID  string `json:"openId"`
+		Nick    string `json:"nick"`
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := client.doDingTalkJSONContext(ctx, http.MethodGet, endpoint, nil, accessToken, &payload); err != nil {
+		return DingTalkOAuthUserIdentity{}, err
+	}
+	if strings.TrimSpace(payload.Code) != "" {
+		return DingTalkOAuthUserIdentity{}, fmt.Errorf("获取钉钉授权用户信息失败：%s", strings.TrimSpace(payload.Message))
+	}
+	if strings.TrimSpace(payload.UnionID) == "" {
+		return DingTalkOAuthUserIdentity{}, fmt.Errorf("钉钉授权用户身份异常")
+	}
+	return DingTalkOAuthUserIdentity{
+		UnionID: strings.TrimSpace(payload.UnionID),
+		OpenID:  strings.TrimSpace(payload.OpenID),
+		Name:    strings.TrimSpace(payload.Nick),
+	}, nil
 }
 
 func (client defaultDingTalkIdentityClient) userInfoContext(ctx context.Context, accessToken, authCode string) (DingTalkUserIdentity, error) {

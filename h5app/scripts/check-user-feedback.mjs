@@ -1174,6 +1174,16 @@ assertContains('src/pages/feedback/components/FeedbackCenter.vue', [
   '@select="selectStatus"',
   '@retry="loadOverview"',
   '@retry="loadFeedbacks"',
+  'const mobilePresentation = ref(resolveMobilePresentation())',
+  'const filtersExpanded = ref(!mobilePresentation.value)',
+  'const filtersVisible = computed(() => !mobilePresentation.value || filtersExpanded.value)',
+  'const activeFilterCount = computed',
+  'v-if="mobilePresentation"',
+  ':aria-expanded="filtersExpanded"',
+  'v-show="filtersVisible"',
+  'feedback-center__filter-toggle',
+  't(\'filterPanel.title\')',
+  't(\'filterPanel.activeCount\', { count: activeFilterCount })',
 ])
 
 assertContains('src/pages/feedback/components/FeedbackStatusOverview.vue', [
@@ -1219,6 +1229,11 @@ assert.match(
 )
 
 const feedbackCenterSource = source('src/pages/feedback/components/FeedbackCenter.vue')
+assert.match(
+  feedbackCenterSource,
+  /@media screen and \(max-width: 768px\)[\s\S]*?\.feedback-center \.app-page-header__copy\s*\{[^}]*display:\s*none;/,
+  'feedback center must hide only its mobile page header copy',
+)
 assert.equal(/setInterval|setTimeout\s*\([^,]+,\s*\d+\s*\)/.test(feedbackCenterSource), false, 'feedback center must not poll')
 const feedbackCenterScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackCenter.vue')
 assert.deepEqual(
@@ -1527,8 +1542,11 @@ assertContains('src/pages/feedback/feedback.routes.ts', [
 const feedbackCreateScript = vueScriptSourceFile('src/pages/feedback/components/FeedbackCreatePage.vue')
 for (const call of ['validateFeedbackDraft', 'runFeedbackAsyncOperation', 'validFeedbackDraftImages', 'createUserFeedback'])
   assert.ok(functionCalls(feedbackCreateScript, 'submitFeedback').includes(call), `submitFeedback must call ${call}`)
-for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'appContent.requestRefresh', 'appContent.removeDynamicTab', 'feedbackDetailContentKey', 'appContent.openDynamicTab'])
+for (const call of ['requestIdState.rotate', 'unregisterCloseGuard', 'appContent.requestRefresh', 'appContent.switchContent', 'appContent.removeDynamicTab'])
   assert.ok(functionCalls(feedbackCreateScript, 'handleCreateSuccess').includes(call), `create success must call ${call}`)
+assert.ok(functionIdentifiers(feedbackCreateScript, 'cancelCreate').includes('FEEDBACK_CONTENT_KEY'), 'create cancel must close back to feedback center')
+assert.equal(source('src/pages/feedback/components/FeedbackCreatePage.vue').includes('feedbackDetailContentKey'), false, 'create success must not open a detail tab')
+assert.equal(source('src/pages/feedback/components/FeedbackCreatePage.vue').includes('createFeedbackDynamicTab'), false, 'create success must not create a detail tab')
 assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onMounted').includes('registerCloseGuard'), 'create page must register close guard')
 assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onBeforeUnmount').includes('unregisterCloseGuard'), 'create page must unregister close guard')
 assert.ok(lifecycleCallbackCalls(feedbackCreateScript, 'onBeforeUnmount').includes('componentLifecycle.invalidate'), 'create page must invalidate pending operations before unmount')

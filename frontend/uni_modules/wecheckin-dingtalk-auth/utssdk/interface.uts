@@ -1,0 +1,21 @@
+export type DingTalkNativeAuthOptions = {
+  clientId ?: string
+  redirectUri ?: string
+  state ?: string
+  scope ?: string
+  nonce ?: string
+}
+
+export type DingTalkNativeAuthStartResult = {
+  started : boolean
+  error : string
+}
+
+export type DingTalkNativeAuthResult = {
+  authCode : string
+  state : string
+  error : string
+}
+
+export type StartDingTalkNativeAuth = (options : DingTalkNativeAuthOptions) => DingTalkNativeAuthStartResult
+export type ConsumeDingTalkAuthResult = () => DingTalkNativeAuthResult | null

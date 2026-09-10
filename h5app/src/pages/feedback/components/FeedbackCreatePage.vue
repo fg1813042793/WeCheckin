@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import type { FeedbackDraftImage, FeedbackDraftValidationError } from './feedback-editor-state'
-import type { UserFeedbackDetail } from '@/api/user-feedback'
 import { useLocale } from 'uview-pro'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { createUserFeedback } from '@/api/user-feedback'
 import { useAppContentStore } from '@/stores'
 import {
+  FEEDBACK_CONTENT_KEY,
   FEEDBACK_CREATE_CONTENT_KEY,
-  feedbackDetailContentKey,
 } from '../feedback-route-keys'
-import { createFeedbackDynamicTab } from './feedback-center-state'
 import {
   createFeedbackComponentLifecycle,
   createStableFeedbackRequestIdState,
@@ -81,7 +79,7 @@ async function submitFeedback() {
         throw new Error('empty feedback response')
       return response.data
     },
-    success: detail => handleCreateSuccess(detail),
+    success: () => handleCreateSuccess(),
     failure: () => uni.showToast({ title: t('createPage.failed'), icon: 'none' }),
     settled: () => {
       submitting.value = false
@@ -89,25 +87,22 @@ async function submitFeedback() {
   })
 }
 
-function handleCreateSuccess(detail: UserFeedbackDetail) {
-  const detailKey = feedbackDetailContentKey(detail.id)
-  const detailTab = createFeedbackDynamicTab(detailKey, detail.feedbackNo || t('detail'), 'chat')
+function handleCreateSuccess() {
   content.value = ''
   images.value = []
   requestIdState.rotate()
   unregisterCloseGuard?.()
   unregisterCloseGuard = undefined
   appContent.requestRefresh()
+  appContent.switchContent(FEEDBACK_CONTENT_KEY)
   appContent.removeDynamicTab(props.contentKey)
-  if (detailTab)
-    appContent.openDynamicTab(detailTab)
   uni.showToast({ title: t('createPage.success'), icon: 'success' })
 }
 
 function cancelCreate() {
   if (submitting.value)
     return
-  appContent.requestCloseTab(props.contentKey)
+  appContent.requestCloseTab(props.contentKey, FEEDBACK_CONTENT_KEY)
 }
 
 onMounted(() => {

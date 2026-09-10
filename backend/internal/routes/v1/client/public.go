@@ -33,7 +33,6 @@ func registerPublicRoutes(h *server.Hertz) {
 	h.GET("/home/list", hm.GetHomeList)
 	h.GET("/user_form_fields", aUser.GetUserFormFields)
 
-	h.POST("/passport/login", pp.Login)
 	h.POST("/passport/login_pwd", pp.LoginByPwd)
 	h.POST("/passport/register", pp.Register)
 	h.GET("/geo/reverse", geo.ReverseGeocode)

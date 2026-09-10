@@ -1,5 +1,21 @@
 package swagger
 
+// ClientDingTalkAuthorizationRequest starts an external DingTalk OAuth authorization.
+type ClientDingTalkAuthorizationRequest struct {
+	// CorpID 是用户选择的钉钉企业 CorpId。
+	CorpID string `json:"corpId" example:"dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`
+	// RedirectURI 是 H5 授权的重定向地址；Native SDK 仅用它校验已登记的回调域名，不会导航到该地址。
+	RedirectURI string `json:"redirectUri" example:"https://client.example.com/login"`
+}
+
+// ClientDingTalkLoginRequest exchanges an external DingTalk authorization code for a client session.
+type ClientDingTalkLoginRequest struct {
+	// CorpID 必须与发起授权时选择的企业一致。
+	CorpID string `json:"corpId" example:"dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`
+	// AuthCode 是钉钉回调返回的一次性授权码。
+	AuthCode string `json:"authCode" example:"temporary-authorization-code"`
+}
+
 // PublicSurveyApplyRequest describes the JSON payload for form logic evaluation.
 type PublicSurveyApplyRequest struct {
 	// Schema 是表单 Schema JSON。

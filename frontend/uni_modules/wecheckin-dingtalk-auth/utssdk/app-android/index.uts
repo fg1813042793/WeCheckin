@@ -1,0 +1,65 @@
+import Context from 'android.content.Context'
+import JSONObject from 'org.json.JSONObject'
+import AuthLoginParam from 'com.android.dingtalk.openauth.AuthLoginParam'
+import DDAuthApiFactory from 'com.android.dingtalk.openauth.DDAuthApiFactory'
+import DDAuthUtil from 'com.android.dingtalk.openauth.utils.DDAuthUtil'
+import {
+  ConsumeDingTalkAuthResult,
+  DingTalkNativeAuthResult,
+  DingTalkNativeAuthStartResult,
+  StartDingTalkNativeAuth
+} from '../interface.uts'
+
+const PREFERENCES_NAME = 'wecheckin_dingtalk_native_auth'
+const RESULT_KEY = 'result'
+
+export const startDingTalkNativeAuth : StartDingTalkNativeAuth = function (options) : DingTalkNativeAuthStartResult {
+  const clientId = options.clientId ?? ''
+  const redirectUri = options.redirectUri ?? ''
+  const state = options.state ?? ''
+  const activity = UTSAndroid.getUniActivity()
+  if (activity == null) {
+    return { started: false, error: '无法获取当前应用窗口' }
+  }
+  if (!DDAuthUtil.isDDAppInstalled(activity)) {
+    return { started: false, error: '请先安装钉钉 App' }
+  }
+  if (clientId.trim().length == 0 || redirectUri.trim().length == 0 || state.trim().length == 0) {
+    return { started: false, error: '钉钉登录参数不完整' }
+  }
+
+  try {
+    const builder = AuthLoginParam.AuthLoginParamBuilder.newBuilder()
+    builder.appId(clientId.trim())
+    builder.redirectUri(redirectUri.trim())
+    builder.responseType('code')
+    builder.scope(options.scope ?? 'openid')
+    builder.nonce(options.nonce ?? state)
+    builder.state(state)
+    builder.prompt('consent')
+    const authApi = DDAuthApiFactory.createDDAuthApi(activity, builder.build())
+    authApi.authLogin()
+    return { started: true, error: '' }
+  } catch (error : Exception) {
+    return { started: false, error: error.message ?? '无法启动钉钉授权' }
+  }
+}
+
+export const consumeDingTalkAuthResult : ConsumeDingTalkAuthResult = function () : DingTalkNativeAuthResult | null {
+  const context = UTSAndroid.getAppContext() as Context
+  const preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+  const raw = preferences.getString(RESULT_KEY, '') ?? ''
+  if (raw.length == 0) return null
+  preferences.edit().remove(RESULT_KEY).apply()
+
+  try {
+    const payload = new JSONObject(raw)
+    return {
+      authCode: payload.optString('authCode', ''),
+      state: payload.optString('state', ''),
+      error: payload.optString('error', '')
+    }
+  } catch (error : Exception) {
+    return { authCode: '', state: '', error: '钉钉授权结果解析失败' }
+  }
+}

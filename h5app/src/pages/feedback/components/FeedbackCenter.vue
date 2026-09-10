@@ -49,6 +49,8 @@ const listError = ref(false)
 const page = ref(1)
 const pageSize = 12
 const total = ref(0)
+const mobilePresentation = ref(resolveMobilePresentation())
+const filtersExpanded = ref(!mobilePresentation.value)
 let overviewRequestSequence = 0
 let listRequestSequence = 0
 let removeVisibilityListener: (() => void) | undefined
@@ -64,6 +66,37 @@ const statusOptions = computed(() => [
 const sortedFeedbacks = computed(() => [...feedbacks.value].sort((left, right) => (
   Number(right.lastActivityAt || 0) - Number(left.lastActivityAt || 0)
 )))
+const filtersVisible = computed(() => !mobilePresentation.value || filtersExpanded.value)
+const activeFilterCount = computed(() => (
+  Number(Boolean(filters.keyword.trim())) + Number(Boolean(filters.status))
+))
+
+function resolveMobilePresentation() {
+  try {
+    const info = uni.getSystemInfoSync()
+    const width = Number(info.windowWidth || info.screenWidth || 0)
+    if (width > 0)
+      return width <= 768
+  }
+  catch {
+    // 读取失败时使用 H5 媒体查询判断。
+  }
+
+  // #ifdef H5
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    return window.matchMedia('(max-width: 768px)').matches
+  // #endif
+
+  return false
+}
+
+function syncMobilePresentation() {
+  const nextMobilePresentation = resolveMobilePresentation()
+  if (nextMobilePresentation === mobilePresentation.value)
+    return
+  mobilePresentation.value = nextMobilePresentation
+  filtersExpanded.value = !nextMobilePresentation
+}
 
 function nonNegativeInteger(value: unknown) {
   return Math.max(0, Math.floor(Number(value || 0)))
@@ -197,12 +230,14 @@ watch(
 )
 
 onMounted(() => {
+  syncMobilePresentation()
   // #ifdef H5
   removeVisibilityListener = registerFeedbackVisibilityRefresh(
     document,
     () => appContent.currentKey === FEEDBACK_CONTENT_KEY,
     () => { void refreshFeedbackCenter() },
   )
+  window.addEventListener('resize', syncMobilePresentation)
   // #endif
 })
 
@@ -212,6 +247,9 @@ onBeforeUnmount(() => {
   removeVisibilityListener?.()
   removeVisibilityListener = undefined
   requestDeduper.clear()
+  // #ifdef H5
+  window.removeEventListener('resize', syncMobilePresentation)
+  // #endif
 })
 </script>
 
@@ -245,58 +283,78 @@ onBeforeUnmount(() => {
       @select="selectStatus"
     /> -->
 
-    <view class="app-filter-bar feedback-center__filters">
-      <view class="app-filter-field feedback-center__keyword-field">
-        <text class="app-filter-field__label">
-          {{ t('keyword') }}
-        </text>
-        <u-input
-          v-model="filters.keyword"
-          custom-class="app-filter-control feedback-center__keyword"
-          type="text"
-          :maxlength="100"
-          :placeholder="t('keywordPlaceholder')"
-          :disabled="listLoading"
-          :border="true"
-          @keyup.enter="applyFilters"
-        />
-      </view>
+    <view class="feedback-center__filter-panel">
+      <u-button
+        v-if="mobilePresentation"
+        custom-class="feedback-center__filter-toggle"
+        :aria-expanded="filtersExpanded"
+        @click="filtersExpanded = !filtersExpanded"
+      >
+        <view class="feedback-center__filter-toggle-content">
+          <view class="feedback-center__filter-toggle-heading">
+            <u-icon name="search" size="14px" color="var(--app-text-secondary-color)" />
+            <text>{{ t('filterPanel.title') }}</text>
+            <text v-if="activeFilterCount > 0" class="feedback-center__filter-count">
+              {{ t('filterPanel.activeCount', { count: activeFilterCount }) }}
+            </text>
+          </view>
+          <u-icon :name="filtersExpanded ? 'arrow-up' : 'arrow-down'" size="14px" color="var(--app-text-muted-color)" />
+        </view>
+      </u-button>
 
-      <view class="app-filter-field feedback-center__status-field">
-        <text class="app-filter-field__label">
-          {{ t('status') }}
-        </text>
-        <scroll-view class="feedback-center__status-scroll" scroll-x>
-          <view class="feedback-center__status-segments" role="group">
-            <view
-              v-for="option in statusOptions"
-              :key="option.value || 'all'"
-              class="feedback-center__status-option"
-              :class="{ 'feedback-center__status-option--active': filters.status === option.value }"
-              role="button"
-              tabindex="0"
-              @click="selectFilterStatus(option.value)"
-              @keyup.enter="selectFilterStatus(option.value)"
-            >
-              {{ option.label }}
+      <view v-show="filtersVisible" class="app-filter-bar feedback-center__filters">
+        <view class="app-filter-field feedback-center__keyword-field">
+          <text class="app-filter-field__label">
+            {{ t('keyword') }}
+          </text>
+          <u-input
+            v-model="filters.keyword"
+            custom-class="app-filter-control feedback-center__keyword"
+            type="text"
+            :maxlength="100"
+            :placeholder="t('keywordPlaceholder')"
+            :disabled="listLoading"
+            :border="true"
+            @keyup.enter="applyFilters"
+          />
+        </view>
+
+        <view class="app-filter-field feedback-center__status-field">
+          <text class="app-filter-field__label">
+            {{ t('status') }}
+          </text>
+          <scroll-view class="feedback-center__status-scroll" scroll-x>
+            <view class="feedback-center__status-segments" role="group">
+              <view
+                v-for="option in statusOptions"
+                :key="option.value || 'all'"
+                class="feedback-center__status-option"
+                :class="{ 'feedback-center__status-option--active': filters.status === option.value }"
+                role="button"
+                tabindex="0"
+                @click="selectFilterStatus(option.value)"
+                @keyup.enter="selectFilterStatus(option.value)"
+              >
+                {{ option.label }}
+              </view>
             </view>
-          </view>
-        </scroll-view>
-      </view>
+          </scroll-view>
+        </view>
 
-      <view class="app-filter-actions feedback-center__filter-actions">
-        <u-button custom-class="feedback-center__filter-button" size="small" plain :disabled="listLoading" @click="resetFilters">
-          <view class="feedback-center__button-content">
-            <u-icon name="reload" size="14px" color="var(--app-text-secondary-color)" />
-            <text>{{ t('reset') }}</text>
-          </view>
-        </u-button>
-        <u-button custom-class="feedback-center__filter-button" size="small" type="primary" :loading="listLoading" @click="applyFilters">
-          <view class="feedback-center__button-content">
-            <u-icon name="search" size="14px" color="#ffffff" />
-            <text>{{ t('search') }}</text>
-          </view>
-        </u-button>
+        <view class="app-filter-actions feedback-center__filter-actions">
+          <u-button custom-class="feedback-center__filter-button" size="small" plain :disabled="listLoading" @click="resetFilters">
+            <view class="feedback-center__button-content">
+              <u-icon name="reload" size="14px" color="var(--app-text-secondary-color)" />
+              <text>{{ t('reset') }}</text>
+            </view>
+          </u-button>
+          <u-button custom-class="feedback-center__filter-button" size="small" type="primary" :loading="listLoading" @click="applyFilters">
+            <view class="feedback-center__button-content">
+              <u-icon name="search" size="14px" color="#ffffff" />
+              <text>{{ t('search') }}</text>
+            </view>
+          </u-button>
+        </view>
       </view>
     </view>
 
@@ -352,6 +410,11 @@ onBeforeUnmount(() => {
 .feedback-center__filters {
   grid-template-columns: minmax(220px, 1.1fr) minmax(420px, 2fr) auto;
   margin-bottom: 18px;
+}
+
+.feedback-center__filter-toggle,
+:deep(.feedback-center__filter-toggle) {
+  display: none;
 }
 
 .feedback-center__keyword-field,
@@ -440,12 +503,67 @@ onBeforeUnmount(() => {
 }
 
 @media screen and (max-width: 768px) {
+  .feedback-center .app-page-header__copy {
+    display: none;
+  }
+
   .feedback-center__create,
   :deep(.feedback-center__create) {
     width: 100%;
   }
 
+  .feedback-center__filter-panel {
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--app-border-color);
+  }
+
+  .feedback-center__filter-toggle,
+  :deep(.feedback-center__filter-toggle) {
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    display: block;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .feedback-center__filter-toggle::after,
+  :deep(.feedback-center__filter-toggle)::after {
+    display: none;
+  }
+
+  .feedback-center__filter-toggle-content {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .feedback-center__filter-toggle-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--app-text-color);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .feedback-center__filter-count {
+    color: var(--app-text-muted-color);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
   .feedback-center__filters {
+    margin-bottom: 0;
+    padding-top: 10px;
+    border-bottom: 0;
     grid-template-columns: minmax(0, 1fr);
   }
 

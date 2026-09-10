@@ -1,0 +1,6 @@
+{
+  "dependencies": [
+    "com.alibaba.android:ddopenauth:1.5.0.8"
+  ],
+  "minSdkVersion": 21
+}

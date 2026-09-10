@@ -45,7 +45,10 @@ function sourceIncludesEndpoint(source, endpoint) {
 
 const requiredClientEndpoints = [
   '/api/v2/home',
-  '/api/v2/auth/login',
+  '/api/v2/auth/dingtalk-config',
+  '/api/v2/auth/dingtalk-authorization',
+  '/api/v2/auth/dingtalk-login',
+  '/api/v2/auth/password-login',
   '/api/v2/me',
   '/api/v2/user-form-fields',
   '/api/v2/news/categories',
@@ -59,6 +62,10 @@ for (const endpoint of requiredClientEndpoints) {
   if (!sourceIncludesEndpoint(apiIndex, endpoint)) {
     throw new Error(`client API missing v2 endpoint: ${endpoint}`)
   }
+}
+
+if (sourceIncludesEndpoint(apiIndex, '/api/v2/auth/login')) {
+  throw new Error('client API must not expose public user ID login')
 }
 
 const requiredAdminEndpoints = [

@@ -8,7 +8,8 @@ const root = resolve(currentDir, '..')
 const read = (path) => readFileSync(resolve(root, path), 'utf8')
 
 const app = read('App.vue')
-assert.ok(app.includes("import { hasClientAuth } from './utils/auth'"), 'app startup must check client auth')
+assert.ok(app.includes("from './utils/auth'"), 'app startup must import client auth helpers')
+assert.ok(app.includes('hasClientAuth'), 'app startup must check client auth')
 assert.ok(!app.includes('hasAnyAuth'), 'admin auth must not satisfy client startup auth')
 
 for (const page of ['pages/survey/fill.vue', 'pages/exam/fill.vue']) {

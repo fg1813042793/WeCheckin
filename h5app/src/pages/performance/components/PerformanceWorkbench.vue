@@ -722,7 +722,7 @@ watch(
   .todo-item {
     min-height: 148rpx;
     padding: 24rpx;
-    grid-template-columns: 72rpx minmax(0, 1fr);
+    grid-template-columns: 72rpx minmax(0, 1fr) auto;
     gap: 18rpx;
   }
 
@@ -740,7 +740,8 @@ watch(
   }
 
   .todo-item__side {
-    grid-column: 2;
+    grid-column: 3;
+    grid-row: 1;
     justify-content: flex-end;
   }
 
@@ -752,6 +753,7 @@ watch(
     padding: 0 16rpx;
     font-size: 24rpx;
     line-height: 56rpx;
+    white-space: nowrap;
   }
 
   .todo-item__meta--desktop {

@@ -17,23 +17,6 @@ type PassportHandler struct{}
 func NewPassportHandler() *PassportHandler { return &PassportHandler{} }
 
 // @Tags 客户端-通行证
-// @Summary 用户登录
-// @Param user_id formData string true "用户ID"
-// @Success 200 {object} response.Resp
-// @Router /passport/login [post]
-func (h *PassportHandler) Login(ctx context.Context, c *app.RequestContext) {
-	userID := c.PostForm("user_id")
-	addIP := c.ClientIP()
-	device := string(c.UserAgent())
-	data, err := passportservice.LoginUserContext(ctx, userID, addIP, device)
-	if err != nil {
-		response.Fail(c, "登录失败")
-		return
-	}
-	response.JSON(c, data)
-}
-
-// @Tags 客户端-通行证
 // @Summary 密码登录
 // @Param name formData string true "用户名/手机号"
 // @Param pwd formData string true "密码"

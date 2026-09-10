@@ -115,6 +115,7 @@ func storeUserSessionForRoleContext(ctx context.Context, role string, singleLogi
 		MiniOpenID: user.MiniOpenID,
 		Role:       user.Role,
 		RoleID:     user.RoleID,
+		RoleIDs:    user.RoleIDs,
 		Pic:        user.Pic,
 		LoginIP:    addIP,
 		LoginTime:  now,

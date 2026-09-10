@@ -57,6 +57,9 @@
     "check:workflow-form-revision": "node scripts/check-workflow-form-revision.mjs",
     "check:workflow-completed-form-revision": "node scripts/check-workflow-completed-form-revision.mjs",
     "check:user-feedback": "node scripts/check-user-feedback.mjs",
+    "check:feedback-mobile-layout": "node scripts/check-feedback-mobile-layout.mjs",
+    "check:feedback-navigation": "node scripts/check-feedback-navigation.mjs",
+    "check:workbench-mobile-layout": "node scripts/check-workbench-mobile-layout.mjs",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

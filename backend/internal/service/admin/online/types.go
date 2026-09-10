@@ -36,6 +36,7 @@ type storedUserSessionPayload struct {
 	MiniOpenID string `json:"miniOpenID"`
 	Role       string `json:"role"`
 	RoleID     uint   `json:"roleId"`
+	RoleIDs    []uint `json:"roleIds"`
 	Pic        string `json:"pic"`
 	LoginIP    string `json:"loginIp"`
 	LoginTime  int64  `json:"loginTime"`

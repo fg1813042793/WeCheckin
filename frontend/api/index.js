@@ -81,8 +81,14 @@ export const geoApi = {
 }
 
 export const passportApi = {
-  login(data) {
-    return post(`${API_V2}/auth/login`, data)
+  dingtalkLoginConfig() {
+    return get(`${API_V2}/auth/dingtalk-config`)
+  },
+  dingtalkAuthorization(data) {
+    return postJSON(`${API_V2}/auth/dingtalk-authorization`, data)
+  },
+  loginByDingTalk(data) {
+    return postJSON(`${API_V2}/auth/dingtalk-login`, data)
   },
   loginByPwd(data) {
     return post(`${API_V2}/auth/password-login`, data)

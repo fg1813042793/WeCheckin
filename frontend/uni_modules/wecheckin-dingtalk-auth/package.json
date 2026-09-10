@@ -1,0 +1,32 @@
+{
+  "id": "wecheckin-dingtalk-auth",
+  "displayName": "WeCheckin DingTalk Native Auth",
+  "version": "1.0.0",
+  "description": "WeCheckin Android 钉钉原生授权登录插件",
+  "engines": {
+    "HBuilderX": ">=4.25",
+    "uni-app": "^3.0"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "declaration": {
+      "ads": "无",
+      "data": "钉钉授权临时票据",
+      "permissions": "android.permission.INTERNET"
+    }
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "client": {
+        "uni-app": {
+          "app": {
+            "android": "√",
+            "ios": "x"
+          }
+        }
+      }
+    }
+  }
+}

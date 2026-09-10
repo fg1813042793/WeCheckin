@@ -45,6 +45,10 @@
     "allStatuses": "全部",
     "search": "查询",
     "reset": "重置",
+    "filterPanel": {
+      "title": "筛选条件",
+      "activeCount": "已选 {count}"
+    },
     "loading": "加载中...",
     "empty": "暂无反馈记录",
     "loadFailed": "反馈列表加载失败",

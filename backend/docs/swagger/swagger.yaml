@@ -862,6 +862,58 @@ definitions:
       visitCnt:
         type: integer
     type: object
+  passport.DingTalkAuthorizationResponse:
+    properties:
+      authorizationUrl:
+        type: string
+      clientId:
+        type: string
+      redirectUri:
+        type: string
+      state:
+        type: string
+    type: object
+  passport.DingTalkLoginConfigResponse:
+    properties:
+      corpOptions:
+        items:
+          $ref: '#/definitions/passport.DingTalkLoginCorpOption'
+        type: array
+      enabled:
+        type: boolean
+    type: object
+  passport.DingTalkLoginCorpOption:
+    properties:
+      corpId:
+        type: string
+      corpName:
+        type: string
+    type: object
+  passport.LoginResponse:
+    properties:
+      token: {}
+      userInfo:
+        $ref: '#/definitions/passport.UserInfo'
+    type: object
+  passport.UserInfo:
+    properties:
+      avatar:
+        type: string
+      deptId:
+        type: integer
+      deptName:
+        type: string
+      desc:
+        type: string
+      id:
+        type: integer
+      miniOpenID:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
   performance.AccountProfilePayload:
     properties:
       account:
@@ -1181,6 +1233,28 @@ definitions:
         additionalProperties: true
         description: Variables 是流程运行变量。
         type: object
+    type: object
+  swagger.ClientDingTalkAuthorizationRequest:
+    properties:
+      corpId:
+        description: CorpID 是用户选择的钉钉企业 CorpId。
+        example: dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        type: string
+      redirectUri:
+        description: RedirectURI 是 H5 授权的重定向地址；Native SDK 仅用它校验已登记的回调域名，不会导航到该地址。
+        example: https://client.example.com/login
+        type: string
+    type: object
+  swagger.ClientDingTalkLoginRequest:
+    properties:
+      authCode:
+        description: AuthCode 是钉钉回调返回的一次性授权码。
+        example: temporary-authorization-code
+        type: string
+      corpId:
+        description: CorpID 必须与发起授权时选择的企业一致。
+        example: dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        type: string
     type: object
   swagger.DingTalkNotificationSendRequest:
     properties:
@@ -8787,22 +8861,67 @@ paths:
       summary: 查询工作流可选用户
       tags:
       - API v2-后台管理-工作流
-  /api/v2/auth/login:
+  /api/v2/auth/dingtalk-authorization:
     post:
       consumes:
-      - application/x-www-form-urlencoded
+      - application/json
       parameters:
-      - description: 用户ID
-        in: formData
-        name: user_id
+      - description: 钉钉授权参数
+        in: body
+        name: payload
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/swagger.ClientDingTalkAuthorizationRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Resp'
-      summary: 提交 /api/v2/auth/login
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/passport.DingTalkAuthorizationResponse'
+              type: object
+      summary: 创建客户端钉钉授权参数
+      tags:
+      - API v2-公开接口-认证
+  /api/v2/auth/dingtalk-config:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/passport.DingTalkLoginConfigResponse'
+              type: object
+      summary: 获取客户端钉钉登录配置
+      tags:
+      - API v2-公开接口-认证
+  /api/v2/auth/dingtalk-login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 钉钉登录参数
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/swagger.ClientDingTalkLoginRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/passport.LoginResponse'
+              type: object
+      summary: 使用钉钉授权码登录客户端
       tags:
       - API v2-公开接口-认证
   /api/v2/auth/password-login:

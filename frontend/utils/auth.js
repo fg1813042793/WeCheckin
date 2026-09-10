@@ -10,6 +10,8 @@ export const AUTH_STORAGE_KEYS = [
   ADMIN_INFO_KEY
 ]
 
+let pendingAuthNavigation = ''
+
 function readStorage(key, fallback = '') {
   try {
     const value = uni.getStorageSync(key)
@@ -131,4 +133,23 @@ export function clearRequestAuthState(authState) {
   } else {
     clearClientAuth()
   }
+}
+
+export function navigateToAuthPage(loginUrl, method = 'redirectTo') {
+  const target = `/${String(loginUrl || '').replace(/^\/+/, '')}`
+  if (target === '/' || pendingAuthNavigation === target) return false
+
+  const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+  const currentRoute = pages.length ? `/${String(pages[pages.length - 1].route || '').replace(/^\/+/, '')}` : ''
+  if (currentRoute === target) return false
+
+  pendingAuthNavigation = target
+  const navigate = method === 'reLaunch' ? uni.reLaunch : uni.redirectTo
+  navigate({
+    url: target,
+    complete: () => {
+      if (pendingAuthNavigation === target) pendingAuthNavigation = ''
+    }
+  })
+  return true
 }

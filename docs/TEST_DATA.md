@@ -33,11 +33,13 @@
 | o1_test_openid_004 | 赵六 | 13800138004 | 晨跑、英语学习 |
 | o1_test_openid_005 | 刘七 | 13800138005 | 未参与 |
 
-登录方式: 用户登录页输入 `openid` 即可登录
+登录方式: 客户端使用钉钉验证登录；未配置钉钉绑定的测试账号可使用账号密码备用登录
 
 接口路径:
 
-- openid/用户标识登录: `POST /api/v2/auth/login`
+- 钉钉登录配置: `GET /api/v2/auth/dingtalk-config`
+- 创建钉钉授权地址: `POST /api/v2/auth/dingtalk-authorization`
+- 钉钉授权码登录: `POST /api/v2/auth/dingtalk-login`
 - 密码登录: `POST /api/v2/auth/password-login`
 
 ---

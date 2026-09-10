@@ -26,6 +26,7 @@ export const useAppContentStore = defineStore('appContent', () => {
   const refreshTick = ref(0)
   const dynamicTabs = ref<AppNavItem[]>([])
   const closeRequestKey = ref('')
+  const closeRequestTargetKey = ref('')
   const closeRequestTick = ref(0)
   const tabCloseGuardRevision = ref(0)
 
@@ -42,6 +43,7 @@ export const useAppContentStore = defineStore('appContent', () => {
     focusedWorkflowTab.value = ''
     workflowStartSeed.value = null
     dynamicTabs.value = []
+    closeRequestTargetKey.value = ''
     tabCloseGuards.clear()
     tabCloseGuardRevision.value += 1
   }
@@ -109,8 +111,9 @@ export const useAppContentStore = defineStore('appContent', () => {
     return guard?.saveDraft ? guard.saveDraft() : false
   }
 
-  function requestCloseTab(key: string) {
+  function requestCloseTab(key: string, targetKey = '') {
     closeRequestKey.value = String(key || '').trim()
+    closeRequestTargetKey.value = String(targetKey || '').trim()
     closeRequestTick.value += 1
   }
 
@@ -176,6 +179,7 @@ export const useAppContentStore = defineStore('appContent', () => {
     focusReview,
     canSaveTabDraft,
     canCloseTab,
+    closeRequestTargetKey,
     hasUnsavedTabChanges,
     openDynamicTab,
     registerTabCloseGuard,

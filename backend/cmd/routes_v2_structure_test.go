@@ -66,7 +66,10 @@ func TestV2ClientRoutesExposeRESTfulResources(t *testing.T) {
 	text := string(src)
 	required := []string{
 		`h.GET("/api/v2/home", hm.GetHomeList)`,
-		`h.POST("/api/v2/auth/login", pp.Login)`,
+		`auth := h.Group("/api/v2/auth", clientmw.NoStore())`,
+		`auth.GET("/dingtalk-config", pp.DingTalkLoginConfig)`,
+		`auth.POST("/dingtalk-authorization", pp.DingTalkAuthorization)`,
+		`auth.POST("/dingtalk-login", pp.LoginByDingTalk)`,
 		`h.GET("/api/v2/surveys", cSurvey.List)`,
 		`h.GET("/api/v2/exams", cExam.List)`,
 		`client.GET("/me", pp.GetMyDetail)`,
@@ -75,6 +78,12 @@ func TestV2ClientRoutesExposeRESTfulResources(t *testing.T) {
 		`client.POST("/enrollments/:id/joins", routeparam.WithFormParam("enroll_id", "id", el.EnrollJoin))`,
 		`client.POST("/events/:id/participants", routeparam.WithFormParam("event_id", "id", ev.EventParticipate))`,
 		`client.POST("/exams/:id/start", routeparam.WithQueryParam("examId", "id", cExam.Start))`,
+	}
+	if strings.Contains(text, `auth.POST("/login", pp.Login)`) || strings.Contains(text, `h.POST("/api/v2/auth/login", pp.Login)`) {
+		t.Fatal("client v2 routes must not expose direct user ID login")
+	}
+	if strings.Contains(text, `auth.GET("/dingtalk-app-callback", pp.DingTalkAppCallback)`) {
+		t.Fatal("native App DingTalk login must not retain the H5 callback bridge")
 	}
 	for _, want := range required {
 		if !strings.Contains(text, want) {

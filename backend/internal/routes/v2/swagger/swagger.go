@@ -8,6 +8,7 @@ import (
 	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
 	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	workflowservice "wecheckin/backend/internal/service/admin/workflow"
+	clientpassportservice "wecheckin/backend/internal/service/client/passport"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -17,6 +18,9 @@ var _ adminsurveyhandler.EvalExprResponse
 var _ scheduledtaskapp.CreateTaskRequest
 var _ userfeedbackapp.Overview
 var _ admindingtalkservice.SettingsResponse
+var _ clientpassportservice.DingTalkLoginConfigResponse
+var _ clientpassportservice.DingTalkAuthorizationResponse
+var _ clientpassportservice.LoginResponse
 var _ workflowservice.PublishRequest
 var _ formkitschema.FormSchema
 
@@ -41,12 +45,26 @@ func swaggerV2HomeSetupGet1() {}
 func swaggerV2UserFormFieldsGet2() {}
 
 // @Tags API v2-公开接口-认证
-// @Summary 提交 /api/v2/auth/login
-// @Accept application/x-www-form-urlencoded
-// @Param user_id formData string true "用户ID"
-// @Success 200 {object} response.Resp
-// @Router /api/v2/auth/login [post]
-func swaggerV2AuthLoginPost3() {}
+// @Summary 获取客户端钉钉登录配置
+// @Success 200 {object} response.Resp{data=clientpassportservice.DingTalkLoginConfigResponse}
+// @Router /api/v2/auth/dingtalk-config [get]
+func swaggerV2AuthDingTalkConfigGet3() {}
+
+// @Tags API v2-公开接口-认证
+// @Summary 创建客户端钉钉授权参数
+// @Accept json
+// @Param payload body ClientDingTalkAuthorizationRequest true "钉钉授权参数"
+// @Success 200 {object} response.Resp{data=clientpassportservice.DingTalkAuthorizationResponse}
+// @Router /api/v2/auth/dingtalk-authorization [post]
+func swaggerV2AuthDingTalkAuthorizationPost4() {}
+
+// @Tags API v2-公开接口-认证
+// @Summary 使用钉钉授权码登录客户端
+// @Accept json
+// @Param payload body ClientDingTalkLoginRequest true "钉钉登录参数"
+// @Success 200 {object} response.Resp{data=clientpassportservice.LoginResponse}
+// @Router /api/v2/auth/dingtalk-login [post]
+func swaggerV2AuthDingTalkLoginPost5() {}
 
 // @Tags API v2-公开接口-认证
 // @Summary 提交 /api/v2/auth/password-login
@@ -55,7 +73,7 @@ func swaggerV2AuthLoginPost3() {}
 // @Param pwd formData string true "密码"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/auth/password-login [post]
-func swaggerV2AuthPasswordLoginPost4() {}
+func swaggerV2AuthPasswordLoginPost6() {}
 
 // @Tags API v2-公开接口-认证
 // @Summary 提交 /api/v2/auth/register
@@ -67,7 +85,7 @@ func swaggerV2AuthPasswordLoginPost4() {}
 // @Param forms formData string false "表单数据（JSON）"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/auth/register [post]
-func swaggerV2AuthRegisterPost5() {}
+func swaggerV2AuthRegisterPost7() {}
 
 // @Tags API v2-公开接口-地理编码
 // @Summary 查询 /api/v2/geo/reverse

@@ -74,6 +74,7 @@ const requiredAuthSnippets = [
   'export function getClientUserId',
   'export function getRequestAuthState',
   'export function clearRequestAuthState',
+  'export function navigateToAuthPage',
 ]
 
 for (const snippet of requiredAuthSnippets) {
@@ -85,4 +86,15 @@ for (const snippet of requiredAuthSnippets) {
 const requestSource = readFileSync(resolve(root, 'utils/request.js'), 'utf8')
 if (!requestSource.includes("from './auth'")) {
   throw new Error('frontend request layer must import auth helpers')
+}
+
+const appSource = readFileSync(resolve(root, 'App.vue'), 'utf8')
+if (!appSource.includes("navigateToAuthPage('/pages/login/login', 'reLaunch')")) {
+  throw new Error('App launch must use the shared guarded auth navigation helper')
+}
+if (appSource.includes("uni.reLaunch({ url: '/pages/login/login' })")) {
+  throw new Error('App launch must not navigate to the login page without the shared guard')
+}
+if (!requestSource.includes('navigateToAuthPage(authState.loginUrl')) {
+  throw new Error('request auth expiry must use the shared guarded auth navigation helper')
 }

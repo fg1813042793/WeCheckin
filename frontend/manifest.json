@@ -21,6 +21,8 @@
         },
         "distribute" : {
             "android" : {
+                "packagename" : "com.wecheckin.app",
+                "schemes" : "wecheckin",
                 "permissions" : [
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
@@ -33,11 +35,17 @@
             },
             "ios" : {
                 "idfa" : false,
+                "urltypes" : "wecheckin",
                 "capabilities" : {},
-                "frameworks" : []
+                "frameworks" : [],
+                "dSYMs" : false
             },
             "sdkConfigs" : {
-                "geolocation" : {},
+                "geolocation" : {
+                    "system" : {
+                        "__platform__" : [ "ios", "android" ]
+                    }
+                },
                 "camera" : {}
             }
         }

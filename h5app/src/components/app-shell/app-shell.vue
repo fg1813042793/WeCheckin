@@ -57,6 +57,7 @@ const tabsOverflow = ref(false)
 const canScrollTabsLeft = ref(false)
 const canScrollTabsRight = ref(false)
 const pendingCloseTab = ref<AppNavItem | null>(null)
+const pendingCloseTargetKey = ref('')
 const pendingCloseCanSaveDraft = computed(() => Boolean(
   pendingCloseTab.value && appContent.canSaveTabDraft(pendingCloseTab.value.key),
 ))
@@ -749,13 +750,16 @@ async function submitProfileCenter() {
   }
 }
 
-function completeTabClose(item: AppNavItem) {
+function completeTabClose(item: AppNavItem, targetKey = '') {
   if (item.key === 'dashboard') {
     return
   }
   const tabs = routeTabs.value
   const closingIndex = tabs.findIndex(tab => tab.key === item.key)
-  const nextItem = tabs[Math.max(0, closingIndex - 1)] || tabs.find(tab => tab.key === 'dashboard')
+  const requestedNextItem = targetKey
+    ? allTabItems.value.find(tab => tab.key === targetKey && tab.key !== item.key)
+    : undefined
+  const nextItem = requestedNextItem || tabs[Math.max(0, closingIndex - 1)] || tabs.find(tab => tab.key === 'dashboard')
   if (appContent.dynamicTab(item.key))
     appContent.removeDynamicTab(item.key)
   else
@@ -768,34 +772,39 @@ function completeTabClose(item: AppNavItem) {
   }
 }
 
-function closeTab(item: AppNavItem) {
+function closeTab(item: AppNavItem, targetKey = '') {
   if (item.key === 'dashboard')
     return
   if (!appContent.canCloseTab(item.key))
     return
   if (!appContent.hasUnsavedTabChanges(item.key)) {
-    completeTabClose(item)
+    completeTabClose(item, targetKey)
     return
   }
   pendingCloseTab.value = item
+  pendingCloseTargetKey.value = targetKey
   tabClosePromptVisible.value = true
 }
 
 function continueEditingTab() {
   tabClosePromptVisible.value = false
   pendingCloseTab.value = null
+  pendingCloseTargetKey.value = ''
 }
 
 function discardAndCloseTab() {
   const item = pendingCloseTab.value
+  const targetKey = pendingCloseTargetKey.value
   tabClosePromptVisible.value = false
   pendingCloseTab.value = null
+  pendingCloseTargetKey.value = ''
   if (item)
-    completeTabClose(item)
+    completeTabClose(item, targetKey)
 }
 
 async function saveAndCloseTab() {
   const item = pendingCloseTab.value
+  const targetKey = pendingCloseTargetKey.value
   if (!item || tabCloseSaving.value)
     return
   tabCloseSaving.value = true
@@ -804,7 +813,8 @@ async function saveAndCloseTab() {
       return
     tabClosePromptVisible.value = false
     pendingCloseTab.value = null
-    completeTabClose(item)
+    pendingCloseTargetKey.value = ''
+    completeTabClose(item, targetKey)
   }
   finally {
     tabCloseSaving.value = false
@@ -844,7 +854,7 @@ watch(tabsOverflow, () => {
 watch(() => appContent.closeRequestTick, () => {
   const item = allTabItems.value.find(tab => tab.key === appContent.closeRequestKey)
   if (item)
-    closeTab(item)
+    closeTab(item, appContent.closeRequestTargetKey)
 })
 
 watch(() => appContent.refreshTick, () => {

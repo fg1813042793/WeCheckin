@@ -11023,29 +11023,113 @@
                 }
             }
         },
-        "/api/v2/auth/login": {
+        "/api/v2/auth/dingtalk-authorization": {
             "post": {
                 "consumes": [
-                    "application/x-www-form-urlencoded"
+                    "application/json"
                 ],
                 "tags": [
                     "API v2-公开接口-认证"
                 ],
-                "summary": "提交 /api/v2/auth/login",
+                "summary": "创建客户端钉钉授权参数",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "用户ID",
-                        "name": "user_id",
-                        "in": "formData",
-                        "required": true
+                        "description": "钉钉授权参数",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ClientDingTalkAuthorizationRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/passport.DingTalkAuthorizationResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/auth/dingtalk-config": {
+            "get": {
+                "tags": [
+                    "API v2-公开接口-认证"
+                ],
+                "summary": "获取客户端钉钉登录配置",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/passport.DingTalkLoginConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/auth/dingtalk-login": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-公开接口-认证"
+                ],
+                "summary": "使用钉钉授权码登录客户端",
+                "parameters": [
+                    {
+                        "description": "钉钉登录参数",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ClientDingTalkLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/passport.LoginResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -17624,6 +17708,86 @@
                 }
             }
         },
+        "passport.DingTalkAuthorizationResponse": {
+            "type": "object",
+            "properties": {
+                "authorizationUrl": {
+                    "type": "string"
+                },
+                "clientId": {
+                    "type": "string"
+                },
+                "redirectUri": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "passport.DingTalkLoginConfigResponse": {
+            "type": "object",
+            "properties": {
+                "corpOptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/passport.DingTalkLoginCorpOption"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "passport.DingTalkLoginCorpOption": {
+            "type": "object",
+            "properties": {
+                "corpId": {
+                    "type": "string"
+                },
+                "corpName": {
+                    "type": "string"
+                }
+            }
+        },
+        "passport.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "token": {},
+                "userInfo": {
+                    "$ref": "#/definitions/passport.UserInfo"
+                }
+            }
+        },
+        "passport.UserInfo": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "deptName": {
+                    "type": "string"
+                },
+                "desc": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "miniOpenID": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
         "performance.AccountProfilePayload": {
             "type": "object",
             "properties": {
@@ -18098,6 +18262,36 @@
                     "description": "Variables 是流程运行变量。",
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "swagger.ClientDingTalkAuthorizationRequest": {
+            "type": "object",
+            "properties": {
+                "corpId": {
+                    "description": "CorpID 是用户选择的钉钉企业 CorpId。",
+                    "type": "string",
+                    "example": "dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                },
+                "redirectUri": {
+                    "description": "RedirectURI 是 H5 授权的重定向地址；Native SDK 仅用它校验已登记的回调域名，不会导航到该地址。",
+                    "type": "string",
+                    "example": "https://client.example.com/login"
+                }
+            }
+        },
+        "swagger.ClientDingTalkLoginRequest": {
+            "type": "object",
+            "properties": {
+                "authCode": {
+                    "description": "AuthCode 是钉钉回调返回的一次性授权码。",
+                    "type": "string",
+                    "example": "temporary-authorization-code"
+                },
+                "corpId": {
+                    "description": "CorpID 必须与发起授权时选择的企业一致。",
+                    "type": "string",
+                    "example": "dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                 }
             }
         },

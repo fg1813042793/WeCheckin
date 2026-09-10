@@ -1,5 +1,5 @@
 import CONFIG from '../config/index'
-import { clearRequestAuthState, getRequestAuthState } from './auth'
+import { clearRequestAuthState, getRequestAuthState, navigateToAuthPage } from './auth'
 
 const BASE_URL = CONFIG.BASE_URL
 const LOGIN_EXPIRED_MESSAGES = new Set([
@@ -9,7 +9,6 @@ const LOGIN_EXPIRED_MESSAGES = new Set([
   '账号异常'
 ])
 
-let redirectingToLogin = false
 const inflightRequests = new Map()
 
 function getAuthState(isAdmin) {
@@ -21,14 +20,7 @@ function clearAuthState(authState) {
 }
 
 function redirectToLogin(authState) {
-  if (redirectingToLogin) return
-  redirectingToLogin = true
-  uni.redirectTo({
-    url: authState.loginUrl,
-    complete: () => {
-      redirectingToLogin = false
-    }
-  })
+  navigateToAuthPage(authState.loginUrl)
 }
 
 function normalizeRequestData(value) {

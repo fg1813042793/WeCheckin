@@ -45,6 +45,10 @@
     "allStatuses": "All",
     "search": "Search",
     "reset": "Reset",
+    "filterPanel": {
+      "title": "Filters",
+      "activeCount": "{count} selected"
+    },
     "loading": "Loading...",
     "empty": "No feedback yet",
     "loadFailed": "Failed to load feedback",

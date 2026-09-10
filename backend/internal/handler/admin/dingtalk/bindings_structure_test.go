@@ -62,6 +62,7 @@ func TestDingTalkUserBindingAdminFrontendStructure(t *testing.T) {
 	}
 	for _, want := range []string{
 		"钉钉用户绑定管理",
+		"客户端钉钉登录必填",
 		"/api/v2/admin/dingtalk/user-bindings",
 		"dingTalkUserId",
 		"userId",

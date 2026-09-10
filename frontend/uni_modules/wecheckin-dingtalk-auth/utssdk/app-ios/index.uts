@@ -1,0 +1,14 @@
+import {
+  ConsumeDingTalkAuthResult,
+  DingTalkNativeAuthResult,
+  DingTalkNativeAuthStartResult,
+  StartDingTalkNativeAuth
+} from '../interface.uts'
+
+export const startDingTalkNativeAuth : StartDingTalkNativeAuth = function (_) : DingTalkNativeAuthStartResult {
+  return { started: false, error: 'iOS 钉钉原生登录尚未接入' }
+}
+
+export const consumeDingTalkAuthResult : ConsumeDingTalkAuthResult = function () : DingTalkNativeAuthResult | null {
+  return null
+}

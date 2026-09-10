@@ -26,7 +26,7 @@
     </view>
 
     <view class="other-login" @click="switchLogin">
-      <text class="other-text">切换登录方式 ›</text>
+      <text class="other-text">钉钉登录</text>
     </view>
 
     <view class="admin-login" @click="goAdmin">
@@ -93,50 +93,7 @@ export default {
     },
 
     switchLogin() {
-      const itemList = ['用户ID登录']
-      // #ifdef MP-WEIXIN
-      itemList.push('微信登录')
-      // #endif
-      uni.showActionSheet({
-        itemList,
-        success: (res) => {
-          const idx = res.tapIndex
-          // #ifdef MP-WEIXIN
-          if (idx === 0) {
-            uni.redirectTo({ url: '/pages/login/login' })
-          } else if (idx === 1) {
-            this.wechatLogin()
-          }
-          // #endif
-          // #ifndef MP-WEIXIN
-          if (idx === 0) {
-            uni.redirectTo({ url: '/pages/login/login' })
-          }
-          // #endif
-        }
-      })
-    },
-
-    wechatLogin() {
-      // #ifdef MP-WEIXIN
-      wx.login({
-        success: async (loginRes) => {
-          try {
-            const res = await passportApi.login({ user_id: loginRes.code })
-            if (res.data) {
-              setClientAuth(res.data)
-              await ensureClientPermissionSnapshot()
-            }
-            uni.showToast({ title: '登录成功', icon: 'success' })
-            setTimeout(() => {
-              uni.switchTab({ url: '/pages/index/index' })
-            }, 1500)
-          } catch (e) {
-            console.error('微信登录失败', e)
-          }
-        }
-      })
-      // #endif
+      uni.redirectTo({ url: '/pages/login/login' })
     },
 
     goAdmin() {

@@ -1,6 +1,6 @@
 # API v2 接口说明
 
-最后更新：2026-09-04
+最后更新：2026-09-08
 
 ## 当前状态
 
@@ -46,7 +46,9 @@
 | 首页列表 | GET | `/api/v2/home` |
 | 系统配置读取 | GET | `/api/v2/home/setup` |
 | 用户扩展字段 | GET | `/api/v2/user-form-fields` |
-| 微信/用户标识登录 | POST | `/api/v2/auth/login` |
+| 获取钉钉登录配置 | GET | `/api/v2/auth/dingtalk-config` |
+| 创建钉钉授权参数 | POST | `/api/v2/auth/dingtalk-authorization` |
+| 使用钉钉授权码登录 | POST | `/api/v2/auth/dingtalk-login` |
 | 密码登录 | POST | `/api/v2/auth/password-login` |
 | 注册 | POST | `/api/v2/auth/register` |
 | 逆地理编码 | GET | `/api/v2/geo/reverse` |
@@ -64,6 +66,8 @@
 | 提交考试 | POST | `/api/v2/exams/{id}/submissions` |
 | 考试答案校验 | POST | `/api/v2/exams/{id}/validation` |
 | 按 session 查看考试结果 | GET | `/api/v2/exam-results` |
+
+客户端钉钉登录的企业配置、用户绑定、回调地址和多企业行为见 [客户端钉钉验证登录](CLIENT_DINGTALK_LOGIN.md)。公开的用户 ID 直接登录入口已移除；密码登录保留为备用方式。
 
 ## 客户端登录后接口
 
