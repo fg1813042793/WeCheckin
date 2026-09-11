@@ -12,6 +12,15 @@ assert.ok(app.includes("from './utils/auth'"), 'app startup must import client a
 assert.ok(app.includes('hasClientAuth'), 'app startup must check client auth')
 assert.ok(!app.includes('hasAnyAuth'), 'admin auth must not satisfy client startup auth')
 
+const adminEventForm = read('pages/admin/event/admin_event_add.vue')
+assert.ok(adminEventForm.includes('defaultPickerDate: currentDateValue()'), 'event date pickers must initialize from the current date')
+for (const field of ['regStartDate', 'regEndDate', 'eventStartDate', 'eventEndDate']) {
+  assert.ok(
+    adminEventForm.includes(`:value="form.${field} || defaultPickerDate"`),
+    `event date picker ${field} must fall back to the current date`
+  )
+}
+
 for (const page of ['pages/survey/fill.vue', 'pages/exam/fill.vue']) {
   assert.ok(!read(page).includes('window.location'), `${page} must use the shared cross-platform navigation helper`)
 }

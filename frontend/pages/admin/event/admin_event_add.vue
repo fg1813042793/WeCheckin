@@ -46,7 +46,7 @@
         <view class="form-item">
           <text class="label">报名开始</text>
           <view class="row">
-            <picker mode="date" :value="form.regStartDate" @change="(e) => { form.regStartDate = e.detail.value; updateDateTime('regStart') }">
+            <picker mode="date" :value="form.regStartDate || defaultPickerDate" @change="(e) => { form.regStartDate = e.detail.value; updateDateTime('regStart') }">
               <view class="picker flex-1" :class="{ placeholder: !form.regStartDate }">{{ form.regStartDate || '日期' }}</view>
             </picker>
             <picker mode="time" :value="form.regStartTime" @change="(e) => { form.regStartTime = e.detail.value; updateDateTime('regStart') }">
@@ -57,7 +57,7 @@
         <view class="form-item">
           <text class="label">报名结束</text>
           <view class="row">
-            <picker mode="date" :value="form.regEndDate" @change="(e) => { form.regEndDate = e.detail.value; updateDateTime('regEnd') }">
+            <picker mode="date" :value="form.regEndDate || defaultPickerDate" @change="(e) => { form.regEndDate = e.detail.value; updateDateTime('regEnd') }">
               <view class="picker flex-1" :class="{ placeholder: !form.regEndDate }">{{ form.regEndDate || '日期' }}</view>
             </picker>
             <picker mode="time" :value="form.regEndTime" @change="(e) => { form.regEndTime = e.detail.value; updateDateTime('regEnd') }">
@@ -68,7 +68,7 @@
         <view class="form-item">
           <text class="label">活动开始</text>
           <view class="row">
-            <picker mode="date" :value="form.eventStartDate" @change="(e) => { form.eventStartDate = e.detail.value; updateDateTime('eventStart') }">
+            <picker mode="date" :value="form.eventStartDate || defaultPickerDate" @change="(e) => { form.eventStartDate = e.detail.value; updateDateTime('eventStart') }">
               <view class="picker flex-1" :class="{ placeholder: !form.eventStartDate }">{{ form.eventStartDate || '日期' }}</view>
             </picker>
             <picker mode="time" :value="form.eventStartTime" @change="(e) => { form.eventStartTime = e.detail.value; updateDateTime('eventStart') }">
@@ -79,7 +79,7 @@
         <view class="form-item">
           <text class="label">活动结束</text>
           <view class="row">
-            <picker mode="date" :value="form.eventEndDate" @change="(e) => { form.eventEndDate = e.detail.value; updateDateTime('eventEnd') }">
+            <picker mode="date" :value="form.eventEndDate || defaultPickerDate" @change="(e) => { form.eventEndDate = e.detail.value; updateDateTime('eventEnd') }">
               <view class="picker flex-1" :class="{ placeholder: !form.eventEndDate }">{{ form.eventEndDate || '日期' }}</view>
             </picker>
             <picker mode="time" :value="form.eventEndTime" @change="(e) => { form.eventEndTime = e.detail.value; updateDateTime('eventEnd') }">
@@ -245,10 +245,19 @@
 <script>
 import { adminApi, dictApi } from '../../../api/admin'
 import { uploadFile } from '../../../utils/upload'
+
+function currentDateValue() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 export default {
   data() {
     return {
       id: '',
+      defaultPickerDate: currentDateValue(),
       form: {
         title: '', type: 1, cover: '', desc: '', rules: '', cateName: '', order: 0,
         regStartDate: '', regStartTime: '', regEndDate: '', regEndTime: '',
