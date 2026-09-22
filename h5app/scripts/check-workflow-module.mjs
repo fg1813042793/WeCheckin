@@ -21,6 +21,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowStartPage.vue',
   'src/pages/workflow/components/WorkflowSummaryPage.vue',
   'src/pages/workflow/components/WorkflowSummarySection.vue',
+  'src/pages/workflow/workflow-summary-columns.ts',
   'src/pages/workflow/components/WorkflowHistoryDatePicker.vue',
   'src/pages/workflow/components/WorkflowReadOnlyGraph.vue',
   'src/pages/workflow/workflow-graph-layout.ts',
@@ -58,7 +59,7 @@ const requiredContent = [
       'document.removeEventListener(\'visibilitychange\', handleVisibilityChange)',
       'void loadCounts()',
       'await Promise.all([loadCounts(), loadCurrentList()])',
-      '{ key: \'businessKey\', label: \'流程单号\', width: \'minmax(180px, 1.35fr)\', mobileHidden: true, copyable: true }',
+      '{ key: \'businessKey\', label: \'流程单号\', width: \'minmax(180px, 1.35fr)\', mobileHidden: true, copyable: true, configurable: true }',
     ],
   },
   {
@@ -75,7 +76,7 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowRecordTable.vue',
     patterns: [
-      'copyable?: boolean',
+      'import type { WorkflowRecordColumn }',
       'v-else-if="column.copyable"',
       ':value="row.cells[column.key] || \'-\'"',
       'overflow-x: auto;',
@@ -163,8 +164,12 @@ const requiredContent = [
     patterns: ['evaluateWorkflowCalculation', 'calculateWorkflowFormData', 'SUM', 'AVG', 'MIN', 'MAX', 'COUNT'],
   },
   {
+    file: 'src/pages/workflow/workflow-record-columns.ts',
+    patterns: ['export interface WorkflowRecordColumn', 'mobileHidden?: boolean', 'copyable?: boolean', 'configurable?: boolean', 'configurableWorkflowRecordColumns', 'visibleWorkflowRecordColumns', 'normalizeWorkflowRecordHiddenKeys'],
+  },
+  {
     file: 'src/pages/workflow/components/WorkflowRuntimeForm.vue',
-    patterns: [':calculation-fields="calculationFields || fields"', 'field.type === \'calculation\'', 'calculateWorkflowFormData', 'workflowCalculationDisplay', 'workflowCalculationPrecision'],
+    patterns: [':calculation-fields="calculationFields || fields"', 'field.type === \'calculation\'', 'calculateWorkflowFormData', 'workflowCalculationDisplay', 'workflowCalculationResultText'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowFieldControl.vue',
@@ -212,7 +217,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
-    patterns: ['发起审批', '我的待办', '已处理', '我的申请', '抄送我的', '汇总', 'WorkflowSummaryPage', 'activeTab === \'summary\'', 'definitionStartMeta(definition)', '当前周期剩余', '当前周期已达上限', 'openWorkflowStartTab', 'openWorkflowTaskTab', 'openWorkflowInstanceTab', 'workflowInstanceContentKey', 'workflowTaskContentKey', 'resolveMobilePage', 'mobileHidden', 'focusedWorkflowInstanceId', 'focusedWorkflowTab', 'openFocusedWorkflowTab', 'clearFocusedWorkflowTab', 'dingtalk_h5:api:workflow:view', 'dingtalk_h5:api:workflow:start', 'definitionCategory', 'definition.logoUrl', '<image', '@error', 'markDefinitionLogoFailed', 'WorkflowFilterPanel', ':active-count="catalogFilterCount"', 'class="workflow-center__catalog-filters"', ':active-count="applicationFilterCount"', 'WorkflowHistoryDatePicker', 'WorkflowRecordTable', 'recordColumns', 'recordRows', 'openRecord', 'WorkflowRecordFilters', 'recordFilters', 'appliedRecordFilters', 'activeRecordFilters', 'activeAppliedRecordFilters', 'showStarterNameFilter', 'showStatusFilter', 'historyStatusOptions', 'listWorkflowCategories', 'workflowCategories', 'recordCategoryOptions', 'queryRecords', 'resetRecordFilters', 'placeholder="输入发起人用户名"', ':maxlength="50"', 'buildWorkflowHistoryTimeQuery', 'definitionCategory:', 'class="workflow-center__record-filters"', 'class="workflow-center__filter-input"', 'class="workflow-center__filter-select"', ':columns="recordColumns"', ':rows="recordRows"', '#actions="{ row }"', 'activeTab === \'pending\' ? \'办理\' : \'查看\'', 'activeTab === \'pending\'', 'activeTab.value === \'handled\'', 'activeTab.value === \'copied\'', 'name="eye"', 'presentation="history-drawer"', ':application-actions="activeTab === \'started\'"', 'showStarterColumn', '[\'pending\', \'handled\', \'copied\'].includes(activeTab.value)', 'key: \'starterName\'', 'label: \'发起人\'', 'starterDisplayName(instance)', 'key: \'currentNode\'', 'label: \'当前节点\'', 'key: \'currentAssignees\'', 'label: \'节点处理人\'', 'currentNodeDisplay(instance)', 'currentAssigneeDisplay(instance)', '流程分类', '提交时间', '审批状态', '查看', '查询', '重置'],
+    patterns: ['发起审批', '我的待办', '已处理', '我的申请', '抄送我的', '汇总', 'WorkflowSummaryPage', 'activeTab === \'summary\'', 'definitionStartMeta(definition)', '当前周期剩余', '当前周期已达上限', 'openWorkflowStartTab', 'openWorkflowTaskTab', 'openWorkflowInstanceTab', 'workflowInstanceContentKey', 'workflowTaskContentKey', 'resolveMobilePage', 'mobileHidden', 'focusedWorkflowInstanceId', 'focusedWorkflowTab', 'openFocusedWorkflowTab', 'clearFocusedWorkflowTab', 'dingtalk_h5:api:workflow:view', 'dingtalk_h5:api:workflow:start', 'definitionCategory', 'definition.logoUrl', '<image', '@error', 'markDefinitionLogoFailed', 'WorkflowFilterPanel', ':active-count="catalogFilterCount"', ':active-count="applicationFilterCount"', 'WorkflowHistoryDatePicker', 'WorkflowRecordTable', 'recordColumns', 'visibleRecordColumns', 'recordRows', 'openRecord', 'WorkflowRecordFilters', 'recordFilters', 'appliedRecordFilters', 'activeRecordFilters', 'activeAppliedRecordFilters', 'showStarterNameFilter', 'showStatusFilter', 'historyStatusOptions', 'listWorkflowCategories', 'workflowCategories', 'recordCategoryOptions', 'queryRecords', 'resetRecordFilters', 'placeholder="输入发起人用户名"', ':maxlength="50"', 'buildWorkflowHistoryTimeQuery', 'definitionCategory:', 'class="workflow-center__record-filters"', 'class="workflow-center__filter-input"', 'class="workflow-center__filter-select"', ':columns="visibleRecordColumns"', ':rows="recordRows"', '#actions="{ row }"', 'activeTab === \'pending\' ? \'办理\' : \'查看\'', 'activeTab === \'pending\'', 'activeTab.value === \'handled\'', 'activeTab.value === \'copied\'', 'name="eye"', 'presentation="history-drawer"', ':application-actions="activeTab === \'started\'"', 'showStarterColumn', '[\'pending\', \'handled\', \'copied\'].includes(activeTab.value)', 'key: \'starterName\'', 'label: \'发起人\'', 'starterDisplayName(instance)', 'key: \'currentNode\'', 'label: \'当前节点\'', 'key: \'currentAssignees\'', 'label: \'节点处理人\'', 'currentNodeDisplay(instance)', 'currentAssigneeDisplay(instance)', 'workflow_record_hidden_columns_v1', 'columnSettingsOpen', '列设置', 'u-checkbox-group', 'resetRecordColumns', '流程分类', '提交时间', '审批状态', '查看', '查询', '重置'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -247,6 +252,18 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowSummaryPage.vue',
     patterns: ['listWorkflowSummaryDefinitions', 'WorkflowSummarySection', ':definitions="definitions"', ':refresh-tick="appContent.refreshTick"'],
+  },
+  {
+    file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
+    patterns: ['workflow_summary_column_settings_v1', 'columnSettingsOpen', 'visibleBaseColumnKeys', 'selectedFormColumnKeys', 'formFieldGroups', 'summaryColumns', 'summaryGridStyle', 'summaryTableStyle', '列设置', '展示列', '基础列', '表单字段', '恢复默认', 'workflowSummaryFormValue'],
+  },
+  {
+    file: 'src/pages/workflow/workflow-summary-columns.ts',
+    patterns: ['WorkflowSummaryColumn', 'workflowSummaryBaseColumns', 'workflowSummaryFormFieldGroups', '`form:${definition.id}:${field.key}`', 'visibleWorkflowSummaryColumns', 'workflowSummaryFormValue', 'workflowDataFields', 'flattenWorkflowOptions'],
+  },
+  {
+    file: 'src/types/workflow.ts',
+    patterns: ['formData?: WorkflowFormData'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
@@ -390,13 +407,13 @@ const requiredContent = [
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
     patterns: [
-      '{ key: \'assigneeName\', label: \'节点处理人\', width: \'minmax(110px, 0.9fr)\', mobileHidden: true }',
+      '{ key: \'assigneeName\', label: \'节点处理人\', width: \'minmax(110px, 0.9fr)\', mobileHidden: true, configurable: true }',
       'assigneeName: task.assigneeName.trim() || \'-\'',
     ],
   },
   {
     file: 'src/pages/workflow/components/WorkflowRecordTable.vue',
-    patterns: ['WorkflowRecordColumn', 'WorkflowStatusMeta', 'mobileHidden?: boolean', 'WorkflowRecordRow', 'gridTemplateColumns', 'workflow-record-table__header', 'workflow-record-table__header-cell--actions', 'workflow-record-table__row', 'workflow-record-table__cell-label', 'workflow-record-table__cell--mobile-hidden', 'workflow-record-table__actions', 'justify-content: center;', '<u-tag', 'custom-class="workflow-record-table__status-tag"', 'height: 24px;', 'font-size: 12px;', 'name="actions"', '@media screen and (max-width: 900px)'],
+    patterns: ['WorkflowRecordColumn', 'WorkflowStatusMeta', 'WorkflowRecordRow', 'gridTemplateColumns', 'workflow-record-table__header', 'workflow-record-table__header-cell--actions', 'workflow-record-table__row', 'workflow-record-table__cell-label', 'workflow-record-table__cell--mobile-hidden', 'workflow-record-table__actions', 'justify-content: center;', '<u-tag', 'custom-class="workflow-record-table__status-tag"', 'height: 24px;', 'font-size: 12px;', 'name="actions"', '@media screen and (max-width: 900px)'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -617,7 +634,10 @@ const requiredContent = [
       '流程流转记录',
       'detail.instance.starterName || \'未知用户\'',
       'taskHandlerName(task)',
-      'dingtalk_h5:api:workflow:handle',
+      'dingtalk_h5:api:workflow:approve',
+      'dingtalk_h5:api:workflow:reject',
+      'dingtalk_h5:api:workflow:return',
+      'dingtalk_h5:api:workflow:submit',
       'dingtalk_h5:api:workflow:withdraw',
       'dingtalk_h5:api:workflow:comment',
       'const hasDeleteApplicationPermission = computed',
@@ -700,13 +720,14 @@ const requiredContent = [
       'isWorkflowTaskAssignedToUser(activeTask.value, currentUserId.value)',
       ':field-access="fieldAccess"',
       ':field-actions="fieldActions"',
-      ':readonly="!canHandle"',
+      ':readonly="!canEditTaskForm"',
       'formRef.value?.validate()',
       'writableWorkflowFormData(current.form || [], formData.value, fieldAccess.value)',
       ':class="{ \'workflow-detail-panel__actions--page\': pagePresentation }"',
       '取消',
       '驳回',
-      '{{ activeNodeType === \'handle\' ? \'提交办理\' : \'确认\' }}',
+      'v-if="canApprove"',
+      'v-if="canSubmit"',
       'z-index: 20;',
     ],
   },

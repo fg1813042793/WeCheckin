@@ -258,15 +258,58 @@ const activeNodeType = computed(() => {
   const task = activeTask.value
   return task ? detail.value?.nodeTypes?.[task.nodeId] || 'approval' : ''
 })
-const primaryTaskAction = computed<'approve' | 'submit'>(() => activeNodeType.value === 'handle' ? 'submit' : 'approve')
 
-const canHandle = computed(() => {
+const hasPendingAssignedTask = computed(() => {
   return Boolean(
     activeTask.value?.status === 'pending'
-    && isWorkflowTaskAssignedToUser(activeTask.value, currentUserId.value)
-    && auth.hasApiPermission('dingtalk_h5:api:workflow:handle'),
+    && isWorkflowTaskAssignedToUser(activeTask.value, currentUserId.value),
   )
 })
+
+const workflowTaskActionPermissions = {
+  approve: {
+    button: 'dingtalk_h5:button:workflow:approve',
+    api: 'dingtalk_h5:api:workflow:approve',
+  },
+  reject: {
+    button: 'dingtalk_h5:button:workflow:reject',
+    api: 'dingtalk_h5:api:workflow:reject',
+  },
+  return: {
+    button: 'dingtalk_h5:button:workflow:return',
+    api: 'dingtalk_h5:api:workflow:return',
+  },
+  submit: {
+    button: 'dingtalk_h5:button:workflow:submit',
+    api: 'dingtalk_h5:api:workflow:submit',
+  },
+} as const
+
+type WorkflowTaskActionPermission = keyof typeof workflowTaskActionPermissions
+
+function hasWorkflowActionPermission(action: WorkflowTaskActionPermission) {
+  const permission = workflowTaskActionPermissions[action]
+  return auth.hasButtonPermission(permission.button)
+    && auth.hasApiPermission(permission.api)
+}
+
+const canApprove = computed(() => Boolean(
+  hasPendingAssignedTask.value
+  && activeNodeType.value === 'approval'
+  && hasWorkflowActionPermission('approve'),
+))
+
+const canReject = computed(() => Boolean(
+  hasPendingAssignedTask.value
+  && activeNodeType.value === 'approval'
+  && hasWorkflowActionPermission('reject'),
+))
+
+const canSubmit = computed(() => Boolean(
+  hasPendingAssignedTask.value
+  && activeNodeType.value === 'handle'
+  && hasWorkflowActionPermission('submit'),
+))
 
 const returnTargets = computed(() => {
   const current = activeTask.value
@@ -298,8 +341,15 @@ const returnTargets = computed(() => {
 
 const canReturn = computed(() => {
   const traversedParallel = (detail.value?.tokens || []).some(token => token.branchGroup || token.branchTotal > 1)
-  return canHandle.value && activeNodeType.value === 'approval' && returnTargets.value.length > 0 && !traversedParallel
+  return hasPendingAssignedTask.value
+    && activeNodeType.value === 'approval'
+    && hasWorkflowActionPermission('return')
+    && returnTargets.value.length > 0
+    && !traversedParallel
 })
+
+const canEditTaskForm = computed(() => canApprove.value || canSubmit.value)
+const hasTaskAction = computed(() => canApprove.value || canReject.value || canReturn.value || canSubmit.value)
 
 const canWithdraw = computed(() => {
   const instance = detail.value?.instance
@@ -331,7 +381,7 @@ const showCommentAction = computed(() => {
 const showTaskActionBar = computed(() => {
   if (pagePresentation.value && mobileInteractionDialog.value && activeSection.value === 'graph')
     return false
-  return pagePresentation.value || canHandle.value || canWithdraw.value || showCommentAction.value
+  return pagePresentation.value || hasTaskAction.value || canWithdraw.value || showCommentAction.value
 })
 
 const showFormRevisionAction = computed(() => {
@@ -478,7 +528,7 @@ const applicationActionBusy = computed(() => submitting.value || commentSubmitti
 const fieldAccess = computed<WorkflowFieldAccessMap>(() => {
   const current = detail.value
   const task = activeTask.value
-  if (!current || !task || !canHandle.value) {
+  if (!current || !task || !canEditTaskForm.value) {
     return workflowFieldAccessMap(current?.form || [], [], 'read')
   }
   return workflowFieldAccessMap(
@@ -491,7 +541,7 @@ const fieldAccess = computed<WorkflowFieldAccessMap>(() => {
 const fieldActions = computed<WorkflowFieldActionsMap>(() => {
   const current = detail.value
   const task = activeTask.value
-  if (!current || !task || !canHandle.value)
+  if (!current || !task || !canEditTaskForm.value)
     return {}
   return workflowFieldActionsMap(
     current.form || [],
@@ -697,7 +747,8 @@ function finishSubmission() {
 async function submitTask(action: 'approve' | 'submit') {
   const task = activeTask.value
   const current = detail.value
-  if (!task || !current || !canHandle.value || submitting.value)
+  const allowed = action === 'approve' ? canApprove.value : canSubmit.value
+  if (!task || !current || !allowed || submitting.value)
     return
 
   const validation = formRef.value?.validate()
@@ -734,7 +785,7 @@ async function submitTask(action: 'approve' | 'submit') {
 }
 
 function openReject() {
-  if (!canHandle.value || submitting.value)
+  if (!canReject.value || submitting.value)
     return
   rejectDraft.value = ''
   rejectImages.value = []
@@ -750,7 +801,7 @@ function closeReject() {
 async function submitReject() {
   const task = activeTask.value
   const value = rejectDraft.value.trim()
-  if (!task || !canHandle.value || submitting.value)
+  if (!task || !canReject.value || submitting.value)
     return
   if (rejectUploading.value) {
     uni.showToast({ title: '请等待图片上传完成', icon: 'none' })
@@ -1486,8 +1537,8 @@ async function deleteApplication() {
                     </text>
                   </view>
                   <u-tag
-                    :text="workflowTaskStatusMeta(canHandle ? 'pending' : activeTask?.status).label"
-                    :type="workflowTaskStatusMeta(canHandle ? 'pending' : activeTask?.status).type"
+                    :text="workflowTaskStatusMeta(hasPendingAssignedTask ? 'pending' : activeTask?.status).label"
+                    :type="workflowTaskStatusMeta(hasPendingAssignedTask ? 'pending' : activeTask?.status).type"
                     custom-class="workflow-detail-panel__status-tag"
                     size="mini"
                   />
@@ -1499,7 +1550,7 @@ async function deleteApplication() {
                   :fields="detail.form || []"
                   :field-access="fieldAccess"
                   :field-actions="fieldActions"
-                  :readonly="!canHandle"
+                  :readonly="!canEditTaskForm"
                   readonly-appearance="plain"
                 />
               </view>
@@ -1625,39 +1676,48 @@ async function deleteApplication() {
             >
               撤回申请
             </u-button>
-            <template v-if="canHandle">
-              <u-button
-                v-if="canReturn"
-                custom-class="workflow-detail-panel__action"
-                type="warning"
-                plain
-                :loading="submittingAction === 'return'"
-                :disabled="submitting && submittingAction !== 'return'"
-                @click="openReturn"
-              >
-                退回
-              </u-button>
-              <u-button
-                v-if="activeNodeType === 'approval'"
-                custom-class="workflow-detail-panel__action"
-                type="error"
-                plain
-                :loading="submittingAction === 'reject'"
-                :disabled="submitting && submittingAction !== 'reject'"
-                @click="openReject"
-              >
-                驳回
-              </u-button>
-              <u-button
-                custom-class="workflow-detail-panel__action workflow-detail-panel__action--primary"
-                type="primary"
-                :loading="submittingAction === primaryTaskAction"
-                :disabled="submitting && submittingAction !== primaryTaskAction"
-                @click="submitTask(primaryTaskAction)"
-              >
-                {{ activeNodeType === 'handle' ? '提交办理' : '确认' }}
-              </u-button>
-            </template>
+            <u-button
+              v-if="canReturn"
+              custom-class="workflow-detail-panel__action"
+              type="warning"
+              plain
+              :loading="submittingAction === 'return'"
+              :disabled="submitting && submittingAction !== 'return'"
+              @click="openReturn"
+            >
+              退回
+            </u-button>
+            <u-button
+              v-if="canReject"
+              custom-class="workflow-detail-panel__action"
+              type="error"
+              plain
+              :loading="submittingAction === 'reject'"
+              :disabled="submitting && submittingAction !== 'reject'"
+              @click="openReject"
+            >
+              驳回
+            </u-button>
+            <u-button
+              v-if="canApprove"
+              custom-class="workflow-detail-panel__action workflow-detail-panel__action--primary"
+              type="primary"
+              :loading="submittingAction === 'approve'"
+              :disabled="submitting && submittingAction !== 'approve'"
+              @click="submitTask('approve')"
+            >
+              确认
+            </u-button>
+            <u-button
+              v-if="canSubmit"
+              custom-class="workflow-detail-panel__action workflow-detail-panel__action--primary"
+              type="primary"
+              :loading="submittingAction === 'submit'"
+              :disabled="submitting && submittingAction !== 'submit'"
+              @click="submitTask('submit')"
+            >
+              提交办理
+            </u-button>
           </view>
         </template>
       </template>

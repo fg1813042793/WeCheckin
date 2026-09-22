@@ -73,7 +73,7 @@ if (!/\.workflow-detail-panel__actions\s+:deep\(\.workflow-detail-panel__action 
   throw new Error('workflow mobile comment label must remain on one line')
 if (!detailPanel.includes('workflow-detail-panel__action--comment') || !/\.workflow-detail-panel__actions\s+:deep\(\.workflow-detail-panel__action--comment \.u-icon\)\s*\{[\s\S]*?display:\s*none;/.test(detailPanel))
   throw new Error('workflow mobile comment action must match the text-only task action format')
-if (!/const showTaskActionBar = computed\(\(\) => \{[\s\S]*?pagePresentation\.value && mobileInteractionDialog\.value && activeSection\.value === 'graph'[\s\S]*?return false[\s\S]*?return pagePresentation\.value \|\| canHandle\.value \|\| canWithdraw\.value \|\| showCommentAction\.value/.test(detailPanel))
+if (!/const showTaskActionBar = computed\(\(\) => \{[\s\S]*?pagePresentation\.value && mobileInteractionDialog\.value && activeSection\.value === 'graph'[\s\S]*?return false[\s\S]*?return pagePresentation\.value \|\| hasTaskAction\.value \|\| canWithdraw\.value \|\| showCommentAction\.value/.test(detailPanel))
   throw new Error('workflow graph must hide task actions only in mobile page presentation')
 if (!detailPanel.includes('v-if="showTaskActionBar"'))
   throw new Error('workflow task action bar must use the responsive visibility condition')
