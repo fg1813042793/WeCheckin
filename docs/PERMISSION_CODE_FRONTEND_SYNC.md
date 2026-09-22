@@ -1,6 +1,6 @@
 # 权限编码与前端同步说明
 
-更新时间：2026-09-03
+更新时间：2026-09-22
 
 本文说明当后台或后端调整权限编码时，前端需要同步修改哪些地方。权限编码是前后端共同使用的契约，不建议只在后台“权限管理”页面直接修改内置权限编码。
 
@@ -181,6 +181,21 @@ function canEditTemplate() {
 - `data:all`、`data:dept`、`data:self`、`data:custom`、`data:extra`：按流程发起人限制实际可见实例。
 
 按钮权限的父级是 `dingtalk_h5:menu:workflow`，不会把流程菜单改成新的导航目录。只有菜单/按钮/API 权限而没有有效数据权限时，汇总列表为空；导出接口会再次校验每个实例，不能通过构造实例 ID 绕过范围。
+
+## 钉钉 H5 OA 流程动作权限
+
+OA 流程任务仍统一调用 `POST /api/v2/dingtalk/h5/workflows/tasks/:id/complete`，后端根据请求体 `action` 选择对应 API 权限。H5App 只有同时具备按钮权限和 API 权限时才显示动作按钮：
+
+| 操作 | 按钮权限 | API 权限 | action |
+| --- | --- | --- | --- |
+| 通过审批 | `dingtalk_h5:button:workflow:approve` | `dingtalk_h5:api:workflow:approve` | `approve` |
+| 驳回流程 | `dingtalk_h5:button:workflow:reject` | `dingtalk_h5:api:workflow:reject` | `reject` |
+| 退回流程 | `dingtalk_h5:button:workflow:return` | `dingtalk_h5:api:workflow:return` | `return` |
+| 提交办理 | `dingtalk_h5:button:workflow:submit` | `dingtalk_h5:api:workflow:submit` | `submit` |
+
+发起人撤回申请继续使用 `dingtalk_h5:api:workflow:withdraw`，不与审批任务的驳回或退回共用权限。
+
+迁移 `20260922120000_split_dingtalk_h5_workflow_action_permissions.sql` 会把历史 `dingtalk_h5:api:workflow:handle` 的有效 allow/deny 授权和 scope 复制到上述八项新权限，然后停用旧 handle 权限。升级后管理员可以分别取消某一动作；接口中间件会按 action 再次鉴权，不能通过隐藏按钮或直接构造请求绕过。
 
 ## 钉钉 H5 流程催办权限
 
