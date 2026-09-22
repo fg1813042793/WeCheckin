@@ -2,6 +2,8 @@ package dingtalkh5
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -15,6 +17,14 @@ import (
 	"wecheckin/backend/pkg/response"
 )
 
+const dingTalkH5WorkflowTaskCompletePath = "/api/v2/dingtalk/h5/workflows/tasks/:id/complete"
+
+var (
+	errDingTalkH5RequestBodyInvalid    = errors.New("请求参数格式无效")
+	errDingTalkH5WorkflowActionInvalid = errors.New("流程任务操作无效")
+	errDingTalkH5PermissionUnmapped    = errors.New("无权限访问")
+)
+
 func DingTalkH5Perm() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		user, ok := dingtalkh5session.CurrentUser(c)
@@ -23,9 +33,16 @@ func DingTalkH5Perm() app.HandlerFunc {
 			c.Abort()
 			return
 		}
-		required, ok := dingTalkH5RoutePermission(string(c.Method()), h5RequestPath(c))
-		if !ok {
-			response.Fail(c, "无权限访问")
+		required, err := dingTalkH5RequestPermission(c)
+		if err != nil {
+			message := "无权限访问"
+			switch {
+			case errors.Is(err, errDingTalkH5RequestBodyInvalid):
+				message = "请求参数格式无效"
+			case errors.Is(err, errDingTalkH5WorkflowActionInvalid):
+				message = "流程任务操作无效"
+			}
+			response.Fail(c, message)
 			c.Abort()
 			return
 		}
@@ -66,6 +83,44 @@ func DingTalkH5Perm() app.HandlerFunc {
 			return
 		}
 		c.Next(ctx)
+	}
+}
+
+func dingTalkH5RequestPermission(c *app.RequestContext) (string, error) {
+	method := strings.ToUpper(string(c.Method()))
+	path := h5RequestPath(c)
+	if method == "POST" && dingTalkH5RoutePatternMatches(dingTalkH5WorkflowTaskCompletePath, path) {
+		var body struct {
+			Action string `json:"action"`
+		}
+		if err := json.Unmarshal(c.Request.Body(), &body); err != nil {
+			return "", errDingTalkH5RequestBodyInvalid
+		}
+		permissionKey, ok := dingTalkH5WorkflowTaskActionPermission(body.Action)
+		if !ok {
+			return "", errDingTalkH5WorkflowActionInvalid
+		}
+		return permissionKey, nil
+	}
+	required, ok := dingTalkH5RoutePermission(method, path)
+	if !ok {
+		return "", errDingTalkH5PermissionUnmapped
+	}
+	return required, nil
+}
+
+func dingTalkH5WorkflowTaskActionPermission(action string) (string, bool) {
+	switch strings.TrimSpace(action) {
+	case "approve":
+		return "dingtalk_h5:api:workflow:approve", true
+	case "reject":
+		return "dingtalk_h5:api:workflow:reject", true
+	case "return":
+		return "dingtalk_h5:api:workflow:return", true
+	case "submit":
+		return "dingtalk_h5:api:workflow:submit", true
+	default:
+		return "", false
 	}
 }
 
