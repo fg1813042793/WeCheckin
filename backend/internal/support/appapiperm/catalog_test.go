@@ -32,7 +32,10 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 		"dingtalk_h5:api:template:save":        false,
 		"dingtalk_h5:api:workflow:view":        false,
 		"dingtalk_h5:api:workflow:start":       false,
-		"dingtalk_h5:api:workflow:handle":      false,
+		"dingtalk_h5:api:workflow:approve":     false,
+		"dingtalk_h5:api:workflow:reject":      false,
+		"dingtalk_h5:api:workflow:return":      false,
+		"dingtalk_h5:api:workflow:submit":      false,
 		"dingtalk_h5:api:workflow:attachment":  false,
 		"dingtalk_h5:api:workflow:withdraw":    false,
 		"dingtalk_h5:api:workflow:delete":      false,
@@ -77,7 +80,6 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 		"POST /api/v2/dingtalk/h5/workflows/instances/:id/reminders":  "dingtalk_h5:api:workflow:remind",
 		"PATCH /api/v2/dingtalk/h5/workflows/instances/:id/form-data": "dingtalk_h5:api:workflow:form-revise",
 		"GET /api/v2/dingtalk/h5/workflows/tasks":                     "dingtalk_h5:api:workflow:view",
-		"POST /api/v2/dingtalk/h5/workflows/tasks/:id/complete":       "dingtalk_h5:api:workflow:handle",
 		"GET /api/v2/dingtalk/h5/workflows/summary/definitions":       "dingtalk_h5:api:workflow:summary",
 		"GET /api/v2/dingtalk/h5/workflows/summary/definitions/:id":   "dingtalk_h5:api:workflow:summary",
 		"GET /api/v2/dingtalk/h5/workflows/summary/instances":         "dingtalk_h5:api:workflow:summary",
@@ -95,6 +97,38 @@ func TestDingTalkH5APIDeclarationsAreCategorized(t *testing.T) {
 	}
 	if len(workflowRoutes) != 0 {
 		t.Fatalf("missing protected DingTalk H5 workflow routes: %+v", workflowRoutes)
+	}
+	for _, route := range DingTalkH5RouteDeclarations() {
+		if route.Method == "POST" && route.Path == "/api/v2/dingtalk/h5/workflows/tasks/:id/complete" {
+			t.Fatalf("workflow task completion must use action-aware permission resolution, got %#v", route)
+		}
+	}
+}
+
+func TestDingTalkH5WorkflowActionAPIsAreDeclared(t *testing.T) {
+	want := map[string]struct {
+		name  string
+		perms string
+	}{
+		"dingtalk_h5:api:workflow:approve": {name: "OA 流程通过接口", perms: "workflow:approve"},
+		"dingtalk_h5:api:workflow:reject":  {name: "OA 流程驳回接口", perms: "workflow:reject"},
+		"dingtalk_h5:api:workflow:return":  {name: "OA 流程退回接口", perms: "workflow:return"},
+		"dingtalk_h5:api:workflow:submit":  {name: "OA 流程提交办理接口", perms: "workflow:submit"},
+	}
+	for _, declaration := range DingTalkH5APIDeclarations() {
+		expected, ok := want[declaration.Key]
+		if !ok {
+			continue
+		}
+		if declaration.Name != expected.name || declaration.Perms != expected.perms ||
+			declaration.CategoryKey != "dingtalk_h5:api-category:workflow" ||
+			declaration.Method != "POST" || declaration.Path != "/api/v2/dingtalk/h5/workflows/tasks/:id/complete" {
+			t.Fatalf("workflow action API %#v", declaration)
+		}
+		delete(want, declaration.Key)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing workflow action APIs: %#v", want)
 	}
 }
 

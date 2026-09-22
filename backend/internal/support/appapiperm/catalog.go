@@ -25,6 +25,8 @@ type RouteDeclaration struct {
 	PermissionKey string
 }
 
+const dingTalkH5WorkflowTaskCompletePath = "/api/v2/dingtalk/h5/workflows/tasks/:id/complete"
+
 func ClientAPICategories() []Category {
 	return []Category{
 		{Key: "client:api-category:user", Name: "用户与会话", Platform: "client", Sort: 10},
@@ -203,7 +205,10 @@ func DingTalkH5APIDeclarations() []Declaration {
 		dingtalkAPI("dingtalk_h5:api:template:save", "绩效模版保存接口", "template:save", "dingtalk_h5:api-category:template", "PUT", "/api/v2/dingtalk/h5/template", 20),
 		dingtalkAPI("dingtalk_h5:api:workflow:view", "OA 流程查看接口", "workflow:view", "dingtalk_h5:api-category:workflow", "GET", "/api/v2/dingtalk/h5/workflows/instances", 10),
 		dingtalkAPI("dingtalk_h5:api:workflow:start", "OA 流程发起接口", "workflow:start", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/instances", 20),
-		dingtalkAPI("dingtalk_h5:api:workflow:handle", "OA 流程处理接口", "workflow:handle", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/tasks/:id/complete", 30),
+		dingtalkAPI("dingtalk_h5:api:workflow:approve", "OA 流程通过接口", "workflow:approve", "dingtalk_h5:api-category:workflow", "POST", dingTalkH5WorkflowTaskCompletePath, 30),
+		dingtalkAPI("dingtalk_h5:api:workflow:reject", "OA 流程驳回接口", "workflow:reject", "dingtalk_h5:api-category:workflow", "POST", dingTalkH5WorkflowTaskCompletePath, 31),
+		dingtalkAPI("dingtalk_h5:api:workflow:return", "OA 流程退回接口", "workflow:return", "dingtalk_h5:api-category:workflow", "POST", dingTalkH5WorkflowTaskCompletePath, 32),
+		dingtalkAPI("dingtalk_h5:api:workflow:submit", "OA 流程提交办理接口", "workflow:submit", "dingtalk_h5:api-category:workflow", "POST", dingTalkH5WorkflowTaskCompletePath, 33),
 		dingtalkAPI("dingtalk_h5:api:workflow:attachment", "OA 流程附件上传接口", "workflow:attachment", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/attachments", 35),
 		dingtalkAPI("dingtalk_h5:api:workflow:withdraw", "OA 流程撤回接口", "workflow:withdraw", "dingtalk_h5:api-category:workflow", "POST", "/api/v2/dingtalk/h5/workflows/instances/:id/withdraw", 40),
 		dingtalkAPI("dingtalk_h5:api:workflow:delete", "OA 流程申请删除接口", "workflow:delete", "dingtalk_h5:api-category:workflow", "DELETE", "/api/v2/dingtalk/h5/workflows/instances/:id", 50),
@@ -225,6 +230,9 @@ func DingTalkH5RouteDeclarations() []RouteDeclaration {
 	routes := make([]RouteDeclaration, 0, len(DingTalkH5APIDeclarations())+8)
 	routes = append(routes, RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/user-feedbacks/overview", PermissionKey: "dingtalk_h5:api:feedback:list"})
 	for _, declaration := range DingTalkH5APIDeclarations() {
+		if isDingTalkH5WorkflowActionPermission(declaration.Key) {
+			continue
+		}
 		routes = append(routes, RouteDeclaration{
 			Method:        declaration.Method,
 			Path:          declaration.Path,
@@ -250,6 +258,18 @@ func DingTalkH5RouteDeclarations() []RouteDeclaration {
 		RouteDeclaration{Method: "GET", Path: "/api/v2/dingtalk/h5/workflows/summary/instances/:id", PermissionKey: "dingtalk_h5:api:workflow:summary"},
 	)
 	return routes
+}
+
+func isDingTalkH5WorkflowActionPermission(key string) bool {
+	switch key {
+	case "dingtalk_h5:api:workflow:approve",
+		"dingtalk_h5:api:workflow:reject",
+		"dingtalk_h5:api:workflow:return",
+		"dingtalk_h5:api:workflow:submit":
+		return true
+	default:
+		return false
+	}
 }
 
 func clientAPI(key, name, perms, categoryKey, method, path string, sort int) Declaration {

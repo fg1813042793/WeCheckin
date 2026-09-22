@@ -51,6 +51,10 @@ func DingTalkH5MenuDeclarations() []Declaration {
 
 func DingTalkH5ButtonDeclarations() []Declaration {
 	return []Declaration{
+		{Key: "dingtalk_h5:button:workflow:approve", Name: "通过审批", Platform: "dingtalk_h5", Path: "workflow:approve", ParentKey: "dingtalk_h5:menu:workflow", Sort: 70},
+		{Key: "dingtalk_h5:button:workflow:reject", Name: "驳回流程", Platform: "dingtalk_h5", Path: "workflow:reject", ParentKey: "dingtalk_h5:menu:workflow", Sort: 71},
+		{Key: "dingtalk_h5:button:workflow:return", Name: "退回流程", Platform: "dingtalk_h5", Path: "workflow:return", ParentKey: "dingtalk_h5:menu:workflow", Sort: 72},
+		{Key: "dingtalk_h5:button:workflow:submit", Name: "提交办理", Platform: "dingtalk_h5", Path: "workflow:submit", ParentKey: "dingtalk_h5:menu:workflow", Sort: 73},
 		{Key: "dingtalk_h5:button:workflow:form-revise", Name: "修改已办理流程表单", Platform: "dingtalk_h5", Path: "workflow:form-revise", ParentKey: "dingtalk_h5:menu:workflow", Sort: 80},
 		{Key: "dingtalk_h5:button:workflow:form-revision-create", Name: "发起完成后表单修订", Platform: "dingtalk_h5", Path: "workflow:form-revision-create", ParentKey: "dingtalk_h5:menu:workflow", Sort: 81},
 		{Key: "dingtalk_h5:button:workflow:form-revision-handle", Name: "处理完成后表单修订", Platform: "dingtalk_h5", Path: "workflow:form-revision-handle", ParentKey: "dingtalk_h5:menu:workflow", Sort: 82},
