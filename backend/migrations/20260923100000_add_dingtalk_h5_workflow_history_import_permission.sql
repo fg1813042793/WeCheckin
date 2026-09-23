@@ -37,7 +37,7 @@ SELECT DISTINCT
   target_permission.`id`,
   'allow',
   source_grant.`grant_scope_value`,
-  'workflow-history-import-permission-backfill',
+  'h5-workflow-history-import',
   1,
   @workflow_history_import_permission_now,
   @workflow_history_import_permission_now,

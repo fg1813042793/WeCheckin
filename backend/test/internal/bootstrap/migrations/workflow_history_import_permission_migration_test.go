@@ -23,6 +23,7 @@ func TestWorkflowHistoryImportPermissionMigrationBackfillsActiveStartAllows(t *t
 		"dingtalk_h5:api:workflow:start",
 		"source_grant.`grant_effect` = 'allow'",
 		"source_grant.`grant_status` = 1",
+		"'h5-workflow-history-import'",
 		"ON DUPLICATE KEY UPDATE",
 	} {
 		if !strings.Contains(text, snippet) {
@@ -31,5 +32,8 @@ func TestWorkflowHistoryImportPermissionMigrationBackfillsActiveStartAllows(t *t
 	}
 	if strings.Contains(text, "dingtalk_h5:api:workflow:history-import") {
 		t.Fatal("history import must reuse existing workflow APIs instead of adding an import API permission")
+	}
+	if strings.Contains(text, "workflow-history-import-permission-backfill") {
+		t.Fatal("workflow history import grant_source must fit permission_grants.grant_source varchar(40)")
 	}
 }

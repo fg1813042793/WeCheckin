@@ -58,7 +58,7 @@ SELECT DISTINCT
   target_perm.`id`,
   source_grant.`grant_effect`,
   source_grant.`grant_scope_value`,
-  'split-dingtalk-h5-workflow-action-permissions',
+  'h5-workflow-action-split',
   source_grant.`grant_status`,
   @workflow_action_permission_now,
   @workflow_action_permission_now,

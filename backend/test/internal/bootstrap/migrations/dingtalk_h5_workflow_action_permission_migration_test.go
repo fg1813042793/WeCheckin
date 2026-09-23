@@ -29,11 +29,15 @@ func TestDingTalkH5WorkflowActionPermissionMigration(t *testing.T) {
 		"dingtalk_h5:api:workflow:handle",
 		"source_grant.`grant_effect`",
 		"source_grant.`grant_scope_value`",
+		"'h5-workflow-action-split'",
 		"ON DUPLICATE KEY UPDATE",
 		"`permission_status` = 0",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("migration missing %q", snippet)
 		}
+	}
+	if strings.Contains(text, "split-dingtalk-h5-workflow-action-permissions") {
+		t.Fatal("workflow action migration grant_source must fit permission_grants.grant_source varchar(40)")
 	}
 }

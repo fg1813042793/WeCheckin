@@ -24,6 +24,20 @@ func TestAppliedMigrationChecksumRepairAllowlistMatchesCurrentFiles(t *testing.T
 	}
 }
 
+func TestWorkflowActionPermissionMigrationChecksumRepairIsAllowed(t *testing.T) {
+	const version = "20260922120000_split_dingtalk_h5_workflow_action_permissions"
+	path := filepath.Join("..", "..", "migrations", version+".sql")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read workflow action permission migration: %v", err)
+	}
+	digest := sha256.Sum256(content)
+	checksum := hex.EncodeToString(digest[:])
+	if !isAppliedMigrationChecksumRepairAllowed(version, checksum) {
+		t.Fatalf("workflow action permission migration checksum repair must allow %s", checksum)
+	}
+}
+
 func TestMaintenanceRunnerRecordsExecutedTasks(t *testing.T) {
 	src, err := os.ReadFile("maintenance.go")
 	if err != nil {
