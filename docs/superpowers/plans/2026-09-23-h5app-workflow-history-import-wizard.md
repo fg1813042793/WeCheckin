@@ -146,3 +146,21 @@ git status --short
 ```
 
 Confirm unrelated dirty files remain untouched. Browser interaction remains for user acceptance.
+
+### Task 5: Replace the title filter with u-search
+
+**Files:**
+- Modify: `h5app/src/pages/workflow/components/WorkflowHistoryImportDialog.vue`
+- Modify: `h5app/scripts/check-workflow-history-import.mjs`
+
+- [ ] **Step 1: Add failing search structure checks**
+
+Require `u-search`, `action-text="搜索"`, `@search="queryInstances"`, `@custom="queryInstances"`, `@clear="clearInstanceSearch"`, and reject the standalone query button.
+
+- [ ] **Step 2: Implement integrated search**
+
+Replace the ordinary title input with `u-search`. Add `clearInstanceSearch` to clear only the title, reset the page to 1, and reload using the current status filter. Keep the status select and reset button.
+
+- [ ] **Step 3: Verify**
+
+Run the focused history-import check, related ESLint, type check, and H5 build.
