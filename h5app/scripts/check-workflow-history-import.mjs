@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { runInThisContext } from 'node:vm'
@@ -220,5 +221,30 @@ assert.equal(detailPreview.patch.items[0].score, 90)
 assert.ok(String(detailPreview.patch.items[0].targetRowId).startsWith('row_'))
 assert.equal('sourceRowId' in detailPreview.patch.items[0], false)
 assert.equal('legacy' in detailPreview.patch.items[0], false)
+
+const dialogUrl = new URL('../src/pages/workflow/components/WorkflowHistoryImportDialog.vue', import.meta.url)
+assert.ok(existsSync(dialogUrl), 'WorkflowHistoryImportDialog.vue is required')
+const dialogSource = readFileSync(dialogUrl, 'utf8')
+for (const snippet of [
+  'listWorkflowInstances',
+  'getWorkflowInstance',
+  "scope: 'started'",
+  'definitionId: props.definition.id',
+  '全部导入',
+  '字段映射',
+  '覆盖已有内容',
+  'previewWorkflowHistoryImport',
+  'WorkflowHistoryImportMapping',
+  "emit('apply'",
+  'instanceTitle',
+  'statusFilter',
+  '<u-pagination',
+  'listLoading',
+  'listError',
+  '暂无历史申请',
+  '重新加载',
+]) {
+  assert.ok(dialogSource.includes(snippet), `WorkflowHistoryImportDialog.vue missing ${snippet}`)
+}
 
 console.log('workflow history import checks passed')
