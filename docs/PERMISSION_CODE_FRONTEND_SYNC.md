@@ -197,6 +197,19 @@ OA 流程任务仍统一调用 `POST /api/v2/dingtalk/h5/workflows/tasks/:id/com
 
 迁移 `20260922120000_split_dingtalk_h5_workflow_action_permissions.sql` 会把历史 `dingtalk_h5:api:workflow:handle` 的有效 allow/deny 授权和 scope 复制到上述八项新权限，然后停用旧 handle 权限。升级后管理员可以分别取消某一动作；接口中间件会按 action 再次鉴权，不能通过隐藏按钮或直接构造请求绕过。
 
+## 钉钉 H5 历史表单导入权限
+
+流程发起页的“导入”按钮需要同时满足以下条件：
+
+- `dingtalk_h5:button:workflow:history-import`：显示历史表单导入入口。
+- `dingtalk_h5:api:workflow:start`：允许进入当前流程发起页并提交申请。
+- `dingtalk_h5:api:workflow:view`：允许读取本人发起的历史实例列表和详情。
+- 当前用户属于流程定义的允许发起范围。
+
+历史导入不新增专用 API。H5App 复用现有实例列表和详情接口，只读取当前流程定义下由当前用户发起的历史申请；导入结果先合并到本地未提交表单，保存草稿或正式发起时仍由现有后端接口按当前发布版本执行字段权限、表单校验和计算。
+
+迁移 `20260923100000_add_dingtalk_h5_workflow_history_import_permission.sql` 会注册按钮权限，并从已有 `dingtalk_h5:api:workflow:start` 的有效 `allow` 授权回填按钮授权，不复制 `deny` 授权。迁移后需要重新登录或刷新 bootstrap 权限缓存，新的 `buttonPermissionKeys` 才会生效。
+
 ## 钉钉 H5 流程催办权限
 
 - `dingtalk_h5:api:workflow:remind`：允许流程发起人在“我的申请”详情中催办当前待处理节点。
