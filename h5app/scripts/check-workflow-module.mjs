@@ -19,6 +19,7 @@ const requiredFiles = [
   'src/pages/workflow/components/WorkflowFormDetailPage.vue',
   'src/pages/workflow/components/WorkflowTaskPage.vue',
   'src/pages/workflow/components/WorkflowStartPage.vue',
+  'src/pages/workflow/components/WorkflowHistoryImportDialog.vue',
   'src/pages/workflow/components/WorkflowSummaryPage.vue',
   'src/pages/workflow/components/WorkflowSummarySection.vue',
   'src/pages/workflow/workflow-summary-columns.ts',
@@ -89,6 +90,9 @@ const requiredContent = [
     patterns: [
       '.workflow-start-page__record-cell--action {\n  position: sticky;',
       'border-radius: 6px;\n  overflow: visible;',
+      'dingtalk_h5:button:workflow:history-import',
+      'WorkflowHistoryImportDialog',
+      '@apply="applyHistoryImport"',
     ],
   },
   {

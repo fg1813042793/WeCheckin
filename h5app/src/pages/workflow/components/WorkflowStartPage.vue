@@ -31,6 +31,7 @@ import { workflowInstanceStatusMeta } from '../workflow-status'
 import WorkflowDetailPanel from './WorkflowDetailPanel.vue'
 import WorkflowFilterPanel from './WorkflowFilterPanel.vue'
 import WorkflowHistoryDatePicker from './WorkflowHistoryDatePicker.vue'
+import WorkflowHistoryImportDialog from './WorkflowHistoryImportDialog.vue'
 import WorkflowReadOnlyGraph from './WorkflowReadOnlyGraph.vue'
 import WorkflowRuntimeForm from './WorkflowRuntimeForm.vue'
 
@@ -77,12 +78,19 @@ const historyFilters = ref<WorkflowHistoryFilters>(emptyHistoryFilters())
 const appliedHistoryFilters = ref<WorkflowHistoryFilters>(emptyHistoryFilters())
 const detailVisible = ref(false)
 const selectedInstanceId = ref('')
+const historyImportVisible = ref(false)
 let unregisterCloseGuard: (() => void) | null = null
 
 const definitionId = computed(() => workflowDefinitionIdFromContentKey(props.contentKey))
 const definitionDisplayName = computed(() => workflowDefinitionDisplayName(definition.value))
 const canStart = computed(() => auth.hasApiPermission('dingtalk_h5:api:workflow:start'))
 const canView = computed(() => auth.hasApiPermission('dingtalk_h5:api:workflow:view'))
+const canImportHistory = computed(() => Boolean(
+  starterAllowed.value
+  && auth.hasButtonPermission('dingtalk_h5:button:workflow:history-import')
+  && auth.hasApiPermission('dingtalk_h5:api:workflow:start')
+  && auth.hasApiPermission('dingtalk_h5:api:workflow:view'),
+))
 const busy = computed(() => loading.value || draftSaving.value || draftDeleting.value || submitting.value)
 const startLimitExceeded = computed(() => (
   definition.value?.startLimit?.mode === 'limited'
@@ -257,6 +265,18 @@ function applyWorkflowStartSeed() {
   activeSection.value = 'start'
   uni.showToast({ title: '已复制原申请内容，请修改后提交', icon: 'none' })
   return true
+}
+
+function applyHistoryImport(payload: { patch: WorkflowFormData, importCount: number }) {
+  const value = definition.value
+  if (!value)
+    return
+  formData.value = initialWorkflowFormData(value.form || [], {
+    ...formData.value,
+    ...payload.patch,
+  })
+  activeSection.value = 'start'
+  uni.showToast({ title: `已导入 ${payload.importCount} 个字段`, icon: 'success' })
 }
 
 function continueSavedDraft() {
@@ -590,6 +610,27 @@ function cancelStart() {
             <text>{{ startLimitMessage }}</text>
           </view>
           <view class="workflow-start-page__form-card">
+            <view class="workflow-start-page__form-toolbar">
+              <view>
+                <text class="workflow-start-page__form-title">
+                  申请表单
+                </text>
+                <text class="workflow-start-page__form-hint">
+                  按当前流程版本填写，带 * 的字段为必填项
+                </text>
+              </view>
+              <u-button
+                v-if="canImportHistory"
+                custom-class="workflow-start-page__import-action"
+                size="small"
+                plain
+                :disabled="busy || startLimitExceeded"
+                @click="historyImportVisible = true"
+              >
+                <u-icon name="download" size="15px" color="#0f766e" />
+                <text>导入</text>
+              </u-button>
+            </view>
             <WorkflowRuntimeForm
               ref="formRef"
               v-model="formData"
@@ -895,6 +936,14 @@ function cancelStart() {
       comment-action
       @changed="loadHistory"
     />
+    <WorkflowHistoryImportDialog
+      v-if="definition"
+      v-model="historyImportVisible"
+      :definition="definition"
+      :target-data="formData"
+      :target-access="fieldAccess"
+      @apply="applyHistoryImport"
+    />
   </view>
 </template>
 
@@ -1066,6 +1115,46 @@ function cancelStart() {
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(31, 35, 41, 0.05);
   box-sizing: border-box;
+}
+
+.workflow-start-page__form-toolbar {
+  min-height: 44px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5eaf3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workflow-start-page__form-title,
+.workflow-start-page__form-hint {
+  display: block;
+}
+
+.workflow-start-page__form-title {
+  color: #1f2329;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.workflow-start-page__form-hint {
+  margin-top: 3px;
+  color: #86909c;
+  font-size: 12px;
+}
+
+:deep(.workflow-start-page__import-action) {
+  width: 80px;
+  margin: 0;
+  color: #0f766e;
+}
+
+:deep(.workflow-start-page__import-action .u-button__text) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .workflow-start-page__limit-status {
@@ -1592,6 +1681,10 @@ function cancelStart() {
 
   .workflow-start-page__form-card {
     padding: 12px;
+  }
+
+  .workflow-start-page__form-toolbar {
+    align-items: flex-start;
   }
 
   .workflow-start-page__process {

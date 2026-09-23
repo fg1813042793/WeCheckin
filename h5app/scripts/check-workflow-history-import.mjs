@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { runInThisContext } from 'node:vm'
 
@@ -228,14 +227,14 @@ const dialogSource = readFileSync(dialogUrl, 'utf8')
 for (const snippet of [
   'listWorkflowInstances',
   'getWorkflowInstance',
-  "scope: 'started'",
+  'scope: \'started\'',
   'definitionId: props.definition.id',
   '全部导入',
   '字段映射',
   '覆盖已有内容',
   'previewWorkflowHistoryImport',
   'WorkflowHistoryImportMapping',
-  "emit('apply'",
+  'emit(\'apply\'',
   'instanceTitle',
   'statusFilter',
   '<u-pagination',
@@ -245,6 +244,28 @@ for (const snippet of [
   '重新加载',
 ]) {
   assert.ok(dialogSource.includes(snippet), `WorkflowHistoryImportDialog.vue missing ${snippet}`)
+}
+
+const startPageSource = readFileSync(
+  new URL('../src/pages/workflow/components/WorkflowStartPage.vue', import.meta.url),
+  'utf8',
+)
+for (const snippet of [
+  'dingtalk_h5:button:workflow:history-import',
+  'const canImportHistory = computed',
+  'starterAllowed.value',
+  'auth.hasApiPermission(\'dingtalk_h5:api:workflow:start\')',
+  'auth.hasApiPermission(\'dingtalk_h5:api:workflow:view\')',
+  'WorkflowHistoryImportDialog',
+  'v-model="historyImportVisible"',
+  '@apply="applyHistoryImport"',
+  '>导入<',
+  'function applyHistoryImport',
+  'initialWorkflowFormData(value.form || [], {',
+  '...formData.value,',
+  '...payload.patch,',
+]) {
+  assert.ok(startPageSource.includes(snippet), `WorkflowStartPage.vue missing ${snippet}`)
 }
 
 console.log('workflow history import checks passed')
