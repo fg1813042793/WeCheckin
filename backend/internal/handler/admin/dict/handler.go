@@ -2,6 +2,8 @@ package dict
 
 import (
 	"context"
+	"errors"
+	"math"
 	"strconv"
 	"strings"
 
@@ -129,6 +131,11 @@ func (h *AdminDictHandler) AddDictItem(ctx context.Context, c *app.RequestContex
 	typeName := c.PostForm("typeName")
 	label := c.PostForm("label")
 	value := c.PostForm("value")
+	calculationValue, err := optionalCalculationValue(c.PostForm("calculationValue"))
+	if err != nil {
+		fail(c, err, "添加失败")
+		return
+	}
 	remark := c.PostForm("remark")
 	sort, _ := strconv.Atoi(c.PostForm("sort"))
 
@@ -136,7 +143,7 @@ func (h *AdminDictHandler) AddDictItem(ctx context.Context, c *app.RequestContex
 	if strings.TrimSpace(value) == "" && strings.TrimSpace(label) == strings.TrimSpace(typeName) {
 		err = dictservice.AddItemContext(ctx, typeCode, typeName, label, value, remark, sort)
 	} else {
-		err = dictservice.AddItemWithStatusContext(ctx, typeCode, label, value, remark, sort, status)
+		err = dictservice.AddItemWithCalculationValueContext(ctx, typeCode, label, value, remark, sort, status, calculationValue)
 	}
 	if err != nil {
 		fail(c, err, "添加失败")
@@ -156,16 +163,33 @@ func (h *AdminDictHandler) EditDictItem(ctx context.Context, c *app.RequestConte
 		return
 	}
 	sort, _ := strconv.Atoi(c.PostForm("sort"))
+	calculationValue, err := optionalCalculationValue(c.PostForm("calculationValue"))
+	if err != nil {
+		fail(c, err, "编辑失败")
+		return
+	}
 	id := c.Param("id")
 	if id == "" {
 		id = c.PostForm("id")
 	}
-	err = dictservice.EditItemWithStatusContext(ctx, id, c.PostForm("label"), c.PostForm("value"), c.PostForm("remark"), sort, status)
+	err = dictservice.EditItemWithCalculationValueContext(ctx, id, c.PostForm("label"), c.PostForm("value"), c.PostForm("remark"), sort, status, calculationValue)
 	if err != nil {
 		fail(c, err, "编辑失败")
 		return
 	}
 	response.JSON(c, nil)
+}
+
+func optionalCalculationValue(raw string) (*float64, error) {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return nil, nil
+	}
+	value, err := strconv.ParseFloat(text, 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+		return nil, errors.New("字典项计算值必须是有效数字")
+	}
+	return &value, nil
 }
 
 // @Tags PC端-字典管理

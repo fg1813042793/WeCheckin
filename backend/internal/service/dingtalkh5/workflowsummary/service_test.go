@@ -62,6 +62,9 @@ func TestListInstancesSupportsCrossDefinitionNameFilterAndAppliesVisibility(t *t
 	if runtime.query.Visibility == nil || len(runtime.query.Visibility.UserIDs) != 1 || runtime.query.Visibility.UserIDs[0] != 7 {
 		t.Fatalf("visibility = %#v", runtime.query.Visibility)
 	}
+	if !runtime.query.IncludeFormData {
+		t.Fatal("workflow summary list must include form data for configurable columns")
+	}
 }
 
 func TestGetInstanceRejectsInvisibleIDBeforeLoadingDetail(t *testing.T) {

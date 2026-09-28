@@ -13,6 +13,7 @@ import {
   getWorkflowFormRevision,
   getWorkflowInstance,
 } from '@/api/workflow'
+import { appErrorMessage } from '@/common/app-error'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import { workflowDataFields } from '../workflow-form'
 import {
@@ -248,14 +249,7 @@ function formatTime(timestamp?: number) {
 }
 
 function requestErrorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object')
-    return fallback
-  const response = error as Record<string, unknown>
-  const payload = response.data && typeof response.data === 'object' && !Array.isArray(response.data)
-    ? response.data as Record<string, unknown>
-    : response
-  const message = payload.msg ?? payload.message
-  return typeof message === 'string' && message.trim() ? message.trim() : fallback
+  return appErrorMessage(error, fallback)
 }
 </script>
 

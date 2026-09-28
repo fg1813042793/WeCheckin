@@ -10,7 +10,7 @@ import {
   calculateWorkflowFormData,
   evaluateWorkflowCalculation,
   workflowCalculationDisplay,
-  workflowCalculationPrecision,
+  workflowCalculationResultText,
 } from '../workflow-calculation'
 import {
   cloneWorkflowValue,
@@ -69,10 +69,10 @@ function calculationDisplay(field: WorkflowFormField) {
 }
 
 function calculationText(field: WorkflowFormField) {
-  const result = evaluateWorkflowCalculation(field, props.modelValue || {})
+  const result = evaluateWorkflowCalculation(field, props.modelValue || {}, props.calculationFields || props.fields)
   if (result.error || result.value === undefined)
     return '-'
-  return result.value.toFixed(workflowCalculationPrecision(field.calculation))
+  return workflowCalculationResultText(result.value, field.calculation)
 }
 
 function fieldSpanStyle(field: WorkflowFormField) {
@@ -162,6 +162,7 @@ defineExpose({ validate })
     class="workflow-form app-workflow-form app-pc-control-scope"
     :class="{
       'workflow-form--embedded': embedded,
+      'workflow-form--readonly': readonly,
       'workflow-form--plain-readonly': readonlyAppearance === 'plain',
       'workflow-form--fully-readonly': readonly && readonlyAppearance === 'plain',
     }"
@@ -199,7 +200,9 @@ defineExpose({ validate })
           class="workflow-form__calculation-label"
           :style="fieldSpanStyle(field)"
         >
-          <text>{{ field.label || field.key }}</text>
+          <text class="workflow-form__calculation-name">
+            {{ field.label || field.key }}
+          </text>
           <text class="workflow-form__calculation-value">
             {{ calculationText(field) }}
           </text>
@@ -314,6 +317,31 @@ defineExpose({ validate })
 </template>
 
 <style lang="scss" scoped>
+.workflow-form {
+  width: 100%;
+  min-width: 0;
+}
+
+.workflow-form:not(.workflow-form--embedded):not(.workflow-form--readonly) {
+  padding: 20rpx;
+  border-radius: 10rpx;
+  background: #f6f8fb;
+  box-sizing: border-box;
+}
+
+.workflow-form--embedded {
+  background: transparent;
+}
+
+.workflow-form:not(.workflow-form--readonly) {
+  :deep(.u-input),
+  :deep(.u-textarea),
+  :deep(.workflow-picker),
+  :deep(.workflow-control__empty) {
+    background-color: #fff !important;
+  }
+}
+
 .workflow-form__grid,
 .workflow-detail__columns {
   display: flex;
@@ -361,7 +389,7 @@ defineExpose({ validate })
   padding: 24rpx;
   border: 1px solid $u-border-color;
   border-radius: 8rpx;
-  background: #f8fafc;
+  background: #f1f4f8;
   box-sizing: border-box;
 }
 
@@ -390,6 +418,11 @@ defineExpose({ validate })
   background: #f4f8ff;
   color: $u-content-color;
   font-size: 25rpx;
+}
+
+.workflow-form__calculation-name {
+  color: $u-main-color;
+  font-weight: 600;
 }
 
 .workflow-form__calculation-value {
@@ -430,10 +463,10 @@ defineExpose({ validate })
 }
 
 .workflow-detail {
-  padding: 18rpx;
-  border: 1px solid $u-border-color;
-  border-radius: 8rpx;
-  background: #f8fafc;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .workflow-detail__toolbar,
@@ -445,7 +478,7 @@ defineExpose({ validate })
 }
 
 .workflow-detail__toolbar {
-  margin-bottom: 16rpx;
+  margin-bottom: 8rpx;
   justify-content: flex-start;
   color: $u-content-color;
   font-size: 23rpx;
@@ -489,8 +522,27 @@ defineExpose({ validate })
   .workflow-form--plain-readonly {
     :deep(.u-input--disabled),
     :deep(.u-textarea--disabled),
-    :deep(.workflow-picker--disabled) {
-      background-color: #fff !important;
+    :deep(.workflow-picker--disabled),
+    :deep(.workflow-control__empty) {
+      border-color: #e5eaf3 !important;
+      background-color: #fafbfc !important;
+      box-shadow: none !important;
+    }
+
+    :deep(.u-input--disabled),
+    :deep(.workflow-picker--disabled),
+    :deep(.workflow-control__empty) {
+      padding-right: 10px !important;
+      padding-left: 10px !important;
+    }
+
+    :deep(.u-textarea--disabled) {
+      padding: 8px 10px !important;
+    }
+
+    :deep(.u-textarea__count),
+    :deep(.u-input__count) {
+      display: none !important;
     }
 
     :deep(.u-input--disabled .u-input__input),
@@ -524,7 +576,7 @@ defineExpose({ validate })
 
     .workflow-form__group,
     .workflow-detail {
-      background: #fff;
+      background: transparent;
     }
   }
 
@@ -535,6 +587,11 @@ defineExpose({ validate })
 }
 
 @media screen and (max-width: 768px) {
+  .workflow-form:not(.workflow-form--embedded):not(.workflow-form--readonly) {
+    padding: 16rpx;
+    border-radius: 8rpx;
+  }
+
   .workflow-form__field,
   .workflow-detail__column,
   .workflow-form__label,

@@ -2,11 +2,12 @@
 import type { PerformanceReview, PerformanceReviewListPayload, PerformanceTemplate } from '@/types/dingtalk-h5'
 import { computed, reactive, ref, watch } from 'vue'
 import { getTemplate, listReviews } from '@/api/dingtalk-h5'
+import { appErrorMessage } from '@/common/app-error'
 import { useDingtalkAuthStore } from '@/stores'
 import { useAppContentStore } from '@/stores/appContent'
+import { appendUniqueReviewRows, createMobilePaginationState, mobileReviewListParams, resetMobilePagination, showMobileLoadMore, showMobileNoMore, updateMobilePaginationTotal } from './components/mobilePagination'
 import PerformanceAdaptiveSelect from './components/PerformanceAdaptiveSelect.vue'
 import PerformanceDetailPopup from './components/PerformanceDetailPopup.vue'
-import { appendUniqueReviewRows, createMobilePaginationState, mobileReviewListParams, resetMobilePagination, showMobileLoadMore, showMobileNoMore, updateMobilePaginationTotal } from './components/mobilePagination'
 import { statusMeta } from './constants/performanceStatus'
 
 interface SelectOption {
@@ -378,9 +379,9 @@ async function loadMoreHistoryRows() {
   try {
     await loadHistoryPageData({ append: true })
   }
-  catch {
+  catch (error) {
     historyMobilePagination.page = Math.max(historyMobilePagination.page - 1, 1)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+    uni.showToast({ title: appErrorMessage(error, '加载失败，请重试'), icon: 'none' })
   }
 }
 

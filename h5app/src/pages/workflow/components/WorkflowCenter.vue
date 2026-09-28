@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WorkflowHistoryDateFilters } from '../workflow-history-filter'
+import type { WorkflowRecordColumn } from '../workflow-record-columns'
 import type {
   WorkflowInstanceSummary,
   WorkflowPublishedDefinition,
@@ -17,6 +18,11 @@ import {
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import { workflowDefinitionDisplayName } from '../workflow-definition'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
+import {
+  configurableWorkflowRecordColumns,
+  normalizeWorkflowRecordHiddenKeys,
+  visibleWorkflowRecordColumns,
+} from '../workflow-record-columns'
 import {
   workflowFormRevisionDetailContentKey,
   workflowInstanceContentKey,
@@ -62,6 +68,9 @@ let countsRefreshQueued = false
 const keyword = ref('')
 const selectedCategory = ref<WorkflowCategory>('all')
 const workflowListTabs: WorkflowListTab[] = ['pending', 'handled', 'started', 'copied']
+const workflowRecordColumnStorageKey = 'workflow_record_hidden_columns_v1'
+const recordHiddenColumns = reactive(loadRecordHiddenColumns())
+const columnSettingsOpen = ref(false)
 const recordFilters = reactive(createRecordFilters())
 const appliedRecordFilters = reactive(createRecordFilters())
 const instances = ref<WorkflowInstanceSummary[]>([])
@@ -96,7 +105,7 @@ const navigationTabs = computed(() => [
   ...(canStart.value
     ? [{
         key: 'start' as const,
-        label: '发起审批',
+        label: '流程选择',
         icon: 'plus-circle',
       }]
     : []),
@@ -212,32 +221,54 @@ const groupedDefinitions = computed(() => {
 const showStarterColumn = computed(() => ['pending', 'handled', 'copied'].includes(activeTab.value))
 const showCurrentProgressColumns = computed(() => activeTab.value === 'started')
 
-const recordColumns = computed(() => [
+const recordColumns = computed<WorkflowRecordColumn[]>(() => [
   { key: 'name', label: '单据标题', width: 'minmax(180px, 1.4fr)' },
-  { key: 'definitionName', label: '流程名称', width: 'minmax(130px, 1fr)', mobileHidden: true },
-  { key: 'businessKey', label: '流程单号', width: 'minmax(180px, 1.35fr)', mobileHidden: true, copyable: true },
+  { key: 'definitionName', label: '流程名称', width: 'minmax(130px, 1fr)', mobileHidden: true, configurable: true },
+  { key: 'businessKey', label: '流程单号', width: 'minmax(180px, 1.35fr)', mobileHidden: true, copyable: true, configurable: true },
   ...(showStarterColumn.value
-    ? [{ key: 'starterName', label: '发起人', width: 'minmax(100px, 0.8fr)', mobileHidden: true }]
+    ? [{ key: 'starterName', label: '发起人', width: 'minmax(100px, 0.8fr)', mobileHidden: true, configurable: true }]
     : []),
   {
     key: 'context',
     label: activeTab.value === 'pending' ? '当前节点' : '流程分类',
     width: 'minmax(100px, 0.8fr)',
     mobileHidden: true,
+    configurable: true,
   },
   ...(activeTab.value === 'pending'
-    ? [{ key: 'assigneeName', label: '节点处理人', width: 'minmax(110px, 0.9fr)', mobileHidden: true }]
+    ? [{ key: 'assigneeName', label: '节点处理人', width: 'minmax(110px, 0.9fr)', mobileHidden: true, configurable: true }]
     : []),
   ...(showCurrentProgressColumns.value
     ? [
-        { key: 'currentNode', label: '当前节点', width: 'minmax(100px, 0.85fr)', mobileHidden: true },
-        { key: 'currentAssignees', label: '节点处理人', width: 'minmax(110px, 0.9fr)', mobileHidden: true },
+        { key: 'currentNode', label: '当前节点', width: 'minmax(100px, 0.85fr)', mobileHidden: true, configurable: true },
+        { key: 'currentAssignees', label: '节点处理人', width: 'minmax(110px, 0.9fr)', mobileHidden: true, configurable: true },
       ]
     : []),
   { key: 'status', label: '审批状态', width: '92px' },
   { key: 'submittedAt', label: '提交时间', width: 'minmax(150px, 1fr)' },
   { key: 'actions', label: '操作', width: '84px' },
 ])
+const configurableRecordColumns = computed(() => configurableWorkflowRecordColumns(recordColumns.value))
+const activeHiddenRecordColumnKeys = computed(() => normalizeWorkflowRecordHiddenKeys(
+  recordColumns.value,
+  recordHiddenColumns[activeListTab.value],
+))
+const activeVisibleRecordColumnKeys = computed<string[]>({
+  get: () => configurableRecordColumns.value
+    .map(column => column.key)
+    .filter(key => !activeHiddenRecordColumnKeys.value.includes(key)),
+  set: (values) => {
+    const selected = new Set(values)
+    recordHiddenColumns[activeListTab.value] = configurableRecordColumns.value
+      .map(column => column.key)
+      .filter(key => !selected.has(key))
+    saveRecordHiddenColumns()
+  },
+})
+const visibleRecordColumns = computed(() => visibleWorkflowRecordColumns(
+  recordColumns.value,
+  activeHiddenRecordColumnKeys.value,
+))
 
 const recordRows = computed(() => {
   if (activeTab.value === 'pending') {
@@ -296,6 +327,7 @@ watch(
 onMounted(() => {
   // #ifdef H5
   document.addEventListener('visibilitychange', handleVisibilityChange)
+  document.addEventListener('click', closeColumnSettings)
   // #endif
   const focusedTabOpened = openFocusedWorkflowTab()
   if (!focusedTabOpened)
@@ -308,6 +340,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   // #ifdef H5
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  document.removeEventListener('click', closeColumnSettings)
   // #endif
 })
 
@@ -484,6 +517,7 @@ async function loadTaskInstances(list: WorkflowTaskSummary[]) {
 }
 
 function switchTab(tab: WorkflowCenterTab) {
+  columnSettingsOpen.value = false
   if (workflowListTabs.includes(tab as WorkflowListTab))
     void loadCounts()
   if (tab === activeTab.value)
@@ -492,6 +526,40 @@ function switchTab(tab: WorkflowCenterTab) {
   page.value = 1
   if (workflowListTabs.includes(tab as WorkflowListTab))
     void loadCurrentList()
+}
+
+function loadRecordHiddenColumns() {
+  const result: Record<WorkflowListTab, string[]> = {
+    pending: [],
+    handled: [],
+    started: [],
+    copied: [],
+  }
+  const stored = uni.getStorageSync(workflowRecordColumnStorageKey)
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored))
+    return result
+  for (const tab of workflowListTabs) {
+    if (Array.isArray((stored as Record<string, unknown>)[tab]))
+      result[tab] = (stored as Record<string, unknown[]>)[tab].map(value => String(value))
+  }
+  return result
+}
+
+function saveRecordHiddenColumns() {
+  uni.setStorageSync(workflowRecordColumnStorageKey, { ...recordHiddenColumns })
+}
+
+function toggleColumnSettings() {
+  columnSettingsOpen.value = !columnSettingsOpen.value
+}
+
+function closeColumnSettings() {
+  columnSettingsOpen.value = false
+}
+
+function resetRecordColumns() {
+  recordHiddenColumns[activeListTab.value] = []
+  saveRecordHiddenColumns()
 }
 
 function emptyRecordFilters(): WorkflowRecordFilters {
@@ -727,7 +795,7 @@ function formatTime(timestamp?: number) {
 
 function activeListTitle() {
   const titles: Record<WorkflowCenterTab, string> = {
-    start: '发起审批',
+    start: '流程选择',
     pending: '我的待办',
     handled: '已处理',
     started: '我的申请',
@@ -929,6 +997,39 @@ function activeListTitle() {
               共 {{ total }} 条
             </text>
           </view>
+          <!-- #ifdef H5 -->
+          <view class="workflow-center__column-settings" @click.stop>
+            <view
+              class="workflow-center__column-settings-trigger"
+              role="button"
+              tabindex="0"
+              title="列设置"
+              aria-label="列设置"
+              @click="toggleColumnSettings"
+              @keydown.enter.prevent="toggleColumnSettings"
+              @keydown.space.prevent="toggleColumnSettings"
+            >
+              <u-icon name="setting" size="15px" color="#4e5969" />
+              <text>列设置</text>
+            </view>
+            <view v-if="columnSettingsOpen" class="workflow-center__column-settings-panel">
+              <view class="workflow-center__column-settings-head">
+                <text>展示列</text>
+                <text class="workflow-center__column-settings-reset" @click="resetRecordColumns">
+                  恢复默认
+                </text>
+              </view>
+              <u-checkbox-group v-model="activeVisibleRecordColumnKeys" class="workflow-center__column-settings-list">
+                <u-checkbox
+                  v-for="column in configurableRecordColumns"
+                  :key="column.key"
+                  :value="column.key"
+                  :label="column.label"
+                />
+              </u-checkbox-group>
+            </view>
+          </view>
+          <!-- #endif -->
         </view>
 
         <WorkflowFilterPanel :active-count="applicationFilterCount">
@@ -1056,7 +1157,7 @@ function activeListTitle() {
         </view>
         <WorkflowRecordTable
           v-else
-          :columns="recordColumns"
+          :columns="visibleRecordColumns"
           :rows="recordRows"
         >
           <template #actions="{ row }">
@@ -1469,6 +1570,75 @@ function activeListTitle() {
   font-size: 12px;
 }
 
+.workflow-center__column-settings {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.workflow-center__column-settings-trigger {
+  width: 86px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d8e0e8;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.workflow-center__column-settings-trigger:hover,
+.workflow-center__column-settings-trigger:focus-visible {
+  border-color: #2563eb;
+  color: #2563eb;
+  outline: none;
+}
+
+.workflow-center__column-settings-panel {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  z-index: 20;
+  width: 220px;
+  padding: 12px;
+  border: 1px solid #e5eaf3;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(31, 35, 41, 0.14);
+  box-sizing: border-box;
+}
+
+.workflow-center__column-settings-head {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #1f2329;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workflow-center__column-settings-reset {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.workflow-center__column-settings-list {
+  display: grid;
+  gap: 9px;
+}
+
+:deep(.workflow-center__column-settings-list .u-checkbox) {
+  margin-right: 0;
+}
+
 .workflow-center__record-filters {
   display: flex;
   flex-wrap: wrap;
@@ -1698,6 +1868,9 @@ function activeListTitle() {
     justify-content: flex-end;
   }
 
+  .workflow-center__column-settings {
+    display: none;
+  }
 }
 
 @media screen and (max-width: 768px) {

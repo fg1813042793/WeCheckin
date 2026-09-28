@@ -4,10 +4,10 @@ import { computed, reactive, ref, watch } from 'vue'
 import { getTemplate, listReviews, reviewAction } from '@/api/dingtalk-h5'
 import { useDingtalkAuthStore } from '@/stores'
 import { useAppContentStore } from '@/stores/appContent'
+import { appendUniqueReviewRows, createMobilePaginationState, mobileReviewListParams, resetMobilePagination, showMobileLoadMore, showMobileNoMore, updateMobilePaginationTotal } from './components/mobilePagination'
 import PerformanceAdaptiveSelect from './components/PerformanceAdaptiveSelect.vue'
 import PerformanceDetailPopup from './components/PerformanceDetailPopup.vue'
 import PerformanceReviewDetail from './components/PerformanceReviewDetail.vue'
-import { appendUniqueReviewRows, createMobilePaginationState, mobileReviewListParams, resetMobilePagination, showMobileLoadMore, showMobileNoMore, updateMobilePaginationTotal } from './components/mobilePagination'
 import { normalizeReviewActionResult, statusMeta } from './constants/performanceStatus'
 
 interface SelectOption {

@@ -21,7 +21,7 @@ func (store *GormStore) LoadPublishedDefinition(ctx context.Context, definitionI
 	defer cancel()
 
 	var definitionModel workflowmodel.Definition
-	if err := db.Clauses(clause.Locking{Strength: "SHARE"}).First(&definitionModel, definitionID).Error; err != nil {
+	if err := db.Clauses(clause.Locking{Strength: "SHARE"}).Where("definition_deleted_at = ?", int64(0)).First(&definitionModel, definitionID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return workflowcore.Definition{}, 0, fmt.Errorf("流程定义不存在: %w", err)
 		}
@@ -33,7 +33,14 @@ func (store *GormStore) LoadPublishedDefinition(ctx context.Context, definitionI
 	if version <= 0 {
 		version = definitionModel.CurrentVersion
 	}
-	return loadDefinitionVersion(db, definitionID, version)
+	definition, publishedVersion, err := loadDefinitionVersion(db, definitionID, version)
+	if err != nil {
+		return workflowcore.Definition{}, 0, err
+	}
+	if err := applyRuntimeStartConfig(&definition, definitionModel.StartConfigJSON); err != nil {
+		return workflowcore.Definition{}, 0, err
+	}
+	return definition, publishedVersion, nil
 }
 
 func (store *GormStore) ListPublishedDefinitions(ctx context.Context) ([]application.PublishedDefinition, error) {
@@ -43,7 +50,7 @@ func (store *GormStore) ListPublishedDefinitions(ctx context.Context) ([]applica
 	}
 	defer cancel()
 	var rows []workflowmodel.Definition
-	if err := db.Where("definition_status = ? AND definition_current_version > 0", workflowmodel.DefinitionStatusPublished).
+	if err := db.Where("definition_deleted_at = ? AND definition_status = ? AND definition_current_version > 0", int64(0), workflowmodel.DefinitionStatusPublished).
 		Order("definition_category ASC").Order("definition_name ASC").Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -52,6 +59,9 @@ func (store *GormStore) ListPublishedDefinitions(ctx context.Context) ([]applica
 		row.LogoURL = media.FullURLWithStaticDomainContext(ctx, row.LogoURL)
 		definition, version, err := loadDefinitionVersion(db, row.ID, row.CurrentVersion)
 		if err != nil {
+			return nil, err
+		}
+		if err := applyRuntimeStartConfig(&definition, row.StartConfigJSON); err != nil {
 			return nil, err
 		}
 		result = append(result, publishedDefinition(row, definition, version, publishedAssigneeLabels{}, false))
@@ -66,7 +76,7 @@ func (store *GormStore) GetPublishedDefinition(ctx context.Context, definitionID
 	}
 	defer cancel()
 	var row workflowmodel.Definition
-	if err := db.First(&row, "id = ? AND definition_status = ? AND definition_current_version > 0", definitionID, workflowmodel.DefinitionStatusPublished).Error; err != nil {
+	if err := db.First(&row, "id = ? AND definition_deleted_at = ? AND definition_status = ? AND definition_current_version > 0", definitionID, int64(0), workflowmodel.DefinitionStatusPublished).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrDefinitionNotPublished
 		}
@@ -76,6 +86,9 @@ func (store *GormStore) GetPublishedDefinition(ctx context.Context, definitionID
 	if err != nil {
 		return nil, err
 	}
+	if err := applyRuntimeStartConfig(&definition, row.StartConfigJSON); err != nil {
+		return nil, err
+	}
 	row.LogoURL = media.FullURLWithStaticDomainContext(ctx, row.LogoURL)
 	labels, err := loadPublishedAssigneeLabels(db, definition.Nodes)
 	if err != nil {
@@ -83,6 +96,16 @@ func (store *GormStore) GetPublishedDefinition(ctx context.Context, definitionID
 	}
 	result := publishedDefinition(row, definition, version, labels, true)
 	return &result, nil
+}
+
+func applyRuntimeStartConfig(definition *workflowcore.Definition, raw string) error {
+	if err := workflowcore.ApplyRuntimeStartConfigJSON(definition, raw); err != nil {
+		return fmt.Errorf("解析流程运行配置失败: %w", err)
+	}
+	if validationErrors := workflowcore.ValidateDefinition(*definition); len(validationErrors) > 0 {
+		return workflowcore.ValidationErrors(validationErrors)
+	}
+	return nil
 }
 
 func loadDefinitionVersion(db *gorm.DB, definitionID uint, version int) (workflowcore.Definition, int, error) {

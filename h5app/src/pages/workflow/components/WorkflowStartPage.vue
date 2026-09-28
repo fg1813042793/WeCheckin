@@ -17,12 +17,14 @@ import {
   saveWorkflowStartDraft,
   startWorkflowInstance,
 } from '@/api/workflow'
+import { appErrorMessage } from '@/common/app-error'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import { workflowDefinitionDisplayName } from '../workflow-definition'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
   workflowFieldActionsMap,
+  workflowFormValidationMessage,
   writableWorkflowFormData,
 } from '../workflow-form'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
@@ -239,8 +241,8 @@ async function loadStartPage() {
         const draft = draftResponse?.data
         savedDraft.value = draft || null
       }
-      catch {
-        uni.showToast({ title: '草稿加载失败', icon: 'none' })
+      catch (error) {
+        uni.showToast({ title: appErrorMessage(error, '草稿加载失败'), icon: 'none' })
       }
     }
     savedSnapshot.value = currentSnapshot()
@@ -384,8 +386,8 @@ async function loadHistory() {
     historyTotal.value = Number(response?.data?.total || 0)
     historyLoaded.value = true
   }
-  catch {
-    uni.showToast({ title: '历史记录加载失败', icon: 'none' })
+  catch (error) {
+    uni.showToast({ title: appErrorMessage(error, '历史记录加载失败'), icon: 'none' })
   }
   finally {
     historyLoading.value = false
@@ -441,16 +443,7 @@ function formatTime(timestamp?: number) {
 }
 
 function workflowRequestErrorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object')
-    return fallback
-  const response = error as Record<string, unknown>
-  const payload = response.data && typeof response.data === 'object' && !Array.isArray(response.data)
-    ? response.data as Record<string, unknown>
-    : response
-  const message = payload.msg ?? payload.message
-  if (typeof message !== 'string' || !message.trim())
-    return fallback
-  return message.trim()
+  return appErrorMessage(error, fallback)
 }
 
 async function saveDraft() {
@@ -499,7 +492,7 @@ async function submitStart() {
 
   const validation = formRef.value?.validate()
   if (validation && !validation.valid) {
-    uni.showToast({ title: '请检查表单必填项', icon: 'none' })
+    uni.showToast({ title: workflowFormValidationMessage(validation.errors), icon: 'none' })
     return
   }
 

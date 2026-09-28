@@ -39,7 +39,7 @@
         v-else-if="frameVisible"
         :key="frameKey"
         class="swagger-frame"
-        :src="swaggerIndexUrl"
+        :src="swaggerFrameUrl"
         title="Swagger 接口文档"
         @load="handleFrameLoad"
         @error="handleFrameError"
@@ -54,6 +54,7 @@ import { Document, RefreshRight, TopRight } from '@element-plus/icons-vue'
 
 const swaggerDocUrl = '/swagger/doc.json'
 const swaggerIndexUrl = '/swagger/index.html'
+const swaggerFrameUrl = ref(swaggerIndexUrl)
 const loading = ref(true)
 const errorMessage = ref('')
 const frameVisible = ref(false)
@@ -69,7 +70,7 @@ async function loadSwagger() {
   frameVisible.value = false
 
   try {
-    const response = await fetch(swaggerDocUrl, {
+    const response = await fetch(cacheBustedSwaggerUrl(swaggerDocUrl), {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
       signal: controller.signal,
@@ -78,7 +79,12 @@ async function loadSwagger() {
     if (!response.ok || !contentType.includes('json')) {
       throw new Error(`Swagger 服务响应异常 (${response.status})`)
     }
+    const definition = await response.json()
+    if (!validSwaggerDefinition(definition)) {
+      throw new Error('Swagger 定义无效，请检查生产环境 /swagger/doc.json 代理与后端版本')
+    }
     if (controller.signal.aborted) return
+    swaggerFrameUrl.value = cacheBustedSwaggerUrl(swaggerIndexUrl)
     frameKey.value += 1
     frameVisible.value = true
   } catch (error) {
@@ -88,6 +94,17 @@ async function loadSwagger() {
       : '请确认后端 Swagger 服务与代理配置'
     loading.value = false
   }
+}
+
+function cacheBustedSwaggerUrl(url: string) {
+  return `${url}${url.includes('?') ? '&' : '?'}ts=${Date.now()}`
+}
+
+function validSwaggerDefinition(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const definition = value as { swagger?: unknown; openapi?: unknown }
+  return definition.swagger === '2.0'
+    || (typeof definition.openapi === 'string' && /^3\.0\.\d+$/.test(definition.openapi))
 }
 
 function handleFrameLoad() {
@@ -101,7 +118,7 @@ function handleFrameError() {
 }
 
 function openSwagger() {
-  window.open(swaggerIndexUrl, '_blank', 'noopener,noreferrer')
+  window.open(cacheBustedSwaggerUrl(swaggerIndexUrl), '_blank', 'noopener,noreferrer')
 }
 
 onMounted(loadSwagger)

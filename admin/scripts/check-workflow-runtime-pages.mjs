@@ -73,6 +73,27 @@ const formPreviewDialog = read('views/workflow/designer/components/WorkflowFormP
 const workflowStatus = read('views/workflow/workflowStatus.ts')
 
 for (const snippet of [
+  'workflowDefinitionStatus(id: ID, status: 0 | 2)',
+  '`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/status`',
+]) {
+  requireSnippet(api, snippet, 'workflow definition status API')
+}
+
+for (const snippet of [
+  '<el-switch',
+  'changeDefinitionStatus',
+  'statusUpdating',
+  "hasPerm('admin:menu:workflow:edit')",
+  '客户端不再显示且无法发起',
+  '历史实例和版本记录将保留',
+  'workflowDefinitionDelete(row.id)',
+]) {
+  requireSnippet(definitions, snippet, 'workflow definition lifecycle controls')
+}
+
+assert.ok(!definitions.includes(':disabled="row.currentVersion > 0"'), 'published workflow delete must not stay disabled')
+
+for (const snippet of [
   'workflowDefinitionCopy(id: ID, data: FormPayload | FormData)',
   '`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/copy`',
 ]) {
@@ -410,6 +431,7 @@ for (const snippet of [
   'label="排除用户"',
   ':department-model-value="departmentIds"',
   'select-department-rules',
+  '包含其全部下级部门人员',
   'excludedUserIds',
   'updateExcludedUserIds',
   'multiple',
@@ -460,10 +482,20 @@ for (const snippet of ['eligibleInitiatorUsers', 'excludedUserIds']) {
 for (const snippet of [
   'title="发布流程"',
   '发布版本',
-  '流程配置将随本次版本一起发布',
+  '流程配置保存后已立即生效',
   'workflowDefinitionPublish(publishTarget.value.id,',
 ]) {
   requireSnippet(publishDialog, snippet, 'workflow publish initiator dialog')
+}
+
+for (const snippet of [
+  '流程配置保存后立即生效，无需重新发布',
+  '允许发起范围',
+  '允许发起时间',
+  '发起次数限制',
+  '单据标识',
+]) {
+  requireSnippet(flowConfig, snippet, 'live workflow start config')
 }
 
 for (const forbidden of ['WorkflowUserTreePicker', '允许发起部门', '额外允许用户', '<el-tree-select']) {

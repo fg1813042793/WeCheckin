@@ -41,6 +41,7 @@ for (const heading of [
 ]) {
   assert.match(uiGuidelines, new RegExp(`## ${heading}`))
 }
+assert.match(uiGuidelines, /计算标签和计算字段/)
 
 for (const token of [
   '--app-page-content-max-width',
@@ -111,8 +112,13 @@ assert.match(appShell, /\.sidebar-nav__group\s*\{[^}]*flex:\s*0 0 auto;/)
 assert.match(appShell, /v-if="!mobileShell && isExpanded\(item\)"/)
 assert.match(appShell, /v-if="mobileExpandedNavItem" class="sidebar-nav__mobile-children"/)
 assert.match(workflowRuntimeForm, /class="workflow-form app-workflow-form app-pc-control-scope"/)
+assert.match(workflowRuntimeForm, /class="workflow-form__calculation-name"/)
 for (const selector of [
   '.app-workflow-form .workflow-form__field-label',
+  '.app-workflow-form .workflow-form__calculation-label',
+  '.app-workflow-form .workflow-form__calculation-name',
+  '.app-workflow-form .workflow-form__calculation-value',
+  '.app-workflow-form .workflow-form__calculation-field',
   '.app-workflow-form .workflow-detail__empty',
   '.app-workflow-form .workflow-control__empty',
   '.app-workflow-form .workflow-picker',
@@ -122,6 +128,10 @@ for (const selector of [
   assert.match(layoutStyle, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 }
 assert.match(layoutStyle, /\.app-workflow-form \.workflow-form__field-label\)[^{]*\{[^}]*font-size:\s*13px !important;/)
+assert.match(layoutStyle, /\.app-workflow-form \.workflow-form__calculation-label\)[^{]*\{[^}]*min-height:\s*40px !important;[^}]*font-size:\s*13px !important;/)
+assert.match(layoutStyle, /\.app-workflow-form \.workflow-form__calculation-name\)[^{]*\{[^}]*color:\s*#344054 !important;[^}]*font-size:\s*13px !important;[^}]*font-weight:\s*600 !important;/)
+assert.match(layoutStyle, /\.app-workflow-form \.workflow-form__calculation-value\)[^{]*\{[^}]*font-size:\s*16px !important;/)
+assert.match(layoutStyle, /\.app-workflow-form \.workflow-form__calculation-field\)[^{]*\{[^}]*min-height:\s*36px !important;[^}]*font-size:\s*14px !important;/)
 assert.match(layoutStyle, /\.app-workflow-form \.workflow-detail__empty\)[^{]*\{[^}]*min-height:\s*96px !important;/)
 assert.match(layoutStyle, /\.app-workflow-form \.workflow-picker\)[^{]*\{[^}]*min-height:\s*36px !important;/)
 assert.match(workflowCenter, /workflow-center__filter-field--category/)

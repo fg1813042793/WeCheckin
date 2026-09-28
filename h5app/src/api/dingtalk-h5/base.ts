@@ -1,5 +1,6 @@
 import type { ApiEnvelope } from '@/types/dingtalk-h5'
 import { http } from 'uview-pro'
+import { appErrorMessage } from '@/common/app-error'
 import {
   handleDingTalkH5AuthExpired,
   isApiEnvelope,
@@ -283,14 +284,14 @@ export function uploadFile<T>(url: string, filePath: string, options: UploadFile
       success: (res) => {
         const statusCode = Number(res.statusCode || 0)
         if (statusCode < 200 || statusCode >= 300) {
-          uni.showToast({ title: '上传失败', icon: 'none' })
+          uni.showToast({ title: appErrorMessage(res, '上传失败'), icon: 'none' })
           reject(res)
           return
         }
 
         const data = parseUploadResponseData<T>(res.data)
         if (!data) {
-          uni.showToast({ title: '上传响应异常', icon: 'none' })
+          uni.showToast({ title: appErrorMessage(res, '上传响应异常'), icon: 'none' })
           reject(res)
           return
         }
@@ -301,7 +302,7 @@ export function uploadFile<T>(url: string, filePath: string, options: UploadFile
         reject(data)
       },
       fail: (error) => {
-        uni.showToast({ title: '上传失败', icon: 'none' })
+        uni.showToast({ title: appErrorMessage(error, '上传失败'), icon: 'none' })
         reject(error)
       },
     })

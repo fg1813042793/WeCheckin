@@ -58,3 +58,27 @@ func TestDictionaryTypeCollationRepairMigrationSupportsAlreadyInitializedDatabas
 		}
 	}
 }
+
+func TestDictionaryCalculationValueMigrationIsVersionedAndNullable(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*_add_dictionary_calculation_value.sql"))
+	if err != nil {
+		t.Fatalf("glob dictionary calculation value migration: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one dictionary calculation value migration, got %d", len(matches))
+	}
+	source, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read dictionary calculation value migration: %v", err)
+	}
+	text := string(source)
+	for _, want := range []string{
+		"INFORMATION_SCHEMA.COLUMNS",
+		"dict_calculation_value",
+		"DECIMAL(20,8) NULL",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("dictionary calculation value migration missing %q", want)
+		}
+	}
+}

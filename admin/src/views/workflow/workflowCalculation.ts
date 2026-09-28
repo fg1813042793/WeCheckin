@@ -1,6 +1,7 @@
 import type {
   WorkflowCalculationDisplay,
   WorkflowFormField,
+  WorkflowFormOption,
   WorkflowFormCalculation,
 } from './types'
 
@@ -31,6 +32,26 @@ export interface WorkflowCalculationReference {
   detailKey?: string
 }
 
+export interface WorkflowUnavailableCalculationOptionField {
+  key: string
+  label: string
+  reason: string
+}
+
+export function workflowCalculationResultText(value: number, calculation?: WorkflowFormCalculation): string {
+  const precision = workflowCalculationPrecision(calculation)
+  const numericText = value.toFixed(precision)
+  const display = calculation?.resultDisplay
+  if (!display || display.mode !== 'label') return numericText
+  for (const rule of display.rules || []) {
+    if (rule.value !== undefined && Math.abs(value - Number(rule.value)) > 1e-9) continue
+    if (rule.min !== undefined && value < Number(rule.min)) continue
+    if (rule.max !== undefined && value > Number(rule.max)) continue
+    if (String(rule.label || '').trim()) return String(rule.label)
+  }
+  return display.fallback?.trim() || numericText
+}
+
 const aggregateNames = new Set<CalculationAggregate>(['SUM', 'AVG', 'MIN', 'MAX', 'COUNT'])
 
 export function workflowCalculationDisplay(calculation?: WorkflowFormCalculation): WorkflowCalculationDisplay {
@@ -48,7 +69,10 @@ export function workflowCalculationReferences(fields: WorkflowFormField[], owner
     if (!field.key || field.key === ownerKey)
       continue
     if (isNumericField(field)) {
-      result.push({ token: `[${field.key}]`, label: field.label || field.key })
+      result.push({
+        token: `[${field.key}]`,
+        label: isNumericOptionField(field) ? `${field.label || field.key}（选项计算值）` : (field.label || field.key),
+      })
       continue
     }
     if (field.type !== 'detail_list')
@@ -66,6 +90,26 @@ export function workflowCalculationReferences(fields: WorkflowFormField[], owner
   return result
 }
 
+export function workflowUnavailableCalculationOptionFields(
+  fields: WorkflowFormField[],
+  ownerKey = '',
+): WorkflowUnavailableCalculationOptionField[] {
+  return flattenFields(fields)
+    .filter(field => field.key && field.key !== ownerKey && (field.type === 'select' || field.type === 'radio'))
+    .filter(field => !isNumericOptionField(field))
+    .map((field) => {
+      let reason = '存在未配置数字计算值的选项'
+      if (!field.options?.length) {
+        reason = field.optionSource?.type === 'api' ? '接口选项尚未同步' : '没有可用选项'
+      }
+      return {
+        key: field.key,
+        label: field.label || field.key,
+        reason,
+      }
+    })
+}
+
 export function validateWorkflowCalculation(field: WorkflowFormField, fields: WorkflowFormField[]): string {
   if (field.type !== 'calculation')
     return ''
@@ -79,6 +123,17 @@ export function validateWorkflowCalculation(field: WorkflowFormField, fields: Wo
   const precision = Number(field.calculation?.precision ?? 2)
   if (!Number.isInteger(precision) || precision < 0 || precision > 6)
     return '小数位数必须在0到6之间'
+  const resultDisplay = field.calculation?.resultDisplay
+  if (resultDisplay && resultDisplay.mode && !['number', 'label'].includes(resultDisplay.mode))
+    return '计算结果显示方式无效'
+  for (const rule of resultDisplay?.rules || []) {
+    if (!String(rule.label || '').trim()) return '计算结果标签不能为空'
+    if (rule.value === undefined && rule.min === undefined && rule.max === undefined) return '计算结果标签必须配置匹配值'
+    if (rule.value !== undefined && !Number.isFinite(Number(rule.value))) return '计算结果匹配值无效'
+    if (rule.min !== undefined && !Number.isFinite(Number(rule.min))) return '计算结果最小值无效'
+    if (rule.max !== undefined && !Number.isFinite(Number(rule.max))) return '计算结果最大值无效'
+    if (rule.min !== undefined && rule.max !== undefined && Number(rule.min) > Number(rule.max)) return '计算结果标签区间无效'
+  }
   try {
     const node = new CalculationParser(expression).parse()
     validateNode(node, buildSchema(fields), false)
@@ -89,7 +144,7 @@ export function validateWorkflowCalculation(field: WorkflowFormField, fields: Wo
   }
 }
 
-export function evaluateWorkflowCalculation(field: WorkflowFormField, values: WorkflowFormData): WorkflowCalculationEvaluation {
+export function evaluateWorkflowCalculation(field: WorkflowFormField, values: WorkflowFormData, fields: WorkflowFormField[] = []): WorkflowCalculationEvaluation {
   if (field.type !== 'calculation')
     return { error: '字段不是计算组件' }
   const expression = String(field.calculation?.expression || '').trim()
@@ -98,7 +153,7 @@ export function evaluateWorkflowCalculation(field: WorkflowFormField, values: Wo
   try {
     const node = new CalculationParser(expression).parse()
     inferAggregateDetails(node, values)
-    return { value: roundCalculationValue(evaluateNode(node, values), field.calculation), error: '' }
+    return { value: roundCalculationValue(evaluateNode(node, values, '', undefined, buildSchema(fields)), field.calculation), error: '' }
   }
   catch (error) {
     return { error: calculationErrorMessage(error) }
@@ -115,7 +170,7 @@ export function calculateWorkflowFormData(fields: WorkflowFormField[], values: W
       const expression = String(field.calculation?.expression || '').trim()
       const node = new CalculationParser(expression).parse()
       validateNode(node, schema, false)
-      result[field.key] = roundCalculationValue(evaluateNode(node, result), field.calculation)
+      result[field.key] = roundCalculationValue(evaluateNode(node, result, '', undefined, schema), field.calculation)
     }
     catch {
       delete result[field.key]
@@ -159,8 +214,47 @@ function buildSchema(fields: WorkflowFormField[]): CalculationSchema {
   return schema
 }
 
-function isNumericField(field: Pick<WorkflowFormField, 'type'>): boolean {
-  return field.type === 'number' || field.type === 'amount'
+function isNumericField(field: WorkflowFormField): boolean {
+  return field.type === 'number' || field.type === 'amount' || isNumericOptionField(field)
+}
+
+export function isNumericOptionField(field: Pick<WorkflowFormField, 'type' | 'options'>): boolean {
+  if (field.type !== 'select' && field.type !== 'radio') return false
+  if (!field.options?.length) return false
+  return numericWorkflowOptions(field.options)
+}
+
+function numericWorkflowOptions(options: WorkflowFormOption[]): boolean {
+  return options.every(option => {
+    const valueIsNumeric = option.calculationValue !== undefined
+      ? isNumericValue(option.calculationValue)
+      : isNumericValue(option.value)
+    return valueIsNumeric && (!option.children?.length || numericWorkflowOptions(option.children))
+  })
+}
+
+function isNumericValue(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value !== 'string' || value.trim() === '') return false
+  return Number.isFinite(Number(value))
+}
+
+function optionCalculationValue(field: WorkflowFormField, value: unknown): number {
+  if (value === undefined || value === null || value === '') return 0
+  const option = findWorkflowOption(field.options || [], value)
+  if (!option) throw new Error(`选项值[${String(value)}]未配置有效计算值`)
+  const number = option.calculationValue !== undefined ? Number(option.calculationValue) : Number(option.value)
+  if (!Number.isFinite(number)) throw new Error(`选项值[${String(value)}]未配置有效计算值`)
+  return number
+}
+
+function findWorkflowOption(options: WorkflowFormOption[], value: unknown): WorkflowFormOption | undefined {
+  for (const option of options) {
+    if (String(option.value) === String(value)) return option
+    const nested = findWorkflowOption(option.children || [], value)
+    if (nested) return nested
+  }
+  return undefined
 }
 
 function validateNode(node: CalculationNode, schema: CalculationSchema, inAggregate: boolean, aggregateDetail = { key: '' }): void {
@@ -257,7 +351,7 @@ function collectReferences(node: CalculationNode): string[] {
   return []
 }
 
-function evaluateNode(node: CalculationNode, data: WorkflowFormData, detailKey = '', row?: Record<string, unknown>): number {
+function evaluateNode(node: CalculationNode, data: WorkflowFormData, detailKey = '', row?: Record<string, unknown>, schema?: CalculationSchema): number {
   if (node.kind === 'number')
     return node.value
   if (node.kind === 'reference') {
@@ -265,15 +359,19 @@ function evaluateNode(node: CalculationNode, data: WorkflowFormData, detailKey =
     const value = prefix && node.reference.startsWith(prefix)
       ? row?.[node.reference.slice(prefix.length)]
       : data[node.reference]
+    const field = schema?.fields.get(node.reference)
+    if (field && isNumericOptionField(field)) return optionCalculationValue(field, value)
+    const detail = schema ? resolveDetailReference(schema, node.reference) : undefined
+    if (detail && isNumericOptionField(detail.column)) return optionCalculationValue(detail.column, value)
     return calculationNumber(value)
   }
   if (node.kind === 'unary') {
-    const value = evaluateNode(node.argument, data, detailKey, row)
+    const value = evaluateNode(node.argument, data, detailKey, row, schema)
     return node.operator === '-' ? -value : value
   }
   if (node.kind === 'binary') {
-    const left = evaluateNode(node.left, data, detailKey, row)
-    const right = evaluateNode(node.right, data, detailKey, row)
+    const left = evaluateNode(node.left, data, detailKey, row, schema)
+    const right = evaluateNode(node.right, data, detailKey, row, schema)
     if (node.operator === '+')
       return left + right
     if (node.operator === '-')
@@ -289,7 +387,7 @@ function evaluateNode(node: CalculationNode, data: WorkflowFormData, detailKey =
     : []
   if (node.function === 'COUNT')
     return rows.length
-  const aggregateValues = rows.map(item => evaluateNode(node.argument, data, node.detailKey, item))
+  const aggregateValues = rows.map(item => evaluateNode(node.argument, data, node.detailKey, item, schema))
   if (aggregateValues.length === 0)
     return 0
   if (node.function === 'SUM')

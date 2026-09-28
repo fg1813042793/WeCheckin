@@ -43,6 +43,23 @@ const {
   suggestWorkflowImportMappings,
 } = importModule
 
+const mappedCalculationOptions = formModule.normalizeWorkflowOptions([
+  { label: 'A+', value: '1.5', scoreValue: 1.5 },
+], {
+  calculationValueField: 'scoreValue',
+})
+assert.equal(mappedCalculationOptions[0]?.calculationValue, 1.5)
+
+const specificValidationMessage = '与上级分档不一致，请确认！！！'
+assert.equal(
+  formModule.workflowFormValidationMessage({ result: specificValidationMessage }, '请检查表单填写内容'),
+  specificValidationMessage,
+)
+assert.equal(
+  formModule.workflowFormValidationMessage({}, '请检查表单填写内容'),
+  '请检查表单填写内容',
+)
+
 const field = (key, type, extra = {}) => ({ key, label: key, type, ...extra })
 
 assert.equal(
@@ -242,14 +259,111 @@ for (const snippet of [
   'listError',
   '暂无历史申请',
   '重新加载',
+  'type HistoryImportStep = \'select\' | \'configure\' | \'preview\'',
+  'const currentStep = ref<HistoryImportStep>(\'select\')',
+  'currentStep.value = \'configure\'',
+  'v-if="currentStep === \'select\'"',
+  ':class="{ \'workflow-history-import-dialog__actions--mobile-hidden\': mobile && currentStep === \'select\' }"',
+  'workflow-history-import-dialog__cancel',
+  'v-if="!mobile"',
+  'v-else-if="currentStep === \'configure\'"',
+  'goToPreviousStep',
+  'goToPreview',
+  'workflow-history-import-dialog__close',
+  'title="关闭"',
+  'role="button"',
+  'tabindex="0"',
+  '@keydown.enter.prevent',
+  '@keydown.space.prevent',
+  'width: 32px',
+  'height: 32px',
+  'workflow-history-import-dialog__mapping-remove',
+  'title="删除映射"',
+  'grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr) 32px',
+  '<u-search',
+  '@search="submitInstanceSearch"',
+  '@custom="submitInstanceSearch"',
+  '@clear="clearInstanceSearch"',
+  ':show-action="false"',
+  '@search="submitInstanceSearch"',
+  '@custom="submitInstanceSearch"',
+  '@focus="keepInstanceSearchVisible"',
+  ':scroll-top="dialogScrollTop"',
+  'workflow-history-import-dialog__filter-secondary',
+  'function mappingOptionLabel',
+  '{{ mappingOptionLabel(sourceField) }}',
+  '{{ mappingOptionLabel(targetField) }}',
+  'function submitInstanceSearch',
+  'uni.hideKeyboard()',
+  'function keepInstanceSearchVisible',
+  'workflow-history-import-dialog__filter-button--search',
+  '.workflow-history-import-dialog__search :deep(.u-content)',
+  'height: 36px !important',
+  ':adjust-position="false"',
+  'onKeyboardHeightChange',
+  'offKeyboardHeightChange',
+  'visualViewport',
+  'position: sticky',
+  'searchFocusTimer',
+  'workflowFieldAccessMap',
+  'const sourceAccess = computed',
+  'sourceDetail.value.fieldPermissions?.[sourceDetail.value.startNodeId || \'start\']',
+  'sourceAccess.value[field.key] === \'write\'',
+  'sourceFields.value,',
+  'const mobileBatchSize = 10',
+  'const mobileVisibleRows = 3',
+  'const desktopPageSize = 6',
+  'const pageSize = computed(() => mobile.value ? mobileBatchSize : desktopPageSize)',
+  'pageSize: pageSize.value',
+  ':scroll-y="mobile"',
+  '@scrolltolower="loadMoreInstances"',
+  'function loadMoreInstances',
+  'mobileLoadingMore',
+  'v-if="!mobile && total > pageSize"',
+  'mobileListStyle',
+  '--mobile-history-visible-rows',
 ]) {
   assert.ok(dialogSource.includes(snippet), `WorkflowHistoryImportDialog.vue missing ${snippet}`)
+}
+const searchFilterButtonIndex = dialogSource.indexOf('workflow-history-import-dialog__filter-button--search')
+const resetFilterButtonIndex = dialogSource.indexOf('@click="resetFilters"')
+assert.ok(searchFilterButtonIndex >= 0 && searchFilterButtonIndex < resetFilterButtonIndex, 'search button must appear before reset')
+assert.equal(
+  dialogSource.includes('custom-class="app-icon-button app-icon-button--small"'),
+  false,
+  'mapping remove action must not rely on u-button intrinsic width',
+)
+assert.equal(
+  dialogSource.includes('<u-button type="primary" size="small" :loading="listLoading" @click="queryInstances">'),
+  false,
+  'history selection must use the search action built into u-search',
+)
+for (const legacyHeading of [
+  '1. 选择历史申请',
+  '2. 配置导入方式',
+  '3. 导入预览',
+]) {
+  assert.equal(dialogSource.includes(legacyHeading), false, `WorkflowHistoryImportDialog.vue must remove ${legacyHeading}`)
 }
 
 const startPageSource = readFileSync(
   new URL('../src/pages/workflow/components/WorkflowStartPage.vue', import.meta.url),
   'utf8',
 )
+const validationPageSources = [
+  startPageSource,
+  readFileSync(new URL('../src/pages/workflow/components/WorkflowDetailPanel.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/pages/workflow/components/WorkflowFormRevisionPage.vue', import.meta.url), 'utf8'),
+  readFileSync(new URL('../src/pages/workflow/components/WorkflowCompletedFormRevisionPage.vue', import.meta.url), 'utf8'),
+]
+for (const pageSource of validationPageSources) {
+  assert.ok(pageSource.includes('workflowFormValidationMessage'), 'workflow submit page must prefer the specific validation message')
+}
+for (const genericMessage of ['请检查表单必填项', '请检查表单填写内容']) {
+  for (const pageSource of validationPageSources) {
+    assert.equal(pageSource.includes(`title: '${genericMessage}'`), false, `workflow submit page must not hardcode ${genericMessage}`)
+  }
+}
 for (const snippet of [
   'dingtalk_h5:button:workflow:history-import',
   'const canImportHistory = computed',

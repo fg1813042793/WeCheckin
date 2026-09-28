@@ -14,11 +14,13 @@ import {
   getWorkflowInstance,
   previewWorkflowFormRevision,
 } from '@/api/workflow'
+import { appErrorMessage } from '@/common/app-error'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
   workflowFieldActionsMap,
+  workflowFormValidationMessage,
   writableWorkflowFormData,
 } from '../workflow-form'
 import {
@@ -171,7 +173,7 @@ async function openPreview() {
     return
   const validation = formRef.value?.validate()
   if (validation && !validation.valid) {
-    uni.showToast({ title: '请检查表单填写内容', icon: 'none' })
+    uni.showToast({ title: workflowFormValidationMessage(validation.errors), icon: 'none' })
     return
   }
   const patch = changedPatch()
@@ -255,14 +257,7 @@ function confirmationAssignees() {
 }
 
 function requestErrorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object')
-    return fallback
-  const response = error as Record<string, unknown>
-  const payload = response.data && typeof response.data === 'object' && !Array.isArray(response.data)
-    ? response.data as Record<string, unknown>
-    : response
-  const message = payload.msg ?? payload.message
-  return typeof message === 'string' && message.trim() ? message.trim() : fallback
+  return appErrorMessage(error, fallback)
 }
 </script>
 

@@ -356,6 +356,7 @@ export interface DictItem {
   typeName: string
   label: string
   value: string
+  calculationValue?: number
   sort: number
   status: number
   remark: string
@@ -374,6 +375,7 @@ export interface DictItemPayload {
   typeCode: string
   label: string
   value: string
+  calculationValue?: number
   sort: number
   status: number
   remark: string

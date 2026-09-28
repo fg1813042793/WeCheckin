@@ -119,6 +119,7 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	admin.POST("/workflow-definitions/:id/copy", aWorkflow.Copy)
 	admin.GET("/workflow-definitions/:id", aWorkflow.Detail)
 	admin.PUT("/workflow-definitions/:id", aWorkflow.Update)
+	admin.PATCH("/workflow-definitions/:id/status", aWorkflow.Status)
 	admin.DELETE("/workflow-definitions/:id", aWorkflow.Delete)
 	admin.POST("/workflow-definitions/:id/validate", aWorkflow.Validate)
 	admin.POST("/workflow-definitions/:id/publish", aWorkflow.Publish)

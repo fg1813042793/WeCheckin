@@ -257,6 +257,7 @@ export function normalizeWorkflowOptions(
     return []
   const labelField = String(source?.labelField || '').trim() || 'label'
   const valueField = String(source?.valueField || '').trim() || 'value'
+  const calculationValueField = String(source?.calculationValueField || '').trim() || 'calculationValue'
   const childrenField = String(source?.childrenField || '').trim() || 'children'
   const result: WorkflowFormOption[] = []
   for (const item of options) {
@@ -267,8 +268,10 @@ export function normalizeWorkflowOptions(
     const value = String(optionPathValue(record, valueField) || '').trim()
     if (!label || !value)
       continue
+    const calculationValue = normalizeOptionCalculationValue(optionPathValue(record, calculationValueField))
+    const normalized = calculationValue === undefined ? { label, value } : { label, value, calculationValue }
     const children = normalizeWorkflowOptions(optionPathValue(record, childrenField), source)
-    result.push(children.length > 0 ? { label, value, children } : { label, value })
+    result.push(children.length > 0 ? { ...normalized, children } : normalized)
   }
   return result
 }
@@ -276,11 +279,21 @@ export function normalizeWorkflowOptions(
 export function flattenWorkflowOptions(options: WorkflowFormOption[] = []): WorkflowFormOption[] {
   const result: WorkflowFormOption[] = []
   for (const option of options) {
-    result.push({ label: option.label, value: option.value })
+    const normalized = option.calculationValue === undefined
+      ? { label: option.label, value: option.value }
+      : { label: option.label, value: option.value, calculationValue: option.calculationValue }
+    result.push(normalized)
     if (option.children?.length)
       result.push(...flattenWorkflowOptions(option.children))
   }
   return result
+}
+
+function normalizeOptionCalculationValue(value: unknown): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === '')
+    return undefined
+  const number = Number(value)
+  return Number.isFinite(number) ? number : undefined
 }
 
 export function optionPathValue(record: Record<string, unknown>, path: string): unknown {
@@ -346,6 +359,17 @@ export function validateWorkflowFormData(
     }
   }
   return errors
+}
+
+export function workflowFormValidationMessage(
+  errors: Record<string, string> | undefined,
+  fallback = '请检查表单填写内容',
+) {
+  for (const message of Object.values(errors || {})) {
+    if (typeof message === 'string' && message.trim())
+      return message.trim()
+  }
+  return fallback
 }
 
 function validateWorkflowField(field: WorkflowFormField, value: unknown, values: WorkflowFormData): string {

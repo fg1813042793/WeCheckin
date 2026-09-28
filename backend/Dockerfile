@@ -1,6 +1,6 @@
 # 使用官方 Go 镜像作为基础镜像
 FROM golang:1.24-alpine AS builder
-
+ENV TZ=Asia/Shanghai
 # 设置工作目录
 WORKDIR /app
 
@@ -15,6 +15,9 @@ RUN go mod download
 
 # 复制源代码
 COPY . .
+
+# 阻止无效 Swagger 定义进入生产镜像。
+RUN go test ./internal/routes/common -run '^TestSwagger' -count=1
 
 # 构建 HTTP 服务和独立定时任务服务
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd \

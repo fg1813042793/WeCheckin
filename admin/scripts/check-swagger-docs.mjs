@@ -25,8 +25,25 @@ for (const snippet of [
   '<el-result',
   'aria-label="刷新接口文档"',
   'aria-label="在新窗口打开接口文档"',
+  'await response.json()',
+  'validSwaggerDefinition',
+  'Swagger 定义无效',
+  'cacheBustedSwaggerUrl',
+  ':src="swaggerFrameUrl"',
 ]) {
   if (!page.includes(snippet)) throw new Error(`swagger docs page missing ${snippet}`)
+}
+
+const backendDockerfile = readWorkspace('backend/Dockerfile')
+for (const snippet of ['go test ./internal/routes/common', "-run '^TestSwagger'"]) {
+  if (!backendDockerfile.includes(snippet)) {
+    throw new Error(`backend production image must validate Swagger with ${snippet}`)
+  }
+}
+
+const backendGuidelines = readWorkspace('backend/docs/development-guidelines.md')
+if (!backendGuidelines.includes("--templateDelims '{%,%}'")) {
+  throw new Error('backend Swagger generation command must preserve custom template delimiters')
 }
 
 const vite = readAdmin('vite.config.ts')
@@ -47,7 +64,7 @@ for (const snippet of ['swagger.WrapHandler', 'serveSwaggerIndex(c)', '/swagger/
 }
 
 const swaggerIndex = readWorkspace('backend/internal/routes/common/swagger_index.go')
-for (const snippet of ['SwaggerUIBundle({', 'url: "/swagger/doc.json"', 'filter: true', '<title>WeCheckin API</title>']) {
+for (const snippet of ['SwaggerUIBundle({', '"/swagger/doc.json?ts=" + Date.now()', 'url: swaggerDocumentURL', 'Cache-Control', 'no-store', 'filter: true', '<title>WeCheckin API</title>']) {
   if (!swaggerIndex.includes(snippet)) throw new Error(`backend Swagger index missing ${snippet}`)
 }
 

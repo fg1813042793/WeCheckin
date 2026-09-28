@@ -319,9 +319,23 @@ type FormField struct {
 }
 
 type FormCalculation struct {
-	Expression string `json:"expression"`
-	Display    string `json:"display,omitempty"`
-	Precision  *int   `json:"precision,omitempty"`
+	Expression    string                        `json:"expression"`
+	Display       string                        `json:"display,omitempty"`
+	Precision     *int                          `json:"precision,omitempty"`
+	ResultDisplay *FormCalculationResultDisplay `json:"resultDisplay,omitempty"`
+}
+
+type FormCalculationResultDisplay struct {
+	Mode     string                      `json:"mode,omitempty"`
+	Rules    []FormCalculationResultRule `json:"rules,omitempty"`
+	Fallback string                      `json:"fallback,omitempty"`
+}
+
+type FormCalculationResultRule struct {
+	Value *float64 `json:"value,omitempty"`
+	Min   *float64 `json:"min,omitempty"`
+	Max   *float64 `json:"max,omitempty"`
+	Label string   `json:"label"`
 }
 
 type FormAttachment struct {
@@ -360,19 +374,21 @@ type FormHelp struct {
 }
 
 type FormOption struct {
-	Label    string       `json:"label"`
-	Value    string       `json:"value"`
-	Children []FormOption `json:"children,omitempty"`
+	Label            string       `json:"label"`
+	Value            string       `json:"value"`
+	CalculationValue *float64     `json:"calculationValue,omitempty"`
+	Children         []FormOption `json:"children,omitempty"`
 }
 
 type FormOptionSource struct {
-	Type          string `json:"type"`
-	URL           string `json:"url,omitempty"`
-	Method        string `json:"method,omitempty"`
-	ResponsePath  string `json:"responsePath,omitempty"`
-	LabelField    string `json:"labelField,omitempty"`
-	ValueField    string `json:"valueField,omitempty"`
-	ChildrenField string `json:"childrenField,omitempty"`
+	Type                  string `json:"type"`
+	URL                   string `json:"url,omitempty"`
+	Method                string `json:"method,omitempty"`
+	ResponsePath          string `json:"responsePath,omitempty"`
+	LabelField            string `json:"labelField,omitempty"`
+	ValueField            string `json:"valueField,omitempty"`
+	CalculationValueField string `json:"calculationValueField,omitempty"`
+	ChildrenField         string `json:"childrenField,omitempty"`
 }
 
 type FieldPermission struct {

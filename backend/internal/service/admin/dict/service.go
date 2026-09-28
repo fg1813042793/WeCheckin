@@ -3,6 +3,7 @@ package dict
 import (
 	"context"
 	"errors"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -15,15 +16,16 @@ import (
 )
 
 var (
-	ErrInvalidTypeCode   = errors.New("字典类型编码只能使用小写字母、数字、点、下划线和连字符，且必须以小写字母开头")
-	ErrInvalidStatus     = errors.New("字典状态只能为启用或停用")
-	ErrTypeNameRequired  = errors.New("字典类型名称不能为空")
-	ErrTypeAlreadyExists = errors.New("字典类型编码已存在")
-	ErrTypeNotFound      = errors.New("字典类型不存在")
-	ErrTypeCodeImmutable = errors.New("字典类型编码创建后不可修改")
-	ErrItemRequired      = errors.New("字典标签和值不能为空")
-	ErrItemAlreadyExists = errors.New("当前字典类型下已存在相同值")
-	ErrItemNotFound      = errors.New("字典项不存在")
+	ErrInvalidTypeCode         = errors.New("字典类型编码只能使用小写字母、数字、点、下划线和连字符，且必须以小写字母开头")
+	ErrInvalidStatus           = errors.New("字典状态只能为启用或停用")
+	ErrTypeNameRequired        = errors.New("字典类型名称不能为空")
+	ErrTypeAlreadyExists       = errors.New("字典类型编码已存在")
+	ErrTypeNotFound            = errors.New("字典类型不存在")
+	ErrTypeCodeImmutable       = errors.New("字典类型编码创建后不可修改")
+	ErrItemRequired            = errors.New("字典标签和值不能为空")
+	ErrItemAlreadyExists       = errors.New("当前字典类型下已存在相同值")
+	ErrItemNotFound            = errors.New("字典项不存在")
+	ErrInvalidCalculationValue = errors.New("字典项计算值必须是有效数字")
 )
 
 var typeCodePattern = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,49}$`)
@@ -287,10 +289,14 @@ func AddItemContext(ctx context.Context, typeCode, typeName, label, value, remar
 	if strings.TrimSpace(value) == "" && strings.TrimSpace(label) == strings.TrimSpace(typeName) {
 		return AddTypeContext(ctx, typeCode, typeName, remark, 1)
 	}
-	return AddItemWithStatusContext(ctx, typeCode, label, value, remark, sort, 1)
+	return AddItemWithCalculationValueContext(ctx, typeCode, label, value, remark, sort, 1, nil)
 }
 
 func AddItemWithStatusContext(ctx context.Context, typeCode, label, value, remark string, sort, status int) error {
+	return AddItemWithCalculationValueContext(ctx, typeCode, label, value, remark, sort, status, nil)
+}
+
+func AddItemWithCalculationValueContext(ctx context.Context, typeCode, label, value, remark string, sort, status int, calculationValue *float64) error {
 	var err error
 	if typeCode, err = normalizeExistingTypeCode(typeCode); err != nil {
 		return err
@@ -299,6 +305,9 @@ func AddItemWithStatusContext(ctx context.Context, typeCode, label, value, remar
 		return err
 	}
 	if status, err = normalizeStatus(status); err != nil {
+		return err
+	}
+	if err = validateCalculationValue(calculationValue); err != nil {
 		return err
 	}
 	db, cancel := database.WithContext(ctx)
@@ -319,7 +328,7 @@ func AddItemWithStatusContext(ctx context.Context, typeCode, label, value, remar
 			return ErrItemAlreadyExists
 		}
 		now := database.Now()
-		return tx.Create(&model.SysDict{TypeCode: typeCode, TypeName: dictType.TypeName, Label: label, Value: value, Sort: sort, Status: status, Remark: remark, AddTime: now, EditTime: now}).Error
+		return tx.Create(&model.SysDict{TypeCode: typeCode, TypeName: dictType.TypeName, Label: label, Value: value, CalculationValue: calculationValue, Sort: sort, Status: status, Remark: remark, AddTime: now, EditTime: now}).Error
 	})
 	if err == nil {
 		invalidateDictServiceCache()
@@ -341,15 +350,31 @@ func EditItemContext(ctx context.Context, id, label, value, remark string, sort 
 		}
 		return err
 	}
-	return EditItemWithStatusContext(ctx, id, label, value, remark, sort, item.Status)
+	return EditItemWithCalculationValueContext(ctx, id, label, value, remark, sort, item.Status, item.CalculationValue)
 }
 
 func EditItemWithStatusContext(ctx context.Context, id, label, value, remark string, sort, status int) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var item model.SysDict
+	if err := db.Where("id = ?", id).First(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrItemNotFound
+		}
+		return err
+	}
+	return EditItemWithCalculationValueContext(ctx, id, label, value, remark, sort, status, item.CalculationValue)
+}
+
+func EditItemWithCalculationValueContext(ctx context.Context, id, label, value, remark string, sort, status int, calculationValue *float64) error {
 	var err error
 	if label, value, remark, err = validateItemFields(label, value, remark); err != nil {
 		return err
 	}
 	if status, err = normalizeStatus(status); err != nil {
+		return err
+	}
+	if err = validateCalculationValue(calculationValue); err != nil {
 		return err
 	}
 	db, cancel := database.WithContext(ctx)
@@ -391,7 +416,7 @@ func EditItemWithStatusContext(ctx context.Context, id, label, value, remark str
 			}
 		}
 		result := tx.Model(&model.SysDict{}).Where("id = ?", id).Updates(map[string]interface{}{
-			"dict_label": label, "dict_value": value, "dict_sort": sort, "dict_status": status, "dict_remark": remark, "dict_edit_time": database.Now(),
+			"dict_label": label, "dict_value": value, "dict_calculation_value": calculationValue, "dict_sort": sort, "dict_status": status, "dict_remark": remark, "dict_edit_time": database.Now(),
 		})
 		if result.Error != nil {
 			return result.Error
@@ -402,6 +427,13 @@ func EditItemWithStatusContext(ctx context.Context, id, label, value, remark str
 		invalidateDictServiceCache()
 	}
 	return err
+}
+
+func validateCalculationValue(value *float64) error {
+	if value != nil && (math.IsNaN(*value) || math.IsInf(*value, 0)) {
+		return ErrInvalidCalculationValue
+	}
+	return nil
 }
 
 func DeleteItem(id string) error {

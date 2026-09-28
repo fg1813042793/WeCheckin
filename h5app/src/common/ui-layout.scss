@@ -467,6 +467,38 @@
     font-size: 13px !important;
   }
 
+  :where(.app-workflow-form .workflow-form__calculation-label) {
+    min-height: 40px !important;
+    padding: 0 12px !important;
+    border-left-width: 3px !important;
+    border-radius: 4px !important;
+    gap: 10px !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+    box-sizing: border-box;
+  }
+
+  :where(.app-workflow-form .workflow-form__calculation-name) {
+    color: #344054 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__calculation-value) {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+  }
+
+  :where(.app-workflow-form .workflow-form__calculation-field) {
+    min-height: 36px !important;
+    padding: 0 10px !important;
+    border-radius: 4px !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    box-sizing: border-box;
+  }
+
   :where(.app-workflow-form .workflow-form__error) {
     margin-top: 5px !important;
     font-size: 12px !important;
@@ -501,8 +533,10 @@
   }
 
   :where(.app-workflow-form .workflow-detail) {
-    padding: 12px !important;
-    border-radius: 6px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
   }
 
   :where(.app-workflow-form .workflow-detail__toolbar),

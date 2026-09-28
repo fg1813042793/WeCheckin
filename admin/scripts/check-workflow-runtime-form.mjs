@@ -7,6 +7,8 @@ const root = process.cwd()
 const require = createRequire(import.meta.url)
 const moduleCache = new Map()
 const runtimeSource = fs.readFileSync(path.join(root, 'src/views/workflow/components/WorkflowRuntimeForm.vue'), 'utf8')
+const instancePageSource = fs.readFileSync(path.join(root, 'src/views/workflow/instances/index.vue'), 'utf8')
+const taskPageSource = fs.readFileSync(path.join(root, 'src/views/workflow/tasks/index.vue'), 'utf8')
 
 function loadTypeScriptModule(relativePath) {
   const filename = path.join(root, relativePath)
@@ -46,13 +48,50 @@ const {
   initialWorkflowFormData,
   normalizeWorkflowOptions,
   normalizeWorkflowAttachments,
+  workflowOptionSourceResponsePayload,
   validateWorkflowFormData,
   visibleWorkflowFormFields,
+  workflowCalculationResultText,
   workflowFieldActionMap,
   workflowFieldAccessMap,
   writableWorkflowFormData,
   workflowTextareaAutosize,
+  workflowFormValidationMessage,
 } = loadTypeScriptModule('src/views/workflow/runtimeForm.ts')
+
+assert(
+  workflowFormValidationMessage({ result: '与上级分档不一致，请确认！！！' }, '请检查流程表单中的校验提示') === '与上级分档不一致，请确认！！！',
+  'Admin 表单提示应优先显示具体字段错误',
+)
+assert(
+  workflowFormValidationMessage({}, '请检查流程表单中的校验提示') === '请检查流程表单中的校验提示',
+  'Admin 表单没有具体错误时应使用兜底提示',
+)
+assert(runtimeSource.includes('function validationMessage'), 'Admin 运行时表单应暴露具体校验提示')
+assert(runtimeSource.includes('defineExpose({ validate, validationMessage, resetValidation })'), 'Admin 运行时表单未暴露校验提示方法')
+assert(instancePageSource.includes('startRuntimeForm.value.validationMessage()'), 'Admin 流程发起页未显示具体表单错误')
+assert(taskPageSource.includes('completeRuntimeForm.value.validationMessage()'), 'Admin 任务处理页未显示具体表单错误')
+
+const interfaceOptionPayload = workflowOptionSourceResponsePayload({
+  code: 0,
+  msg: 'success',
+  data: [
+    { label: 'A+', value: '1.5', scoreValue: 1.5 },
+    { label: 'A-', value: '1.4', scoreValue: 1.4 },
+  ],
+}, {
+  type: 'api',
+  responsePath: 'data',
+  labelField: 'label',
+  valueField: 'value',
+  childrenField: 'children',
+  calculationValueField: 'scoreValue',
+})
+const interfaceOptionSnapshot = normalizeWorkflowOptions(interfaceOptionPayload, {
+  calculationValueField: 'scoreValue',
+})
+assert(interfaceOptionSnapshot.length === 2, '接口选项应能同步为流程定义快照')
+assert(interfaceOptionSnapshot[0].calculationValue === 1.5, '接口选项快照应按 calculationValueField 保留计算值')
 
 assert(
   JSON.stringify(workflowTextareaAutosize({ minVisibleRows: 4, maxVisibleRows: 10 })) === JSON.stringify({ minRows: 4, maxRows: 10 }),
@@ -130,6 +169,57 @@ assert(calculated.scalarTotal === 37.04, '普通计算字段应按配置精度�
 assert(calculated.detailTotal === 33.5, '明细字段应支持不同列逐行组合后合计')
 assert(calculated.negative === -1.01, '负数临界小数应与后端按相同规则四舍五入')
 assert(evaluateWorkflowCalculation(calculationFields[4], calculated).error === '', '有效公式不应返回错误')
+
+const optionCalculationFields = [
+  {
+    key: 'level', label: '等级', type: 'select',
+    options: [
+      { label: 'A+', value: 'a_plus', calculationValue: 1.5 },
+      { label: 'B+', value: 'b_plus', calculationValue: 0.8 },
+    ],
+  },
+  {
+    key: 'bonus', label: '加分项', type: 'radio',
+    options: [
+      { label: '通过', value: 'pass', calculationValue: 0.8 },
+      { label: '不通过', value: 'reject', calculationValue: -0.5 },
+    ],
+  },
+  {
+    key: 'score', label: '总分', type: 'calculation',
+    calculation: {
+      expression: '[level] + [bonus]',
+      display: 'field',
+      precision: 2,
+      resultDisplay: {
+        mode: 'label',
+        rules: [{ min: 2.3, max: 2.3, label: '优秀' }],
+        fallback: '未评级',
+      },
+    },
+  },
+]
+const optionCalculated = calculateWorkflowFormData(optionCalculationFields, {
+  level: 'a_plus',
+  bonus: 'pass',
+})
+assert(optionCalculated.score === 2.3, 'select/radio 应使用选项 calculationValue 参与计算')
+assert(
+  workflowCalculationResultText(optionCalculated.score, optionCalculationFields[2].calculation) === '优秀',
+  '计算结果应支持按匹配区间显示标签',
+)
+assert(
+  evaluateWorkflowCalculation(optionCalculationFields[2], optionCalculated, optionCalculationFields).value === 2.3,
+  '运行时计算应根据 select/radio 的选中值解析计算值',
+)
+const legacyOptionFields = [
+  { key: 'legacyLevel', label: '旧等级', type: 'select', options: [{ label: 'A+', value: '1.5' }] },
+  { key: 'legacyScore', label: '旧总分', type: 'calculation', calculation: { expression: '[legacyLevel]', display: 'field', precision: 2 } },
+]
+assert(
+  calculateWorkflowFormData(legacyOptionFields, { legacyLevel: '1.5' }).legacyScore === 1.5,
+  '历史数字字符串选项值应继续兼容',
+)
 const calculationAccess = workflowFieldAccessMap(calculationFields, {}, 'start', 'write')
 assert(calculationAccess.scalarTotal === 'read' && calculationAccess.detailTotal === 'read', '计算字段必须固定为只读')
 const calculationPayload = writableWorkflowFormData(calculationFields, calculated, calculationAccess)

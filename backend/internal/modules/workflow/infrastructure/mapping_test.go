@@ -65,6 +65,17 @@ func TestPopulateInstanceGraphUsesBoundDefinitionVersion(t *testing.T) {
 	}
 }
 
+func TestPopulateInstanceSummaryFormDataForSummaryColumns(t *testing.T) {
+	rows := []workflowmodel.ProcessInstance{{ID: "instance-1", FormDataJSON: `{"score":95,"grade":"A"}`}}
+	list := []workflowapp.InstanceSummary{{ID: "instance-1"}}
+	if err := populateInstanceSummaryFormData(list, rows); err != nil {
+		t.Fatalf("populate summary form data: %v", err)
+	}
+	if fmt.Sprint(list[0].FormData["score"]) != "95" || list[0].FormData["grade"] != "A" {
+		t.Fatalf("summary form data = %#v", list[0].FormData)
+	}
+}
+
 func TestInstanceSummariesUseStarterNamesWithoutIDFallback(t *testing.T) {
 	rows := []workflowmodel.ProcessInstance{
 		{ID: "named", StarterID: "7", OperatorID: "10"},

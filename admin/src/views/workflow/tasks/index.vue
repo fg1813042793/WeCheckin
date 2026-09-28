@@ -167,7 +167,7 @@ const taskDetailLoading = ref(false)
 const activeTask = ref<WorkflowTaskSummary | null>(null)
 const activeInstanceDetail = ref<WorkflowInstanceDetail | null>(null)
 const completeFormData = ref<Record<string, unknown>>({})
-const completeRuntimeForm = ref<{ validate: () => boolean; resetValidation: () => void } | null>(null)
+const completeRuntimeForm = ref<{ validate: () => boolean; validationMessage: () => string; resetValidation: () => void } | null>(null)
 const completeForm = reactive<{ action: WorkflowTaskAction; comment: string; variablesText: string }>({
   action: 'approve', comment: '', variablesText: '',
 })
@@ -323,7 +323,7 @@ async function openCompleteDialog(row: WorkflowTaskSummary) {
 async function completeTask() {
   if (!activeTask.value) return
   if (completeRuntimeForm.value && !completeRuntimeForm.value.validate()) {
-    ElMessage.warning('请检查流程表单中的校验提示')
+    ElMessage.warning(completeRuntimeForm.value.validationMessage())
     return
   }
   let variables: Record<string, unknown>

@@ -115,6 +115,7 @@ func (service *Service) ListInstances(ctx context.Context, user *model.DingTalkH
 		EndTimeFrom:       query.EndTimeFrom,
 		EndTimeTo:         query.EndTimeTo,
 		Visibility:        &visibility,
+		IncludeFormData:   true,
 		Page:              page,
 		PageSize:          pageSize,
 	})

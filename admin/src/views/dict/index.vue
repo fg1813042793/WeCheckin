@@ -91,6 +91,9 @@
               <el-table-column prop="value" label="值" min-width="140" show-overflow-tooltip>
                 <template #default="{ row }"><code class="item-value">{{ row.value }}</code></template>
               </el-table-column>
+              <el-table-column prop="calculationValue" label="计算值" width="100" align="right">
+                <template #default="{ row }"><span class="item-calculation-value">{{ row.calculationValue ?? '-' }}</span></template>
+              </el-table-column>
               <el-table-column prop="sort" label="排序" width="72" align="center" />
               <el-table-column label="状态" width="84" align="center">
                 <template #default="{ row }">
@@ -163,6 +166,9 @@
           </el-form-item>
           <el-form-item label="值" prop="value">
             <el-input v-model="itemForm.value" maxlength="200" placeholder="业务存储值" />
+          </el-form-item>
+          <el-form-item label="计算值">
+            <el-input-number v-model="itemForm.calculationValue" :min="-999999999" :max="999999999" :precision="6" controls-position="right" placeholder="可选，供流程计算使用" style="width:100%" />
           </el-form-item>
         </div>
         <div class="dialog-grid dialog-grid--compact">
@@ -330,7 +336,7 @@ async function clearTypeItems() {
 
 const itemRef = ref<FormInstance>()
 const itemDialog = reactive({ visible: false, isCreate: true })
-const itemForm = reactive<DictItemPayload & { id?: number }>({ typeCode: '', label: '', value: '', sort: 0, status: 1, remark: '' })
+const itemForm = reactive<DictItemPayload & { id?: number }>({ typeCode: '', label: '', value: '', calculationValue: undefined, sort: 0, status: 1, remark: '' })
 const itemRules: FormRules = {
   label: [{ required: true, message: '请输入标签', trigger: 'blur' }],
   value: [{ required: true, message: '请输入值', trigger: 'blur' }],
@@ -338,13 +344,13 @@ const itemRules: FormRules = {
 
 function showItemAdd() {
   if (!selectedType.value) return
-  Object.assign(itemForm, { id: undefined, typeCode: selectedType.value.typeCode, label: '', value: '', sort: 0, status: 1, remark: '' })
+  Object.assign(itemForm, { id: undefined, typeCode: selectedType.value.typeCode, label: '', value: '', calculationValue: undefined, sort: 0, status: 1, remark: '' })
   itemDialog.isCreate = true
   itemDialog.visible = true
 }
 
 function showItemEdit(row: DictItem) {
-  Object.assign(itemForm, { id: row.id, typeCode: row.typeCode, label: row.label, value: row.value, sort: row.sort, status: row.status, remark: row.remark || '' })
+  Object.assign(itemForm, { id: row.id, typeCode: row.typeCode, label: row.label, value: row.value, calculationValue: row.calculationValue, sort: row.sort, status: row.status, remark: row.remark || '' })
   itemDialog.isCreate = false
   itemDialog.visible = true
 }
@@ -355,6 +361,7 @@ async function saveItem() {
     typeCode: itemForm.typeCode,
     label: itemForm.label.trim(),
     value: itemForm.value.trim(),
+    calculationValue: typeof itemForm.calculationValue === 'number' && Number.isFinite(itemForm.calculationValue) ? itemForm.calculationValue : undefined,
     sort: itemForm.sort,
     status: itemForm.status,
     remark: itemForm.remark.trim(),

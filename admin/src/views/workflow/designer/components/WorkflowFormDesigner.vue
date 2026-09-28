@@ -363,7 +363,13 @@
 
         <section v-if="selectedField.type === 'calculation'" class="property-section">
           <h3>计算设置</h3>
-          <WorkflowCalculationEditor :field="selectedField" :fields="props.fields" :readonly="readonly" @change="emitChange" />
+          <WorkflowCalculationEditor
+            :field="selectedField"
+            :fields="props.fields"
+            :readonly="readonly"
+            @change="emitChange"
+            @select-field="selectFieldByKey"
+          />
         </section>
 
         <section v-if="isWorkflowDataField(selectedField) && selectedField.type !== 'calculation'" class="property-section">
@@ -486,6 +492,17 @@
               <div class="option-row__inputs">
                 <el-input v-model="option.label" placeholder="选项名称" :disabled="readonly" @input="emitChange" />
                 <el-input v-model="option.value" placeholder="选项值" :disabled="readonly" @input="emitChange" />
+                <el-input-number
+                  v-if="selectedField.type === 'select' || selectedField.type === 'radio'"
+                  :model-value="option.calculationValue"
+                  :min="-999999999"
+                  :max="999999999"
+                  :precision="6"
+                  controls-position="right"
+                  placeholder="计算值（可选）"
+                  :disabled="readonly"
+                  @change="updateOptionCalculationValue(option, $event)"
+                />
               </div>
               <el-button circle size="small" type="danger" plain icon="Delete" :disabled="readonly || (selectedField.options?.length || 0) <= 1" @click="removeOption(index)" />
             </div>
@@ -529,10 +546,32 @@
               <el-form-item label="valueField">
                 <el-input v-model="selectedField.optionSource!.valueField" :disabled="readonly" placeholder="id" @input="emitChange" />
               </el-form-item>
+              <el-form-item label="calculationValueField">
+                <el-input v-model="selectedField.optionSource!.calculationValueField" :disabled="readonly" placeholder="calculationValue" @input="emitChange" />
+              </el-form-item>
               <el-form-item label="childrenField">
                 <el-input v-model="selectedField.optionSource!.childrenField" :disabled="readonly" placeholder="children" @input="emitChange" />
               </el-form-item>
             </div>
+            <div class="option-api-snapshot">
+              <div>
+                <strong>接口选项快照</strong>
+                <span>已同步 {{ optionSnapshotCount(selectedField) }} 个选项；计算公式和已发布版本使用此快照。</span>
+              </div>
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                :loading="optionSnapshotLoading"
+                :disabled="readonly"
+                @click="syncOptionSourceSnapshot"
+              >
+                同步接口选项
+              </el-button>
+            </div>
+            <p class="option-api-snapshot__tip">
+              接口返回的计算值字段默认是 calculationValue。接口数据调整后需重新同步并发布，避免历史流程计算结果漂移。
+            </p>
           </div>
         </section>
 
@@ -683,9 +722,10 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request, { showRequestError } from '@/utils/request'
 import type { WorkflowFormField, WorkflowFormFieldSpan, WorkflowFormFieldType, WorkflowFormOption, WorkflowOptionSourceType } from '../../types'
 import { insertWorkflowField, isWorkflowDataField, moveWorkflowDetailColumn, moveWorkflowField, removeWorkflowField, workflowFieldByKey } from '../../formLayout'
-import { flattenWorkflowOptions, hasWorkflowOptionChildren, normalizeWorkflowOptions, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
+import { flattenWorkflowOptions, hasWorkflowOptionChildren, normalizeWorkflowOptions, workflowOptionSourceResponsePayload, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
 import { workflowDetailColumnTypes as detailColumnTypes, workflowFieldGroups as fieldGroups, workflowFieldTypes as fieldTypes } from '../workflowFieldCatalog'
 import WorkflowFormFieldPreview from './WorkflowFormFieldPreview.vue'
 import WorkflowCalculationEditor from './WorkflowCalculationEditor.vue'
@@ -713,6 +753,7 @@ const dropTarget = ref<{ containerKey: string | null; index: number } | null>(nu
 const detailColumnDragIndex = ref<number | null>(null)
 const detailColumnDropIndex = ref<number | null>(null)
 const optionJsonText = ref('')
+const optionSnapshotLoading = ref(false)
 const optionTreeProps = { label: 'label', value: 'value', children: 'children' }
 
 watch(() => props.fields, (fields) => {
@@ -807,6 +848,11 @@ function addField(type: WorkflowFormFieldType) {
 
 function selectField(field: WorkflowFormField) {
   selectedField.value = field
+}
+
+function selectFieldByKey(fieldKey: string) {
+  const field = workflowFieldByKey(props.fields, fieldKey)
+  if (field) selectField(field)
 }
 
 function groupFields(group: WorkflowFormField): WorkflowFormField[] {
@@ -943,6 +989,7 @@ function updateOptionSourceType(value: string | number | boolean | undefined) {
       responsePath: previous?.responsePath || 'data',
       labelField: previous?.labelField || 'name',
       valueField: previous?.valueField || 'id',
+      calculationValueField: previous?.calculationValueField || 'calculationValue',
       childrenField: previous?.childrenField || 'children',
     }
   } else {
@@ -951,6 +998,45 @@ function updateOptionSourceType(value: string | number | boolean | undefined) {
   }
   syncOptionJsonText(selectedField.value)
   emitChange()
+}
+
+function optionSnapshotCount(field: WorkflowFormField) {
+  return flattenWorkflowOptions(normalizeWorkflowOptions(field.options || [])).length
+}
+
+function validBackendOptionSourceURL(rawURL?: string) {
+  const optionURL = String(rawURL || '').trim()
+  return Boolean(optionURL) && optionURL.startsWith('/api/') && !optionURL.startsWith('//') && !optionURL.includes('://') && !/\s/.test(optionURL)
+}
+
+async function syncOptionSourceSnapshot() {
+  const field = selectedField.value
+  const source = field?.optionSource
+  if (!field || !source || source.type !== 'api' || optionSnapshotLoading.value) return
+  if (!validBackendOptionSourceURL(source.url)) {
+    ElMessage.warning('请先填写有效的后端接口地址')
+    return
+  }
+  optionSnapshotLoading.value = true
+  try {
+    source.calculationValueField = source.calculationValueField?.trim() || 'calculationValue'
+    const response = source.method === 'POST'
+      ? await request.post<unknown>(source.url || '', {})
+      : await request.get<unknown>(source.url || '')
+    const options = normalizeWorkflowOptions(workflowOptionSourceResponsePayload(response, source), source)
+    if (options.length === 0) {
+      ElMessage.warning('接口未返回有效选项，请检查字段映射')
+      return
+    }
+    field.options = options
+    syncOptionJsonText(field)
+    emitChange()
+    ElMessage.success(`已同步 ${optionSnapshotCount(field)} 个接口选项`)
+  } catch (error) {
+    showRequestError(error, '接口选项同步失败，请检查接口配置')
+  } finally {
+    optionSnapshotLoading.value = false
+  }
 }
 
 function ensureDefaultOptions(field: WorkflowFormField) {
@@ -1163,6 +1249,12 @@ function addOption() {
   const index = selectedField.value.options.length + 1
   selectedField.value.options.push({ label: `选项${index}`, value: `option_${index}` })
   syncOptionJsonText(selectedField.value)
+  emitChange()
+}
+
+function updateOptionCalculationValue(option: WorkflowFormOption, value: number | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) option.calculationValue = value
+  else delete option.calculationValue
   emitChange()
 }
 
@@ -1397,7 +1489,7 @@ function emitChange() {
 .option-editor__heading h3 { margin-bottom: 0; }
 .option-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 28px; align-items: center; gap: 7px; margin-top: 10px; }
 .option-index { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: #64748b; background: #f1f5f9; font-size: 10px; }
-.option-row__inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.option-row__inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .option-editor :deep(.el-radio-group) { width: 100%; }
 .option-editor :deep(.el-radio-button) { flex: 1; }
 .option-editor :deep(.el-radio-button__inner) { width: 100%; padding-right: 10px; padding-left: 10px; }
@@ -1410,6 +1502,13 @@ function emitChange() {
 .option-json-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: -4px; }
 .option-api-config { display: flex; flex-direction: column; gap: 2px; }
 .option-api-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+.option-api-snapshot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 10px 12px; border: 1px solid #d9e6f7; border-radius: 6px; background: #f6f9ff; }
+.option-api-snapshot > div { min-width: 0; }
+.option-api-snapshot strong, .option-api-snapshot span { display: block; }
+.option-api-snapshot strong { color: #334155; font-size: 12px; }
+.option-api-snapshot span, .option-api-snapshot__tip { color: #64748b; font-size: 11px; line-height: 1.5; }
+.option-api-snapshot span { margin-top: 3px; }
+.option-api-snapshot__tip { margin: 7px 0 0; }
 .detail-editor .option-editor__heading { margin-top: 4px; }
 .detail-column-row { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; align-items: start; gap: 7px; margin-top: 10px; padding: 8px 0; }
 .detail-column-row.dragging { opacity: .45; }

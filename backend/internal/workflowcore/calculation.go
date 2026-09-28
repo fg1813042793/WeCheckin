@@ -52,6 +52,7 @@ type calculationEvaluationContext struct {
 	data      map[string]interface{}
 	detailKey string
 	row       map[string]interface{}
+	schema    calculationSchema
 }
 
 func ApplyFormCalculations(fields []FormField, data map[string]interface{}) (map[string]interface{}, error) {
@@ -65,7 +66,7 @@ func ApplyFormCalculations(fields []FormField, data map[string]interface{}) (map
 		if err != nil {
 			return nil, fmt.Errorf("%w：%s计算公式无效：%v", ErrFormDataInvalid, field.Label, err)
 		}
-		value, err := evaluateCalculationNode(node, calculationEvaluationContext{data: result})
+		value, err := evaluateCalculationNode(node, calculationEvaluationContext{data: result, schema: schema})
 		if err != nil {
 			return nil, fmt.Errorf("%w：%s计算失败：%v", ErrFormDataInvalid, field.Label, err)
 		}
@@ -114,6 +115,9 @@ func parseAndValidateCalculation(field FormField, schema calculationSchema) (*ca
 	precision := calculationPrecision(field.Calculation)
 	if precision < 0 || precision > 6 {
 		return nil, fmt.Errorf("小数位数必须在0到6之间")
+	}
+	if err := validateCalculationResultDisplay(field.Calculation.ResultDisplay); err != nil {
+		return nil, err
 	}
 	parser := calculationParser{expression: expression}
 	node, err := parser.parseExpression()
@@ -232,7 +236,112 @@ func resolveCalculationDetailReference(schema calculationSchema, reference strin
 }
 
 func isCalculationNumberField(field FormField) bool {
-	return field.Type == FormFieldTypeNumber || field.Type == FormFieldTypeAmount
+	if field.Type == FormFieldTypeNumber || field.Type == FormFieldTypeAmount {
+		return true
+	}
+	return isCalculationOptionField(field)
+}
+
+func isCalculationOptionField(field FormField) bool {
+	if field.Type != FormFieldTypeSelect && field.Type != FormFieldTypeRadio {
+		return false
+	}
+	if len(field.Options) == 0 {
+		return false
+	}
+	var validOptions func([]FormOption) bool
+	validOptions = func(options []FormOption) bool {
+		for _, option := range options {
+			if option.CalculationValue != nil {
+				if math.IsNaN(*option.CalculationValue) || math.IsInf(*option.CalculationValue, 0) {
+					return false
+				}
+			} else if _, err := calculationNumberValue(option.Value); err != nil {
+				return false
+			}
+			if len(option.Children) > 0 && !validOptions(option.Children) {
+				return false
+			}
+		}
+		return true
+	}
+	return validOptions(field.Options)
+}
+
+func calculationOptionNumber(field FormField, value interface{}) (float64, error) {
+	if value == nil {
+		return 0, nil
+	}
+	text := strings.TrimSpace(fmt.Sprint(value))
+	option := findCalculationOption(field.Options, text)
+	if option != nil {
+		if option.CalculationValue != nil {
+			return *option.CalculationValue, nil
+		}
+		return calculationNumberValue(option.Value)
+	}
+	return 0, fmt.Errorf("选项值[%s]未配置有效计算值", text)
+}
+
+func findCalculationOption(options []FormOption, value string) *FormOption {
+	for index := range options {
+		if options[index].Value == value {
+			return &options[index]
+		}
+		if option := findCalculationOption(options[index].Children, value); option != nil {
+			return option
+		}
+	}
+	return nil
+}
+
+func validateCalculationResultDisplay(display *FormCalculationResultDisplay) error {
+	if display == nil || strings.TrimSpace(display.Mode) == "" || display.Mode == "number" {
+		return nil
+	}
+	if display.Mode != "label" {
+		return fmt.Errorf("计算结果显示方式无效")
+	}
+	for _, rule := range display.Rules {
+		if strings.TrimSpace(rule.Label) == "" {
+			return fmt.Errorf("计算结果标签不能为空")
+		}
+		if rule.Value == nil && rule.Min == nil && rule.Max == nil {
+			return fmt.Errorf("计算结果标签必须配置匹配值")
+		}
+		if rule.Value != nil && (math.IsNaN(*rule.Value) || math.IsInf(*rule.Value, 0)) {
+			return fmt.Errorf("计算结果匹配值无效")
+		}
+		if rule.Min != nil && (math.IsNaN(*rule.Min) || math.IsInf(*rule.Min, 0)) {
+			return fmt.Errorf("计算结果最小值无效")
+		}
+		if rule.Max != nil && (math.IsNaN(*rule.Max) || math.IsInf(*rule.Max, 0)) {
+			return fmt.Errorf("计算结果最大值无效")
+		}
+		if rule.Min != nil && rule.Max != nil && *rule.Min > *rule.Max {
+			return fmt.Errorf("计算结果标签区间无效")
+		}
+	}
+	return nil
+}
+
+func WorkflowCalculationResultLabel(value float64, calculation *FormCalculation) string {
+	if calculation == nil || calculation.ResultDisplay == nil || calculation.ResultDisplay.Mode != "label" {
+		return ""
+	}
+	for _, rule := range calculation.ResultDisplay.Rules {
+		if rule.Value != nil && math.Abs(value-*rule.Value) > 1e-9 {
+			continue
+		}
+		if rule.Min != nil && value < *rule.Min {
+			continue
+		}
+		if rule.Max != nil && value > *rule.Max {
+			continue
+		}
+		return rule.Label
+	}
+	return calculation.ResultDisplay.Fallback
 }
 
 func evaluateCalculationNode(node *calculationNode, context calculationEvaluationContext) (float64, error) {
@@ -245,6 +354,14 @@ func evaluateCalculationNode(node *calculationNode, context calculationEvaluatio
 			prefix := context.detailKey + "."
 			if strings.HasPrefix(node.reference, prefix) {
 				value = context.row[strings.TrimPrefix(node.reference, prefix)]
+			}
+		}
+		if context.schema.fields != nil {
+			if field, ok := context.schema.fields[node.reference]; ok && isCalculationOptionField(field) {
+				return calculationOptionNumber(field, value)
+			}
+			if _, field, ok := resolveCalculationDetailReference(context.schema, node.reference); ok && isCalculationOptionField(field) {
+				return calculationOptionNumber(field, value)
 			}
 		}
 		return calculationNumberValue(value)
@@ -296,7 +413,7 @@ func evaluateCalculationNode(node *calculationNode, context calculationEvaluatio
 		}
 		values := make([]float64, 0, len(rows))
 		for _, row := range rows {
-			value, err := evaluateCalculationNode(node.argument, calculationEvaluationContext{data: context.data, detailKey: node.detailKey, row: row})
+			value, err := evaluateCalculationNode(node.argument, calculationEvaluationContext{data: context.data, detailKey: node.detailKey, row: row, schema: context.schema})
 			if err != nil {
 				return 0, err
 			}

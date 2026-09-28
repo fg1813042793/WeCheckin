@@ -13,14 +13,16 @@ import (
 
 func TestDefinitionContentUpdatesOnlyIncludesChangedColumns(t *testing.T) {
 	item := model.WorkflowDefinition{
-		Name:        "请假审批",
-		Description: "员工请假",
-		Category:    "人事",
-		Status:      model.DefinitionStatusDraft,
-		DraftJSON:   `{"schemaVersion":1}`,
+		Name:                "请假审批",
+		Description:         "员工请假",
+		Category:            "人事",
+		Status:              model.DefinitionStatusDraft,
+		DraftJSON:           `{"schemaVersion":1}`,
+		StartConfigJSON:     `{"initiator":{"scope":"all"}}`,
+		StartConfigRevision: 1,
 	}
 
-	updates := definitionContentUpdates(item, "请假审批", "", "员工请假", "人事", model.DefinitionStatusDraft, `{"schemaVersion":1,"name":"请假审批"}`, nil)
+	updates := definitionContentUpdates(item, "请假审批", "", "员工请假", "人事", model.DefinitionStatusDraft, `{"schemaVersion":1,"name":"请假审批"}`, `{"initiator":{"scope":"all"}}`, nil)
 	if len(updates) != 1 || updates["definition_draft_json"] == nil {
 		t.Fatalf("only changed draft should be updated, got %#v", updates)
 	}
@@ -28,6 +30,20 @@ func TestDefinitionContentUpdatesOnlyIncludesChangedColumns(t *testing.T) {
 		if _, exists := updates[unchanged]; exists {
 			t.Fatalf("unchanged column %s should not be updated: %#v", unchanged, updates)
 		}
+	}
+}
+
+func TestDefinitionContentUpdatesIncrementsLiveStartConfigRevision(t *testing.T) {
+	item := model.WorkflowDefinition{
+		Name: "请假审批", Status: model.DefinitionStatusPublished, CurrentVersion: 2,
+		DraftJSON: `{"schemaVersion":1}`, StartConfigJSON: `{"initiator":{"scope":"all"}}`, StartConfigRevision: 3,
+	}
+	updates := definitionContentUpdates(
+		item, item.Name, item.DisplayName, item.Description, item.Category, item.Status,
+		item.DraftJSON, `{"initiator":{"scope":"specified","userIds":[7]}}`, nil,
+	)
+	if updates["definition_start_config_revision"] != 4 {
+		t.Fatalf("start config revision update = %#v", updates)
 	}
 }
 
@@ -40,7 +56,7 @@ func TestDefinitionContentUpdatesSkipsUnchangedSave(t *testing.T) {
 		DraftJSON:   `{"schemaVersion":1}`,
 	}
 
-	updates := definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, nil)
+	updates := definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, item.StartConfigJSON, nil)
 	if len(updates) != 0 {
 		t.Fatalf("unchanged save should not write database, got %#v", updates)
 	}
@@ -50,13 +66,13 @@ func TestDefinitionContentUpdatesHandlesOptionalLogoChange(t *testing.T) {
 	item := model.WorkflowDefinition{LogoURL: "/uploads/workflow-logos/old.png"}
 
 	replacement := "/uploads/workflow-logos/new.png"
-	updates := definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, &replacement)
+	updates := definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, item.StartConfigJSON, &replacement)
 	if updates["definition_logo_url"] != replacement {
 		t.Fatalf("replacement logo update = %#v", updates)
 	}
 
 	removed := ""
-	updates = definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, &removed)
+	updates = definitionContentUpdates(item, item.Name, item.DisplayName, item.Description, item.Category, item.Status, item.DraftJSON, item.StartConfigJSON, &removed)
 	if value, exists := updates["definition_logo_url"]; !exists || value != "" {
 		t.Fatalf("removed logo update = %#v", updates)
 	}
@@ -66,6 +82,30 @@ func TestDefinitionUpdateSessionSkipsRedundantDefaultTransaction(t *testing.T) {
 	db := &gorm.DB{Config: &gorm.Config{}}
 	if session := definitionUpdateSession(db); !session.SkipDefaultTransaction {
 		t.Fatal("single-statement workflow definition update should skip GORM default transaction")
+	}
+}
+
+func TestValidateDefinitionStatusChangeRequiresPublishedVersion(t *testing.T) {
+	published := model.WorkflowDefinition{Status: model.DefinitionStatusPublished, CurrentVersion: 3}
+	if err := validateDefinitionStatusChange(published, model.DefinitionStatusDisabled); err != nil {
+		t.Fatalf("disable published workflow: %v", err)
+	}
+	if err := validateDefinitionStatusChange(published, model.DefinitionStatusPublished); err != nil {
+		t.Fatalf("enable published workflow: %v", err)
+	}
+	if err := validateDefinitionStatusChange(published, model.DefinitionStatusDraft); err == nil {
+		t.Fatal("status control must reject draft status")
+	}
+	unpublished := model.WorkflowDefinition{Status: model.DefinitionStatusDraft, CurrentVersion: 0}
+	if err := validateDefinitionStatusChange(unpublished, model.DefinitionStatusPublished); err == nil {
+		t.Fatal("unpublished workflow must not be enabled")
+	}
+}
+
+func TestWorkflowDefinitionDeleteUpdatesAreSoftDeleteAuditFields(t *testing.T) {
+	updates := workflowDefinitionDeleteUpdates(66, 123456)
+	if updates["definition_status"] != model.DefinitionStatusDisabled || updates["definition_deleted_at"] != int64(123456) || updates["definition_deleted_by"] != uint(66) {
+		t.Fatalf("soft delete updates = %#v", updates)
 	}
 }
 
@@ -100,10 +140,13 @@ func TestCopyCreateRequestUsesOnlySourceDraftAndNewMetadata(t *testing.T) {
 
 func TestDefinitionModelForCreateAlwaysStartsAsUnpublishedDraft(t *testing.T) {
 	request := CreateRequest{Key: "leave_v2", Name: "新请假审批（华东）", DisplayName: "请假审批", Description: "说明", Category: "人事"}
-	item := definitionModelForCreate(66, request, `{"schemaVersion":1}`, "/uploads/workflow-logos/new.png", 123456)
+	item := definitionModelForCreate(66, request, `{"schemaVersion":1}`, `{"initiator":{"scope":"all"}}`, "/uploads/workflow-logos/new.png", 123456)
 
 	if item.Status != model.DefinitionStatusDraft || item.CurrentVersion != 0 {
 		t.Fatalf("copied definition must start as an unpublished draft, got status=%d currentVersion=%d", item.Status, item.CurrentVersion)
+	}
+	if item.StartConfigRevision != 1 || item.StartConfigJSON == "" {
+		t.Fatalf("new definition runtime config = revision:%d json:%q", item.StartConfigRevision, item.StartConfigJSON)
 	}
 	if item.AddUserID != 66 || item.EditUserID != 66 || item.AddTime != 123456 || item.EditTime != 123456 {
 		t.Fatalf("copied definition audit fields are invalid: %#v", item)
@@ -295,6 +338,45 @@ func TestApplyPublishInitiatorLeavesInvalidSpecifiedUsersForDefinitionValidation
 		}
 	}
 	t.Fatal("empty specified initiator configuration should fail definition validation")
+}
+
+func TestRuntimeStartConfigDoesNotCreatePublishDifferenceByItself(t *testing.T) {
+	previous := newDefaultDefinition("runtime_config", "运行配置")
+	current := newDefaultDefinition("runtime_config", "运行配置")
+	current.Nodes[0].Initiator = &workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeSpecified, UserIDs: []uint{7}}
+	current.Nodes[0].Availability = &workflowcore.StartAvailabilityConfig{Mode: workflowcore.StartAvailabilityAlways, Timezone: workflowcore.DefaultStartAvailabilityTimezone}
+	current.Nodes[0].StartLimit = &workflowcore.StartLimitConfig{Mode: workflowcore.StartLimitModeUnlimited}
+	raw, err := workflowcore.EncodeRuntimeStartConfig(current)
+	if err != nil {
+		t.Fatalf("encode runtime start config: %v", err)
+	}
+	if err := workflowcore.ApplyRuntimeStartConfigJSON(&previous, raw); err != nil {
+		t.Fatalf("apply runtime start config: %v", err)
+	}
+	if !jsonEqual(versionSnapshot{Definition: previous}, versionSnapshot{Definition: current}) {
+		t.Fatal("runtime-only workflow configuration must be ignored as a publish difference after overlay")
+	}
+}
+
+func TestPublishedRuntimeStartConfigRejectsUnpublishedFormFieldReference(t *testing.T) {
+	published := newDefaultDefinition("runtime_config", "运行配置")
+	configDefinition := newDefaultDefinition("runtime_config", "运行配置")
+	configDefinition.Form = []workflowcore.FormField{{Key: "assessmentMonth", Label: "考评月份", Type: workflowcore.FormFieldTypeDate}}
+	configDefinition.InstanceIdentity = &workflowcore.InstanceIdentityConfig{
+		TitleTemplate:  "{{form.assessmentMonth}} {{workflowName}}",
+		BusinessPeriod: &workflowcore.BusinessPeriodConfig{Enabled: true, Granularity: "month", Source: "form_field", Field: "assessmentMonth"},
+	}
+	raw, err := workflowcore.EncodeRuntimeStartConfig(configDefinition)
+	if err != nil {
+		t.Fatalf("encode runtime config: %v", err)
+	}
+	if err := workflowcore.ApplyRuntimeStartConfigJSON(&published, raw); err != nil {
+		t.Fatalf("apply runtime config: %v", err)
+	}
+	errors := workflowcore.ValidateRuntimeStartConfig(published)
+	if len(errors) == 0 || errors[0].Code != workflowcore.ValidationInstanceIdentity {
+		t.Fatalf("runtime config validation errors = %#v", errors)
+	}
 }
 
 func TestValidateDesignDraftChecksFlowConfiguration(t *testing.T) {

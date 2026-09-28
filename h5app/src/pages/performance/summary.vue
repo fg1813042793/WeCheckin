@@ -2,11 +2,12 @@
 import type { PerformanceReview, PerformanceReviewListPayload, PerformanceTemplate, PerformanceUser, ReviewActionRequest } from '@/types/dingtalk-h5'
 import { computed, reactive, ref, watch } from 'vue'
 import { deleteReview, exportReviewsUrl, getTemplate, listReviews, listUsers, reviewAction } from '@/api/dingtalk-h5'
+import { appErrorMessage } from '@/common/app-error'
 import { useDingtalkAuthStore } from '@/stores'
 import { useAppContentStore } from '@/stores/appContent'
 import { departmentLevelsFromEntity, departmentPathFromEntity } from '@/utils/departments'
-import PerformanceDetailPopup from './components/PerformanceDetailPopup.vue'
 import { appendUniqueReviewRows, createMobilePaginationState, mobileReviewListParams, resetMobilePagination, showMobileLoadMore, showMobileNoMore, updateMobilePaginationTotal } from './components/mobilePagination'
+import PerformanceDetailPopup from './components/PerformanceDetailPopup.vue'
 import { normalizeReviewActionResult, statusMeta } from './constants/performanceStatus'
 
 interface PaginationChangePayload {
@@ -446,9 +447,9 @@ async function loadMoreSummaryRows() {
   try {
     await loadSummaryPageData({ append: true })
   }
-  catch {
+  catch (error) {
     summaryMobilePagination.page = Math.max(summaryMobilePagination.page - 1, 1)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+    uni.showToast({ title: appErrorMessage(error, '加载失败，请重试'), icon: 'none' })
   }
 }
 

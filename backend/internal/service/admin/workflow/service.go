@@ -47,19 +47,20 @@ type UpdateRequest struct {
 }
 
 type DefinitionSummary struct {
-	ID             uint   `json:"id"`
-	Key            string `json:"key"`
-	Name           string `json:"name"`
-	DisplayName    string `json:"displayName"`
-	Description    string `json:"description"`
-	Category       string `json:"category"`
-	LogoURL        string `json:"logoUrl"`
-	Status         int    `json:"status"`
-	CurrentVersion int    `json:"currentVersion"`
-	AddUserID      uint   `json:"addUserId"`
-	EditUserID     uint   `json:"editUserId"`
-	AddTime        int64  `json:"addTime"`
-	EditTime       int64  `json:"editTime"`
+	ID                  uint   `json:"id"`
+	Key                 string `json:"key"`
+	Name                string `json:"name"`
+	DisplayName         string `json:"displayName"`
+	Description         string `json:"description"`
+	Category            string `json:"category"`
+	LogoURL             string `json:"logoUrl"`
+	Status              int    `json:"status"`
+	CurrentVersion      int    `json:"currentVersion"`
+	StartConfigRevision int    `json:"startConfigRevision"`
+	AddUserID           uint   `json:"addUserId"`
+	EditUserID          uint   `json:"editUserId"`
+	AddTime             int64  `json:"addTime"`
+	EditTime            int64  `json:"editTime"`
 }
 
 type DefinitionDetail struct {
@@ -103,7 +104,7 @@ func GetListContext(ctx context.Context, keyword, category string, status, page,
 
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query := db.Model(&model.WorkflowDefinition{})
+	query := activeWorkflowDefinitionQuery(db).Model(&model.WorkflowDefinition{})
 	if text := strings.TrimSpace(keyword); text != "" {
 		like := "%" + text + "%"
 		query = query.Where("definition_name LIKE ? OR definition_display_name LIKE ? OR definition_key LIKE ?", like, like, like)
@@ -137,12 +138,15 @@ func GetDetailContext(ctx context.Context, id uint) (*DefinitionDetail, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var item model.WorkflowDefinition
-	if err := db.First(&item, id).Error; err != nil {
+	if err := activeWorkflowDefinitionQuery(db).First(&item, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name, item.DisplayName)
 	if err != nil {
 		return nil, err
+	}
+	if err := workflowcore.ApplyRuntimeStartConfigJSON(&draft, item.StartConfigJSON); err != nil {
+		return nil, errors.New("流程运行配置格式无效：" + err.Error())
 	}
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
@@ -183,7 +187,13 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 			}
 		}
 	}
-
+	startConfigJSON, err := workflowcore.EncodeRuntimeStartConfig(draft)
+	if err != nil {
+		return nil, err
+	}
+	if validationErrors := workflowcore.ValidateRuntimeStartConfig(draft); len(validationErrors) > 0 {
+		return nil, validationErrorAsError(validationErrors[0])
+	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var duplicate int64
@@ -193,7 +203,7 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	if duplicate > 0 {
 		return nil, errors.New("流程编码已存在")
 	}
-	item := definitionModelForCreate(adminID, request, encoded, logoURL, database.Now())
+	item := definitionModelForCreate(adminID, request, encoded, startConfigJSON, logoURL, database.Now())
 	if err := db.Create(&item).Error; err != nil {
 		return nil, err
 	}
@@ -207,12 +217,24 @@ func CopyContext(ctx context.Context, adminID, sourceID uint, request CopyReques
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var source model.WorkflowDefinition
-	if err := db.First(&source, sourceID).Error; err != nil {
+	if err := activeWorkflowDefinitionQuery(db).First(&source, sourceID).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	if len(bytes.TrimSpace([]byte(source.DraftJSON))) == 0 {
 		return nil, errors.New("源流程设计数据为空")
 	}
+	sourceDraft, _, err := normalizeDraft(json.RawMessage(source.DraftJSON), source.Key, source.Name, source.DisplayName)
+	if err != nil {
+		return nil, err
+	}
+	if err := workflowcore.ApplyRuntimeStartConfigJSON(&sourceDraft, source.StartConfigJSON); err != nil {
+		return nil, errors.New("流程运行配置格式无效：" + err.Error())
+	}
+	sourceDraftJSON, err := json.Marshal(sourceDraft)
+	if err != nil {
+		return nil, err
+	}
+	source.DraftJSON = string(sourceDraftJSON)
 	return CreateContext(ctx, adminID, createRequestForCopy(source, request))
 }
 
@@ -228,21 +250,23 @@ func createRequestForCopy(source model.WorkflowDefinition, request CopyRequest) 
 	}
 }
 
-func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, logoURL string, now int64) model.WorkflowDefinition {
+func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, startConfigJSON, logoURL string, now int64) model.WorkflowDefinition {
 	return model.WorkflowDefinition{
-		Key:            request.Key,
-		Name:           request.Name,
-		DisplayName:    request.DisplayName,
-		Description:    strings.TrimSpace(request.Description),
-		Category:       strings.TrimSpace(request.Category),
-		LogoURL:        logoURL,
-		Status:         model.DefinitionStatusDraft,
-		CurrentVersion: 0,
-		DraftJSON:      draftJSON,
-		AddUserID:      adminID,
-		EditUserID:     adminID,
-		AddTime:        now,
-		EditTime:       now,
+		Key:                 request.Key,
+		Name:                request.Name,
+		DisplayName:         request.DisplayName,
+		Description:         strings.TrimSpace(request.Description),
+		Category:            strings.TrimSpace(request.Category),
+		LogoURL:             logoURL,
+		Status:              model.DefinitionStatusDraft,
+		CurrentVersion:      0,
+		DraftJSON:           draftJSON,
+		StartConfigJSON:     startConfigJSON,
+		StartConfigRevision: 1,
+		AddUserID:           adminID,
+		EditUserID:          adminID,
+		AddTime:             now,
+		EditTime:            now,
 	}
 }
 
@@ -253,7 +277,7 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var item model.WorkflowDefinition
-	if err := db.First(&item, id).Error; err != nil {
+	if err := activeWorkflowDefinitionQuery(db).First(&item, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	name := strings.TrimSpace(request.Name)
@@ -269,11 +293,32 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		displayName = normalizedDisplayName
 	}
 	draftInput := request.Draft
-	if len(bytes.TrimSpace(draftInput)) == 0 {
+	draftProvided := len(bytes.TrimSpace(draftInput)) > 0
+	if !draftProvided {
 		draftInput = json.RawMessage(item.DraftJSON)
 	}
 	draft, encoded, err := normalizeDraft(draftInput, item.Key, name, displayName)
 	if err != nil {
+		return nil, err
+	}
+	if !draftProvided {
+		if err := workflowcore.ApplyRuntimeStartConfigJSON(&draft, item.StartConfigJSON); err != nil {
+			return nil, errors.New("流程运行配置格式无效：" + err.Error())
+		}
+		encodedBytes, err := json.Marshal(draft)
+		if err != nil {
+			return nil, err
+		}
+		encoded = string(encodedBytes)
+	}
+	startConfigJSON, err := workflowcore.EncodeRuntimeStartConfig(draft)
+	if err != nil {
+		return nil, err
+	}
+	if validationErrors := workflowcore.ValidateRuntimeStartConfig(draft); len(validationErrors) > 0 {
+		return nil, validationErrorAsError(validationErrors[0])
+	}
+	if err := validatePublishedRuntimeStartConfig(db, item, startConfigJSON); err != nil {
 		return nil, err
 	}
 	status := item.Status
@@ -296,13 +341,13 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		}
 		logoURL = &normalized
 	}
-	updates := definitionContentUpdates(item, name, displayName, description, category, status, encoded, logoURL)
+	updates := definitionContentUpdates(item, name, displayName, description, category, status, encoded, startConfigJSON, logoURL)
 	if len(updates) > 0 {
 		now := database.Now()
 		updates["definition_edit_user_id"] = adminID
 		updates["definition_edit_time"] = now
 		updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
-		if err := definitionUpdateSession(db).Model(&model.WorkflowDefinition{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		if err := definitionUpdateSession(db).Model(&model.WorkflowDefinition{}).Where("id = ? AND definition_deleted_at = ?", id, int64(0)).Updates(updates).Error; err != nil {
 			return nil, err
 		}
 		item.EditUserID = adminID
@@ -317,10 +362,14 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 	}
 	item.Status = status
 	item.DraftJSON = encoded
+	if startConfigJSON != item.StartConfigJSON {
+		item.StartConfigJSON = startConfigJSON
+		item.StartConfigRevision++
+	}
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
 
-func definitionContentUpdates(item model.WorkflowDefinition, name, displayName, description, category string, status int, draftJSON string, logoURL *string) map[string]interface{} {
+func definitionContentUpdates(item model.WorkflowDefinition, name, displayName, description, category string, status int, draftJSON, startConfigJSON string, logoURL *string) map[string]interface{} {
 	updates := make(map[string]interface{}, 7)
 	if name != item.Name {
 		updates["definition_name"] = name
@@ -339,6 +388,10 @@ func definitionContentUpdates(item model.WorkflowDefinition, name, displayName, 
 	}
 	if draftJSON != item.DraftJSON {
 		updates["definition_draft_json"] = draftJSON
+	}
+	if startConfigJSON != item.StartConfigJSON {
+		updates["definition_start_config_json"] = startConfigJSON
+		updates["definition_start_config_revision"] = item.StartConfigRevision + 1
 	}
 	if logoURL != nil && *logoURL != item.LogoURL {
 		updates["definition_logo_url"] = *logoURL
@@ -370,6 +423,81 @@ func definitionUpdateSession(db *gorm.DB) *gorm.DB {
 	return db.Session(&gorm.Session{SkipDefaultTransaction: true})
 }
 
+func activeWorkflowDefinitionQuery(db *gorm.DB) *gorm.DB {
+	return db.Where("definition_deleted_at = ?", int64(0))
+}
+
+func UpdateStatusContext(ctx context.Context, adminID, id uint, status int) (*DefinitionSummary, error) {
+	if id == 0 {
+		return nil, errors.New("流程定义 ID 无效")
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	var result DefinitionSummary
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var item model.WorkflowDefinition
+		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
+			return definitionError(err)
+		}
+		if err := validateDefinitionStatusChange(item, status); err != nil {
+			return err
+		}
+		if item.Status != status {
+			now := database.Now()
+			if err := tx.Model(&model.WorkflowDefinition{}).
+				Where("id = ? AND definition_deleted_at = ?", id, int64(0)).
+				Updates(map[string]interface{}{
+					"definition_status":       status,
+					"definition_edit_user_id": adminID,
+					"definition_edit_time":    now,
+					"updated_at":              gorm.Expr("CURRENT_TIMESTAMP"),
+				}).Error; err != nil {
+				return err
+			}
+			item.Status = status
+			item.EditUserID = adminID
+			item.EditTime = now
+		}
+		result = summaryFromModel(ctx, item)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func validateDefinitionStatusChange(item model.WorkflowDefinition, status int) error {
+	if status != model.DefinitionStatusDisabled && status != model.DefinitionStatusPublished {
+		return errors.New("流程状态只能设置为启用或关闭")
+	}
+	if item.CurrentVersion < 1 {
+		return errors.New("未发布流程不能启用或关闭")
+	}
+	return nil
+}
+
+func validatePublishedRuntimeStartConfig(db *gorm.DB, item model.WorkflowDefinition, startConfigJSON string) error {
+	if item.CurrentVersion < 1 {
+		return nil
+	}
+	var version model.WorkflowDefinitionVersion
+	if err := db.First(&version, "definition_id = ? AND definition_version = ?", item.ID, item.CurrentVersion).Error; err != nil {
+		return versionError(err)
+	}
+	published, _, err := normalizeDraft(json.RawMessage(version.SourceJSON), item.Key, item.Name, item.DisplayName)
+	if err != nil {
+		return err
+	}
+	if err := workflowcore.ApplyRuntimeStartConfigJSON(&published, startConfigJSON); err != nil {
+		return errors.New("流程运行配置格式无效：" + err.Error())
+	}
+	if validationErrors := workflowcore.ValidateRuntimeStartConfig(published); len(validationErrors) > 0 {
+		return errors.New("流程配置无法应用到当前发布版本：" + validationErrors[0].Message)
+	}
+	return nil
+}
+
 func ValidateContext(ctx context.Context, id uint) (*ValidationResponse, error) {
 	detail, err := GetDetailContext(ctx, id)
 	if err != nil {
@@ -399,14 +527,21 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 	var result PublishResponse
 	err = db.Transaction(func(tx *gorm.DB) error {
 		var item model.WorkflowDefinition
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
+		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
 		draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name, item.DisplayName)
 		if err != nil {
 			return err
 		}
+		if err := workflowcore.ApplyRuntimeStartConfigJSON(&draft, item.StartConfigJSON); err != nil {
+			return errors.New("流程运行配置格式无效：" + err.Error())
+		}
 		applyPublishInitiator(&draft, request.Initiator)
+		startConfigJSON, err := workflowcore.EncodeRuntimeStartConfig(draft)
+		if err != nil {
+			return err
+		}
 		encodedJSON, err := json.Marshal(draft)
 		if err != nil {
 			return err
@@ -430,6 +565,9 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 			if err != nil {
 				return err
 			}
+			if err := workflowcore.ApplyRuntimeStartConfigJSON(&previousSnapshot.Definition, startConfigJSON); err != nil {
+				return errors.New("流程运行配置格式无效：" + err.Error())
+			}
 			if metadataRecorded && jsonEqual(previousSnapshot, currentSnapshot) {
 				return errors.New("流程内容没有变化，无需重复发布")
 			}
@@ -442,14 +580,19 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 		if err := tx.Create(&versionItem).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&model.WorkflowDefinition{}).Where("id = ?", item.ID).Updates(map[string]interface{}{
+		updates := map[string]interface{}{
 			"definition_current_version": version,
 			"definition_status":          model.DefinitionStatusPublished,
 			"definition_draft_json":      encoded,
 			"definition_edit_user_id":    adminID,
 			"definition_edit_time":       now,
 			"updated_at":                 gorm.Expr("CURRENT_TIMESTAMP"),
-		}).Error; err != nil {
+		}
+		if startConfigJSON != item.StartConfigJSON {
+			updates["definition_start_config_json"] = startConfigJSON
+			updates["definition_start_config_revision"] = item.StartConfigRevision + 1
+		}
+		if err := tx.Model(&model.WorkflowDefinition{}).Where("id = ? AND definition_deleted_at = ?", item.ID, int64(0)).Updates(updates).Error; err != nil {
 			return err
 		}
 		result = PublishResponse{DefinitionID: item.ID, Version: version, BPMNXML: string(bpmn)}
@@ -486,7 +629,7 @@ func applyPublishInitiator(definition *workflowcore.Definition, requested *workf
 	}
 }
 
-func DeleteContext(ctx context.Context, id uint) error {
+func DeleteContext(ctx context.Context, adminID, id uint) error {
 	if id == 0 {
 		return errors.New("流程定义 ID 无效")
 	}
@@ -494,14 +637,24 @@ func DeleteContext(ctx context.Context, id uint) error {
 	defer cancel()
 	return db.Transaction(func(tx *gorm.DB) error {
 		var item model.WorkflowDefinition
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
+		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
-		if item.CurrentVersion > 0 {
-			return errors.New("已发布的流程定义不能删除，可将其停用")
-		}
-		return tx.Delete(&item).Error
+		return tx.Model(&model.WorkflowDefinition{}).
+			Where("id = ? AND definition_deleted_at = ?", id, int64(0)).
+			Updates(workflowDefinitionDeleteUpdates(adminID, database.Now())).Error
 	})
+}
+
+func workflowDefinitionDeleteUpdates(adminID uint, deletedAt int64) map[string]interface{} {
+	return map[string]interface{}{
+		"definition_status":       model.DefinitionStatusDisabled,
+		"definition_deleted_at":   deletedAt,
+		"definition_deleted_by":   adminID,
+		"definition_edit_user_id": adminID,
+		"definition_edit_time":    deletedAt,
+		"updated_at":              gorm.Expr("CURRENT_TIMESTAMP"),
+	}
 }
 
 func newDefaultDefinition(key, name string) workflowcore.Definition {
@@ -567,7 +720,8 @@ func summaryFromModel(ctx context.Context, item model.WorkflowDefinition) Defini
 	return DefinitionSummary{
 		ID: item.ID, Key: item.Key, Name: item.Name, DisplayName: item.DisplayName, Description: item.Description,
 		Category: item.Category, LogoURL: media.FullURLWithStaticDomainContext(ctx, item.LogoURL), Status: item.Status, CurrentVersion: item.CurrentVersion,
-		AddUserID: item.AddUserID, EditUserID: item.EditUserID, AddTime: item.AddTime, EditTime: item.EditTime,
+		StartConfigRevision: item.StartConfigRevision,
+		AddUserID:           item.AddUserID, EditUserID: item.EditUserID, AddTime: item.AddTime, EditTime: item.EditTime,
 	}
 }
 

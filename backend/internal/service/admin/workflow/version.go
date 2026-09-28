@@ -51,7 +51,7 @@ func GetVersionsContext(ctx context.Context, id uint) ([]VersionSummary, error) 
 	defer cancel()
 
 	var definition model.WorkflowDefinition
-	if err := db.First(&definition, id).Error; err != nil {
+	if err := activeWorkflowDefinitionQuery(db).First(&definition, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	var rows []model.WorkflowDefinitionVersion
@@ -122,7 +122,7 @@ func GetVersionChangesContext(ctx context.Context, id uint, version, compareTo i
 	defer cancel()
 
 	var definition model.WorkflowDefinition
-	if err := db.First(&definition, id).Error; err != nil {
+	if err := activeWorkflowDefinitionQuery(db).First(&definition, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	var target model.WorkflowDefinitionVersion
@@ -173,7 +173,7 @@ func DeleteVersionContext(ctx context.Context, id uint, version int) error {
 	defer cancel()
 	return db.Transaction(func(tx *gorm.DB) error {
 		var definition model.WorkflowDefinition
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
+		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
 			return definitionError(err)
 		}
 		var item model.WorkflowDefinitionVersion
@@ -245,7 +245,7 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 	var result PublishResponse
 	err = db.Transaction(func(tx *gorm.DB) error {
 		var definition model.WorkflowDefinition
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
+		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
 			return definitionError(err)
 		}
 		if definition.CurrentVersion < 1 {
@@ -271,6 +271,12 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 		if err != nil {
 			return err
 		}
+		if err := workflowcore.ApplyRuntimeStartConfigJSON(&targetSnapshot.Definition, definition.StartConfigJSON); err != nil {
+			return errors.New("流程运行配置格式无效：" + err.Error())
+		}
+		if err := workflowcore.ApplyRuntimeStartConfigJSON(&currentSnapshot.Definition, definition.StartConfigJSON); err != nil {
+			return errors.New("流程运行配置格式无效：" + err.Error())
+		}
 		if validationErrors := workflowcore.ValidateDefinition(targetSnapshot.Definition); len(validationErrors) > 0 {
 			return workflowcore.ValidationErrors(validationErrors)
 		}
@@ -286,8 +292,12 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 		}
 		newVersion := definition.CurrentVersion + 1
 		summary := buildVersionChangeSummary(definition.CurrentVersion, currentSnapshot, targetSnapshot)
+		targetSourceJSON, err := json.Marshal(targetSnapshot.Definition)
+		if err != nil {
+			return err
+		}
 		versionItem, err := newDefinitionVersionModel(
-			definition.ID, newVersion, adminID, database.Now(), target.SourceJSON, string(bpmn),
+			definition.ID, newVersion, adminID, database.Now(), string(targetSourceJSON), string(bpmn),
 			targetSnapshot, summary, note, version,
 		)
 		if err != nil {
@@ -297,7 +307,7 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 			return err
 		}
 		metadata := targetSnapshot.Metadata
-		if err := tx.Model(&model.WorkflowDefinition{}).Where("id = ?", definition.ID).Updates(map[string]interface{}{
+		if err := tx.Model(&model.WorkflowDefinition{}).Where("id = ? AND definition_deleted_at = ?", definition.ID, int64(0)).Updates(map[string]interface{}{
 			"definition_name":            metadata.Name,
 			"definition_display_name":    metadata.DisplayName,
 			"definition_description":     metadata.Description,
@@ -305,7 +315,7 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 			"definition_logo_url":        metadata.LogoURL,
 			"definition_current_version": newVersion,
 			"definition_status":          model.DefinitionStatusPublished,
-			"definition_draft_json":      target.SourceJSON,
+			"definition_draft_json":      string(targetSourceJSON),
 			"definition_edit_user_id":    adminID,
 			"definition_edit_time":       versionItem.PublishedAt,
 			"updated_at":                 gorm.Expr("CURRENT_TIMESTAMP"),

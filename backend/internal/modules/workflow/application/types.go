@@ -102,6 +102,7 @@ type InstanceQuery struct {
 	EndTimeTo          int64
 	InstanceIDs        []string
 	Visibility         *InstanceVisibility
+	IncludeFormData    bool
 	Page               int
 	PageSize           int
 }
@@ -165,27 +166,28 @@ type TaskQuery struct {
 }
 
 type InstanceSummary struct {
-	ID                   string   `json:"id"`
-	DefinitionID         uint     `json:"definitionId"`
-	DefinitionVersion    int      `json:"definitionVersion"`
-	DefinitionKey        string   `json:"definitionKey"`
-	DefinitionName       string   `json:"definitionName"`
-	InstanceTitle        string   `json:"instanceTitle"`
-	BusinessPeriodType   string   `json:"businessPeriodType"`
-	BusinessPeriodKey    string   `json:"businessPeriodKey"`
-	BusinessPeriodLabel  string   `json:"businessPeriodLabel"`
-	BusinessType         string   `json:"businessType"`
-	BusinessKey          string   `json:"businessKey"`
-	StarterID            string   `json:"starterId"`
-	StarterName          string   `json:"starterName"`
-	OperatorID           string   `json:"operatorId"`
-	OperatorName         string   `json:"operatorName"`
-	CurrentNodeNames     []string `json:"currentNodeNames"`
-	CurrentAssigneeNames []string `json:"currentAssigneeNames"`
-	Status               string   `json:"status"`
-	StartTime            int64    `json:"startTime"`
-	EndTime              int64    `json:"endTime"`
-	FormRevision         int64    `json:"formRevision"`
+	ID                   string                 `json:"id"`
+	DefinitionID         uint                   `json:"definitionId"`
+	DefinitionVersion    int                    `json:"definitionVersion"`
+	DefinitionKey        string                 `json:"definitionKey"`
+	DefinitionName       string                 `json:"definitionName"`
+	InstanceTitle        string                 `json:"instanceTitle"`
+	BusinessPeriodType   string                 `json:"businessPeriodType"`
+	BusinessPeriodKey    string                 `json:"businessPeriodKey"`
+	BusinessPeriodLabel  string                 `json:"businessPeriodLabel"`
+	BusinessType         string                 `json:"businessType"`
+	BusinessKey          string                 `json:"businessKey"`
+	StarterID            string                 `json:"starterId"`
+	StarterName          string                 `json:"starterName"`
+	OperatorID           string                 `json:"operatorId"`
+	OperatorName         string                 `json:"operatorName"`
+	CurrentNodeNames     []string               `json:"currentNodeNames"`
+	CurrentAssigneeNames []string               `json:"currentAssigneeNames"`
+	Status               string                 `json:"status"`
+	StartTime            int64                  `json:"startTime"`
+	EndTime              int64                  `json:"endTime"`
+	FormRevision         int64                  `json:"formRevision"`
+	FormData             map[string]interface{} `json:"formData,omitempty"`
 }
 
 type FormRevisionCapability struct {

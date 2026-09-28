@@ -87,7 +87,7 @@ func loadInstanceDetail(db *gorm.DB, instance workflowmodel.ProcessInstance) (*a
 			formRevisions = append(formRevisions, *detail)
 		}
 	}
-	instances, err := loadInstanceSummaries(db, []workflowmodel.ProcessInstance{instance})
+	instances, err := loadInstanceSummaries(db, []workflowmodel.ProcessInstance{instance}, false)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func instanceSummary(row workflowmodel.ProcessInstance) application.InstanceSumm
 	}
 }
 
-func loadInstanceSummaries(db *gorm.DB, rows []workflowmodel.ProcessInstance) ([]application.InstanceSummary, error) {
+func loadInstanceSummaries(db *gorm.DB, rows []workflowmodel.ProcessInstance, includeFormData bool) ([]application.InstanceSummary, error) {
 	currentTasks, err := loadCurrentInstanceTasks(db, instanceRowIDs(rows))
 	if err != nil {
 		return nil, err
@@ -192,7 +192,24 @@ func loadInstanceSummaries(db *gorm.DB, rows []workflowmodel.ProcessInstance) ([
 	if err != nil {
 		return nil, err
 	}
-	return instanceSummariesWithCurrentTasks(rows, users, definitionNames, currentTasks), nil
+	list := instanceSummariesWithCurrentTasks(rows, users, definitionNames, currentTasks)
+	if includeFormData {
+		if err := populateInstanceSummaryFormData(list, rows); err != nil {
+			return nil, err
+		}
+	}
+	return list, nil
+}
+
+func populateInstanceSummaryFormData(list []application.InstanceSummary, rows []workflowmodel.ProcessInstance) error {
+	for index := range rows {
+		formData, err := decodeFormData(rows[index].FormDataJSON)
+		if err != nil {
+			return err
+		}
+		list[index].FormData = formData
+	}
+	return nil
 }
 
 func instanceRowIDs(rows []workflowmodel.ProcessInstance) []string {

@@ -263,7 +263,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/workflow-summary-columns.ts',
-    patterns: ['WorkflowSummaryColumn', 'workflowSummaryBaseColumns', 'workflowSummaryFormFieldGroups', '`form:${definition.id}:${field.key}`', 'visibleWorkflowSummaryColumns', 'workflowSummaryFormValue', 'workflowDataFields', 'flattenWorkflowOptions'],
+    patterns: ['WorkflowSummaryColumn', 'workflowSummaryBaseColumns', 'workflowSummaryFormFieldGroups', '`form:${definition.id}:${field.key}`', 'visibleWorkflowSummaryColumns', 'workflowSummaryFormValue', 'workflowSummaryDataFields', 'groupPath', 'flattenWorkflowOptions'],
   },
   {
     file: 'src/types/workflow.ts',

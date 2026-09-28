@@ -45,6 +45,7 @@ export interface WorkflowAttachment {
 export interface WorkflowFormOption {
   label: string
   value: string
+  calculationValue?: number
   children?: WorkflowFormOption[]
 }
 
@@ -55,6 +56,7 @@ export interface WorkflowOptionSource {
   responsePath?: string
   labelField?: string
   valueField?: string
+  calculationValueField?: string
   childrenField?: string
 }
 
@@ -113,6 +115,20 @@ export interface WorkflowFormCalculation {
   expression: string
   display?: WorkflowCalculationDisplay
   precision?: number
+  resultDisplay?: WorkflowCalculationResultDisplay
+}
+
+export interface WorkflowCalculationResultDisplay {
+  mode?: 'number' | 'label'
+  rules?: WorkflowCalculationResultRule[]
+  fallback?: string
+}
+
+export interface WorkflowCalculationResultRule {
+  value?: number
+  min?: number
+  max?: number
+  label: string
 }
 
 export interface WorkflowFieldPermission {
@@ -274,6 +290,7 @@ export interface WorkflowInstanceSummary {
   startTime: number
   endTime: number
   formRevision: number
+  formData?: WorkflowFormData
 }
 
 export interface WorkflowFormRevisionCapability {

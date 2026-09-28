@@ -65,6 +65,10 @@ for (const snippet of [
   '<el-menu-item',
   '<AdminMenuNode',
   'renderableChildren',
+  'depth?: number',
+  ':depth="depth + 1"',
+  'props.depth > 0',
+  'admin-menu-node__icon--placeholder',
 ]) {
   if (!menuNodeSource.includes(snippet)) {
     throw new Error(`admin recursive menu component missing: ${snippet}`)

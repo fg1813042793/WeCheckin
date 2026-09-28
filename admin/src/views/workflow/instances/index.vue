@@ -395,7 +395,7 @@ const starting = ref(false)
 const definitionsLoading = ref(false)
 const publishedDefinitions = ref<WorkflowPublishedDefinition[]>([])
 const startFormData = ref<Record<string, unknown>>({})
-const startRuntimeForm = ref<{ validate: () => boolean; resetValidation: () => void } | null>(null)
+const startRuntimeForm = ref<{ validate: () => boolean; validationMessage: () => string; resetValidation: () => void } | null>(null)
 const startForm = reactive<{
   definitionId: number | undefined
   businessType: string
@@ -693,7 +693,7 @@ async function startInstance() {
     return
   }
   if (selectedStartDefinition.value && startRuntimeForm.value && !startRuntimeForm.value.validate()) {
-    ElMessage.warning('请检查流程表单中的校验提示')
+    ElMessage.warning(startRuntimeForm.value.validationMessage())
     return
   }
   let variables: Record<string, unknown>

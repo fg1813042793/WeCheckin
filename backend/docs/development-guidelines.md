@@ -82,7 +82,7 @@
 - Swagger 生成命令：
 
   ```bash
-  swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger
+  swag init -g main.go --dir ./cmd,./internal/routes/v2/swagger --parseDependency --output docs/swagger --templateDelims '{%,%}'
   ```
 - 权限 key 改名必须通过 SQL 迁移同步已有权限和授权数据，不只修改代码常量。
 

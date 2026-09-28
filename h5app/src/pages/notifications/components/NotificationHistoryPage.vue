@@ -8,6 +8,7 @@ import {
   listNotifications,
   markNotificationRead,
 } from '@/api/notifications'
+import { appErrorMessage } from '@/common/app-error'
 import { confirmUnsavedNavigation, navigateWithUnsavedGuard } from '@/components/app-shell/app-shell-navigation-guard'
 import { feedbackDetailContentKey } from '@/pages/feedback/feedback-route-keys'
 import NotificationMarkdown from '@/pages/notifications/components/NotificationMarkdown.vue'
@@ -123,8 +124,8 @@ async function loadNotifications(append: boolean) {
     total.value = Math.max(0, Number(payload?.total || 0))
     page.value = nextPage
   }
-  catch {
-    errorMessage.value = '站内信历史加载失败'
+  catch (error) {
+    errorMessage.value = appErrorMessage(error, '站内信历史加载失败')
   }
   finally {
     loading.value = false

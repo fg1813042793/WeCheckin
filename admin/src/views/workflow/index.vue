@@ -8,7 +8,7 @@
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px" @change="search">
             <el-option label="草稿" :value="1" />
             <el-option label="已发布" :value="2" />
-            <el-option label="已停用" :value="0" />
+            <el-option label="已关闭" :value="0" />
           </el-select>
           <el-button type="primary" @click="search">搜索</el-button>
           <el-button @click="resetFilters">重置</el-button>
@@ -48,9 +48,22 @@
           <template #default="{ row }">{{ row.category || '-' }}</template>
         </el-table-column>
         <el-table-column prop="description" label="说明" min-width="240" show-overflow-tooltip />
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="116" align="center">
           <template #default="{ row }">
-            <el-tag :type="statusMeta(row.status).type" size="small">{{ statusMeta(row.status).label }}</el-tag>
+            <el-switch
+              v-if="row.currentVersion > 0"
+              :model-value="row.status"
+              :active-value="2"
+              :inactive-value="0"
+              active-text="启用"
+              inactive-text="关闭"
+              inline-prompt
+              :width="58"
+              :loading="statusUpdating.includes(row.id)"
+              :disabled="!canEdit || statusUpdating.includes(row.id)"
+              @change="changeDefinitionStatus(row, $event)"
+            />
+            <el-tag v-else :type="statusMeta(row.status).type" size="small">{{ statusMeta(row.status).label }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="当前版本" width="100" align="center">
@@ -67,7 +80,7 @@
               <el-button v-if="canEdit" size="small" type="primary" @click="openDesigner(row)">设计</el-button>
               <el-button size="small" @click="openVersions(row)">版本</el-button>
               <el-button v-if="canPublish" size="small" type="success" plain @click="publish(row)">发布</el-button>
-              <el-button v-if="canDelete" size="small" type="danger" plain :disabled="row.currentVersion > 0" @click="remove(row)">删除</el-button>
+              <el-button v-if="canDelete" size="small" type="danger" plain @click="remove(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -242,10 +255,11 @@ const publishDialog = ref(false)
 const publishTarget = ref<WorkflowDefinitionSummary | null>(null)
 const versionDrawer = ref(false)
 const activeDefinition = ref<WorkflowDefinitionSummary | null>(null)
+const statusUpdating = ref<number[]>([])
 
 function statusMeta(status: number) {
   if (status === 2) return { label: '已发布', type: 'success' as const }
-  if (status === 0) return { label: '已停用', type: 'info' as const }
+  if (status === 0) return { label: '已关闭', type: 'info' as const }
   return { label: '草稿', type: 'warning' as const }
 }
 
@@ -442,8 +456,39 @@ function publish(row: WorkflowDefinitionSummary) {
   publishDialog.value = true
 }
 
+async function changeDefinitionStatus(row: WorkflowDefinitionSummary, value: string | number | boolean) {
+  const status = Number(value) === 2 ? 2 : 0
+  if (status === row.status || statusUpdating.value.includes(row.id)) return
+  if (status === 0) {
+    try {
+      await ElMessageBox.confirm(
+        `关闭流程“${row.name}”后，客户端不再显示且无法发起，历史实例不受影响。确认关闭？`,
+        '关闭流程',
+        { type: 'warning', confirmButtonText: '确认关闭' },
+      )
+    } catch {
+      return
+    }
+  }
+  statusUpdating.value = [...statusUpdating.value, row.id]
+  try {
+    await adminApi.workflowDefinitionStatus(row.id, status)
+    ElMessage.success(status === 2 ? '流程已启用' : '流程已关闭')
+    await loadList()
+  } finally {
+    statusUpdating.value = statusUpdating.value.filter(id => id !== row.id)
+  }
+}
+
 async function remove(row: WorkflowDefinitionSummary) {
-  await ElMessageBox.confirm(`删除草稿“${row.name}”？该操作不可恢复。`, '删除流程', { type: 'warning' })
+  const content = row.currentVersion > 0
+    ? `删除流程“${row.name}”后，客户端不再显示，历史实例和版本记录将保留，但流程定义无法恢复。确认删除？`
+    : `删除草稿“${row.name}”？该操作不可恢复。`
+  try {
+    await ElMessageBox.confirm(content, '删除流程', { type: 'warning', confirmButtonText: '确认删除' })
+  } catch {
+    return
+  }
   await adminApi.workflowDefinitionDelete(row.id)
   ElMessage.success('删除成功')
   await loadList()

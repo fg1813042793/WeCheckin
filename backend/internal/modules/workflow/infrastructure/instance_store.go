@@ -28,7 +28,7 @@ func (store *GormStore) ListInstances(ctx context.Context, query application.Ins
 		Order("start_time DESC").Order("id DESC").Offset(offset).Limit(query.PageSize).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	list, err := loadInstanceSummaries(db, rows)
+	list, err := loadInstanceSummaries(db, rows, query.IncludeFormData)
 	if err != nil {
 		return nil, err
 	}

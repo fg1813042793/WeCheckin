@@ -1,5 +1,11 @@
 <template>
   <div class="workflow-start-config">
+    <el-alert
+      title="流程配置保存后立即生效，无需重新发布"
+      type="success"
+      show-icon
+      :closable="false"
+    />
     <div class="workflow-start-config__content">
       <section class="config-section">
         <div class="config-section__heading">
@@ -32,6 +38,7 @@
                 @update:model-value="updateUserIds"
                 @update:department-model-value="updateDepartmentIds"
               />
+              <div class="form-help">可选择部门或人员；选择部门时包含其全部下级部门人员。</div>
             </el-form-item>
             <el-form-item label="排除用户">
               <WorkflowUserTreePicker

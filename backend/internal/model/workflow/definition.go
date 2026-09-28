@@ -9,22 +9,26 @@ const (
 )
 
 type Definition struct {
-	ID             uint      `json:"id" gorm:"primaryKey;comment:流程定义ID"`
-	Key            string    `json:"key" gorm:"size:100;column:definition_key;uniqueIndex;comment:流程编码"`
-	Name           string    `json:"name" gorm:"size:200;column:definition_name;index;comment:流程名称"`
-	DisplayName    string    `json:"displayName" gorm:"size:200;column:definition_display_name;comment:用户显示名称"`
-	Description    string    `json:"description" gorm:"size:500;column:definition_description;comment:流程说明"`
-	Category       string    `json:"category" gorm:"size:100;column:definition_category;index;comment:流程分类"`
-	LogoURL        string    `json:"logoUrl" gorm:"size:500;column:definition_logo_url;comment:流程Logo地址"`
-	Status         int       `json:"status" gorm:"default:1;column:definition_status;index;comment:状态:0停用 1草稿 2已发布"`
-	CurrentVersion int       `json:"currentVersion" gorm:"default:0;column:definition_current_version;comment:当前发布版本"`
-	DraftJSON      string    `json:"draftJson" gorm:"type:mediumtext;column:definition_draft_json;comment:设计器草稿JSON"`
-	AddUserID      uint      `json:"addUserId" gorm:"column:definition_add_user_id;index;comment:创建人"`
-	EditUserID     uint      `json:"editUserId" gorm:"column:definition_edit_user_id;comment:更新人"`
-	AddTime        int64     `json:"addTime" gorm:"column:definition_add_time;comment:创建时间"`
-	EditTime       int64     `json:"editTime" gorm:"column:definition_edit_time;comment:更新时间"`
-	CreatedAt      time.Time `json:"-"`
-	UpdatedAt      time.Time `json:"-"`
+	ID                  uint      `json:"id" gorm:"primaryKey;comment:流程定义ID"`
+	Key                 string    `json:"key" gorm:"size:100;column:definition_key;uniqueIndex;comment:流程编码"`
+	Name                string    `json:"name" gorm:"size:200;column:definition_name;index;comment:流程名称"`
+	DisplayName         string    `json:"displayName" gorm:"size:200;column:definition_display_name;comment:用户显示名称"`
+	Description         string    `json:"description" gorm:"size:500;column:definition_description;comment:流程说明"`
+	Category            string    `json:"category" gorm:"size:100;column:definition_category;index;comment:流程分类"`
+	LogoURL             string    `json:"logoUrl" gorm:"size:500;column:definition_logo_url;comment:流程Logo地址"`
+	Status              int       `json:"status" gorm:"default:1;column:definition_status;index;comment:状态:0关闭 1草稿 2已发布"`
+	CurrentVersion      int       `json:"currentVersion" gorm:"default:0;column:definition_current_version;comment:当前发布版本"`
+	DraftJSON           string    `json:"draftJson" gorm:"type:mediumtext;column:definition_draft_json;comment:设计器草稿JSON"`
+	StartConfigJSON     string    `json:"-" gorm:"type:mediumtext;column:definition_start_config_json;comment:当前生效的流程发起配置JSON"`
+	StartConfigRevision int       `json:"startConfigRevision" gorm:"column:definition_start_config_revision;default:0;comment:当前生效的流程发起配置修订号"`
+	AddUserID           uint      `json:"addUserId" gorm:"column:definition_add_user_id;index;comment:创建人"`
+	EditUserID          uint      `json:"editUserId" gorm:"column:definition_edit_user_id;comment:更新人"`
+	AddTime             int64     `json:"addTime" gorm:"column:definition_add_time;comment:创建时间"`
+	EditTime            int64     `json:"editTime" gorm:"column:definition_edit_time;comment:更新时间"`
+	DeletedAt           int64     `json:"-" gorm:"column:definition_deleted_at;default:0;index:idx_workflow_definitions_active_status_edit,priority:1;comment:管理员删除时间，0表示未删除"`
+	DeletedBy           uint      `json:"-" gorm:"column:definition_deleted_by;default:0;comment:删除操作管理员ID"`
+	CreatedAt           time.Time `json:"-"`
+	UpdatedAt           time.Time `json:"-"`
 }
 
 func (Definition) TableName() string { return "workflow_definitions" }

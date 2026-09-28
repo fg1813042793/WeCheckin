@@ -64,7 +64,42 @@ func (store *GormStore) UserDepartmentIDs(ctx context.Context, rawUserID string)
 		Pluck("user_dept_dept_id", &departmentIDs).Error; err != nil {
 		return nil, err
 	}
-	return normalizeUintIDs(departmentIDs), nil
+	departmentIDs = normalizeUintIDs(departmentIDs)
+	if len(departmentIDs) == 0 {
+		return departmentIDs, nil
+	}
+	var departments []model.Department
+	if err := db.Select("id", "dept_parent_id").Find(&departments).Error; err != nil {
+		return nil, err
+	}
+	return departmentIDsWithAncestors(departmentIDs, departments), nil
+}
+
+func departmentIDsWithAncestors(departmentIDs []uint, departments []model.Department) []uint {
+	parentByID := make(map[uint]uint, len(departments))
+	for _, department := range departments {
+		parentByID[department.ID] = department.ParentID
+	}
+	result := normalizeUintIDs(departmentIDs)
+	seen := make(map[uint]struct{}, len(result))
+	for _, departmentID := range result {
+		seen[departmentID] = struct{}{}
+	}
+	for _, departmentID := range append([]uint(nil), result...) {
+		visited := make(map[uint]struct{})
+		for parentID := parentByID[departmentID]; parentID > 0; parentID = parentByID[parentID] {
+			if _, loop := visited[parentID]; loop {
+				break
+			}
+			visited[parentID] = struct{}{}
+			if _, exists := seen[parentID]; exists {
+				continue
+			}
+			seen[parentID] = struct{}{}
+			result = append(result, parentID)
+		}
+	}
+	return result
 }
 
 func (store *GormStore) CanOperatorStartFor(ctx context.Context, operatorID, starterID string) (bool, error) {

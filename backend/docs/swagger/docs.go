@@ -395,6 +395,12 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
+                        "type": "number",
+                        "description": "字典项计算值",
+                        "name": "calculationValue",
+                        "in": "formData"
+                    },
+                    {
                         "type": "string",
                         "description": "备注",
                         "name": "remark",
@@ -455,6 +461,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "字典项值",
                         "name": "value",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "字典项计算值",
+                        "name": "calculationValue",
                         "in": "formData"
                     },
                     {
@@ -9991,6 +10003,43 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/workflowservice.PublishRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-definitions/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "启用或关闭工作流定义",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "流程定义 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "流程状态：0关闭，2启用",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {

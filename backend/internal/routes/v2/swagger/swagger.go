@@ -1765,6 +1765,7 @@ func swaggerV2AdminDictItemsGet149() {}
 // @Param typeName formData string false "字典类型名称"
 // @Param label formData string false "字典项显示名称"
 // @Param value formData string false "字典项值"
+// @Param calculationValue formData number false "字典项计算值"
 // @Param remark formData string false "备注"
 // @Param sort formData string false "排序值"
 // @Success 200 {object} response.Resp
@@ -1779,6 +1780,7 @@ func swaggerV2AdminDictItemsPost150() {}
 // @Param sort formData string false "排序值"
 // @Param label formData string false "字典项显示名称"
 // @Param value formData string false "字典项值"
+// @Param calculationValue formData number false "字典项计算值"
 // @Param remark formData string false "备注"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/dict/items/{id} [put]
@@ -2705,6 +2707,15 @@ func swaggerV2AdminWorkflowDefinitionsIDGet() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-definitions/{id} [put]
 func swaggerV2AdminWorkflowDefinitionsIDPut() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 启用或关闭工作流定义
+// @Security AdminToken
+// @Param id path int true "流程定义 ID"
+// @Param status formData int true "流程状态：0关闭，2启用"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-definitions/{id}/status [patch]
+func swaggerV2AdminWorkflowDefinitionsIDStatusPatch() {}
 
 // @Tags API v2-后台管理-工作流
 // @Summary 删除工作流定义

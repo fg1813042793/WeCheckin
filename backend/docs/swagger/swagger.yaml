@@ -2282,6 +2282,10 @@ paths:
         in: formData
         name: value
         type: string
+      - description: 字典项计算值
+        in: formData
+        name: calculationValue
+        type: number
       - description: 备注
         in: formData
         name: remark
@@ -2339,6 +2343,10 @@ paths:
         in: formData
         name: value
         type: string
+      - description: 字典项计算值
+        in: formData
+        name: calculationValue
+        type: number
       - description: 备注
         in: formData
         name: remark
@@ -8230,6 +8238,29 @@ paths:
       security:
       - AdminToken: []
       summary: 发布工作流定义
+      tags:
+      - API v2-后台管理-工作流
+  /api/v2/admin/workflow-definitions/{id}/status:
+    patch:
+      parameters:
+      - description: 流程定义 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 流程状态：0关闭，2启用
+        in: formData
+        name: status
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Resp'
+      security:
+      - AdminToken: []
+      summary: 启用或关闭工作流定义
       tags:
       - API v2-后台管理-工作流
   /api/v2/admin/workflow-definitions/{id}/validate:

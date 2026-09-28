@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { WorkflowHistoryDateFilters } from '../workflow-history-filter'
+import type { WorkflowSummaryColumn } from '../workflow-summary-columns'
 import type {
   WorkflowInstanceSummary,
   WorkflowPublishedDefinition,
   WorkflowSummaryExportFormat,
 } from '@/types/workflow'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   listWorkflowSummaryInstances,
   workflowSummaryExportUrl,
@@ -13,6 +14,12 @@ import {
 import { useDingtalkAuthStore } from '@/stores'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
 import { workflowInstanceStatusMeta } from '../workflow-status'
+import {
+  visibleWorkflowSummaryColumns,
+  workflowSummaryBaseColumns,
+  workflowSummaryFormFieldGroups,
+  workflowSummaryFormValue,
+} from '../workflow-summary-columns'
 import WorkflowDetailPanel from './WorkflowDetailPanel.vue'
 import WorkflowFilterPanel from './WorkflowFilterPanel.vue'
 import WorkflowHistoryDatePicker from './WorkflowHistoryDatePicker.vue'
@@ -27,6 +34,12 @@ interface SummaryFilters extends WorkflowHistoryDateFilters {
 
 interface PaginationChangePayload {
   current: number
+}
+
+interface SummaryColumnSettings {
+  baseHiddenKeys: string[]
+  activeDefinitionId: string
+  formSelectedKeysByDefinition: Record<string, string[]>
 }
 
 const props = defineProps<{
@@ -47,6 +60,12 @@ const selectedIds = ref<string[]>([])
 const exportFormat = ref<WorkflowSummaryExportFormat>('xlsx')
 const selectedInstanceId = ref('')
 const detailVisible = ref(false)
+const summaryColumnStorageKey = 'workflow_summary_column_settings_v2'
+const legacySummaryColumnStorageKey = 'workflow_summary_column_settings_v1'
+const columnSettingsOpen = ref(false)
+const columnSettings = ref<SummaryColumnSettings>(loadColumnSettings())
+const formColumnKeyword = ref('')
+const formFieldDropdownOpen = ref(false)
 
 const canExport = computed(() => auth.hasApiPermission('dingtalk_h5:api:workflow:export'))
 const allCurrentPageSelected = computed(() => {
@@ -73,11 +92,106 @@ const statusOptions = [
   { label: '已取消', value: 'cancelled' },
 ]
 
-onMounted(() => void loadSummary())
+const configurableBaseColumns = workflowSummaryBaseColumns.filter(column => column.configurable)
+const formFieldGroups = computed(() => workflowSummaryFormFieldGroups(props.definitions))
+const selectedColumnDefinitionId = computed<string>({
+  get: () => columnSettings.value.activeDefinitionId,
+  set: (value) => {
+    columnSettings.value.activeDefinitionId = String(value || '')
+    formColumnKeyword.value = ''
+    formFieldDropdownOpen.value = false
+    saveColumnSettings()
+  },
+})
+const activeFormFieldGroup = computed(() => formFieldGroups.value.find(
+  group => String(group.definitionId) === selectedColumnDefinitionId.value,
+) || null)
+const filteredActiveFormColumns = computed(() => {
+  const columns = activeFormFieldGroup.value?.columns || []
+  const keyword = formColumnKeyword.value.trim().toLowerCase()
+  if (!keyword)
+    return columns
+  return columns.filter(column => (
+    column.label.toLowerCase().includes(keyword)
+    || String(column.field?.key || '').toLowerCase().includes(keyword)
+  ))
+})
+const visibleBaseColumnKeys = computed<string[]>({
+  get: () => configurableBaseColumns
+    .map(column => column.key)
+    .filter(key => !columnSettings.value.baseHiddenKeys.includes(key)),
+  set: (values) => {
+    const selected = new Set(values)
+    columnSettings.value.baseHiddenKeys = configurableBaseColumns
+      .map(column => column.key)
+      .filter(key => !selected.has(key))
+    saveColumnSettings()
+  },
+})
+const selectedFormColumnKeys = computed<string[]>({
+  get: () => {
+    const definitionId = selectedColumnDefinitionId.value
+    return definitionId ? columnSettings.value.formSelectedKeysByDefinition[definitionId] || [] : []
+  },
+  set: (values) => {
+    const definitionId = selectedColumnDefinitionId.value
+    if (!definitionId)
+      return
+    columnSettings.value.formSelectedKeysByDefinition = {
+      ...columnSettings.value.formSelectedKeysByDefinition,
+      [definitionId]: normalizeSelectedFormKeys(definitionId, values),
+    }
+    saveColumnSettings()
+  },
+})
+const selectedActiveFormColumnCount = computed(() => selectedFormColumnKeys.value.length)
+const formFieldSelectionText = computed(() => selectedActiveFormColumnCount.value > 0
+  ? `已选 ${selectedActiveFormColumnCount.value} 项`
+  : '请选择表单字段')
+const summaryColumns = computed(() => visibleWorkflowSummaryColumns(
+  columnSettings.value.baseHiddenKeys,
+  selectedFormColumnKeys.value,
+  formFieldGroups.value,
+))
+const summaryGridStyle = computed(() => ({
+  gridTemplateColumns: summaryColumns.value.map(column => column.width).join(' '),
+}))
+const summaryTableStyle = computed(() => {
+  const width = summaryColumns.value.reduce((total, column) => {
+    const matched = column.width.match(/(\d+(?:\.\d+)?)px/)
+    return total + (matched ? Number(matched[1]) : 120)
+  }, 0)
+  return { minWidth: `${width}px` }
+})
+
+onMounted(() => {
+  // #ifdef H5
+  document.addEventListener('click', closeColumnSettings)
+  // #endif
+  void loadSummary()
+})
+
+onBeforeUnmount(() => {
+  // #ifdef H5
+  document.removeEventListener('click', closeColumnSettings)
+  // #endif
+})
 
 watch(
   () => props.refreshTick,
   () => void loadSummary(),
+)
+
+watch(
+  () => props.definitions,
+  () => {
+    const normalized = normalizeColumnSettings(columnSettings.value)
+    if (JSON.stringify(normalized) !== JSON.stringify(columnSettings.value)) {
+      columnSettings.value = normalized
+      saveColumnSettings()
+    }
+  },
+  { deep: true },
 )
 
 function emptyFilters(): SummaryFilters {
@@ -91,6 +205,153 @@ function emptyFilters(): SummaryFilters {
     startDateTo: '',
     endDateFrom: '',
     endDateTo: '',
+  }
+}
+
+function loadColumnSettings(): SummaryColumnSettings {
+  const stored = uni.getStorageSync(summaryColumnStorageKey)
+  if (stored && typeof stored === 'object' && !Array.isArray(stored))
+    return normalizeStoredColumnSettings(stored)
+
+  const legacy = uni.getStorageSync(legacySummaryColumnStorageKey)
+  if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy))
+    return emptyColumnSettings()
+  const value = legacy as { baseHiddenKeys?: unknown, selectedFormKeys?: unknown }
+  const selectedFormKeys = Array.isArray(value.selectedFormKeys) ? value.selectedFormKeys.map(String) : []
+  const formSelectedKeysByDefinition = selectedFormKeys.reduce<Record<string, string[]>>((result, key) => {
+    const definitionId = formColumnDefinitionId(key)
+    if (!definitionId)
+      return result
+    result[definitionId] = [...(result[definitionId] || []), key]
+    return result
+  }, {})
+  return {
+    baseHiddenKeys: Array.isArray(value.baseHiddenKeys) ? value.baseHiddenKeys.map(String) : [],
+    activeDefinitionId: Object.keys(formSelectedKeysByDefinition)[0] || '',
+    formSelectedKeysByDefinition,
+  }
+}
+
+function saveColumnSettings() {
+  uni.setStorageSync(summaryColumnStorageKey, {
+    baseHiddenKeys: [...columnSettings.value.baseHiddenKeys],
+    activeDefinitionId: columnSettings.value.activeDefinitionId,
+    formSelectedKeysByDefinition: Object.fromEntries(
+      Object.entries(columnSettings.value.formSelectedKeysByDefinition)
+        .map(([definitionId, keys]) => [definitionId, [...keys]]),
+    ),
+  })
+}
+
+function emptyColumnSettings(): SummaryColumnSettings {
+  return { baseHiddenKeys: [], activeDefinitionId: '', formSelectedKeysByDefinition: {} }
+}
+
+function normalizeStoredColumnSettings(stored: object): SummaryColumnSettings {
+  const value = stored as Partial<SummaryColumnSettings>
+  const selections = value.formSelectedKeysByDefinition && typeof value.formSelectedKeysByDefinition === 'object'
+    && !Array.isArray(value.formSelectedKeysByDefinition)
+    ? Object.fromEntries(Object.entries(value.formSelectedKeysByDefinition).map(([definitionId, keys]) => [
+        String(definitionId),
+        Array.isArray(keys) ? keys.map(String) : [],
+      ]))
+    : {}
+  return {
+    baseHiddenKeys: Array.isArray(value.baseHiddenKeys) ? value.baseHiddenKeys.map(String) : [],
+    activeDefinitionId: String(value.activeDefinitionId || ''),
+    formSelectedKeysByDefinition: selections,
+  }
+}
+
+function normalizeColumnSettings(settings: SummaryColumnSettings): SummaryColumnSettings {
+  const availableDefinitionIds = new Set(formFieldGroups.value.map(group => String(group.definitionId)))
+  const activeDefinitionId = availableDefinitionIds.has(settings.activeDefinitionId) ? settings.activeDefinitionId : ''
+  const formSelectedKeysByDefinition = Object.fromEntries(
+    Object.entries(settings.formSelectedKeysByDefinition)
+      .filter(([definitionId]) => availableDefinitionIds.has(definitionId))
+      .map(([definitionId, keys]) => [definitionId, normalizeSelectedFormKeys(definitionId, keys)]),
+  )
+  return {
+    baseHiddenKeys: [...settings.baseHiddenKeys],
+    activeDefinitionId,
+    formSelectedKeysByDefinition,
+  }
+}
+
+function normalizeSelectedFormKeys(definitionId: string, values: string[]) {
+  const group = formFieldGroups.value.find(item => String(item.definitionId) === definitionId)
+  const available = new Set((group?.columns || []).map(column => column.key))
+  return [...new Set(values.filter(key => available.has(key)))]
+}
+
+function formColumnDefinitionId(key: string) {
+  const match = String(key || '').match(/^form:(\d+):/)
+  return match?.[1] || ''
+}
+
+function toggleColumnSettings() {
+  if (columnSettingsOpen.value) {
+    closeColumnSettings()
+    return
+  }
+  columnSettingsOpen.value = true
+}
+
+function closeColumnSettings() {
+  columnSettingsOpen.value = false
+  formFieldDropdownOpen.value = false
+  formColumnKeyword.value = ''
+}
+
+function toggleFormFieldDropdown() {
+  if (!activeFormFieldGroup.value)
+    return
+  formFieldDropdownOpen.value = !formFieldDropdownOpen.value
+  if (!formFieldDropdownOpen.value)
+    formColumnKeyword.value = ''
+}
+
+function resetColumnSettings() {
+  columnSettings.value = emptyColumnSettings()
+  formColumnKeyword.value = ''
+  formFieldDropdownOpen.value = false
+  saveColumnSettings()
+}
+
+function summaryColumnClass(column: WorkflowSummaryColumn) {
+  const key = column.baseKey || 'form'
+  const classKeyMap: Partial<Record<NonNullable<WorkflowSummaryColumn['baseKey']>, string>> = {
+    check: 'check',
+    title: 'definition',
+    workflowName: 'workflow-name',
+    businessKey: 'key',
+    starter: 'starter',
+    operator: 'operator',
+    version: 'version',
+    status: 'status',
+    startTime: 'start-time',
+    endTime: 'end-time',
+    actions: 'action',
+  }
+  return [
+    `workflow-summary__cell--${classKeyMap[key as NonNullable<WorkflowSummaryColumn['baseKey']>] || 'form'}`,
+    { 'workflow-summary__cell--mobile-secondary': column.mobileHidden },
+  ]
+}
+
+function summaryCellText(instance: WorkflowInstanceSummary, column: WorkflowSummaryColumn) {
+  if (column.kind === 'form')
+    return workflowSummaryFormValue(instance, column)
+  switch (column.baseKey) {
+    case 'title': return instance.instanceTitle || instance.definitionName || instance.definitionKey || '-'
+    case 'workflowName': return instance.definitionName || instance.definitionKey || '-'
+    case 'businessKey': return instance.businessKey || instance.id
+    case 'starter': return instance.starterName || instance.starterId || '-'
+    case 'operator': return instance.operatorName || instance.operatorId || '-'
+    case 'version': return `v${instance.definitionVersion}`
+    case 'startTime': return formatTime(instance.startTime)
+    case 'endTime': return formatTime(instance.endTime)
+    default: return '-'
   }
 }
 
@@ -310,22 +571,136 @@ function formatTime(timestamp?: number) {
           已选 {{ selectedIds.length }} 条
         </text>
       </view>
-      <view v-if="canExport" class="workflow-summary__export-actions">
-        <select v-model="exportFormat" class="workflow-summary__select workflow-summary__select--format" aria-label="导出格式">
-          <option value="xlsx">
-            Excel
-          </option>
-          <option value="pdf">
-            PDF
-          </option>
-          <option value="docx">
-            Word
-          </option>
-        </select>
-        <u-button custom-class="workflow-summary__export-button" size="small" type="primary" :disabled="selectedIds.length === 0" @click="exportInstances(selectedIds)">
-          <u-icon name="download" size="18" color="#ffffff" />
-          <text>批量导出</text>
-        </u-button>
+      <view class="workflow-summary__toolbar-actions">
+        <!-- #ifdef H5 -->
+        <view class="workflow-summary__column-settings" @click.stop>
+          <view
+            class="workflow-summary__column-settings-trigger"
+            role="button"
+            tabindex="0"
+            title="列设置"
+            aria-label="列设置"
+            @click="toggleColumnSettings"
+            @keydown.enter.prevent="toggleColumnSettings"
+            @keydown.space.prevent="toggleColumnSettings"
+          >
+            <u-icon name="setting" size="15px" color="#4e5969" />
+            <text>列设置</text>
+          </view>
+          <view v-if="columnSettingsOpen" class="workflow-summary__column-settings-panel">
+            <view class="workflow-summary__column-settings-head">
+              <text>展示列</text>
+              <text class="workflow-summary__column-settings-reset" @click="resetColumnSettings">
+                恢复默认
+              </text>
+            </view>
+            <scroll-view scroll-y class="workflow-summary__column-settings-scroll">
+              <view class="workflow-summary__column-settings-group">
+                <text class="workflow-summary__column-settings-group-title">
+                  基础列
+                </text>
+                <u-checkbox-group v-model="visibleBaseColumnKeys" class="workflow-summary__column-settings-list">
+                  <u-checkbox
+                    v-for="column in configurableBaseColumns"
+                    :key="column.key"
+                    :value="column.key"
+                    :label="column.label"
+                  />
+                </u-checkbox-group>
+              </view>
+              <view class="workflow-summary__column-settings-group">
+                <text class="workflow-summary__column-settings-group-title">
+                  流程字段
+                </text>
+                <select
+                  v-model="selectedColumnDefinitionId"
+                  class="workflow-summary__column-settings-select"
+                  aria-label="选择流程字段所属流程"
+                >
+                  <option value="">
+                    请选择流程
+                  </option>
+                  <option v-for="group in formFieldGroups" :key="group.definitionId" :value="String(group.definitionId)">
+                    {{ group.label }}
+                  </option>
+                </select>
+
+                <template v-if="activeFormFieldGroup">
+                  <view class="workflow-summary__column-settings-form-select">
+                    <view
+                      class="workflow-summary__column-settings-form-trigger"
+                      :class="{ 'workflow-summary__column-settings-form-trigger--open': formFieldDropdownOpen }"
+                      role="button"
+                      tabindex="0"
+                      aria-label="选择表单字段"
+                      :aria-expanded="formFieldDropdownOpen"
+                      @click="toggleFormFieldDropdown"
+                      @keydown.enter.prevent="toggleFormFieldDropdown"
+                      @keydown.space.prevent="toggleFormFieldDropdown"
+                    >
+                      <text :class="{ 'workflow-summary__column-settings-form-placeholder': selectedActiveFormColumnCount === 0 }">
+                        {{ formFieldSelectionText }}
+                      </text>
+                      <u-icon :name="formFieldDropdownOpen ? 'arrow-up' : 'arrow-down'" size="13px" color="#86909c" />
+                    </view>
+                    <view
+                      v-if="formFieldDropdownOpen"
+                      class="workflow-summary__column-settings-form-dropdown"
+                    >
+                      <view class="workflow-summary__column-settings-field-head">
+                        <text>{{ activeFormFieldGroup.label }} · 表单字段</text>
+                        <text>可多选</text>
+                      </view>
+                      <input
+                        v-model="formColumnKeyword"
+                        class="workflow-summary__column-settings-search"
+                        type="text"
+                        :maxlength="60"
+                        placeholder="搜索字段名称"
+                      >
+                      <u-checkbox-group
+                        v-if="filteredActiveFormColumns.length > 0"
+                        v-model="selectedFormColumnKeys"
+                        class="workflow-summary__column-settings-list workflow-summary__column-settings-list--form"
+                      >
+                        <u-checkbox
+                          v-for="column in filteredActiveFormColumns"
+                          :key="column.key"
+                          :value="column.key"
+                          :label="column.label"
+                        />
+                      </u-checkbox-group>
+                      <text v-else class="workflow-summary__column-settings-empty">
+                        未找到匹配字段
+                      </text>
+                    </view>
+                  </view>
+                </template>
+                <text v-else class="workflow-summary__column-settings-empty">
+                  请选择流程后配置表单字段
+                </text>
+              </view>
+            </scroll-view>
+          </view>
+        </view>
+        <!-- #endif -->
+        <view v-if="canExport" class="workflow-summary__export-actions">
+          <select v-model="exportFormat" class="workflow-summary__select workflow-summary__select--format" aria-label="导出格式">
+            <option value="xlsx">
+              Excel
+            </option>
+            <option value="pdf">
+              PDF
+            </option>
+            <option value="docx">
+              Word
+            </option>
+          </select>
+          <u-button custom-class="workflow-summary__export-button" size="small" type="primary" :disabled="selectedIds.length === 0" @click="exportInstances(selectedIds)">
+            <u-icon name="download" size="18" color="#ffffff" />
+            <text>批量导出</text>
+          </u-button>
+        </view>
       </view>
     </view>
 
@@ -341,126 +716,52 @@ function formatTime(timestamp?: number) {
     </view>
     <scroll-view v-else scroll-x class="workflow-summary__table-scroll">
       <u-checkbox-group v-model="selectedIds">
-        <view class="workflow-summary__table">
-          <view class="workflow-summary__row workflow-summary__row--header">
-            <text class="workflow-summary__cell workflow-summary__cell--check">
-              选择
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--definition">
-              单据标题
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--workflow-name">
-              流程名称
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--key">
-              申请编号
-            </text>
-            <text class="workflow-summary__cell">
-              发起人
-            </text>
-            <text class="workflow-summary__cell">
-              操作人
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--version">
-              版本
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--status">
-              状态
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--time">
-              发起时间
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--time">
-              完成时间
-            </text>
-            <text class="workflow-summary__cell workflow-summary__cell--action">
-              操作
+        <view class="workflow-summary__table" :style="summaryTableStyle">
+          <view class="workflow-summary__row workflow-summary__row--header" :style="summaryGridStyle">
+            <text
+              v-for="column in summaryColumns"
+              :key="column.key"
+              class="workflow-summary__cell"
+              :class="summaryColumnClass(column)"
+            >
+              {{ column.label }}
             </text>
           </view>
-          <view v-for="instance in instances" :key="instance.id" class="workflow-summary__row">
-            <view class="workflow-summary__cell workflow-summary__cell--check">
-              <u-checkbox custom-class="workflow-summary__checkbox" :value="instance.id" label="" />
-              <text class="workflow-summary__mobile-label">
-                选择
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--definition">
-              <text class="workflow-summary__mobile-label">
-                单据标题
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ instance.instanceTitle || instance.definitionName || instance.definitionKey || '-' }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--workflow-name workflow-summary__cell--mobile-secondary">
-              <text class="workflow-summary__mobile-label">
-                流程名称
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ instance.definitionName || instance.definitionKey || '-' }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--key">
-              <text class="workflow-summary__mobile-label">
-                申请编号
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ instance.businessKey || instance.id }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--starter">
-              <text class="workflow-summary__mobile-label">
-                发起人
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ instance.starterName || instance.starterId || '-' }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--operator workflow-summary__cell--mobile-secondary">
-              <text class="workflow-summary__mobile-label">
-                操作人
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ instance.operatorName || instance.operatorId || '-' }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--version workflow-summary__cell--mobile-secondary">
-              <text class="workflow-summary__mobile-label">
-                版本
-              </text>
-              <text class="workflow-summary__cell-value">
-                v{{ instance.definitionVersion }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--status">
-              <text class="workflow-summary__mobile-label">
-                状态
-              </text>
-              <u-tag :text="workflowInstanceStatusMeta(instance.status).label" :type="workflowInstanceStatusMeta(instance.status).type" size="mini" />
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--time workflow-summary__cell--start-time">
-              <text class="workflow-summary__mobile-label">
-                发起时间
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ formatTime(instance.startTime) }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--time workflow-summary__cell--end-time workflow-summary__cell--mobile-secondary">
-              <text class="workflow-summary__mobile-label">
-                完成时间
-              </text>
-              <text class="workflow-summary__cell-value">
-                {{ formatTime(instance.endTime) }}
-              </text>
-            </view>
-            <view class="workflow-summary__cell workflow-summary__cell--action">
-              <text class="workflow-summary__link" @click="openDetail(instance.id)">
-                查看
-              </text>
-              <text v-if="canExport" class="workflow-summary__link" @click="exportInstances([instance.id])">
-                导出
-              </text>
+          <view v-for="instance in instances" :key="instance.id" class="workflow-summary__row" :style="summaryGridStyle">
+            <view
+              v-for="column in summaryColumns"
+              :key="column.key"
+              class="workflow-summary__cell"
+              :class="summaryColumnClass(column)"
+            >
+              <template v-if="column.baseKey === 'check'">
+                <u-checkbox custom-class="workflow-summary__checkbox" :value="instance.id" label="" />
+                <text class="workflow-summary__mobile-label">
+                  选择
+                </text>
+              </template>
+              <template v-else-if="column.baseKey === 'status'">
+                <text class="workflow-summary__mobile-label">
+                  状态
+                </text>
+                <u-tag :text="workflowInstanceStatusMeta(instance.status).label" :type="workflowInstanceStatusMeta(instance.status).type" size="mini" />
+              </template>
+              <template v-else-if="column.baseKey === 'actions'">
+                <text class="workflow-summary__link" @click="openDetail(instance.id)">
+                  查看
+                </text>
+                <text v-if="canExport" class="workflow-summary__link" @click="exportInstances([instance.id])">
+                  导出
+                </text>
+              </template>
+              <template v-else>
+                <text class="workflow-summary__mobile-label">
+                  {{ column.label }}
+                </text>
+                <text class="workflow-summary__cell-value">
+                  {{ summaryCellText(instance, column) }}
+                </text>
+              </template>
             </view>
           </view>
         </view>
@@ -622,8 +923,247 @@ function formatTime(timestamp?: number) {
 }
 
 .workflow-summary__toolbar-main,
+.workflow-summary__toolbar-actions,
 .workflow-summary__export-actions {
   gap: 10px;
+}
+
+.workflow-summary__toolbar-actions {
+  display: flex;
+  align-items: center;
+}
+
+.workflow-summary__column-settings {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.workflow-summary__column-settings-trigger {
+  width: 86px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d8e0e8;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.workflow-summary__column-settings-trigger:hover,
+.workflow-summary__column-settings-trigger:focus-visible {
+  border-color: #0f766e;
+  color: #0f766e;
+  outline: none;
+}
+
+.workflow-summary__column-settings-panel {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: 30;
+  width: 320px;
+  padding: 12px;
+  border: 1px solid #e5e9ef;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(31, 35, 41, 0.16);
+  box-sizing: border-box;
+}
+
+.workflow-summary__column-settings-head {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #1f2329;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.workflow-summary__column-settings-reset {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.workflow-summary__column-settings-scroll {
+  max-height: 360px;
+}
+
+.workflow-summary__column-settings-group + .workflow-summary__column-settings-group {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #eef1f4;
+}
+
+.workflow-summary__column-settings-group-title {
+  display: block;
+  margin-bottom: 8px;
+  color: #86909c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.workflow-summary__column-settings-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-summary__column-settings-select,
+.workflow-summary__column-settings-search {
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid #d8e0e8;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2329;
+  font-family: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.workflow-summary__column-settings-select {
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+.workflow-summary__column-settings-form-select {
+  margin-top: 8px;
+}
+
+.workflow-summary__column-settings-form-trigger {
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid #d8e0e8;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #fff;
+  color: #1f2329;
+  font-size: 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.workflow-summary__column-settings-form-trigger:hover,
+.workflow-summary__column-settings-form-trigger:focus-visible,
+.workflow-summary__column-settings-form-trigger--open {
+  border-color: #0f766e;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
+}
+
+.workflow-summary__column-settings-form-trigger > text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-summary__column-settings-form-placeholder {
+  color: #a9b0bb;
+}
+
+.workflow-summary__column-settings-form-dropdown {
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid #e5e9ef;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(31, 35, 41, 0.1);
+}
+
+.workflow-summary__column-settings-search {
+  margin: 10px 0;
+}
+
+.workflow-summary__column-settings-select:focus,
+.workflow-summary__column-settings-search:focus {
+  border-color: #0f766e;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
+}
+
+.workflow-summary__column-settings-search::placeholder {
+  color: #a9b0bb;
+}
+
+.workflow-summary__column-settings-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #667085;
+  font-size: 11px;
+}
+
+.workflow-summary__column-settings-field-head > text:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-summary__column-settings-field-head > text:last-child {
+  flex: 0 0 auto;
+  color: #86909c;
+}
+
+.workflow-summary__column-settings-list--form {
+  width: 100%;
+  max-height: 180px;
+  padding-right: 4px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+:deep(.workflow-summary__column-settings-list--form .u-checkbox) {
+  width: 100%;
+  min-height: 28px;
+  align-items: flex-start;
+  overflow: visible;
+  line-height: 20px;
+  box-sizing: border-box;
+}
+
+:deep(.workflow-summary__column-settings-list--form .u-checkbox__icon-wrap) {
+  margin-top: 1px;
+}
+
+:deep(.workflow-summary__column-settings-list--form .u-checkbox__label) {
+  min-width: 0;
+  margin-right: 0 !important;
+  line-height: 20px !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.workflow-summary__column-settings-empty {
+  padding: 18px 0 8px;
+  display: block;
+  color: #98a2b3;
+  font-size: 12px;
+  text-align: center;
+}
+
+:deep(.workflow-summary__column-settings-list .u-checkbox) {
+  margin-right: 0;
 }
 
 .workflow-summary__selection {
@@ -821,6 +1361,10 @@ function formatTime(timestamp?: number) {
     flex-direction: column;
     background: #ffffff;
     box-sizing: border-box;
+  }
+
+  .workflow-summary__column-settings {
+    display: none;
   }
 
   .workflow-summary__toolbar-main,

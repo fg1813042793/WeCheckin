@@ -13,8 +13,8 @@ import { createReview, getTemplate, listReviews, listUsers, reviewAction } from 
 import { useDingtalkAuthStore } from '@/stores'
 import { useAppContentStore } from '@/stores/appContent'
 import { departmentLevelsFromEntity, departmentPathFromEntity } from '@/utils/departments'
-import PerformanceReviewDetail from './components/PerformanceReviewDetail.vue'
 import { appendUniqueReviewRows, createMobilePaginationState, mobileReviewListParams, resetMobilePagination, showMobileLoadMore, showMobileNoMore, updateMobilePaginationTotal } from './components/mobilePagination'
+import PerformanceReviewDetail from './components/PerformanceReviewDetail.vue'
 import { myPerformanceStatuses, myPerformanceStatusSet, normalizeReviewActionResult, statusMeta } from './constants/performanceStatus'
 
 interface CreateTargetNode {

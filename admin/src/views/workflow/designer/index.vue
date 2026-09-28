@@ -215,7 +215,7 @@ const selectedNodeTitle = computed(() => {
 })
 const statusMeta = computed(() => {
   if (detail.value?.status === 2) return { label: '已发布', type: 'success' as const }
-  if (detail.value?.status === 0) return { label: '已停用', type: 'info' as const }
+  if (detail.value?.status === 0) return { label: '已关闭', type: 'info' as const }
   return { label: '草稿', type: 'warning' as const }
 })
 
@@ -381,7 +381,9 @@ async function saveDraft(showMessage = true) {
     normalizeWorkflowCalculationPermissions(saved.draft)
     detail.value = saved
     dirty.value = false
-    if (showMessage) ElMessage.success('草稿已保存')
+    if (showMessage) {
+      ElMessage.success(activeDesignerTab.value === 'config' ? '流程配置已保存并立即生效' : '草稿已保存')
+    }
     return true
   } finally {
     saving.value = false

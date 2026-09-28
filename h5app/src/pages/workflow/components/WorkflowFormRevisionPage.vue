@@ -8,11 +8,13 @@ import type {
 } from '@/types/workflow'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getWorkflowInstance, reviseWorkflowInstanceForm } from '@/api/workflow'
+import { appErrorMessage } from '@/common/app-error'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
   workflowFieldActionsMap,
+  workflowFormValidationMessage,
   writableWorkflowFormData,
 } from '../workflow-form'
 import { workflowFormRevisionInstanceIdFromContentKey } from '../workflow-route-keys'
@@ -182,7 +184,7 @@ function openSubmitDialog() {
     return
   const validation = formRef.value?.validate()
   if (validation && !validation.valid) {
-    uni.showToast({ title: '请检查表单填写内容', icon: 'none' })
+    uni.showToast({ title: workflowFormValidationMessage(validation.errors), icon: 'none' })
     return
   }
   if (Object.keys(changedPatch()).length === 0) {
@@ -250,14 +252,7 @@ async function submitRevision() {
 }
 
 function requestErrorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object')
-    return fallback
-  const response = error as Record<string, unknown>
-  const payload = response.data && typeof response.data === 'object' && !Array.isArray(response.data)
-    ? response.data as Record<string, unknown>
-    : response
-  const message = payload.msg ?? payload.message
-  return typeof message === 'string' && message.trim() ? message.trim() : fallback
+  return appErrorMessage(error, fallback)
 }
 </script>
 

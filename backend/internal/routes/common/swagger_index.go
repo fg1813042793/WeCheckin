@@ -26,8 +26,9 @@ const swaggerIndexHTML = `<!DOCTYPE html>
   <script src="./swagger-ui-standalone-preset.js"></script>
   <script>
     window.onload = function () {
+      const swaggerDocumentURL = "/swagger/doc.json?ts=" + Date.now()
       window.ui = SwaggerUIBundle({
-        url: "/swagger/doc.json",
+        url: swaggerDocumentURL,
         dom_id: "#swagger-ui",
         validatorUrl: null,
         oauth2RedirectUrl: window.location.origin + window.location.pathname.replace(/index\.html$/, "oauth2-redirect.html"),
@@ -52,5 +53,6 @@ const swaggerIndexHTML = `<!DOCTYPE html>
 `
 
 func serveSwaggerIndex(c *app.RequestContext) {
+	c.Header("Cache-Control", "no-store")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerIndexHTML))
 }

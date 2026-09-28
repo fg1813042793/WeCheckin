@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
@@ -167,13 +168,43 @@ func (h *AdminWorkflowHandler) Update(ctx context.Context, c *app.RequestContext
 	response.JSON(c, data)
 }
 
-func (h *AdminWorkflowHandler) Delete(ctx context.Context, c *app.RequestContext) {
+func (h *AdminWorkflowHandler) Status(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, ok := routeID(c)
 	if !ok {
 		response.Fail(c, "流程定义 ID 无效")
 		return
 	}
-	if err := workflowservice.DeleteContext(ctx, id); err != nil {
+	rawStatus := strings.TrimSpace(c.PostForm("status"))
+	status, err := strconv.Atoi(rawStatus)
+	if rawStatus == "" || err != nil {
+		response.Fail(c, "流程状态无效")
+		return
+	}
+	data, err := workflowservice.UpdateStatusContext(ctx, admin.ID, id, status)
+	if err != nil {
+		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (h *AdminWorkflowHandler) Delete(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	id, ok := routeID(c)
+	if !ok {
+		response.Fail(c, "流程定义 ID 无效")
+		return
+	}
+	if err := workflowservice.DeleteContext(ctx, admin.ID, id); err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}

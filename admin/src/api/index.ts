@@ -681,6 +681,9 @@ export const adminApi = {
   workflowDefinitionUpdate(id: ID, data: FormPayload | FormData) {
     return request.put(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`, data, data instanceof FormData ? undefined : jsonConfig)
   },
+  workflowDefinitionStatus(id: ID, status: 0 | 2) {
+    return request.patch<WorkflowDefinitionSummary>(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}/status`, { status })
+  },
   workflowDefinitionDelete(id: ID) {
     return request.delete(`${ADMIN_V2}/workflow-definitions/${encodePath(id)}`)
   },

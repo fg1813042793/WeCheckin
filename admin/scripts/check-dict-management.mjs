@@ -15,6 +15,8 @@ for (const snippet of [
   'dictTypeDelete',
   'dictTypeClearItems',
   'itemForm.status',
+  'itemForm.calculationValue',
+  '计算值',
   ':disabled="!typeDialog.isCreate"',
 ]) {
   if (!page.includes(snippet)) throw new Error(`dictionary management page missing ${snippet}`)
@@ -29,7 +31,7 @@ for (const snippet of ['dictTypeAdd', 'dictTypeDelete', 'dictTypeClearItems', 'd
 }
 
 const types = read('src/api/types.ts')
-for (const snippet of ['interface DictTypeSummary', 'interface DictItem', 'interface DictTypePayload', 'interface DictItemPayload']) {
+for (const snippet of ['interface DictTypeSummary', 'interface DictItem', 'interface DictTypePayload', 'interface DictItemPayload', 'calculationValue?: number']) {
   if (!types.includes(snippet)) throw new Error(`dictionary API types missing ${snippet}`)
 }
 

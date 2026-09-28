@@ -15,7 +15,11 @@ import { isWorkflowDataField, workflowDataFields } from './formLayout'
 import { workflowCompareFieldCompatible, workflowCompareOperators } from './workflowValidationRules'
 import { calculateWorkflowFormData } from './workflowCalculation'
 
-export { calculateWorkflowFormData, evaluateWorkflowCalculation } from './workflowCalculation'
+export {
+  calculateWorkflowFormData,
+  evaluateWorkflowCalculation,
+  workflowCalculationResultText,
+} from './workflowCalculation'
 
 export type WorkflowFormData = Record<string, unknown>
 export type WorkflowFieldAccessMap = Record<string, WorkflowFieldAccess>
@@ -54,6 +58,7 @@ export function normalizeWorkflowOptions(options: unknown, source?: Partial<Work
   if (!Array.isArray(options)) return []
   const labelField = source?.labelField?.trim() || 'label'
   const valueField = source?.valueField?.trim() || 'value'
+  const calculationValueField = source?.calculationValueField?.trim() || 'calculationValue'
   const childrenField = source?.childrenField?.trim() || 'children'
   const result: WorkflowFormOption[] = []
   for (const item of options) {
@@ -64,21 +69,47 @@ export function normalizeWorkflowOptions(options: unknown, source?: Partial<Work
     const label = rawLabel === undefined || rawLabel === null ? '' : String(rawLabel).trim()
     const value = rawValue === undefined || rawValue === null ? '' : String(rawValue).trim()
     if (!label || !value) continue
+    const calculationValue = normalizeOptionCalculationValue(optionPathValue(record, calculationValueField))
+    const normalized = calculationValue === undefined ? { label, value } : { label, value, calculationValue }
     const children = normalizeWorkflowOptions(optionPathValue(record, childrenField), source)
-    result.push(children.length > 0 ? { label, value, children } : { label, value })
+    result.push(children.length > 0 ? { ...normalized, children } : normalized)
   }
   return result
+}
+
+export function workflowOptionSourceResponsePayload(response: unknown, source: WorkflowOptionSource) {
+  const path = source.responsePath?.trim() || 'data'
+  if (response && typeof response === 'object' && !Array.isArray(response)) {
+    const fromResponse = optionPathValue(response as Record<string, unknown>, path)
+    if (fromResponse !== undefined) return fromResponse
+    const responseData = (response as { data?: unknown }).data
+    if (responseData && typeof responseData === 'object' && !Array.isArray(responseData)) {
+      const fromData = optionPathValue(responseData as Record<string, unknown>, path)
+      if (fromData !== undefined) return fromData
+    }
+    if (responseData !== undefined) return responseData
+  }
+  return response
 }
 
 export function flattenWorkflowOptions(options: WorkflowFormOption[] = []): WorkflowFormOption[] {
   const result: WorkflowFormOption[] = []
   for (const option of options) {
-    result.push({ label: option.label, value: option.value })
+    const normalized = option.calculationValue === undefined
+      ? { label: option.label, value: option.value }
+      : { label: option.label, value: option.value, calculationValue: option.calculationValue }
+    result.push(normalized)
     if (Array.isArray(option.children) && option.children.length > 0) {
       result.push(...flattenWorkflowOptions(option.children))
     }
   }
   return result
+}
+
+function normalizeOptionCalculationValue(value: unknown): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined
+  const number = Number(value)
+  return Number.isFinite(number) ? number : undefined
 }
 
 export function hasWorkflowOptionChildren(options: WorkflowFormOption[] = []): boolean {
@@ -344,6 +375,16 @@ export function validateWorkflowFormData(
     if (ruleMessage) errors[field.key] = ruleMessage
   }
   return errors
+}
+
+export function workflowFormValidationMessage(
+  errors: WorkflowFormValidationErrors | undefined,
+  fallback = '请检查流程表单中的校验提示',
+) {
+  for (const message of Object.values(errors || {})) {
+    if (typeof message === 'string' && message.trim()) return message.trim()
+  }
+  return fallback
 }
 
 export function workflowFieldIsRequired(field: WorkflowFormField, values: WorkflowFormData): boolean {

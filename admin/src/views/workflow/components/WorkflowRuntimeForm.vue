@@ -448,7 +448,7 @@ import { ElForm, ElMessage } from 'element-plus'
 import request from '../../../utils/request'
 import type { WorkflowFieldAccess, WorkflowFormField, WorkflowFormHelp, WorkflowFormOption, WorkflowOptionSource } from '../types'
 import { workflowDataFields } from '../formLayout'
-import { calculateWorkflowFormData, evaluateWorkflowCalculation, workflowCalculationDisplay, workflowCalculationPrecision } from '../workflowCalculation'
+import { calculateWorkflowFormData, evaluateWorkflowCalculation, workflowCalculationDisplay, workflowCalculationResultText } from '../workflowCalculation'
 import {
   createWorkflowDetailRow,
   emptyWorkflowFieldValue,
@@ -461,6 +461,7 @@ import {
   optionPathValue,
   visibleWorkflowFormFields,
   validateWorkflowFormData,
+  workflowFormValidationMessage,
   workflowFieldIsRequired,
   workflowTextareaAutosize,
   workflowDetailRowKey,
@@ -538,10 +539,10 @@ function calculationDisplay(field: WorkflowFormField) {
 }
 
 function calculationText(field: WorkflowFormField) {
-  const result = evaluateWorkflowCalculation(field, props.modelValue || {})
+  const result = evaluateWorkflowCalculation(field, props.modelValue || {}, props.calculationFields || props.fields)
   if (result.error || result.value === undefined)
     return '-'
-  return result.value.toFixed(workflowCalculationPrecision(field.calculation))
+  return workflowCalculationResultText(result.value, field.calculation)
 }
 
 function fieldIsRequired(field: WorkflowFormField) {
@@ -846,12 +847,16 @@ function validate() {
   return Object.keys(validationErrors.value).length === 0
 }
 
+function validationMessage(fallback = '请检查流程表单中的校验提示') {
+  return workflowFormValidationMessage(validationErrors.value, fallback)
+}
+
 function resetValidation() {
   showValidationErrors.value = false
   for (const key of Object.keys(touchedFields)) delete touchedFields[key]
 }
 
-defineExpose({ validate, resetValidation })
+defineExpose({ validate, validationMessage, resetValidation })
 </script>
 
 <style scoped>

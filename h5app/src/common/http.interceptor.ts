@@ -1,4 +1,5 @@
 import type { RequestConfig, RequestInterceptor, RequestMeta, RequestOptions } from 'uview-pro'
+import { appErrorMessage } from '@/common/app-error'
 import {
   handleDingTalkH5AuthExpired,
   isApiEnvelope,
@@ -52,16 +53,16 @@ const httpInterceptor: RequestInterceptor = {
     const { statusCode, data: rawData, errMsg } = rawResponse
     // 网络错误
     if (errMsg && errMsg.includes('Failed to connect')) {
-      meta.toast && showToast('网络错误', 'error')
+      meta.toast && showToast(appErrorMessage(rawResponse, '网络错误，请稍后重试'), 'error')
       return false
     }
     if (errMsg && errMsg.includes('request:fail')) {
-      meta.toast && showToast('请求错误：未知', 'error')
+      meta.toast && showToast(appErrorMessage(rawResponse, '请求失败，请稍后重试'), 'error')
       return false
     }
     // 请求错误
     if (typeof statusCode !== 'number' || statusCode < 200 || statusCode >= 300) {
-      const errorMessage = `请求错误[${statusCode}]`
+      const errorMessage = appErrorMessage(rawResponse, `请求错误[${statusCode}]`)
       meta.toast && showToast(errorMessage, 'error')
       return false
     }

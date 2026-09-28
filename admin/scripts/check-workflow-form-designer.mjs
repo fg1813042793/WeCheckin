@@ -31,6 +31,11 @@ const formDesignerSource = [
   read('src/views/workflow/designer/workflowFieldCatalog.ts'),
 ].join('\n')
 const calculationEditorSource = read('src/views/workflow/designer/components/WorkflowCalculationEditor.vue')
+const calculationSource = read('src/views/workflow/workflowCalculation.ts')
+const {
+  workflowUnavailableCalculationOptionFields,
+} = loadTypeScriptModule('src/views/workflow/workflowCalculation.ts')
+const runtimeFormSource = read('src/views/workflow/components/WorkflowRuntimeForm.vue')
 const fieldPreviewSource = read('src/views/workflow/designer/components/WorkflowFormFieldPreview.vue')
 const validationRulesSource = read('src/views/workflow/designer/components/WorkflowValidationRulesEditor.vue')
 const permissionSource = read('src/views/workflow/designer/components/WorkflowFieldPermissions.vue')
@@ -91,6 +96,20 @@ for (const fieldKey of ['total', 'groupTotal']) {
 }
 if (normalizeWorkflowCalculationPermissions(calculationPermissionDraft)) {
   throw new Error('计算字段权限规范化应具备幂等性')
+}
+
+const unavailableCalculationOptions = workflowUnavailableCalculationOptionFields([
+  {
+    key: 'archiveLevel',
+    label: 'HRBP归档',
+    type: 'select',
+    optionSource: { type: 'api', url: '/api/v2/dict/items?typeCode=jixiao_type_1' },
+    options: [],
+  },
+  { key: 'score', label: '计算结果', type: 'calculation' },
+], 'score')
+if (unavailableCalculationOptions[0]?.reason !== '接口选项尚未同步') {
+  throw new Error('接口下拉字段缺少可计算状态提示')
 }
 
 for (const [left, right] of [
@@ -306,6 +325,8 @@ const requirements = [
   [typeSource, "export type WorkflowFormFieldType", '缺少流程表单字段类型'],
   [typeSource, "| 'calculation'", '流程字段类型缺少计算组件'],
   [typeSource, 'export interface WorkflowFormCalculation', '流程字段缺少计算配置契约'],
+  [typeSource, 'calculationValue?: number', '流程选项缺少可选计算值'],
+  [typeSource, 'resultDisplay?: WorkflowCalculationResultDisplay', '计算字段缺少结果标签映射'],
   [typeSource, 'calculation?: WorkflowFormCalculation', '流程字段未关联计算配置'],
   [typeSource, 'form: WorkflowFormField[]', '流程草稿缺少 form 字段'],
   [typeSource, 'span?: WorkflowFormFieldSpan', '流程字段缺少布局宽度'],
@@ -313,6 +334,7 @@ const requirements = [
   [typeSource, 'children?: WorkflowFormOption[]', '流程字段选项缺少树形 children 支持'],
   [typeSource, "export type WorkflowOptionSourceType = 'static' | 'api'", '流程字段缺少选项来源类型'],
   [typeSource, 'optionSource?: WorkflowOptionSource', '流程字段缺少后端接口选项来源配置'],
+  [typeSource, 'calculationValueField?: string', '接口选项来源缺少计算值字段映射'],
   [typeSource, 'columns?: WorkflowFormField[]', '明细列表字段缺少列定义'],
   [typeSource, 'fields?: WorkflowFormField[]', '流程表单缺少分组子组件定义'],
   [typeSource, 'help?: WorkflowFormHelp', '流程表单缺少说明配置'],
@@ -347,8 +369,20 @@ const requirements = [
   [formDesignerSource, "type: 'detail_list'", '表单设计器缺少明细列表字段'],
   [formDesignerSource, "type: 'calculation'", '表单设计器缺少计算组件'],
   [formDesignerSource, 'WorkflowCalculationEditor', '表单设计器未接入计算公式配置'],
+  [formDesignerSource, '同步接口选项', '接口选项缺少流程定义快照同步入口'],
+  [formDesignerSource, 'calculationValueField', '接口配置缺少计算值字段映射'],
+  [formDesignerSource, 'syncOptionSourceSnapshot', '接口选项缺少快照同步逻辑'],
+  [formDesignerSource, 'workflowOptionSourceResponsePayload', '接口选项快照未复用响应提取逻辑'],
+  [formDesignerSource, '@select-field="selectFieldByKey"', '计算组件不可用字段无法跳回对应字段配置'],
   [calculationEditorSource, "const aggregates = ['SUM', 'AVG', 'MIN', 'MAX', 'COUNT']", '计算组件缺少明细聚合函数'],
+  [calculationEditorSource, '暂不可计算的下拉字段', '计算组件缺少不可用下拉字段说明'],
+  [calculationEditorSource, "emit('select-field'", '计算组件缺少跳转到下拉字段配置的事件'],
   [calculationEditorSource, 'SUM([items.quantity] * [items.price])', '计算组件缺少明细行组合计算说明'],
+  [calculationEditorSource, '结果显示', '计算组件缺少结果显示配置'],
+  [calculationSource, 'isNumericOptionField', '计算引擎缺少选项计算值识别'],
+  [calculationSource, 'workflowCalculationResultText', '计算引擎缺少结果标签文本格式化'],
+  [runtimeFormSource, 'workflowCalculationResultText', '流程运行时缺少计算结果标签展示'],
+  [read('src/views/workflow/runtimeForm.ts'), 'calculationValue', '流程运行时未保留选项计算值'],
   [formDesignerSource, "type: 'group'", '表单设计器缺少表单组'],
   [formDesignerSource, "type: 'label'", '表单设计器缺少标签'],
   [formDesignerSource, "type: 'description'", '表单设计器缺少说明'],

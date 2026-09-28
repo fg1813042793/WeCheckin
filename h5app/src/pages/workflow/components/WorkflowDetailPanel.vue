@@ -20,14 +20,23 @@ import {
   remindWorkflowInstance,
   withdrawWorkflowInstance,
 } from '@/api/workflow'
+import { appErrorMessage } from '@/common/app-error'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
 import { workflowDefinitionDisplayName } from '../workflow-definition'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
   workflowFieldActionsMap,
+  workflowFormValidationMessage,
   writableWorkflowFormData,
 } from '../workflow-form'
+import {
+  WORKFLOW_HISTORY_SPLIT_DEFAULT,
+  WORKFLOW_HISTORY_SPLIT_MAX,
+  WORKFLOW_HISTORY_SPLIT_MIN,
+  workflowHistorySplitFromKey,
+  workflowHistorySplitFromPointer,
+} from '../workflow-history-split'
 import {
   workflowCompletedFormRevisionContentKey,
   workflowFormDetailContentKey,
@@ -79,6 +88,10 @@ interface RuntimeFormExposed {
   validate: () => { valid: boolean, errors: Record<string, string> }
 }
 
+interface H5ElementRef {
+  $el?: HTMLElement
+}
+
 const auth = useDingtalkAuthStore()
 const appContent = useAppContentStore()
 const loading = ref(false)
@@ -110,7 +123,12 @@ const applicationAction = ref('')
 const activeSection = ref<WorkflowDetailSection>('form')
 const historyEventsExpanded = ref(false)
 const formRef = ref<RuntimeFormExposed | null>(null)
+const historyLayoutRef = ref<HTMLElement | H5ElementRef | null>(null)
+const historySplitPercent = ref(WORKFLOW_HISTORY_SPLIT_DEFAULT)
+const historyResizing = ref(false)
 let actionConfirmResolver: ((confirmed: boolean) => void) | null = null
+let historyResizeBodyCursor = ''
+let historyResizeBodyUserSelect = ''
 
 const HISTORY_DIALOG_BREAKPOINT = 1024
 const MOBILE_INTERACTION_BREAKPOINT = 768
@@ -159,6 +177,8 @@ function resolveMobileInteractionDialog() {
 function syncCompactHistoryDialog() {
   compactHistoryDialog.value = resolveCompactHistoryDialog()
   mobileInteractionDialog.value = resolveMobileInteractionDialog()
+  if (compactHistoryDialog.value)
+    finishHistoryResize()
 }
 
 const popupVisible = computed({
@@ -176,6 +196,7 @@ const popupVisible = computed({
 
 const historyDrawer = computed(() => props.presentation === 'history-drawer')
 const historyDialog = computed(() => historyDrawer.value && compactHistoryDialog.value)
+const historyResizeEnabled = computed(() => historyDrawer.value && !historyDialog.value)
 const historyPage = computed(() => props.presentation === 'history-page')
 const historyPresentation = computed(() => historyDrawer.value || historyPage.value)
 const pagePresentation = computed(() => props.presentation === 'page')
@@ -209,6 +230,11 @@ const popupCustomClass = computed(() => {
 const popupBorderRadius = computed(() => {
   return inlinePresentation.value || (historyDrawer.value && !historyDialog.value) ? 0 : 8
 })
+const historyLayoutStyle = computed(() => {
+  if (!historyResizeEnabled.value)
+    return {}
+  return { '--workflow-history-form-basis': `${historySplitPercent.value}%` }
+})
 const commentPopupMode = computed(() => mobileInteractionDialog.value ? 'bottom' : 'center')
 const commentPopupWidth = computed(() => mobileInteractionDialog.value ? '100%' : '520px')
 const rejectPopupMode = computed(() => mobileInteractionDialog.value ? 'bottom' : 'center')
@@ -220,6 +246,72 @@ const pageNavigationItems: Array<{ key: WorkflowDetailSection, label: string, ic
   { key: 'history', label: '流程记录', icon: 'clock' },
   { key: 'graph', label: '流程图', icon: 'share' },
 ]
+
+function resolveH5Element(value: HTMLElement | H5ElementRef | null) {
+  if (!value)
+    return null
+  if (typeof HTMLElement !== 'undefined' && value instanceof HTMLElement)
+    return value
+  const componentRef = value as H5ElementRef
+  return typeof HTMLElement !== 'undefined' && componentRef.$el instanceof HTMLElement ? componentRef.$el : null
+}
+
+function updateHistorySplit(clientY: number) {
+  const layout = resolveH5Element(historyLayoutRef.value)
+  if (!layout)
+    return
+  const rect = layout.getBoundingClientRect()
+  historySplitPercent.value = workflowHistorySplitFromPointer(clientY, rect.top, rect.height)
+}
+
+function handleHistoryResizeMove(event: MouseEvent) {
+  if (historyResizing.value)
+    updateHistorySplit(event.clientY)
+}
+
+function finishHistoryResize() {
+  const wasResizing = historyResizing.value
+  historyResizing.value = false
+  // #ifdef H5
+  window.removeEventListener('mousemove', handleHistoryResizeMove)
+  window.removeEventListener('mouseup', finishHistoryResize)
+  window.removeEventListener('blur', finishHistoryResize)
+  if (wasResizing && typeof document !== 'undefined') {
+    document.body.style.cursor = historyResizeBodyCursor
+    document.body.style.userSelect = historyResizeBodyUserSelect
+  }
+  // #endif
+}
+
+function beginHistoryResize(event: MouseEvent) {
+  if (!historyResizeEnabled.value)
+    return
+  historyResizing.value = true
+  updateHistorySplit(event.clientY)
+  // #ifdef H5
+  historyResizeBodyCursor = document.body.style.cursor
+  historyResizeBodyUserSelect = document.body.style.userSelect
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+  window.addEventListener('mousemove', handleHistoryResizeMove)
+  window.addEventListener('mouseup', finishHistoryResize)
+  window.addEventListener('blur', finishHistoryResize)
+  // #endif
+}
+
+function handleHistoryResizeKey(event: KeyboardEvent) {
+  if (!historyResizeEnabled.value)
+    return
+  const next = workflowHistorySplitFromKey(historySplitPercent.value, event.key, event.shiftKey)
+  if (next === null)
+    return
+  event.preventDefault()
+  historySplitPercent.value = next
+}
+
+function resetHistorySplit() {
+  historySplitPercent.value = WORKFLOW_HISTORY_SPLIT_DEFAULT
+}
 
 const definition = computed(() => {
   const definitionId = detail.value?.instance.definitionId
@@ -427,6 +519,12 @@ const resubmitApplication = computed(() => {
   return ['completed', 'cancelled'].includes(status)
 })
 
+const showResubmitAction = computed(() => Boolean(
+  historyDrawer.value
+  && resubmitApplication.value
+  && canModifyApplication.value,
+))
+
 const modifyApplicationLabel = computed(() => {
   return resubmitApplication.value ? '再次提交' : '修改'
 })
@@ -571,6 +669,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  finishHistoryResize()
   // #ifdef H5
   window.removeEventListener('resize', syncCompactHistoryDialog)
   // #endif
@@ -580,6 +679,7 @@ watch(
   () => [props.modelValue, props.instanceId, props.taskId],
   ([visible]) => {
     if (!visible) {
+      finishHistoryResize()
       commentVisible.value = false
       rejectVisible.value = false
       returnVisible.value = false
@@ -590,6 +690,7 @@ watch(
       return
     if (historyPresentation.value)
       historyEventsExpanded.value = false
+    historySplitPercent.value = WORKFLOW_HISTORY_SPLIT_DEFAULT
     void loadDetail()
   },
   { immediate: true },
@@ -688,14 +789,7 @@ function reminderStatusText(node: WorkflowReminderNode) {
 }
 
 function workflowRequestErrorMessage(error: unknown, fallback: string) {
-  if (!error || typeof error !== 'object')
-    return fallback
-  const response = error as Record<string, unknown>
-  const payload = response.data && typeof response.data === 'object' && !Array.isArray(response.data)
-    ? response.data as Record<string, unknown>
-    : response
-  const message = payload.msg ?? payload.message
-  return typeof message === 'string' && message.trim() ? message.trim() : fallback
+  return appErrorMessage(error, fallback)
 }
 
 async function remindNode(node: WorkflowReminderNode) {
@@ -753,7 +847,7 @@ async function submitTask(action: 'approve' | 'submit') {
 
   const validation = formRef.value?.validate()
   if (validation && !validation.valid) {
-    uni.showToast({ title: '请检查表单必填项', icon: 'none' })
+    uni.showToast({ title: workflowFormValidationMessage(validation.errors), icon: 'none' })
     return
   }
   const patch = writableWorkflowFormData(current.form || [], formData.value, fieldAccess.value)
@@ -1012,7 +1106,7 @@ async function modifyApplication() {
     : resubmitApplication.value
       ? '将把原表单内容带入发起页，确认后可创建一条新的流程申请，原流程记录保留。发起页已有未保存内容会被替换，确认继续吗？'
       : '将把现有表单内容复制到发起页作为一份新申请，原流程记录保留。发起页已有未保存内容会被替换，确认继续吗？'
-  if (!await confirmAction(actionTitle, content))
+  if (!resubmitApplication.value && !await confirmAction(actionTitle, content))
     return
 
   beginSubmission('modify')
@@ -1276,8 +1370,13 @@ async function deleteApplication() {
             }"
           >
             <view
+              ref="historyLayoutRef"
               class="workflow-detail-panel__history-layout"
-              :class="{ 'workflow-detail-panel__history-layout--page': historyPage }"
+              :class="{
+                'workflow-detail-panel__history-layout--page': historyPage,
+                'workflow-detail-panel__history-layout--resizable': historyResizeEnabled,
+              }"
+              :style="historyLayoutStyle"
             >
               <view class="workflow-detail-panel__history-form-section">
                 <view class="workflow-detail-panel__section-heading">
@@ -1289,17 +1388,35 @@ async function deleteApplication() {
                       发起时提交的表单内容
                     </text>
                   </view>
-                  <u-button
-                    v-if="showFormDetailAction"
-                    custom-class="workflow-detail-panel__form-detail-action"
-                    size="mini"
-                    type="primary"
-                    plain
-                    @click="openFormDetail"
+                  <view
+                    v-if="showResubmitAction || showFormDetailAction"
+                    class="workflow-detail-panel__section-heading-actions"
                   >
-                    <u-icon name="eye" size="14px" color="#2979ff" />
-                    <text>详情</text>
-                  </u-button>
+                    <u-button
+                      v-if="showResubmitAction"
+                      custom-class="workflow-detail-panel__resubmit-action"
+                      size="mini"
+                      type="primary"
+                      plain
+                      :loading="applicationAction === 'modify'"
+                      :disabled="applicationActionBusy"
+                      @click="modifyApplication"
+                    >
+                      <u-icon name="reload" size="14px" color="#2979ff" />
+                      <text>再次提交</text>
+                    </u-button>
+                    <u-button
+                      v-if="showFormDetailAction"
+                      custom-class="workflow-detail-panel__form-detail-action"
+                      size="mini"
+                      type="primary"
+                      plain
+                      @click="openFormDetail"
+                    >
+                      <u-icon name="eye" size="14px" color="#2979ff" />
+                      <text>详情</text>
+                    </u-button>
+                  </view>
                 </view>
                 <scroll-view class="workflow-detail-panel__history-section-scroll" :scroll-y="!historyPage">
                   <WorkflowRuntimeForm
@@ -1310,6 +1427,26 @@ async function deleteApplication() {
                     readonly-appearance="plain"
                   />
                 </scroll-view>
+              </view>
+
+              <view
+                v-if="historyResizeEnabled"
+                class="workflow-detail-panel__history-resizer"
+                :class="{ 'is-resizing': historyResizing }"
+                role="separator"
+                aria-label="调整申请表单与流程记录区域高度"
+                aria-orientation="horizontal"
+                :aria-valuemin="WORKFLOW_HISTORY_SPLIT_MIN"
+                :aria-valuemax="WORKFLOW_HISTORY_SPLIT_MAX"
+                :aria-valuenow="Math.round(historySplitPercent)"
+                :aria-valuetext="`${Math.round(historySplitPercent)}%`"
+                tabindex="0"
+                title="拖动调整区域高度，双击恢复默认"
+                @mousedown.prevent="beginHistoryResize"
+                @dblclick="resetHistorySplit"
+                @keydown="handleHistoryResizeKey"
+              >
+                <view class="workflow-detail-panel__history-resizer-grip" />
               </view>
 
               <view class="workflow-detail-panel__history-record-section">
@@ -2301,6 +2438,52 @@ async function deleteApplication() {
   border-top: 10px solid #f6f8fb;
 }
 
+.workflow-detail-panel__history-layout--resizable .workflow-detail-panel__history-form-section {
+  flex: 0 0 calc(var(--workflow-history-form-basis, 50%) - 6px);
+}
+
+.workflow-detail-panel__history-layout--resizable .workflow-detail-panel__history-record-section {
+  border-top: 0;
+  flex: 1 1 0;
+}
+
+.workflow-detail-panel__history-resizer {
+  position: relative;
+  flex: 0 0 12px;
+  min-height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f6f8fb;
+  cursor: row-resize;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.workflow-detail-panel__history-resizer:hover,
+.workflow-detail-panel__history-resizer:focus-visible,
+.workflow-detail-panel__history-resizer.is-resizing {
+  background: #eaf1fb;
+  box-shadow: inset 0 0 0 2px rgba(41, 121, 255, 0.24);
+}
+
+.workflow-detail-panel__history-resizer-grip {
+  width: 52px;
+  height: 3px;
+  border-radius: 2px;
+  background: #b8c2d1;
+  transition: background-color 120ms ease, width 120ms ease;
+}
+
+.workflow-detail-panel__history-resizer:hover .workflow-detail-panel__history-resizer-grip,
+.workflow-detail-panel__history-resizer:focus-visible .workflow-detail-panel__history-resizer-grip,
+.workflow-detail-panel__history-resizer.is-resizing .workflow-detail-panel__history-resizer-grip {
+  width: 64px;
+  background: #2979ff;
+}
+
 .workflow-detail-panel__section-heading {
   flex: 0 0 auto;
   min-height: 44px;
@@ -2329,6 +2512,26 @@ async function deleteApplication() {
   width: auto;
   min-width: 68px;
   height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  flex-shrink: 0;
+  gap: 5px;
+}
+
+.workflow-detail-panel__section-heading-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workflow-detail-panel__resubmit-action,
+:deep(.workflow-detail-panel__resubmit-action) {
+  width: auto;
+  min-width: 88px;
+  height: 30px;
+  min-height: 30px;
   margin: 0;
   padding: 0 12px;
   flex-shrink: 0;

@@ -266,6 +266,7 @@ var routeMethodPermPatterns = []routeMethodPerm{
 	{method: "GET", path: "/api/v2/admin/workflow-definitions/:id", perm: "workflow:list"},
 	{method: "POST", path: "/api/v2/admin/workflow-definitions/:id/copy", perm: "workflow:add"},
 	{method: "PUT", path: "/api/v2/admin/workflow-definitions/:id", perm: "workflow:edit"},
+	{method: "PATCH", path: "/api/v2/admin/workflow-definitions/:id/status", perm: "workflow:edit"},
 	{method: "DELETE", path: "/api/v2/admin/workflow-definitions/:id", perm: "workflow:del"},
 	{method: "POST", path: "/api/v2/admin/workflow-definitions/:id/validate", perm: "workflow:edit"},
 	{method: "POST", path: "/api/v2/admin/workflow-definitions/:id/publish", perm: "workflow:publish"},

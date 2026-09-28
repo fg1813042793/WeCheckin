@@ -1,7 +1,9 @@
 package workflowcore
 
 import (
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -172,5 +174,89 @@ func TestCalculationFieldsAreServerOwned(t *testing.T) {
 	forged := MergeFormData(input, map[string]interface{}{"total": 999})
 	if err := ValidateStartFormData(definition, forged); !errors.Is(err, ErrFormDataInvalid) {
 		t.Fatalf("forged calculation error = %v, want ErrFormDataInvalid", err)
+	}
+}
+
+func TestApplyFormCalculationsSupportsSelectOptionCalculationValues(t *testing.T) {
+	fields := []FormField{
+		{Key: "levelA", Label: "等级A", Type: FormFieldTypeSelect, Options: []FormOption{
+			{Label: "A组", Value: "group_a", CalculationValue: numberPointer(0), Children: []FormOption{
+				{Label: "A+", Value: "a_plus", CalculationValue: numberPointer(1.5)},
+			}},
+			{Label: "A", Value: "a", CalculationValue: numberPointer(1)},
+		}},
+		{Key: "levelB", Label: "等级B", Type: FormFieldTypeRadio, Options: []FormOption{
+			{Label: "B+", Value: "b_plus", CalculationValue: numberPointer(0.8)},
+			{Label: "B", Value: "b", CalculationValue: numberPointer(0.6)},
+		}},
+		{Key: "total", Label: "综合等级", Type: FormFieldTypeCalculation, Calculation: &FormCalculation{Expression: "[levelA] + [levelB]"}},
+	}
+	calculated, err := ApplyFormCalculations(fields, map[string]interface{}{"levelA": "a_plus", "levelB": "b_plus"})
+	if err != nil {
+		t.Fatalf("select calculation error = %v", err)
+	}
+	if calculated["total"] != 2.3 {
+		t.Fatalf("select calculation = %#v, want 2.3", calculated["total"])
+	}
+}
+
+func TestApplyFormCalculationsKeepsNumericSelectValueCompatibility(t *testing.T) {
+	fields := []FormField{
+		{Key: "level", Label: "等级", Type: FormFieldTypeSelect, Options: []FormOption{{Label: "A+", Value: "1.5"}}},
+		{Key: "total", Label: "合计", Type: FormFieldTypeCalculation, Calculation: &FormCalculation{Expression: "[level] * 2"}},
+	}
+	calculated, err := ApplyFormCalculations(fields, map[string]interface{}{"level": "1.5"})
+	if err != nil || calculated["total"] != float64(3) {
+		t.Fatalf("legacy numeric select calculation = %#v, error = %v", calculated, err)
+	}
+}
+
+func TestFormOptionSourceKeepsCalculationValueFieldMapping(t *testing.T) {
+	sourceJSON := []byte(`{"type":"api","url":"/api/v2/dict/items","calculationValueField":"scoreValue"}`)
+	var source FormOptionSource
+	if err := json.Unmarshal(sourceJSON, &source); err != nil {
+		t.Fatalf("unmarshal option source: %v", err)
+	}
+	if source.CalculationValueField != "scoreValue" {
+		t.Fatalf("calculationValueField = %q", source.CalculationValueField)
+	}
+	encoded, err := json.Marshal(source)
+	if err != nil {
+		t.Fatalf("marshal option source: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"calculationValueField":"scoreValue"`) {
+		t.Fatalf("encoded option source = %s", encoded)
+	}
+}
+
+func TestValidateFormCalculationRejectsNonnumericSelectOption(t *testing.T) {
+	fields := []FormField{
+		{Key: "level", Label: "等级", Type: FormFieldTypeSelect, Options: []FormOption{{Label: "优秀", Value: "excellent"}}},
+		{Key: "total", Label: "合计", Type: FormFieldTypeCalculation, Calculation: &FormCalculation{Expression: "[level] + 1"}},
+	}
+	if err := validateFormCalculation(fields[1], buildCalculationSchema(fields)); err == nil {
+		t.Fatal("nonnumeric select option must not be accepted as a calculation field")
+	}
+}
+
+func TestWorkflowCalculationResultLabelUsesFirstMatchingRule(t *testing.T) {
+	calculation := &FormCalculation{
+		ResultDisplay: &FormCalculationResultDisplay{
+			Mode: "label",
+			Rules: []FormCalculationResultRule{
+				{Min: numberPointer(2.3), Label: "优秀"},
+				{Min: numberPointer(1.5), Max: numberPointer(2.3), Label: "良好"},
+			},
+			Fallback: "未评级",
+		},
+	}
+	if got := WorkflowCalculationResultLabel(2.3, calculation); got != "优秀" {
+		t.Fatalf("result label = %q, want 优秀", got)
+	}
+	if got := WorkflowCalculationResultLabel(1.8, calculation); got != "良好" {
+		t.Fatalf("result label = %q, want 良好", got)
+	}
+	if got := WorkflowCalculationResultLabel(0.5, calculation); got != "未评级" {
+		t.Fatalf("fallback result label = %q, want 未评级", got)
 	}
 }

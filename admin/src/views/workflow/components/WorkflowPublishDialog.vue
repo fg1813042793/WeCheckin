@@ -17,7 +17,7 @@
       <el-form-item label="配置来源">
         <div class="publish-config-source">
           <el-icon><Setting /></el-icon>
-          <span>流程配置将随本次版本一起发布</span>
+          <span>本次仅发布表单、节点、流转条件与字段权限；流程配置保存后已立即生效</span>
         </div>
       </el-form-item>
       <el-form-item label="发布说明">

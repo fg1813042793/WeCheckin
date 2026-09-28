@@ -119,6 +119,7 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "GET", path: "/api/v2/admin/workflow-department-options", want: "workflow:instance:start"},
 		{method: "GET", path: "/api/v2/admin/workflow-published-definitions/7", want: "workflow:instance:start"},
 		{method: "POST", path: "/api/v2/admin/workflow-definitions/7/copy", want: "workflow:add"},
+		{method: "PATCH", path: "/api/v2/admin/workflow-definitions/7/status", want: "workflow:edit"},
 		{method: "GET", path: "/api/v2/admin/workflow-definitions/7/versions/3/changes", want: "workflow:list"},
 		{method: "DELETE", path: "/api/v2/admin/workflow-definitions/7/versions/3", want: "workflow:del"},
 		{method: "POST", path: "/api/v2/admin/workflow-definitions/7/versions/3/rollback", want: "workflow:publish"},

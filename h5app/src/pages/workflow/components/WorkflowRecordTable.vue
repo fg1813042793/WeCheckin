@@ -1,15 +1,8 @@
 <script setup lang="ts">
+import type { WorkflowRecordColumn } from '../workflow-record-columns'
 import type { WorkflowStatusMeta } from '../workflow-status'
 import { computed } from 'vue'
 import WorkflowCopyableText from './WorkflowCopyableText.vue'
-
-interface WorkflowRecordColumn {
-  key: string
-  label: string
-  width?: string
-  mobileHidden?: boolean
-  copyable?: boolean
-}
 
 interface WorkflowRecordRow {
   id: string
