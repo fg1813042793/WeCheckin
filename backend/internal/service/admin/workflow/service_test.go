@@ -140,7 +140,7 @@ func TestCopyCreateRequestUsesOnlySourceDraftAndNewMetadata(t *testing.T) {
 
 func TestDefinitionModelForCreateAlwaysStartsAsUnpublishedDraft(t *testing.T) {
 	request := CreateRequest{Key: "leave_v2", Name: "新请假审批（华东）", DisplayName: "请假审批", Description: "说明", Category: "人事"}
-	item := definitionModelForCreate(66, request, `{"schemaVersion":1}`, `{"initiator":{"scope":"all"}}`, "/uploads/workflow-logos/new.png", 123456)
+	item := definitionModelForCreate(66, request, `{"schemaVersion":1}`, `{"initiator":{"scope":"all"}}`, `{"nodes":{}}`, "/uploads/workflow-logos/new.png", 123456)
 
 	if item.Status != model.DefinitionStatusDraft || item.CurrentVersion != 0 {
 		t.Fatalf("copied definition must start as an unpublished draft, got status=%d currentVersion=%d", item.Status, item.CurrentVersion)

@@ -3,7 +3,7 @@
     <header class="permission-heading">
       <div>
         <strong>字段权限</strong>
-        <p>按流程节点控制字段隐藏、只读或可编辑。审批节点只有设为可编辑的字段才能提交修改。</p>
+        <p>按流程节点控制字段隐藏、只读或可编辑。保存后立即影响该流程所有运行中和未来实例，不增加发布版本号。</p>
       </div>
       <div class="permission-legend">
         <span><i class="hidden" />隐藏</span>

@@ -274,8 +274,14 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 		if err := workflowcore.ApplyRuntimeStartConfigJSON(&targetSnapshot.Definition, definition.StartConfigJSON); err != nil {
 			return errors.New("流程运行配置格式无效：" + err.Error())
 		}
+		if err := workflowcore.ApplyRuntimeFieldPermissionsJSON(&targetSnapshot.Definition, definition.FieldPermissionsJSON); err != nil {
+			return errors.New("流程字段权限配置格式无效：" + err.Error())
+		}
 		if err := workflowcore.ApplyRuntimeStartConfigJSON(&currentSnapshot.Definition, definition.StartConfigJSON); err != nil {
 			return errors.New("流程运行配置格式无效：" + err.Error())
+		}
+		if err := workflowcore.ApplyRuntimeFieldPermissionsJSON(&currentSnapshot.Definition, definition.FieldPermissionsJSON); err != nil {
+			return errors.New("流程字段权限配置格式无效：" + err.Error())
 		}
 		if validationErrors := workflowcore.ValidateDefinition(targetSnapshot.Definition); len(validationErrors) > 0 {
 			return workflowcore.ValidationErrors(validationErrors)

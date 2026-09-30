@@ -120,6 +120,15 @@ func loadDefinitionVersion(db *gorm.DB, definitionID uint, version int) (workflo
 	if err := json.Unmarshal([]byte(versionModel.SourceJSON), &definition); err != nil {
 		return workflowcore.Definition{}, 0, fmt.Errorf("解析流程定义版本失败: %w", err)
 	}
+	var liveConfig struct {
+		FieldPermissionsJSON string `gorm:"column:definition_field_permissions_json"`
+	}
+	if err := db.Model(&workflowmodel.Definition{}).Select("definition_field_permissions_json").First(&liveConfig, definitionID).Error; err != nil {
+		return workflowcore.Definition{}, 0, err
+	}
+	if err := workflowcore.ApplyRuntimeFieldPermissionsJSON(&definition, liveConfig.FieldPermissionsJSON); err != nil {
+		return workflowcore.Definition{}, 0, fmt.Errorf("解析流程字段权限配置失败: %w", err)
+	}
 	if validationErrors := workflowcore.ValidateDefinition(definition); len(validationErrors) > 0 {
 		return workflowcore.Definition{}, 0, workflowcore.ValidationErrors(validationErrors)
 	}

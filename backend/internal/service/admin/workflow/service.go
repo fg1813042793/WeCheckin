@@ -47,20 +47,21 @@ type UpdateRequest struct {
 }
 
 type DefinitionSummary struct {
-	ID                  uint   `json:"id"`
-	Key                 string `json:"key"`
-	Name                string `json:"name"`
-	DisplayName         string `json:"displayName"`
-	Description         string `json:"description"`
-	Category            string `json:"category"`
-	LogoURL             string `json:"logoUrl"`
-	Status              int    `json:"status"`
-	CurrentVersion      int    `json:"currentVersion"`
-	StartConfigRevision int    `json:"startConfigRevision"`
-	AddUserID           uint   `json:"addUserId"`
-	EditUserID          uint   `json:"editUserId"`
-	AddTime             int64  `json:"addTime"`
-	EditTime            int64  `json:"editTime"`
+	ID                       uint   `json:"id"`
+	Key                      string `json:"key"`
+	Name                     string `json:"name"`
+	DisplayName              string `json:"displayName"`
+	Description              string `json:"description"`
+	Category                 string `json:"category"`
+	LogoURL                  string `json:"logoUrl"`
+	Status                   int    `json:"status"`
+	CurrentVersion           int    `json:"currentVersion"`
+	StartConfigRevision      int    `json:"startConfigRevision"`
+	FieldPermissionsRevision int    `json:"fieldPermissionsRevision"`
+	AddUserID                uint   `json:"addUserId"`
+	EditUserID               uint   `json:"editUserId"`
+	AddTime                  int64  `json:"addTime"`
+	EditTime                 int64  `json:"editTime"`
 }
 
 type DefinitionDetail struct {
@@ -148,6 +149,9 @@ func GetDetailContext(ctx context.Context, id uint) (*DefinitionDetail, error) {
 	if err := workflowcore.ApplyRuntimeStartConfigJSON(&draft, item.StartConfigJSON); err != nil {
 		return nil, errors.New("流程运行配置格式无效：" + err.Error())
 	}
+	if err := workflowcore.ApplyRuntimeFieldPermissionsJSON(&draft, item.FieldPermissionsJSON); err != nil {
+		return nil, errors.New("流程字段权限配置格式无效：" + err.Error())
+	}
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
 
@@ -191,6 +195,10 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	if err != nil {
 		return nil, err
 	}
+	fieldPermissionsJSON, err := workflowcore.EncodeRuntimeFieldPermissions(draft)
+	if err != nil {
+		return nil, err
+	}
 	if validationErrors := workflowcore.ValidateRuntimeStartConfig(draft); len(validationErrors) > 0 {
 		return nil, validationErrorAsError(validationErrors[0])
 	}
@@ -203,7 +211,7 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	if duplicate > 0 {
 		return nil, errors.New("流程编码已存在")
 	}
-	item := definitionModelForCreate(adminID, request, encoded, startConfigJSON, logoURL, database.Now())
+	item := definitionModelForCreate(adminID, request, encoded, startConfigJSON, fieldPermissionsJSON, logoURL, database.Now())
 	if err := db.Create(&item).Error; err != nil {
 		return nil, err
 	}
@@ -250,23 +258,25 @@ func createRequestForCopy(source model.WorkflowDefinition, request CopyRequest) 
 	}
 }
 
-func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, startConfigJSON, logoURL string, now int64) model.WorkflowDefinition {
+func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, startConfigJSON, fieldPermissionsJSON, logoURL string, now int64) model.WorkflowDefinition {
 	return model.WorkflowDefinition{
-		Key:                 request.Key,
-		Name:                request.Name,
-		DisplayName:         request.DisplayName,
-		Description:         strings.TrimSpace(request.Description),
-		Category:            strings.TrimSpace(request.Category),
-		LogoURL:             logoURL,
-		Status:              model.DefinitionStatusDraft,
-		CurrentVersion:      0,
-		DraftJSON:           draftJSON,
-		StartConfigJSON:     startConfigJSON,
-		StartConfigRevision: 1,
-		AddUserID:           adminID,
-		EditUserID:          adminID,
-		AddTime:             now,
-		EditTime:            now,
+		Key:                      request.Key,
+		Name:                     request.Name,
+		DisplayName:              request.DisplayName,
+		Description:              strings.TrimSpace(request.Description),
+		Category:                 strings.TrimSpace(request.Category),
+		LogoURL:                  logoURL,
+		Status:                   model.DefinitionStatusDraft,
+		CurrentVersion:           0,
+		DraftJSON:                draftJSON,
+		StartConfigJSON:          startConfigJSON,
+		StartConfigRevision:      1,
+		FieldPermissionsJSON:     fieldPermissionsJSON,
+		FieldPermissionsRevision: 1,
+		AddUserID:                adminID,
+		EditUserID:               adminID,
+		AddTime:                  now,
+		EditTime:                 now,
 	}
 }
 
@@ -305,6 +315,9 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		if err := workflowcore.ApplyRuntimeStartConfigJSON(&draft, item.StartConfigJSON); err != nil {
 			return nil, errors.New("流程运行配置格式无效：" + err.Error())
 		}
+		if err := workflowcore.ApplyRuntimeFieldPermissionsJSON(&draft, item.FieldPermissionsJSON); err != nil {
+			return nil, errors.New("流程字段权限配置格式无效：" + err.Error())
+		}
 		encodedBytes, err := json.Marshal(draft)
 		if err != nil {
 			return nil, err
@@ -312,6 +325,10 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		encoded = string(encodedBytes)
 	}
 	startConfigJSON, err := workflowcore.EncodeRuntimeStartConfig(draft)
+	if err != nil {
+		return nil, err
+	}
+	fieldPermissionsJSON, err := workflowcore.EncodeRuntimeFieldPermissions(draft)
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +359,10 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 		logoURL = &normalized
 	}
 	updates := definitionContentUpdates(item, name, displayName, description, category, status, encoded, startConfigJSON, logoURL)
+	if fieldPermissionsJSON != item.FieldPermissionsJSON {
+		updates["definition_field_permissions_json"] = fieldPermissionsJSON
+		updates["definition_field_permissions_revision"] = item.FieldPermissionsRevision + 1
+	}
 	if len(updates) > 0 {
 		now := database.Now()
 		updates["definition_edit_user_id"] = adminID
@@ -365,6 +386,10 @@ func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest)
 	if startConfigJSON != item.StartConfigJSON {
 		item.StartConfigJSON = startConfigJSON
 		item.StartConfigRevision++
+	}
+	if fieldPermissionsJSON != item.FieldPermissionsJSON {
+		item.FieldPermissionsJSON = fieldPermissionsJSON
+		item.FieldPermissionsRevision++
 	}
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
@@ -542,6 +567,10 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 		if err != nil {
 			return err
 		}
+		fieldPermissionsJSON, err := workflowcore.EncodeRuntimeFieldPermissions(draft)
+		if err != nil {
+			return err
+		}
 		encodedJSON, err := json.Marshal(draft)
 		if err != nil {
 			return err
@@ -568,6 +597,9 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 			if err := workflowcore.ApplyRuntimeStartConfigJSON(&previousSnapshot.Definition, startConfigJSON); err != nil {
 				return errors.New("流程运行配置格式无效：" + err.Error())
 			}
+			if err := workflowcore.ApplyRuntimeFieldPermissionsJSON(&previousSnapshot.Definition, fieldPermissionsJSON); err != nil {
+				return errors.New("流程字段权限配置格式无效：" + err.Error())
+			}
 			if metadataRecorded && jsonEqual(previousSnapshot, currentSnapshot) {
 				return errors.New("流程内容没有变化，无需重复发布")
 			}
@@ -591,6 +623,10 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 		if startConfigJSON != item.StartConfigJSON {
 			updates["definition_start_config_json"] = startConfigJSON
 			updates["definition_start_config_revision"] = item.StartConfigRevision + 1
+		}
+		if fieldPermissionsJSON != item.FieldPermissionsJSON {
+			updates["definition_field_permissions_json"] = fieldPermissionsJSON
+			updates["definition_field_permissions_revision"] = item.FieldPermissionsRevision + 1
 		}
 		if err := tx.Model(&model.WorkflowDefinition{}).Where("id = ? AND definition_deleted_at = ?", item.ID, int64(0)).Updates(updates).Error; err != nil {
 			return err
@@ -720,8 +756,9 @@ func summaryFromModel(ctx context.Context, item model.WorkflowDefinition) Defini
 	return DefinitionSummary{
 		ID: item.ID, Key: item.Key, Name: item.Name, DisplayName: item.DisplayName, Description: item.Description,
 		Category: item.Category, LogoURL: media.FullURLWithStaticDomainContext(ctx, item.LogoURL), Status: item.Status, CurrentVersion: item.CurrentVersion,
-		StartConfigRevision: item.StartConfigRevision,
-		AddUserID:           item.AddUserID, EditUserID: item.EditUserID, AddTime: item.AddTime, EditTime: item.EditTime,
+		StartConfigRevision:      item.StartConfigRevision,
+		FieldPermissionsRevision: item.FieldPermissionsRevision,
+		AddUserID:                item.AddUserID, EditUserID: item.EditUserID, AddTime: item.AddTime, EditTime: item.EditTime,
 	}
 }
 

@@ -312,6 +312,7 @@ export interface WorkflowDefinitionSummary {
   status: number
   currentVersion: number
   startConfigRevision: number
+  fieldPermissionsRevision: number
   addUserId: number
   editUserId: number
   addTime: number
