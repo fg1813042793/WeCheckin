@@ -420,8 +420,9 @@
             </section>
             <div class="permission-section-divider">
               <span>禁止权限</span>
+              <el-button link type="primary" size="small" :icon="denyApplicationPermissionExpanded ? 'ArrowUp' : 'ArrowDown'" :aria-expanded="denyApplicationPermissionExpanded" @click.stop="denyApplicationPermissionExpanded = !denyApplicationPermissionExpanded">{{ denyApplicationPermissionExpanded ? '收起' : '展开' }}</el-button>
             </div>
-            <section class="permission-column permission-column--menu">
+            <section v-show="denyApplicationPermissionExpanded" class="permission-column permission-column--menu">
               <div class="permission-panel">
                 <div class="permission-panel__title">禁止权限 - 客户端菜单</div>
                 <el-tree
@@ -451,7 +452,7 @@
                 />
               </div>
             </section>
-            <section class="permission-column permission-column--api">
+            <section v-show="denyApplicationPermissionExpanded" class="permission-column permission-column--api">
               <div class="permission-panel">
                 <div class="permission-panel__title">禁止权限 - 客户端接口</div>
                 <el-tree
@@ -560,6 +561,7 @@ const keyword = ref('')
 const selected = ref<any[]>([])
 const sortRules = ref<{field:string;order:string}[]>([])
 const userApplicationPermissionExpanded = ref(false)
+const denyApplicationPermissionExpanded = ref(false)
 const sortColumns = [
   { label: '用户名', field: 'name' },
   { label: '手机号', field: 'mobile' },
@@ -1217,6 +1219,7 @@ function resetForm() {
   form.extraDataDeptIds = []
   form.extraDataUserIds = []
   form.formsData = {}
+  denyApplicationPermissionExpanded.value = false
   resetExtraDataPickerFilters()
 }
 

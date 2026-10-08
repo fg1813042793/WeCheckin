@@ -27,6 +27,12 @@ const requiredSnippets = [
   '<span>接口权限</span>',
   '额外授权 - 客户端接口',
   '禁止权限 - 钉钉 H5 接口',
+  'const denyApplicationPermissionExpanded = ref(false)',
+  ':icon="denyApplicationPermissionExpanded ? \'ArrowUp\' : \'ArrowDown\'"',
+  ':aria-expanded="denyApplicationPermissionExpanded"',
+  '@click.stop="denyApplicationPermissionExpanded = !denyApplicationPermissionExpanded"',
+  "{{ denyApplicationPermissionExpanded ? '收起' : '展开' }}",
+  'denyApplicationPermissionExpanded.value = false',
   'class="admin-pagination"',
   'class="user-avatar"',
   'avatarImageReady(row)',
@@ -56,6 +62,11 @@ for (const snippet of requiredSnippets) {
   if (!source.includes(snippet)) {
     throw new Error(`admin user list UI missing: ${snippet}`)
   }
+}
+
+const denyPermissionColumnCount = source.match(/<section v-show="denyApplicationPermissionExpanded"/g)?.length || 0
+if (denyPermissionColumnCount !== 2) {
+  throw new Error(`admin user deny permission collapse column count invalid: ${denyPermissionColumnCount}`)
 }
 
 for (const forbidden of [
