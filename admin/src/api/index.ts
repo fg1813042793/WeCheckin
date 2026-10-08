@@ -504,7 +504,7 @@ export const adminApi = {
     return request.post(`${ADMIN_V2}/surveys`, data)
   },
   surveyEdit(data: FormPayload & { id?: ID }) {
-    return request.put(`${ADMIN_V2}/surveys/${encodePath(idFrom(data))}`, data, jsonConfig)
+    return request.put(`${ADMIN_V2}/surveys/${encodePath(idFrom(data))}`, data)
   },
   surveyDel(data: { id: number }) {
     return request.delete(`${ADMIN_V2}/surveys/${encodePath(data.id)}`, deleteBody(data))

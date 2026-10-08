@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"wecheckin/backend/internal/formkit/calc"
@@ -118,8 +119,8 @@ func (s *SurveyService) UpdateContext(ctx context.Context, sv *model.Survey) err
 	if sv.ID == 0 {
 		return errors.New("ID 必填")
 	}
-	if _, err := schema.Parse(sv.Schema); err != nil {
-		return errors.New("schema 无效: " + err.Error())
+	if err := validateSurveySchemaForUpdate(sv.Schema); err != nil {
+		return err
 	}
 	sv.EditTime = time.Now().UnixMilli()
 	updates := map[string]interface{}{
@@ -154,8 +155,8 @@ func (s *SurveyService) UpdateForAdminContext(ctx context.Context, sv *model.Sur
 	if sv.ID == 0 {
 		return errors.New("ID 必填")
 	}
-	if _, err := schema.Parse(sv.Schema); err != nil {
-		return errors.New("schema 无效: " + err.Error())
+	if err := validateSurveySchemaForUpdate(sv.Schema); err != nil {
+		return err
 	}
 	sv.EditTime = time.Now().UnixMilli()
 	updates := map[string]interface{}{
@@ -189,6 +190,16 @@ func (s *SurveyService) UpdateForAdminContext(ctx context.Context, sv *model.Sur
 		return err
 	}
 	return access.RequireRowsAffected(queryBuilder.Where("`survey_id` = ?", sv.ID).Updates(updates))
+}
+
+func validateSurveySchemaForUpdate(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return errors.New("schema 必填")
+	}
+	if _, err := schema.Parse(raw); err != nil {
+		return errors.New("schema 无效: " + err.Error())
+	}
+	return nil
 }
 
 // Get 读取问卷（含 schema）

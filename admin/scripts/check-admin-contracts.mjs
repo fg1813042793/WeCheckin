@@ -89,6 +89,11 @@ for (const path of [
 ]) {
   requireSnippet(publicApiSource, path, 'public fill pages must centralize v2 endpoints')
 }
+const adminApiSource = read('src/api/index.ts')
+const surveyEditWithForm = 'return request.put(`${ADMIN_V2}/surveys/${encodePath(idFrom(data))}`, data)'
+const surveyEditWithJSON = 'return request.put(`${ADMIN_V2}/surveys/${encodePath(idFrom(data))}`, data, jsonConfig)'
+requireSnippet(adminApiSource, surveyEditWithForm, 'survey updates must preserve schema through form binding')
+forbidSnippet(adminApiSource, surveyEditWithJSON, 'survey updates must not use JSON while Survey.Schema is excluded from JSON binding')
 
 const routesSource = read('src/router/adminRoutes.ts')
 for (const line of routesSource.split(/\r?\n/)) {

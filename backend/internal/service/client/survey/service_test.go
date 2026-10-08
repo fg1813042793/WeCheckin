@@ -66,3 +66,15 @@ func TestSurveySubmissionLimitsIgnoresInvalidValues(t *testing.T) {
 		t.Fatalf("surveySubmissionLimits invalid values = (%d,%d), want (0,0)", deviceLimit, ipLimit)
 	}
 }
+
+func TestValidateSurveySchemaForUpdateRejectsEmpty(t *testing.T) {
+	if err := validateSurveySchemaForUpdate(""); err == nil || err.Error() != "schema 必填" {
+		t.Fatalf("validateSurveySchemaForUpdate empty error = %v, want schema 必填", err)
+	}
+}
+
+func TestValidateSurveySchemaForUpdateAcceptsValidSchema(t *testing.T) {
+	if err := validateSurveySchemaForUpdate(`{"version":"2.0","questions":[]}`); err != nil {
+		t.Fatalf("validateSurveySchemaForUpdate valid schema error = %v", err)
+	}
+}
