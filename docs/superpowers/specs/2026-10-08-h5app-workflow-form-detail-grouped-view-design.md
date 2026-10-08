@@ -10,11 +10,15 @@
 
 `WorkflowRuntimeForm` 已支持 `continuous` 和 `tabs` 两种展示方式，发起页与审批任务页也已接入切换按钮和 `workflow_start_form_presentation_v1` 本地偏好。
 
-截图中的页面由 `WorkflowFormDetailPage.vue` 独立渲染。该页面当前没有传入 `presentation`，因此始终使用组件默认的连续模式，也没有展示切换按钮。
+截图中的页面由 `WorkflowFormDetailPage.vue` 独立渲染。当前工作区已经接入展示切换，但按钮与流程状态标签一起位于页面顶部，与申请表单内容的操作归属不够一致。
 
 ## 交互设计
 
-在独立表单详情页顶部右侧增加操作区域，将展示切换按钮放在流程状态标签左侧：
+独立表单详情页按以下位置展示状态与表单操作：
+
+- 页面顶部右侧只保留流程状态标签。
+- “申请表单”卡片标题栏改为左右布局：左侧显示标题和说明，右侧显示展示切换按钮。
+- 按钮与卡片标题垂直居中，不使用绝对定位；标题内容变长时由左侧区域收缩，按钮保持稳定宽度。
 
 - 当前为连续显示时，按钮文案为“分组显示”。
 - 当前为分组显示时，按钮文案为“连续显示”。
@@ -25,14 +29,14 @@
 
 ## 实现边界
 
-- 修改 `h5app/src/pages/workflow/components/WorkflowFormDetailPage.vue`，增加展示状态、桌面判断、窗口尺寸同步、切换按钮和 `WorkflowRuntimeForm` 的 `presentation` 绑定。
+- 修改 `h5app/src/pages/workflow/components/WorkflowFormDetailPage.vue`，保留现有展示状态与 `presentation` 绑定，将切换按钮从页面头部移动到申请表单卡片标题栏右侧。
 - 继续使用现有存储键 `workflow_start_form_presentation_v1`，不新增另一份详情页偏好。
-- 修改现有未跟踪契约脚本 `h5app/scripts/check-workflow-form-tabs.mjs`，将独立详情页纳入表单页签契约。
+- 修改现有未跟踪契约脚本 `h5app/scripts/check-workflow-form-tabs.mjs`，断言切换按钮位于申请表单标题栏且页面顶部只保留状态标签。
 - 不修改 `WorkflowRuntimeForm.vue` 的页签实现，不改变历史详情上下分栏中的连续模式，不修改 API、DTO 或后端。
 
 ## 验证
 
 - 先扩充 `check-workflow-form-tabs.mjs`，确认详情页尚未接入时检查失败。
 - 实现后运行 `pnpm check:workflow-form-tabs`、针对性 ESLint、`pnpm type-check`、`pnpm check:ui-style` 和 `pnpm build:h5`。
-- 浏览器验证标准 PC、PC 小屏和手机宽度：PC 可切换且共享偏好，手机无切换按钮并连续显示，详情页无横向溢出或标题操作重叠。
+- 浏览器验证标准 PC、PC 小屏和手机宽度：PC 按钮位于申请表单标题栏右侧且可切换，状态标签保留在页面顶部；手机无切换按钮并连续显示，详情页无横向溢出或标题操作重叠。
 - 工作区中已有其他流程改动导致的无关失败单独记录，不覆盖或回退用户修改。
