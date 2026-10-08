@@ -79,6 +79,21 @@ for (const file of publicFillFiles) {
   forbidSnippet(source, 'async function apiPost(', `${file} must use src/api/public.ts`)
 }
 
+const surveyFillPC1Source = read('src/views/survey/SurveyFillPC1.vue')
+for (const snippet of [
+  `@pointerdown.prevent="onSheetDragStart($event, 'sheet')"`,
+  `@pointerdown.prevent="onSheetDragStart($event, 'toggle')"`,
+  '@click="onSheetToggleClick"',
+  "document.addEventListener('pointermove', onSheetDragMove)",
+  ':style="sheetStyle"',
+  'translate(${sheetX.value}px, calc(-50% + ${sheetY.value}px))',
+  '.survey.pc:has(.survey-progress) { padding-top: 44px; }',
+  '.survey-sheet-toggle { display: block; right: 8px; }',
+  'touch-action: none;',
+]) {
+  requireSnippet(surveyFillPC1Source, snippet, 'SurveyFillPC1 mobile progress and answer-sheet dragging contract')
+}
+
 const publicApiSource = read('src/api/public.ts')
 for (const path of [
   '/api/v2/auth/password-login',

@@ -142,9 +142,9 @@
 
     <!-- 答题卡 -->
     <div v-if="settings.answerSheetVisible !== false && !loading && survey && sheetVisible" class="survey-sheet" :style="sheetStyle">
-      <div class="survey-sheet-header" @mousedown.prevent="onSheetDragStart">
+      <div class="survey-sheet-header" @pointerdown.prevent="onSheetDragStart($event, 'sheet')">
         <span>≡ 答题卡</span>
-        <span class="survey-sheet-close" @click.stop="sheetVisible = false">✕</span>
+        <button type="button" class="survey-sheet-close" aria-label="收起答题卡" @pointerdown.stop @click.stop="sheetVisible = false">✕</button>
       </div>
       <div class="survey-sheet-grid">
         <div
@@ -159,7 +159,15 @@
       </div>
       <div class="survey-sheet-stat">{{ answeredCount }}/{{ totalQuestions }}</div>
     </div>
-    <div v-if="settings.answerSheetVisible !== false && !loading && survey && !sheetVisible" class="survey-sheet-toggle" @click="sheetVisible = true">≡ {{ answeredCount }}/{{ totalQuestions }}</div>
+    <button
+      v-if="settings.answerSheetVisible !== false && !loading && survey && !sheetVisible"
+      type="button"
+      class="survey-sheet-toggle"
+      :style="sheetStyle"
+      aria-label="展开或移动答题卡"
+      @pointerdown.prevent="onSheetDragStart($event, 'toggle')"
+      @click="onSheetToggleClick"
+    >≡ {{ answeredCount }}/{{ totalQuestions }}</button>
 
     <el-dialog v-if="showScanner" v-model="showScanner" title="扫码" width="400px" :close-on-click-modal="false" destroy-on-close @opened="onScannerOpen" @close="onScannerClose">
       <div ref="scannerRef" style="width:100%;aspect-ratio:1;overflow:hidden;background:#000;border-radius:8px" />
@@ -380,30 +388,70 @@ const sheetDragStartX = ref(0)
 const sheetDragStartY = ref(0)
 const sheetOrigX = ref(0)
 const sheetOrigY = ref(0)
+const sheetDragMoved = ref(false)
+const sheetDragSource = ref<'sheet' | 'toggle' | null>(null)
+const sheetSuppressToggleClick = ref(false)
+let sheetDragRect: DOMRect | null = null
 const sheetStyle = computed(() => {
   const s: Record<string, string> = {}
-  if (sheetX.value || sheetY.value) s.transform = `translate(calc(-50% + ${sheetX.value}px), calc(-50% + ${sheetY.value}px))`
+  if (sheetX.value || sheetY.value) s.transform = `translate(${sheetX.value}px, calc(-50% + ${sheetY.value}px))`
   if (sheetDragging.value) s.cursor = 'grabbing'
   return s
 })
-function onSheetDragStart(e: MouseEvent) {
+function onSheetDragStart(e: PointerEvent, source: 'sheet' | 'toggle') {
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  const currentTarget = e.currentTarget as HTMLElement | null
+  const dragElement = source === 'sheet'
+    ? currentTarget?.closest('.survey-sheet') as HTMLElement | null
+    : currentTarget
+  if (!dragElement) return
   sheetDragging.value = true
+  sheetDragMoved.value = false
+  sheetDragSource.value = source
   sheetDragStartX.value = e.clientX
   sheetDragStartY.value = e.clientY
   sheetOrigX.value = sheetX.value
   sheetOrigY.value = sheetY.value
-  document.addEventListener('mousemove', onSheetDragMove)
-  document.addEventListener('mouseup', onSheetDragEnd)
+  sheetDragRect = dragElement.getBoundingClientRect()
+  currentTarget?.setPointerCapture?.(e.pointerId)
+  document.addEventListener('pointermove', onSheetDragMove)
+  document.addEventListener('pointerup', onSheetDragEnd)
+  document.addEventListener('pointercancel', onSheetDragEnd)
 }
-function onSheetDragMove(e: MouseEvent) {
-  if (!sheetDragging.value) return
-  sheetX.value = sheetOrigX.value + e.clientX - sheetDragStartX.value
-  sheetY.value = sheetOrigY.value + e.clientY - sheetDragStartY.value
+function onSheetDragMove(e: PointerEvent) {
+  if (!sheetDragging.value || !sheetDragRect) return
+  e.preventDefault()
+  const rawX = e.clientX - sheetDragStartX.value
+  const rawY = e.clientY - sheetDragStartY.value
+  if (Math.abs(rawX) > 4 || Math.abs(rawY) > 4) sheetDragMoved.value = true
+  const margin = sheetDragSource.value === 'toggle' ? 0 : 8
+  const offsetX = clampSheetOffset(rawX, margin - sheetDragRect.left, window.innerWidth - margin - sheetDragRect.right)
+  const offsetY = clampSheetOffset(rawY, margin - sheetDragRect.top, window.innerHeight - margin - sheetDragRect.bottom)
+  sheetX.value = sheetOrigX.value + offsetX
+  sheetY.value = sheetOrigY.value + offsetY
 }
 function onSheetDragEnd() {
+  const suppressToggleClick = sheetDragSource.value === 'toggle' && sheetDragMoved.value
   sheetDragging.value = false
-  document.removeEventListener('mousemove', onSheetDragMove)
-  document.removeEventListener('mouseup', onSheetDragEnd)
+  sheetDragSource.value = null
+  sheetDragRect = null
+  document.removeEventListener('pointermove', onSheetDragMove)
+  document.removeEventListener('pointerup', onSheetDragEnd)
+  document.removeEventListener('pointercancel', onSheetDragEnd)
+  if (suppressToggleClick) {
+    sheetSuppressToggleClick.value = true
+    window.setTimeout(() => { sheetSuppressToggleClick.value = false }, 0)
+  }
+}
+function onSheetToggleClick() {
+  if (sheetSuppressToggleClick.value) {
+    sheetSuppressToggleClick.value = false
+    return
+  }
+  sheetVisible.value = true
+}
+function clampSheetOffset(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }
 
 function isAnswered(q: any, val: any): boolean {
@@ -881,8 +929,9 @@ onUnmounted(() => {
   border-bottom: 1px solid #f0f0f0;
   cursor: grab;
   display: flex; align-items: center; justify-content: center; gap: 8px;
+  touch-action: none;
 }
-.survey-sheet-close { display: none; cursor: pointer; color: #909399; font-size: 14px; line-height: 1; }
+.survey-sheet-close { display: none; padding: 0; border: 0; background: transparent; cursor: pointer; color: #909399; font-size: 14px; line-height: 1; }
 .survey-sheet-close:hover { color: #333; }
 .survey-sheet-toggle {
   display: none;
@@ -892,6 +941,8 @@ onUnmounted(() => {
   padding: 8px 6px; border-radius: 6px 0 0 6px;
   cursor: pointer; line-height: 1.4; text-align: center;
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  border: 0;
+  touch-action: none;
 }
 .survey-sheet-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
@@ -914,6 +965,10 @@ onUnmounted(() => {
 /* === H5 响应式 === */
 @media (max-width: 768px) {
   .survey.pc { padding: 0; background: #f5f6f8; }
+  .survey.pc:has(.survey-progress) { padding-top: 44px; }
+  .survey.pc:has(.survey-progress) .survey-card { min-height: calc(100vh - 44px); }
+  .survey-progress { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 8px 12px; }
+  .survey-progress-inner { width: 100%; }
   .survey-card { border-radius: 0; box-shadow: none; min-height: 100vh; max-width: 100%; }
   .survey-header { padding: 20px 16px 16px; }
   .survey-title { font-size: 18px; }
@@ -929,7 +984,7 @@ onUnmounted(() => {
   .survey-nav { padding: 12px 16px; gap: 8px; flex-wrap: wrap; }
   .survey-sheet { right: 8px; width: 80px; }
   .survey-sheet-close { display: block; }
-  .survey-sheet-toggle { display: block; }
+  .survey-sheet-toggle { display: block; right: 8px; }
   .survey-end { max-width: 90%; }
   .survey-end-content { padding: 40px 20px; }
   .survey-login { max-width: 100%; padding: 0; margin-top: 0; display: flex; align-items: flex-start; }
