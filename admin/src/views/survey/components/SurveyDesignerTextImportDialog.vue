@@ -5,14 +5,16 @@
         <el-radio-button value="paste">粘贴文本</el-radio-button>
         <el-radio-button value="file">上传文件</el-radio-button>
       </el-radio-group>
-      <el-tag type="info" class="format-hint">每行一个题目，选项用 A. B. C. 开头</el-tag>
+      <el-tag type="info" class="format-hint">
+        选项：A. 选项文本；指定值：A. [选项值] 选项文本
+      </el-tag>
     </div>
     <el-input
       v-if="mode === 'paste'"
       v-model="text"
       type="textarea"
       :rows="12"
-      placeholder="粘贴题目文本&#10;&#10;格式示例：&#10;1. 您最喜欢的颜色？&#10;A. 红色&#10;B. 蓝色&#10;C. 绿色&#10;&#10;2. 您的姓名&#10;&#10;3. [多选题] 您的爱好&#10;A. 阅读&#10;B. 运动&#10;C. 音乐"
+      placeholder="粘贴题目文本&#10;&#10;格式示例：&#10;1. 您最喜欢的颜色？&#10;A. [red] 红色&#10;B. [blue] 蓝色&#10;C. 绿色&#10;&#10;2. 您的姓名&#10;&#10;3. [多选题] 您的爱好&#10;A. 阅读&#10;B. 运动&#10;C. 音乐"
     />
     <div v-else>
       <el-upload drag :auto-upload="false" :show-file-list="false" :on-change="onTextFileChange" accept=".txt,.docx,.md">
@@ -112,8 +114,8 @@ defineExpose({ open })
 </script>
 
 <style scoped>
-.import-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.format-hint { font-size:11px; }
+.import-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:8px; }
+.format-hint { height:auto; font-size:11px; line-height:20px; white-space:normal; }
 .upload-icon { margin-bottom:8px; font-size:40px; }
 .upload-text { color:#666; font-size:13px; }
 .parsed-lines { margin-top:8px; color:#999; font-size:12px; }

@@ -236,6 +236,13 @@ for (const [source, name, patterns] of [
 }
 
 for (const pattern of [
+  '指定值：A. [选项值] 选项文本',
+  'A. [red] 红色',
+]) {
+  assert.ok(textImportDialog.includes(pattern), `survey text import help missing contract: ${pattern}`)
+}
+
+for (const pattern of [
   'const categories = computed(',
   'const activeCategory = ref(',
   "emit('add', type)",
