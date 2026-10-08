@@ -289,21 +289,31 @@ for (const pattern of ['aria-label="关闭属性面板"', "emit('close')"]) {
 }
 assert.ok(questionProperties.includes('function closePropertiesPanel('), 'survey property panel must support closing')
 
-for (const pattern of ['.toolbar-compact-status', 'flex-wrap:wrap']) {
+for (const pattern of ['.toolbar-compact-status', 'flex-wrap:wrap', '@media (max-width: 1280px)', 'z-index:13']) {
   assert.ok(designerStyle.includes(pattern), `survey narrow toolbar missing contract: ${pattern}`)
 }
 
-for (const pattern of ['.survey-mobile-notice', '.survey-main-content > :not(.survey-mobile-notice)']) {
+for (const pattern of [
+  '.survey-mobile-notice',
+  '.survey-main-content > :not(.survey-mobile-notice)',
+  'padding-top: 58px;',
+  '@media (min-width: 768px) and (max-width: 1280px)',
+  'padding-top: 84px;',
+  '@media (min-width: 768px) and (max-width: 1080px)',
+  'padding-top: 128px;',
+]) {
   assert.ok(responsive.includes(pattern), `survey mobile notice missing contract: ${pattern}`)
 }
+assert.match(responsive, /\.survey-main-navigator\s*\{\s*display:\s*none\s*!important;/, 'survey mobile notice must hide the internal navigator')
 
 for (const pattern of [':class="{ selected: q.id === selectedId, invalid:', 'class="card-invalid-label"']) {
   assert.ok(draggable.includes(pattern), `survey question error state missing contract: ${pattern}`)
 }
 
-for (const pattern of ['@media (min-width: 768px) and (max-width: 1199px)', '.survey-editor:not(.has-open-settings)', '@media (max-width: 767px)']) {
+for (const pattern of ['@media (min-width: 768px) and (max-width: 1599px)', '.survey-editor:not(.has-open-settings)', '@media (max-width: 767px)']) {
   assert.ok(responsive.includes(pattern), `survey responsive layout missing contract: ${pattern}`)
 }
+assert.doesNotMatch(responsive, /max-width:\s*1199px/, 'survey property panel overlay breakpoint must cover common desktop widths')
 
 for (const pattern of [
   'export interface SurveyDesignerIssue',

@@ -12,7 +12,7 @@
   display: none;
 }
 
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 768px) and (max-width: 1599px) {
   .survey-editor {
     position: relative;
   }
@@ -23,6 +23,8 @@
     top: 0;
     right: 0;
     bottom: 0;
+    padding-top: 58px;
+    box-sizing: border-box;
     width: min(360px, calc(100vw - 120px));
     box-shadow: -12px 0 30px rgba(15, 23, 42, 0.14);
   }
@@ -32,13 +34,25 @@
   }
 }
 
+@media (min-width: 768px) and (max-width: 1280px) {
+  .survey-editor .survey-setting-panel {
+    padding-top: 84px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1080px) {
+  .survey-editor .survey-setting-panel {
+    padding-top: 128px;
+  }
+}
+
 @media (max-width: 767px) {
   .survey-main {
     overflow: hidden;
   }
 
   .survey-main-navigator {
-    display: none;
+    display: none !important;
   }
 
   .survey-main-content {

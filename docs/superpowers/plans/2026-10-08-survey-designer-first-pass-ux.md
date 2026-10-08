@@ -40,10 +40,16 @@ for (const pattern of ['aria-label="关闭属性面板"', "emit('close')"]) {
   assert.ok(panelTitle.includes(pattern), `survey property panel close missing contract: ${pattern}`)
 }
 assert.ok(questionProperties.includes('function closePropertiesPanel('), 'survey property panel must support closing')
-for (const pattern of ['.toolbar-compact-status', 'flex-wrap:wrap']) {
+for (const pattern of ['.toolbar-compact-status', 'flex-wrap:wrap', '@media (max-width: 1280px)', 'z-index:13']) {
   assert.ok(designerStyle.includes(pattern), `survey narrow toolbar missing contract: ${pattern}`)
 }
-for (const pattern of ['.survey-mobile-notice', '.survey-main-content > :not(.survey-mobile-notice)']) {
+for (const pattern of [
+  '.survey-mobile-notice',
+  '.survey-main-content > :not(.survey-mobile-notice)',
+  'padding-top: 58px;',
+  'padding-top: 84px;',
+  'padding-top: 128px;',
+]) {
   assert.ok(responsive.includes(pattern), `survey mobile notice missing contract: ${pattern}`)
 }
 ```
@@ -117,7 +123,7 @@ function closePropertiesPanel() {
 
 - [ ] **Step 4: 增加响应式样式**
 
-桌面隐藏 `.toolbar-compact-status`；`<=1080px` 时工具栏换行、完整状态区隐藏、紧凑状态占满第二行。`<768px` 时隐藏工作区直接子节点，仅显示 `.survey-mobile-notice`。
+桌面隐藏 `.toolbar-compact-status`；`<=1280px` 时工具栏换行、完整状态区隐藏、紧凑状态占满第二行。`768px–1599px` 时属性面板使用覆盖层，并根据工具栏高度预留 `58px / 84px / 128px` 顶部空间。`<768px` 时隐藏工作区直接子节点，仅显示 `.survey-mobile-notice`。
 
 - [ ] **Step 5: 运行聚焦检查**
 
@@ -155,8 +161,8 @@ Expected: TypeScript、Vite 构建和 bundle 预算通过。
 
 使用本地 Admin 登录后检查：
 
-1. 标准桌面：未选择题目时属性面板隐藏；通过工具栏打开问卷设置；关闭按钮重新释放空间。
-2. 1024px 和 768px：操作按钮保持首行，问卷标题和保存状态显示在第二行，无重叠和水平溢出。
+1. 1280px：未选择题目时属性面板隐藏；通过工具栏打开问卷设置；属性面板不挤压画布、不遮挡保存按钮，关闭后重新释放空间。
+2. 1024px 和 768px：操作组与问卷标题、保存状态分行显示，无重叠和水平溢出。
 3. 767px：只显示桌面端编辑提示和返回列表按钮。
 4. DOM/AX：主要图标按钮具有可访问名称，模式按钮暴露 pressed 状态。
 5. 控制台无本次改动引入的错误或警告。
@@ -169,4 +175,3 @@ git status --short
 ```
 
 Expected: 提交只包含本计划列出的文件；用户原有工作区修改保持不变。
-
