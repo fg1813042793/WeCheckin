@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让独立流程表单详情页在 PC 端支持与发起、审批页面一致的分组/连续显示切换，同时让手机端保持连续显示。
+**Goal:** 让独立流程表单详情页在 PC 端支持分组/连续显示切换，并将切换按钮放在“申请表单”卡片标题栏右侧，同时让手机端保持连续显示。
 
-**Architecture:** 复用当前工作区已经实现的 `WorkflowRuntimeForm` `continuous/tabs` 展示能力和 `workflow_start_form_presentation_v1` 存储键。独立详情页自行维护桌面宽度状态，将计算后的展示模式传给只读表单；现有历史上下分栏预览和后端数据契约不变。
+**Architecture:** 复用当前工作区已经实现的 `WorkflowRuntimeForm` `continuous/tabs` 展示能力和 `workflow_start_form_presentation_v1` 存储键。页面顶部只保留流程状态，“申请表单”标题栏使用正常 flex 布局承载展示切换按钮；现有历史上下分栏预览和后端数据契约不变。
 
 **Tech Stack:** uni-app、Vue 3 Composition API、TypeScript、uView Pro、SCSS、Node.js 结构契约脚本。
 
@@ -12,8 +12,8 @@
 
 ## 文件结构
 
-- Modify: `h5app/scripts/check-workflow-form-tabs.mjs` - 将独立表单详情页加入现有页签展示契约。
-- Modify: `h5app/src/pages/workflow/components/WorkflowFormDetailPage.vue` - 增加展示偏好、桌面判断、切换按钮和表单 `presentation` 绑定。
+- Modify: `h5app/scripts/check-workflow-form-tabs.mjs` - 断言独立详情页的展示按钮位于申请表单标题栏，而不是页面顶部状态区。
+- Modify: `h5app/src/pages/workflow/components/WorkflowFormDetailPage.vue` - 保留展示偏好与 `presentation` 绑定，将切换按钮移动到表单卡片标题栏。
 - Verify only: `h5app/package.json` - 使用当前工作区已增加的 `check:workflow-form-tabs` 脚本，不修改其余脚本或依赖。
 
 ### Task 1: 用现有契约脚本定义详情页行为
@@ -45,13 +45,15 @@ for (const snippet of [
   'const desktopFormPresentation = ref(resolveDesktopFormPresentation())',
   'const effectiveFormPresentation = computed<WorkflowFormPresentation>',
   "return desktopFormPresentation.value ? formPresentation.value : 'continuous'",
+  'function syncStoredFormPresentation()',
+  'formPresentation.value = loadFormPresentation()',
   'function toggleFormPresentation()',
   'v-if="detail && desktopFormPresentation"',
   'custom-class="workflow-form-detail-page__presentation-action"',
   '分组显示',
   '连续显示',
   ':presentation="effectiveFormPresentation"',
-  'class="workflow-form-detail-page__header-actions"',
+  'class="workflow-form-detail-page__section-head-main"',
 ]) {
   assert.ok(formDetailSource.includes(snippet), `WorkflowFormDetailPage.vue missing form presentation behavior: ${snippet}`)
 }
@@ -62,12 +64,16 @@ assert.equal(
   'standalone form detail should bind the shared presentation mode once',
 )
 
-const formDetailActions = formDetailSource.match(/<view class="workflow-form-detail-page__header-actions">[\s\S]*?<u-tag[\s\S]*?<\/view>/)?.[0] || ''
-assert.ok(formDetailActions, 'standalone form detail header actions missing')
-assert.ok(
-  formDetailActions.indexOf('workflow-form-detail-page__presentation-action') < formDetailActions.indexOf('<u-tag'),
-  'standalone form detail presentation toggle must stay before the status tag',
-)
+const formDetailPageHeader = formDetailSource.match(/<view class="workflow-form-detail-page__header">[\s\S]*?<view v-if="loading"/)?.[0] || ''
+assert.ok(formDetailPageHeader, 'standalone form detail page header missing')
+assert.ok(formDetailPageHeader.includes('<u-tag'), 'standalone form detail page header must keep the status tag')
+assert.ok(!formDetailPageHeader.includes('workflow-form-detail-page__presentation-action'), 'standalone form detail page header must not contain the presentation toggle')
+
+const formDetailSectionHeader = formDetailSource.match(/<view class="workflow-form-detail-page__section-head">[\s\S]*?<WorkflowRuntimeForm/)?.[0] || ''
+assert.ok(formDetailSectionHeader, 'standalone form detail section header missing')
+assert.ok(formDetailSectionHeader.includes('workflow-form-detail-page__section-head-main'), 'standalone form detail section header main content missing')
+assert.ok(formDetailSectionHeader.includes('workflow-form-detail-page__presentation-action'), 'standalone form detail section header must contain the presentation toggle')
+assert.ok(formDetailSectionHeader.indexOf('workflow-form-detail-page__section-head-main') < formDetailSectionHeader.indexOf('workflow-form-detail-page__presentation-action'), 'standalone form detail title must stay before the presentation toggle')
 ```
 
 - [ ] **Step 3: 运行契约检查，确认红灯**
@@ -78,7 +84,7 @@ Run:
 cd h5app && pnpm check:workflow-form-tabs
 ```
 
-Expected: FAIL，首先指出 `WorkflowFormDetailPage.vue` 缺少 `WorkflowFormPresentation` 或存储键，证明独立详情页尚未接入。
+Expected: FAIL，指出页面顶部仍包含展示切换按钮，或申请表单标题栏缺少展示切换按钮。
 
 - [ ] **Step 4: 检查测试差异**
 
@@ -91,7 +97,7 @@ git diff -- h5app/scripts/check-workflow-form-tabs.mjs
 
 Expected: 无空白错误；保留原有发起页、审批页断言，仅新增独立详情页断言。
 
-### Task 2: 接入独立详情页的共享展示偏好
+### Task 2: 将展示切换按钮移动到申请表单标题栏
 
 **Files:**
 - Modify: `h5app/src/pages/workflow/components/WorkflowFormDetailPage.vue:1-120`
@@ -163,6 +169,10 @@ function syncDesktopFormPresentation() {
   desktopFormPresentation.value = resolveDesktopFormPresentation()
 }
 
+function syncStoredFormPresentation() {
+  formPresentation.value = loadFormPresentation()
+}
+
 function toggleFormPresentation() {
   if (!desktopFormPresentation.value)
     return
@@ -187,12 +197,33 @@ onBeforeUnmount(() => {
 })
 ```
 
-- [ ] **Step 4: 将切换按钮放到状态标签左侧**
+- [ ] **Step 4: 页面顶部只保留状态标签**
 
-用以下操作区包裹现有状态标签：
+删除页面顶部 `workflow-form-detail-page__header-actions` 中的展示切换按钮和包装容器，恢复为仅渲染状态标签：
 
 ```vue
-<view class="workflow-form-detail-page__header-actions">
+<u-tag
+  v-if="detail"
+  :text="workflowInstanceStatusMeta(detail.instance.status).label"
+  :type="workflowInstanceStatusMeta(detail.instance.status).type"
+  size="mini"
+/>
+```
+
+- [ ] **Step 5: 将切换按钮放到申请表单标题栏右侧**
+
+将现有 `workflow-form-detail-page__section-head` 改为标题主体和按钮两部分：
+
+```vue
+<view class="workflow-form-detail-page__section-head">
+  <view class="workflow-form-detail-page__section-head-main">
+    <text class="workflow-form-detail-page__section-title">
+      申请表单
+    </text>
+    <text class="workflow-form-detail-page__section-desc">
+      发起时提交的表单内容
+    </text>
+  </view>
   <u-button
     v-if="detail && desktopFormPresentation"
     custom-class="workflow-form-detail-page__presentation-action"
@@ -203,36 +234,33 @@ onBeforeUnmount(() => {
     <u-icon :name="formPresentation === 'tabs' ? 'list' : 'grid'" size="15px" color="#0f766e" />
     <text>{{ formPresentation === 'tabs' ? '连续显示' : '分组显示' }}</text>
   </u-button>
-  <u-tag
-    v-if="detail"
-    :text="workflowInstanceStatusMeta(detail.instance.status).label"
-    :type="workflowInstanceStatusMeta(detail.instance.status).type"
-    size="mini"
-  />
 </view>
 ```
 
-- [ ] **Step 5: 将有效展示模式传给只读表单**
+- [ ] **Step 6: 调整申请表单标题栏布局**
 
-在 `WorkflowRuntimeForm` 上增加：
-
-```vue
-:presentation="effectiveFormPresentation"
-```
-
-- [ ] **Step 6: 增加操作区样式**
-
-在标题样式后加入：
+删除 `.workflow-form-detail-page__header-actions`，将申请表单标题栏改为左右布局并增加标题主体样式：
 
 ```scss
-.workflow-form-detail-page__header-actions {
-  flex: 0 0 auto;
+.workflow-form-detail-page__section-head {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5eaf3;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workflow-form-detail-page__section-head-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 :deep(.workflow-form-detail-page__presentation-action) {
+  flex: 0 0 auto;
   width: 104px;
   margin: 0;
   color: #0f766e;
@@ -245,7 +273,7 @@ onBeforeUnmount(() => {
 }
 ```
 
-移动端由 `v-if="desktopFormPresentation"` 隐藏切换按钮，不新增移动端专用覆盖。
+移动端由 `v-if="desktopFormPresentation"` 隐藏切换按钮；标题主体继续占满可用宽度，不新增绝对定位。
 
 - [ ] **Step 7: 运行契约检查，确认绿灯**
 
@@ -301,7 +329,7 @@ Expected: H5App 在 `http://127.0.0.1:5175/` 启动并连接当前本地后端�
 
 - [ ] **Step 2: 验证标准 PC**
 
-在约 `1440x900` 视口打开一条流程记录并进入独立“表单详情”页。确认切换按钮位于状态标签左侧；选择“分组显示”后顶部出现字段/分组页签，点击页签只展示对应内容，再切回连续显示可显示完整表单。
+在约 `1440x900` 视口打开一条流程记录并进入独立“表单详情”页。确认页面顶部右侧只保留流程状态，切换按钮位于“申请表单”卡片标题栏右侧；选择“分组显示”后出现字段/分组页签，点击页签只展示对应内容，再切回连续显示可显示完整表单。
 
 - [ ] **Step 3: 验证共享偏好**
 
@@ -309,7 +337,7 @@ Expected: H5App 在 `http://127.0.0.1:5175/` 启动并连接当前本地后端�
 
 - [ ] **Step 4: 验证 PC 小屏和手机**
 
-在 `1024x768` 检查标题、按钮、状态标签和页签无重叠或横向页面溢出。在 `390x844` 检查切换按钮不显示、表单连续展示、字段与明细列表正常滚动。
+在 `1024x768` 检查申请表单标题、按钮、页面状态标签和页签无重叠或横向页面溢出。在 `390x844` 检查切换按钮不显示、申请表单标题完整、表单连续展示、字段与明细列表正常滚动。
 
 - [ ] **Step 5: 检查运行时健康状态**
 
