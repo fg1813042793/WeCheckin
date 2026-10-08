@@ -950,13 +950,16 @@ onUnmounted(() => {
 }
 .survey-sheet-item {
   display: flex; align-items: center; justify-content: center;
-  height: 26px; border-radius: 4px; cursor: pointer;
+  width: 100%; min-width: 0; height: 26px; box-sizing: border-box;
+  border: 2px solid transparent; border-radius: 4px; cursor: pointer;
   font-size: 12px; color: #606266; background: #f5f6f8;
-  transition: all .15s;
+  transition: background-color .15s, color .15s, border-color .15s;
 }
 .survey-sheet-item:hover { background: #e0e2e6; }
-.survey-sheet-item--done { background: #eef2ff; color: #3873f6; }
-.survey-sheet-item--cur { border: 2px solid #3873f6; font-weight: 600; }
+.survey-sheet-item--done { background: #3873f6; color: #fff; }
+.survey-sheet-item--done:hover { background: #2f66df; }
+.survey-sheet-item--cur { border-color: #3873f6; font-weight: 600; }
+.survey-sheet-item--done.survey-sheet-item--cur { border-color: #1f56c9; }
 .survey-sheet-stat {
   text-align: center; font-size: 12px; color: #909399;
   padding-top: 6px; margin-top: 6px; border-top: 1px solid #f0f0f0;

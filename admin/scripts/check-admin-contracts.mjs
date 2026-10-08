@@ -89,6 +89,10 @@ for (const snippet of [
   'translate(${sheetX.value}px, calc(-50% + ${sheetY.value}px))',
   '.survey.pc:has(.survey-progress) { padding-top: 44px; }',
   '.survey-sheet-toggle { display: block; right: 8px; }',
+  'border: 2px solid transparent;',
+  'box-sizing: border-box;',
+  '.survey-sheet-item--done { background: #3873f6; color: #fff; }',
+  '.survey-sheet-item--done.survey-sheet-item--cur { border-color: #1f56c9; }',
   'touch-action: none;',
 ]) {
   requireSnippet(surveyFillPC1Source, snippet, 'SurveyFillPC1 mobile progress and answer-sheet dragging contract')
