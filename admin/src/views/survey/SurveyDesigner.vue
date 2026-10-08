@@ -6,19 +6,19 @@
         <!--<button class="nav-btn" :class="{ active: activeView==='overview' }" @click="activeView='overview'" title="概述">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         </button>-->
-        <button class="nav-btn" :class="{ active: activeView==='edit' }" @click="activeView='edit'" title="编辑">
+        <button type="button" class="nav-btn" :class="{ active: activeView==='edit' }" aria-label="编辑问卷" :aria-pressed="activeView === 'edit'" @click="activeView='edit'" title="编辑">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="nav-btn" :class="{ active: activeView==='setting' }" @click="activeView='setting'" title="设置">
+        <button type="button" class="nav-btn" :class="{ active: activeView==='setting' }" aria-label="问卷设置" :aria-pressed="activeView === 'setting'" @click="activeView='setting'" title="设置">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-        <button class="nav-btn" :class="{ active: activeView==='data' }" @click="activeView='data'" title="数据">
+        <button type="button" class="nav-btn" :class="{ active: activeView==='data' }" aria-label="问卷数据" :aria-pressed="activeView === 'data'" @click="activeView='data'" title="数据">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         </button>
-        <button class="nav-btn" :class="{ active: activeView==='report' }" @click="activeView='report'" title="报表">
+        <button type="button" class="nav-btn" :class="{ active: activeView==='report' }" aria-label="问卷报表" :aria-pressed="activeView === 'report'" @click="activeView='report'" title="报表">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         </button>
-        <button class="nav-btn" @click="goBack" title="返回列表">
+        <button type="button" class="nav-btn" aria-label="返回问卷列表" @click="goBack" title="返回列表">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
       </div>
@@ -26,6 +26,11 @@
 
     <!-- 主内容 -->
     <div class="survey-main-content">
+      <section class="survey-mobile-notice" aria-label="移动端编辑提示">
+        <strong>建议在桌面端编辑问卷</strong>
+        <span>问卷设计器需要更宽的操作空间，请在宽度不小于 768px 的设备上使用。</span>
+        <el-button type="primary" @click="goBack">返回问卷列表</el-button>
+      </section>
       <div v-if="designerLoadError" class="designer-load-error">
         <el-result icon="error" title="问卷加载失败" sub-title="未能读取当前问卷，请检查网络后重试">
           <template #extra><el-button @click="goBack">返回列表</el-button><el-button type="primary" @click="retryLoad">重新加载</el-button></template>
@@ -70,27 +75,27 @@
             <div class="toolbar-left">
               <el-button-group class="toolbar-btn-group">
                 <el-tooltip content="撤销" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :disabled="!canUndo" @click="undoDesignerChange">
+                  <el-button text size="small" class="toolbar-btn" aria-label="撤销" :disabled="!canUndo" @click="undoDesignerChange">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="重做" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :disabled="!canRedo" @click="redoDesignerChange">
+                  <el-button text size="small" class="toolbar-btn" aria-label="重做" :disabled="!canRedo" @click="redoDesignerChange">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="快捷键" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" @click="showShortcutHelp">
+                  <el-button text size="small" class="toolbar-btn" aria-label="查看快捷键" @click="showShortcutHelp">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01M18 16h.01"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="文本导入" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" @click="openTextImport">
+                  <el-button text size="small" class="toolbar-btn" aria-label="文本导入" @click="openTextImport">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="导出问卷" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" @click="exportSurvey">
+                  <el-button text size="small" class="toolbar-btn" aria-label="导出问卷" @click="exportSurvey">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   </el-button>
                 </el-tooltip>
@@ -111,18 +116,23 @@
             <div class="toolbar-right">
               <el-button-group class="toolbar-btn-group">
                 <el-tooltip content="编辑" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='edit' }" @click="panelMode='edit'">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='edit' }" aria-label="编辑模式" :aria-pressed="panelMode === 'edit'" @click="panelMode='edit'">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="JSON" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='json' }" @click="panelMode='json'; exportedJson = JSON.stringify({ version: '2.0', questions: questions, setting: {} }, null, 2)">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='json' }" aria-label="JSON 模式" :aria-pressed="panelMode === 'json'" @click="panelMode='json'; exportedJson = JSON.stringify({ version: '2.0', questions: questions, setting: {} }, null, 2)">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="预览" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='preview' }" @click="panelMode='preview'">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='preview' }" aria-label="预览模式" :aria-pressed="panelMode === 'preview'" @click="panelMode='preview'">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="问卷设置" placement="bottom">
+                  <el-button text size="small" class="toolbar-btn" :class="{ active: showSurveySettings }" aria-label="问卷设置面板" :aria-pressed="showSurveySettings" @click="openSurveySettings">
+                    <el-icon><Setting /></el-icon>
                   </el-button>
                 </el-tooltip>
               </el-button-group>
@@ -131,6 +141,10 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 保存
               </el-button>
+            </div>
+            <div class="toolbar-compact-status">
+              <span class="toolbar-compact-title">{{ form.title || '未命名问卷' }}</span>
+              <span class="toolbar-save-status" :class="saveStatusClass">{{ saveStatusLabel }}</span>
             </div>
           </div>
           <SurveyDesignerIssues v-if="!designerLoading" :issues="designerIssues" @locate="locateDesignerIssue" />
@@ -197,7 +211,7 @@
         </div>
 
         <SurveyDesignerQuestionProperties
-          v-show="middleTab !== 'logic' && middleTab !== 'result'"
+          v-show="middleTab !== 'logic' && middleTab !== 'result' && (selected || showSurveySettings)"
           v-model="selected"
           v-model:selected-opt-idx="selectedOptIdx"
           v-model:show-survey-settings="showSurveySettings"
@@ -271,6 +285,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminApi } from '../../api'

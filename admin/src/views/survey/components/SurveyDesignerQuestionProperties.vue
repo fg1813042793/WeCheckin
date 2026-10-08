@@ -2,7 +2,7 @@
   <div class="survey-setting-panel" @click.self="deselectQuestion">
     <div v-if="selected" class="props-panel">
       <template v-if="selectedOptIdx >= 0 && selected.type === 'file'">
-        <SurveyDesignerPanelTitle title="文件上传设置" :context="context" />
+        <SurveyDesignerPanelTitle title="文件上传设置" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <el-form-item label="允许类型">
             <el-checkbox-group v-model="selected.fileTypes">
@@ -23,7 +23,7 @@
       </template>
 
       <template v-else-if="selectedOptIdx >= 0 && isMatrixAll(selected.type) && selected.props?.rows?.[selectedOptIdx]">
-        <SurveyDesignerPanelTitle title="矩阵行设置" :context="context" />
+        <SurveyDesignerPanelTitle title="矩阵行设置" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <el-form-item label="行名"><el-input v-model="selected.props.rows[selectedOptIdx].title" /></el-form-item>
           <el-form-item label="行ID"><el-input v-model="selected.props.rows[selectedOptIdx].id" disabled /></el-form-item>
@@ -32,7 +32,7 @@
       </template>
 
       <template v-else-if="selectedOptIdx >= 0 && (selected.type === 'user' || selected.type === 'dept')">
-        <SurveyDesignerPanelTitle :title="`${selected.type === 'user' ? '成员' : '部门'}设置`" :context="context" />
+        <SurveyDesignerPanelTitle :title="`${selected.type === 'user' ? '成员' : '部门'}设置`" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <template v-if="selected.type === 'user'">
             <el-form-item label="成员名称"><el-input v-model="selected.props.options[selectedOptIdx].label" placeholder="输入成员名称" /></el-form-item>
@@ -51,7 +51,7 @@
       </template>
 
       <template v-else-if="selectedOptIdx >= 0 && selected.props?.options?.[selectedOptIdx]">
-        <SurveyDesignerPanelTitle :title="`选项设置 - ${stripHtml(selected.props.options[selectedOptIdx].label || '')}`" :context="context" />
+        <SurveyDesignerPanelTitle :title="`选项设置 - ${stripHtml(selected.props.options[selectedOptIdx].label || '')}`" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <el-form-item label="选项值"><el-input v-model="selected.props.options[selectedOptIdx].value" placeholder="默认同选项名称" /></el-form-item>
           <template v-if="hasOptions(selected)">
@@ -76,7 +76,7 @@
       </template>
 
       <template v-else-if="selectedOptIdx >= 0 && (selected.type === 'multiInput' || selected.type === 'hInput') && selected.props?.fields?.[selectedOptIdx]">
-        <SurveyDesignerPanelTitle :title="`字段设置 - ${selected.props.fields[selectedOptIdx].label}`" :context="context" />
+        <SurveyDesignerPanelTitle :title="`字段设置 - ${selected.props.fields[selectedOptIdx].label}`" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <el-form-item label="字段名"><el-input v-model="selected.props.fields[selectedOptIdx].label" placeholder="输入字段名" /></el-form-item>
           <el-form-item label="占位提示"><el-input v-model="selected.props.fields[selectedOptIdx].placeholder" placeholder="输入占位提示" /></el-form-item>
@@ -87,7 +87,7 @@
       </template>
 
       <template v-else-if="selectedOptIdx >= 0 && (selected.type === 'rating' || selected.type === 'nps')">
-        <SurveyDesignerPanelTitle :title="`${selected.type === 'rating' ? '评分' : 'NPS'}设置`" :context="context" />
+        <SurveyDesignerPanelTitle :title="`${selected.type === 'rating' ? '评分' : 'NPS'}设置`" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <el-form-item label="最大分值"><el-input-number v-model="selected.props.maxRating" :min="2" :max="10" :step="1" style="width:100%" /></el-form-item>
           <el-form-item v-if="selected.type === 'rating'" label="图标类型">
@@ -99,7 +99,7 @@
       </template>
 
       <template v-else>
-        <SurveyDesignerPanelTitle :title="`${typeName(selected.type)}设置`" :context="context" />
+        <SurveyDesignerPanelTitle :title="`${typeName(selected.type)}设置`" :context="context" closable @close="closePropertiesPanel" />
         <el-form label-position="top" size="small">
           <el-form-item label="ID"><el-input v-model="selected.id" :disabled="!!selected._existing" /></el-form-item>
           <el-row v-if="!isPureLayout(selected.type) && selected.type !== 'questionSet'" :gutter="8">
@@ -193,7 +193,7 @@
     </div>
 
     <div v-else-if="showSurveySettings" class="props-panel">
-      <SurveyDesignerPanelTitle title="问卷设置" :context="form.title || '未命名问卷'" />
+      <SurveyDesignerPanelTitle title="问卷设置" :context="form.title || '未命名问卷'" closable @close="closePropertiesPanel" />
       <div class="setting-row"><span class="setting-label">标题</span><el-input v-model="form.title" placeholder="问卷标题" style="flex:1" /></div>
       <div class="setting-row description-row"><span class="setting-label">描述</span><el-input v-model="form.description" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="问卷描述" style="flex:1" /></div>
       <div class="setting-row"><span class="setting-label">模式</span><span>{{ form.mode === 'exam' ? '考试' : '问卷' }}</span></div>
@@ -280,7 +280,12 @@ function importUserOptions() {
   input.click()
 }
 function removeAppliedImage(field: 'backgroundImages' | 'headerImages') { form.value[field] = []; emit('save') }
-function deselectQuestion() { selected.value = null; showSurveySettings.value = false }
+function closePropertiesPanel() {
+  selected.value = null
+  selectedOptIdx.value = -1
+  showSurveySettings.value = false
+}
+function deselectQuestion() { closePropertiesPanel() }
 function openSurveySettings() { selected.value = null; showSurveySettings.value = true }
 </script>
 

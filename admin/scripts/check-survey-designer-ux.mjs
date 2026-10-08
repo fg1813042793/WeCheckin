@@ -127,6 +127,17 @@ for (const pattern of [
   assert.ok(designer.includes(pattern), `SurveyDesigner.vue missing UX contract: ${pattern}`)
 }
 
+for (const pattern of [
+  'aria-label="编辑问卷"',
+  'aria-label="撤销"',
+  'aria-label="问卷设置面板"',
+  'class="toolbar-compact-status"',
+  'class="survey-mobile-notice"',
+  "(selected || showSurveySettings)",
+]) {
+  assert.ok(designer.includes(pattern), `survey designer first-pass UX missing contract: ${pattern}`)
+}
+
 assert.doesNotMatch(designer, /function typeName\(/, 'question type labels must stay outside SurveyDesigner.vue')
 assert.doesNotMatch(designer, /tabsBarRef/, 'question palette scrolling must stay outside SurveyDesigner.vue')
 assert.doesNotMatch(designer, /function parseTextToQuestions\(/, 'text parsing must stay outside SurveyDesigner.vue')
@@ -271,6 +282,19 @@ for (const pattern of [
   'position:sticky',
 ]) {
   assert.ok(panelTitle.includes(pattern), `survey property panel title missing contract: ${pattern}`)
+}
+
+for (const pattern of ['aria-label="关闭属性面板"', "emit('close')"]) {
+  assert.ok(panelTitle.includes(pattern), `survey property panel close missing contract: ${pattern}`)
+}
+assert.ok(questionProperties.includes('function closePropertiesPanel('), 'survey property panel must support closing')
+
+for (const pattern of ['.toolbar-compact-status', 'flex-wrap:wrap']) {
+  assert.ok(designerStyle.includes(pattern), `survey narrow toolbar missing contract: ${pattern}`)
+}
+
+for (const pattern of ['.survey-mobile-notice', '.survey-main-content > :not(.survey-mobile-notice)']) {
+  assert.ok(responsive.includes(pattern), `survey mobile notice missing contract: ${pattern}`)
 }
 
 for (const pattern of [':class="{ selected: q.id === selectedId, invalid:', 'class="card-invalid-label"']) {

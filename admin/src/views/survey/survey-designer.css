@@ -35,6 +35,7 @@
 }
 .nav-btn:hover { background:#f7f8fb; color:#374151; border-color:#eef1f5; }
 .nav-btn.active { background:var(--designer-accent-soft); color:var(--designer-accent); border-color:var(--designer-accent-border); box-shadow:0 6px 14px rgba(37,99,235,0.12); }
+.nav-btn:focus-visible { outline:2px solid var(--designer-accent); outline-offset:2px; }
 .nav-btn svg { display:block; flex-shrink:0; }
 
 /* ======= 主内容 ======= */
@@ -189,7 +190,13 @@
 }
 .toolbar-btn:hover { color:#1f2937; background:#fff!important; }
 .toolbar-btn.active { color:var(--designer-accent); background:#fff!important; box-shadow:0 5px 12px rgba(15,23,42,0.08); }
+.toolbar-btn:focus-visible { outline:2px solid var(--designer-accent); outline-offset:1px; }
 .toolbar-divider { width:1px; height:24px; background:var(--designer-border); margin:0 2px; display:inline-block; }
+.toolbar-compact-status { display:none; }
+.toolbar-compact-title {
+  min-width:0; overflow:hidden; color:#344054; font-size:12px; font-weight:650;
+  text-overflow:ellipsis; white-space:nowrap;
+}
 
 .survey-main-panel-content { flex:1; overflow-y:auto; padding:26px 44px 36px; }
 .editor-wrapper { max-width:210mm; margin:0 auto; }
@@ -473,7 +480,15 @@
   .nav-btn { width:34px; height:34px; min-width:34px; border-radius:9px; }
   .survey-sidebar-panel-tabs-pane { width:38px; height:38px; margin:2px 4px; }
   .survey-sidebar-panel-tabs-content { width:196px; }
+  .survey-main-panel-toolbar { flex-wrap:wrap; gap:6px 10px; padding:7px 10px; }
+  .toolbar-left { order:1; }
+  .toolbar-right { order:2; margin-left:auto; }
   .toolbar-center { display:none; }
+  .toolbar-compact-status {
+    order:3; display:flex; width:100%; min-width:0; align-items:center; justify-content:space-between;
+    gap:10px; padding:0 2px; line-height:18px;
+  }
+  .toolbar-compact-status .toolbar-save-status { flex-shrink:0; font-size:11px; }
   .survey-setting-panel { width:300px; }
   .survey-main-panel-content { padding:18px; }
   .questions-area { padding:16px 18px 20px; }
