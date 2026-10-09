@@ -30,7 +30,7 @@ export function useExamDesignerTransfer(options: ExamDesignerTransferOptions) {
     payload.questions.forEach(question => {
       const next: ExamDesignerQuestion = {
         id: options.generateId(), type: question.type, title: question.title,
-        required: false, readOnly: false, dataType: '', placeholder: '',
+        required: question.required, readOnly: false, dataType: '', placeholder: '',
         mediaType: '', mediaUrl: '', mediaWidth: '', mediaAlign: 'center',
         showDescription: true, props: {},
       }

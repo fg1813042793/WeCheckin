@@ -55,7 +55,7 @@ export function useSurveyDesignerTransfer(options: SurveyDesignerTransferOptions
         id: options.generateId(),
         type: question.type,
         title: question.title,
-        required: false,
+        required: question.required,
         readOnly: false,
         dataType: '',
         placeholder: '',

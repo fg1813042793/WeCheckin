@@ -8,6 +8,7 @@ export interface ParsedSurveyTextOption {
 export interface ParsedSurveyTextQuestion {
   type: string
   title: string
+  required: boolean
   options: ParsedSurveyTextOption[]
   rows: Array<{ title: string }>
   columns: Array<{ title: string }>
@@ -85,7 +86,16 @@ export function stripSurveyMarkup(value: string) {
 }
 
 function createParsedQuestion(type = 'input', title = ''): ParsedSurveyTextQuestion {
-  return { type, title, options: [], rows: [], columns: [], fields: [] }
+  return { type, title, required: false, options: [], rows: [], columns: [], fields: [] }
+}
+
+function extractRequiredMarker(value: string) {
+  const normalized = stripSurveyMarkup(value).trim()
+  const marker = normalized.match(/(?:（\s*必填\s*）|\(\s*必填\s*\))\s*$/)
+  return {
+    title: marker ? normalized.slice(0, marker.index).trimEnd() : normalized,
+    required: Boolean(marker),
+  }
 }
 
 export function parseSurveyText(text: string): ParsedSurveyText {
@@ -156,11 +166,14 @@ export function parseSurveyText(text: string): ParsedSurveyText {
     if (typeMatch) {
       const type = TEXT_TYPE_MAP[typeMatch[1].trim()] || 'input'
       const fallbackTitle = line.replace(/^\d*[.、）)]?\s*/, '').replace(/\[.*?\]/, '').trim()
-      const title = stripSurveyMarkup(typeMatch[2]) || stripSurveyMarkup(fallbackTitle)
-      current = createParsedQuestion(type, title)
+      const parsedTitle = extractRequiredMarker(typeMatch[2] || fallbackTitle)
+      current = createParsedQuestion(type, parsedTitle.title)
+      current.required = parsedTitle.required
       if (type === 'judge') current.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
     } else {
-      current = createParsedQuestion('input', stripSurveyMarkup(line.replace(/^\d+[.、）)]?\s*/, '')))
+      const parsedTitle = extractRequiredMarker(line.replace(/^\d+[.、）)]?\s*/, ''))
+      current = createParsedQuestion('input', parsedTitle.title)
+      current.required = parsedTitle.required
     }
   }
 

@@ -225,9 +225,12 @@ for (const pattern of [
   'export function parseSurveyText',
   'export function serializeSurveyText',
   'export function stripSurveyMarkup',
+  'required: boolean',
+  'function extractRequiredMarker(',
 ]) {
   assert.ok(textTransfer.includes(pattern), `survey text transfer missing contract: ${pattern}`)
 }
+assert.ok(transfer.includes('required: question.required'), 'survey text import must preserve the required flag')
 
 for (const pattern of ['useSurveyResponses(', 'loadResponses', 'deleteResponse', 'batchDeleteResponses']) {
   assert.ok(responses.includes(pattern), `survey responses composable missing contract: ${pattern}`)
@@ -247,6 +250,7 @@ for (const [source, name, patterns] of [
 }
 
 for (const pattern of [
+  '必填题目：题干末尾加「（必填）」或「(必填)」',
   '指定值：A. [选项值] 选项文本',
   'A. [red] 红色',
 ]) {

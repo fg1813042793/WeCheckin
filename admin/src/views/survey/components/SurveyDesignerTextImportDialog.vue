@@ -6,7 +6,7 @@
         <el-radio-button value="file">上传文件</el-radio-button>
       </el-radio-group>
       <el-tag type="info" class="format-hint">
-        选项：A. 选项文本；指定值：A. [选项值] 选项文本
+        必填题目：题干末尾加「（必填）」或「(必填)」；选项：A. 选项文本；指定值：A. [选项值] 选项文本
       </el-tag>
     </div>
     <el-input
@@ -14,7 +14,7 @@
       v-model="text"
       type="textarea"
       :rows="12"
-      placeholder="粘贴题目文本&#10;&#10;格式示例：&#10;1. 您最喜欢的颜色？&#10;A. [red] 红色&#10;B. [blue] 蓝色&#10;C. 绿色&#10;&#10;2. 您的姓名&#10;&#10;3. [多选题] 您的爱好&#10;A. 阅读&#10;B. 运动&#10;C. 音乐"
+      placeholder="粘贴题目文本&#10;&#10;格式示例：&#10;1. [单选] 您最喜欢的颜色？（必填）&#10;A. [red] 红色&#10;B. [blue] 蓝色&#10;C. 绿色&#10;&#10;2. 您的姓名&#10;&#10;3. [多选题] 您的爱好&#10;A. 阅读&#10;B. 运动&#10;C. 音乐"
     />
     <div v-else>
       <el-upload drag :auto-upload="false" :show-file-list="false" :on-change="onTextFileChange" accept=".txt,.docx,.md">
