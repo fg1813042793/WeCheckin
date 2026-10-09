@@ -258,6 +258,14 @@ for (const pattern of [
 }
 
 for (const pattern of [
+  'postStatDestinationMissing',
+  '请配置至少一个通知目标',
+  '需要同时运行 taskd',
+]) {
+  assert.ok(logicPanel.includes(pattern), `postStat notification contract missing: ${pattern}`)
+}
+
+for (const pattern of [
   'const categories = computed(',
   'const activeCategory = ref(',
   "emit('add', type)",

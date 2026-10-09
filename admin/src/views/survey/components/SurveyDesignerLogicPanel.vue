@@ -190,6 +190,8 @@
             <el-checkbox v-model="ruleForm.notifyAdmin" class="notify-admin">通知管理员</el-checkbox>
             <el-input v-model="ruleForm.notifyUserIds" placeholder="指定成员 ID（多个用逗号隔开）" clearable />
             <div class="field-help">通知管理员和指定成员为选填，仅用于站内通知</div>
+            <div v-if="postStatDestinationMissing" class="field-help field-help-danger">当前没有有效通知目标：请勾选通知管理员、填写成员 ID，或配置 Webhook。</div>
+            <div class="field-help">交卷后通知通过后台 outbox 队列发送，需要同时运行 taskd。</div>
           </el-form-item>
         </template>
       </el-form>
@@ -268,6 +270,16 @@ const allPresets = computed(() => [
   ...customPresets.value.map(item => ({ label: item.label, value: `custom:${item.label}`, group: 'custom' })),
 ])
 
+const postStatDestinationMissing = computed(() => {
+  if (ruleForm.value.action !== 'postStat') return false
+  const channel = ruleForm.value.notifyChannel || ''
+  const hasInternalRecipient = ['internal', 'both'].includes(channel)
+    && (Boolean(ruleForm.value.notifyAdmin) || Boolean(String(ruleForm.value.notifyUserIds || '').trim()))
+  const hasWebhookRecipient = ['webhook', 'both'].includes(channel)
+    && Boolean(String(ruleForm.value.webhookUrl || '').trim())
+  return !hasInternalRecipient && !hasWebhookRecipient
+})
+
 void loadPresets()
 
 function createRule(): SurveyLogicRule {
@@ -296,6 +308,11 @@ function confirmRule() {
     if (!rule.notifyChannel) return ElMessage.warning('请选择通知方式')
     if (['webhook', 'both'].includes(rule.notifyChannel) && !rule.webhookUrl) return ElMessage.warning('请填写 Webhook URL')
     if (['webhook', 'both'].includes(rule.notifyChannel) && !rule.webhookType) return ElMessage.warning('请选择 Webhook 类型')
+    const hasInternalRecipient = ['internal', 'both'].includes(rule.notifyChannel)
+      && (Boolean(rule.notifyAdmin) || Boolean(String(rule.notifyUserIds || '').trim()))
+    const hasWebhookRecipient = ['webhook', 'both'].includes(rule.notifyChannel)
+      && Boolean(String(rule.webhookUrl || '').trim())
+    if (!hasInternalRecipient && !hasWebhookRecipient) return ElMessage.warning('请配置至少一个通知目标')
   }
   if (['show', 'hide', 'required', 'check', 'assignment', 'validate', 'replace'].includes(rule.action) && rule.targetQuestionIdx === undefined) return ElMessage.warning('请选择目标题目')
   if (['branch', 'end'].includes(rule.action) && rule.branchFromIdx === undefined) return ElMessage.warning(rule.action === 'end' ? '请选择结束来源题目' : '请选择跳转来源题目')
@@ -427,6 +444,7 @@ function deleteCustomPreset(label: string) {
 .branch-target :deep(.el-select) { min-width:280px; flex:1; }
 .branch-target :deep(.el-checkbox) { white-space:nowrap; }
 .field-help { margin-top:4px; color:#999; font-size:11px; }
+.field-help-danger { color:#d93025; }
 .template-select { width:140px; }
 .preset-delete { float:right; color:#999; font-size:11px; cursor:pointer; }
 .template-help { line-height:1.8; }

@@ -159,9 +159,10 @@ func (h *ClientSurveyHandler) Detail(ctx context.Context, c *app.RequestContext)
 		startAt = now
 	} else {
 		v, err := rd.RDB.Get(redisCtx, redisKey).Int64()
-		if err == nil {
+		if err == nil && !shouldResetSurveySession(now, v) {
 			startAt = v
 		} else {
+			rd.RDB.Set(redisCtx, redisKey, now, 24*time.Hour)
 			startAt = now
 		}
 	}
