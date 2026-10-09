@@ -22,6 +22,7 @@ var (
 	ErrDuplicateRunKey    = errors.New("scheduled task run already exists")
 	ErrRunNotRetryable    = errors.New("scheduled task run is not retryable")
 	ErrRunNotCancelable   = errors.New("scheduled task run is not cancelable")
+	ErrRunNotDeletable    = errors.New("scheduled task run is not deletable")
 	ErrInvalidTask        = errors.New("invalid scheduled task")
 	ErrHandlerUnavailable = errors.New("scheduled task handler unavailable")
 	ErrSystemTaskReadOnly = errors.New("system scheduled task is read-only")

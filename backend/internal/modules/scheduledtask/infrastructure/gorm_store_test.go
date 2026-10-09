@@ -24,6 +24,8 @@ func TestGormStoreUsesLocksAndConditionalUpdatesForRuntimeSafety(t *testing.T) {
 		`func (store *GormStore) RecoverStaleRuns(`,
 		`func (store *GormStore) CompleteRun(`,
 		`func (store *GormStore) HeartbeatRun(`,
+		`func (store *GormStore) DeleteRuns(`,
+		`run_status NOT IN ?`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("gorm store missing %q", want)

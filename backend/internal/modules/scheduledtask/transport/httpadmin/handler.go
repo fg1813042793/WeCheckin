@@ -47,6 +47,10 @@ type cronPreviewBody struct {
 	AfterMillis int64  `json:"afterMillis"`
 }
 
+type deleteRunsBody struct {
+	IDs []string `json:"ids"`
+}
+
 func (handler *Handler) ListTasks(ctx context.Context, c *app.RequestContext) {
 	query := application.TaskQuery{
 		Keyword: c.Query("keyword"), HandlerType: c.Query("handlerType"),
@@ -234,6 +238,28 @@ func (handler *Handler) CancelRun(ctx context.Context, c *app.RequestContext) {
 	}
 	data, err := handler.service.CancelRun(ctx, runID, uint64(admin.ID))
 	respond(ctx, c, data, err)
+}
+
+// DeleteRuns godoc
+// @Summary 批量删除终态运行记录
+// @Tags API v2-后台管理-定时任务
+// @Accept json
+// @Produce json
+// @Param request body deleteRunsBody true "运行记录 ID 列表"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/scheduled-task-runs [delete]
+func (handler *Handler) DeleteRuns(ctx context.Context, c *app.RequestContext) {
+	if _, ok := currentAdmin(c); !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	var body deleteRunsBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	count, err := handler.service.DeleteRuns(ctx, body.IDs)
+	respond(ctx, c, map[string]int{"deletedCount": count}, err)
 }
 
 func (handler *Handler) ListWorkers(ctx context.Context, c *app.RequestContext) {

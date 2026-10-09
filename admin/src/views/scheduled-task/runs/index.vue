@@ -16,12 +16,16 @@
           <el-button @click="resetFilters">重置</el-button>
         </div>
       </div>
-      <div class="admin-toolbar">
+        <div class="admin-toolbar">
         <div class="admin-toolbar__left"><span class="admin-muted">运行记录由 MySQL 保存，Redis 仅用于投递与节点心跳。</span></div>
-        <div class="admin-toolbar__right"><el-button circle icon="Refresh" title="刷新" :loading="loading" @click="loadList" /></div>
+        <div class="admin-toolbar__right">
+          <el-button v-if="canDelete" type="danger" plain icon="Delete" :disabled="selectedRows.length === 0" @click="deleteSelected">批量删除</el-button>
+          <el-button circle icon="Refresh" title="刷新" :loading="loading" @click="loadList" />
+        </div>
       </div>
 
-      <el-table v-loading="loading" :data="list" stripe>
+      <el-table v-loading="loading" :data="list" stripe @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="48" :selectable="selectableRun" />
         <el-table-column label="运行 ID" min-width="230"><template #default="{ row }"><button class="run-link" type="button" @click="openDetail(row)">{{ row.id }}</button><small class="run-parent" v-if="row.parentRunId">重试自 {{ row.parentRunId }}</small></template></el-table-column>
         <el-table-column prop="taskId" label="任务 ID" width="100" />
         <el-table-column label="触发方式" width="110"><template #default="{ row }">{{ triggerLabel(row.triggerType) }}</template></el-table-column>
@@ -92,9 +96,11 @@ const pageSize = ref(20)
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<ScheduledTaskRunDetail | null>(null)
+const selectedRows = ref<ScheduledTaskRun[]>([])
 const filters = reactive<{ taskId: string; status: string; triggerType: string; workerId: string; range: [Date, Date] | null }>({ taskId: '', status: '', triggerType: '', workerId: '', range: null })
 const canRetry = computed(() => hasPerm('admin:menu:scheduled-task:run:retry'))
 const canCancel = computed(() => hasPerm('admin:menu:scheduled-task:run:cancel'))
+const canDelete = computed(() => hasPerm('admin:menu:scheduled-task:run:delete'))
 
 onMounted(loadList)
 
@@ -114,6 +120,25 @@ async function loadList() {
 function search() { page.value = 1; loadList() }
 function resetFilters() { Object.assign(filters, { taskId: '', status: '', triggerType: '', workerId: '', range: null }); search() }
 function changePageSize() { page.value = 1; loadList() }
+
+function selectableRun(row: ScheduledTaskRun) {
+  return deletable(row.status)
+}
+
+function handleSelectionChange(rows: ScheduledTaskRun[]) {
+  selectedRows.value = rows.filter(row => deletable(row.status))
+}
+
+async function deleteSelected() {
+  const ids = selectedRows.value.map(row => row.id)
+  if (!ids.length) return
+  await ElMessageBox.confirm(`将删除选中的 ${ids.length} 条终态运行记录及其分段日志，运行中的记录不会被删除。`, '批量删除运行记录', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  const response = await adminApi.scheduledTaskRunDelete(ids)
+  ElMessage.success(`已删除 ${Number(response.data?.deletedCount || 0)} 条运行记录`)
+  selectedRows.value = []
+  if (list.value.length === ids.length && page.value > 1) page.value -= 1
+  await loadList()
+}
 
 async function openDetail(row: ScheduledTaskRun) {
   detailVisible.value = true
@@ -139,6 +164,7 @@ async function cancelRun(row: ScheduledTaskRun) {
   await loadList()
 }
 
+function deletable(status: string) { return ['success', 'failed', 'canceled', 'skipped'].includes(status) }
 function cancelable(status: string) { return ['waiting', 'queued', 'running', 'retry_wait'].includes(status) }
 function triggerLabel(value: string) { return ({ scheduled: '计划调度', misfire: '错过补跑', manual: '手工运行', manual_retry: '手工重试' } as Record<string, string>)[value] || value }
 function statusMeta(value: string) {

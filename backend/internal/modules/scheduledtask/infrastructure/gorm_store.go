@@ -348,6 +348,40 @@ func (store *GormStore) CancelRun(ctx context.Context, runID string, running boo
 	return nil
 }
 
+func (store *GormStore) DeleteRuns(ctx context.Context, runIDs []string) (int, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	terminalStatuses := []string{
+		scheduledtaskmodel.RunStatusSuccess,
+		scheduledtaskmodel.RunStatusFailed,
+		scheduledtaskmodel.RunStatusCanceled,
+		scheduledtaskmodel.RunStatusSkipped,
+	}
+	var deleted int64
+	err = db.Transaction(func(tx *gorm.DB) error {
+		var activeCount int64
+		if err := tx.Model(&scheduledtaskmodel.Run{}).Where("id IN ? AND run_status NOT IN ?", runIDs, terminalStatuses).Count(&activeCount).Error; err != nil {
+			return err
+		}
+		if activeCount > 0 {
+			return application.ErrRunNotDeletable
+		}
+		if err := tx.Where("run_id IN ?", runIDs).Delete(&scheduledtaskmodel.RunLog{}).Error; err != nil {
+			return err
+		}
+		result := tx.Where("id IN ? AND run_status IN ?", runIDs, terminalStatuses).Delete(&scheduledtaskmodel.Run{})
+		if result.Error != nil {
+			return result.Error
+		}
+		deleted = result.RowsAffected
+		return nil
+	})
+	return int(deleted), err
+}
+
 func (store *GormStore) GenerateDueRuns(ctx context.Context, now int64, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 100

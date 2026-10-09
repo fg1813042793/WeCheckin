@@ -835,6 +835,9 @@ export const adminApi = {
   scheduledTaskRunList(params?: QueryParams) {
     return request.get<ScheduledTaskPageData<ScheduledTaskRun>>(`${ADMIN_V2}/scheduled-task-runs`, { params })
   },
+  scheduledTaskRunDelete(ids: string[]) {
+    return request.delete<{ deletedCount: number }>(`${ADMIN_V2}/scheduled-task-runs`, deleteBody({ ids }))
+  },
   scheduledTaskRunDetail(id: ID) {
     return request.get<ScheduledTaskRunDetail>(`${ADMIN_V2}/scheduled-task-runs/${encodePath(id)}`)
   },

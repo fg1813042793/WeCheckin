@@ -16,6 +16,7 @@ func TestScheduledTaskMenuDeclarations(t *testing.T) {
 		"admin:menu:scheduled-task:shell":      {parent: "admin:menu:scheduled-task:tasks", perms: "scheduled-task:shell"},
 		"admin:menu:scheduled-task:sql:write":  {parent: "admin:menu:scheduled-task:tasks", perms: "scheduled-task:sql:write"},
 		"admin:menu:scheduled-task:run:retry":  {parent: "admin:menu:scheduled-task:runs", perms: "scheduled-task:run:retry"},
+		"admin:menu:scheduled-task:run:delete": {parent: "admin:menu:scheduled-task:runs", perms: "scheduled-task:run:delete"},
 		"admin:menu:scheduled-task:run:cancel": {parent: "admin:menu:scheduled-task:runs", perms: "scheduled-task:run:cancel"},
 	}
 	found := make(map[string]Declaration)

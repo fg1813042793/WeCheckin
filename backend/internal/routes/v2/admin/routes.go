@@ -190,6 +190,7 @@ func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *work
 	admin.GET("/scheduled-task-handlers", handler.ListHandlers)
 	admin.GET("/scheduled-task-workers", handler.ListWorkers)
 	admin.GET("/scheduled-task-runs", handler.ListRuns)
+	admin.DELETE("/scheduled-task-runs", handler.DeleteRuns)
 	admin.GET("/scheduled-task-runs/:id", handler.GetRun)
 	admin.POST("/scheduled-task-runs/:id/retry", handler.RetryRun)
 	admin.POST("/scheduled-task-runs/:id/cancel", handler.CancelRun)

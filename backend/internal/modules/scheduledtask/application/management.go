@@ -69,6 +69,10 @@ type ManagementStore interface {
 	CancelRun(context.Context, string, bool, uint64, int64) error
 }
 
+type RunDeletionStore interface {
+	DeleteRuns(context.Context, []string) (int, error)
+}
+
 func (service *Service) GetTask(ctx context.Context, taskID uint64) (*scheduledtaskmodel.Task, error) {
 	return service.store.GetTask(ctx, taskID)
 }
@@ -156,6 +160,34 @@ func (service *Service) ListRuns(ctx context.Context, query RunQuery) (*RunList,
 		items = make([]scheduledtaskmodel.Run, 0)
 	}
 	return &RunList{List: items, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (service *Service) DeleteRuns(ctx context.Context, runIDs []string) (int, error) {
+	ids := make([]string, 0, len(runIDs))
+	seen := make(map[string]struct{}, len(runIDs))
+	for _, runID := range runIDs {
+		runID = strings.TrimSpace(runID)
+		if runID == "" {
+			continue
+		}
+		if _, ok := seen[runID]; ok {
+			continue
+		}
+		seen[runID] = struct{}{}
+		ids = append(ids, runID)
+	}
+	if len(ids) == 0 {
+		return 0, ErrRunNotFound
+	}
+	store, err := service.managementStore()
+	if err != nil {
+		return 0, err
+	}
+	deletionStore, ok := store.(RunDeletionStore)
+	if !ok {
+		return 0, errors.New("scheduled task run deletion is not initialized")
+	}
+	return deletionStore.DeleteRuns(ctx, ids)
 }
 
 func (service *Service) GetRunDetail(ctx context.Context, runID string) (*RunDetail, error) {

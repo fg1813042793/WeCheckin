@@ -142,6 +142,7 @@ var routeMethodPerms = map[string]string{
 	"POST /api/v2/admin/scheduled-tasks/cron-preview": "scheduled-task:list",
 	"GET /api/v2/admin/scheduled-task-handlers":       "scheduled-task:list",
 	"GET /api/v2/admin/scheduled-task-runs":           "scheduled-task:run:list",
+	"DELETE /api/v2/admin/scheduled-task-runs":        "scheduled-task:run:delete",
 	"GET /api/v2/admin/scheduled-task-workers":        "scheduled-task:worker:list",
 }
 

@@ -16,6 +16,7 @@ func TestScheduledTaskRESTRoutesResolvePermissions(t *testing.T) {
 		{method: "POST", path: "/api/v2/admin/scheduled-tasks/9/run", want: "scheduled-task:run"},
 		{method: "POST", path: "/api/v2/admin/scheduled-task-runs/run-1/retry", want: "scheduled-task:run:retry"},
 		{method: "POST", path: "/api/v2/admin/scheduled-task-runs/run-1/cancel", want: "scheduled-task:run:cancel"},
+		{method: "DELETE", path: "/api/v2/admin/scheduled-task-runs", want: "scheduled-task:run:delete"},
 	} {
 		got, ok := adminRoutePermission(test.method, test.path)
 		if !ok || got != test.want {
