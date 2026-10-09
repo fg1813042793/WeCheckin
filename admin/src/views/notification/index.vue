@@ -50,11 +50,13 @@
           <el-button @click="resetFilters">重置</el-button>
         </div>
         <div class="admin-toolbar__right">
+          <el-button v-if="canDelete" type="danger" plain :icon="Delete" :disabled="inAppSelectedRows.length === 0" @click="deleteSelectedInApp">批量删除</el-button>
           <el-button circle :icon="Refresh" title="刷新" :loading="loading" @click="load" />
         </div>
         </div>
 
-        <el-table v-loading="loading" :data="list" class="notification-table" empty-text="暂无通知投递记录" stripe>
+        <el-table v-loading="loading" :data="list" class="notification-table" empty-text="暂无通知投递记录" stripe @selection-change="handleInAppSelectionChange">
+        <el-table-column type="selection" width="48" />
         <el-table-column prop="id" label="记录 ID" width="92" />
         <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
         <el-table-column label="内容" min-width="300">
@@ -122,11 +124,13 @@
             <el-button @click="webhookStatus = ''; loadWebhookRecords()">重置</el-button>
           </div>
           <div class="admin-toolbar__right">
+            <el-button v-if="canDelete" type="danger" plain :icon="Delete" :disabled="webhookSelectedRows.length === 0" @click="deleteSelectedWebhook">批量删除</el-button>
             <el-button circle :icon="Refresh" title="刷新" :loading="webhookLoading" @click="loadWebhookRecords" />
           </div>
         </div>
 
-        <el-table v-loading="webhookLoading" :data="webhookList" class="notification-table" empty-text="暂无 Webhook 投递记录" stripe>
+        <el-table v-loading="webhookLoading" :data="webhookList" class="notification-table" empty-text="暂无 Webhook 投递记录" stripe @selection-change="handleWebhookSelectionChange">
+          <el-table-column type="selection" width="48" :selectable="selectableWebhook" />
           <el-table-column prop="id" label="记录 ID" width="92" />
           <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
           <el-table-column prop="sourceId" label="来源标识" min-width="150" show-overflow-tooltip />
@@ -320,6 +324,7 @@ import NotificationStyleDialog from './components/NotificationStyleDialog.vue'
 import WorkflowDeliveryRecords from './components/WorkflowDeliveryRecords.vue'
 
 const list = ref<InAppNotificationItem[]>([])
+const inAppSelectedRows = ref<InAppNotificationItem[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
@@ -342,6 +347,7 @@ const webhookPage = ref(1)
 const webhookPageSize = ref(20)
 const webhookLoading = ref(false)
 const webhookStatus = ref('')
+const webhookSelectedRows = ref<WebhookNotificationItem[]>([])
 const recipientOptionsLoading = ref(false)
 const recipientOptionsLoadedFor = ref<'in_app' | 'dingtalk' | ''>('')
 const emptyUserSelection = ref<number[]>([])
@@ -427,6 +433,22 @@ async function load() {
   }
 }
 
+function handleInAppSelectionChange(rows: InAppNotificationItem[]) {
+  inAppSelectedRows.value = rows
+}
+
+async function deleteSelectedInApp() {
+  const rows = inAppSelectedRows.value
+  if (!rows.length) return
+  await ElMessageBox.confirm(`将删除选中的 ${rows.length} 条站内信记录。已发送的站内信不会被撤回。`, '批量删除站内信记录', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  const results = await Promise.allSettled(rows.map(row => adminApi.inAppNotificationDelete(row.id)))
+  const failed = results.filter(result => result.status === 'rejected').length
+  inAppSelectedRows.value = []
+  await load()
+  if (failed > 0) ElMessage.warning(`已处理 ${rows.length - failed} 条，${failed} 条删除失败`)
+  else ElMessage.success(`已删除 ${rows.length} 条站内信记录`)
+}
+
 async function loadWebhookRecords() {
   webhookLoading.value = true
   try {
@@ -440,6 +462,26 @@ async function loadWebhookRecords() {
   } finally {
     webhookLoading.value = false
   }
+}
+
+function selectableWebhook(row: WebhookNotificationItem) {
+  return row.status !== 'sending'
+}
+
+function handleWebhookSelectionChange(rows: WebhookNotificationItem[]) {
+  webhookSelectedRows.value = rows.filter(row => row.status !== 'sending')
+}
+
+async function deleteSelectedWebhook() {
+  const rows = webhookSelectedRows.value
+  if (!rows.length) return
+  await ElMessageBox.confirm(`将删除选中的 ${rows.length} 条 Webhook 投递记录，不会撤回已经发送的请求。`, '批量删除 Webhook 记录', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  const results = await Promise.allSettled(rows.map(row => adminApi.webhookNotificationDelete(row.id)))
+  const failed = results.filter(result => result.status === 'rejected').length
+  webhookSelectedRows.value = []
+  await loadWebhookRecords()
+  if (failed > 0) ElMessage.warning(`已处理 ${rows.length - failed} 条，${failed} 条删除失败`)
+  else ElMessage.success(`已删除 ${rows.length} 条 Webhook 记录`)
 }
 
 async function openWebhookDetail(row: WebhookNotificationItem) {

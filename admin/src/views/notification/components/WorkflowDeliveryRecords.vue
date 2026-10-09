@@ -18,6 +18,14 @@
       </div>
       <div class="admin-toolbar__right">
         <el-button
+          v-if="canDelete"
+          type="danger"
+          plain
+          :icon="Delete"
+          :disabled="selectedRows.length === 0"
+          @click="deleteSelected"
+        >批量删除</el-button>
+        <el-button
           v-if="canRetry"
           type="primary"
           plain
@@ -29,7 +37,8 @@
       </div>
     </div>
 
-    <el-table v-loading="loading" :data="list" class="delivery-table" empty-text="暂无流程通知投递记录" stripe>
+    <el-table v-loading="loading" :data="list" class="delivery-table" empty-text="暂无流程通知投递记录" stripe @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="48" :selectable="selectableRow" />
       <el-table-column label="通知标题" min-width="190" show-overflow-tooltip>
         <template #default="{ row }">{{ row.payload.title || '-' }}</template>
       </el-table-column>
@@ -179,6 +188,7 @@ const statusOptions: Array<{ label: string; value: WorkflowNotificationStatus; t
 ]
 
 const list = ref<WorkflowNotificationRecord[]>([])
+const selectedRows = ref<WorkflowNotificationRecord[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
@@ -232,6 +242,26 @@ function resetFilters() {
 function handlePageSizeChange() {
   page.value = 1
   load()
+}
+
+function selectableRow(row: WorkflowNotificationRecord) {
+  return row.status !== 'sending'
+}
+
+function handleSelectionChange(rows: WorkflowNotificationRecord[]) {
+  selectedRows.value = rows.filter(row => row.status !== 'sending')
+}
+
+async function deleteSelected() {
+  const rows = selectedRows.value
+  if (!rows.length) return
+  await ElMessageBox.confirm(`将删除选中的 ${rows.length} 条流程通知记录，不会撤回已经发送的通知。`, '批量删除流程通知', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  const results = await Promise.allSettled(rows.map(row => adminApi.workflowNotificationDelete(row.id)))
+  const failed = results.filter(result => result.status === 'rejected').length
+  selectedRows.value = []
+  await load()
+  if (failed > 0) ElMessage.warning(`已处理 ${rows.length - failed} 条，${failed} 条删除失败`)
+  else ElMessage.success(`已删除 ${rows.length} 条流程通知记录`)
 }
 
 function openDetail(row: WorkflowNotificationRecord) {
