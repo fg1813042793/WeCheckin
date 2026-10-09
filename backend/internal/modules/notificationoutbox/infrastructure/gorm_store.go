@@ -66,6 +66,42 @@ func (store *GormStore) ListWebhookRecords(ctx context.Context, query applicatio
 	return rows, total, nil
 }
 
+func (store *GormStore) GetWebhookRecord(ctx context.Context, id uint64) (*notificationmodel.Outbox, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	var row notificationmodel.Outbox
+	if err := db.Where("id = ? AND notification_channel = ?", id, notificationmodel.ChannelWebhook).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, application.ErrWebhookRecordNotFound
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+func (store *GormStore) DeleteWebhookRecord(ctx context.Context, id uint64) error {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+	result := db.Where("id = ? AND notification_channel = ? AND notification_status <> ?", id, notificationmodel.ChannelWebhook, notificationmodel.StatusSending).Delete(&notificationmodel.Outbox{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		row, findErr := store.GetWebhookRecord(ctx, id)
+		if findErr != nil || row.Status == notificationmodel.StatusSending {
+			return application.ErrWebhookRecordBusy
+		}
+		return application.ErrWebhookRecordNotFound
+	}
+	return nil
+}
+
 func (store *GormStore) ClaimDue(ctx context.Context, now, staleBefore int64, limit int) ([]notificationmodel.Outbox, error) {
 	if limit <= 0 {
 		return []notificationmodel.Outbox{}, nil

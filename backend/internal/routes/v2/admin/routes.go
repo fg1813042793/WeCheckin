@@ -85,6 +85,9 @@ func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.
 
 	admin.GET("/in-app-notifications", handler.List)
 	admin.GET("/webhook-notifications", webhookHandler.List)
+	admin.GET("/webhook-notifications/:id", webhookHandler.Detail)
+	admin.DELETE("/webhook-notifications/:id", webhookHandler.Delete)
+	admin.POST("/webhook-notifications/:id/retry", webhookHandler.Retry)
 	admin.GET("/in-app-notifications/unread-count", handler.UnreadCount)
 	admin.GET("/in-app-notifications/recipient-options", handler.RecipientOptions)
 	admin.POST("/in-app-notifications", handler.Send)

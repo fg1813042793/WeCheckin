@@ -145,6 +145,15 @@
           <el-table-column label="发送时间" width="180">
             <template #default="{ row }">{{ formatTime(row.sentAt) }}</template>
           </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right" align="center">
+            <template #default="{ row }">
+              <div class="admin-table-actions">
+                <el-button link type="primary" :icon="View" @click="openWebhookDetail(row)">详情</el-button>
+                <el-button v-if="canSend && row.status !== 'sending'" link type="primary" :icon="RefreshRight" @click="retryWebhook(row)">重发</el-button>
+                <el-button v-if="canDelete && row.status !== 'sending'" link type="danger" :icon="Delete" @click="deleteWebhook(row)">删除</el-button>
+              </div>
+            </template>
+          </el-table-column>
         </el-table>
 
         <div class="admin-pagination">
@@ -204,6 +213,28 @@
           @click="deleteRecord(detailRecord)"
         >删除记录</el-button>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="webhookDetailVisible" title="Webhook 投递详情" width="min(720px, 92vw)" append-to-body destroy-on-close>
+      <el-descriptions v-if="webhookDetail" :column="2" border class="record-detail">
+        <el-descriptions-item label="记录 ID">{{ webhookDetail.id }}</el-descriptions-item>
+        <el-descriptions-item label="状态"><el-tag :type="webhookStatusType(webhookDetail.status)" size="small">{{ webhookStatusLabel(webhookDetail.status) }}</el-tag></el-descriptions-item>
+        <el-descriptions-item label="标题" :span="2">{{ webhookDetail.title || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="Webhook 类型">{{ webhookDetail.webhookType || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="目标">{{ webhookDetail.target || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="来源类型">{{ sourceLabel(webhookDetail.sourceType) }}</el-descriptions-item>
+        <el-descriptions-item label="来源标识">{{ webhookDetail.sourceId || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="重试次数">{{ webhookDetail.attempts }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ formatTime(webhookDetail.addTime) }}</el-descriptions-item>
+        <el-descriptions-item label="发送时间">{{ formatTime(webhookDetail.sentAt) }}</el-descriptions-item>
+        <el-descriptions-item label="下次重试">{{ formatTime(webhookDetail.nextRetryAt) }}</el-descriptions-item>
+        <el-descriptions-item label="失败原因" :span="2"><span class="error-text">{{ webhookDetail.lastError || '-' }}</span></el-descriptions-item>
+        <el-descriptions-item label="通知正文" :span="2"><div class="record-detail__content">{{ webhookDetail.content || '-' }}</div></el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button v-if="webhookDetail && canSend && webhookDetail.status !== 'sending'" type="primary" plain :icon="RefreshRight" @click="retryWebhook(webhookDetail)">重发</el-button>
+        <el-button @click="webhookDetailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
 
@@ -273,7 +304,7 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, Brush, ChatDotRound, Delete, Promotion, Refresh, Search, View } from '@element-plus/icons-vue'
+import { Bell, Brush, ChatDotRound, Delete, Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api'
@@ -298,6 +329,8 @@ const sendDialogVisible = ref(false)
 const styleDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const detailRecord = ref<InAppNotificationItem | null>(null)
+const webhookDetailVisible = ref(false)
+const webhookDetail = ref<WebhookNotificationItem | null>(null)
 const deletingID = ref<number | null>(null)
 const sending = ref(false)
 const sendRequestID = ref('')
@@ -407,6 +440,29 @@ async function loadWebhookRecords() {
   } finally {
     webhookLoading.value = false
   }
+}
+
+async function openWebhookDetail(row: WebhookNotificationItem) {
+  webhookDetailVisible.value = true
+  webhookDetail.value = null
+  const response = await adminApi.webhookNotificationDetail(row.id)
+  webhookDetail.value = response.data || row
+}
+
+async function retryWebhook(row: WebhookNotificationItem) {
+  await ElMessageBox.confirm('将创建一条新的 Webhook 投递记录，原记录会保留。', '重发 Webhook', { type: 'warning', confirmButtonText: '重发', cancelButtonText: '取消' })
+  await adminApi.webhookNotificationRetry(row.id)
+  ElMessage.success('Webhook 重发记录已创建')
+  webhookDetailVisible.value = false
+  await loadWebhookRecords()
+}
+
+async function deleteWebhook(row: WebhookNotificationItem) {
+  await ElMessageBox.confirm('删除后只移除本地投递记录，不会撤回已经发送的 Webhook。', '删除 Webhook 记录', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  await adminApi.webhookNotificationDelete(row.id)
+  ElMessage.success('Webhook 记录已删除')
+  if (webhookList.value.length === 1 && webhookPage.value > 1) webhookPage.value -= 1
+  await loadWebhookRecords()
 }
 
 function handleRecordViewChange(view: string | number) {

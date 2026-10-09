@@ -3,9 +3,12 @@ package application
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	notificationmodel "wecheckin/backend/internal/model/notification"
 )
@@ -21,8 +24,16 @@ type WebhookRecordQuery struct {
 }
 
 type WebhookRecordStore interface {
+	Enqueue(context.Context, notificationmodel.Outbox) (bool, error)
 	ListWebhookRecords(context.Context, WebhookRecordQuery) ([]notificationmodel.Outbox, int64, error)
+	GetWebhookRecord(context.Context, uint64) (*notificationmodel.Outbox, error)
+	DeleteWebhookRecord(context.Context, uint64) error
 }
+
+var (
+	ErrWebhookRecordNotFound = errors.New("webhook notification record not found")
+	ErrWebhookRecordBusy     = errors.New("webhook notification record is being sent")
+)
 
 type WebhookRecord struct {
 	ID          uint64 `json:"id"`
@@ -63,6 +74,60 @@ func (service *Service) ListWebhookRecords(ctx context.Context, query WebhookRec
 		result.List = append(result.List, webhookRecordFromOutbox(row))
 	}
 	return result, nil
+}
+
+func (service *Service) GetWebhookRecord(ctx context.Context, id uint64) (WebhookRecord, error) {
+	store, ok := service.store.(WebhookRecordStore)
+	if !ok {
+		return WebhookRecord{}, ErrOutboxStoreUnavailable
+	}
+	row, err := store.GetWebhookRecord(ctx, id)
+	if err != nil {
+		return WebhookRecord{}, err
+	}
+	return webhookRecordFromOutbox(*row), nil
+}
+
+func (service *Service) DeleteWebhookRecord(ctx context.Context, id uint64) error {
+	store, ok := service.store.(WebhookRecordStore)
+	if !ok {
+		return ErrOutboxStoreUnavailable
+	}
+	return store.DeleteWebhookRecord(ctx, id)
+}
+
+func (service *Service) RetryWebhookRecord(ctx context.Context, id uint64) (WebhookRecord, error) {
+	store, ok := service.store.(WebhookRecordStore)
+	if !ok {
+		return WebhookRecord{}, ErrOutboxStoreUnavailable
+	}
+	row, err := store.GetWebhookRecord(ctx, id)
+	if err != nil {
+		return WebhookRecord{}, err
+	}
+	if row.Status == notificationmodel.StatusSending {
+		return WebhookRecord{}, ErrWebhookRecordBusy
+	}
+	now := service.now().UnixMilli()
+	row.ID = 0
+	row.IdempotencyKey = fmt.Sprintf("%s:manual:%d", row.IdempotencyKey, now)
+	row.Status = notificationmodel.StatusPending
+	row.Attempts = 0
+	row.NextRetryAt = now
+	row.LastError = ""
+	row.SentAt = 0
+	row.AddTime = now
+	row.EditTime = now
+	row.CreatedAt = time.Time{}
+	row.UpdatedAt = time.Time{}
+	created, err := store.Enqueue(ctx, *row)
+	if err != nil {
+		return WebhookRecord{}, err
+	}
+	if !created {
+		return WebhookRecord{}, errors.New("webhook retry record was not created")
+	}
+	return webhookRecordFromOutbox(*row), nil
 }
 
 var ErrOutboxStoreUnavailable = errOutboxStoreUnavailable{}
