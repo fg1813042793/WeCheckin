@@ -1,6 +1,10 @@
 package survey
 
-import "testing"
+import (
+	"testing"
+
+	"wecheckin/backend/internal/model"
+)
 
 // 不依赖 DB 的纯函数测试
 
@@ -50,6 +54,27 @@ func TestUserIDToStr(t *testing.T) {
 	}
 	if userIDToStr(0, false) != "0" {
 		t.Error("0 should be '0'")
+	}
+}
+
+func TestParseUAOpenHarmony(t *testing.T) {
+	ua := "Mozilla/5.0 (Phone; OpenHarmony 6.1) AppleWebKit/537.36 Chrome/132.0 Mobile MicroMessenger/8.0"
+	browser, deviceType, platformType := parseUA(ua)
+	if browser != "微信" || deviceType != "移动端" || platformType != "OpenHarmony" {
+		t.Fatalf("parseUA OpenHarmony = (%q, %q, %q)", browser, deviceType, platformType)
+	}
+}
+
+func TestNormalizeResponseDeviceMetadataFillsLegacyPlatform(t *testing.T) {
+	response := &model.SurveyResponse{
+		Device:       "Mozilla/5.0 (Phone; OpenHarmony 6.1) Mobile MicroMessenger/8.0",
+		Browser:      "微信",
+		DeviceType:   "移动端",
+		PlatformType: "-",
+	}
+	normalizeResponseDeviceMetadata(response)
+	if response.PlatformType != "OpenHarmony" {
+		t.Fatalf("legacy platform = %q, want OpenHarmony", response.PlatformType)
 	}
 }
 

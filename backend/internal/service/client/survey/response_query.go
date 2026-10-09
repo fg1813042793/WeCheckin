@@ -25,6 +25,7 @@ func (r *ResponseService) GetContext(ctx context.Context, id uint) (*model.Surve
 	if err := db.Where("`survey_resp_id` = ?", id).First(&resp).Error; err != nil {
 		return nil, err
 	}
+	normalizeResponseDeviceMetadata(&resp)
 	return &resp, nil
 }
 
@@ -35,6 +36,7 @@ func (r *ResponseService) GetForAdminContext(ctx context.Context, id uint, admin
 	if err := db.Where("`survey_resp_id` = ?", id).First(&resp).Error; err != nil {
 		return nil, err
 	}
+	normalizeResponseDeviceMetadata(&resp)
 	if err := ensureSurveyVisibleContext(ctx, db, resp.SurveyID, adminID); err != nil {
 		return nil, err
 	}
@@ -82,6 +84,9 @@ func (r *ResponseService) ListContext(ctx context.Context, surveyID uint, page, 
 	}
 	var list []model.SurveyResponse
 	err := q.Order("`survey_resp_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
+	for index := range list {
+		normalizeResponseDeviceMetadata(&list[index])
+	}
 	return list, total, err
 }
 
@@ -103,6 +108,9 @@ func (r *ResponseService) ListAllBySurveyContext(ctx context.Context, surveyID u
 	defer cancel()
 	var list []model.SurveyResponse
 	err := db.Where("`survey_resp_survey_id` = ?", surveyID).Order("`survey_resp_id` ASC").Find(&list).Error
+	for index := range list {
+		normalizeResponseDeviceMetadata(&list[index])
+	}
 	return list, err
 }
 
