@@ -93,6 +93,38 @@ export interface InAppNotificationList {
   pageSize: number
 }
 
+export interface WebhookNotificationItem {
+  id: number
+  title: string
+  content: string
+  sourceType: string
+  sourceId: string
+  webhookType: string
+  target: string
+  status: string
+  attempts: number
+  nextRetryAt: number
+  lastError: string
+  sentAt: number
+  addTime: number
+  editTime: number
+}
+
+export interface WebhookNotificationQuery extends PageQuery {
+  status?: string
+  sourceType?: string
+  webhookType?: string
+  addTimeFrom?: number
+  addTimeTo?: number
+}
+
+export interface WebhookNotificationList {
+  list: WebhookNotificationItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export interface InAppNotificationRecipientOptions {
   users: AdminUser[]
   departments: DepartmentNode[]

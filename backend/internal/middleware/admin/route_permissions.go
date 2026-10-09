@@ -123,6 +123,7 @@ var routeMethodPerms = map[string]string{
 	"GET /api/v2/admin/workflow-notifications":                   "workflow:notification:list",
 	"POST /api/v2/admin/workflow-notifications/dispatch-due":     "workflow:notification:retry",
 	"GET /api/v2/admin/in-app-notifications":                     "notification:list",
+	"GET /api/v2/admin/webhook-notifications":                    "notification:list",
 	"GET /api/v2/admin/in-app-notifications/unread-count":        "notification:list",
 	"GET /api/v2/admin/in-app-notifications/recipient-options":   "notification:send",
 	"PATCH /api/v2/admin/in-app-notifications/read-all":          "notification:read",

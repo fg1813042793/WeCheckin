@@ -16,8 +16,9 @@
         </div>
       </header>
 
-      <el-tabs v-model="activeRecordView" class="record-view-tabs">
+      <el-tabs v-model="activeRecordView" class="record-view-tabs" @tab-change="handleRecordViewChange">
         <el-tab-pane label="站内信记录" name="in_app" />
+        <el-tab-pane label="Webhook 投递" name="webhook" />
         <el-tab-pane v-if="canViewWorkflowNotifications" label="流程投递" name="workflow" />
       </el-tabs>
 
@@ -103,6 +104,58 @@
             layout="total, sizes, prev, pager, next"
             @current-change="load"
             @size-change="handlePageSizeChange"
+          />
+        </div>
+      </template>
+
+      <template v-else-if="activeRecordView === 'webhook'">
+        <div class="admin-toolbar record-filters">
+          <div class="admin-toolbar__left">
+            <el-select v-model="webhookStatus" clearable placeholder="全部状态" style="width: 150px" @change="loadWebhookRecords">
+              <el-option label="待发送" value="pending" />
+              <el-option label="发送中" value="sending" />
+              <el-option label="已发送" value="sent" />
+              <el-option label="待重试" value="failed" />
+              <el-option label="已终止" value="dead" />
+            </el-select>
+            <el-button type="primary" :icon="Search" @click="loadWebhookRecords">查询</el-button>
+            <el-button @click="webhookStatus = ''; loadWebhookRecords()">重置</el-button>
+          </div>
+          <div class="admin-toolbar__right">
+            <el-button circle :icon="Refresh" title="刷新" :loading="webhookLoading" @click="loadWebhookRecords" />
+          </div>
+        </div>
+
+        <el-table v-loading="webhookLoading" :data="webhookList" class="notification-table" empty-text="暂无 Webhook 投递记录" stripe>
+          <el-table-column prop="id" label="记录 ID" width="92" />
+          <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="sourceId" label="来源标识" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="webhookType" label="类型" width="110" />
+          <el-table-column prop="target" label="目标" min-width="190" show-overflow-tooltip />
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }"><el-tag :type="webhookStatusType(row.status)" size="small">{{ webhookStatusLabel(row.status) }}</el-tag></template>
+          </el-table-column>
+          <el-table-column prop="attempts" label="重试" width="70" align="center" />
+          <el-table-column label="失败原因" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.lastError || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="180">
+            <template #default="{ row }">{{ formatTime(row.addTime) }}</template>
+          </el-table-column>
+          <el-table-column label="发送时间" width="180">
+            <template #default="{ row }">{{ formatTime(row.sentAt) }}</template>
+          </el-table-column>
+        </el-table>
+
+        <div class="admin-pagination">
+          <el-pagination
+            v-model:current-page="webhookPage"
+            v-model:page-size="webhookPageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="webhookTotal"
+            layout="total, sizes, prev, pager, next"
+            @current-change="loadWebhookRecords"
+            @size-change="handleWebhookPageSizeChange"
           />
         </div>
       </template>
@@ -228,6 +281,7 @@ import type {
   InAppNotificationItem,
   InAppNotificationRecipientOptions,
   InAppNotificationScope,
+  WebhookNotificationItem,
 } from '../../api/types'
 import { hasPerm } from '../../utils/permission'
 import WorkflowUserTreePicker from '../workflow/components/WorkflowUserTreePicker.vue'
@@ -248,7 +302,13 @@ const deletingID = ref<number | null>(null)
 const sending = ref(false)
 const sendRequestID = ref('')
 const sendChannel = ref<'in_app' | 'dingtalk'>('in_app')
-const activeRecordView = ref<'in_app' | 'workflow'>('in_app')
+const activeRecordView = ref<'in_app' | 'webhook' | 'workflow'>('in_app')
+const webhookList = ref<WebhookNotificationItem[]>([])
+const webhookTotal = ref(0)
+const webhookPage = ref(1)
+const webhookPageSize = ref(20)
+const webhookLoading = ref(false)
+const webhookStatus = ref('')
 const recipientOptionsLoading = ref(false)
 const recipientOptionsLoadedFor = ref<'in_app' | 'dingtalk' | ''>('')
 const emptyUserSelection = ref<number[]>([])
@@ -304,7 +364,9 @@ const canRetryWorkflowNotifications = computed(() => hasPerm('admin:menu:workflo
 const canDeleteWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:delete'))
 const recordSummary = computed(() => activeRecordView.value === 'workflow'
   ? '查看流程站内信与钉钉的完整投递状态'
-  : `共 ${total.value} 条站内信投递记录`)
+  : activeRecordView.value === 'webhook'
+    ? `共 ${webhookTotal.value} 条 Webhook 投递记录`
+    : `共 ${total.value} 条站内信投递记录`)
 const sendDialogTitle = computed(() => sendChannel.value === 'dingtalk' ? '发送钉钉通知' : '发送站内信')
 const departmentModelValue = computed<number[]>({
   get: () => sendForm.departmentIds,
@@ -330,6 +392,30 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadWebhookRecords() {
+  webhookLoading.value = true
+  try {
+    const response = await adminApi.webhookNotificationList({
+      page: webhookPage.value,
+      pageSize: webhookPageSize.value,
+      status: webhookStatus.value || undefined,
+    })
+    webhookList.value = Array.isArray(response.data?.list) ? response.data.list : []
+    webhookTotal.value = Number(response.data?.total || 0)
+  } finally {
+    webhookLoading.value = false
+  }
+}
+
+function handleRecordViewChange(view: string | number) {
+  if (view === 'webhook') void loadWebhookRecords()
+}
+
+function handleWebhookPageSizeChange() {
+  webhookPage.value = 1
+  void loadWebhookRecords()
 }
 
 function openDetail(row: InAppNotificationItem) {
@@ -478,6 +564,14 @@ function sourceLabel(sourceType: string) {
 
 function notificationTypeLabel(type: string) {
   return notificationTypeOptions.find(option => option.value === type)?.label || type || '-'
+}
+
+function webhookStatusLabel(status: string) {
+  return ({ pending: '待发送', sending: '发送中', sent: '已发送', failed: '待重试', dead: '已终止' } as Record<string, string>)[status] || status || '-'
+}
+
+function webhookStatusType(status: string) {
+  return ({ pending: 'info', sending: 'warning', sent: 'success', failed: 'warning', dead: 'danger' } as Record<string, 'info' | 'warning' | 'success' | 'danger'>)[status] || 'info'
 }
 
 function recipientLabel(row: InAppNotificationItem) {

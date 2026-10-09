@@ -26,6 +26,8 @@ import type {
   InAppNotificationRecipientOptions,
   InAppNotificationSendPayload,
   InAppNotificationSendResult,
+  WebhookNotificationList,
+  WebhookNotificationQuery,
   NotificationStyleConfig,
   NotificationStyleTestPayload,
   PageQuery,
@@ -631,6 +633,9 @@ export const adminApi = {
   },
   inAppNotificationList(params?: InAppNotificationQuery) {
     return request.get<InAppNotificationList>(`${ADMIN_V2}/in-app-notifications`, { params })
+  },
+  webhookNotificationList(params?: WebhookNotificationQuery) {
+    return request.get<WebhookNotificationList>(`${ADMIN_V2}/webhook-notifications`, { params })
   },
   inAppNotificationDelete(id: number) {
     return request.delete(`${ADMIN_V2}/in-app-notifications/${encodePath(id)}`)

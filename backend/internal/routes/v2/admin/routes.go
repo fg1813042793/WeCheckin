@@ -29,6 +29,9 @@ import (
 	inappnotificationapp "wecheckin/backend/internal/modules/inappnotification/application"
 	inappnotificationinfra "wecheckin/backend/internal/modules/inappnotification/infrastructure"
 	inappnotificationhttp "wecheckin/backend/internal/modules/inappnotification/transport/httpadmin"
+	notificationoutboxapp "wecheckin/backend/internal/modules/notificationoutbox/application"
+	notificationoutboxinfra "wecheckin/backend/internal/modules/notificationoutbox/infrastructure"
+	notificationoutboxhttp "wecheckin/backend/internal/modules/notificationoutbox/transport/httpadmin"
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
 	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
 	scheduledtaskhttp "wecheckin/backend/internal/modules/scheduledtask/transport/httpadmin"
@@ -77,8 +80,11 @@ func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.
 	store := inappnotificationinfra.NewGormStore(db)
 	service := inappnotificationapp.NewServiceWithDingTalk(store, inappnotificationinfra.NewDingTalkDelivery(db, nil))
 	handler := inappnotificationhttp.NewHandler(service)
+	webhookRecords := notificationoutboxapp.NewService(notificationoutboxinfra.NewGormStore(db))
+	webhookHandler := notificationoutboxhttp.NewHandler(webhookRecords)
 
 	admin.GET("/in-app-notifications", handler.List)
+	admin.GET("/webhook-notifications", webhookHandler.List)
 	admin.GET("/in-app-notifications/unread-count", handler.UnreadCount)
 	admin.GET("/in-app-notifications/recipient-options", handler.RecipientOptions)
 	admin.POST("/in-app-notifications", handler.Send)

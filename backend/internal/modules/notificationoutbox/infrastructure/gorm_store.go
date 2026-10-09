@@ -32,6 +32,40 @@ func (store *GormStore) Enqueue(ctx context.Context, row notificationmodel.Outbo
 	return result.RowsAffected > 0, result.Error
 }
 
+func (store *GormStore) ListWebhookRecords(ctx context.Context, query application.WebhookRecordQuery) ([]notificationmodel.Outbox, int64, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cancel()
+	base := db.Model(&notificationmodel.Outbox{}).Where("notification_channel = ?", notificationmodel.ChannelWebhook)
+	if query.Status != "" {
+		base = base.Where("notification_status = ?", query.Status)
+	}
+	if query.SourceType != "" {
+		base = base.Where("source_type = ?", query.SourceType)
+	}
+	if query.WebhookType != "" {
+		base = base.Where("JSON_UNQUOTE(JSON_EXTRACT(recipient_json, '$.type')) = ?", query.WebhookType)
+	}
+	if query.AddTimeFrom > 0 {
+		base = base.Where("add_time >= ?", query.AddTimeFrom)
+	}
+	if query.AddTimeTo > 0 {
+		base = base.Where("add_time <= ?", query.AddTimeTo)
+	}
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []notificationmodel.Outbox
+	offset := (query.Page - 1) * query.PageSize
+	if err := base.Order("add_time DESC").Order("id DESC").Offset(offset).Limit(query.PageSize).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
 func (store *GormStore) ClaimDue(ctx context.Context, now, staleBefore int64, limit int) ([]notificationmodel.Outbox, error) {
 	if limit <= 0 {
 		return []notificationmodel.Outbox{}, nil
