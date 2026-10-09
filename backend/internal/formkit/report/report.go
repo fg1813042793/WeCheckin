@@ -178,6 +178,11 @@ func FieldStats(schemaJSON string, items []AnswerItem, statMode string) []FieldS
 		}
 	}
 	for i, q := range questions {
+		// Identity fields identify the respondent, but are not survey metrics.
+		// Keep them available through answer rendering/export; omit them from field statistics.
+		if isPersonalIdentityType(q.Type) {
+			continue
+		}
 		fs := FieldStat{
 			QuestionID: q.ID,
 			Title:      q.Title,
@@ -574,6 +579,15 @@ func isTextType(t string) bool {
 		return true
 	}
 	return false
+}
+
+func isPersonalIdentityType(t string) bool {
+	switch t {
+	case "name", "studentId", "employeeId", "class", "phone", "email", "idCard", "password":
+		return true
+	default:
+		return false
+	}
 }
 
 // extractTextColLabels 提取 multiInput/hInput 的字段名列表

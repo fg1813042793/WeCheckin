@@ -128,6 +128,25 @@ func TestFieldStats_Distribution(t *testing.T) {
 	}
 }
 
+func TestFieldStats_ExcludesPersonalIdentityFields(t *testing.T) {
+	schema := `{"version":"2.0","questions":[
+		{"id":"name","type":"name","title":"姓名","required":true},
+		{"id":"q1","type":"radio","title":"DISC题目","props":{"options":[{"label":"计划者","value":"C"},{"label":"指挥者","value":"D"}]}}
+	]}`
+	items := []AnswerItem{
+		{Forms: `{"name":"张三","q1":"C"}`},
+		{Forms: `{"name":"李四","q1":"D"}`},
+	}
+
+	stats := FieldStats(schema, items, "value")
+	if len(stats) != 1 {
+		t.Fatalf("expected only DISC question stats, got %d: %#v", len(stats), stats)
+	}
+	if stats[0].QuestionID != "q1" {
+		t.Fatalf("unexpected statistical field: %#v", stats[0])
+	}
+}
+
 func TestSanitizeFilename(t *testing.T) {
 	tests := []struct{ in, want string }{
 		{"hello world", "hello_world"},
