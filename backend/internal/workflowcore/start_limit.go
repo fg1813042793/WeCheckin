@@ -21,6 +21,20 @@ func CloneStartLimit(config *StartLimitConfig) StartLimitConfig {
 	}
 }
 
+func normalizeStartLimitForAvailability(
+	limit *StartLimitConfig,
+	availability *StartAvailabilityConfig,
+) StartLimitConfig {
+	config := CloneStartLimit(limit)
+	if config.Mode == StartLimitModeLimited &&
+		config.Period == StartLimitPeriodTotal &&
+		availability != nil &&
+		strings.TrimSpace(availability.Mode) == StartAvailabilityMonthlyWindow {
+		config.Period = StartLimitPeriodAvailability
+	}
+	return config
+}
+
 func ResolveStartLimitWindow(
 	limit *StartLimitConfig,
 	availability *StartAvailabilityConfig,
@@ -29,7 +43,7 @@ func ResolveStartLimitWindow(
 	if !validStartLimitConfig(limit, availability) {
 		return StartLimitWindow{}, false
 	}
-	config := CloneStartLimit(limit)
+	config := normalizeStartLimitForAvailability(limit, availability)
 	if config.Mode != StartLimitModeLimited {
 		return StartLimitWindow{}, false
 	}

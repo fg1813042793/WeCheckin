@@ -29,7 +29,7 @@ func RuntimeStartConfigFromDefinition(definition Definition) RuntimeStartConfig 
 			config.Initiator = cloneInitiatorConfig(*node.Initiator)
 		}
 		config.Availability = CloneStartAvailability(node.Availability)
-		config.StartLimit = CloneStartLimit(node.StartLimit)
+		config.StartLimit = normalizeStartLimitForAvailability(node.StartLimit, &config.Availability)
 		break
 	}
 	return config
@@ -46,7 +46,7 @@ func ApplyRuntimeStartConfig(definition *Definition, config RuntimeStartConfig) 
 		}
 		initiator := cloneInitiatorConfig(config.Initiator)
 		availability := CloneStartAvailability(&config.Availability)
-		limit := CloneStartLimit(&config.StartLimit)
+		limit := normalizeStartLimitForAvailability(&config.StartLimit, &availability)
 		definition.Nodes[index].Initiator = &initiator
 		definition.Nodes[index].Availability = &availability
 		definition.Nodes[index].StartLimit = &limit

@@ -41,6 +41,33 @@ func TestRuntimeStartConfigIsDefensivelyCloned(t *testing.T) {
 	}
 }
 
+func TestRuntimeStartConfigNormalizesMonthlyContinuousTotalLimit(t *testing.T) {
+	definition := validLinearDefinition()
+	definition.Nodes[0].Availability = &StartAvailabilityConfig{
+		Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+		WindowStartDayFromEnd: 2, WindowStartTime: "09:30", WindowEndDay: 5, WindowEndTime: "18:00",
+	}
+	definition.Nodes[0].StartLimit = &StartLimitConfig{
+		Mode: StartLimitModeLimited, Period: StartLimitPeriodTotal, MaxCount: 1,
+	}
+
+	config := RuntimeStartConfigFromDefinition(definition)
+	if config.StartLimit.Period != StartLimitPeriodAvailability {
+		t.Fatalf("runtime limit period = %q, want %q", config.StartLimit.Period, StartLimitPeriodAvailability)
+	}
+
+	target := validLinearDefinition()
+	ApplyRuntimeStartConfig(&target, RuntimeStartConfig{
+		Availability: config.Availability,
+		StartLimit: StartLimitConfig{
+			Mode: StartLimitModeLimited, Period: StartLimitPeriodTotal, MaxCount: 1,
+		},
+	})
+	if target.Nodes[0].StartLimit.Period != StartLimitPeriodAvailability {
+		t.Fatalf("applied runtime limit period = %q, want %q", target.Nodes[0].StartLimit.Period, StartLimitPeriodAvailability)
+	}
+}
+
 func TestValidateRuntimeStartConfigOnlyReturnsLiveConfigErrors(t *testing.T) {
 	definition := validLinearDefinition()
 	definition.Nodes[0].Initiator = &InitiatorConfig{Scope: InitiatorScopeSpecified}

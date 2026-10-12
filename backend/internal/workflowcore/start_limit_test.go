@@ -135,3 +135,50 @@ func TestResolveStartLimitWindowUsesAvailabilityCycle(t *testing.T) {
 		t.Fatalf("monthly continuous window = %#v, ok = %v", window, ok)
 	}
 }
+
+func TestResolveStartLimitWindowTreatsMonthlyContinuousTotalAsAvailabilityCycle(t *testing.T) {
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, time.September, 3, 10, 30, 0, 0, location)
+	availability := &StartAvailabilityConfig{
+		Mode: StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+		WindowStartDayFromEnd: 2, WindowStartTime: "09:30", WindowEndDay: 5, WindowEndTime: "18:00",
+	}
+
+	window, ok := ResolveStartLimitWindow(
+		&StartLimitConfig{Mode: StartLimitModeLimited, Period: StartLimitPeriodTotal, MaxCount: 1},
+		availability,
+		now,
+	)
+	wantStart := time.Date(2026, time.August, 30, 9, 30, 0, 0, location)
+	wantEnd := time.Date(2026, time.September, 5, 18, 0, 0, 0, location)
+	if !ok || window.PeriodKey != "availability:monthly_window:"+fmt.Sprint(wantStart.UnixMilli()) || window.StartsAt != wantStart.UnixMilli() || window.EndsAt != wantEnd.UnixMilli() {
+		t.Fatalf("monthly continuous total window = %#v, ok = %v", window, ok)
+	}
+
+	nextWindow, ok := ResolveStartLimitWindow(
+		&StartLimitConfig{Mode: StartLimitModeLimited, Period: StartLimitPeriodTotal, MaxCount: 1},
+		availability,
+		time.Date(2026, time.October, 3, 10, 30, 0, 0, location),
+	)
+	nextStart := time.Date(2026, time.September, 29, 9, 30, 0, 0, location)
+	if !ok || nextWindow.PeriodKey == window.PeriodKey || nextWindow.StartsAt != nextStart.UnixMilli() {
+		t.Fatalf("next monthly continuous window = %#v, previous = %#v, ok = %v", nextWindow, window, ok)
+	}
+}
+
+func TestResolveStartLimitWindowKeepsTotalForOtherAvailabilityModes(t *testing.T) {
+	window, ok := ResolveStartLimitWindow(
+		&StartLimitConfig{Mode: StartLimitModeLimited, Period: StartLimitPeriodTotal, MaxCount: 1},
+		&StartAvailabilityConfig{
+			Mode: StartAvailabilityMonthly, Timezone: "Asia/Shanghai",
+			MonthDays: []int{1}, DailyStartTime: "09:00", DailyEndTime: "18:00",
+		},
+		time.Date(2026, time.September, 3, 10, 30, 0, 0, time.FixedZone("Asia/Shanghai", 8*60*60)),
+	)
+	if !ok || window.PeriodKey != StartLimitPeriodTotal || window.StartsAt != 0 || window.EndsAt != 0 {
+		t.Fatalf("non-continuous total window = %#v, ok = %v", window, ok)
+	}
+}
