@@ -237,6 +237,14 @@ func (service *Service) decorateStartLimitStatuses(ctx context.Context, definiti
 		if definition.StartLimit.Mode != workflowcore.StartLimitModeLimited {
 			continue
 		}
+		availabilityStatus := definition.AvailabilityStatus
+		if availabilityStatus == "" {
+			availabilityStatus = workflowcore.EvaluateStartAvailability(&definition.Availability, now)
+		}
+		if availabilityStatus != workflowcore.StartAvailabilityStateAvailable {
+			definition.StartLimitStatus.Allowed = false
+			continue
+		}
 		window, ok := workflowcore.ResolveStartLimitWindow(&definition.StartLimit, &definition.Availability, now)
 		if !ok {
 			return errors.New("流程发起次数限制配置无效")

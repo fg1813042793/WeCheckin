@@ -138,6 +138,39 @@ func TestListPublishedDefinitionsForStarterBlocksRunningInstanceWithoutConsuming
 	}
 }
 
+func TestListPublishedDefinitionsForStarterSkipsQuotaWindowOutsideAvailability(t *testing.T) {
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatalf("load timezone: %v", err)
+	}
+	store := &fakeStore{publishedDefinitions: []PublishedDefinition{{
+		ID: 9, Name: "绩效单", Initiator: workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeAll},
+		Availability: workflowcore.StartAvailabilityConfig{
+			Mode: workflowcore.StartAvailabilityMonthlyWindow, Timezone: "Asia/Shanghai",
+			WindowStartDayFromEnd: 7, WindowStartTime: "00:00", WindowEndDay: 10, WindowEndTime: "23:59",
+		},
+		StartLimit: workflowcore.StartLimitConfig{Mode: workflowcore.StartLimitModeLimited, Period: workflowcore.StartLimitPeriodAvailability, MaxCount: 1},
+	}}}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+	service.now = func() time.Time {
+		return time.Date(2026, time.October, 12, 3, 3, 0, 0, location)
+	}
+
+	definitions, err := service.ListPublishedDefinitionsForStarter(context.Background(), "7")
+	if err != nil {
+		t.Fatalf("ListPublishedDefinitionsForStarter() error = %v", err)
+	}
+	if len(definitions) != 1 || definitions[0].AvailabilityStatus != workflowcore.StartAvailabilityStateOutsideWindow {
+		t.Fatalf("definitions = %#v", definitions)
+	}
+	if definitions[0].StartLimitStatus.Allowed {
+		t.Fatalf("outside-window definition must not be startable: %#v", definitions[0].StartLimitStatus)
+	}
+	if store.startQuotaCountDefinition != 0 {
+		t.Fatalf("outside-window definition must skip quota lookup, got definition %d", store.startQuotaCountDefinition)
+	}
+}
+
 type quotaAwareStore struct {
 	*fakeStore
 	usedCount            int
