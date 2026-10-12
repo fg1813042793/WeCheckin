@@ -56,6 +56,7 @@ import WorkflowTextarea from './WorkflowTextarea.vue'
 
 type WorkflowDetailSection = 'form' | 'history' | 'graph'
 type WorkflowSubmittingAction = 'approve' | 'submit' | 'reject' | 'return' | 'withdraw' | 'modify' | 'delete'
+type WorkflowFormPresentation = 'continuous' | 'tabs'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -154,6 +155,12 @@ function resolveCompactHistoryDialog() {
 
 const compactHistoryDialog = ref(resolveCompactHistoryDialog())
 const mobileInteractionDialog = ref(resolveMobileInteractionDialog())
+const formPresentationStorageKey = 'workflow_start_form_presentation_v1'
+const formPresentation = ref<WorkflowFormPresentation>(loadFormPresentation())
+const desktopFormPresentation = computed(() => !mobileInteractionDialog.value)
+const effectiveFormPresentation = computed<WorkflowFormPresentation>(() => {
+  return desktopFormPresentation.value ? formPresentation.value : 'continuous'
+})
 
 function resolveMobileInteractionDialog() {
   // #ifdef H5
@@ -172,6 +179,17 @@ function resolveMobileInteractionDialog() {
   }
 
   return false
+}
+
+function loadFormPresentation(): WorkflowFormPresentation {
+  return uni.getStorageSync(formPresentationStorageKey) === 'tabs' ? 'tabs' : 'continuous'
+}
+
+function toggleFormPresentation() {
+  if (!desktopFormPresentation.value)
+    return
+  formPresentation.value = formPresentation.value === 'tabs' ? 'continuous' : 'tabs'
+  uni.setStorageSync(formPresentationStorageKey, formPresentation.value)
 }
 
 function syncCompactHistoryDialog() {
@@ -992,8 +1010,8 @@ async function submitReturn() {
     if (!pagePresentation.value)
       await loadDetail()
   }
-  catch {
-    uni.showToast({ title: '退回失败', icon: 'none' })
+  catch (error) {
+    uni.showToast({ title: workflowRequestErrorMessage(error, '退回失败'), icon: 'none' })
   }
   finally {
     finishSubmission()
@@ -1673,12 +1691,25 @@ async function deleteApplication() {
                       </template>
                     </text>
                   </view>
-                  <u-tag
-                    :text="workflowTaskStatusMeta(hasPendingAssignedTask ? 'pending' : activeTask?.status).label"
-                    :type="workflowTaskStatusMeta(hasPendingAssignedTask ? 'pending' : activeTask?.status).type"
-                    custom-class="workflow-detail-panel__status-tag"
-                    size="mini"
-                  />
+                  <view class="workflow-detail-panel__page-card-actions">
+                    <u-button
+                      v-if="desktopFormPresentation"
+                      custom-class="workflow-detail-panel__presentation-action"
+                      size="small"
+                      plain
+                      :disabled="submitting"
+                      @click="toggleFormPresentation"
+                    >
+                      <u-icon :name="formPresentation === 'tabs' ? 'list' : 'grid'" size="15px" color="#0f766e" />
+                      <text>{{ formPresentation === 'tabs' ? '连续显示' : '分组显示' }}</text>
+                    </u-button>
+                    <u-tag
+                      :text="workflowTaskStatusMeta(hasPendingAssignedTask ? 'pending' : activeTask?.status).label"
+                      :type="workflowTaskStatusMeta(hasPendingAssignedTask ? 'pending' : activeTask?.status).type"
+                      custom-class="workflow-detail-panel__status-tag"
+                      size="mini"
+                    />
+                  </view>
                 </view>
 
                 <WorkflowRuntimeForm
@@ -1689,6 +1720,7 @@ async function deleteApplication() {
                   :field-actions="fieldActions"
                   :readonly="!canEditTaskForm"
                   readonly-appearance="plain"
+                  :presentation="effectiveFormPresentation"
                 />
               </view>
 
@@ -2703,6 +2735,25 @@ async function deleteApplication() {
   min-width: 0;
   display: grid;
   gap: 5px;
+}
+
+.workflow-detail-panel__page-card-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:deep(.workflow-detail-panel__presentation-action) {
+  width: 104px;
+  margin: 0;
+  color: #0f766e;
+}
+
+:deep(.workflow-detail-panel__presentation-action .u-button__text) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .workflow-detail-panel__page-title,

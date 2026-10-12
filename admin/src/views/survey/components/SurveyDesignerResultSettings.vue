@@ -1,7 +1,7 @@
 <template>
   <div class="logic-panel logic-full-panel">
     <div class="logic-toolbar"><h4>问卷统计配置</h4></div>
-    <div class="settings-tip">配置问卷提交后的结果统计方式，包括统计字段、图表展示、数据导出等。</div>
+    <div class="settings-tip">配置问卷提交后的结果统计方式和总览展示内容。</div>
     <div class="logic-body">
       <div class="logic-editor-area">
         <el-form label-position="top" size="small">
@@ -9,12 +9,12 @@
             <el-radio-group v-model="form.resultConfig.statType">
               <el-radio value="value">按选项值统计</el-radio>
               <el-radio value="count">按选项计数统计</el-radio>
-              <el-radio value="score">按分值统计（仅考试模式）</el-radio>
+              <el-radio v-if="form.mode === 'exam'" value="score">按分值统计（仅考试模式）</el-radio>
             </el-radio-group>
             <div class="field-help">
               <template v-if="form.resultConfig.statType === 'value'">统计时使用选项设置的「选项值」字段进行计算</template>
               <template v-else-if="form.resultConfig.statType === 'count'">统计每个选项被选择的次数</template>
-              <template v-else>基于题目设置的「分值」计算总分/平均分</template>
+              <template v-else-if="form.mode === 'exam'">基于题目设置的「分值」计算总分/平均分</template>
             </div>
           </el-form-item>
           <el-divider />
@@ -28,14 +28,11 @@
             <el-checkbox-group v-model="form.resultConfig.scope">
               <el-checkbox value="all">全部题目</el-checkbox>
               <el-checkbox value="choice">仅选择题</el-checkbox>
-              <el-checkbox value="score">仅评分题</el-checkbox>
+              <el-checkbox v-if="form.mode === 'exam'" value="score">仅评分题</el-checkbox>
             </el-checkbox-group>
           </el-form-item>
           <el-divider />
-          <el-form-item label="结果显示"><div class="switch-list"><el-switch v-model="form.resultConfig.showChart" active-text="显示图表" inactive-text="隐藏图表" /><el-switch v-model="form.resultConfig.showDetail" active-text="显示详细数据" inactive-text="隐藏详细数据" /></div></el-form-item>
-          <el-form-item label="导出时选项字段">
-            <el-radio-group v-model="form.resultConfig.exportField"><el-radio value="value">选项值 (value)</el-radio><el-radio value="label">选项文本 (label)</el-radio><el-radio value="both">值+文本 (value / label)</el-radio></el-radio-group>
-          </el-form-item>
+          <el-form-item v-if="form.resultConfig.viewMode === 'aggregate'" label="结果显示"><div class="switch-list"><el-switch v-model="form.resultConfig.showChart" active-text="显示图表" inactive-text="隐藏图表" /><el-switch v-model="form.resultConfig.showDetail" active-text="显示详细数据" inactive-text="隐藏详细数据" /></div></el-form-item>
         </el-form>
       </div>
       <aside class="logic-sidebar">
@@ -46,7 +43,6 @@
           <div><b>按分值统计：</b>基于题目设置的分值（考试模式）计算总分和平均分。</div>
           <div><b>总览统计：</b>所有答卷合并，以图表/表格展示每题的整体分布。</div>
           <div><b>逐份统计：</b>每份答卷独立展示，便于查看每个提交者的具体作答。</div>
-          <div><b>导出字段：</b>控制 CSV/Excel 导出时使用选项值还是选项文本。</div>
         </div>
       </aside>
     </div>

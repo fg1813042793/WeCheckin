@@ -557,7 +557,7 @@ func TestEngineWithdrawsOnlyUntouchedInstanceByStarter(t *testing.T) {
 	}
 }
 
-func TestEngineRejectsWithdrawAfterTaskHandled(t *testing.T) {
+func TestEngineWithdrawsRunningInstanceAfterTaskHandled(t *testing.T) {
 	definition := workflowcore.Definition{
 		SchemaVersion: workflowcore.CurrentSchemaVersion,
 		Key:           "two_steps",
@@ -583,8 +583,26 @@ func TestEngineRejectsWithdrawAfterTaskHandled(t *testing.T) {
 	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: first.ID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
 		t.Fatalf("complete first task: %v", err)
 	}
-	if err := engine.Withdraw(state, "starter", "撤回"); !errors.Is(err, ErrInstanceAlreadyHandled) {
-		t.Fatalf("withdraw error = %v, want ErrInstanceAlreadyHandled", err)
+	if err := engine.Withdraw(state, "starter", "撤回"); err != nil {
+		t.Fatalf("withdraw running instance after partial approval: %v", err)
+	}
+	if state.Instance.Status != InstanceStatusCancelled || len(state.PendingTasks()) != 0 {
+		t.Fatalf("withdraw did not terminate running instance: instance=%#v tasks=%#v", state.Instance, state.Tasks)
+	}
+	var firstStatus, secondStatus TaskStatus
+	for _, task := range state.Tasks {
+		switch task.NodeID {
+		case "first":
+			firstStatus = task.Status
+		case "second":
+			secondStatus = task.Status
+		}
+	}
+	if firstStatus != TaskStatusApproved || secondStatus != TaskStatusCancelled {
+		t.Fatalf("withdraw must preserve handled tasks and cancel remaining tasks: first=%q second=%q", firstStatus, secondStatus)
+	}
+	if !hasHistoryType(state.History, HistoryInstanceWithdrawn) || !hasHistoryType(state.History, HistoryTaskCancelled) {
+		t.Fatalf("withdraw history missing after partial approval: %#v", state.History)
 	}
 }
 

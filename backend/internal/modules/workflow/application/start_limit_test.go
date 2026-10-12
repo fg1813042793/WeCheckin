@@ -38,6 +38,29 @@ func TestStartInstanceRejectsExhaustedStarterQuota(t *testing.T) {
 	}
 }
 
+func TestStartInstanceRejectsRunningStarterInstance(t *testing.T) {
+	store := &fakeStore{
+		definition:        simpleDefinition(),
+		publishedVersion:  3,
+		runningStartCount: 1,
+	}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+
+	state, err := service.StartInstance(context.Background(), StartInstanceRequest{
+		DefinitionID: 9, BusinessType: "performance", BusinessKey: "performance-7-running",
+		StarterID: "7", OperatorID: "7",
+	})
+	if !errors.Is(err, ErrStartInstanceInProgress) {
+		t.Fatalf("StartInstance() error = %v, want ErrStartInstanceInProgress", err)
+	}
+	if state != nil || store.createdState != nil {
+		t.Fatalf("state/created = %#v / %#v", state, store.createdState)
+	}
+	if store.startSubmissionLocks != 1 {
+		t.Fatalf("start submission locks = %d, want 1", store.startSubmissionLocks)
+	}
+}
+
 func TestStartInstanceConsumesStarterQuotaBeforeCreatingState(t *testing.T) {
 	definition := simpleDefinition()
 	definition.Nodes[0].StartLimit = &workflowcore.StartLimitConfig{
@@ -60,7 +83,7 @@ func TestStartInstanceConsumesStarterQuotaBeforeCreatingState(t *testing.T) {
 	if state == nil || store.createdState == nil {
 		t.Fatal("workflow state was not created")
 	}
-	if len(store.calls) < 2 || store.calls[0] != "quota" || store.calls[1] != "create" {
+	if len(store.calls) < 3 || store.calls[0] != "guard" || store.calls[1] != "quota" || store.calls[2] != "create" {
 		t.Fatalf("transaction call order = %#v", store.calls)
 	}
 }
@@ -95,6 +118,26 @@ func TestListPublishedDefinitionsForStarterReportsRemainingQuota(t *testing.T) {
 	}
 }
 
+func TestListPublishedDefinitionsForStarterBlocksRunningInstanceWithoutConsumingQuota(t *testing.T) {
+	store := &fakeStore{
+		publishedDefinitions: []PublishedDefinition{{
+			ID: 9, Name: "绩效单", Initiator: workflowcore.InitiatorConfig{Scope: workflowcore.InitiatorScopeAll},
+			Availability: workflowcore.StartAvailabilityConfig{Mode: workflowcore.StartAvailabilityAlways, Timezone: "Asia/Shanghai"},
+			StartLimit:   workflowcore.StartLimitConfig{Mode: workflowcore.StartLimitModeUnlimited},
+		}},
+		runningStartCount: 1,
+	}
+	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+
+	definitions, err := service.ListPublishedDefinitionsForStarter(context.Background(), "7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(definitions) != 1 || definitions[0].StartLimitStatus.Allowed {
+		t.Fatalf("definitions = %#v", definitions)
+	}
+}
+
 type quotaAwareStore struct {
 	*fakeStore
 	usedCount            int
@@ -102,6 +145,11 @@ type quotaAwareStore struct {
 	consumedDefinitionID uint
 	consumedStarterID    string
 	calls                []string
+}
+
+func (store *quotaAwareStore) LockStartSubmission(_ context.Context, _ uint, _ string) (int, error) {
+	store.calls = append(store.calls, "guard")
+	return 0, nil
 }
 
 func (store *quotaAwareStore) InTransaction(_ context.Context, fn func(TransactionStore) error) error {

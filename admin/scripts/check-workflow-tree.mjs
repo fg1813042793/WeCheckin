@@ -41,6 +41,7 @@ const canvasSource = fs.readFileSync(path.join(root, 'src/views/workflow/designe
 const graphNodeSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowGraphNode.vue'), 'utf8')
 const curveEdgeSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/components/WorkflowCurveEdge.vue'), 'utf8')
 const layoutSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/layout.ts'), 'utf8')
+const designerSource = fs.readFileSync(path.join(root, 'src/views/workflow/designer/index.vue'), 'utf8')
 
 const insertionDraft = {
   key: 'insert_test',
@@ -80,6 +81,32 @@ assert(anchoredBefore?.sourceHandle === 'right' && !anchoredBefore?.targetHandle
 assert(!anchoredAfter?.sourceHandle && anchoredAfter?.targetHandle === 'left', '插入节点应保留原目标锚点并重置新来源锚点')
 assert(graph.removeNode(anchoredDraft, anchoredNode.id), '应能删除刚插入的审批节点')
 assert(anchoredDraft.edges[0]?.sourceHandle === 'right' && anchoredDraft.edges[0]?.targetHandle === 'left', '删除中间节点应恢复原连线两端锚点')
+
+const editableDraft = {
+  key: 'editable_graph',
+  name: '可编辑连线',
+  nodes: [
+    { id: 'start', type: 'start', name: '发起人' },
+    { id: 'approval_a', type: 'approval', name: '审批 A' },
+    { id: 'approval_b', type: 'approval', name: '审批 B' },
+    { id: 'end', type: 'end', name: '流程结束' },
+  ],
+  edges: [],
+}
+const createdEdge = graph.connectWorkflowEdge(editableDraft, {
+  source: 'start', target: 'approval_a', sourceHandle: 'right', targetHandle: 'left',
+})
+assert(createdEdge?.sourceHandle === 'right' && createdEdge?.targetHandle === 'left', '新连线应保留四向连接点')
+assert(!graph.connectWorkflowEdge(editableDraft, { source: 'start', target: 'approval_a' }), '不应创建重复连线')
+assert(!graph.connectWorkflowEdge(editableDraft, { source: 'approval_a', target: 'approval_a' }), '不应创建节点自连接')
+assert(!graph.connectWorkflowEdge(editableDraft, { source: 'end', target: 'approval_a' }), '结束节点不应创建出线')
+assert(!graph.connectWorkflowEdge(editableDraft, { source: 'approval_a', target: 'start' }), '开始节点不应创建入线')
+assert(graph.reconnectWorkflowEdge(editableDraft, createdEdge.id, {
+  source: 'start', target: 'approval_b', sourceHandle: 'bottom', targetHandle: 'top',
+}), '应能把连线改接到其他节点')
+assert(createdEdge.target === 'approval_b' && createdEdge.sourceHandle === 'bottom' && createdEdge.targetHandle === 'top', '改接后应保存节点和连接点')
+assert(graph.removeWorkflowEdge(editableDraft, createdEdge.id), '应能删除指定连线')
+assert(editableDraft.edges.length === 0, '删除后不应保留指定连线')
 
 for (const type of ['handle', 'cc', 'notify', 'automation', 'timer']) {
   const draft = {
@@ -176,21 +203,36 @@ for (const [source, snippet, message] of [
   [sequenceSource, '.branch-lane__tail { width: 1px; min-height: 0; flex: 1;', '分支尾线不能随最长分支高度自动伸展'],
   [canvasSource, "from '@vue-flow/core'", '流程画布未接入 Vue Flow'],
   [canvasSource, '@node-drag-stop="persistNodePosition"', '流程节点拖拽后未持久化坐标'],
-  [canvasSource, '@edge-update="persistEdgeAnchor"', '流程连线端点调整后未持久化连接点'],
+  [canvasSource, '@connect="createConnection"', '流程画布未支持从连接点新建连线'],
+  [canvasSource, '@edge-click="selectEdge"', '流程连线无法选中'],
+  [canvasSource, 'events: { click: selectEdge }', '受控连线缺少直接点击事件，选中状态可能被 Vue Flow 覆盖'],
+  [canvasSource, 'event.event.stopPropagation()', '连线点击未阻止冒泡，画布点击会立即清除选中状态'],
+  [canvasSource, '@edge-update="persistEdgeConnection"', '流程连线端点调整后未持久化节点和连接点'],
   [canvasSource, 'ConnectionMode.Loose', '流程画布未启用四向连接点模式'],
-  [canvasSource, 'connection.source !== edge.source || connection.target !== edge.target', '调整连接点时缺少流程拓扑保护'],
+  [canvasSource, 'connectWorkflowEdge', '流程画布未调用连线创建约束'],
+  [canvasSource, 'reconnectWorkflowEdge', '流程画布未调用连线改接约束'],
+  [canvasSource, "'delete-edge': [edgeId: string]", '流程画布未暴露删除连线事件'],
+  [canvasSource, 'connectable: !props.readonly', '流程连接点未在编辑状态保持可连接'],
+  [canvasSource, 'showAnchors:', '流程节点缺少连接点显示状态'],
   [canvasSource, 'connectedHandles:', '流程节点缺少已连接端点状态'],
   [canvasSource, 'workflow: markRaw(WorkflowCurveEdge)', '流程画布未注册曲线连线'],
+  [designerSource, '@delete-edge="deleteEdge"', '流程设计页未处理删除连线事件'],
+  [designerSource, 'removeWorkflowEdge', '流程设计页未删除选中的连线'],
   [graphNodeSource, 'v-for="anchor in anchors"', '自定义流程节点缺少四向连接点'],
   [graphNodeSource, ':id="anchor.id"', '流程连接点缺少可持久化标识'],
   [graphNodeSource, "'workflow-anchor--connected': data.connectedHandles.includes(anchor.id)", '已连接端点缺少可见状态'],
-  [graphNodeSource, '.workflow-anchor { opacity: 0;', '未连接端点默认应隐藏'],
+  [graphNodeSource, "'workflow-anchor--editing': data.showAnchors", '连接或选中节点时未显示四向连接点'],
+  [graphNodeSource, '.workflow-anchor { z-index: 5; opacity: 0;', '普通节点连接点未置于卡片上方，边缘锚点无法稳定命中'],
+  [graphNodeSource, 'opacity: 0;', '未连接端点默认应隐藏'],
+  [cardSource, 'workflow-node-drag-handle', '流程节点缺少明确拖动区域'],
   [graphNodeSource, "'workflow-graph-node--gateway': data.node.gatewayMode", '网关节点缺少独立的菱形连接点容器'],
   [graphNodeSource, 'class="gateway-node__content"', '网关名称和类型标识应显示在菱形内部'],
   [graphNodeSource, '.workflow-graph-node--gateway { width: 136px; height: 136px;', '网关外接框尺寸不足以承载放大的菱形'],
   [graphNodeSource, '.gateway-node__main { display: grid; width: 96px; height: 96px;', '网关菱形框未按设计放大'],
   [curveEdgeSource, 'getSimpleBezierPath', '流程连线未使用贝塞尔曲线'],
   [curveEdgeSource, '<FlowInsertButton', '曲线连线未保留插入节点入口'],
+  [curveEdgeSource, 'workflow-curve-edge__delete', '选中连线缺少删除按钮'],
+  [curveEdgeSource, 'data.selected', '连线删除按钮未绑定选中状态'],
   [layoutSource, "from '@dagrejs/dagre'", '旧流程缺少自动布局能力'],
   [layoutSource, "if (node.type === 'start') return { width: 120, height: 76 }", '自动布局未同步开始事件尺寸'],
   [layoutSource, "if (node.gatewayMode) return { width: 136, height: 136 }", '自动布局未同步网关菱形尺寸'],
@@ -200,6 +242,8 @@ for (const [source, snippet, message] of [
 
 assert(!inspectorSource.includes('发起权限'), '发起权限应移动到发布流程弹窗')
 assert(!inspectorSource.includes('updateInitiatorScope'), '节点配置不应继续修改发布期发起范围')
+assert(!canvasSource.includes('connection.source !== edge.source || connection.target !== edge.target'), '连线改接不应限制为原来源和原目标节点')
+assert(!canvasSource.includes('@node-drag="previewNodePosition"'), '拖动过程中不应重建受控边对象，节点位置应在松手后持久化')
 
 const branchDraft = {
   key: 'tree_test',

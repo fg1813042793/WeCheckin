@@ -307,6 +307,7 @@ type TaskSummary struct {
 	TaskType             string                        `json:"taskType"`
 	RevisionRequestID    string                        `json:"revisionRequestId,omitempty"`
 	InstanceID           string                        `json:"instanceId"`
+	InstanceTitle        string                        `json:"instanceTitle"`
 	NodeID               string                        `json:"nodeId"`
 	NodeName             string                        `json:"nodeName"`
 	DefinitionName       string                        `json:"definitionName"`

@@ -249,6 +249,7 @@
         :active="activeView === 'data'"
         :survey-id="form.id"
         :questions="questions"
+        :result-config="form.resultConfig"
       />
 
       <!-- 报表视图 -->

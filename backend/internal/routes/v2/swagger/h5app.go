@@ -510,6 +510,7 @@ func swaggerV2H5AppWorkflowInstancesIDDelete() {}
 
 // @Tags API v2-H5App-OA流程
 // @Summary 撤回 H5App OA 流程
+// @Description 仅发起人可撤回仍在流转中的流程；已完成的审批记录继续保留，待处理和待激活任务改为已取消
 // @Security H5AppToken
 // @Param id path string true "流程实例 ID"
 // @Param body body H5AppWorkflowWithdrawRequest false "撤回信息"
@@ -628,6 +629,7 @@ func swaggerV2H5AppWorkflowFormRevisionTasksIDCompletePost() {}
 // @Security H5AppToken
 // @Param instanceId query string false "流程实例 ID"
 // @Param status query string false "任务状态"
+// @Param instanceTitle query string false "单据标题关键字（模糊匹配，最多 100 个字符）"
 // @Param definitionName query string false "流程名称关键字（模糊匹配，最多 50 个字符）"
 // @Param definitionCategory query string false "流程定义分类"
 // @Param starterName query string false "发起人用户名关键字"
@@ -635,7 +637,7 @@ func swaggerV2H5AppWorkflowFormRevisionTasksIDCompletePost() {}
 // @Param startTimeTo query int false "流程提交时间截止值（毫秒）"
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页数量"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=workflowapp.TaskList}
 // @Router /api/v2/dingtalk/h5/workflows/tasks [get]
 func swaggerV2H5AppWorkflowTasksGet() {}
 

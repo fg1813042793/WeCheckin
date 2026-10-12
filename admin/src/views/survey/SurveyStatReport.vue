@@ -115,7 +115,7 @@
       <!-- ========== 逐份模式 ========== -->
       <template v-if="viewMode === 'perResponse'">
         <div class="mode-bar">
-          <el-input v-model="respKeyword" placeholder="搜索提交人" clearable size="small" style="width:200px" @keyup.enter="loadResponses" />
+          <el-input v-model="respKeyword" placeholder="按提交人搜索" clearable size="small" style="width:200px" @keyup.enter="loadResponses" />
           <span style="font-size:13px;color:#888;margin-left:12px">共 {{ responses.length }} 份答卷</span>
         </div>
 
@@ -169,7 +169,6 @@ const viewMode = ref('aggregate')
 const statRange = ref('all')
 const showChart = ref(true)
 const showDetail = ref(true)
-const exportField = ref('label')
 
 const showModeSwitch = ref(true)
 
@@ -182,9 +181,9 @@ const configInfo = computed(() => {
   const viewLabel: Record<string, string> = { aggregate: '总览统计', perResponse: '逐份统计' }
   const mode = modeLabel[statMode.value] || '按计数(标签)'
   const view = viewLabel[viewMode.value] || '总览统计'
-  let info = `查看模式：${view} ｜ 统计方式：${mode}`
+  let info = `查看模式：${view}`
   if (viewMode.value === 'aggregate') {
-    info += ` ｜ ${showChart.value ? '图表' : ''}${showChart.value && showDetail.value ? '+' : ''}${showDetail.value ? '明细' : ''} ｜ 导出：${exportField.value === 'value' ? '选项值' : exportField.value === 'both' ? '值+标签' : '选项标签'}`
+    info += ` ｜ 统计方式：${mode} ｜ ${showChart.value ? '图表' : ''}${showChart.value && showDetail.value ? '+' : ''}${showDetail.value ? '明细' : ''}`
   }
   return info
 })
@@ -305,7 +304,6 @@ async function load() {
       statRange.value = (rc.scope || ['all'])[0] || 'all'
       showChart.value = rc.showChart !== false
       showDetail.value = rc.showDetail !== false
-      exportField.value = rc.exportField || 'label'
     }
 
     if (viewMode.value === 'perResponse') {
@@ -361,13 +359,7 @@ function distOption(fs: any) {
   const axisMax = maxVal + Math.ceil(maxVal * 0.6) + 1
 
   const displayKey = (k: string) => {
-    if (statMode.value === 'value' && labelMap[k]) {
-      if (exportField.value === 'value') return k
-      if (exportField.value === 'both') return `${k} (${labelMap[k]})`
-      return `${labelMap[k]} [${k}]`
-    }
-    if (exportField.value === 'value') return k
-    return stripHtml(labelMap[k] ?? k)
+    return statMode.value === 'value' ? k : stripHtml(labelMap[k] ?? k)
   }
 
   return {
@@ -396,13 +388,7 @@ function detailRows(fs: any) {
     }
   }
   return entries.map(([k, v]) => {
-    let label = stripHtml(labelMap[k] ?? k)
-    if (statMode.value === 'value' && labelMap[k]) {
-      if (exportField.value === 'value') label = k
-      else if (exportField.value === 'both') label = `${k} (${labelMap[k]})`
-    } else if (statMode.value === 'value') {
-      label = k
-    }
+    const label = statMode.value === 'value' ? k : stripHtml(labelMap[k] ?? k)
     return { label, count: v, pct: ((v / total) * 100).toFixed(1) }
   })
 }

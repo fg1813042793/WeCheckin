@@ -4,7 +4,7 @@ import type {
   WorkflowFormData,
   WorkflowInstanceDetail,
 } from '@/types/workflow'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getWorkflowInstance } from '@/api/workflow'
 import { useAppContentStore } from '@/stores'
 import {
@@ -15,6 +15,8 @@ import { workflowFormDetailInstanceIdFromContentKey } from '../workflow-route-ke
 import { workflowInstanceStatusMeta } from '../workflow-status'
 import WorkflowRuntimeForm from './WorkflowRuntimeForm.vue'
 
+type WorkflowFormPresentation = 'continuous' | 'tabs'
+
 const props = defineProps<{
   contentKey: string
 }>()
@@ -24,6 +26,10 @@ const detail = ref<WorkflowInstanceDetail | null>(null)
 const formData = ref<WorkflowFormData>({})
 const loading = ref(false)
 const loadError = ref('')
+const formPresentationStorageKey = 'workflow_start_form_presentation_v1'
+const formPresentation = ref<WorkflowFormPresentation>(loadFormPresentation())
+const desktopFormPresentation = ref(resolveDesktopFormPresentation())
+let formPresentationResizeHandler: (() => void) | null = null
 
 const instanceId = computed(() => workflowFormDetailInstanceIdFromContentKey(props.contentKey))
 const title = computed(() => (
@@ -35,12 +41,71 @@ const title = computed(() => (
 const fieldAccess = computed<WorkflowFieldAccessMap>(() => (
   workflowFieldAccessMap(detail.value?.form || [], [], 'read')
 ))
+const effectiveFormPresentation = computed<WorkflowFormPresentation>(() => {
+  return desktopFormPresentation.value ? formPresentation.value : 'continuous'
+})
+
+function loadFormPresentation(): WorkflowFormPresentation {
+  return uni.getStorageSync(formPresentationStorageKey) === 'tabs' ? 'tabs' : 'continuous'
+}
+
+function resolveDesktopFormPresentation() {
+  try {
+    const info = uni.getSystemInfoSync()
+    const width = Number(info.windowWidth || info.screenWidth || 0)
+    if (width > 0)
+      return width > 768
+  }
+  catch {
+    // 读取失败时继续使用 H5 媒体查询。
+  }
+
+  // #ifdef H5
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    return !window.matchMedia('(max-width: 768px)').matches
+  // #endif
+
+  return false
+}
+
+function syncDesktopFormPresentation() {
+  desktopFormPresentation.value = resolveDesktopFormPresentation()
+}
+
+function syncStoredFormPresentation() {
+  formPresentation.value = loadFormPresentation()
+}
+
+function toggleFormPresentation() {
+  if (!desktopFormPresentation.value)
+    return
+  formPresentation.value = formPresentation.value === 'tabs' ? 'continuous' : 'tabs'
+  uni.setStorageSync(formPresentationStorageKey, formPresentation.value)
+}
+
+onMounted(() => {
+  syncDesktopFormPresentation()
+  // #ifdef H5
+  formPresentationResizeHandler = syncDesktopFormPresentation
+  window.addEventListener('resize', formPresentationResizeHandler)
+  // #endif
+})
+
+onBeforeUnmount(() => {
+  // #ifdef H5
+  if (formPresentationResizeHandler)
+    window.removeEventListener('resize', formPresentationResizeHandler)
+  // #endif
+  formPresentationResizeHandler = null
+})
 
 watch(
   () => [props.contentKey, appContent.currentKey, appContent.refreshTick],
   () => {
-    if (appContent.currentKey === props.contentKey)
+    if (appContent.currentKey === props.contentKey) {
+      syncStoredFormPresentation()
       void loadDetail()
+    }
   },
   { immediate: true },
 )
@@ -76,7 +141,9 @@ async function loadDetail() {
           {{ title }}
         </text>
         <text v-if="detail" class="workflow-form-detail-page__meta">
-          流程名称：{{ detail.instance.definitionName || detail.instance.definitionKey || '-' }}<template v-if="detail.instance.businessPeriodLabel"> · 业务期间：{{ detail.instance.businessPeriodLabel }}</template> · 业务编号：{{ detail.instance.businessKey || '-' }} · 发起人：{{ detail.instance.starterName || '未知用户' }}
+          流程名称：{{ detail.instance.definitionName || detail.instance.definitionKey || '-' }}<template v-if="detail.instance.businessPeriodLabel">
+            · 业务期间：{{ detail.instance.businessPeriodLabel }}
+          </template> · 业务编号：{{ detail.instance.businessKey || '-' }} · 发起人：{{ detail.instance.starterName || '未知用户' }}
         </text>
       </view>
       <u-tag
@@ -101,12 +168,24 @@ async function loadDetail() {
     <scroll-view v-else-if="detail" scroll-y class="workflow-form-detail-page__body">
       <view class="workflow-form-detail-page__content">
         <view class="workflow-form-detail-page__section-head">
-          <text class="workflow-form-detail-page__section-title">
-            申请表单
-          </text>
-          <text class="workflow-form-detail-page__section-desc">
-            发起时提交的表单内容
-          </text>
+          <view class="workflow-form-detail-page__section-head-main">
+            <text class="workflow-form-detail-page__section-title">
+              申请表单
+            </text>
+            <text class="workflow-form-detail-page__section-desc">
+              发起时提交的表单内容
+            </text>
+          </view>
+          <u-button
+            v-if="detail && desktopFormPresentation"
+            custom-class="workflow-form-detail-page__presentation-action"
+            size="small"
+            plain
+            @click="toggleFormPresentation"
+          >
+            <u-icon :name="formPresentation === 'tabs' ? 'list' : 'grid'" size="15px" color="#0f766e" />
+            <text>{{ formPresentation === 'tabs' ? '连续显示' : '分组显示' }}</text>
+          </u-button>
         </view>
         <WorkflowRuntimeForm
           v-model="formData"
@@ -115,6 +194,7 @@ async function loadDetail() {
           :field-access="fieldAccess"
           :readonly="true"
           readonly-appearance="plain"
+          :presentation="effectiveFormPresentation"
         />
       </view>
     </scroll-view>
@@ -150,6 +230,19 @@ async function loadDetail() {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+:deep(.workflow-form-detail-page__presentation-action) {
+  flex: 0 0 auto;
+  width: 104px;
+  margin: 0;
+  color: #0f766e;
+}
+
+:deep(.workflow-form-detail-page__presentation-action .u-button__text) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .workflow-form-detail-page__title {
@@ -189,6 +282,14 @@ async function loadDetail() {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid #e5eaf3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workflow-form-detail-page__section-head-main {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;

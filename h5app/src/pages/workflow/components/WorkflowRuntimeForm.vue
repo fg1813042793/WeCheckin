@@ -5,7 +5,7 @@ import type {
   WorkflowFormData,
   WorkflowFormField,
 } from '@/types/workflow'
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   calculateWorkflowFormData,
   evaluateWorkflowCalculation,
@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<{
   embedded?: boolean
   showErrors?: boolean
   calculationFields?: WorkflowFormField[]
+  presentation?: 'continuous' | 'tabs'
 }>(), {
   readonly: false,
   readonlyAppearance: 'disabled',
@@ -42,6 +43,7 @@ const props = withDefaults(defineProps<{
   showErrors: false,
   fieldAccess: () => ({}),
   fieldActions: () => ({}),
+  presentation: 'continuous',
 })
 
 const emit = defineEmits<{
@@ -52,13 +54,52 @@ const emit = defineEmits<{
 const localShowErrors = ref(false)
 const helpVisible = ref(false)
 const activeHelp = ref({ title: '字段说明', content: '' })
+const activeTabKey = ref('')
+const tabsRef = ref<unknown>(null)
+const tabsTrackRef = ref<unknown>(null)
+const tabScrollLeft = ref(0)
+const tabScrollMax = ref(0)
+const tabViewportWidth = ref(0)
+const tabOverflow = computed(() => tabScrollMax.value > 2)
 const accessMap = computed(() => {
   const defaults = workflowFieldAccessMap(props.fields, [], props.readonly ? 'read' : 'write')
   return { ...defaults, ...props.fieldAccess }
 })
 const visibleFields = computed(() => visibleWorkflowFormFields(props.fields, accessMap.value))
+const tabMode = computed(() => !props.embedded && props.presentation === 'tabs' && visibleFields.value.length > 1)
+const renderedFields = computed(() => {
+  if (!tabMode.value)
+    return visibleFields.value
+  const active = visibleFields.value.find(field => field.key === activeTabKey.value)
+  return active ? [active] : visibleFields.value.slice(0, 1)
+})
 const validationErrors = computed(() => validateWorkflowFormData(props.fields, props.modelValue, accessMap.value))
 const errorsVisible = computed(() => props.showErrors || localShowErrors.value)
+watch(
+  [visibleFields, () => props.presentation],
+  () => {
+    if (!visibleFields.value.some(field => field.key === activeTabKey.value))
+      activeTabKey.value = visibleFields.value[0]?.key || ''
+    void nextTick(syncTabOverflow)
+  },
+  { immediate: true },
+)
+
+watch(activeTabKey, () => void nextTick(ensureActiveTabVisible))
+watch(tabOverflow, () => void nextTick(syncTabOverflow))
+
+onMounted(() => {
+  // #ifdef H5
+  window.addEventListener('resize', syncTabOverflow)
+  // #endif
+  void nextTick(syncTabOverflow)
+})
+
+onBeforeUnmount(() => {
+  // #ifdef H5
+  window.removeEventListener('resize', syncTabOverflow)
+  // #endif
+})
 
 function fieldReadonly(field: WorkflowFormField) {
   return field.type === 'calculation' || props.readonly || accessMap.value[field.key] !== 'write'
@@ -148,9 +189,110 @@ function openHelp(field: WorkflowFormField) {
   helpVisible.value = true
 }
 
+function selectTab(fieldKey: string) {
+  if (visibleFields.value.some(field => field.key === fieldKey))
+    activeTabKey.value = fieldKey
+}
+
+function resolveH5Element(value: unknown): HTMLElement | null {
+  // #ifdef H5
+  if (typeof HTMLElement === 'undefined')
+    return null
+  if (value instanceof HTMLElement)
+    return value
+  if (value && typeof value === 'object' && '$el' in value) {
+    const element = (value as { $el?: unknown }).$el
+    if (element instanceof HTMLElement)
+      return element
+  }
+  // #endif
+  return null
+}
+
+function resolveTabScrollerElement() {
+  // #ifdef H5
+  const root = resolveH5Element(tabsRef.value)
+  const scrollers = root?.querySelectorAll<HTMLElement>('.uni-scroll-view-scrollbar-hidden') || []
+  return scrollers[scrollers.length - 1] || root
+  // #endif
+  return null
+}
+
+function syncTabOverflow() {
+  // #ifdef H5
+  const scroller = resolveTabScrollerElement()
+  const track = resolveH5Element(tabsTrackRef.value)
+  if (!tabMode.value || !scroller || !track) {
+    tabViewportWidth.value = 0
+    tabScrollMax.value = 0
+    tabScrollLeft.value = 0
+    return
+  }
+  tabViewportWidth.value = scroller.clientWidth
+  tabScrollMax.value = Math.max(0, track.scrollWidth - scroller.clientWidth)
+  tabScrollLeft.value = Math.min(tabScrollLeft.value, tabScrollMax.value)
+  ensureActiveTabVisible()
+  // #endif
+}
+
+function ensureActiveTabVisible() {
+  // #ifdef H5
+  if (!tabMode.value || !tabViewportWidth.value)
+    return
+  const track = resolveH5Element(tabsTrackRef.value)
+  const active = track?.querySelector<HTMLElement>('.workflow-form__tab--active')
+  if (!active)
+    return
+  const activeLeft = active.offsetLeft
+  const activeRight = activeLeft + active.offsetWidth
+  if (activeLeft < tabScrollLeft.value)
+    tabScrollLeft.value = Math.max(0, activeLeft)
+  else if (activeRight > tabScrollLeft.value + tabViewportWidth.value)
+    tabScrollLeft.value = Math.min(tabScrollMax.value, activeRight - tabViewportWidth.value)
+  // #endif
+}
+
+function scrollTabs(direction: -1 | 1) {
+  if (!tabOverflow.value)
+    return
+  const step = Math.max(160, Math.min(320, tabViewportWidth.value * 0.7))
+  tabScrollLeft.value = Math.max(0, Math.min(tabScrollMax.value, tabScrollLeft.value + direction * step))
+}
+
+function scrollTabsHorizontally(event: WheelEvent) {
+  if (!tabOverflow.value)
+    return
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+  if (!delta)
+    return
+  event.preventDefault()
+  tabScrollLeft.value = Math.max(0, Math.min(tabScrollMax.value, tabScrollLeft.value + delta))
+}
+
+function handleTabScroll(event: { detail?: { scrollLeft?: number } }) {
+  const value = Number(event.detail?.scrollLeft || 0)
+  if (Number.isFinite(value))
+    tabScrollLeft.value = Math.max(0, Math.min(tabScrollMax.value, value))
+}
+
+function fieldContainsError(field: WorkflowFormField, errors: Record<string, string>): boolean {
+  if (errors[field.key])
+    return true
+  return field.type === 'group' && (field.fields || []).some(child => fieldContainsError(child, errors))
+}
+
+function firstErrorTab(errors: Record<string, string>) {
+  return visibleFields.value.find(field => fieldContainsError(field, errors))
+}
+
 function validate() {
   localShowErrors.value = true
   const errors = validateWorkflowFormData(props.fields, props.modelValue, accessMap.value)
+  if (tabMode.value && Object.keys(errors).length > 0) {
+    const target = firstErrorTab(errors)
+    if (target)
+      activeTabKey.value = target.key
+  }
   return { valid: Object.keys(errors).length === 0, errors }
 }
 
@@ -171,136 +313,198 @@ defineExpose({ validate })
       <u-icon name="file-text" size="54" color="#c8c9cc" />
       <text>暂无流程表单</text>
     </view>
-    <view v-else class="workflow-form__grid">
-      <template v-for="field in visibleFields" :key="field.key">
-        <view v-if="field.type === 'group'" class="workflow-form__group">
-          <view class="workflow-form__group-header">
-            <text>{{ field.label || field.key }}</text>
-            <u-icon v-if="field.help" class="workflow-form__help-action" name="info-circle" size="28" color="#2979ff" @click="openHelp(field)" />
-          </view>
-          <WorkflowRuntimeForm
-            :fields="field.fields || []"
-            :model-value="modelValue"
-            :field-access="fieldAccess"
-            :field-actions="fieldActions"
-            :readonly="readonly"
-            :readonly-appearance="readonlyAppearance"
-            :calculation-fields="calculationFields || fields"
-            embedded
-            :show-errors="errorsVisible"
-            @update:model-value="emit('update:modelValue', $event)"
-            @change="emit('change', $event)"
-          />
-        </view>
-        <view v-else-if="field.type === 'label'" class="workflow-form__label" :style="fieldSpanStyle(field)">
-          {{ field.label }}
-        </view>
+    <template v-else>
+      <view v-if="tabMode" class="workflow-form__tabs-shell" @wheel="scrollTabsHorizontally">
         <view
-          v-else-if="field.type === 'calculation' && calculationDisplay(field) === 'label'"
-          class="workflow-form__calculation-label"
-          :style="fieldSpanStyle(field)"
+          v-if="tabOverflow"
+          class="workflow-form__tab-scroll-button workflow-form__tab-scroll-button--left"
+          :class="{ 'is-disabled': tabScrollLeft <= 0 }"
+          role="button"
+          tabindex="0"
+          title="向左滚动"
+          aria-label="向左滚动表单分组"
+          :aria-disabled="tabScrollLeft <= 0"
+          @click="scrollTabs(-1)"
+          @keydown.enter.prevent="scrollTabs(-1)"
+          @keydown.space.prevent="scrollTabs(-1)"
         >
-          <text class="workflow-form__calculation-name">
-            {{ field.label || field.key }}
-          </text>
-          <text class="workflow-form__calculation-value">
-            {{ calculationText(field) }}
-          </text>
+          <u-icon name="arrow-left" size="15px" color="#5f6b7a" />
         </view>
-        <view v-else-if="field.type === 'description'" class="workflow-form__description" :style="fieldSpanStyle(field)">
-          {{ field.content }}
-        </view>
-        <view v-else-if="field.type === 'button'" class="workflow-form__layout-button" :style="fieldSpanStyle(field)">
-          <u-button size="small" plain @click="openHelp(field)">
-            {{ field.label }}
-          </u-button>
-        </view>
-        <view v-else class="workflow-form__field" :style="fieldSpanStyle(field)">
-          <view class="workflow-form__field-label">
-            <text>{{ field.label || field.key }}</text>
-            <text v-if="field.required && !fieldReadonly(field)" class="workflow-form__required">
-              *
-            </text>
-            <u-icon v-if="field.help" class="workflow-form__help-action" name="info-circle" size="25" color="#2979ff" @click="openHelp(field)" />
-          </view>
-          <view v-if="field.type === 'detail_list'" class="workflow-detail">
-            <view class="workflow-detail__toolbar">
-              <text>共 {{ detailRows(field).length }} 行</text>
-            </view>
-            <view v-if="detailRows(field).length === 0" class="workflow-detail__empty">
-              暂无明细
-            </view>
+        <scroll-view
+          ref="tabsRef"
+          scroll-x
+          scroll-with-animation
+          :show-scrollbar="false"
+          :scroll-left="tabScrollLeft"
+          class="workflow-form__tabs"
+          @scroll="handleTabScroll"
+        >
+          <view ref="tabsTrackRef" class="workflow-form__tabs-track" role="tablist">
             <view
-              v-for="(row, rowIndex) in detailRows(field)"
-              v-else
-              :key="detailRowId(field, row, rowIndex)"
-              class="workflow-detail__row"
+              v-for="field in visibleFields"
+              :key="field.key"
+              class="workflow-form__tab"
+              :class="{ 'workflow-form__tab--active': activeTabKey === field.key }"
+              role="tab"
+              tabindex="0"
+              :aria-selected="activeTabKey === field.key"
+              @click="selectTab(field.key)"
+              @keydown.enter.prevent="selectTab(field.key)"
+              @keydown.space.prevent="selectTab(field.key)"
             >
-              <view class="workflow-detail__row-header">
-                <text>第 {{ rowIndex + 1 }} 行</text>
-                <u-icon
-                  v-if="canDeleteRow(field)"
-                  name="trash"
-                  size="30"
-                  color="#fa3534"
-                  @click="removeDetailRow(field, rowIndex)"
-                />
+              <text :title="field.label || field.key">
+                {{ field.label || field.key }}
+              </text>
+            </view>
+          </view>
+        </scroll-view>
+        <view
+          v-if="tabOverflow"
+          class="workflow-form__tab-scroll-button workflow-form__tab-scroll-button--right"
+          :class="{ 'is-disabled': tabScrollLeft >= tabScrollMax - 1 }"
+          role="button"
+          tabindex="0"
+          title="向右滚动"
+          aria-label="向右滚动表单分组"
+          :aria-disabled="tabScrollLeft >= tabScrollMax - 1"
+          @click="scrollTabs(1)"
+          @keydown.enter.prevent="scrollTabs(1)"
+          @keydown.space.prevent="scrollTabs(1)"
+        >
+          <u-icon name="arrow-right" size="15px" color="#5f6b7a" />
+        </view>
+      </view>
+      <view class="workflow-form__grid">
+        <template v-for="field in renderedFields" :key="field.key">
+          <view v-if="field.type === 'group'" class="workflow-form__group">
+            <view class="workflow-form__group-header">
+              <text>{{ field.label || field.key }}</text>
+              <u-icon v-if="field.help" class="workflow-form__help-action" name="info-circle" size="28" color="#2979ff" @click="openHelp(field)" />
+            </view>
+            <WorkflowRuntimeForm
+              :fields="field.fields || []"
+              :model-value="modelValue"
+              :field-access="fieldAccess"
+              :field-actions="fieldActions"
+              :readonly="readonly"
+              :readonly-appearance="readonlyAppearance"
+              :calculation-fields="calculationFields || fields"
+              embedded
+              :show-errors="errorsVisible"
+              @update:model-value="emit('update:modelValue', $event)"
+              @change="emit('change', $event)"
+            />
+          </view>
+          <view v-else-if="field.type === 'label'" class="workflow-form__label" :style="fieldSpanStyle(field)">
+            {{ field.label }}
+          </view>
+          <view
+            v-else-if="field.type === 'calculation' && calculationDisplay(field) === 'label'"
+            class="workflow-form__calculation-label"
+            :style="fieldSpanStyle(field)"
+          >
+            <text class="workflow-form__calculation-name">
+              {{ field.label || field.key }}
+            </text>
+            <text class="workflow-form__calculation-value">
+              {{ calculationText(field) }}
+            </text>
+          </view>
+          <view v-else-if="field.type === 'description'" class="workflow-form__description" :style="fieldSpanStyle(field)">
+            {{ field.content }}
+          </view>
+          <view v-else-if="field.type === 'button'" class="workflow-form__layout-button" :style="fieldSpanStyle(field)">
+            <u-button size="small" plain @click="openHelp(field)">
+              {{ field.label }}
+            </u-button>
+          </view>
+          <view v-else class="workflow-form__field" :style="fieldSpanStyle(field)">
+            <view class="workflow-form__field-label">
+              <text>{{ field.label || field.key }}</text>
+              <text v-if="field.required && !fieldReadonly(field)" class="workflow-form__required">
+                *
+              </text>
+              <u-icon v-if="field.help" class="workflow-form__help-action" name="info-circle" size="25" color="#2979ff" @click="openHelp(field)" />
+            </view>
+            <view v-if="field.type === 'detail_list'" class="workflow-detail">
+              <view class="workflow-detail__toolbar">
+                <text>共 {{ detailRows(field).length }} 行</text>
               </view>
-              <view class="workflow-detail__columns">
-                <view
-                  v-for="column in field.columns || []"
-                  :key="column.key"
-                  class="workflow-detail__column"
-                  :style="fieldSpanStyle(column)"
-                >
-                  <view class="workflow-form__field-label">
-                    <text>{{ column.label || column.key }}</text>
-                    <text v-if="column.required && !fieldReadonly(field)" class="workflow-form__required">
-                      *
-                    </text>
-                  </view>
-                  <WorkflowFieldControl
-                    :field="column"
-                    :model-value="row[column.key]"
-                    :readonly="fieldReadonly(field)"
-                    :readonly-appearance="readonlyAppearance"
-                    :textarea-default-min-rows="2"
-                    :textarea-default-max-rows="6"
-                    @update:model-value="updateDetailCell(field, rowIndex, column, $event)"
+              <view v-if="detailRows(field).length === 0" class="workflow-detail__empty">
+                暂无明细
+              </view>
+              <view
+                v-for="(row, rowIndex) in detailRows(field)"
+                v-else
+                :key="detailRowId(field, row, rowIndex)"
+                class="workflow-detail__row"
+              >
+                <view class="workflow-detail__row-header">
+                  <text>第 {{ rowIndex + 1 }} 行</text>
+                  <u-icon
+                    v-if="canDeleteRow(field)"
+                    name="trash"
+                    size="30"
+                    color="#fa3534"
+                    @click="removeDetailRow(field, rowIndex)"
                   />
                 </view>
+                <view class="workflow-detail__columns">
+                  <view
+                    v-for="column in field.columns || []"
+                    :key="column.key"
+                    class="workflow-detail__column"
+                    :style="fieldSpanStyle(column)"
+                  >
+                    <view class="workflow-form__field-label">
+                      <text>{{ column.label || column.key }}</text>
+                      <text v-if="column.required && !fieldReadonly(field)" class="workflow-form__required">
+                        *
+                      </text>
+                    </view>
+                    <WorkflowFieldControl
+                      :field="column"
+                      :model-value="row[column.key]"
+                      :readonly="fieldReadonly(field)"
+                      :readonly-appearance="readonlyAppearance"
+                      :textarea-default-min-rows="2"
+                      :textarea-default-max-rows="6"
+                      @update:model-value="updateDetailCell(field, rowIndex, column, $event)"
+                    />
+                  </view>
+                </view>
+              </view>
+              <view v-if="canAddRow(field)" class="workflow-detail__add">
+                <u-button
+                  custom-class="workflow-detail__add-button"
+                  size="mini"
+                  type="primary"
+                  plain
+                  icon="plus"
+                  @click="addDetailRow(field)"
+                >
+                  新增行
+                </u-button>
               </view>
             </view>
-            <view v-if="canAddRow(field)" class="workflow-detail__add">
-              <u-button
-                custom-class="workflow-detail__add-button"
-                size="mini"
-                type="primary"
-                plain
-                icon="plus"
-                @click="addDetailRow(field)"
-              >
-                新增行
-              </u-button>
+            <view v-else-if="field.type === 'calculation'" class="workflow-form__calculation-field">
+              {{ calculationText(field) }}
             </view>
+            <WorkflowFieldControl
+              v-else
+              :field="field"
+              :model-value="modelValue[field.key]"
+              :readonly="fieldReadonly(field)"
+              :readonly-appearance="readonlyAppearance"
+              @update:model-value="updateField(field, $event)"
+            />
+            <text v-if="fieldError(field)" class="workflow-form__error">
+              {{ fieldError(field) }}
+            </text>
           </view>
-          <view v-else-if="field.type === 'calculation'" class="workflow-form__calculation-field">
-            {{ calculationText(field) }}
-          </view>
-          <WorkflowFieldControl
-            v-else
-            :field="field"
-            :model-value="modelValue[field.key]"
-            :readonly="fieldReadonly(field)"
-            :readonly-appearance="readonlyAppearance"
-            @update:model-value="updateField(field, $event)"
-          />
-          <text v-if="fieldError(field)" class="workflow-form__error">
-            {{ fieldError(field) }}
-          </text>
-        </view>
-      </template>
-    </view>
+        </template>
+      </view>
+    </template>
     <u-modal
       v-model="helpVisible"
       :title="activeHelp.title"
@@ -347,6 +551,86 @@ defineExpose({ validate })
   display: flex;
   flex-wrap: wrap;
   margin: -10rpx;
+}
+
+.workflow-form__tabs-shell {
+  width: 100%;
+  margin-bottom: 18rpx;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid $u-border-color;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.workflow-form__tabs {
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.workflow-form__tabs-track {
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  align-items: stretch;
+}
+
+.workflow-form__tab-scroll-button {
+  width: 56rpx;
+  flex: 0 0 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $u-content-color;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.workflow-form__tab-scroll-button--left {
+  border-right: 1px solid $u-border-color;
+}
+
+.workflow-form__tab-scroll-button--right {
+  border-left: 1px solid $u-border-color;
+}
+
+.workflow-form__tab-scroll-button.is-disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.workflow-form__tab {
+  min-width: 180rpx;
+  max-width: 340rpx;
+  flex: 1 0 180rpx;
+  height: 72rpx;
+  padding: 0 22rpx;
+  border-bottom: 4rpx solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $u-content-color;
+  background: #fff;
+  font-size: 25rpx;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.workflow-form__tab > text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-form__tab--active {
+  border-bottom-color: $u-type-primary;
+  color: $u-type-primary;
+  background: #eefbf7;
+  font-weight: 600;
 }
 
 .workflow-form__field,
@@ -513,6 +797,25 @@ defineExpose({ validate })
 }
 
 @media screen and (min-width: 769px) {
+  .workflow-form__tabs-shell {
+    margin-bottom: 16px;
+  }
+
+  .workflow-form__tab-scroll-button {
+    width: 32px;
+    flex-basis: 32px;
+  }
+
+  .workflow-form__tab {
+    min-width: 128px;
+    max-width: 220px;
+    flex-basis: 128px;
+    height: 44px;
+    padding: 0 14px;
+    border-bottom-width: 2px;
+    font-size: 13px;
+  }
+
   .workflow-form--fully-readonly {
     :deep(.workflow-form__help-action) {
       display: none !important;

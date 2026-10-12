@@ -14,7 +14,6 @@ const DEFAULT_RESULT_CONFIG = {
   scope: ['all'],
   showChart: true,
   showDetail: true,
-  exportField: 'value',
 }
 
 export function createSurveyDesignerForm() {
@@ -439,13 +438,19 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
         collaborators: settings.collaborators || '',
         timeLimit: settings.timeLimit || 0,
         fillTemplate: settings.fillTemplate || 'sf1',
-        resultConfig: { ...DEFAULT_RESULT_CONFIG, ...(settings.resultConfig || {}) },
+        resultConfig: { ...DEFAULT_RESULT_CONFIG, ...withoutLegacyResultConfig(settings.resultConfig) },
       }
     } catch {
       options.logicRules.value = []
       return defaultSettings()
     }
   }
+}
+
+function withoutLegacyResultConfig(value: unknown) {
+  const result = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {}
+  delete result.exportField
+  return result
 }
 
 function defaultSettings() {

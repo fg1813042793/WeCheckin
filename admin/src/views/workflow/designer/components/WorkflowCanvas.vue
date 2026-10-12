@@ -1,5 +1,11 @@
 <template>
-  <main class="workflow-canvas">
+  <main
+    ref="canvasRoot"
+    class="workflow-canvas"
+    tabindex="0"
+    @keydown.delete.prevent="deleteSelectedEdge"
+    @keydown.backspace.prevent="deleteSelectedEdge"
+  >
     <div class="canvas-toolbar">
       <div>
         <strong>流程设计</strong>
@@ -26,17 +32,21 @@
       :nodes-connectable="!readonly"
       :edges-updatable="!readonly"
       :connection-mode="ConnectionMode.Loose"
-      :elements-selectable="false"
+      :elements-selectable="!readonly"
       :delete-key-code="null"
       :min-zoom="0.35"
       :max-zoom="1.6"
       :fit-view-on-init="false"
       :pan-on-drag="true"
       :zoom-on-double-click="false"
-      @pane-click="$emit('select', '')"
+      @pane-click="clearCanvasSelection"
       @node-drag-stop="persistNodePosition"
+      @connect-start="connecting = true"
+      @connect="createConnection"
+      @connect-end="connecting = false"
+      @edge-click="selectEdge"
       @edge-update-start="beginEdgeUpdate"
-      @edge-update="persistEdgeAnchor"
+      @edge-update="persistEdgeConnection"
       @edge-update-end="finishEdgeUpdate"
       @nodes-initialized="focusStart"
     />
@@ -45,6 +55,7 @@
 
 <script lang="ts" setup>
 import { computed, markRaw, nextTick, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import {
   ConnectionMode,
   MarkerType,
@@ -52,10 +63,11 @@ import {
   VueFlow,
   useVueFlow,
 } from '@vue-flow/core'
-import type { Edge, EdgeMouseEvent, EdgeUpdateEvent, Node, NodeDragEvent } from '@vue-flow/core'
+import type { Connection, Edge, EdgeMouseEvent, EdgeUpdateEvent, Node, NodeDragEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import type { WorkflowDraft, WorkflowEdgeHandle, WorkflowInsertableNodeType } from '../../types'
+import { connectWorkflowEdge, reconnectWorkflowEdge } from '../graph'
 import { layoutWorkflow, WORKFLOW_NODE_WIDTH } from '../layout'
 import WorkflowCurveEdge from './WorkflowCurveEdge.vue'
 import WorkflowGraphNode from './WorkflowGraphNode.vue'
@@ -65,14 +77,18 @@ const emit = defineEmits<{
   select: [nodeId: string]
   insert: [payload: { edgeId: string; type: WorkflowInsertableNodeType }]
   'add-branch': [splitId: string]
+  'delete-edge': [edgeId: string]
   change: []
 }>()
 
 const nodeTypes = { workflow: markRaw(WorkflowGraphNode) }
 const edgeTypes = { workflow: markRaw(WorkflowCurveEdge) }
 const { fitView, setCenter, viewport, zoomIn, zoomOut } = useVueFlow('workflow-designer')
+const canvasRoot = ref<HTMLElement | null>(null)
 const hasInitialViewport = ref(false)
 const updatingEdgeId = ref('')
+const selectedEdgeId = ref('')
+const connecting = ref(false)
 const zoomPercent = computed(() => Math.round(viewport.value.zoom * 100))
 const topologySignature = computed(() => JSON.stringify({
   nodes: props.draft.nodes.map(node => `${node.id}:${node.type}:${node.gatewayMode || ''}`),
@@ -98,12 +114,14 @@ const canvasNodes = computed<Node[]>(() => {
     sourcePosition: Position.Bottom,
     targetPosition: Position.Top,
     draggable: !props.readonly,
+    dragHandle: '.workflow-node-drag-handle',
     selectable: false,
     data: {
       node,
       selected: node.id === props.selectedNodeId,
       readonly: Boolean(props.readonly),
-      connectable: Boolean(updatingEdgeId.value) && !props.readonly,
+      connectable: !props.readonly,
+      showAnchors: Boolean(updatingEdgeId.value) || connecting.value || node.id === props.selectedNodeId,
       connectedHandles: [...(connectedHandles.get(node.id) || [])],
       onSelect: (nodeId: string) => emit('select', nodeId),
       onAddBranch: (nodeId: string) => emit('add-branch', nodeId),
@@ -119,16 +137,21 @@ const canvasEdges = computed<Edge[]>(() => props.draft.edges.map(edge => ({
   targetHandle: edge.targetHandle || 'top',
   type: 'workflow',
   markerEnd: MarkerType.ArrowClosed,
-  selectable: false,
+  selected: edge.id === selectedEdgeId.value,
+  selectable: !props.readonly,
   updatable: !props.readonly,
+  events: { click: selectEdge },
   data: {
     edge,
+    selected: edge.id === selectedEdgeId.value,
     readonly: Boolean(props.readonly),
     onInsert: (payload: { edgeId: string; type: WorkflowInsertableNodeType }) => emit('insert', payload),
+    onDelete: (edgeId: string) => requestDeleteEdge(edgeId),
   },
 })))
 
 watch(topologySignature, (_current, previous) => {
+  if (selectedEdgeId.value && !props.draft.edges.some(edge => edge.id === selectedEdgeId.value)) selectedEdgeId.value = ''
   if (!props.draft.nodes.some(node => !node.position)) return
   assignLayoutPositions(previous !== undefined)
 }, { immediate: true })
@@ -146,22 +169,43 @@ function persistNodePosition(event: NodeDragEvent) {
   emit('change')
 }
 
+function clearCanvasSelection() {
+  selectedEdgeId.value = ''
+  emit('select', '')
+}
+
+function selectEdge(event: EdgeMouseEvent) {
+  if (props.readonly) return
+  event.event.stopPropagation()
+  selectedEdgeId.value = event.edge.id
+  emit('select', '')
+  canvasRoot.value?.focus({ preventScroll: true })
+}
+
+function createConnection(connection: Connection) {
+  if (props.readonly) return
+  const created = connectWorkflowEdge(props.draft, connection)
+  if (!created) {
+    ElMessage.warning('无法创建该连线，请检查开始、结束节点或重复连接')
+    return
+  }
+  selectedEdgeId.value = created.id
+  emit('change')
+}
+
 function beginEdgeUpdate(event: EdgeMouseEvent) {
   if (props.readonly) return
   updatingEdgeId.value = event.edge.id
+  selectedEdgeId.value = event.edge.id
 }
 
-function persistEdgeAnchor(event: EdgeUpdateEvent) {
+function persistEdgeConnection(event: EdgeUpdateEvent) {
   if (props.readonly) return
-  const edge = props.draft.edges.find(item => item.id === event.edge.id)
-  const connection = event.connection
-  if (!edge || connection.source !== edge.source || connection.target !== edge.target) return
-  const sourceHandle = workflowEdgeHandle(connection.sourceHandle)
-  const targetHandle = workflowEdgeHandle(connection.targetHandle)
-  if (!sourceHandle || !targetHandle) return
-  if (edge.sourceHandle === sourceHandle && edge.targetHandle === targetHandle) return
-  edge.sourceHandle = sourceHandle
-  edge.targetHandle = targetHandle
+  if (!reconnectWorkflowEdge(props.draft, event.edge.id, event.connection)) {
+    ElMessage.warning('无法改接该连线，请检查开始、结束节点或重复连接')
+    return
+  }
+  selectedEdgeId.value = event.edge.id
   emit('change')
 }
 
@@ -169,10 +213,14 @@ function finishEdgeUpdate() {
   updatingEdgeId.value = ''
 }
 
-function workflowEdgeHandle(handle: string | null | undefined): WorkflowEdgeHandle | undefined {
-  return handle && ['top', 'right', 'bottom', 'left'].includes(handle)
-    ? handle as WorkflowEdgeHandle
-    : undefined
+function requestDeleteEdge(edgeId: string) {
+  if (props.readonly || !props.draft.edges.some(edge => edge.id === edgeId)) return
+  emit('delete-edge', edgeId)
+}
+
+function deleteSelectedEdge() {
+  if (!selectedEdgeId.value) return
+  requestDeleteEdge(selectedEdgeId.value)
 }
 
 function assignLayoutPositions(notify = true) {
@@ -217,6 +265,7 @@ function zoomOutCanvas() {
 
 <style scoped>
 .workflow-canvas { min-width: 0; flex: 1; display: flex; flex-direction: column; background: #f4f6f8; }
+.workflow-canvas:focus { outline: none; }
 .canvas-toolbar { display: flex; min-height: 55px; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #e2e6ec; background: #fff; }
 .canvas-toolbar strong, .canvas-toolbar span { display: block; }
 .canvas-toolbar strong { color: #263244; font-size: 14px; }

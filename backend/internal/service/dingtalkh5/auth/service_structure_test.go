@@ -3,8 +3,11 @@ package auth
 import (
 	"context"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+
+	"gorm.io/gorm/clause"
 
 	configsvc "wecheckin/backend/internal/service/dingtalkh5/config"
 )
@@ -62,10 +65,31 @@ func TestLoginContextDoesNotRunFullSeederOnEveryLogin(t *testing.T) {
 		"safeDevice := sessionDevice(device)",
 		"StoreDingTalkH5SessionContext(ctx, onlineUserFromDingTalkH5User(user), token, addIP, safeDevice)",
 		"bootstrapsvc.BootstrapContext(ctx, user)",
+		"recordDingTalkH5LoginSuccessDB(db, user.ID)",
 	} {
 		if !strings.Contains(helperBody, snippet) {
 			t.Fatalf("shared token issuance should sanitize device and bootstrap session with %q", snippet)
 		}
+	}
+	sessionIndex := strings.Index(helperBody, "StoreDingTalkH5SessionContext")
+	bootstrapIndex := strings.Index(helperBody, "bootstrapsvc.BootstrapContext")
+	loginCountIndex := strings.Index(helperBody, "recordDingTalkH5LoginSuccessDB")
+	if sessionIndex < 0 || bootstrapIndex < sessionIndex || loginCountIndex < bootstrapIndex {
+		t.Fatalf("login count must be recorded after the H5 session and bootstrap succeed")
+	}
+}
+
+func TestDingTalkH5LoginSuccessUpdatesUseAtomicCounter(t *testing.T) {
+	updates := dingTalkH5LoginSuccessUpdates(123456)
+	if updates["user_login_time"] != int64(123456) {
+		t.Fatalf("login time update = %#v, want 123456", updates["user_login_time"])
+	}
+	expr, ok := updates["user_login_cnt"].(clause.Expr)
+	if !ok {
+		t.Fatalf("login count update = %#v, want gorm expression", updates["user_login_cnt"])
+	}
+	if expr.SQL != "user_login_cnt + ?" || !reflect.DeepEqual(expr.Vars, []interface{}{1}) {
+		t.Fatalf("login count expression = %#v, want atomic increment", expr)
 	}
 }
 

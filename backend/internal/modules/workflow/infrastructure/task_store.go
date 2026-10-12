@@ -275,7 +275,7 @@ func loadTaskSummaries(db *gorm.DB, rows []workflowmodel.ProcessTask) ([]applica
 	instanceIDs := taskInstanceIDs(rows)
 	instances := make([]workflowmodel.ProcessInstance, 0, len(instanceIDs))
 	if len(instanceIDs) > 0 {
-		if err := db.Select("id", "definition_id", "definition_name_snapshot", "starter_id").Where("id IN ?", instanceIDs).Find(&instances).Error; err != nil {
+		if err := db.Select("id", "instance_title", "definition_id", "definition_name_snapshot", "starter_id").Where("id IN ?", instanceIDs).Find(&instances).Error; err != nil {
 			return nil, err
 		}
 	}
@@ -357,6 +357,7 @@ func taskSummaries(
 		summary.AssigneeName = names[strings.TrimSpace(summary.AssigneeID)]
 		summary.HandledByName = names[strings.TrimSpace(summary.HandledBy)]
 		if instance, exists := instanceByID[summary.InstanceID]; exists {
+			summary.InstanceTitle = strings.TrimSpace(instance.Title)
 			summary.DefinitionName = strings.TrimSpace(instance.DefinitionNameSnapshot)
 			if summary.DefinitionName == "" {
 				summary.DefinitionName = definitionNames[instance.DefinitionID]

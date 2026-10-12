@@ -25,7 +25,6 @@ var (
 	ErrInvalidTaskAction         = errors.New("工作流任务操作无效")
 	ErrInstanceNotRunning        = errors.New("工作流实例已结束")
 	ErrInstanceStarterMismatch   = errors.New("当前用户不是流程发起人")
-	ErrInstanceAlreadyHandled    = errors.New("流程任务已被处理，不能撤回")
 	ErrNoMatchingBranch          = errors.New("排他网关没有命中条件且未配置默认分支")
 	ErrTransitionLimit           = errors.New("流程自动流转次数超过限制")
 	ErrAssigneeUnavailable       = errors.New("流程节点未解析到处理人")
@@ -237,11 +236,6 @@ func (engine *Engine) Withdraw(state *State, actorID, reason string) error {
 	}
 	if strings.TrimSpace(state.Instance.StarterID) != strings.TrimSpace(actorID) {
 		return ErrInstanceStarterMismatch
-	}
-	for _, task := range state.Tasks {
-		if task.Status == TaskStatusApproved || task.Status == TaskStatusRejected {
-			return ErrInstanceAlreadyHandled
-		}
 	}
 	engine.terminateInstance(state, actorID, reason, HistoryInstanceWithdrawn)
 	return nil

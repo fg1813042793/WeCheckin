@@ -313,6 +313,7 @@ export interface WorkflowTaskSummary {
   taskType: 'workflow' | 'form_revision'
   revisionRequestId?: string
   instanceId: string
+  instanceTitle: string
   nodeId: string
   nodeName: string
   definitionName: string

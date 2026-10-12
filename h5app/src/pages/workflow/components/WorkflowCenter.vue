@@ -29,7 +29,7 @@ import {
   workflowStartContentKey,
   workflowTaskContentKey,
 } from '../workflow-route-keys'
-import { workflowStartRestrictionSummary } from '../workflow-start-restrictions'
+import { workflowStartBlockedByRunning, workflowStartRestrictionSummary } from '../workflow-start-restrictions'
 import { workflowInstanceStatusMeta, workflowTaskStatusMeta } from '../workflow-status'
 import { workflowTaskTabTitle } from '../workflow-task'
 import WorkflowDetailPanel from './WorkflowDetailPanel.vue'
@@ -627,6 +627,8 @@ function definitionRestriction(definition: WorkflowPublishedDefinition) {
 
 function definitionStartMeta(definition: WorkflowPublishedDefinition) {
   const version = `版本 ${definition.version}`
+  if (workflowStartBlockedByRunning(definition))
+    return `${version} · 流程流转中`
   if (definition.startLimit?.mode !== 'limited')
     return version
   const status = definition.startLimitStatus

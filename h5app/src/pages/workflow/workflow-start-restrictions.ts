@@ -136,7 +136,16 @@ function limitText(limit: WorkflowStartLimitConfig, status: WorkflowStartLimitSt
   const maxCount = positiveInteger(limit.maxCount)
   const usedCount = Math.max(0, positiveInteger(status.usedCount))
   const remainingCount = Math.max(0, positiveInteger(status.remainingCount))
-  return `${period}最多 ${maxCount} 次，已用 ${usedCount} 次，剩余 ${remainingCount} 次`
+  return `${period}最多完成 ${maxCount} 次，已完成 ${usedCount} 次，剩余 ${remainingCount} 次`
+}
+
+export function workflowStartBlockedByRunning(definition: WorkflowPublishedDefinition) {
+  const status = definition.startLimitStatus
+  if (status?.allowed !== false)
+    return false
+  if (definition.startLimit.mode !== 'limited')
+    return true
+  return positiveInteger(status.usedCount) < positiveInteger(definition.startLimit.maxCount)
 }
 
 function currentStatus(definition: WorkflowPublishedDefinition) {
@@ -163,12 +172,20 @@ function currentStatus(definition: WorkflowPublishedDefinition) {
         reason: '当前不在流程允许发起时间内',
       }
     default:
+      if (workflowStartBlockedByRunning(definition)) {
+        return {
+          allowed: false,
+          statusLabel: '流程流转中',
+          statusTone: 'warning' as const,
+          reason: '当前流程正在流转中，请完成后再提交',
+        }
+      }
       if (definition.startLimitStatus?.allowed === false) {
         return {
           allowed: false,
-          statusLabel: '次数已用完',
+          statusLabel: '完成次数已达上限',
           statusTone: 'danger' as const,
-          reason: '当前周期的流程发起次数已用完',
+          reason: '当前周期的流程完成次数已达上限',
         }
       }
       return {
@@ -186,7 +203,7 @@ export function workflowStartRestrictionSummary(
   const status = currentStatus(definition)
   const items: WorkflowStartRestrictionItem[] = [
     { key: 'availability', label: '允许发起时间', value: availabilityText(definition.availability) },
-    { key: 'limit', label: '发起次数', value: limitText(definition.startLimit, definition.startLimitStatus) },
+    { key: 'limit', label: '完成次数限制', value: limitText(definition.startLimit, definition.startLimitStatus) },
     { key: 'scope', label: '发起范围', value: '当前账号可发起' },
   ]
 

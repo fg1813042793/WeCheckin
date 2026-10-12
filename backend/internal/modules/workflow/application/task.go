@@ -52,6 +52,7 @@ func (service *Service) CompleteTask(ctx context.Context, request CompleteTaskRe
 		if loaded.FormData == nil {
 			loaded.FormData = make(map[string]interface{})
 		}
+		hasFormDataPatch := len(request.FormData) > 0
 		if request.FormData == nil {
 			request.FormData = make(map[string]interface{})
 		}
@@ -62,15 +63,18 @@ func (service *Service) CompleteTask(ctx context.Context, request CompleteTaskRe
 				break
 			}
 		}
-		if err := workflowcore.ValidateNodeFormPatch(definition, taskNodeID, loaded.FormData, request.FormData); err != nil {
-			return err
-		}
-		calculatedData, err := workflowcore.ApplyFormCalculations(definition.Form, workflowcore.MergeFormData(loaded.FormData, request.FormData))
-		if err != nil {
-			return err
-		}
-		for key, value := range changedFormDataPatch(loaded.FormData, calculatedData) {
-			request.FormData[key] = value
+		validateForm := request.Action == workflowdomain.TaskActionApprove || request.Action == workflowdomain.TaskActionSubmit || hasFormDataPatch
+		if validateForm {
+			if err := workflowcore.ValidateNodeFormPatch(definition, taskNodeID, loaded.FormData, request.FormData); err != nil {
+				return err
+			}
+			calculatedData, err := workflowcore.ApplyFormCalculations(definition.Form, workflowcore.MergeFormData(loaded.FormData, request.FormData))
+			if err != nil {
+				return err
+			}
+			for key, value := range changedFormDataPatch(loaded.FormData, calculatedData) {
+				request.FormData[key] = value
+			}
 		}
 		formDataChanged := len(changedFormDataPatch(loaded.FormData, request.FormData)) > 0
 		if err := service.engine.Complete(ctx, definition, loaded, workflowdomain.CompleteRequest{

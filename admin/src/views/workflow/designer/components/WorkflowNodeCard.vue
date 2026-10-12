@@ -2,7 +2,7 @@
   <button
     v-if="node.type === 'start'"
     type="button"
-    class="start-node"
+    class="start-node workflow-node-drag-handle"
     :class="{ selected }"
     :aria-label="node.name || '流程开始'"
     @click.stop="$emit('select', node.id)"
@@ -15,7 +15,7 @@
   <button
     v-else-if="node.type === 'end'"
     type="button"
-    class="end-node"
+    class="end-node workflow-node-drag-handle"
     :class="{ selected }"
     :aria-label="node.name || '流程结束'"
     @click.stop="$emit('select', node.id)"
@@ -32,7 +32,7 @@
     :class="[`workflow-node-card--${node.type}`, { selected }]"
     @click.stop="$emit('select', node.id)"
   >
-    <span class="workflow-node-card__header">
+    <span class="workflow-node-card__header workflow-node-drag-handle">
       <span>{{ nodeTypeLabel }}</span>
       <el-icon><ArrowRight /></el-icon>
     </span>
@@ -102,6 +102,8 @@ function formatDelay(seconds: number) {
 .workflow-node-card:hover { border-color: #9dbff7; box-shadow: 0 6px 15px rgb(31 41 55 / 11%); transform: translateY(-1px); }
 .workflow-node-card.selected { border-color: #4b8ffb; box-shadow: 0 0 0 2px rgb(75 143 251 / 13%), 0 6px 15px rgb(31 41 55 / 10%); }
 .workflow-node-card__header { display: flex; height: 30px; align-items: center; justify-content: space-between; padding: 0 11px; color: #fff; background: #60749f; font-size: 12px; }
+.workflow-node-drag-handle { cursor: grab; }
+.workflow-node-drag-handle:active { cursor: grabbing; }
 .workflow-node-card--approval .workflow-node-card__header { background: #ef9b48; }
 .workflow-node-card--handle .workflow-node-card__header { background: #3b82c4; }
 .workflow-node-card--cc .workflow-node-card__header { background: #7c5bb5; }

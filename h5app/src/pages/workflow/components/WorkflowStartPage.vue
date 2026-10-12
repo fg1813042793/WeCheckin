@@ -29,6 +29,7 @@ import {
 } from '../workflow-form'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
 import { workflowDefinitionIdFromContentKey, workflowInstanceContentKey } from '../workflow-route-keys'
+import { workflowStartBlockedByRunning } from '../workflow-start-restrictions'
 import { workflowInstanceStatusMeta } from '../workflow-status'
 import WorkflowDetailPanel from './WorkflowDetailPanel.vue'
 import WorkflowFilterPanel from './WorkflowFilterPanel.vue'
@@ -38,6 +39,7 @@ import WorkflowReadOnlyGraph from './WorkflowReadOnlyGraph.vue'
 import WorkflowRuntimeForm from './WorkflowRuntimeForm.vue'
 
 type WorkflowStartSection = 'start' | 'history' | 'drafts' | 'flow'
+type WorkflowFormPresentation = 'continuous' | 'tabs'
 
 interface RuntimeFormExposed {
   validate: () => { valid: boolean, errors: Record<string, string> }
@@ -81,7 +83,11 @@ const appliedHistoryFilters = ref<WorkflowHistoryFilters>(emptyHistoryFilters())
 const detailVisible = ref(false)
 const selectedInstanceId = ref('')
 const historyImportVisible = ref(false)
+const formPresentationStorageKey = 'workflow_start_form_presentation_v1'
+const formPresentation = ref<WorkflowFormPresentation>(loadFormPresentation())
+const desktopFormPresentation = ref(resolveDesktopFormPresentation())
 let unregisterCloseGuard: (() => void) | null = null
+let formPresentationResizeHandler: (() => void) | null = null
 
 const definitionId = computed(() => workflowDefinitionIdFromContentKey(props.contentKey))
 const definitionDisplayName = computed(() => workflowDefinitionDisplayName(definition.value))
@@ -94,19 +100,20 @@ const canImportHistory = computed(() => Boolean(
   && auth.hasApiPermission('dingtalk_h5:api:workflow:view'),
 ))
 const busy = computed(() => loading.value || draftSaving.value || draftDeleting.value || submitting.value)
-const startLimitExceeded = computed(() => (
-  definition.value?.startLimit?.mode === 'limited'
-  && definition.value.startLimitStatus?.allowed === false
-))
+const startBlocked = computed(() => definition.value?.startLimitStatus?.allowed === false)
 const startLimitMessage = computed(() => {
   const value = definition.value
-  if (!value || value.startLimit?.mode !== 'limited')
+  if (!value)
     return ''
   const status = value.startLimitStatus
   if (!status)
     return ''
+  if (workflowStartBlockedByRunning(value))
+    return '当前流程正在流转中，请完成后再提交'
+  if (value.startLimit?.mode !== 'limited')
+    return ''
   if (!status.allowed)
-    return '当前周期的发起次数已用完'
+    return '当前周期的流程完成次数已达上限'
   return `当前周期还可发起 ${status.remainingCount} 次`
 })
 const navigationItems = computed<Array<{ key: WorkflowStartSection, label: string, icon: string }>>(() => [
@@ -162,16 +169,29 @@ const draftIsLegacy = computed(() => Boolean(
   && definition.value
   && savedDraft.value.definitionVersion !== definition.value.version,
 ))
+const effectiveFormPresentation = computed<WorkflowFormPresentation>(() => {
+  return desktopFormPresentation.value ? formPresentation.value : 'continuous'
+})
 onMounted(() => {
   unregisterCloseGuard = appContent.registerTabCloseGuard(props.contentKey, {
     hasUnsavedChanges: () => hasUnsavedChanges.value,
     saveDraft,
   })
+  syncDesktopFormPresentation()
+  // #ifdef H5
+  formPresentationResizeHandler = syncDesktopFormPresentation
+  window.addEventListener('resize', formPresentationResizeHandler)
+  // #endif
   void loadStartPage()
 })
 
 onBeforeUnmount(() => {
   unregisterCloseGuard?.()
+  // #ifdef H5
+  if (formPresentationResizeHandler)
+    window.removeEventListener('resize', formPresentationResizeHandler)
+  // #endif
+  formPresentationResizeHandler = null
 })
 
 watch(
@@ -192,6 +212,40 @@ function currentWritableData() {
   if (!value)
     return {}
   return writableWorkflowFormData(value.form || [], formData.value, fieldAccess.value)
+}
+
+function loadFormPresentation(): WorkflowFormPresentation {
+  return uni.getStorageSync(formPresentationStorageKey) === 'tabs' ? 'tabs' : 'continuous'
+}
+
+function resolveDesktopFormPresentation() {
+  try {
+    const info = uni.getSystemInfoSync()
+    const width = Number(info.windowWidth || info.screenWidth || 0)
+    if (width > 0)
+      return width > 768
+  }
+  catch {
+    // 读取失败时继续使用 H5 媒体查询。
+  }
+
+  // #ifdef H5
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    return !window.matchMedia('(max-width: 768px)').matches
+  // #endif
+
+  return false
+}
+
+function syncDesktopFormPresentation() {
+  desktopFormPresentation.value = resolveDesktopFormPresentation()
+}
+
+function toggleFormPresentation() {
+  if (!desktopFormPresentation.value)
+    return
+  formPresentation.value = formPresentation.value === 'tabs' ? 'continuous' : 'tabs'
+  uni.setStorageSync(formPresentationStorageKey, formPresentation.value)
 }
 
 function currentSnapshot() {
@@ -485,8 +539,8 @@ async function submitStart() {
   if (!value || busy.value)
     return
 
-  if (startLimitExceeded.value) {
-    uni.showToast({ title: startLimitMessage.value || '发起次数已用完', icon: 'none' })
+  if (startBlocked.value) {
+    uni.showToast({ title: startLimitMessage.value || '流程完成次数已达上限', icon: 'none' })
     return
   }
 
@@ -597,9 +651,9 @@ function cancelStart() {
           <view
             v-if="startLimitMessage"
             class="workflow-start-page__limit-status"
-            :class="{ exhausted: startLimitExceeded }"
+            :class="{ exhausted: startBlocked }"
           >
-            <u-icon :name="startLimitExceeded ? 'info-circle' : 'checkmark-circle'" size="22" :color="startLimitExceeded ? '#b45309' : '#0f766e'" />
+            <u-icon :name="startBlocked ? 'info-circle' : 'checkmark-circle'" size="22" :color="startBlocked ? '#b45309' : '#0f766e'" />
             <text>{{ startLimitMessage }}</text>
           </view>
           <view class="workflow-start-page__form-card">
@@ -612,17 +666,30 @@ function cancelStart() {
                   按当前流程版本填写，带 * 的字段为必填项
                 </text>
               </view>
-              <u-button
-                v-if="canImportHistory"
-                custom-class="workflow-start-page__import-action"
-                size="small"
-                plain
-                :disabled="busy || startLimitExceeded"
-                @click="historyImportVisible = true"
-              >
-                <u-icon name="download" size="15px" color="#0f766e" />
-                <text>导入</text>
-              </u-button>
+              <view class="workflow-start-page__form-actions">
+                <u-button
+                  v-if="desktopFormPresentation"
+                  custom-class="workflow-start-page__presentation-action"
+                  size="small"
+                  plain
+                  :disabled="busy"
+                  @click="toggleFormPresentation"
+                >
+                  <u-icon :name="formPresentation === 'tabs' ? 'list' : 'grid'" size="15px" color="#0f766e" />
+                  <text>{{ formPresentation === 'tabs' ? '连续显示' : '分组显示' }}</text>
+                </u-button>
+                <u-button
+                  v-if="canImportHistory"
+                  custom-class="workflow-start-page__import-action"
+                  size="small"
+                  plain
+                  :disabled="busy || startBlocked"
+                  @click="historyImportVisible = true"
+                >
+                  <u-icon name="download" size="15px" color="#0f766e" />
+                  <text>导入</text>
+                </u-button>
+              </view>
             </view>
             <WorkflowRuntimeForm
               ref="formRef"
@@ -630,6 +697,7 @@ function cancelStart() {
               :fields="definition.form || []"
               :field-access="fieldAccess"
               :field-actions="fieldActions"
+              :presentation="effectiveFormPresentation"
             />
           </view>
         </view>
@@ -642,7 +710,7 @@ function cancelStart() {
             custom-class="workflow-start-page__action"
             type="primary"
             :loading="submitting"
-            :disabled="loading || draftSaving || startLimitExceeded"
+            :disabled="loading || draftSaving || startBlocked"
             @click="submitStart"
           >
             提交申请
@@ -1144,7 +1212,20 @@ function cancelStart() {
   color: #0f766e;
 }
 
-:deep(.workflow-start-page__import-action .u-button__text) {
+.workflow-start-page__form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.workflow-start-page__presentation-action) {
+  width: 104px;
+  margin: 0;
+  color: #0f766e;
+}
+
+:deep(.workflow-start-page__import-action .u-button__text),
+:deep(.workflow-start-page__presentation-action .u-button__text) {
   display: inline-flex;
   align-items: center;
   gap: 6px;

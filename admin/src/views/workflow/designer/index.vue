@@ -56,6 +56,7 @@
           @select="selectNode"
           @insert="insertNode"
           @add-branch="addGatewayBranch"
+          @delete-edge="deleteEdge"
           @change="markDirty"
         />
         <WorkflowFieldPermissions
@@ -169,7 +170,7 @@ import WorkflowStartConfig from './components/WorkflowStartConfig.vue'
 import WorkflowFormPreviewDialog from './components/WorkflowFormPreviewDialog.vue'
 import WorkflowPublishDialog from '../components/WorkflowPublishDialog.vue'
 import WorkflowVersionDrawer from '../components/WorkflowVersionDrawer.vue'
-import { addBranch, insertNodeAtEdge, removeBranch, removeNode } from './graph'
+import { addBranch, insertNodeAtEdge, removeBranch, removeNode, removeWorkflowEdge } from './graph'
 import type {
   WorkflowDefinitionDetail,
   WorkflowAssigneeUser,
@@ -325,6 +326,22 @@ async function deleteNode(nodeId: string) {
     return
   }
   selectNode('')
+  markDirty()
+}
+
+async function deleteEdge(edgeId: string) {
+  if (!detail.value) return
+  const edge = detail.value.draft.edges.find(item => item.id === edgeId)
+  if (!edge) return
+  try {
+    await ElMessageBox.confirm('删除连线后流程可能暂时不完整，发布前需要重新通过校验。确定删除吗？', '删除连线', { type: 'warning' })
+  } catch {
+    return
+  }
+  if (!removeWorkflowEdge(detail.value.draft, edge.id)) {
+    ElMessage.warning('该连线已不存在')
+    return
+  }
   markDirty()
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <el-popover placement="bottom" :width="320" trigger="click" @show="loadIcons">
+  <el-popover placement="bottom" :width="420" trigger="click" @show="loadIcons">
     <template #reference>
         <el-input :model-value="modelValue" placeholder="选择图标" clearable @clear="$emit('update:modelValue', '')" @input="$emit('update:modelValue', $event)">
         <template #prefix>
@@ -7,17 +7,20 @@
         </template>
       </el-input>
     </template>
-    <div class="icon-grid">
+    <el-input v-model="keyword" size="small" class="icon-search" placeholder="搜索图标名称" clearable />
+    <div v-if="filteredIcons.length" class="icon-grid">
       <div
-        v-for="icon in icons" :key="icon"
+        v-for="icon in filteredIcons" :key="icon"
         class="icon-item"
         :class="{ active: modelValue === icon }"
+        :title="icon"
         @click="selectIcon(icon)"
       >
         <el-icon :size="22"><component :is="icon" /></el-icon>
         <span class="icon-name">{{ icon }}</span>
       </div>
     </div>
+    <el-empty v-else description="没有匹配的图标" :image-size="48" />
   </el-popover>
 </template>
 
@@ -34,10 +37,18 @@ const iconComponent = computed(() => {
 })
 
 const icons = ref<string[]>([])
+const keyword = ref('')
+
+const filteredIcons = computed(() => filterIcons(icons.value))
 
 function loadIcons() {
   if (icons.value.length > 0) return
   icons.value = ADMIN_ICON_NAMES
+}
+
+function filterIcons(source: string[]) {
+  const value = keyword.value.trim().toLowerCase()
+  return value ? source.filter(icon => icon.toLowerCase().includes(value)) : source
 }
 
 function selectIcon(name: string) {
@@ -50,9 +61,10 @@ function selectIcon(name: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-height: 300px;
+  max-height: 360px;
   overflow-y: auto;
 }
+.icon-search { margin-bottom:10px; }
 .icon-item {
   display: flex;
   flex-direction: column;

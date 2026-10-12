@@ -6,15 +6,24 @@ import type { SurveyDesignerQuestion } from '../survey-designer-types'
 
 interface SurveyResponseRecord {
   id: number
+  userId?: string
   nickname?: string
   submitTime?: number
   startTime?: number
   duration?: number
   ip?: string
+  device?: string
   browser?: string
   deviceType?: string
   platformType?: string
   isAutoSubmit?: number
+  answers: Record<string, unknown>
+}
+
+interface SurveyResponseDetailState {
+  visible: boolean
+  loading: boolean
+  response: SurveyResponseRecord | null
   answers: Record<string, unknown>
 }
 
@@ -42,6 +51,7 @@ export function useSurveyResponses(options: UseSurveyResponsesOptions) {
   const responsePageSize = ref(20)
   const responseKeyword = ref('')
   const responseSource = ref<SurveyResponseRecord[]>([])
+  const responseDetail = ref<SurveyResponseDetailState>({ visible: false, loading: false, response: null, answers: {} })
   const dataTableRef = ref<any>(null)
   const dragColKey = ref('')
   const selectedResponseIds = ref<number[]>([])
@@ -75,7 +85,7 @@ export function useSurveyResponses(options: UseSurveyResponsesOptions) {
       deviceType: { key: 'deviceType', label: '设备类型', width: 90 },
       platformType: { key: 'platformType', label: '平台类型', width: 90 },
       isAutoSubmit: { key: 'isAutoSubmit', label: '自动提交', width: 80 },
-      actions: { key: 'actions', label: '操作', width: 80, fixed: 'right' },
+      actions: { key: 'actions', label: '操作', width: 240, fixed: 'right' },
     }
     return definitions[key] ? [definitions[key]] : []
   }))
@@ -121,11 +131,13 @@ export function useSurveyResponses(options: UseSurveyResponsesOptions) {
         }
         return {
           id: item.id,
+          userId: item.userId,
           nickname: item.nickname,
           submitTime: item.submitTime,
           startTime: item.startTime,
           duration: item.duration,
           ip: item.ip,
+          device: item.device,
           browser: item.browser || '-',
           deviceType: item.deviceType || '-',
           platformType: item.platformType || '-',
@@ -148,6 +160,27 @@ export function useSurveyResponses(options: UseSurveyResponsesOptions) {
   }
   function onSelectionChange(rows: SurveyResponseRecord[]) {
     selectedResponseIds.value = rows.map(row => row.id)
+  }
+
+  async function viewResponse(id: number) {
+    responseDetail.value = { visible: true, loading: true, response: null, answers: {} }
+    try {
+      const raw: any = await adminApi.surveyResponseDetail(id)
+      const data = raw.data || raw
+      let answers: Record<string, unknown> = data.answers || {}
+      if (typeof answers === 'string') {
+        try { answers = JSON.parse(answers) } catch { answers = {} }
+      }
+      responseDetail.value = {
+        visible: true,
+        loading: false,
+        response: (data.response || data) as SurveyResponseRecord,
+        answers,
+      }
+    } catch (error) {
+      responseDetail.value.visible = false
+      showRequestError(error, '加载答卷详情失败')
+    }
   }
 
   async function deleteResponse(id: number) {
@@ -187,6 +220,7 @@ export function useSurveyResponses(options: UseSurveyResponsesOptions) {
     responsePage,
     responsePageSize,
     responseKeyword,
+    responseDetail,
     dataTableRef,
     dataColumns,
     loadResponses,
@@ -194,6 +228,7 @@ export function useSurveyResponses(options: UseSurveyResponsesOptions) {
     onPageChange,
     onPageSizeChange,
     onSelectionChange,
+    viewResponse,
     deleteResponse,
     batchDeleteResponses,
     refreshResponses,

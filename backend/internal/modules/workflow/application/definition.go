@@ -229,7 +229,11 @@ func (service *Service) decorateStartLimitStatuses(ctx context.Context, definiti
 	now := service.currentTime()
 	for index := range definitions {
 		definition := &definitions[index]
-		definition.StartLimitStatus = StartLimitStatus{Allowed: true}
+		inProgressCount, err := service.store.CountRunningStartInstances(ctx, definition.ID, starterID)
+		if err != nil {
+			return err
+		}
+		definition.StartLimitStatus = StartLimitStatus{Allowed: inProgressCount == 0}
 		if definition.StartLimit.Mode != workflowcore.StartLimitModeLimited {
 			continue
 		}
@@ -246,7 +250,7 @@ func (service *Service) decorateStartLimitStatuses(ctx context.Context, definiti
 			remainingCount = 0
 		}
 		definition.StartLimitStatus = StartLimitStatus{
-			Allowed: usedCount < definition.StartLimit.MaxCount, UsedCount: usedCount,
+			Allowed: inProgressCount == 0 && usedCount < definition.StartLimit.MaxCount, UsedCount: usedCount,
 			RemainingCount: remainingCount, ResetsAt: window.EndsAt,
 		}
 	}

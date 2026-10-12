@@ -132,7 +132,7 @@ func TestTaskSummariesUseAssigneeAndHandlerNamesWithoutIDFallback(t *testing.T) 
 		{ID: 10, Name: "赵六"},
 	}
 	instances := []workflowmodel.ProcessInstance{
-		{ID: "instance-1", DefinitionID: 3, StarterID: "10"},
+		{ID: "instance-1", DefinitionID: 3, Title: "张三提交的请假申请", StarterID: "10"},
 	}
 	definitionNames := map[uint]string{3: "请假流程"}
 
@@ -143,7 +143,7 @@ func TestTaskSummariesUseAssigneeAndHandlerNamesWithoutIDFallback(t *testing.T) 
 	if summaries[0].AssigneeName != "张三" || summaries[0].HandledByName != "" {
 		t.Fatalf("pending task names = %#v", summaries[0])
 	}
-	if summaries[0].DefinitionName != "请假流程" || summaries[0].StarterID != "10" || summaries[0].StarterName != "赵六" {
+	if summaries[0].InstanceTitle != "张三提交的请假申请" || summaries[0].DefinitionName != "请假流程" || summaries[0].StarterID != "10" || summaries[0].StarterName != "赵六" {
 		t.Fatalf("pending task workflow context = %#v", summaries[0])
 	}
 	if summaries[1].AssigneeName != "lisi" || summaries[1].HandledByName != "王五" {

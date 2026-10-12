@@ -12,7 +12,7 @@
         `workflow-anchor--${anchor.id}`,
         {
           'workflow-anchor--connected': data.connectedHandles.includes(anchor.id),
-          'workflow-anchor--editing': data.connectable,
+          'workflow-anchor--editing': data.showAnchors,
         },
       ]"
       type="source"
@@ -26,7 +26,7 @@
       :class="[`gateway-node--${data.node.type}`, { selected: data.selected }]"
     >
       <button
-        class="gateway-node__main"
+        class="gateway-node__main workflow-node-drag-handle"
         type="button"
         :title="data.node.name"
         @click.stop="data.onSelect(data.node.id)"
@@ -78,6 +78,7 @@ defineProps<NodeProps<{
   selected: boolean
   readonly: boolean
   connectable: boolean
+  showAnchors: boolean
   connectedHandles: WorkflowEdgeHandle[]
   onSelect: (nodeId: string) => void
   onAddBranch: (nodeId: string) => void
@@ -102,7 +103,7 @@ defineProps<NodeProps<{
 .gateway-node--parallel .gateway-node__add:hover { background: #2878d0; }
 .gateway-node__add:disabled { cursor: not-allowed; opacity: .45; }
 .workflow-graph-node--gateway > .workflow-anchor { z-index: 4; }
-.workflow-anchor { opacity: 0; width: 9px; height: 9px; border: 2px solid #fff; background: #8f9daf; box-shadow: 0 1px 4px rgb(31 41 55 / 16%); transition: width .14s, height .14s, background .14s, opacity .14s; }
+.workflow-anchor { z-index: 5; opacity: 0; width: 9px; height: 9px; border: 2px solid #fff; background: #8f9daf; box-shadow: 0 1px 4px rgb(31 41 55 / 16%); transition: width .14s, height .14s, background .14s, opacity .14s; }
 .workflow-anchor--connected, .workflow-anchor--editing, .workflow-graph-node:hover .workflow-anchor { opacity: 1; }
 .workflow-anchor:hover, .workflow-anchor.connecting { width: 13px; height: 13px; background: #4b8ffb; }
 </style>

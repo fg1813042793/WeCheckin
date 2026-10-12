@@ -13,6 +13,8 @@
           </div>
         </div>
         <div class="page-head-actions">
+          <el-button @click="openSurveyPreview">查看问卷</el-button>
+          <el-button @click="openStatReport">统计报表</el-button>
           <el-button @click="load">刷新</el-button>
           <el-button type="primary" @click="exportCSV">导出 CSV</el-button>
         </div>
@@ -39,7 +41,7 @@
 
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-input v-model="keyword" class="keyword-input" placeholder="搜索昵称/用户ID/设备" clearable @clear="search" @keyup.enter="search" />
+          <el-input v-model="keyword" class="keyword-input" placeholder="按提交人搜索（支持用户ID/设备）" clearable @clear="search" @keyup.enter="search" />
           <el-button type="primary" @click="search">搜索</el-button>
         </div>
         <div class="toolbar-actions">
@@ -182,7 +184,7 @@ async function load() {
   loading.value = true
   try {
     const [res, detailRes]: any = await Promise.all([
-      adminApi.surveyResponseList({ surveyId, page: page.value, pageSize: pageSize.value, keyword: keyword.value || undefined }),
+      adminApi.surveyResponseList({ surveyId, page: page.value, pageSize: pageSize.value, keyword: keyword.value.trim() || undefined }),
       adminApi.surveyDetail(surveyId)
     ])
     list.value = res.data?.list || res.list || []
@@ -258,6 +260,20 @@ async function del(row: any) {
   await adminApi.surveyResponseDel({ id: row.id })
   ElMessage.success('已删除')
   load()
+}
+
+function openSurveyPreview() {
+  const href = router.resolve({ path: `/sf1/${surveyId}` }).href
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+function openStatReport() {
+  openAdminPage('/survey/stat-report')
+}
+
+function openAdminPage(path: string) {
+  const href = router.resolve({ path, query: { surveyId: String(surveyId), title: surveyTitle } }).href
+  window.open(href, '_blank', 'noopener,noreferrer')
 }
 
 function goBack() { router.push('/survey') }

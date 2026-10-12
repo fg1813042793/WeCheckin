@@ -6,6 +6,7 @@ import (
 	adminsurveyhandler "wecheckin/backend/internal/handler/admin/survey"
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
 	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
+	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	workflowservice "wecheckin/backend/internal/service/admin/workflow"
 	clientpassportservice "wecheckin/backend/internal/service/client/passport"
@@ -17,6 +18,7 @@ var _ adminsetuphandler.DebugTokenConfigResponse
 var _ adminsurveyhandler.EvalExprResponse
 var _ scheduledtaskapp.CreateTaskRequest
 var _ userfeedbackapp.Overview
+var _ workflowapp.TaskList
 var _ admindingtalkservice.SettingsResponse
 var _ clientpassportservice.DingTalkLoginConfigResponse
 var _ clientpassportservice.DingTalkAuthorizationResponse
@@ -2924,7 +2926,7 @@ func swaggerV2AdminWorkflowInstancesIDCancelPost() {}
 // @Param status query string false "状态"
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=workflowapp.TaskList}
 // @Router /api/v2/admin/workflow-tasks [get]
 func swaggerV2AdminWorkflowTasksGet() {}
 
@@ -3313,7 +3315,8 @@ func swaggerV2WorkflowsInstancesGet() {}
 func swaggerV2WorkflowsInstancesIDGet() {}
 
 // @Tags API v2-客户端-OA流程
-// @Summary 撤回未处理的 OA 流程申请
+// @Summary 撤回流转中的 OA 流程申请
+// @Description 仅发起人可撤回仍在流转中的流程；已完成的审批记录继续保留，待处理和待激活任务改为已取消
 // @Security ClientToken
 // @Accept application/json
 // @Param id path string true "流程实例 ID"
@@ -3329,7 +3332,7 @@ func swaggerV2WorkflowsInstancesIDWithdrawPost() {}
 // @Param status query string false "状态"
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=workflowapp.TaskList}
 // @Router /api/v2/workflows/tasks [get]
 func swaggerV2WorkflowsTasksGet() {}
 

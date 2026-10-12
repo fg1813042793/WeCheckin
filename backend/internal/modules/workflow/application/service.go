@@ -17,7 +17,8 @@ var (
 	ErrStartNotYetAvailable                  = errors.New("流程尚未到允许发起时间")
 	ErrStartAvailabilityExpired              = errors.New("流程已超过允许发起时间")
 	ErrStartOutsideAvailability              = errors.New("当前不在流程允许发起时间内")
-	ErrStartLimitExceeded                    = errors.New("当前周期的流程发起次数已用完")
+	ErrStartInstanceInProgress               = errors.New("当前流程正在流转中，请完成后再提交")
+	ErrStartLimitExceeded                    = errors.New("当前周期的流程完成次数已达上限")
 	ErrStarterAccessDenied                   = errors.New("无权为该用户发起流程")
 	ErrBusinessReferenceRequired             = errors.New("业务类型和业务标识不能为空")
 	ErrTaskIDRequired                        = errors.New("流程任务不能为空")
@@ -81,6 +82,7 @@ type Store interface {
 	InTransaction(ctx context.Context, fn func(TransactionStore) error) error
 	ListPublishedDefinitions(ctx context.Context) ([]PublishedDefinition, error)
 	GetPublishedDefinition(ctx context.Context, definitionID uint) (*PublishedDefinition, error)
+	CountRunningStartInstances(ctx context.Context, definitionID uint, starterID string) (int, error)
 	CountStartQuotaUsage(ctx context.Context, definitionID uint, starterID string, window workflowcore.StartLimitWindow) (int, error)
 	ListInstances(ctx context.Context, query InstanceQuery) (*InstanceList, error)
 	GetWorkflowOverview(ctx context.Context, actorID string) (*WorkflowOverview, error)
@@ -98,6 +100,7 @@ type TransactionStore interface {
 	IsActiveUser(ctx context.Context, userID string) (bool, error)
 	UserDisplayName(ctx context.Context, userID string) (string, error)
 	CanOperatorStartFor(ctx context.Context, operatorID, starterID string) (bool, error)
+	LockStartSubmission(ctx context.Context, definitionID uint, starterID string) (int, error)
 	ConsumeStartQuota(ctx context.Context, definitionID uint, starterID string, window workflowcore.StartLimitWindow, maxCount int) (int, bool, error)
 	CreateState(ctx context.Context, state *workflowdomain.State) error
 	DeleteStartDraft(ctx context.Context, definitionID uint, starterID string) error

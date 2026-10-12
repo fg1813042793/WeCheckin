@@ -340,6 +340,67 @@ definitions:
       resolved:
         type: integer
     type: object
+  application.TaskSummary:
+    properties:
+      action:
+        type: string
+      approvalChainKey:
+        type: string
+      approvalLayer:
+        type: integer
+      approvalLayerTotal:
+        type: integer
+      approvalMode:
+        type: string
+      assigneeId:
+        type: string
+      assigneeName:
+        type: string
+      comment:
+        type: string
+      completionRate:
+        type: integer
+      definitionName:
+        type: string
+      handledAt:
+        type: integer
+      handledBy:
+        type: string
+      handledByName:
+        type: string
+      id:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/workflowcore.FormAttachment'
+        type: array
+      instanceId:
+        type: string
+      instanceTitle:
+        type: string
+      nodeId:
+        type: string
+      nodeName:
+        type: string
+      revisionRequestId:
+        type: string
+      sequence:
+        type: integer
+      sourceDepartmentId:
+        type: integer
+      sourceDepartmentName:
+        type: string
+      starterId:
+        type: string
+      starterName:
+        type: string
+      status:
+        type: string
+      taskType:
+        type: string
+      total:
+        type: integer
+    type: object
   application.UpdateTaskRequest:
     properties:
       code:
@@ -1987,6 +2048,19 @@ definitions:
         items:
           $ref: '#/definitions/template.ValueRubric'
         type: array
+    type: object
+  wecheckin_backend_internal_modules_workflow_application.TaskList:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/application.TaskSummary'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
     type: object
   workflowcore.FormAttachment:
     properties:
@@ -8807,7 +8881,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Resp'
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/wecheckin_backend_internal_modules_workflow_application.TaskList'
+              type: object
       security:
       - AdminToken: []
       summary: 查询工作流任务列表
@@ -10478,6 +10557,7 @@ paths:
       - API v2-H5App-流程审批
   /api/v2/dingtalk/h5/workflows/instances/{id}/withdraw:
     post:
+      description: 仅发起人可撤回仍在流转中的流程；已完成的审批记录继续保留，待处理和待激活任务改为已取消
       parameters:
       - description: 流程实例 ID
         in: path
@@ -10668,6 +10748,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: 单据标题关键字（模糊匹配，最多 100 个字符）
+        in: query
+        name: instanceTitle
+        type: string
       - description: 流程名称关键字（模糊匹配，最多 50 个字符）
         in: query
         name: definitionName
@@ -10700,7 +10784,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Resp'
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/wecheckin_backend_internal_modules_workflow_application.TaskList'
+              type: object
       security:
       - H5AppToken: []
       summary: 查询 H5App 待办任务
@@ -12122,6 +12211,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 仅发起人可撤回仍在流转中的流程；已完成的审批记录继续保留，待处理和待激活任务改为已取消
       parameters:
       - description: 流程实例 ID
         in: path
@@ -12140,7 +12230,7 @@ paths:
             $ref: '#/definitions/response.Resp'
       security:
       - ClientToken: []
-      summary: 撤回未处理的 OA 流程申请
+      summary: 撤回流转中的 OA 流程申请
       tags:
       - API v2-客户端-OA流程
   /api/v2/workflows/tasks:
@@ -12166,7 +12256,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Resp'
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/wecheckin_backend_internal_modules_workflow_application.TaskList'
+              type: object
       security:
       - ClientToken: []
       summary: 查询我的 OA 流程任务

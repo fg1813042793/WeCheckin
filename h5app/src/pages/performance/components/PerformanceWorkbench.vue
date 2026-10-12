@@ -5,6 +5,11 @@ import type { WorkflowTaskSummary } from '@/types/workflow'
 import { computed, ref, watch } from 'vue'
 import { listReviews } from '@/api/dingtalk-h5'
 import { listWorkflowTasks } from '@/api/workflow'
+import {
+  workflowFormRevisionDetailContentKey,
+  workflowTaskContentKey,
+} from '@/pages/workflow/workflow-route-keys'
+import { workflowTaskTabTitle } from '@/pages/workflow/workflow-task'
 import { useAppContentStore } from '@/stores/appContent'
 import { useDingtalkAuthStore } from '@/stores/dingtalkAuth'
 import { reviewActionApiPermissions, reviewActionButtonPermissions } from '../constants/performancePermissions'
@@ -237,17 +242,45 @@ function openTodo(review: PerformanceReview) {
   appContent.switchContent(nextView, review.id)
 }
 
-function openWorkflowTodos() {
+function openWorkflowTodo(task: WorkflowTaskSummary) {
   if (!canViewWorkflowTodos.value) {
     showToast('无权限访问')
     return
   }
   appContent.focusWorkflowTab('pending')
-  appContent.switchContent('workflow')
+  if (task.taskType === 'form_revision') {
+    const key = workflowFormRevisionDetailContentKey(task.revisionRequestId || '')
+    if (!key) {
+      showToast('表单修订任务缺少关联记录')
+      return
+    }
+    appContent.openDynamicTab({
+      key,
+      label: `表单修订 · ${firstText(task.nodeName, workflowTodoTitle(task))}`,
+      icon: 'edit-pen',
+      path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+    })
+    return
+  }
+  const key = workflowTaskContentKey(task.id, task.instanceId)
+  if (!key) {
+    showToast('待办任务信息不完整')
+    return
+  }
+  appContent.openDynamicTab({
+    key,
+    label: workflowTaskTabTitle(workflowTodoStarter(task), workflowTodoTitle(task)),
+    icon: 'checkmark-circle',
+    path: `/pages/index/index?view=${encodeURIComponent(key)}`,
+  })
 }
 
 function workflowTodoTitle(task: WorkflowTaskSummary) {
   return firstText(task.definitionName, task.nodeName, '流程审批')
+}
+
+function workflowTodoCardTitle(task: WorkflowTaskSummary) {
+  return firstText(task.instanceTitle, workflowTodoTitle(task))
 }
 
 function workflowTodoStarter(task: WorkflowTaskSummary) {
@@ -348,14 +381,14 @@ watch(
         </view>
 
         <view v-else-if="hasVisibleTodos" class="todo-list">
-          <view v-for="task in visibleWorkflowTasks" :key="task.id" class="todo-item todo-item--workflow" @click="openWorkflowTodos">
+          <view v-for="task in visibleWorkflowTasks" :key="task.id" class="todo-item todo-item--workflow" @click="openWorkflowTodo(task)">
             <view class="todo-item__icon todo-item__icon--workflow">
               <u-icon name="file-text" size="20px" color="#0f766e" />
             </view>
             <view class="todo-item__main">
               <view class="todo-item__title-row">
                 <text class="todo-item__title">
-                  {{ workflowTodoTitle(task) }}
+                  {{ workflowTodoCardTitle(task) }}
                 </text>
                 <u-tag custom-class="todo-source-tag" text="流程审批" type="primary" mode="light" size="mini" />
                 <u-tag custom-class="todo-status-tag" text="待处理" type="warning" mode="light" size="mini" />
@@ -365,7 +398,7 @@ watch(
               </text>
             </view>
             <view class="todo-item__side">
-              <u-button custom-class="todo-item__action-button" type="primary" size="mini" plain @click.stop="openWorkflowTodos">
+              <u-button custom-class="todo-item__action-button" type="primary" size="mini" plain @click.stop="openWorkflowTodo(task)">
                 <text>处理</text>
                 <u-icon name="arrow-right" size="14px" color="var(--u-type-primary)" />
               </u-button>

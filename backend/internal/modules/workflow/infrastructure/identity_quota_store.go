@@ -13,6 +13,8 @@ import (
 	"wecheckin/backend/internal/workflowcore"
 )
 
+const startSubmissionGuardPeriodKey = "submission_guard"
+
 func (store *GormStore) IsActiveUser(ctx context.Context, userID string) (bool, error) {
 	id, err := strconv.ParseUint(strings.TrimSpace(userID), 10, 64)
 	if err != nil || id == 0 {
@@ -145,6 +147,39 @@ func (store *GormStore) CountStartQuotaUsage(
 	return countStartQuotaUsage(db, definitionID, starterID, window)
 }
 
+func (store *GormStore) CountRunningStartInstances(
+	ctx context.Context,
+	definitionID uint,
+	starterID string,
+) (int, error) {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	return countRunningStartInstances(db, definitionID, starterID)
+}
+
+func (store *GormStore) LockStartSubmission(
+	ctx context.Context,
+	definitionID uint,
+	starterID string,
+) (int, error) {
+	starterID = strings.TrimSpace(starterID)
+	if definitionID == 0 || starterID == "" {
+		return 0, errors.New("流程发起锁参数无效")
+	}
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	if _, err := lockStartQuotaUsageRow(db, definitionID, starterID, startSubmissionGuardPeriodKey); err != nil {
+		return 0, err
+	}
+	return countRunningStartInstances(db, definitionID, starterID)
+}
+
 func (store *GormStore) ConsumeStartQuota(
 	ctx context.Context,
 	definitionID uint,
@@ -162,18 +197,8 @@ func (store *GormStore) ConsumeStartQuota(
 	}
 	defer cancel()
 
-	usage := workflowmodel.StartQuotaUsage{
-		DefinitionID: definitionID, StarterID: starterID, PeriodKey: window.PeriodKey,
-	}
-	if err := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "definition_id"}, {Name: "starter_id"}, {Name: "period_key"}},
-		DoUpdates: clause.Assignments(map[string]interface{}{"id": gorm.Expr("id")}),
-	}).Create(&usage).Error; err != nil {
-		return 0, false, err
-	}
-	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("definition_id = ? AND starter_id = ? AND period_key = ?", definitionID, starterID, window.PeriodKey).
-		First(&usage).Error; err != nil {
+	usage, err := lockStartQuotaUsageRow(db, definitionID, starterID, window.PeriodKey)
+	if err != nil {
 		return 0, false, err
 	}
 
@@ -184,12 +209,68 @@ func (store *GormStore) ConsumeStartQuota(
 	if usedCount >= maxCount {
 		return usedCount, false, nil
 	}
-	nextCount := usedCount + 1
 	if err := db.Model(&workflowmodel.StartQuotaUsage{}).Where("id = ?", usage.ID).
-		Update("used_count", nextCount).Error; err != nil {
+		Update("used_count", usedCount).Error; err != nil {
 		return 0, false, err
 	}
-	return nextCount, true, nil
+	return usedCount, true, nil
+}
+
+func lockStartQuotaUsageRow(
+	db *gorm.DB,
+	definitionID uint,
+	starterID string,
+	periodKey string,
+) (workflowmodel.StartQuotaUsage, error) {
+	usage := workflowmodel.StartQuotaUsage{
+		DefinitionID: definitionID, StarterID: strings.TrimSpace(starterID), PeriodKey: strings.TrimSpace(periodKey),
+	}
+	if err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "definition_id"}, {Name: "starter_id"}, {Name: "period_key"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{"id": gorm.Expr("id")}),
+	}).Create(&usage).Error; err != nil {
+		return workflowmodel.StartQuotaUsage{}, err
+	}
+	if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("definition_id = ? AND starter_id = ? AND period_key = ?", definitionID, strings.TrimSpace(starterID), strings.TrimSpace(periodKey)).
+		First(&usage).Error; err != nil {
+		return workflowmodel.StartQuotaUsage{}, err
+	}
+	return usage, nil
+}
+
+func startQuotaUsageQuery(
+	db *gorm.DB,
+	definitionID uint,
+	starterID string,
+	window workflowcore.StartLimitWindow,
+) *gorm.DB {
+	query := db.Model(&workflowmodel.ProcessInstance{}).
+		Where("definition_id = ? AND starter_id = ?", definitionID, strings.TrimSpace(starterID)).
+		Where("instance_status = ?", workflowmodel.InstanceStatusCompleted).
+		Where("admin_deleted_at = ?", int64(0))
+	if window.StartsAt > 0 {
+		query = query.Where("start_time >= ?", window.StartsAt)
+	}
+	if window.EndsAt > 0 {
+		query = query.Where("start_time < ?", window.EndsAt)
+	}
+	return query
+}
+
+func runningStartInstanceQuery(db *gorm.DB, definitionID uint, starterID string) *gorm.DB {
+	return db.Model(&workflowmodel.ProcessInstance{}).
+		Where("definition_id = ? AND starter_id = ?", definitionID, strings.TrimSpace(starterID)).
+		Where("instance_status = ?", workflowmodel.InstanceStatusRunning).
+		Where("admin_deleted_at = ?", int64(0))
+}
+
+func countRunningStartInstances(db *gorm.DB, definitionID uint, starterID string) (int, error) {
+	var count int64
+	if err := runningStartInstanceQuery(db, definitionID, starterID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
 
 func countStartQuotaUsage(
@@ -198,16 +279,8 @@ func countStartQuotaUsage(
 	starterID string,
 	window workflowcore.StartLimitWindow,
 ) (int, error) {
-	query := db.Model(&workflowmodel.ProcessInstance{}).
-		Where("definition_id = ? AND starter_id = ?", definitionID, strings.TrimSpace(starterID))
-	if window.StartsAt > 0 {
-		query = query.Where("start_time >= ?", window.StartsAt)
-	}
-	if window.EndsAt > 0 {
-		query = query.Where("start_time < ?", window.EndsAt)
-	}
 	var count int64
-	if err := query.Count(&count).Error; err != nil {
+	if err := startQuotaUsageQuery(db, definitionID, starterID, window).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return int(count), nil

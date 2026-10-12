@@ -1319,6 +1319,79 @@ func TestCompleteTaskRequiresRejectReasonAndValidatesImages(t *testing.T) {
 	}
 }
 
+func TestCompleteTaskReturnSkipsUnsubmittedRequiredNodeFields(t *testing.T) {
+	definition := workflowcore.Definition{
+		SchemaVersion: workflowcore.CurrentSchemaVersion,
+		Key:           "return-required-form",
+		Name:          "必填表单退回流程",
+		Form: []workflowcore.FormField{
+			{Key: "hrbp_score", Label: "团结一心", Type: workflowcore.FormFieldTypeNumber, Required: true},
+		},
+		Nodes: []workflowcore.Node{
+			{ID: "start", Type: workflowcore.NodeTypeStart, Name: "开始"},
+			{
+				ID: "manager", Type: workflowcore.NodeTypeApproval, Name: "上级评分",
+				ApprovalMode: workflowcore.ApprovalModeSingle,
+				Assignee:     &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "42"},
+			},
+			{
+				ID: "hrbp", Type: workflowcore.NodeTypeApproval, Name: "HRBP评价",
+				ApprovalMode: workflowcore.ApprovalModeSingle,
+				Assignee:     &workflowcore.Assignee{Type: workflowcore.AssigneeTypeUser, Value: "42"},
+				FormPermissions: []workflowcore.FieldPermission{
+					{Field: "hrbp_score", Access: workflowcore.FieldAccessWrite},
+				},
+			},
+			{ID: "end", Type: workflowcore.NodeTypeEnd, Name: "结束"},
+		},
+		Edges: []workflowcore.Edge{
+			{ID: "e1", Source: "start", Target: "manager"},
+			{ID: "e2", Source: "manager", Target: "hrbp"},
+			{ID: "e3", Source: "hrbp", Target: "end"},
+		},
+	}
+	newState := func() *workflowdomain.State {
+		return &workflowdomain.State{
+			Instance: workflowdomain.ProcessInstance{ID: "instance-1", Status: workflowdomain.InstanceStatusRunning},
+			Tasks: []workflowdomain.Task{
+				{ID: "manager-task", TokenID: "manager-token", NodeID: "manager", NodeName: "上级评分", AssigneeID: "42", Status: workflowdomain.TaskStatusApproved, Action: workflowdomain.TaskActionApprove},
+				{ID: "hrbp-task", TokenID: "hrbp-token", NodeID: "hrbp", NodeName: "HRBP评价", AssigneeID: "42", Status: workflowdomain.TaskStatusPending},
+			},
+			Tokens:    []workflowdomain.Token{{ID: "hrbp-token", NodeID: "hrbp", Status: workflowdomain.TokenStatusWaiting}},
+			Variables: map[string]interface{}{},
+			FormData:  map[string]interface{}{},
+		}
+	}
+
+	t.Run("return only requires return reason", func(t *testing.T) {
+		state := newState()
+		store := &fakeStore{definition: definition, state: state}
+		service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+		updated, err := service.CompleteTask(context.Background(), CompleteTaskRequest{
+			TaskID: "hrbp-task", ActorID: "42", Action: workflowdomain.TaskActionReturn,
+			ReturnTargetNodeID: "manager", Comment: "请上级重新评分",
+		})
+		if err != nil {
+			t.Fatalf("return with unsaved required node fields: %v", err)
+		}
+		pending := updated.PendingTasks()
+		if store.savedState != updated || len(pending) != 1 || pending[0].NodeID != "manager" {
+			t.Fatalf("returned state = %#v, pending = %#v", store.savedState, pending)
+		}
+	})
+
+	t.Run("approve still validates required fields", func(t *testing.T) {
+		state := newState()
+		store := &fakeStore{definition: definition, state: state}
+		service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
+		if _, err := service.CompleteTask(context.Background(), CompleteTaskRequest{
+			TaskID: "hrbp-task", ActorID: "42", Action: workflowdomain.TaskActionApprove,
+		}); err == nil || store.savedState != nil {
+			t.Fatalf("approve must reject missing required fields: err=%v saved=%#v", err, store.savedState)
+		}
+	})
+}
+
 func TestRemindInstanceNotifiesOnlyCurrentPendingAssigneesAfterCommit(t *testing.T) {
 	now := time.Date(2026, time.September, 3, 14, 0, 0, 0, time.FixedZone("Asia/Shanghai", 8*60*60))
 	definition := simpleDefinition()
@@ -1841,6 +1914,8 @@ type fakeStore struct {
 	softDeletedTaskAt                  int64
 	softDeleteTaskInTransaction        bool
 	startQuotaUsedCount                int
+	runningStartCount                  int
+	startSubmissionLocks               int
 	startQuotaCountDefinition          uint
 	startQuotaCountStarter             string
 	startQuotaCountWindow              workflowcore.StartLimitWindow
@@ -1891,6 +1966,10 @@ func (store *fakeStore) CountStartQuotaUsage(
 	return store.startQuotaUsedCount, nil
 }
 
+func (store *fakeStore) CountRunningStartInstances(_ context.Context, _ uint, _ string) (int, error) {
+	return store.runningStartCount, nil
+}
+
 func (store *fakeStore) UserDepartmentIDs(_ context.Context, userID string) ([]uint, error) {
 	store.userDepartmentQueries++
 	store.userDepartmentUserID = userID
@@ -1921,6 +2000,11 @@ func (store *fakeStore) UserDisplayName(_ context.Context, userID string) (strin
 func (store *fakeStore) CanOperatorStartFor(_ context.Context, _, _ string) (bool, error) {
 	store.operatorAccessChecks++
 	return !store.denyStarterAccess, nil
+}
+
+func (store *fakeStore) LockStartSubmission(_ context.Context, _ uint, _ string) (int, error) {
+	store.startSubmissionLocks++
+	return store.runningStartCount, nil
 }
 
 func (store *fakeStore) ConsumeStartQuota(

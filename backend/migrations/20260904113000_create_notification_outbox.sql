@@ -42,7 +42,7 @@ INSERT INTO `scheduled_tasks` (
   'minute',
   'Asia/Shanghai',
   1,
-  'fire_once',
+  'skip',
   1,
   'skip',
   60,

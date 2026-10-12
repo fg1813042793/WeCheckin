@@ -3,6 +3,7 @@ package survey
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/access"
@@ -74,9 +75,10 @@ func (r *ResponseService) ListContext(ctx context.Context, surveyID uint, page, 
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	q := db.Model(&model.SurveyResponse{}).Where("`survey_resp_survey_id` = ?", surveyID)
+	keyword = strings.TrimSpace(keyword)
 	if keyword != "" {
 		like := "%" + keyword + "%"
-		q = q.Where("`survey_resp_nickname` LIKE ? OR `survey_resp_user_id` LIKE ? OR `survey_resp_device` LIKE ? OR CAST(`survey_resp_id` AS CHAR) LIKE ?", like, like, like, like)
+		q = q.Where("(`survey_resp_nickname` LIKE ? OR `survey_resp_user_id` LIKE ? OR `survey_resp_device` LIKE ? OR CAST(`survey_resp_id` AS CHAR) LIKE ?)", like, like, like, like)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

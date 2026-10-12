@@ -366,6 +366,9 @@ func issueDingTalkH5LoginResponseContext(ctx context.Context, db *gorm.DB, user 
 	if err != nil {
 		return nil, err
 	}
+	if err := recordDingTalkH5LoginSuccessDB(db, user.ID); err != nil {
+		return nil, err
+	}
 	return &LoginResponse{
 		Token:                 token,
 		UserInfo:              bootstrapUserDTO(bootstrap),
@@ -381,6 +384,19 @@ func issueDingTalkH5LoginResponseContext(ctx context.Context, db *gorm.DB, user 
 		APIPermissionReady:    bootstrap.APIPermissionReady,
 		PermissionVersion:     bootstrap.PermissionVersion,
 	}, nil
+}
+
+func recordDingTalkH5LoginSuccessDB(db *gorm.DB, userID uint) error {
+	return db.Model(&model.User{}).
+		Where("`id` = ?", userID).
+		Updates(dingTalkH5LoginSuccessUpdates(database.Now())).Error
+}
+
+func dingTalkH5LoginSuccessUpdates(now int64) map[string]interface{} {
+	return map[string]interface{}{
+		"user_login_time": now,
+		"user_login_cnt":  gorm.Expr("user_login_cnt + ?", 1),
+	}
 }
 
 func bootstrapUserDTO(response *bootstrapsvc.BootstrapResponse) UserDTO {

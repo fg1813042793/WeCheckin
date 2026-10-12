@@ -239,7 +239,7 @@ onMounted(load)
 .toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .toolbar-right { display:flex; align-items:center; gap:8px; }
 
-.action-row { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
+.action-row { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--survey-border); }
 .view-toggle {
   display:inline-flex;
   align-items:center;
@@ -257,17 +257,26 @@ onMounted(load)
   display:flex;
   align-items:center;
   flex-wrap:wrap;
-  gap:24px;
+  gap:0;
   margin-bottom:16px;
-  padding:12px 16px;
-  background:#f8f9fc;
-  border-radius:8px;
+  overflow:hidden;
+  border:1px solid var(--survey-border);
+  border-radius:10px;
+  background:#fff;
 }
 .stat-item {
+  display:flex;
+  min-width:132px;
+  align-items:baseline;
+  gap:7px;
+  padding:11px 16px;
+  border-right:1px solid var(--survey-border);
+  background:#fbfcfe;
   font-size:13px;
   color:#888;
 }
-.stat-num { font-weight:600; color:#333; font-size:16px; margin-right:4px; }
+.stat-item:last-child { border-right:0; }
+.stat-num { font-weight:700; color:#333; font-size:18px; line-height:22px; }
 .stat-num.active { color:#67c23a; }
 .stat-num.muted { color:#999; }
 
@@ -289,15 +298,14 @@ onMounted(load)
 .table-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .table-actions :deep(.el-button + .el-button) { margin-left:0; }
 
-.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; margin-top:8px; }
+.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,260px)); gap:16px; align-items:start; justify-content:start; margin-top:8px; }
 .project-card {
   position:relative;
   display:flex;
   flex-direction:column;
-  min-height:262px;
-  background:
-    linear-gradient(90deg, var(--survey-accent-soft) 0 8px, transparent 8px),
-    #fff;
+  aspect-ratio:4 / 5;
+  min-height:0;
+  background:#fff;
   border:1px solid var(--survey-border);
   border-radius:10px;
   overflow:hidden;
@@ -306,19 +314,10 @@ onMounted(load)
   transition:border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 .project-card::before {
-  content:'';
-  position:absolute;
-  top:18px;
-  bottom:18px;
-  left:18px;
-  width:1px;
-  background:var(--survey-accent);
-  opacity:0.26;
+  display:none;
 }
 .project-card.is-stopped {
-  background:
-    linear-gradient(90deg, #f2f4f7 0 8px, transparent 8px),
-    #fff;
+  background:#fff;
 }
 .project-card.is-stopped::before { background:#98a2b3; }
 .project-card:hover { border-color:var(--survey-accent-border); box-shadow:0 12px 28px rgba(15,23,42,0.08); transform:translateY(-2px); }
@@ -326,7 +325,7 @@ onMounted(load)
 .card-body,
 .card-foot,
 .card-actions { position:relative; z-index:1; }
-.card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 18px 8px 32px; }
+.card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 18px 8px 20px; }
 .card-head.pub { background:transparent; }
 .card-head.stop { background:transparent; }
 .card-type {
@@ -345,7 +344,7 @@ onMounted(load)
 .card-type .el-icon { color:var(--survey-accent); font-size:15px; }
 .card-type span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .project-card.is-stopped .card-type .el-icon { color:#98a2b3; }
-.card-body { flex:1; padding:8px 20px 16px 32px; min-height:126px; }
+.card-body { flex:1; min-height:0; padding:8px 20px 16px 20px; }
 .card-title {
   display:-webkit-box;
   -webkit-box-orient:vertical;
@@ -411,7 +410,7 @@ onMounted(load)
   display:flex;
   gap:14px;
   flex-wrap:wrap;
-  padding:11px 18px 11px 32px;
+  padding:10px 18px 10px 20px;
   border-top:1px solid #f0f3f8;
   background:#fbfcfe;
   font-size:12px;
@@ -420,9 +419,9 @@ onMounted(load)
 .card-foot span { display:inline-flex; align-items:center; gap:4px; }
 .card-actions {
   display:flex;
-  justify-content:flex-end;
+  justify-content:flex-start;
   flex-wrap:wrap;
-  padding:10px 18px 14px 32px;
+  padding:10px 18px 12px 20px;
   gap:8px;
   border-top:1px solid #f0f3f8;
   background:#fff;
@@ -440,7 +439,7 @@ onMounted(load)
   .toolbar-left :deep(.el-select) { width:100%!important; }
   .action-row { justify-content:space-between; }
   .stat-bar { gap:16px; }
-  .card-grid { grid-template-columns:1fr; }
+  .card-grid { grid-template-columns:minmax(0, 1fr); }
   .card-actions { justify-content:flex-start; }
 }
 </style>

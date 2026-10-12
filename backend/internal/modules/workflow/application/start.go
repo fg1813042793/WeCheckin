@@ -98,6 +98,13 @@ func (service *Service) StartInstance(ctx context.Context, request StartInstance
 		if err != nil {
 			return err
 		}
+		inProgressCount, err := store.LockStartSubmission(ctx, request.DefinitionID, request.StarterID)
+		if err != nil {
+			return err
+		}
+		if inProgressCount > 0 {
+			return ErrStartInstanceInProgress
+		}
 		startLimit := definitionStartLimitConfig(definition)
 		if startLimit.Mode == workflowcore.StartLimitModeLimited {
 			window, ok := workflowcore.ResolveStartLimitWindow(&startLimit, availability, startedAt)

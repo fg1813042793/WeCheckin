@@ -223,7 +223,7 @@
         <div class="config-section__heading">
           <div>
             <span class="config-section__index">03</span>
-            <h3>发起次数限制</h3>
+            <h3>流程完成次数限制</h3>
           </div>
           <el-tag size="small" type="info">{{ startLimitSummary }}</el-tag>
         </div>
@@ -243,7 +243,7 @@
                   <el-option v-for="option in startLimitPeriodOptions" :key="option.value" :label="option.label" :value="option.value" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="每人最多发起" required>
+              <el-form-item label="每人最多完成" required>
                 <el-input-number
                   :model-value="startLimitMaxCount"
                   :min="1"
@@ -255,7 +255,10 @@
                 />
               </el-form-item>
             </div>
-            <div class="form-help">草稿不计次数；提交成功后计入。管理员代发时，次数归属所选员工。</div>
+            <div v-if="availabilityMode === 'monthly_window'" class="form-help">
+              每月连续区间默认按每个开放期统计；跨月窗口共用额度，进入下一个开放期后自动重置。同一流程流转中不能再次提交；流程完成后计入，撤回、驳回和后台删除不计次数。
+            </div>
+            <div v-else class="form-help">同一流程流转中不能再次提交；流程完成后计入，草稿、撤回、驳回和后台删除不计次数。管理员代发时，次数归属所选员工。</div>
           </template>
         </el-form>
       </section>
@@ -424,6 +427,7 @@ const windowEndTime = computed(() => normalizeClock(startNode.value?.availabilit
 const startLimitMode = computed<WorkflowStartLimitMode>(() => startNode.value?.startLimit?.mode === 'limited' ? 'limited' : 'unlimited')
 const startLimitPeriod = computed<WorkflowStartLimitPeriod>(() => {
   const period = startNode.value?.startLimit?.period
+  if (availabilityMode.value === 'monthly_window' && period === 'total') return 'availability'
   if (period === 'total' || period === 'day' || period === 'week' || period === 'month') return period
   if (period === 'availability' && availabilityMode.value !== 'always') return period
   return availabilityMode.value === 'always' ? 'month' : 'availability'
@@ -433,11 +437,14 @@ const startLimitMaxCount = computed(() => {
   return Number.isInteger(count) && count >= 1 && count <= 10000 ? count : 1
 })
 const startLimitPeriodOptions = computed<Array<{ label: string, value: WorkflowStartLimitPeriod }>>(() => [
-  { label: '累计', value: 'total' },
+  ...(availabilityMode.value === 'monthly_window' ? [] : [{ label: '累计（不重置）', value: 'total' as const }]),
+  ...(availabilityMode.value === 'monthly_window' ? [{ label: '每个开放期（推荐）', value: 'availability' as const }] : []),
   { label: '每天', value: 'day' },
   { label: '每周', value: 'week' },
   { label: '每月', value: 'month' },
-  ...(availabilityMode.value === 'always' ? [] : [{ label: '每个开放期', value: 'availability' as const }]),
+  ...(availabilityMode.value !== 'always' && availabilityMode.value !== 'monthly_window'
+    ? [{ label: '每个开放期', value: 'availability' as const }]
+    : []),
 ])
 const startLimitSummary = computed(() => {
   if (startLimitMode.value === 'unlimited') return '不限次数'
@@ -631,6 +638,9 @@ function updateAvailability(config: WorkflowStartAvailabilityConfig) {
   if (!node || props.readonly) return
   const configuredBusinessPeriodSource = props.draft.instanceIdentity?.businessPeriod?.source
   node.availability = config
+  if (config.mode === 'monthly_window' && node.startLimit?.mode === 'limited' && node.startLimit?.period === 'total') {
+    node.startLimit = { ...node.startLimit, period: 'availability' }
+  }
   if (config.mode === 'always' && node.startLimit?.mode === 'limited' && node.startLimit.period === 'availability') {
     node.startLimit = { ...node.startLimit, period: 'month' }
   }

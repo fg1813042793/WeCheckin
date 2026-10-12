@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm/clause"
 	"sort"
 	"strings"
+	"time"
 	workflowmodel "wecheckin/backend/internal/model/workflow"
 	"wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
@@ -85,19 +86,24 @@ func (store *GormStore) SaveStartDraft(ctx context.Context, draft application.St
 		DefinitionID: draft.DefinitionID, DefinitionVersion: draft.DefinitionVersion,
 		StarterID: strings.TrimSpace(draft.StarterID), FormDataJSON: string(encoded), EditTime: draft.UpdatedAt,
 	}
-	if err := db.Clauses(clause.OnConflict{
+	if err := upsertStartDraftRow(db, &row).Error; err != nil {
+		return nil, err
+	}
+	result := draft
+	return &result, nil
+}
+
+func upsertStartDraftRow(db *gorm.DB, row *workflowmodel.StartDraft) *gorm.DB {
+	row.UpdatedAt = time.UnixMilli(row.EditTime)
+	return db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "definition_id"}, {Name: "starter_id"}},
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"definition_version": row.DefinitionVersion,
 			"form_data_json":     row.FormDataJSON,
 			"edit_time":          row.EditTime,
-			"updated_at":         database.Now(),
+			"updated_at":         row.UpdatedAt,
 		}),
-	}).Create(&row).Error; err != nil {
-		return nil, err
-	}
-	result := draft
-	return &result, nil
+	}).Create(row)
 }
 
 func (store *GormStore) DeleteStartDraft(ctx context.Context, definitionID uint, starterID string) error {

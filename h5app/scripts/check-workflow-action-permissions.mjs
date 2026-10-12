@@ -20,6 +20,8 @@ for (const required of [
   'const canSubmit = computed',
   'const canEditTaskForm = computed',
   'const hasTaskAction = computed',
+  'catch (error)',
+  'workflowRequestErrorMessage(error, \'退回失败\')',
 ]) {
   if (!source.includes(required))
     throw new Error(`workflow action permission wiring missing: ${required}`)

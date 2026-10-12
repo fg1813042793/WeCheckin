@@ -2,6 +2,13 @@ import type { WorkflowDraft, WorkflowEdge, WorkflowEdgeHandle, WorkflowInsertabl
 
 let sequence = 0
 
+export interface WorkflowEdgeConnection {
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+}
+
 function nextID(prefix: string) {
   sequence += 1
   return `${prefix}_${Date.now().toString(36)}_${sequence.toString(36)}`
@@ -80,6 +87,53 @@ function edge(source: string, target: string, name = '', sourceHandle?: Workflow
     ...(sourceHandle ? { sourceHandle } : {}),
     ...(targetHandle ? { targetHandle } : {}),
   }
+}
+
+function normalizedEdgeHandle(value: string | null | undefined): WorkflowEdgeHandle | undefined {
+  return value && ['top', 'right', 'bottom', 'left'].includes(value)
+    ? value as WorkflowEdgeHandle
+    : undefined
+}
+
+function validWorkflowConnection(draft: WorkflowDraft, connection: WorkflowEdgeConnection, ignoredEdgeID = '') {
+  const source = draft.nodes.find(node => node.id === connection.source)
+  const target = draft.nodes.find(node => node.id === connection.target)
+  if (!source || !target || source.id === target.id) return false
+  if (source.type === 'end' || target.type === 'start') return false
+  return !draft.edges.some(item => item.id !== ignoredEdgeID && item.source === source.id && item.target === target.id)
+}
+
+export function connectWorkflowEdge(draft: WorkflowDraft, connection: WorkflowEdgeConnection) {
+  if (!validWorkflowConnection(draft, connection)) return null
+  const created = edge(
+    connection.source,
+    connection.target,
+    '',
+    normalizedEdgeHandle(connection.sourceHandle),
+    normalizedEdgeHandle(connection.targetHandle),
+  )
+  draft.edges.push(created)
+  return created
+}
+
+export function reconnectWorkflowEdge(draft: WorkflowDraft, edgeID: string, connection: WorkflowEdgeConnection) {
+  const current = draft.edges.find(item => item.id === edgeID)
+  if (!current || !validWorkflowConnection(draft, connection, current.id)) return false
+  current.source = connection.source
+  current.target = connection.target
+  const sourceHandle = normalizedEdgeHandle(connection.sourceHandle)
+  const targetHandle = normalizedEdgeHandle(connection.targetHandle)
+  if (sourceHandle) current.sourceHandle = sourceHandle
+  else delete current.sourceHandle
+  if (targetHandle) current.targetHandle = targetHandle
+  else delete current.targetHandle
+  return true
+}
+
+export function removeWorkflowEdge(draft: WorkflowDraft, edgeID: string) {
+  if (!draft.edges.some(item => item.id === edgeID)) return false
+  draft.edges = draft.edges.filter(item => item.id !== edgeID)
+  return true
 }
 
 function reconnectEdge(

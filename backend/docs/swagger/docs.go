@@ -10943,7 +10943,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wecheckin_backend_internal_modules_workflow_application.TaskList"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -13690,6 +13702,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
+                "description": "仅发起人可撤回仍在流转中的流程；已完成的审批记录继续保留，待处理和待激活任务改为已取消",
                 "tags": [
                     "API v2-H5App-OA流程"
                 ],
@@ -14003,6 +14016,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "单据标题关键字（模糊匹配，最多 100 个字符）",
+                        "name": "instanceTitle",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "流程名称关键字（模糊匹配，最多 50 个字符）",
                         "name": "definitionName",
                         "in": "query"
@@ -14048,7 +14067,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wecheckin_backend_internal_modules_workflow_application.TaskList"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -16340,13 +16371,14 @@ const docTemplate = `{
                         "ClientToken": []
                     }
                 ],
+                "description": "仅发起人可撤回仍在流转中的流程；已完成的审批记录继续保留，待处理和待激活任务改为已取消",
                 "consumes": [
                     "application/json"
                 ],
                 "tags": [
                     "API v2-客户端-OA流程"
                 ],
-                "summary": "撤回未处理的 OA 流程申请",
+                "summary": "撤回流转中的 OA 流程申请",
                 "parameters": [
                     {
                         "type": "string",
@@ -16415,7 +16447,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/wecheckin_backend_internal_modules_workflow_application.TaskList"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -16975,6 +17019,98 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "resolved": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.TaskSummary": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "approvalChainKey": {
+                    "type": "string"
+                },
+                "approvalLayer": {
+                    "type": "integer"
+                },
+                "approvalLayerTotal": {
+                    "type": "integer"
+                },
+                "approvalMode": {
+                    "type": "string"
+                },
+                "assigneeId": {
+                    "type": "string"
+                },
+                "assigneeName": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "completionRate": {
+                    "type": "integer"
+                },
+                "definitionName": {
+                    "type": "string"
+                },
+                "handledAt": {
+                    "type": "integer"
+                },
+                "handledBy": {
+                    "type": "string"
+                },
+                "handledByName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormAttachment"
+                    }
+                },
+                "instanceId": {
+                    "type": "string"
+                },
+                "instanceTitle": {
+                    "type": "string"
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "nodeName": {
+                    "type": "string"
+                },
+                "revisionRequestId": {
+                    "type": "string"
+                },
+                "sequence": {
+                    "type": "integer"
+                },
+                "sourceDepartmentId": {
+                    "type": "integer"
+                },
+                "sourceDepartmentName": {
+                    "type": "string"
+                },
+                "starterId": {
+                    "type": "string"
+                },
+                "starterName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "taskType": {
+                    "type": "string"
+                },
+                "total": {
                     "type": "integer"
                 }
             }
@@ -19345,6 +19481,26 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/template.ValueRubric"
                     }
+                }
+            }
+        },
+        "wecheckin_backend_internal_modules_workflow_application.TaskList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.TaskSummary"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

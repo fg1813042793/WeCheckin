@@ -329,17 +329,23 @@ const requiredContent = [
       'workflowPendingCount',
       'workflowTasks',
       'canViewWorkflowTodos',
-      'openWorkflowTodos',
+      'openWorkflowTodo',
+      'workflowTaskContentKey',
+      'workflowFormRevisionDetailContentKey',
+      'workflowTaskTabTitle',
+      'appContent.openDynamicTab({',
       'workflowTodoTitle',
+      'workflowTodoCardTitle',
       'workflowTodoStarter',
       'workflowTodoMeta',
       'visibleWorkflowTasks',
       'v-for="task in visibleWorkflowTasks"',
+      '@click="openWorkflowTodo(task)"',
+      'task.instanceTitle',
       'task.definitionName',
       'task.starterName',
       'task.nodeName',
       'appContent.focusWorkflowTab(\'pending\')',
-      'appContent.switchContent(\'workflow\')',
       '发起人：',
       '当前节点：',
       '处理',
@@ -790,7 +796,7 @@ const forbiddenContent = [
   { file: 'src/pages/workflow/components/WorkflowFieldControl.vue', patterns: ['<u-textarea', 'workflow-control__textarea'] },
   { file: 'src/pages/workflow/components/WorkflowDetailPanel.vue', patterns: ['<u-textarea', 'workflow-detail-panel__comment-input'] },
   { file: 'src/pages/workflow/components/WorkflowDetailPanel.vue', patterns: ['uni.showModal({'] },
-  { file: 'src/pages/workflow/components/WorkflowTextarea.vue', patterns: ['resize:', 'workflow-resizable-textarea', 'workflow-textarea__count'] },
+  { file: 'src/pages/workflow/components/WorkflowTextarea.vue', patterns: ['resize: both', 'resize: horizontal', 'resize: vertical', 'workflow-resizable-textarea', 'workflow-textarea__count'] },
   { file: 'src/pages/workflow/components/WorkflowFieldControl.vue', patterns: ['WorkflowResizableTextarea'] },
   { file: 'src/pages/workflow/components/WorkflowDetailPanel.vue', patterns: ['WorkflowResizableTextarea'] },
   { file: 'src/pages/workflow/components/WorkflowRuntimeForm.vue', patterns: ['\'workflow-form--plain-readonly\': readonly && readonlyAppearance === \'plain\''] },
@@ -1068,7 +1074,7 @@ if (existsSync(resolve(root, workflowStartRestrictionsPath))) {
       },
     }))
     assert.equal(monthly.items[0].value, '每月1日、15日、最后一天 09:00-18:00')
-    assert.equal(monthly.items[1].value, '每月最多 2 次，已用 1 次，剩余 1 次')
+    assert.equal(monthly.items[1].value, '每月最多完成 2 次，已完成 1 次，剩余 1 次')
     assert.equal(monthly.items[3].value, '2026-10-01 00:00')
 
     const monthlyWindow = workflowStartRestrictionSummary(createDefinition({
@@ -1084,10 +1090,18 @@ if (existsSync(resolve(root, workflowStartRestrictionsPath))) {
       startLimitStatus: { allowed: false, usedCount: 1, remainingCount: 0 },
     }))
     assert.equal(monthlyWindow.allowed, false)
-    assert.equal(monthlyWindow.statusLabel, '次数已用完')
-    assert.equal(monthlyWindow.reason, '当前周期的流程发起次数已用完')
+    assert.equal(monthlyWindow.statusLabel, '完成次数已达上限')
+    assert.equal(monthlyWindow.reason, '当前周期的流程完成次数已达上限')
     assert.equal(monthlyWindow.items[0].value, '每月倒数第2天 09:00 至次月5日 18:00')
-    assert.equal(monthlyWindow.items[1].value, '每个开放周期最多 1 次，已用 1 次，剩余 0 次')
+    assert.equal(monthlyWindow.items[1].value, '每个开放周期最多完成 1 次，已完成 1 次，剩余 0 次')
+
+    const inProgress = workflowStartRestrictionSummary(createDefinition({
+      startLimit: { mode: 'limited', period: 'availability', maxCount: 2 },
+      startLimitStatus: { allowed: false, usedCount: 0, remainingCount: 2 },
+    }))
+    assert.equal(inProgress.allowed, false)
+    assert.equal(inProgress.statusLabel, '流程流转中')
+    assert.equal(inProgress.reason, '当前流程正在流转中，请完成后再提交')
 
     const expired = workflowStartRestrictionSummary(createDefinition({ availabilityStatus: 'expired' }))
     assert.equal(expired.statusLabel, '开放时间已结束')
