@@ -29,17 +29,17 @@ func NewInternalChannel(sender InAppSender) *InternalChannel {
 
 func (*InternalChannel) Name() string { return notificationmodel.ChannelInternal }
 
-func (channel *InternalChannel) Deliver(ctx context.Context, row notificationmodel.Outbox) error {
+func (channel *InternalChannel) Deliver(ctx context.Context, row notificationmodel.Outbox) (notificationoutboxapp.DeliveryResult, error) {
 	if channel == nil || channel.sender == nil {
-		return errors.New("in-app notification sender is not initialized")
+		return notificationoutboxapp.DeliveryResult{}, errors.New("in-app notification sender is not initialized")
 	}
 	var recipient notificationoutboxapp.InternalRecipient
 	if err := json.Unmarshal([]byte(row.RecipientJSON), &recipient); err != nil {
-		return fmt.Errorf("decode in-app notification recipient: %w", err)
+		return notificationoutboxapp.DeliveryResult{}, fmt.Errorf("decode in-app notification recipient: %w", err)
 	}
 	payload, err := decodeMessagePayload(row)
 	if err != nil {
-		return err
+		return notificationoutboxapp.DeliveryResult{}, err
 	}
 	scope := inappnotificationapp.ScopeUsers
 	if recipient.NotifyAdmin {
@@ -58,7 +58,7 @@ func (channel *InternalChannel) Deliver(ctx context.Context, row notificationmod
 		NotificationType: strings.TrimSpace(payload.NotificationType),
 		SourceType:       sourceType, SourceID: sourceID, DeliveryKey: row.IdempotencyKey,
 	})
-	return err
+	return notificationoutboxapp.DeliveryResult{}, err
 }
 
 type OutboundClient interface {
@@ -75,21 +75,21 @@ func NewWebhookChannel(client OutboundClient) *WebhookChannel {
 
 func (*WebhookChannel) Name() string { return notificationmodel.ChannelWebhook }
 
-func (channel *WebhookChannel) Deliver(ctx context.Context, row notificationmodel.Outbox) error {
+func (channel *WebhookChannel) Deliver(ctx context.Context, row notificationmodel.Outbox) (notificationoutboxapp.DeliveryResult, error) {
 	if channel == nil || channel.client == nil {
-		return errors.New("webhook HTTP client is not initialized")
+		return notificationoutboxapp.DeliveryResult{}, errors.New("webhook HTTP client is not initialized")
 	}
 	var recipient notificationoutboxapp.WebhookRecipient
 	if err := json.Unmarshal([]byte(row.RecipientJSON), &recipient); err != nil {
-		return fmt.Errorf("decode webhook recipient: %w", err)
+		return notificationoutboxapp.DeliveryResult{}, fmt.Errorf("decode webhook recipient: %w", err)
 	}
 	payload, err := decodeMessagePayload(row)
 	if err != nil {
-		return err
+		return notificationoutboxapp.DeliveryResult{}, err
 	}
 	body, err := webhookPayload(recipient.Type, payload.Title, payload.Content)
 	if err != nil {
-		return err
+		return notificationoutboxapp.DeliveryResult{}, err
 	}
 	response, err := channel.client.Do(ctx, outboundhttp.Request{
 		Method: http.MethodPost, URL: recipient.URL,
@@ -97,12 +97,13 @@ func (channel *WebhookChannel) Deliver(ctx context.Context, row notificationmode
 		Body:    body, Timeout: 10 * time.Second,
 	})
 	if err != nil {
-		return err
+		return notificationoutboxapp.DeliveryResult{}, err
 	}
+	result := notificationoutboxapp.DeliveryResult{ResponseStatusCode: response.StatusCode, ResponseBody: string(response.Body)}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("webhook returned HTTP status %d", response.StatusCode)
+		return result, fmt.Errorf("webhook returned HTTP status %d", response.StatusCode)
 	}
-	return nil
+	return result, nil
 }
 
 func decodeMessagePayload(row notificationmodel.Outbox) (notificationoutboxapp.MessagePayload, error) {

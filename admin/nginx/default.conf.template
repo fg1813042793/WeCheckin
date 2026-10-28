@@ -68,3 +68,84 @@ server {
         try_files $uri $uri/ /index.html;
     }
 }
+
+# Public survey-only entry. Keep this as a separate server so adding the port
+# does not expose the admin SPA or /api/v2/admin routes.
+server {
+    listen ${NGINX_PUBLIC_SURVEY_PORT};
+    server_name ${NGINX_SERVER_NAME};
+    client_max_body_size ${NGINX_CLIENT_MAX_BODY_SIZE};
+    absolute_redirect off;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(self), geolocation=(self)" always;
+
+    location = /health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location ~ ^/sf1/[0-9]+/?$ {
+        root /usr/share/nginx/html/admin;
+        try_files /index.html =404;
+        expires -1;
+    }
+
+    location = /favicon.svg {
+        root /usr/share/nginx/html/admin;
+        try_files $uri =404;
+        expires 7d;
+    }
+
+    location /assets/ {
+        root /usr/share/nginx/html/admin;
+        try_files $uri =404;
+        expires 7d;
+    }
+
+    location ~ ^/api/v2/surveys/[0-9]+$ {
+        limit_except GET {
+            deny all;
+        }
+        proxy_pass ${NGINX_API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $request_id;
+    }
+
+    location = /api/v2/survey/validate {
+        limit_except POST {
+            deny all;
+        }
+        proxy_pass ${NGINX_API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $request_id;
+    }
+
+    location ~ ^/api/v2/surveys/[0-9]+/responses$ {
+        limit_except POST {
+            deny all;
+        }
+        proxy_pass ${NGINX_API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $request_id;
+    }
+
+    location / {
+        return 404;
+    }
+}

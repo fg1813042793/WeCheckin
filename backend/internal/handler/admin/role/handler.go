@@ -57,7 +57,17 @@ func (h *AdminRoleHandler) GetRoleList(ctx context.Context, c *app.RequestContex
 // @Summary 获取应用菜单权限树
 // @Success 200 {object} response.Resp
 func (h *AdminRoleHandler) GetApplicationPermissionTree(ctx context.Context, c *app.RequestContext) {
-	response.JSON(c, roleservice.ApplicationPermissionTreeContext(ctx))
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	data, err := roleservice.ApplicationPermissionTreeForAdminContext(ctx, admin.ID)
+	if err != nil {
+		response.Fail(c, "获取失败")
+		return
+	}
+	response.JSON(c, data)
 }
 
 // @Tags PC端-角色管理
@@ -205,12 +215,17 @@ func parsePermissionKeys(value string) []string {
 // @Param id formData string true "角色ID"
 // @Success 200 {object} response.Resp
 func (h *AdminRoleHandler) DelRole(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, _ := strconv.Atoi(c.PostForm("id"))
 	if id == 0 {
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := roleservice.DeleteContext(ctx, uint(id)); err != nil {
+	if err := roleservice.DeleteForAdminContext(ctx, admin.ID, uint(id)); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
@@ -222,6 +237,11 @@ func (h *AdminRoleHandler) DelRole(ctx context.Context, c *app.RequestContext) {
 // @Param ids formData string true "角色ID列表(逗号分隔)"
 // @Success 200 {object} response.Resp
 func (h *AdminRoleHandler) DelRoles(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	idsStr := c.PostForm("ids")
 	if idsStr == "" {
 		response.Fail(c, "参数错误")
@@ -238,7 +258,7 @@ func (h *AdminRoleHandler) DelRoles(ctx context.Context, c *app.RequestContext) 
 		response.Fail(c, "参数错误")
 		return
 	}
-	if err := roleservice.BatchDeleteContext(ctx, ids); err != nil {
+	if err := roleservice.BatchDeleteForAdminContext(ctx, admin.ID, ids); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}

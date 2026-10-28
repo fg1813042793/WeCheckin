@@ -1,5 +1,9 @@
 <template>
-  <el-menu-item v-if="isMenu" :index="item.path">
+  <el-menu-item
+    v-if="isMenu"
+    :index="item.path"
+    :class="menuNodeClasses"
+  >
     <el-icon
       v-if="showIconSlot"
       :class="{ 'admin-menu-node__icon--placeholder': !iconComponent }"
@@ -10,7 +14,7 @@
     <span>{{ item.name }}</span>
   </el-menu-item>
 
-  <el-sub-menu v-else-if="isDirectory" :index="menuIndex">
+  <el-sub-menu v-else-if="isDirectory" :index="menuIndex" :class="menuNodeClasses">
     <template #title>
       <el-icon
         v-if="showIconSlot"
@@ -54,7 +58,11 @@ const isMenu = computed(() => props.item.status === 1 && props.item.type === 1 &
 const isDirectory = computed(() => props.item.status === 1 && props.item.type === 0 && renderableChildren.value.length > 0)
 const menuIndex = computed(() => props.item.path || `directory:${props.item.id}`)
 const iconComponent = computed(() => resolveAdminIcon(props.item.icon))
-const showIconSlot = computed(() => !!iconComponent.value || props.depth > 0)
+const showIconSlot = computed(() => !!iconComponent.value)
+const menuNodeClasses = computed(() => [
+  !iconComponent.value ? 'admin-menu-node--no-icon' : '',
+  `admin-menu-node--depth-${props.depth}`,
+])
 </script>
 
 <style scoped>

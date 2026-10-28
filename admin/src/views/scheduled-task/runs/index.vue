@@ -11,7 +11,7 @@
             <el-option label="计划调度" value="scheduled" /><el-option label="错过补跑" value="misfire" /><el-option label="手工运行" value="manual" /><el-option label="手工重试" value="manual_retry" />
           </el-select>
           <el-input v-model="filters.workerId" clearable placeholder="Worker ID" style="width: 180px" @keyup.enter="search" />
-          <el-date-picker v-model="filters.range" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" style="width: 340px" />
+          <el-date-picker v-model="filters.range" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" style="width: 400px" />
           <el-button type="primary" icon="Search" @click="search">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
         </div>

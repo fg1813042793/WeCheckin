@@ -19,17 +19,17 @@
     </div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="submitted && endContent" class="fill-container">
-      <div class="header"><h1>{{ survey?.title }}</h1></div>
+      <div class="header"><h1>{{ displayTitle }}</h1></div>
       <div class="q-list" style="padding:24px 28px"><div class="preview-plain" v-html="endContent" /></div>
     </div>
     <div v-else-if="submitted" class="fill-container">
-      <div class="header"><h1>{{ survey?.title }}</h1></div>
+      <div class="header"><h1>{{ displayTitle }}</h1></div>
       <div class="q-list" style="padding:24px 28px;text-align:center;color:#909399">已提交，感谢填写</div>
     </div>
     <div v-else-if="survey" class="fill-container">
       <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
       <div class="header">
-        <h1>{{ survey.title }}</h1>
+        <h1>{{ displayTitle }}</h1>
         <p v-if="survey.description" class="desc">{{ survey.description }}</p>
         <div class="meta">
           <el-tag v-if="survey.anonymous === 1" size="small">匿名收集</el-tag>
@@ -306,10 +306,12 @@ import { computed, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
 import { publicFormApi } from '../../api/public'
+import { resolveSurveyTitle } from '../../utils/surveyTitle'
 
 const route = useRoute()
 const survey = ref<any>(null)
 const settings = ref<any>({})
+const displayTitle = computed(() => resolveSurveyTitle(survey.value?.title, settings.value?.displayTitle))
 const questions = ref<any[]>([])
 const answers = ref<any>({})
 const loading = ref(true)

@@ -251,7 +251,7 @@ onBeforeUnmount(unmountPage)
 </script>
 
 <template>
-  <AdminPageShell width="wide" density="compact">
+  <AdminPageShell width="fluid" density="compact" class="feedback-page">
     <AdminPageHeader title="用户反馈" description="查看用户提交内容并跟踪处理进度">
       <template #actions>
         <el-button

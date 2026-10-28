@@ -18,11 +18,14 @@ const (
 	sendingLease         = 10 * time.Minute
 	maxAttempts          = 5
 	maxErrorRunes        = 1000
+	maxResponseRunes     = 4000
+	responseTruncatedTag = "\n...[TRUNCATED]"
 )
 
 var (
 	secretAssignmentPattern = regexp.MustCompile(`(?i)(access[_-]?token|app[_-]?secret|token)(\s*[=:]\s*)([^&\s"']+)`)
 	bearerPattern           = regexp.MustCompile(`(?i)(bearer\s+)([a-z0-9._~+/=-]+)`)
+	jsonSecretPattern       = regexp.MustCompile(`(?i)("(?:access[_-]?token|refresh[_-]?token|app[_-]?secret|client[_-]?secret|authorization|password|token)"\s*:\s*")[^"]*(")`)
 )
 
 type EnqueueRequest struct {
@@ -35,24 +38,31 @@ type EnqueueRequest struct {
 }
 
 type Failure struct {
-	ID          uint64
-	Attempts    int
-	Status      string
-	NextRetryAt int64
-	LastError   string
-	EditTime    int64
+	ID                 uint64
+	Attempts           int
+	Status             string
+	NextRetryAt        int64
+	LastError          string
+	ResponseStatusCode int
+	ResponseBody       string
+	EditTime           int64
+}
+
+type DeliveryResult struct {
+	ResponseStatusCode int
+	ResponseBody       string
 }
 
 type Store interface {
 	Enqueue(context.Context, notificationmodel.Outbox) (bool, error)
 	ClaimDue(context.Context, int64, int64, int) ([]notificationmodel.Outbox, error)
-	MarkSent(context.Context, uint64, int64) error
+	MarkSent(context.Context, uint64, int64, DeliveryResult) error
 	MarkFailed(context.Context, Failure) error
 }
 
 type Channel interface {
 	Name() string
-	Deliver(context.Context, notificationmodel.Outbox) error
+	Deliver(context.Context, notificationmodel.Outbox) (DeliveryResult, error)
 }
 
 type Service struct {
@@ -127,14 +137,16 @@ func (service *Service) DispatchDue(ctx context.Context, limit int) (int, error)
 	var deliveryErrors []error
 	for _, row := range rows {
 		channel := service.channels[row.Channel]
+		deliveryResult := DeliveryResult{}
 		var deliveryErr error
 		if channel == nil {
 			deliveryErr = fmt.Errorf("notification channel %q is unavailable", row.Channel)
 		} else {
-			deliveryErr = channel.Deliver(ctx, row)
+			deliveryResult, deliveryErr = channel.Deliver(ctx, row)
 		}
+		deliveryResult = sanitizeDeliveryResult(deliveryResult)
 		if deliveryErr == nil {
-			if err := service.store.MarkSent(ctx, row.ID, now.UnixMilli()); err != nil {
+			if err := service.store.MarkSent(ctx, row.ID, now.UnixMilli(), deliveryResult); err != nil {
 				deliveryErrors = append(deliveryErrors, err)
 			}
 			continue
@@ -148,7 +160,8 @@ func (service *Service) DispatchDue(ctx context.Context, limit int) (int, error)
 		}
 		markErr := service.store.MarkFailed(ctx, Failure{
 			ID: row.ID, Attempts: attempts, Status: status, NextRetryAt: nextRetryAt,
-			LastError: sanitizeError(deliveryErr), EditTime: now.UnixMilli(),
+			LastError: sanitizeError(deliveryErr), ResponseStatusCode: deliveryResult.ResponseStatusCode,
+			ResponseBody: deliveryResult.ResponseBody, EditTime: now.UnixMilli(),
 		})
 		if markErr != nil {
 			deliveryErrors = append(deliveryErrors, errors.Join(deliveryErr, markErr))
@@ -189,11 +202,36 @@ func sanitizeError(err error) string {
 		return ""
 	}
 	message := strings.TrimSpace(err.Error())
-	message = secretAssignmentPattern.ReplaceAllString(message, "${1}${2}[REDACTED]")
-	message = bearerPattern.ReplaceAllString(message, "${1}[REDACTED]")
+	message = redactSecrets(message)
 	runes := []rune(message)
 	if len(runes) > maxErrorRunes {
 		runes = runes[:maxErrorRunes]
 	}
 	return string(runes)
+}
+
+func sanitizeDeliveryResult(result DeliveryResult) DeliveryResult {
+	result.ResponseBody = sanitizeResponseBody(result.ResponseBody)
+	return result
+}
+
+func sanitizeResponseBody(body string) string {
+	message := strings.TrimSpace(strings.ToValidUTF8(body, "�"))
+	message = redactSecrets(message)
+	runes := []rune(message)
+	marker := []rune(responseTruncatedTag)
+	if len(runes) > maxResponseRunes {
+		limit := maxResponseRunes - len(marker)
+		if limit < 0 {
+			limit = 0
+		}
+		runes = append(runes[:limit], marker...)
+	}
+	return string(runes)
+}
+
+func redactSecrets(message string) string {
+	message = jsonSecretPattern.ReplaceAllString(message, "${1}[REDACTED]${2}")
+	message = secretAssignmentPattern.ReplaceAllString(message, "${1}${2}[REDACTED]")
+	return bearerPattern.ReplaceAllString(message, "${1}[REDACTED]")
 }

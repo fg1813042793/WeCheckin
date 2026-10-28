@@ -216,6 +216,7 @@ export interface WorkflowAssigneeUser {
   id: number
   name: string
   mobile?: string
+  positionName?: string
   deptIds?: number[]
   status?: number
 }

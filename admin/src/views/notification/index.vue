@@ -22,6 +22,19 @@
         <el-tab-pane v-if="canViewWorkflowNotifications" label="流程投递" name="workflow" />
       </el-tabs>
 
+      <div v-if="activeRecordView === 'in_app'" class="notification-metrics">
+        <div><span class="notification-metric-icon"><Bell /></span><span><strong>{{ total }}</strong><small>全部站内信</small></span></div>
+        <div><span class="notification-metric-icon notification-metric-icon--success"><View /></span><span><strong>{{ inAppReadCount }}</strong><small>当前页已读</small></span></div>
+        <div><span class="notification-metric-icon notification-metric-icon--warning"><Bell /></span><span><strong>{{ inAppUnreadCount }}</strong><small>当前页未读</small></span></div>
+        <div><span class="notification-metric-icon notification-metric-icon--neutral"><Check /></span><span><strong>{{ inAppSelectedRows.length }}</strong><small>已选择</small></span></div>
+      </div>
+      <div v-else-if="activeRecordView === 'webhook'" class="notification-metrics">
+        <div><span class="notification-metric-icon"><Bell /></span><span><strong>{{ webhookTotal }}</strong><small>全部投递</small></span></div>
+        <div><span class="notification-metric-icon notification-metric-icon--success"><Check /></span><span><strong>{{ webhookSentCount }}</strong><small>当前页已发送</small></span></div>
+        <div><span class="notification-metric-icon notification-metric-icon--warning"><RefreshRight /></span><span><strong>{{ webhookRetryCount }}</strong><small>当前页待重试</small></span></div>
+        <div><span class="notification-metric-icon notification-metric-icon--danger">!</span><span><strong>{{ webhookDeadCount }}</strong><small>当前页已终止</small></span></div>
+      </div>
+
       <template v-if="activeRecordView === 'in_app'">
         <div class="admin-toolbar record-filters">
         <div class="admin-toolbar__left">
@@ -44,7 +57,7 @@
             range-separator="至"
             start-placeholder="发送开始时间"
             end-placeholder="发送结束时间"
-            style="width: 340px"
+            style="width: 400px"
           />
           <el-button type="primary" :icon="Search" @click="search">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
@@ -233,7 +246,16 @@
         <el-descriptions-item label="创建时间">{{ formatTime(webhookDetail.addTime) }}</el-descriptions-item>
         <el-descriptions-item label="发送时间">{{ formatTime(webhookDetail.sentAt) }}</el-descriptions-item>
         <el-descriptions-item label="下次重试">{{ formatTime(webhookDetail.nextRetryAt) }}</el-descriptions-item>
+        <el-descriptions-item label="HTTP 状态码">
+          <el-tag :type="webhookHTTPStatusType(webhookDetail.responseStatusCode)" size="small">
+            {{ webhookHTTPStatusLabel(webhookDetail.responseStatusCode) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="投递判定" :span="2">{{ webhookDeliveryVerdict(webhookDetail) }}</el-descriptions-item>
         <el-descriptions-item label="失败原因" :span="2"><span class="error-text">{{ webhookDetail.lastError || '-' }}</span></el-descriptions-item>
+        <el-descriptions-item label="响应正文" :span="2">
+          <pre class="record-detail__response">{{ formatWebhookResponseBody(webhookDetail.responseBody) }}</pre>
+        </el-descriptions-item>
         <el-descriptions-item label="通知正文" :span="2"><div class="record-detail__content">{{ webhookDetail.content || '-' }}</div></el-descriptions-item>
       </el-descriptions>
       <template #footer>
@@ -308,7 +330,7 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, Brush, ChatDotRound, Delete, Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
+import { Bell, Brush, ChatDotRound, Check, Delete, Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api'
@@ -411,6 +433,11 @@ const departmentModelValue = computed<number[]>({
   get: () => sendForm.departmentIds,
   set: value => { sendForm.departmentIds = normalizeIDs(value) },
 })
+const inAppReadCount = computed(() => list.value.filter(row => row.isRead).length)
+const inAppUnreadCount = computed(() => list.value.filter(row => !row.isRead).length)
+const webhookSentCount = computed(() => webhookList.value.filter(row => row.status === 'sent').length)
+const webhookRetryCount = computed(() => webhookList.value.filter(row => row.status === 'pending' || row.status === 'failed').length)
+const webhookDeadCount = computed(() => webhookList.value.filter(row => row.status === 'dead').length)
 
 async function load() {
   loading.value = true
@@ -672,6 +699,50 @@ function webhookStatusType(status: string) {
   return ({ pending: 'info', sending: 'warning', sent: 'success', failed: 'warning', dead: 'danger' } as Record<string, 'info' | 'warning' | 'success' | 'danger'>)[status] || 'info'
 }
 
+function webhookHTTPStatusType(statusCode?: number) {
+  statusCode = Number(statusCode || 0)
+  if (statusCode >= 200 && statusCode < 300) return 'success'
+  if (statusCode > 0) return 'danger'
+  return 'info'
+}
+
+function webhookHTTPStatusLabel(statusCode?: number) {
+  statusCode = Number(statusCode || 0)
+  return statusCode > 0 ? String(statusCode) : '未记录'
+}
+
+function webhookDeliveryVerdict(record: WebhookNotificationItem) {
+  if (record.status === 'pending' || record.status === 'sending') return '尚未完成投递'
+  if (!record.responseStatusCode) return record.status === 'sent' ? '历史记录未保存 HTTP 回执' : '未收到 HTTP 响应'
+  if (record.responseStatusCode < 200 || record.responseStatusCode >= 300) return `HTTP ${record.responseStatusCode}，投递失败`
+  const businessResult = webhookBusinessResult(record.webhookType, record.responseBody)
+  if (businessResult === true) return 'HTTP 2xx，且目标平台返回业务成功'
+  if (businessResult === false) return 'HTTP 已送达，但目标平台返回业务失败，请检查响应正文'
+  return 'HTTP 2xx，业务结果请结合响应正文确认'
+}
+
+function webhookBusinessResult(webhookType: string, body?: string): boolean | null {
+  body = String(body || '')
+  if (!body.trim()) return null
+  try {
+    const payload = JSON.parse(body) as Record<string, unknown>
+    const type = webhookType.trim().toLowerCase()
+    if ((type === 'dingtalk' || type === 'wecom') && typeof payload.errcode === 'number') return payload.errcode === 0
+    if (type === 'lark' && typeof payload.code === 'number') return payload.code === 0
+  } catch {}
+  return null
+}
+
+function formatWebhookResponseBody(body?: string) {
+  const value = String(body || '').trim()
+  if (!value) return '未记录响应正文'
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
+
 function recipientLabel(row: InAppNotificationItem) {
   if (row.recipientName) return row.recipientName
   return row.recipientUserId ? `用户 #${row.recipientUserId}` : '-'
@@ -700,6 +771,7 @@ onMounted(load)
 .notification-content { width: 100%; overflow: hidden; color: var(--admin-text-secondary); line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .record-detail__source-id { overflow-wrap: anywhere; }
 .record-detail__content { min-height: 72px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.record-detail__response { max-height: 260px; margin: 0; overflow: auto; padding: 12px; border-radius: 6px; background: #f6f8fa; color: #344054; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   .page-header { align-items: flex-start; }
   .page-actions { flex-wrap: wrap; justify-content: flex-end; }

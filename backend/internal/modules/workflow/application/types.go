@@ -150,6 +150,7 @@ type FormRevisionNotificationIntent struct {
 }
 
 type TaskQuery struct {
+	IDs                  []string
 	InstanceID           string
 	AssigneeID           string
 	Status               string
@@ -160,6 +161,7 @@ type TaskQuery struct {
 	StarterName          string
 	StartTimeFrom        int64
 	StartTimeTo          int64
+	Visibility           *InstanceVisibility
 	IncludeFormRevisions bool
 	Page                 int
 	PageSize             int

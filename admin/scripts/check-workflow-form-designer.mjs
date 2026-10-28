@@ -469,6 +469,19 @@ for (const [source, snippet, message] of requirements) {
   if (!source.includes(snippet)) throw new Error(message)
 }
 
+const workflowDesignerPageRule = designerSource.match(/\.workflow-designer-page\s*\{([^}]*)\}/)?.[1] || ''
+for (const [snippet, message] of [
+  ['width: 100%', '流程设计器页面必须填满主内容区宽度'],
+  ['height: 100%', '流程设计器页面必须使用主内容区可用高度'],
+  ['min-height: 0', '流程设计器页面必须允许在当前后台壳层内收缩'],
+  ['margin: 0', '流程设计器页面不得使用旧的负边距补偿'],
+  ['box-sizing: border-box', '流程设计器页面尺寸必须包含自身边框和内边距'],
+]) {
+  if (!workflowDesignerPageRule.includes(snippet)) throw new Error(message)
+}
+if (/margin:\s*-/.test(workflowDesignerPageRule)) throw new Error('流程设计器页面不得向顶部页签或侧边栏下方越界')
+if (/height:\s*calc\(100vh/.test(workflowDesignerPageRule)) throw new Error('流程设计器页面不得绕过后台主内容区计算视口高度')
+
 if (validationRulesSource.includes('<el-empty')) {
   throw new Error('高级校验规则为空时不应显示占位图片')
 }

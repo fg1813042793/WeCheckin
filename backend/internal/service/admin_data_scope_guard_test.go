@@ -88,6 +88,8 @@ func adminFunctionHasDataScopeGuard(body string) bool {
 		"access.UserDataScopeFilter",
 		"access.UserIDDataScopeFilter",
 		"access.VisibleDeptIDs",
+		"permissiondelegation.",
+		"requireSuperAdminContext",
 		"VisibleQueryContext",
 		"ForAdminContext(ctx",
 		"ensure",

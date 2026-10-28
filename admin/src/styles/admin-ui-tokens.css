@@ -11,11 +11,16 @@
   --admin-ui-color-text-muted: #8792a2;
   --admin-ui-color-primary: #2878d0;
   --admin-ui-color-primary-soft: #edf5ff;
+  --admin-ui-color-primary-hover: #1f6bbb;
   --admin-ui-color-success: #16845b;
   --admin-ui-color-warning: #b76a08;
   --admin-ui-color-danger: #c53b3f;
   --admin-ui-color-focus: rgba(40, 120, 208, 0.24);
   --admin-ui-color-mask: rgba(20, 27, 36, 0.48);
+  --admin-sidebar-bg: #24282e;
+  --admin-sidebar-text: #bfc4cd;
+  --admin-sidebar-hover: #30363d;
+  --admin-sidebar-active: #383f48;
 
   --admin-ui-space-1: 4px;
   --admin-ui-space-2: 8px;

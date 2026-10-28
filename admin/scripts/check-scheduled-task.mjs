@@ -31,6 +31,10 @@ for (const endpoint of [
 ]) {
   if (!api.includes(endpoint)) throw new Error(`scheduled task API missing ${endpoint}`)
 }
+const runDeleteApi = api.match(/scheduledTaskRunDelete\(ids: string\[\]\) \{([\s\S]*?)\n  \},/)
+if (!runDeleteApi?.[1].includes('deleteBody({ ids })') || !runDeleteApi[1].includes('jsonConfig')) {
+  throw new Error('scheduled task run deletion must send a JSON request body')
+}
 
 const editor = read('src/views/scheduled-task/components/TaskEditorDialog.vue')
 for (const handlerType of ['go', 'workflow', 'http', 'shell', 'sql']) {

@@ -62,7 +62,9 @@ for (const snippet of [
   '.admin-route-tab__close',
   '.admin-route-tab__dot {',
   'display: none;',
-  'border-radius: 8px 8px 0 0',
+  'border-bottom: 2px solid transparent',
+  'gap: 26px',
+  'background: #fff',
 ]) {
   if (!layoutSource.includes(snippet)) {
     throw new Error(`admin route tab style missing: ${snippet}`)

@@ -6,6 +6,8 @@
 #   /upload/  -> backend upload API proxy
 #   /uploads/ -> backend uploads static files
 #   /         -> admin SPA
+#   host port 3001 -> public survey pages (/sf1/:id plus their public APIs)
+# Override with WECHECKIN_PUBLIC_SURVEY_HTTP_PORT.
 #
 # Example:
 #   docker compose -f docker-compose.admin.yml up -d --build
@@ -17,6 +19,12 @@ services:
     restart: unless-stopped
     ports:
       - 3000:80
+      - "${WECHECKIN_PUBLIC_SURVEY_HTTP_PORT:-3001}:${NGINX_PUBLIC_SURVEY_PORT:-8081}"
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-_}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-32m}
+      NGINX_API_UPSTREAM: ${NGINX_API_UPSTREAM:-http://host.docker.internal:8083}
+      NGINX_PUBLIC_SURVEY_PORT: ${NGINX_PUBLIC_SURVEY_PORT:-8081}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

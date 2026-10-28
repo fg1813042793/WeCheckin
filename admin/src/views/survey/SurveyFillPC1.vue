@@ -22,7 +22,7 @@
       <div class="survey-card survey-card--narrow">
         <div class="survey-login-header">
           <h2 class="survey-login-title">登录后填写问卷</h2>
-          <p class="survey-login-desc" v-if="survey?.title">{{ survey.title }}</p>
+          <p class="survey-login-desc" v-if="displayTitle">{{ displayTitle }}</p>
         </div>
         <el-form label-position="top" @submit.prevent="doLogin">
           <el-form-item label="账号">
@@ -61,7 +61,7 @@
     <div v-else-if="survey" class="survey-card">
       <div v-if="settings.headerImages?.length" class="survey-card-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
       <div class="survey-header">
-        <h1 class="survey-title">{{ survey.title }}</h1>
+        <h1 class="survey-title">{{ displayTitle }}</h1>
         <p v-if="survey.description" class="survey-desc">{{ survey.description }}</p>
         <div class="survey-meta">
           <span v-if="survey.anonymous === 1" class="survey-tag survey-tag--anon">匿名收集</span>
@@ -186,10 +186,12 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import QuestionField from './components/QuestionField.vue'
 import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
 import { publicFormApi } from '../../api/public'
+import { resolveSurveyTitle } from '../../utils/surveyTitle'
 
 const route = useRoute()
 const survey = ref<any>(null)
 const settings = ref<any>({})
+const displayTitle = computed(() => resolveSurveyTitle(survey.value?.title, settings.value?.displayTitle))
 const questions = ref<any[]>([])
 const answers = ref<any>({})
 const loading = ref(true)
@@ -833,6 +835,12 @@ onUnmounted(() => {
 
 /* === 表单 === */
 .survey-form { width: 100%; }
+.survey :deep(.el-input__inner:focus-visible),
+.survey :deep(.el-textarea__inner:focus-visible),
+.survey :deep(.el-select__input:focus-visible),
+.survey :deep(.el-range-input:focus-visible) {
+  outline: none;
+}
 
 /* === 题目 === */
 .survey-form-scroll { padding: 28px 36px; min-height: 600px; }

@@ -100,10 +100,9 @@
         </el-form-item>
         <el-form-item label="数据范围">
           <el-radio-group v-model="form.dataScope">
-            <el-radio :value="1">全部数据</el-radio>
-            <el-radio :value="2">本部门数据</el-radio>
-            <el-radio :value="3">本人数据</el-radio>
-            <el-radio :value="4">自定义</el-radio>
+            <el-radio v-for="option in allowedDataScopeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -283,6 +282,17 @@ const clientApiTreeRef = ref<any>(null)
 const dingtalkH5ApiTreeData = ref<any[]>([])
 const dingtalkH5ApiTreeRef = ref<any>(null)
 const dingtalkH5MenuButtonPrefixes = ['dingtalk_h5:menu:', 'dingtalk_h5:button:']
+const delegationAllowedDataScopes = ref<number[]>([1, 2, 3, 4])
+const dataScopeOptions = [
+  { value: 1, label: '全部数据' },
+  { value: 2, label: '本部门数据' },
+  { value: 3, label: '本人数据' },
+  { value: 4, label: '自定义' }
+]
+const allowedDataScopeOptions = computed(() => {
+  const allowed = new Set(delegationAllowedDataScopes.value)
+  return dataScopeOptions.filter((option) => allowed.has(option.value))
+})
 
 const dialog = reactive({
   visible: false,
@@ -376,6 +386,14 @@ async function loadApplicationPermissionTree() {
     dingtalkH5MenuTreeData.value = Array.isArray(res.data?.dingtalkH5) ? res.data.dingtalkH5 : []
     clientApiTreeData.value = Array.isArray(res.data?.clientApi) ? res.data.clientApi : []
     dingtalkH5ApiTreeData.value = Array.isArray(res.data?.dingtalkH5Api) ? res.data.dingtalkH5Api : []
+    const allowedDataScopes = Array.isArray(res.data?.delegation?.allowedDataScopes)
+      ? res.data.delegation.allowedDataScopes.map(Number).filter((value: number) => dataScopeOptions.some((option) => option.value === value))
+      : [1, 2, 3, 4]
+    delegationAllowedDataScopes.value = allowedDataScopes.length > 0 ? allowedDataScopes : [3]
+    if (!delegationAllowedDataScopes.value.includes(form.dataScope)) {
+      form.dataScope = delegationAllowedDataScopes.value[0]
+      form.deptIds = []
+    }
     if (clientMenuTreeData.value.length === 0 && dingtalkH5MenuTreeData.value.length === 0 && clientApiTreeData.value.length === 0 && dingtalkH5ApiTreeData.value.length === 0) {
       ElMessage.warning('应用权限配置为空，请确认后端已启动最新版本')
     }
@@ -398,7 +416,7 @@ function showAdd() {
   form.remark = ''
   form.sort = 0
   form.status = 1
-  form.dataScope = 1
+  form.dataScope = delegationAllowedDataScopes.value[0] || 3
   form.allowAdminLogin = true
   form.adminPermissionKeys = []
   form.adminApiPermissionKeys = []

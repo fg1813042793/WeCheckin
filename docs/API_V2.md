@@ -67,6 +67,10 @@
 | 考试答案校验 | POST | `/api/v2/exams/{id}/validation` |
 | 按 session 查看考试结果 | GET | `/api/v2/exam-results` |
 
+问卷设置支持可选字符串 `settings.displayTitle`（显示标题）。管理端创建、编辑问卷时沿用 `settings` JSON 字符串保存；客户端问卷详情在 `settings` 对象中返回。填写页与设计器预览优先显示去除首尾空白后的显示标题，未配置、为空或不是字符串时回退到 `title`。`title` 仍是后台列表和统计使用的原标题，历史问卷无需迁移。
+
+问卷答卷的 `browser`、`deviceType`、`platformType` 根据提交的 `device`（原始 User-Agent）解析。移动系统标记优先于 `Mac OS X`、`Linux` 等兼容标记；没有具体浏览器名称的嵌入环境显示为 `iOS WebView`、`Android WebView` 或 `WebKit`，信息不足时保留 `-`。后台读取答卷列表、详情和导出数据时，会根据原始 UA 补全缺失信息，并纠正历史 iOS/macOS、Android/Linux 误判，不覆盖原始 UA，也不要求用户重新提交。
+
 客户端钉钉登录的企业配置、用户绑定、回调地址和多企业行为见 [客户端钉钉验证登录](CLIENT_DINGTALK_LOGIN.md)。公开的用户 ID 直接登录入口已移除；密码登录保留为备用方式。
 
 ## 客户端登录后接口

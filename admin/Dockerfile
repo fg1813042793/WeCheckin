@@ -19,4 +19,4 @@ FROM nginx:1.27-alpine
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html/admin
 
-EXPOSE 80
+EXPOSE 80 8081

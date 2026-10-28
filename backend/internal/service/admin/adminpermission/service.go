@@ -11,6 +11,7 @@ import (
 	"wecheckin/backend/internal/model"
 	menuservice "wecheckin/backend/internal/service/admin/menu"
 	permissionsupport "wecheckin/backend/internal/support/permission"
+	"wecheckin/backend/internal/support/permissiondelegation"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -65,6 +66,23 @@ func TreeContext(ctx context.Context, platform string, types ...string) ([]*Perm
 	return tree, nil
 }
 
+func TreeForAdminContext(ctx context.Context, adminID uint, platform string, types ...string) ([]*PermissionNode, error) {
+	tree, err := TreeContext(ctx, platform, types...)
+	if err != nil {
+		return nil, err
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if ceiling.All {
+		return tree, nil
+	}
+	return filterPermissionTree(tree, ceiling.TreeKeys), nil
+}
+
 func List(platform string) ([]model.Permission, error) {
 	return ListContext(context.Background(), platform)
 }
@@ -92,6 +110,77 @@ func ListContext(ctx context.Context, platform string, types ...string) ([]model
 	var list []model.Permission
 	err := query.Order("`permission_platform` ASC, `permission_sort` ASC, `id` ASC").Find(&list).Error
 	return list, err
+}
+
+func ListForAdminContext(ctx context.Context, adminID uint, platform string, types ...string) ([]model.Permission, error) {
+	rows, err := ListContext(ctx, platform, types...)
+	if err != nil {
+		return nil, err
+	}
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if ceiling.All {
+		return rows, nil
+	}
+	result := make([]model.Permission, 0, len(rows))
+	for _, row := range rows {
+		if ceiling.AllowsPermission(row.Key) {
+			result = append(result, row)
+		}
+	}
+	return result, nil
+}
+
+func filterPermissionTree(nodes []*PermissionNode, allowed map[string]struct{}) []*PermissionNode {
+	result := make([]*PermissionNode, 0, len(nodes))
+	for _, node := range nodes {
+		if node == nil {
+			continue
+		}
+		copyNode := *node
+		copyNode.Children = filterPermissionTree(node.Children, allowed)
+		_, ownAllowed := allowed[node.Key]
+		if !ownAllowed && len(copyNode.Children) == 0 {
+			continue
+		}
+		result = append(result, &copyNode)
+	}
+	return result
+}
+
+func requireSuperAdminContext(ctx context.Context, adminID uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, db, adminID)
+	if err != nil {
+		return err
+	}
+	return ceiling.RequireSuperAdmin()
+}
+
+func AddForAdminContext(ctx context.Context, adminID uint, req SaveRequest) error {
+	if err := requireSuperAdminContext(ctx, adminID); err != nil {
+		return err
+	}
+	return AddContext(ctx, req)
+}
+
+func EditForAdminContext(ctx context.Context, adminID uint, key string, req SaveRequest) error {
+	if err := requireSuperAdminContext(ctx, adminID); err != nil {
+		return err
+	}
+	return EditContext(ctx, key, req)
+}
+
+func DeleteForAdminContext(ctx context.Context, adminID uint, key string) error {
+	if err := requireSuperAdminContext(ctx, adminID); err != nil {
+		return err
+	}
+	return DeleteContext(ctx, key)
 }
 
 func normalizePermissionTypes(values ...string) []string {

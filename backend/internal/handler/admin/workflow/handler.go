@@ -19,13 +19,18 @@ type AdminWorkflowHandler struct{}
 func NewAdminWorkflowHandler() *AdminWorkflowHandler { return &AdminWorkflowHandler{} }
 
 func (h *AdminWorkflowHandler) List(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("pageSize"))
 	status := -1
 	if raw := c.Query("status"); raw != "" {
 		status, _ = strconv.Atoi(raw)
 	}
-	data, err := workflowservice.GetListContext(ctx, c.Query("keyword"), c.Query("category"), status, page, pageSize)
+	data, err := workflowservice.GetListForAdminContext(ctx, c.Query("keyword"), c.Query("category"), status, page, pageSize, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取流程定义失败")
 		return
@@ -101,7 +106,7 @@ func (h *AdminWorkflowHandler) Copy(ctx context.Context, c *app.RequestContext) 
 		response.Fail(c, "请求参数格式无效")
 		return
 	}
-	data, err := workflowservice.CopyContext(ctx, admin.ID, sourceID, request)
+	data, err := workflowservice.CopyForAdminContext(ctx, admin.ID, sourceID, request)
 	if err != nil {
 		storage.RemoveLocal(uploaded)
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
@@ -111,12 +116,17 @@ func (h *AdminWorkflowHandler) Copy(ctx context.Context, c *app.RequestContext) 
 }
 
 func (h *AdminWorkflowHandler) Detail(ctx context.Context, c *app.RequestContext) {
+	admin, authenticated := currentAdmin(c)
+	if !authenticated {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, ok := routeID(c)
 	if !ok {
 		response.Fail(c, "流程定义 ID 无效")
 		return
 	}
-	data, err := workflowservice.GetDetailContext(ctx, id)
+	data, err := workflowservice.GetDetailForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
@@ -159,7 +169,7 @@ func (h *AdminWorkflowHandler) Update(ctx context.Context, c *app.RequestContext
 		response.Fail(c, "请求参数格式无效")
 		return
 	}
-	data, err := workflowservice.UpdateContext(ctx, admin.ID, id, request)
+	data, err := workflowservice.UpdateForAdminContext(ctx, admin.ID, id, request)
 	if err != nil {
 		storage.RemoveLocal(uploaded)
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
@@ -185,7 +195,7 @@ func (h *AdminWorkflowHandler) Status(ctx context.Context, c *app.RequestContext
 		response.Fail(c, "流程状态无效")
 		return
 	}
-	data, err := workflowservice.UpdateStatusContext(ctx, admin.ID, id, status)
+	data, err := workflowservice.UpdateStatusForAdminContext(ctx, admin.ID, id, status)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
@@ -204,7 +214,7 @@ func (h *AdminWorkflowHandler) Delete(ctx context.Context, c *app.RequestContext
 		response.Fail(c, "流程定义 ID 无效")
 		return
 	}
-	if err := workflowservice.DeleteContext(ctx, admin.ID, id); err != nil {
+	if err := workflowservice.DeleteForAdminContext(ctx, admin.ID, id); err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
@@ -212,12 +222,17 @@ func (h *AdminWorkflowHandler) Delete(ctx context.Context, c *app.RequestContext
 }
 
 func (h *AdminWorkflowHandler) Validate(ctx context.Context, c *app.RequestContext) {
+	admin, authenticated := currentAdmin(c)
+	if !authenticated {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, ok := routeID(c)
 	if !ok {
 		response.Fail(c, "流程定义 ID 无效")
 		return
 	}
-	data, err := workflowservice.ValidateContext(ctx, id)
+	data, err := workflowservice.ValidateForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
@@ -243,7 +258,7 @@ func (h *AdminWorkflowHandler) Publish(ctx context.Context, c *app.RequestContex
 			return
 		}
 	}
-	data, err := workflowservice.PublishContext(ctx, admin.ID, id, request)
+	data, err := workflowservice.PublishForAdminContext(ctx, admin.ID, id, request)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
@@ -252,12 +267,17 @@ func (h *AdminWorkflowHandler) Publish(ctx context.Context, c *app.RequestContex
 }
 
 func (h *AdminWorkflowHandler) Versions(ctx context.Context, c *app.RequestContext) {
+	admin, authenticated := currentAdmin(c)
+	if !authenticated {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, ok := routeID(c)
 	if !ok {
 		response.Fail(c, "流程定义 ID 无效")
 		return
 	}
-	data, err := workflowservice.GetVersionsContext(ctx, id)
+	data, err := workflowservice.GetVersionsForAdminContext(ctx, id, admin.ID)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
@@ -266,6 +286,11 @@ func (h *AdminWorkflowHandler) Versions(ctx context.Context, c *app.RequestConte
 }
 
 func (h *AdminWorkflowHandler) VersionChanges(ctx context.Context, c *app.RequestContext) {
+	admin, authenticated := currentAdmin(c)
+	if !authenticated {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, ok := routeID(c)
 	if !ok {
 		response.Fail(c, "流程定义 ID 无效")
@@ -285,7 +310,7 @@ func (h *AdminWorkflowHandler) VersionChanges(ctx context.Context, c *app.Reques
 			return
 		}
 	}
-	data, err := workflowservice.GetVersionChangesContext(ctx, id, version, compareTo)
+	data, err := workflowservice.GetVersionChangesForAdminContext(ctx, id, version, compareTo, admin.ID)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
@@ -294,6 +319,11 @@ func (h *AdminWorkflowHandler) VersionChanges(ctx context.Context, c *app.Reques
 }
 
 func (h *AdminWorkflowHandler) DeleteVersion(ctx context.Context, c *app.RequestContext) {
+	admin, authenticated := currentAdmin(c)
+	if !authenticated {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	id, ok := routeID(c)
 	if !ok {
 		response.Fail(c, "流程定义 ID 无效")
@@ -304,7 +334,7 @@ func (h *AdminWorkflowHandler) DeleteVersion(ctx context.Context, c *app.Request
 		response.Fail(c, "流程版本参数无效")
 		return
 	}
-	if err := workflowservice.DeleteVersionContext(ctx, id, version); err != nil {
+	if err := workflowservice.DeleteVersionForAdminContext(ctx, id, version, admin.ID); err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return
 	}
@@ -334,7 +364,7 @@ func (h *AdminWorkflowHandler) RollbackVersion(ctx context.Context, c *app.Reque
 			return
 		}
 	}
-	data, err := workflowservice.RollbackVersionContext(ctx, admin.ID, id, version, request)
+	data, err := workflowservice.RollbackVersionForAdminContext(ctx, admin.ID, id, version, request)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.workflow.handler", "操作失败，请稍后重试", err)
 		return

@@ -106,6 +106,8 @@ export interface WebhookNotificationItem {
   nextRetryAt: number
   lastError: string
   sentAt: number
+  responseStatusCode?: number
+  responseBody?: string
   addTime: number
   editTime: number
 }
@@ -264,6 +266,10 @@ export interface ApplicationPermissionTree {
   dingtalkH5: AdminListRecord[]
   clientApi: AdminListRecord[]
   dingtalkH5Api: AdminListRecord[]
+  delegation?: {
+    all: boolean
+    allowedDataScopes: number[]
+  }
 }
 
 export interface FormkitTypeMeta {

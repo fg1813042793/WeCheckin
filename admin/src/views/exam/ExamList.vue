@@ -1,439 +1,151 @@
 <template>
-  <div class="exam-page">
-    <el-card shadow="never" class="main-card" style="margin-top:16px">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <el-input v-model="keyword" placeholder="搜索标题" clearable style="width:220px" @keyup.enter="load" />
-          <el-input v-model="category" placeholder="分类" clearable style="width:140px" @keyup.enter="load" />
-          <el-select v-model="statusFilter" placeholder="状态" clearable style="width:120px" @change="load">
-            <el-option label="已发布" :value="1" />
-            <el-option label="停用" :value="0" />
-          </el-select>
-          <el-button type="primary" @click="load">搜索</el-button>
+  <AdminPageShell width="fluid" density="compact" class="survey-page exam-page">
+    <section class="survey-toolbar-card" aria-label="考试工具栏">
+      <AdminSearchBar title="" class="survey-search" @search="search" @reset="resetSearch">
+        <el-input v-model="keyword" :prefix-icon="Search" placeholder="搜索考试名称或 ID" clearable @keyup.enter="search" />
+        <el-input v-model="category" placeholder="按分类筛选" clearable @keyup.enter="search" />
+        <el-select v-model="statusFilter" placeholder="全部状态" clearable @change="search">
+          <el-option label="已发布" :value="1" />
+          <el-option label="已停用" :value="0" />
+        </el-select>
+      </AdminSearchBar>
+      <div class="survey-actions-row">
+        <div class="survey-actions-row__left">
+          <el-button type="primary" :icon="Plus" @click="goCreate">新建考试</el-button>
         </div>
-        <div class="toolbar-right">
-          <el-tooltip content="刷新"><el-button circle @click="load"><el-icon><Refresh /></el-icon></el-button></el-tooltip>
-        </div>
-      </div>
-      <div class="action-row">
-        <el-button type="primary" @click="goCreate"><el-icon style="margin-right:4px"><Plus /></el-icon>新建考试</el-button>
-        <div class="view-toggle">
-          <el-button class="view-toggle__btn" :class="{ active: !gridView }" size="small" aria-label="列表视图" @click="gridView=false"><el-icon><List /></el-icon></el-button>
-          <el-button class="view-toggle__btn" :class="{ active: gridView }" size="small" aria-label="卡片视图" @click="gridView=true"><el-icon><Grid /></el-icon></el-button>
+        <div class="survey-actions-row__right">
+          <el-button text :icon="RefreshRight" aria-label="刷新考试列表" title="刷新" :loading="loading" @click="load" />
         </div>
       </div>
+    </section>
 
-      <div class="stat-bar">
-        <div class="stat-item"><span class="stat-num">{{ stats.total }}</span> 总考试</div>
-        <div class="stat-item"><span class="stat-num active">{{ stats.published }}</span> 已发布</div>
-        <div class="stat-item"><span class="stat-num muted">{{ stats.stopped }}</span> 已停用</div>
+    <div class="collection-toolbar">
+      <div class="status-tabs" role="tablist" aria-label="考试状态">
+        <button v-for="tab in statusTabs" :key="String(tab.value)" type="button" role="tab" :aria-selected="statusFilter === tab.value" :class="{ active: statusFilter === tab.value }" @click="selectStatus(tab.value)">
+          {{ tab.label }}<span>{{ statusCount(tab.value) }}</span>
+        </button>
       </div>
-
-      <div v-if="!gridView" class="table-wrap">
-        <el-table class="exam-table" :data="list" v-loading="loading" stripe>
-          <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column label="标题" min-width="200">
-            <template #default="{ row }">
-              <div class="cell-title">{{ row.title }}</div>
-              <div class="cell-meta" v-if="row.category || row.tags">
-                <el-tag v-if="row.category" size="small" round>{{ row.category }}</el-tag>
-                <span v-for="t in (row.tags||'').split(',').filter(Boolean)" :key="t" class="tag-dot">{{ t }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="可见性" width="90">
-            <template #default="{ row }">
-              <el-tag size="small" :type="visType(row.visibility)" round>{{ visText(row.visibility) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="最长交卷" width="80" align="center">
-            <template #default="{ row }">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? '分' : '' }}</template>
-          </el-table-column>
-          <el-table-column label="次数" width="80" align="center">
-            <template #default="{ row }">{{ row.maxResponse || 0 }}{{ row.maxResponse ? '次' : '不限' }}</template>
-          </el-table-column>
-          <el-table-column label="时间窗" min-width="190">
-            <template #default="{ row }">
-              <span v-if="row.startTime || row.endTime" class="time-range">{{ fmtTime(row.startTime) }} ~ {{ fmtTime(row.endTime) }}</span>
-              <span v-else class="no-limit">不限</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="80">
-            <template #default="{ row }">
-              <el-switch :model-value="row.status===1" :before-change="()=>toggleStatus(row)" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
-            <template #default="{ row }">
-              <div class="table-actions">
-                <el-button size="small" type="primary" @click="goDesigner(row)">设计</el-button>
-                <el-dropdown trigger="click" @command="(cmd:string)=>handleMore(cmd,row)">
-                  <el-button size="small">更多<el-icon><ArrowDown /></el-icon></el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                      <el-dropdown-item :command="row.status===1?'disable':'enable'">
-                        {{ row.status===1?'停用':'发布' }}
-                      </el-dropdown-item>
-                      <el-dropdown-item command="del" divided>删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
+      <div class="collection-tools">
+        <div class="view-segment" aria-label="展示方式">
+          <el-tooltip content="卡片视图"><button type="button" :class="{ active: gridView }" :aria-pressed="gridView" aria-label="卡片视图" @click="gridView = true"><el-icon><Grid /></el-icon></button></el-tooltip>
+          <el-tooltip content="列表视图"><button type="button" :class="{ active: !gridView }" :aria-pressed="!gridView" aria-label="列表视图" @click="gridView = false"><el-icon><List /></el-icon></button></el-tooltip>
+        </div>
       </div>
+    </div>
 
-      <div v-else class="card-grid">
-        <div v-for="row in list" :key="row.id" class="project-card" :class="row.status===1?'is-published':'is-stopped'" @click="goDesigner(row)">
-          <div class="card-head" :class="row.status===1?'pub':'stop'">
-            <div class="card-type">
-              <el-icon><Document /></el-icon>
-              <span>{{ row.category || '考试' }}</span>
-            </div>
-            <el-tag size="small" :type="row.status===1?'success':'danger'" effect="dark" round>{{ row.status===1?'已发布':'停用' }}</el-tag>
+    <section v-if="gridView" class="survey-collection" aria-label="考试卡片列表">
+      <article v-for="row in list" :key="row.id" class="survey-card" @click="goDesigner(row)">
+        <div class="survey-card__topline">
+          <span class="survey-card__category"><el-icon><Document /></el-icon>{{ row.category || '考试' }}</span>
+          <span class="status-label" :class="row.status === 1 ? 'published' : 'stopped'"><i />{{ row.status === 1 ? '已发布' : '已停用' }}</span>
+        </div>
+        <button class="survey-card__content" type="button" :aria-label="`编辑 ${row.title}`" @click.stop="goDesigner(row)">
+          <h2>{{ row.title }}</h2>
+          <p>{{ row.description || '暂无考试说明' }}</p>
+          <div class="exam-card__preview" aria-hidden="true">
+            <div><span>最长交卷</span><strong>{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? ' 分钟' : '' }}</strong></div>
+            <div><span>答题次数</span><strong>{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</strong></div>
           </div>
-          <div class="card-body">
-            <h4 class="card-title">{{ row.title }}</h4>
-            <p class="card-desc" v-if="row.description">{{ row.description.substring(0,60) }}{{ row.description.length>60?'...':'' }}</p>
-            <div class="exam-preview-panel" aria-hidden="true">
-              <div class="exam-preview-row">
-                <span class="exam-preview-label">时长</span>
-                <span class="exam-preview-value">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? ' 分钟' : '' }}</span>
-              </div>
-              <div class="exam-preview-row">
-                <span class="exam-preview-label">次数</span>
-                <span class="exam-preview-value">{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</span>
-              </div>
-              <div class="exam-preview-line"></div>
-            </div>
-          </div>
-          <div class="card-foot">
-            <span><el-icon><Clock /></el-icon> {{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? '分' : '' }}</span>
-            <span><el-icon><Rank /></el-icon> {{ row.maxResponse || 0 }}{{ row.maxResponse ? '次' : '不限' }}</span>
-            <span v-if="row.startTime || row.endTime"><el-icon><Calendar /></el-icon> {{ fmtDate(row.startTime) }}</span>
-          </div>
-          <div class="card-actions" @click.stop>
-            <el-button size="small" @click="goDesigner(row)">设计</el-button>
-            <el-popconfirm title="确认删除?" @confirm="delRow(row)">
-              <template #reference><el-button size="small" type="danger" plain>删除</el-button></template>
-            </el-popconfirm>
-          </div>
-        </div>
-        <div v-if="list.length===0 && !loading" class="empty-state">
-          <el-icon :size="48" color="#ddd"><Document /></el-icon>
-          <p>还没有考试，点击「新建考试」开始</p>
-        </div>
-      </div>
+        </button>
+        <div class="survey-card__meta"><span><strong>{{ row.maxResponse || 0 }}</strong> {{ row.maxResponse ? '次限制' : '不限次数' }}</span><time>{{ fmtDate(row.addTime) }} 更新</time></div>
+        <footer class="survey-card__actions" @click.stop>
+          <el-button text type="primary" @click="goDesigner(row)">设计</el-button>
+          <el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)">
+            <el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" title="更多操作" />
+            <template #dropdown><el-dropdown-menu>
+              <el-dropdown-item command="edit">编辑考试</el-dropdown-item>
+              <el-dropdown-item :command="row.status === 1 ? 'disable' : 'enable'">{{ row.status === 1 ? '停用考试' : '发布考试' }}</el-dropdown-item>
+              <el-dropdown-item command="del" divided>删除考试</el-dropdown-item>
+            </el-dropdown-menu></template>
+          </el-dropdown>
+        </footer>
+      </article>
+      <el-empty v-if="!list.length && !loading" description="暂无考试数据"><el-button type="primary" @click="goCreate">新建考试</el-button></el-empty>
+    </section>
 
-      <div class="pagination-bar">
-        <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" @current-change="load" background />
-      </div>
-    </el-card>
+    <AdminTablePanel v-else title="考试列表" :count="total" :loading="loading" :empty="!list.length" empty-text="暂无考试数据" :min-height="320">
+      <el-table :data="list" class="survey-table" stripe>
+        <el-table-column label="考试名称" min-width="240"><template #default="{ row }"><button class="table-title" @click="goDesigner(row)">{{ row.title }}</button><small class="table-subtitle">#{{ row.id }} · {{ row.category || '考试' }}</small></template></el-table-column>
+        <el-table-column label="可见性" width="100"><template #default="{ row }"><el-tag size="small" :type="visType(row.visibility)">{{ visText(row.visibility) }}</el-tag></template></el-table-column>
+        <el-table-column label="最长交卷" width="110" align="center"><template #default="{ row }">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? ' 分钟' : '' }}</template></el-table-column>
+        <el-table-column label="答题次数" width="100" align="center"><template #default="{ row }">{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</template></el-table-column>
+        <el-table-column label="最近更新" width="120"><template #default="{ row }">{{ fmtDate(row.addTime) }}</template></el-table-column>
+        <el-table-column label="状态" width="100"><template #default="{ row }"><span class="status-label" :class="row.status === 1 ? 'published' : 'stopped'"><i />{{ row.status === 1 ? '已发布' : '已停用' }}</span></template></el-table-column>
+        <el-table-column label="操作" width="150" fixed="right"><template #default="{ row }"><div class="table-actions"><el-button text type="primary" @click="goDesigner(row)">设计</el-button><el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)"><el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" /></el-dropdown></div></template></el-table-column>
+      </el-table>
+      <template #footer><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total, prev, pager, next" background @current-change="load" /></template>
+    </AdminTablePanel>
 
-
-  </div>
+    <footer v-if="gridView" class="collection-footer"><span>共 {{ total }} 份考试</span><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="prev, pager, next" background @current-change="load" /></footer>
+  </AdminPageShell>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { Document, Grid, List, MoreFilled, Plus, RefreshRight, Search } from '@element-plus/icons-vue'
+import { AdminPageShell, AdminSearchBar, AdminTablePanel } from '../../components/admin-ui'
 import { adminApi } from '../../api'
 
 const router = useRouter()
 const keyword = ref('')
 const category = ref('')
-const statusFilter = ref<number|null>(null)
+const statusFilter = ref<number | null>(null)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const list = ref<any[]>([])
 const loading = ref(false)
 const gridView = ref(true)
+const statusTabs = [{ value: null, label: '全部考试' }, { value: 1, label: '已发布' }, { value: 0, label: '已停用' }]
 
-const stats = computed(() => {
-  const total = list.value.length
-  const published = list.value.filter((x:any) => x.status===1).length
-  const stopped = list.value.filter((x:any) => x.status===0).length
-  return { total, published, stopped }
-})
-
-function visText(v: number) { return { 0:'公开', 1:'登录', 2:'部门' }[v] || '-' }
-function visType(v: number) { return ({ 0:'success', 1:'primary', 2:'warning' } as any)[v] || '' }
-function fmtTime(ms: number) { return ms ? new Date(ms).toLocaleDateString() : '-' }
-function fmtDate(ms: number) { return ms ? new Date(ms).toLocaleDateString() : '' }
+function statusCount(value: number | null) { return value === null ? total.value : list.value.filter(item => item.status === value).length }
+function visText(value: number) { return { 0: '公开', 1: '登录', 2: '部门' }[value] || '-' }
+function visType(value: number) { return ({ 0: 'success', 1: 'primary', 2: 'warning' } as any)[value] || '' }
+function fmtDate(value: number) { return value ? new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) : '-' }
 function maxSubmitMinutes(row: any) {
   try {
-    const s = typeof row.settings === 'string' ? JSON.parse(row.settings) : (row.settings || {})
-    return s.maxSubmitMinutes || '-'
+    const settings = typeof row.settings === 'string' ? JSON.parse(row.settings) : (row.settings || {})
+    return settings.maxSubmitMinutes || '-'
   } catch { return '-' }
 }
-
 async function load() {
   loading.value = true
   try {
-    const res: any = await adminApi.examList({
-      page: page.value, pageSize: pageSize.value,
-      keyword: keyword.value, category: category.value,
-      status: statusFilter.value === null ? -1 : statusFilter.value
-    })
-    list.value = res.data?.list || []
-    total.value = res.data?.total || 0
+    const response: any = await adminApi.examList({ page: page.value, pageSize: pageSize.value, keyword: keyword.value.trim(), category: category.value.trim(), status: statusFilter.value === null ? -1 : statusFilter.value })
+    list.value = response.data?.list || []
+    total.value = response.data?.total || 0
   } finally { loading.value = false }
 }
-
+function search() { page.value = 1; void load() }
+function resetSearch() { keyword.value = ''; category.value = ''; statusFilter.value = null; page.value = 1; void load() }
+function selectStatus(value: number | null) { statusFilter.value = value; page.value = 1; void load() }
 async function toggleStatus(row: any) {
-  const ns = row.status === 1 ? 0 : 1
-  await adminApi.examStatus({ id: row.id, status: ns })
-  row.status = ns
-  ElMessage.success(ns ? '已发布' : '已停用')
-  return true
+  const next = row.status === 1 ? 0 : 1
+  await adminApi.examStatus({ id: row.id, status: next })
+  row.status = next
+  ElMessage.success(next === 1 ? '已发布' : '已停用')
 }
-
-async function delRow(row: any) {
-  await adminApi.examDelete({ id: row.id })
-  ElMessage.success('已删除')
-  load()
-}
-
-async function handleMore(cmd: string, row: any) {
-  if (cmd === 'del') {
-    await ElMessageBox.confirm(`确认删除「${row.title}」?`, '提示', { type: 'warning' })
+async function handleMore(command: string, row: any) {
+  if (command === 'edit') return goEdit(row)
+  if (command === 'enable' || command === 'disable') { await toggleStatus(row); return void load() }
+  if (command === 'del') {
+    try { await ElMessageBox.confirm(`确认删除「${row.title}」?`, '删除考试', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }
     await adminApi.examDelete({ id: row.id })
-    ElMessage.success('已删除'); load()
-  } else if (cmd === 'enable' || cmd === 'disable') {
-    const ns = cmd === 'enable' ? 1 : 0
-    await adminApi.examStatus({ id: row.id, status: ns })
-    ElMessage.success('已更新'); load()
-  } else if (cmd === 'edit') {
-    router.push({ path: '/exam/designer', query: { id: String(row.id) } })
+    ElMessage.success('已删除')
+    void load()
   }
 }
-
-function goDesigner(row: any) {
-  router.push({ path: '/exam/designer', query: { id: String(row.id) } })
-}
-
-function goCreate() {
-  router.push('/exam/designer')
-}
-
+function goEdit(row: any) { router.push({ path: '/exam/designer', query: { id: String(row.id) } }) }
+function goDesigner(row: any) { goEdit(row) }
+function goCreate() { router.push('/exam/designer') }
 onMounted(load)
 </script>
 
 <style scoped>
-.exam-page {
-  --exam-accent: #0f766e;
-  --exam-accent-soft: #ecfdf5;
-  --exam-accent-border: #99f6e4;
-  --exam-border: #e8edf5;
-  --exam-surface: #f8fafc;
-  --exam-text: #1f2937;
-  --exam-muted: #667085;
-}
-
-.main-card { border-radius:12px; border:1px solid var(--exam-border); }
-.toolbar {
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  flex-wrap:wrap;
-  gap:12px;
-  margin-bottom:14px;
-  padding:14px;
-  background:var(--exam-surface);
-  border:1px solid var(--exam-border);
-  border-radius:10px;
-}
-.toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.toolbar-right { display:flex; align-items:center; gap:8px; }
-
-.action-row { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
-.view-toggle {
-  display:inline-flex;
-  align-items:center;
-  gap:2px;
-  padding:3px;
-  background:#f3f5f8;
-  border:1px solid var(--exam-border);
-  border-radius:8px;
-}
-.view-toggle__btn { width:32px; height:28px; padding:0; border:none; color:#667085; background:transparent; }
-.view-toggle__btn.active { color:var(--exam-accent); background:#fff; box-shadow:0 4px 10px rgba(15,23,42,0.08); }
-.view-toggle :deep(.el-button + .el-button) { margin-left:0; }
-
-.stat-bar {
-  display:flex;
-  align-items:center;
-  flex-wrap:wrap;
-  gap:24px;
-  margin-bottom:16px;
-  padding:12px 16px;
-  background:#f8f9fc;
-  border-radius:8px;
-}
-.stat-item { font-size:13px; color:#888; }
-.stat-num { font-weight:600; color:#333; font-size:16px; margin-right:4px; }
-.stat-num.active { color:#67c23a; }
-.stat-num.muted { color:#999; }
-
-.table-wrap {
-  margin-top:4px;
-  overflow:hidden;
-  border:1px solid var(--exam-border);
-  border-radius:10px;
-}
-.exam-table :deep(.el-table__header th) { background:#f8fafc; color:#475467; font-weight:600; }
-.exam-table :deep(.el-table__row) { height:58px; }
-.exam-table :deep(.el-table__cell) { border-bottom-color:#edf1f7; }
-.cell-title { font-weight:600; color:var(--exam-text); line-height:20px; }
-.cell-meta { margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-.tag-dot { font-size:11px; color:#667085; background:#f6f8fb; border:1px solid #edf1f7; padding:1px 8px; border-radius:4px; }
-.time-range { font-size:12px; color:#667085; }
-.no-limit { color:#b0b7c3; font-size:12px; }
-.table-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.table-actions :deep(.el-button + .el-button) { margin-left:0; }
-
-.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; margin-top:8px; }
-.project-card {
-  position:relative;
-  display:flex;
-  flex-direction:column;
-  min-height:266px;
-  background:
-    linear-gradient(90deg, var(--exam-accent-soft) 0 8px, transparent 8px),
-    #fff;
-  border:1px solid var(--exam-border);
-  border-radius:10px;
-  overflow:hidden;
-  cursor:pointer;
-  box-shadow:0 6px 18px rgba(15,23,42,0.05);
-  transition:border-color 0.2s, box-shadow 0.2s, transform 0.2s;
-}
-.project-card::before {
-  content:'';
-  position:absolute;
-  top:18px;
-  bottom:18px;
-  left:18px;
-  width:1px;
-  background:var(--exam-accent);
-  opacity:0.26;
-}
-.project-card.is-stopped {
-  background:
-    linear-gradient(90deg, #f2f4f7 0 8px, transparent 8px),
-    #fff;
-}
-.project-card.is-stopped::before { background:#98a2b3; }
-.project-card:hover { border-color:var(--exam-accent-border); box-shadow:0 12px 28px rgba(15,23,42,0.08); transform:translateY(-2px); }
-.card-head,
-.card-body,
-.card-foot,
-.card-actions { position:relative; z-index:1; }
-.card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 18px 8px 32px; }
-.card-head.pub,
-.card-head.stop { background:transparent; }
-.card-type {
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  min-width:0;
-  max-width:70%;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  font-size:12px;
-  color:#667085;
-  font-weight:600;
-}
-.card-type .el-icon { color:var(--exam-accent); font-size:15px; }
-.card-type span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.project-card.is-stopped .card-type .el-icon { color:#98a2b3; }
-.card-body { flex:1; padding:8px 20px 16px 32px; min-height:134px; }
-.card-title {
-  display:-webkit-box;
-  -webkit-box-orient:vertical;
-  -webkit-line-clamp:2;
-  overflow:hidden;
-  margin:0;
-  font-size:16px;
-  font-weight:700;
-  color:var(--exam-text);
-  line-height:22px;
-}
-.card-desc {
-  display:-webkit-box;
-  -webkit-box-orient:vertical;
-  -webkit-line-clamp:2;
-  overflow:hidden;
-  margin:8px 0 0;
-  font-size:12px;
-  color:#7a8494;
-  line-height:18px;
-}
-.exam-preview-panel {
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  margin-top:14px;
-  padding:12px;
-  background:#fbfefd;
-  border:1px solid #d9f3ee;
-  border-radius:8px;
-}
-.exam-preview-row {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  font-size:12px;
-}
-.exam-preview-label { color:#98a2b3; }
-.exam-preview-value { color:var(--exam-text); font-weight:600; }
-.exam-preview-line {
-  width:76%;
-  height:7px;
-  margin-top:2px;
-  border-radius:999px;
-  background:linear-gradient(90deg, #ccfbf1, #edf1f7);
-}
-.card-foot {
-  display:flex;
-  gap:14px;
-  flex-wrap:wrap;
-  padding:11px 18px 11px 32px;
-  border-top:1px solid #f0f3f8;
-  background:#fbfcfe;
-  font-size:12px;
-  color:#667085;
-}
-.card-foot span { display:inline-flex; align-items:center; gap:4px; }
-.card-actions {
-  display:flex;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  padding:10px 18px 14px 32px;
-  gap:8px;
-  border-top:1px solid #f0f3f8;
-  background:#fff;
-}
-.card-actions :deep(.el-button + .el-button) { margin-left:0; }
-.empty-state { grid-column:1/-1; text-align:center; padding:80px 0; color:#98a2b3; }
-
-.pagination-bar { display:flex; justify-content:flex-start; align-items:center; gap:12px; margin-top:16px; }
-
-@media (max-width: 768px) {
-  .toolbar { align-items:stretch; }
-  .toolbar-left,
-  .toolbar-right { width:100%; }
-  .toolbar-left :deep(.el-input),
-  .toolbar-left :deep(.el-select) { width:100%!important; }
-  .action-row { justify-content:space-between; }
-  .stat-bar { gap:16px; }
-  .card-grid { grid-template-columns:1fr; }
-  .card-actions { justify-content:flex-start; }
-}
+.exam-page { --survey-border:var(--admin-ui-color-border); --survey-text:var(--admin-ui-color-text); --survey-muted:var(--admin-ui-color-text-secondary); }
+.exam-card__preview { display:flex; flex-direction:column; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #eef0f3; }
+.exam-card__preview > div { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--survey-muted); font-size:11px; }
+.exam-card__preview strong { color:var(--survey-text); font-size:12px; font-weight:600; }
 </style>

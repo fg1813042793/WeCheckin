@@ -14,6 +14,7 @@ import (
 	"wecheckin/backend/internal/support/appapiperm"
 	"wecheckin/backend/internal/support/appmenuperm"
 	permissionsupport "wecheckin/backend/internal/support/permission"
+	"wecheckin/backend/internal/support/permissiondelegation"
 	"wecheckin/backend/pkg/database"
 )
 
@@ -53,6 +54,12 @@ type ApplicationPermissionTreeResponse struct {
 	DingTalkH5    []ApplicationPermissionNode `json:"dingtalkH5"`
 	ClientAPI     []ApplicationPermissionNode `json:"clientApi"`
 	DingTalkH5API []ApplicationPermissionNode `json:"dingtalkH5Api"`
+	Delegation    DelegationInfo              `json:"delegation"`
+}
+
+type DelegationInfo struct {
+	All               bool  `json:"all"`
+	AllowedDataScopes []int `json:"allowedDataScopes"`
 }
 
 func GetList(adminID uint, keyword string, page, pageSize int) (*ListResponse, error) {
@@ -62,43 +69,46 @@ func GetList(adminID uint, keyword string, page, pageSize int) (*ListResponse, e
 func GetListContext(ctx context.Context, adminID uint, keyword string, page, pageSize int) (*ListResponse, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-
-	var admin model.Admin
-	if err := db.First(&admin, adminID).Error; err != nil {
+	query, err := scopedRoleQuery(ctx, db, adminID)
+	if err != nil {
 		return nil, err
-	}
-
-	var conditions []func(*gorm.DB) *gorm.DB
-	if !adminaccess.IsReservedSuperAdminRoleContext(ctx, db, admin.RoleID) {
-		roleIDs, err := permissionsupport.ActiveRoleIDsForUserContext(ctx, db, admin.ID, admin.RoleID)
-		if err != nil {
-			return nil, err
-		}
-		scopeWhere, scopeArgs := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.RoleAuditFields)
-		if scopeWhere != "" {
-			conditions = append(conditions, roleVisibleCondition(scopeWhere, scopeArgs, roleIDs))
-		}
 	}
 	if keyword != "" {
-		kw := keyword
-		conditions = append(conditions, func(d *gorm.DB) *gorm.DB {
-			return d.Where("`role_name` LIKE ?", "%"+kw+"%")
-		})
-	}
-	var total int64
-	if err := db.Model(&model.Role{}).Scopes(conditions...).Count(&total).Error; err != nil {
-		return nil, err
+		query = query.Where("`role_name` LIKE ?", "%"+keyword+"%")
 	}
 	var list []model.Role
-	if err := db.Model(&model.Role{}).Scopes(conditions...).Order("`role_sort` ASC, `id` ASC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := query.Order("`role_sort` ASC, `id` ASC").Find(&list).Error; err != nil {
 		return nil, err
 	}
 	assignments, err := loadRoleAssignmentMapsContext(ctx, db, list)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]ListItem, len(list))
-	for i, r := range list {
+	ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]model.Role, 0, len(list))
+	for _, item := range list {
+		if err := ceiling.ValidateRoleGrant(permissiondelegation.RoleGrantFromAssignments(item, assignments)); err == nil {
+			filtered = append(filtered, item)
+		}
+	}
+	total := int64(len(filtered))
+	start := (page - 1) * pageSize
+	if start < 0 {
+		start = 0
+	}
+	if start > len(filtered) {
+		start = len(filtered)
+	}
+	end := start + pageSize
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+	filtered = filtered[start:end]
+	result := make([]ListItem, len(filtered))
+	for i, r := range filtered {
 		result[i] = ListItem{
 			ID:                          r.ID,
 			Name:                        r.Name,
@@ -119,6 +129,26 @@ func GetListContext(ctx context.Context, adminID uint, keyword string, page, pag
 		}
 	}
 	return &ListResponse{List: result, Total: total}, nil
+}
+
+func scopedRoleQuery(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
+	var admin model.Admin
+	if err := db.WithContext(ctx).First(&admin, adminID).Error; err != nil {
+		return nil, err
+	}
+	query := db.Model(&model.Role{})
+	roleIDs, err := permissionsupport.ActiveRoleIDsForUserContext(ctx, db, admin.ID, admin.RoleID)
+	if err != nil {
+		return nil, err
+	}
+	if adminaccess.HasReservedSuperAdminRoleWithRoleIDsContext(ctx, db, roleIDs) {
+		return query, nil
+	}
+	scopeWhere, scopeArgs := access.DataScopeFilterForResourceWithDBContext(ctx, db, &admin, access.RoleAuditFields)
+	if scopeWhere != "" {
+		query = roleVisibleCondition(scopeWhere, scopeArgs, roleIDs)(query)
+	}
+	return query, nil
 }
 
 func roleVisibleCondition(scopeWhere string, scopeArgs []interface{}, roleIDs []uint) func(*gorm.DB) *gorm.DB {
@@ -278,6 +308,39 @@ func ApplicationPermissionTreeContext(ctx context.Context) ApplicationPermission
 			fallback.DingTalkH5API,
 		),
 	}
+}
+
+func ApplicationPermissionTreeForAdminContext(ctx context.Context, adminID uint) (ApplicationPermissionTreeResponse, error) {
+	tree := ApplicationPermissionTreeContext(ctx)
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, db, adminID)
+	if err != nil {
+		return ApplicationPermissionTreeResponse{}, err
+	}
+	if ceiling.All {
+		tree.Delegation = DelegationInfo{All: true, AllowedDataScopes: ceiling.AllowedDataScopes()}
+		return tree, nil
+	}
+	tree.Client = filterApplicationPermissionNodes(tree.Client, ceiling.TreeKeys)
+	tree.DingTalkH5 = filterApplicationPermissionNodes(tree.DingTalkH5, ceiling.TreeKeys)
+	tree.ClientAPI = filterApplicationPermissionNodes(tree.ClientAPI, ceiling.TreeKeys)
+	tree.DingTalkH5API = filterApplicationPermissionNodes(tree.DingTalkH5API, ceiling.TreeKeys)
+	tree.Delegation = DelegationInfo{AllowedDataScopes: ceiling.AllowedDataScopes()}
+	return tree, nil
+}
+
+func filterApplicationPermissionNodes(nodes []ApplicationPermissionNode, allowed map[string]struct{}) []ApplicationPermissionNode {
+	result := make([]ApplicationPermissionNode, 0, len(nodes))
+	for _, node := range nodes {
+		node.Children = filterApplicationPermissionNodes(node.Children, allowed)
+		_, ownAllowed := allowed[node.Key]
+		if !ownAllowed && len(node.Children) == 0 {
+			continue
+		}
+		result = append(result, node)
+	}
+	return result
 }
 
 func applicationPermissionRowsContext(ctx context.Context, db *gorm.DB, platform string, types ...string) []model.Permission {
@@ -503,6 +566,19 @@ func AddWithAssignmentsContext(ctx context.Context, adminID uint, name, remark, 
 		AddIP:           addIP,
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
+		ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		grant := roleGrantInput(name, allowAdminLogin, dataScope, deptIDs, adminPermissionKeys, adminAPIPermissionKeys, clientMenuKeys, dingtalkH5MenuKeys, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)
+		if err := ceiling.ValidateRoleGrant(grant); err != nil {
+			return err
+		}
+		if dataScope == 4 {
+			if err := ceiling.ValidateDepartmentIDsContext(ctx, tx, deptIDs); err != nil {
+				return err
+			}
+		}
 		if err := tx.Create(&role).Error; err != nil {
 			return err
 		}
@@ -568,6 +644,37 @@ func EditWithAssignmentsContext(ctx context.Context, adminID uint, id uint, name
 		updates["role_allow_admin_login"] = normalizeAllowAdminLogin(allowAdminLogin)
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
+		ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		query, err := scopedRoleQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		var current model.Role
+		if err := query.Where("`id` = ?", id).First(&current).Error; err != nil {
+			return err
+		}
+		assignments, err := permissionsupport.RoleAssignmentMapsContext(ctx, tx, []uint{id})
+		if err != nil {
+			return err
+		}
+		if err := ceiling.ValidateRoleGrant(permissiondelegation.RoleGrantFromAssignments(current, assignments)); err != nil {
+			return err
+		}
+		grant := roleGrantInput(name, normalizeAllowAdminLogin(allowAdminLogin), dataScope, deptIDs, adminPermissionKeys, adminAPIPermissionKeys, clientMenuKeys, dingtalkH5MenuKeys, clientAPIPermissionKeys, dingtalkH5APIPermissionKeys)
+		if allowAdminLogin < 0 {
+			grant.AllowAdminLogin = current.AllowAdminLogin
+		}
+		if err := ceiling.ValidateRoleGrant(grant); err != nil {
+			return err
+		}
+		if dataScope == 4 {
+			if err := ceiling.ValidateDepartmentIDsContext(ctx, tx, deptIDs); err != nil {
+				return err
+			}
+		}
 		if err := tx.Model(&model.Role{}).Where("`id` = ?", id).Updates(updates).Error; err != nil {
 			return err
 		}
@@ -592,6 +699,17 @@ func EditWithAssignmentsContext(ctx context.Context, adminID uint, id uint, name
 		permissionsupport.InvalidateRuntimePermissionCaches()
 	}
 	return err
+}
+
+func roleGrantInput(name string, allowAdminLogin, dataScope int, deptIDs []uint, permissionGroups ...[]string) permissiondelegation.RoleGrant {
+	keys := make([]string, 0)
+	for _, group := range permissionGroups {
+		keys = append(keys, group...)
+	}
+	return permissiondelegation.RoleGrant{
+		Name: name, AllowAdminLogin: allowAdminLogin, DataScope: dataScope,
+		DeptIDs: deptIDs, PermissionKeys: keys,
+	}
 }
 
 func roleCreatorContext(ctx context.Context, db *gorm.DB, adminID uint) (uint, uint, error) {
@@ -641,6 +759,42 @@ func DeleteContext(ctx context.Context, id uint) error {
 	return err
 }
 
+func DeleteForAdminContext(ctx context.Context, adminID, id uint) error {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	err := db.Transaction(func(tx *gorm.DB) error {
+		ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		query, err := scopedRoleQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		var role model.Role
+		if err := query.Where("`id` = ?", id).First(&role).Error; err != nil {
+			return err
+		}
+		assignments, err := permissionsupport.RoleAssignmentMapsContext(ctx, tx, []uint{id})
+		if err != nil {
+			return err
+		}
+		if err := ceiling.ValidateRoleGrant(permissiondelegation.RoleGrantFromAssignments(role, assignments)); err != nil {
+			return err
+		}
+		if err := tx.Where("`grant_subject_type` = ? AND `grant_subject_id` = ?", permissionsupport.SubjectRole, id).Delete(&model.PermissionGrant{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("`id` = ?", id).Delete(&model.Role{}).Error
+	})
+	if err == nil {
+		menuservice.InvalidateAdminPermCacheForRole(id)
+		adminaccess.InvalidateAdminAccessCacheForRole(id)
+		permissionsupport.InvalidateRuntimePermissionCaches()
+	}
+	return err
+}
+
 func BatchDelete(ids []uint) error {
 	return BatchDeleteContext(context.Background(), ids)
 }
@@ -648,6 +802,15 @@ func BatchDelete(ids []uint) error {
 func BatchDeleteContext(ctx context.Context, ids []uint) error {
 	for _, id := range ids {
 		if err := DeleteContext(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func BatchDeleteForAdminContext(ctx context.Context, adminID uint, ids []uint) error {
+	for _, id := range normalizeRoleIDList(ids) {
+		if err := DeleteForAdminContext(ctx, adminID, id); err != nil {
 			return err
 		}
 	}

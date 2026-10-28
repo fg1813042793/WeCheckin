@@ -3,7 +3,10 @@
     <el-aside class="admin-sidebar" :class="{ 'is-collapsed': sidebarCollapsed }" :width="sidebarWidth">
       <div class="admin-brand" :class="{ 'is-collapsed': sidebarCollapsed }">
         <div class="admin-brand__mark">W</div>
-        <span v-show="!sidebarCollapsed" class="admin-brand__name">WeCheckin 管理</span>
+        <span v-show="!sidebarCollapsed" class="admin-brand__copy">
+          <strong>WeCheckin</strong>
+          <small>管理工作台</small>
+        </span>
       </div>
       <el-scrollbar class="admin-menu-scroll">
         <div v-if="menuLoading" class="menu-state">
@@ -26,13 +29,14 @@
         />
       <el-menu
         v-else
+        ref="adminMenuRef"
         :default-active="route.path"
         :collapse="sidebarCollapsed"
         class="layout-menu"
         router
-        background-color="#1f2d3d"
-        text-color="#bfcbd9"
-        active-text-color="#409eff"
+        background-color="var(--admin-sidebar-bg)"
+        text-color="var(--admin-sidebar-text)"
+        active-text-color="#ffffff"
       >
         <AdminMenuNode
           v-for="item in displayMenuTree"
@@ -169,6 +173,7 @@ const affixTabPaths = new Set(['/dashboard'])
 
 const route = useRoute()
 const router = useRouter()
+const adminMenuRef = ref()
 const adminInfo = ref(JSON.parse(localStorage.getItem('admin_info') || '{}'))
 const menuTree = ref<AdminMenuItem[]>([])
 const permsReady = ref(false)
@@ -181,7 +186,7 @@ const routeTabsOverflowing = ref(false)
 const routeTabsCanScrollLeft = ref(false)
 const routeTabsCanScrollRight = ref(false)
 const displayMenuTree = computed(() => menuTree.value)
-const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '220px')
+const sidebarWidth = computed(() => sidebarCollapsed.value ? '68px' : '212px')
 const pageTitle = computed(() => String(route.meta.title || '控制台'))
 const tabCacheEnabled = ref(loadCachedAdminFrontendConfig().tabCacheEnabled === 1)
 let routeTabsResizeObserver: ResizeObserver | null = null
@@ -267,6 +272,7 @@ function loadVisitedTabs(): VisitedTab[] {
 function normalizeVisitedTabs(tabs: VisitedTab[]) {
   const seen = new Set<string>()
   return tabs.filter(tab => {
+    if (tab.path === '/user') return false
     if (seen.has(tab.fullPath)) return false
     seen.add(tab.fullPath)
     return true
@@ -278,7 +284,7 @@ function persistVisitedTabs() {
 }
 
 function routeToVisitedTab(target: RouteLocationNormalizedLoaded): VisitedTab | null {
-  if (target.path === '/login' || target.path === '/forbidden') return null
+  if (target.path === '/login' || target.path === '/forbidden' || target.path === '/user') return null
   const title = String(target.meta?.title || '')
   if (!title) return null
   return {
@@ -482,6 +488,12 @@ watch(
 )
 
 watch(
+  () => route.path,
+  () => nextTick(() => adminMenuRef.value?.updateActiveIndex?.(route.path)),
+  { immediate: true },
+)
+
+watch(
   () => visitedTabs.value,
   pruneClosedRouteCaches,
 )
@@ -506,13 +518,13 @@ watch(tabCacheEnabled, enabled => {
 }
 
 .admin-brand {
-  height: 60px;
+  height: 90px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 18px;
+  padding: 0 24px;
   color: #fff;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 0;
   box-sizing: border-box;
 }
 
@@ -522,25 +534,42 @@ watch(tabCacheEnabled, enabled => {
 }
 
 .admin-brand__mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #409eff;
-  font-weight: 700;
+  background: var(--admin-ui-color-primary);
+  font-size: 20px;
+  font-weight: 750;
   flex-shrink: 0;
 }
 
-.admin-brand__name {
+.admin-brand__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-brand__copy strong {
   font-size: 17px;
-  font-weight: 700;
+  line-height: 20px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.admin-brand__copy small {
+  margin-top: 4px;
+  color: #a5adb7;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
   white-space: nowrap;
 }
 
 .admin-menu-scroll {
-  height: calc(100vh - 60px);
+  height: calc(100vh - 90px);
 }
 
 .layout-menu {
@@ -548,7 +577,131 @@ watch(tabCacheEnabled, enabled => {
 }
 
 .layout-menu:not(.el-menu--collapse) {
-  width: 220px;
+  width: 212px;
+}
+
+.layout-menu :deep(.el-menu-item),
+.layout-menu :deep(.el-sub-menu__title) {
+  box-sizing: border-box;
+  height: 42px;
+  min-height: 42px;
+  margin: 3px 12px;
+  padding: 0 12px !important;
+  border-radius: 6px;
+  color: var(--admin-sidebar-text);
+  font-size: 13px;
+  line-height: 42px;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.layout-menu :deep(.el-menu-item:hover),
+.layout-menu :deep(.el-sub-menu__title:hover) {
+  background: #30363d;
+  color: #ffffff;
+}
+
+.layout-menu :deep(.el-menu-item.is-active),
+.layout-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  background: #383f48;
+  color: #ffffff;
+}
+
+.layout-menu :deep(.el-menu-item .el-icon),
+.layout-menu :deep(.el-sub-menu__title .el-icon) {
+  width: 18px;
+  margin-right: 11px;
+  color: inherit;
+  font-size: 17px;
+}
+
+.layout-menu :deep(.el-menu-item.is-active .el-icon),
+.layout-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title .el-icon) {
+  color: #88bfff;
+}
+
+.layout-menu :deep(.el-sub-menu .el-menu) {
+  background: transparent;
+}
+
+.layout-menu :deep(.el-sub-menu .el-menu-item) {
+  min-width: 0;
+  padding-left: 42px !important;
+  background: transparent;
+}
+
+.layout-menu :deep(.el-collapse-transition-enter-active),
+.layout-menu :deep(.el-collapse-transition-leave-active) {
+  transition: none !important;
+}
+
+.layout-menu :deep(.admin-menu-node--depth-0.el-menu-item),
+.layout-menu :deep(.admin-menu-node--depth-0 > .el-sub-menu__title) {
+  padding-left: 12px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--depth-1.el-menu-item),
+.layout-menu :deep(.admin-menu-node--depth-1 > .el-sub-menu__title) {
+  padding-left: 42px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--depth-2.el-menu-item),
+.layout-menu :deep(.admin-menu-node--depth-2 > .el-sub-menu__title) {
+  padding-left: 66px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--depth-3.el-menu-item),
+.layout-menu :deep(.admin-menu-node--depth-3 > .el-sub-menu__title) {
+  padding-left: 90px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--depth-4.el-menu-item),
+.layout-menu :deep(.admin-menu-node--depth-4 > .el-sub-menu__title) {
+  padding-left: 114px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-0.el-menu-item),
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-0 > .el-sub-menu__title) {
+  padding-left: 41px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-1.el-menu-item),
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-1 > .el-sub-menu__title) {
+  padding-left: 55px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-2.el-menu-item),
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-2 > .el-sub-menu__title) {
+  padding-left: 79px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-3.el-menu-item),
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-3 > .el-sub-menu__title) {
+  padding-left: 103px !important;
+}
+
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-4.el-menu-item),
+.layout-menu :deep(.admin-menu-node--no-icon.admin-menu-node--depth-4 > .el-sub-menu__title) {
+  padding-left: 127px !important;
+}
+
+.layout-menu.el-menu--collapse :deep(.el-menu-item),
+.layout-menu.el-menu--collapse :deep(.el-sub-menu__title) {
+  justify-content: center;
+  margin-right: 8px;
+  margin-left: 8px;
+  padding: 0 !important;
+}
+
+.layout-menu.el-menu--collapse :deep(.el-menu-item .el-icon),
+.layout-menu.el-menu--collapse :deep(.el-sub-menu__title .el-icon) {
+  width: 18px;
+  flex: 0 0 18px;
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.layout-menu.el-menu--collapse :deep(.admin-menu-node--no-icon) {
+  padding: 0 !important;
 }
 
 .menu-state {
@@ -588,7 +741,7 @@ watch(tabCacheEnabled, enabled => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px 0 12px;
+  padding: 0 24px 0 14px;
   box-sizing: border-box;
 }
 
@@ -625,13 +778,13 @@ watch(tabCacheEnabled, enabled => {
 }
 
 .admin-route-tabs {
-  height: 40px;
+  height: 37px;
   position: relative;
   z-index: 5;
-  flex: 0 0 40px;
+  flex: 0 0 37px;
   display: flex;
   align-items: stretch;
-  background: #f3f6fb;
+  background: #fff;
   border-bottom: 1px solid var(--admin-border);
   box-sizing: border-box;
   overflow: hidden;
@@ -643,12 +796,12 @@ watch(tabCacheEnabled, enabled => {
 }
 
 .admin-route-tabs :deep(.el-scrollbar__wrap) {
-  height: 40px;
+  height: 37px;
   overflow-y: hidden;
 }
 
 .admin-route-tabs :deep(.el-scrollbar__view) {
-  height: 40px;
+  height: 37px;
   min-width: max-content;
 }
 
@@ -658,24 +811,24 @@ watch(tabCacheEnabled, enabled => {
 }
 
 .admin-route-tabs__inner {
-  height: 40px;
+  height: 37px;
   display: inline-flex;
-  align-items: flex-end;
-  gap: 4px;
-  padding: 6px 16px 0;
+  align-items: stretch;
+  gap: 26px;
+  padding: 0 24px;
   min-width: 100%;
   box-sizing: border-box;
 }
 
 .admin-route-tabs__nav {
   width: 34px;
-  height: 40px;
+  height: 37px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   border: 0;
-  background: #eef3fa;
+  background: #fff;
   color: #64748b;
   cursor: pointer;
   outline: none;
@@ -712,15 +865,15 @@ watch(tabCacheEnabled, enabled => {
 
 .admin-route-tab {
   position: relative;
-  height: 34px;
+  height: 37px;
   max-width: 180px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px 0 14px;
-  border: 1px solid transparent;
-  border-bottom-color: transparent;
-  border-radius: 8px 8px 0 0;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: #667085;
   font-size: 12px;
@@ -733,16 +886,14 @@ watch(tabCacheEnabled, enabled => {
 
 .admin-route-tab:hover {
   color: #2563eb;
-  background: rgba(255, 255, 255, 0.72);
 }
 
 .admin-route-tab.is-active {
   color: #1d4ed8;
-  border-color: #dbe4f0;
-  border-bottom-color: #fff;
-  background: #fff;
-  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
-  transform: translateY(1px);
+  border-bottom-color: var(--admin-ui-color-primary);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
 }
 
 .admin-route-tab:focus-visible {
@@ -793,8 +944,9 @@ watch(tabCacheEnabled, enabled => {
   z-index: 0;
   flex: 1 1 0;
   min-height: 0;
+  min-width: 0;
   background: var(--admin-bg);
-  padding: 20px;
+  padding: 0;
   overflow: auto;
 }
 
@@ -817,7 +969,8 @@ watch(tabCacheEnabled, enabled => {
   }
 
   .admin-route-tabs__inner {
-    padding: 0 10px;
+    gap: 18px;
+    padding: 0 16px;
   }
 
   .admin-route-tab {
@@ -829,7 +982,7 @@ watch(tabCacheEnabled, enabled => {
   }
 
   .admin-main {
-    padding: 12px;
+    padding: 0;
   }
 }
 </style>

@@ -42,22 +42,7 @@ func (repository *GormNotificationRepository) List(ctx context.Context, query ap
 	defer cancel()
 
 	page, pageSize := normalizeNotificationPage(query.Page, query.PageSize)
-	statement := applyActiveNotificationFilter(db.Model(&workflowmodel.NotificationOutbox{}))
-	if value := strings.TrimSpace(query.InstanceID); value != "" {
-		statement = statement.Where("instance_id = ?", value)
-	}
-	if value := strings.TrimSpace(query.RecipientUserID); value != "" {
-		statement = statement.Where("recipient_user_id = ?", value)
-	}
-	if value := strings.TrimSpace(query.Kind); value != "" {
-		statement = statement.Where("notification_kind = ?", value)
-	}
-	if value := strings.TrimSpace(query.Channel); value != "" {
-		statement = statement.Where("notification_channel = ?", value)
-	}
-	if value := strings.TrimSpace(query.Status); value != "" {
-		statement = statement.Where("notification_status = ?", value)
-	}
+	statement := applyNotificationQueryFilters(applyActiveNotificationFilter(db.Model(&workflowmodel.NotificationOutbox{})), query)
 
 	var total int64
 	if err := statement.Count(&total).Error; err != nil {
@@ -76,6 +61,36 @@ func (repository *GormNotificationRepository) List(ctx context.Context, query ap
 		return nil, err
 	}
 	return &application.NotificationList{List: records, Total: total, Page: page, PageSize: pageSize}, nil
+}
+
+func applyNotificationQueryFilters(statement *gorm.DB, query application.NotificationQuery) *gorm.DB {
+	if len(query.IDs) > 0 {
+		statement = statement.Where("workflow_notification_outbox.id IN ?", query.IDs)
+	}
+	if value := strings.TrimSpace(query.InstanceID); value != "" {
+		statement = statement.Where("instance_id = ?", value)
+	}
+	if value := strings.TrimSpace(query.RecipientUserID); value != "" {
+		statement = statement.Where("recipient_user_id = ?", value)
+	}
+	if value := strings.TrimSpace(query.Kind); value != "" {
+		statement = statement.Where("notification_kind = ?", value)
+	}
+	if value := strings.TrimSpace(query.Channel); value != "" {
+		statement = statement.Where("notification_channel = ?", value)
+	}
+	if value := strings.TrimSpace(query.Status); value != "" {
+		statement = statement.Where("notification_status = ?", value)
+	}
+	if where, args := instanceVisibilityWhereForStarter(query.Visibility, "notification_instance.starter_id"); where != "" {
+		statement = statement.Where(`EXISTS (
+			SELECT 1 FROM workflow_process_instances notification_instance
+			WHERE notification_instance.id = workflow_notification_outbox.instance_id
+			AND notification_instance.admin_deleted_at = 0
+			AND `+where+`
+		)`, args...)
+	}
+	return statement
 }
 
 func (repository *GormNotificationRepository) ClaimByIDs(ctx context.Context, ids []string, now, staleBefore int64) ([]application.NotificationRecord, error) {

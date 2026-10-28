@@ -94,6 +94,9 @@ for (const snippet of [
   '.survey-sheet-item--done { background: #3873f6; color: #fff; }',
   '.survey-sheet-item--done.survey-sheet-item--cur { border-color: #1f56c9; }',
   'touch-action: none;',
+  '.survey :deep(.el-input__inner:focus-visible)',
+  '.survey :deep(.el-textarea__inner:focus-visible)',
+  'outline: none;',
 ]) {
   requireSnippet(surveyFillPC1Source, snippet, 'SurveyFillPC1 mobile progress and answer-sheet dragging contract')
 }

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+import './check-survey-display-title.mjs'
 
 const designerUrl = new URL('../src/views/survey/SurveyDesigner.vue', import.meta.url)
 const historyUrl = new URL('../src/views/survey/composables/useSurveyDesignerHistory.ts', import.meta.url)
@@ -201,15 +202,40 @@ for (const pattern of [
   'function addFromBank(',
   'function confirmUploadBank(',
   'function exportSurveyKingJson(',
-  'const publicUrl = computed(',
+  'const generatedPublicUrl = computed(',
+  'const publicUrl = computed({',
+  'options.form.publicUrl',
+  'set(value: string)',
+  'async function copyLink()',
+  'async function writeClipboardText(',
+  "document.execCommand('copy')",
 ]) {
   assert.ok(transfer.includes(pattern), `survey designer transfer composable missing contract: ${pattern}`)
 }
+assert.ok(!transfer.includes('customPublicUrl'), 'survey public URL must persist through the designer form settings')
+
+for (const pattern of [
+  'v-model:public-url="publicUrl"',
+  '<el-input v-model="publicUrl"><template #append>',
+]) {
+  assert.ok(designer.includes(pattern), `survey designer editable public URL missing contract: ${pattern}`)
+}
+assert.doesNotMatch(designer, /<el-input v-model="publicUrl" readonly>/, 'survey project link must remain editable')
+
+for (const pattern of [
+  '@update:model-value="emit(\'update:publicUrl\', $event)"',
+  "'update:publicUrl': [value: string]",
+]) {
+  assert.ok(settingsPanel.includes(pattern), `survey settings editable public URL missing contract: ${pattern}`)
+}
+assert.doesNotMatch(settingsPanel, /:model-value="publicUrl" readonly/, 'survey settings link must remain editable')
 
 for (const pattern of [
   'export function createSurveyDesignerForm',
   'export function useSurveyDesignerDocument',
   'function buildSettingsPayload(',
+  'publicUrl: typeof form.publicUrl',
+  'publicUrl: typeof settings.publicUrl',
   'function scheduleAutoSave(',
   'async function load(',
   'async function save(',

@@ -484,7 +484,19 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.workflow-designer-page { position: relative; display: flex; flex-direction: column; height: calc(100vh - 138px); min-height: 680px; overflow: hidden; margin: -20px; background: #f5f7fa; }
+.workflow-designer-page {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+  box-sizing: border-box;
+  background: #f5f7fa;
+}
 .designer-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 72px; padding: 0 20px; border-bottom: 1px solid #dfe6ee; background: #fff; }
 .designer-header__main, .designer-header__actions { display: flex; align-items: center; gap: 10px; }
 .designer-header__main { min-width: 0; }

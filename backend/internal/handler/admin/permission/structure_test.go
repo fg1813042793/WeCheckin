@@ -22,8 +22,11 @@ func TestAdminPermissionHandlerExposesRESTResource(t *testing.T) {
 		"DelPermission",
 		"adminpermission.SaveRequest",
 		`c.Query("types")`,
-		`TreeContext(ctx, c.Query("platform"), c.Query("types"))`,
-		`ListContext(ctx, c.Query("platform"), c.Query("types"))`,
+		`TreeForAdminContext(ctx, admin.ID, c.Query("platform"), c.Query("types"))`,
+		`ListForAdminContext(ctx, admin.ID, c.Query("platform"), c.Query("types"))`,
+		`AddForAdminContext(ctx, admin.ID, req)`,
+		`EditForAdminContext(ctx, admin.ID, key, req)`,
+		`DeleteForAdminContext(ctx, admin.ID, c.PostForm("key"))`,
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("admin permission handler must expose %s", snippet)

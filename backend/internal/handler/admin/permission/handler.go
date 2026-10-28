@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"wecheckin/backend/internal/model"
 	adminpermission "wecheckin/backend/internal/service/admin/adminpermission"
 	"wecheckin/backend/pkg/response"
 )
@@ -20,7 +21,12 @@ func NewAdminPermissionHandler() *AdminPermissionHandler { return &AdminPermissi
 // @Param types query string false "权限类型，逗号分隔"
 // @Success 200 {object} response.Resp
 func (h *AdminPermissionHandler) GetPermissionTree(ctx context.Context, c *app.RequestContext) {
-	data, err := adminpermission.TreeContext(ctx, c.Query("platform"), c.Query("types"))
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	data, err := adminpermission.TreeForAdminContext(ctx, admin.ID, c.Query("platform"), c.Query("types"))
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -35,7 +41,12 @@ func (h *AdminPermissionHandler) GetPermissionTree(ctx context.Context, c *app.R
 // @Param types query string false "权限类型，逗号分隔"
 // @Success 200 {object} response.Resp
 func (h *AdminPermissionHandler) GetPermissionList(ctx context.Context, c *app.RequestContext) {
-	data, err := adminpermission.ListContext(ctx, c.Query("platform"), c.Query("types"))
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	data, err := adminpermission.ListForAdminContext(ctx, admin.ID, c.Query("platform"), c.Query("types"))
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -48,8 +59,13 @@ func (h *AdminPermissionHandler) GetPermissionList(ctx context.Context, c *app.R
 // @Security AdminToken
 // @Success 200 {object} response.Resp
 func (h *AdminPermissionHandler) AddPermission(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	req := permissionRequestFromForm(c)
-	if err := adminpermission.AddContext(ctx, req); err != nil {
+	if err := adminpermission.AddForAdminContext(ctx, admin.ID, req); err != nil {
 		response.FailInternal(ctx, c, "admin.permission.handler", "操作失败，请稍后重试", err)
 		return
 	}
@@ -62,9 +78,14 @@ func (h *AdminPermissionHandler) AddPermission(ctx context.Context, c *app.Reque
 // @Param key path string true "权限编码"
 // @Success 200 {object} response.Resp
 func (h *AdminPermissionHandler) EditPermission(ctx context.Context, c *app.RequestContext) {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	key := firstNonEmpty(c.Param("key"), c.PostForm("originalKey"), c.PostForm("oldKey"), c.PostForm("key"))
 	req := permissionRequestFromForm(c)
-	if err := adminpermission.EditContext(ctx, key, req); err != nil {
+	if err := adminpermission.EditForAdminContext(ctx, admin.ID, key, req); err != nil {
 		response.FailInternal(ctx, c, "admin.permission.handler", "操作失败，请稍后重试", err)
 		return
 	}
@@ -77,11 +98,25 @@ func (h *AdminPermissionHandler) EditPermission(ctx context.Context, c *app.Requ
 // @Param key path string true "权限编码"
 // @Success 200 {object} response.Resp
 func (h *AdminPermissionHandler) DelPermission(ctx context.Context, c *app.RequestContext) {
-	if err := adminpermission.DeleteContext(ctx, c.PostForm("key")); err != nil {
+	admin, ok := currentAdmin(c)
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	if err := adminpermission.DeleteForAdminContext(ctx, admin.ID, c.PostForm("key")); err != nil {
 		response.Fail(c, "删除失败")
 		return
 	}
 	response.JSON(c, nil)
+}
+
+func currentAdmin(c *app.RequestContext) (*model.Admin, bool) {
+	value, ok := c.Get("admin")
+	if !ok {
+		return nil, false
+	}
+	admin, ok := value.(*model.Admin)
+	return admin, ok && admin != nil && admin.ID > 0
 }
 
 func permissionRequestFromForm(c *app.RequestContext) adminpermission.SaveRequest {

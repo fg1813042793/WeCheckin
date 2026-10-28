@@ -16,6 +16,26 @@ const layoutSource = readFileSync(layoutPath, 'utf8')
 const mainSource = readFileSync(mainPath, 'utf8')
 const stylesSource = readFileSync(adminStylesPath, 'utf8')
 
+if (!layoutSource.includes('el-collapse-transition-enter-active') || !layoutSource.includes('transition: none')) {
+  throw new Error('admin menu submenu height transition must be disabled to prevent layout jumps')
+}
+
+if (!stylesSource.includes('.admin-main .el-dialog:not(.admin-ui-dialog) .el-dialog__body') || !stylesSource.includes('padding-top: var(--admin-ui-space-4)')) {
+  throw new Error('native admin dialog forms must have spacing below the header divider')
+}
+
+if (!stylesSource.includes('.admin-main .el-input__inner:focus') || !stylesSource.includes('0 0 0 2px var(--admin-ui-color-focus)')) {
+  throw new Error('admin form focus state must use one compact blue focus ring')
+}
+
+if (!stylesSource.includes('.admin-main .el-range-input:focus') || !stylesSource.includes('.admin-main .el-range-editor.is-active')) {
+  throw new Error('admin date range controls must share the compact focus ring')
+}
+
+if (!stylesSource.includes('body .el-picker-panel .el-input__wrapper.is-focus') || !stylesSource.includes('body .el-picker-panel .el-range-input:focus')) {
+  throw new Error('teleported date and time picker controls must share the compact focus ring')
+}
+
 const requiredLayoutSnippets = [
   'class="admin-shell"',
   'sidebarCollapsed',

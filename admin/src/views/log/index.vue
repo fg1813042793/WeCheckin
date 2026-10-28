@@ -1,19 +1,21 @@
 <template>
-  <el-card>
-    <div style="display:flex;gap:10px;margin-bottom:12px">
+  <div class="admin-page log-page">
+  <el-card class="admin-card" shadow="never">
+    <div class="log-toolbar log-search-toolbar">
+      <div class="log-toolbar__left">
       <el-input v-model="keyword" placeholder="搜索" clearable style="width:300px" @keyup.enter="search" />
       <el-button type="primary" @click="search">搜索</el-button>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div>
-        <el-button v-if="hasPerm('admin:menu:log:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
       </div>
-      <div>
+    </div>
+    <div class="log-toolbar log-actions-toolbar">
+      <div class="log-toolbar__left" />
+      <div class="log-toolbar__right">
+        <el-button v-if="hasPerm('admin:menu:log:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         <el-button circle icon="Refresh" title="刷新" @click="load" />
         <el-button circle icon="Download" title="导出" @click="exportData" />
       </div>
     </div>
-    <div style="margin-bottom:8px;color:#999">共 {{ total }} 条记录</div>
+    <div class="log-summary">共 {{ total }} 条记录</div>
     <el-table :data="list" v-loading="loading" stripe style="width:100%" @selection-change="selected = $event">
       <el-table-column type="selection" width="45" />
       <el-table-column type="index" label="#" width="50" />
@@ -43,6 +45,7 @@
       />
     </div>
   </el-card>
+  </div>
 </template>
 
 <script lang="ts" setup>

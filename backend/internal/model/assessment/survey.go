@@ -43,7 +43,7 @@ type SurveyResponse struct {
 	Duration     int    `gorm:"column:survey_resp_duration;default:0" json:"duration"` // 答题时长(秒)
 	Status       int    `gorm:"column:survey_resp_status;default:1" json:"status"`     // 1=已完成 0=草稿
 	IP           string `gorm:"column:survey_resp_ip;size:64" json:"ip"`
-	Device       string `gorm:"column:survey_resp_device;size:255" json:"device"`
+	Device       string `gorm:"column:survey_resp_device;type:text" json:"device"`
 	DeviceID     string `gorm:"column:survey_resp_device_id;size:128" json:"deviceId"`
 	Browser      string `gorm:"column:survey_resp_browser;size:64" json:"browser"`
 	DeviceType   string `gorm:"column:survey_resp_device_type;size:32" json:"deviceType"`

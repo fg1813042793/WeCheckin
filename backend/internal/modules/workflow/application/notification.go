@@ -56,11 +56,13 @@ type NotificationRecord struct {
 }
 
 type NotificationQuery struct {
+	IDs             []string
 	InstanceID      string
 	RecipientUserID string
 	Kind            string
 	Channel         string
 	Status          string
+	Visibility      *InstanceVisibility
 	Page            int
 	PageSize        int
 }

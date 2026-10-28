@@ -72,9 +72,10 @@ func TestApplicationPermissionTreeEndpointUsesDatabaseRows(t *testing.T) {
 	combined := string(serviceSrc) + string(handlerSrc)
 	for _, snippet := range []string{
 		"func ApplicationPermissionTreeContext(ctx context.Context) ApplicationPermissionTreeResponse",
+		"func ApplicationPermissionTreeForAdminContext(ctx context.Context, adminID uint) (ApplicationPermissionTreeResponse, error)",
 		"applicationPermissionRowsContext(ctx, db, permissionsupport.PlatformDingTalkH5, permissionsupport.TypeDirectory, permissionsupport.TypeMenu, permissionsupport.TypeButton)",
 		"applicationPermissionNodesFromRows",
-		"roleservice.ApplicationPermissionTreeContext(ctx)",
+		"roleservice.ApplicationPermissionTreeForAdminContext(ctx, admin.ID)",
 	} {
 		if !strings.Contains(combined, snippet) {
 			t.Fatalf("application permission tree must use current permissions table rows with %q", snippet)

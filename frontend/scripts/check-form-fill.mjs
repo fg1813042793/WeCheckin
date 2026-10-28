@@ -13,7 +13,16 @@ const {
   isQuestionAnswered,
   parseQuestions,
   parseSettings,
+  resolveSurveyTitle,
 } = formFill
+
+for (const [displayTitle, expected] of [
+  ['公开问卷', '公开问卷'], ['  公开问卷  ', '公开问卷'],
+  ['', '内部标题'], [' \n\t ', '内部标题'], [undefined, '内部标题'],
+  [null, '内部标题'], [42, '内部标题'], [{ title: '错误数据' }, '内部标题'],
+]) {
+  assert.equal(resolveSurveyTitle('内部标题', displayTitle), expected)
+}
 
 assert.equal(typeof getAnswerProgress, 'function', 'getAnswerProgress should be exported')
 

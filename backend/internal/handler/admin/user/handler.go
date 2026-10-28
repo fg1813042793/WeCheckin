@@ -83,6 +83,16 @@ func (h *AdminUserHandler) GetUserByID(ctx context.Context, c *app.RequestContex
 // @Param forms formData string false "扩展表单数据JSON"
 // @Success 200 {object} response.Resp
 func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
+	adminVal, ok := c.Get("admin")
+	if !ok {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
+	admin, ok := adminVal.(*model.Admin)
+	if !ok || admin == nil || admin.ID == 0 {
+		response.Fail(c, "未登录或权限失效")
+		return
+	}
 	name := c.PostForm("name")
 	mobile := c.PostForm("mobile")
 	positionID := parsePositionID(c.PostForm("positionId"))
@@ -92,7 +102,7 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	addIP := c.ClientIP()
 	deptIds := param.ParseUintSlice(c.PostForm("deptIds"))
 	adminAccess, _ := parseAdminAccess(c)
-	err := adminuserservice.AddUserWithManagerAndAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess)
+	err := adminuserservice.AddUserWithManagerAndAdminAccessForAdminContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess, admin.ID)
 	if err != nil {
 		response.FailInternal(ctx, c, "admin.user.handler", "操作失败，请稍后重试", err)
 		return

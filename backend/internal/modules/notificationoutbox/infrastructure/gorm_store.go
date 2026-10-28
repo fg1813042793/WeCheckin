@@ -129,30 +129,36 @@ func (store *GormStore) ClaimDue(ctx context.Context, now, staleBefore int64, li
 			claimed[index].EditTime = now
 		}
 		return tx.Model(&notificationmodel.Outbox{}).Where("id IN ?", ids).Updates(map[string]any{
-			"notification_status": notificationmodel.StatusSending,
-			"edit_time":           now,
+			"notification_status":  notificationmodel.StatusSending,
+			"response_status_code": 0,
+			"response_body":        "",
+			"edit_time":            now,
 		}).Error
 	})
 	return claimed, err
 }
 
-func (store *GormStore) MarkSent(ctx context.Context, id uint64, now int64) error {
+func (store *GormStore) MarkSent(ctx context.Context, id uint64, now int64, delivery application.DeliveryResult) error {
 	return store.updateClaimed(ctx, id, map[string]any{
-		"notification_status": notificationmodel.StatusSent,
-		"next_retry_at":       0,
-		"last_error":          "",
-		"sent_at":             now,
-		"edit_time":           now,
+		"notification_status":  notificationmodel.StatusSent,
+		"next_retry_at":        0,
+		"last_error":           "",
+		"sent_at":              now,
+		"response_status_code": delivery.ResponseStatusCode,
+		"response_body":        delivery.ResponseBody,
+		"edit_time":            now,
 	})
 }
 
 func (store *GormStore) MarkFailed(ctx context.Context, failure application.Failure) error {
 	return store.updateClaimed(ctx, failure.ID, map[string]any{
-		"notification_status": failure.Status,
-		"attempts":            failure.Attempts,
-		"next_retry_at":       failure.NextRetryAt,
-		"last_error":          failure.LastError,
-		"edit_time":           failure.EditTime,
+		"notification_status":  failure.Status,
+		"attempts":             failure.Attempts,
+		"next_retry_at":        failure.NextRetryAt,
+		"last_error":           failure.LastError,
+		"response_status_code": failure.ResponseStatusCode,
+		"response_body":        failure.ResponseBody,
+		"edit_time":            failure.EditTime,
 	})
 }
 

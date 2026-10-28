@@ -43,7 +43,7 @@ type RollbackRequest struct {
 	Note string `json:"note"`
 }
 
-func GetVersionsContext(ctx context.Context, id uint) ([]VersionSummary, error) {
+func GetVersionsForAdminContext(ctx context.Context, id, adminID uint) ([]VersionSummary, error) {
 	if id == 0 {
 		return nil, errors.New("流程定义 ID 无效")
 	}
@@ -51,7 +51,11 @@ func GetVersionsContext(ctx context.Context, id uint) ([]VersionSummary, error) 
 	defer cancel()
 
 	var definition model.WorkflowDefinition
-	if err := activeWorkflowDefinitionQuery(db).First(&definition, id).Error; err != nil {
+	query, err := scopedWorkflowDefinitionQuery(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if err := query.First(&definition, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	var rows []model.WorkflowDefinitionVersion
@@ -114,7 +118,7 @@ func GetVersionsContext(ctx context.Context, id uint) ([]VersionSummary, error) 
 	return result, nil
 }
 
-func GetVersionChangesContext(ctx context.Context, id uint, version, compareTo int) (*VersionChangeSummary, error) {
+func GetVersionChangesForAdminContext(ctx context.Context, id uint, version, compareTo int, adminID uint) (*VersionChangeSummary, error) {
 	if id == 0 || version <= 0 || compareTo < 0 || compareTo == version {
 		return nil, errors.New("流程版本参数无效")
 	}
@@ -122,7 +126,11 @@ func GetVersionChangesContext(ctx context.Context, id uint, version, compareTo i
 	defer cancel()
 
 	var definition model.WorkflowDefinition
-	if err := activeWorkflowDefinitionQuery(db).First(&definition, id).Error; err != nil {
+	query, err := scopedWorkflowDefinitionQuery(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if err := query.First(&definition, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	var target model.WorkflowDefinitionVersion
@@ -165,7 +173,7 @@ func GetVersionChangesContext(ctx context.Context, id uint, version, compareTo i
 	return &summary, nil
 }
 
-func DeleteVersionContext(ctx context.Context, id uint, version int) error {
+func DeleteVersionForAdminContext(ctx context.Context, id uint, version int, adminID uint) error {
 	if id == 0 || version <= 0 {
 		return errors.New("流程版本参数无效")
 	}
@@ -173,7 +181,11 @@ func DeleteVersionContext(ctx context.Context, id uint, version int) error {
 	defer cancel()
 	return db.Transaction(func(tx *gorm.DB) error {
 		var definition model.WorkflowDefinition
-		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
+		query, err := scopedWorkflowDefinitionQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := query.Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
 			return definitionError(err)
 		}
 		var item model.WorkflowDefinitionVersion
@@ -232,7 +244,7 @@ func preserveDependentVersionSummary(tx *gorm.DB, definition model.WorkflowDefin
 		}).Error
 }
 
-func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, request RollbackRequest) (*PublishResponse, error) {
+func RollbackVersionForAdminContext(ctx context.Context, adminID, id uint, version int, request RollbackRequest) (*PublishResponse, error) {
 	if id == 0 || version <= 0 {
 		return nil, errors.New("流程版本参数无效")
 	}
@@ -245,7 +257,11 @@ func RollbackVersionContext(ctx context.Context, adminID, id uint, version int, 
 	var result PublishResponse
 	err = db.Transaction(func(tx *gorm.DB) error {
 		var definition model.WorkflowDefinition
-		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
+		query, err := scopedWorkflowDefinitionQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := query.Clauses(clause.Locking{Strength: "UPDATE"}).First(&definition, id).Error; err != nil {
 			return definitionError(err)
 		}
 		if definition.CurrentVersion < 1 {

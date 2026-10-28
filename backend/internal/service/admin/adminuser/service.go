@@ -18,6 +18,7 @@ import (
 	deptsupport "wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
 	permissionsupport "wecheckin/backend/internal/support/permission"
+	"wecheckin/backend/internal/support/permissiondelegation"
 	"wecheckin/backend/internal/support/query"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/passwordutil"
@@ -694,6 +695,17 @@ func AddUserWithAdminAccessContext(ctx context.Context, name, mobile, pic, forms
 }
 
 func AddUserWithManagerAndAdminAccessContext(ctx context.Context, name, mobile, pic, forms, addIP string, positionID, managerUserID uint, deptIDs []uint, adminAccess AdminAccessInput) error {
+	return addUserWithManagerAndAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIDs, adminAccess, 0, false)
+}
+
+func AddUserWithManagerAndAdminAccessForAdminContext(ctx context.Context, name, mobile, pic, forms, addIP string, positionID, managerUserID uint, deptIDs []uint, adminAccess AdminAccessInput, adminID uint) error {
+	if err := ensureAdminID(adminID); err != nil {
+		return err
+	}
+	return addUserWithManagerAndAdminAccessContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIDs, adminAccess, adminID, true)
+}
+
+func addUserWithManagerAndAdminAccessContext(ctx context.Context, name, mobile, pic, forms, addIP string, positionID, managerUserID uint, deptIDs []uint, adminAccess AdminAccessInput, adminID uint, enforceDelegation bool) error {
 	normalizedName, err := normalizeAdminUserName(name)
 	if err != nil {
 		return err
@@ -704,6 +716,15 @@ func AddUserWithManagerAndAdminAccessContext(ctx context.Context, name, mobile, 
 	hash := md5.Sum([]byte(fmt.Sprintf("%s-%d", normalizedName, now)))
 	miniOpenID := hex.EncodeToString(hash[:])
 	err = db.Transaction(func(tx *gorm.DB) error {
+		if enforceDelegation {
+			ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, tx, adminID)
+			if err != nil {
+				return err
+			}
+			if err := validateDelegatedUserInput(ctx, tx, ceiling, deptIDs, managerUserID, adminAccess, true); err != nil {
+				return err
+			}
+		}
 		if err := ensureUserNameAvailableTx(tx, normalizedName, 0); err != nil {
 			return err
 		}
@@ -847,6 +868,16 @@ func editUserForAdminWithManagerContext(ctx context.Context, id, name, mobile, p
 		if err := ensureUserNameAvailableTx(tx, normalizedName, uint(uid)); err != nil {
 			return err
 		}
+		ceiling, err := permissiondelegation.ResolveByAdminIDContext(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := ceiling.ValidateUserAdminAccessContext(ctx, tx, uint(uid)); err != nil {
+			return err
+		}
+		if err := validateDelegatedUserInput(ctx, tx, ceiling, deptIDs, managerUserID, adminAccess, saveAdminAccess); err != nil {
+			return err
+		}
 		if updateManager {
 			if err := ensureManagerUserAvailableTx(tx, uint(uid), managerUserID); err != nil {
 				return err
@@ -883,6 +914,39 @@ func ensureAdminID(adminID uint) error {
 		return fmt.Errorf("管理员无效")
 	}
 	return nil
+}
+
+func validateDelegatedUserInput(ctx context.Context, tx *gorm.DB, ceiling permissiondelegation.Ceiling, deptIDs []uint, managerUserID uint, adminAccess AdminAccessInput, validateAdminAccess bool) error {
+	if !ceiling.All && ceiling.DataScope.Mode != 1 && len(deptIDs) == 0 {
+		return permissiondelegation.ErrDepartmentExceeded
+	}
+	if err := ceiling.ValidateDepartmentIDsContext(ctx, tx, deptIDs); err != nil {
+		return err
+	}
+	if managerUserID > 0 {
+		if err := ceiling.ValidateUserIDsContext(ctx, tx, []uint{managerUserID}); err != nil {
+			return err
+		}
+	}
+	if !validateAdminAccess {
+		return nil
+	}
+	roleIDs := adminAccessRoleIDs(adminAccess)
+	if err := ceiling.ValidateRoleIDsContext(ctx, tx, roleIDs); err != nil {
+		return err
+	}
+	permissionKeys := append(append([]string{}, adminAccess.AllowPermissionKeys...), adminAccess.DenyPermissionKeys...)
+	if err := ceiling.ValidatePermissionKeys(permissionKeys); err != nil {
+		return err
+	}
+	if err := ceiling.ValidateDepartmentIDsContext(ctx, tx, adminAccess.ExtraDataDeptIDs); err != nil {
+		return err
+	}
+	return ceiling.ValidateUserIDsContext(ctx, tx, adminAccess.ExtraDataUserIDs)
+}
+
+func adminAccessRoleIDs(adminAccess AdminAccessInput) []uint {
+	return normalizeUserRoleIDs(append([]uint{adminAccess.RoleID}, adminAccess.RoleIDs...)...)
 }
 
 func ensureManagerUserAvailableTx(tx *gorm.DB, userID, managerUserID uint) error {
@@ -977,7 +1041,7 @@ func saveUserAdminAccessTx(tx *gorm.DB, userID uint, adminAccess AdminAccessInpu
 	}
 
 	roleID := adminAccess.RoleID
-	roleIDs := normalizeUserRoleIDs(append([]uint{roleID}, adminAccess.RoleIDs...)...)
+	roleIDs := adminAccessRoleIDs(adminAccess)
 	if roleID == 0 && len(roleIDs) > 0 {
 		roleID = roleIDs[0]
 	}

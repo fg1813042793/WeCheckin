@@ -29,19 +29,35 @@ function requireFile(path) {
 }
 
 const page = read('views/question-bank/QuestionBank.vue')
-const editorDialog = read('views/question-bank/components/QuestionEditorDialog.vue')
-const table = read('views/question-bank/components/QuestionBankTable.vue')
 
 for (const componentPath of [
-  'views/question-bank/components/QuestionBankTable.vue',
-  'views/question-bank/components/QuestionEditorDialog.vue',
+  'views/question-bank/components/QuestionBankNavigator.vue',
+  'views/question-bank/components/QuestionEditorCanvas.vue',
+  'views/question-bank/components/QuestionPropertiesPanel.vue',
   'views/question-bank/components/QuestionRichEditorDialog.vue',
-  'views/question-bank/components/QuestionPreviewDrawer.vue',
 ]) {
   requireFile(componentPath)
 }
 
 for (const snippet of [
+  "import QuestionBankNavigator from './components/QuestionBankNavigator.vue'",
+  "import QuestionEditorCanvas from './components/QuestionEditorCanvas.vue'",
+  "import QuestionPropertiesPanel from './components/QuestionPropertiesPanel.vue'",
+  '<QuestionBankNavigator',
+  '<QuestionEditorCanvas',
+  '<QuestionPropertiesPanel',
+  'question-bank-workspace',
+  'question-bank-mobile-notice',
+  'saveStatusLabel',
+  'scheduleAutoSave',
+  'flushPendingSave',
+  'handleWorkspaceKeydown',
+]) {
+  requireSnippet(page, snippet, 'question bank page')
+}
+
+for (const snippet of [
+  'class="question-edit-dialog"',
   "import QuestionBankTable from './components/QuestionBankTable.vue'",
   "import QuestionEditorDialog from './components/QuestionEditorDialog.vue'",
   "import QuestionPreviewDrawer from './components/QuestionPreviewDrawer.vue'",
@@ -49,36 +65,20 @@ for (const snippet of [
   '<QuestionEditorDialog',
   '<QuestionPreviewDrawer',
 ]) {
-  requireSnippet(page, snippet, 'question bank page')
-}
-
-for (const snippet of [
-  "import QuestionRichEditorDialog from './QuestionRichEditorDialog.vue'",
-  '<QuestionRichEditorDialog',
-]) {
-  requireSnippet(editorDialog, snippet, 'question editor dialog')
-}
-
-for (const snippet of [
-  'class="question-edit-dialog"',
-  '<el-drawer v-model="preview.visible"',
-  '<el-table :data="list"',
-]) {
   forbidSnippet(page, snippet, 'question bank page')
 }
 
-forbidSnippet(editorDialog, 'class="bank-rich-full-dialog"', 'question editor dialog')
-
-for (const snippet of [
-  '<el-table-column prop="category" label="题库名"',
-  "{{ row.category || '-' }}",
-]) {
-  requireSnippet(table, snippet, 'question bank table')
+const navigator = read('views/question-bank/components/QuestionBankNavigator.vue')
+for (const snippet of ['全部题目', '未分类', "emit('select-question'", "emit('add-question'", 'question-bank-navigator__list']) {
+  requireSnippet(navigator, snippet, 'question bank navigator')
 }
 
-for (const snippet of [
-  'class="bank-question-meta"',
-  ':tag-list="tagList"',
-]) {
-  forbidSnippet(`${page}\n${table}`, snippet, 'question bank single-line title')
+const canvas = read('views/question-bank/components/QuestionEditorCanvas.vue')
+for (const snippet of ['编辑', '预览', 'JSON', 'QuestionRichEditorDialog', "emit('add-question'"]) {
+  requireSnippet(canvas, snippet, 'question editor canvas')
+}
+
+const properties = read('views/question-bank/components/QuestionPropertiesPanel.vue')
+for (const snippet of ['题目属性', '所属题库', "activeScope === 'exam'", '正确答案', '答案解析']) {
+  requireSnippet(properties, snippet, 'question properties panel')
 }

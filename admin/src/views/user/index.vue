@@ -1,42 +1,50 @@
 <template>
   <div class="admin-page user-page">
-    <el-card class="admin-card" shadow="never">
-      <div class="admin-toolbar">
-        <div class="admin-toolbar__left">
-          <el-input v-model="keyword" placeholder="搜索用户名/姓名" clearable style="width:300px" @keyup.enter="search" />
+    <div class="user-toolbar-card">
+      <div class="admin-toolbar user-toolbar-row user-search-row">
+        <div class="admin-toolbar__left" :class="'user-search-controls'">
+          <el-input v-model="keyword" placeholder="搜索用户名/姓名" clearable @keyup.enter="search" />
           <el-button type="primary" @click="search">搜索</el-button>
         </div>
       </div>
-      <div class="admin-toolbar">
-        <div class="admin-toolbar__left">
-          <el-button v-if="hasPerm('admin:menu:user:add')" type="success" @click="showAdd">+ 新增用户</el-button>
-          <el-button v-if="hasPerm('admin:menu:user:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
+      <div class="admin-toolbar user-toolbar-row user-actions-row">
+        <div class="admin-toolbar__left user-action-controls">
+          <span v-if="selected.length" class="user-selected-count">已选 {{ selected.length }} 人</span>
+          <el-button v-if="hasPerm('admin:menu:user:add')" type="success" :icon="Plus" @click="showAdd">新增用户</el-button>
+          <el-button v-if="hasPerm('admin:menu:user:del')" type="danger" plain :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
         </div>
-        <div class="admin-toolbar__right">
-          <el-button circle icon="Refresh" title="刷新" @click="load" />
-          <el-button circle icon="Download" title="导出" @click="exportData" />
+        <div class="admin-toolbar__right user-action-controls">
+          <el-button text icon="Refresh" title="刷新" @click="load" />
+          <el-button text icon="Download" title="导出" @click="exportData" />
           <SortPopover :columns="sortColumns" v-model="sortRules" @change="onSortChange" />
         </div>
       </div>
-          <el-table :data="list" v-loading="loading" stripe style="width:100%" @selection-change="selected = $event">
+    </div>
+    <el-table v-loading="loading" :data="list" stripe empty-text="暂无用户数据" style="width:100%" @selection-change="selected = $event">
             <el-table-column type="selection" width="45" />
-            <el-table-column label="头像" width="70">
+            <el-table-column label="用户" min-width="210">
               <template #default="{ row }">
-                <span class="user-avatar" :class="{ 'user-avatar--image': avatarImageReady(row) }">
-                  <span v-if="!avatarImageReady(row)" class="user-avatar__initial">{{ avatarInitial(row) }}</span>
-                  <img
-                    v-if="preferredAvatarUrl(row)"
-                    :class="{ 'is-loaded': avatarImageReady(row) }"
-                    :src="preferredAvatarUrl(row)"
-                    :alt="`${row.name || '用户'}头像`"
-                    @load="onAvatarLoad(row)"
-                    @error="onAvatarError(row)"
-                  />
-                </span>
+                <div class="user-cell">
+                  <span class="user-avatar" :class="{ 'user-avatar--image': avatarImageReady(row) }">
+                    <span v-if="!avatarImageReady(row)" class="user-avatar__initial">{{ avatarInitial(row) }}</span>
+                    <img
+                      v-if="preferredAvatarUrl(row)"
+                      :class="{ 'is-loaded': avatarImageReady(row) }"
+                      :src="preferredAvatarUrl(row)"
+                      :alt="`${row.name || '用户'}头像`"
+                      @load="onAvatarLoad(row)"
+                      @error="onAvatarError(row)"
+                    />
+                  </span>
+                  <div>
+                    <strong class="user-name-text">{{ row.name }}</strong>
+                  </div>
+                </div>
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="用户名" width="120" show-overflow-tooltip class-name="user-name-column" />
-            <el-table-column prop="mobile" label="手机号" width="130" />
+            <el-table-column prop="mobile" label="手机号" width="140">
+              <template #default="{ row }">{{ row.mobile || '-' }}</template>
+            </el-table-column>
             <el-table-column label="状态" width="100">
               <template #default="{ row }">
                 <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
@@ -89,8 +97,8 @@
                 <span v-else style="color:#999">未绑定</span>
               </template>
             </el-table-column>
-            <el-table-column label="注册时间" width="160">
-              <template #default="{ row }">{{ fmtTime(row.addTime) }}</template>
+            <el-table-column label="最后登录" width="160">
+              <template #default="{ row }">{{ fmtTime(row.loginTime) }}</template>
             </el-table-column>
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
@@ -114,8 +122,9 @@
                 </div>
               </template>
             </el-table-column>
-          </el-table>
-          <div class="admin-pagination">
+    </el-table>
+<div class="user-pagination-panel">
+  <div class="admin-pagination">
             <el-pagination
               v-model:current-page="page"
               :page-size="pageSize"
@@ -125,8 +134,8 @@
               @current-change="load"
               @size-change="(val:number) => { pageSize = val; page = 1; load() }"
             />
-          </div>
-    </el-card>
+  </div>
+    </div>
 
     <el-dialog v-model="dialog.visible" :title="dialog.title" width="min(920px, 92vw)" :close-on-click-modal="false" class="permission-dialog">
       <el-form ref="formRef" :model="form" label-width="100px">
@@ -550,6 +559,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 import { checkedKeys } from '../../utils/permissionAssignment'
 import { showRequestError } from '../../utils/request'
+import { Plus } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const saving = ref(false)

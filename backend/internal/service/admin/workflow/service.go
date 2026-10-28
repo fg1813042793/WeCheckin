@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/modules/workflow/adminscope"
 	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/internal/workflowcore"
 	"wecheckin/backend/pkg/database"
@@ -92,7 +93,7 @@ type PublishRequest struct {
 	Note      string                        `json:"note"`
 }
 
-func GetListContext(ctx context.Context, keyword, category string, status, page, pageSize int) (*ListResponse, error) {
+func GetListForAdminContext(ctx context.Context, keyword, category string, status, page, pageSize int, adminID uint) (*ListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -105,7 +106,11 @@ func GetListContext(ctx context.Context, keyword, category string, status, page,
 
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	query := activeWorkflowDefinitionQuery(db).Model(&model.WorkflowDefinition{})
+	query, err := scopedWorkflowDefinitionQuery(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	query = query.Model(&model.WorkflowDefinition{})
 	if text := strings.TrimSpace(keyword); text != "" {
 		like := "%" + text + "%"
 		query = query.Where("definition_name LIKE ? OR definition_display_name LIKE ? OR definition_key LIKE ?", like, like, like)
@@ -132,14 +137,18 @@ func GetListContext(ctx context.Context, keyword, category string, status, page,
 	return &ListResponse{List: list, Total: total, Page: page, PageSize: pageSize}, nil
 }
 
-func GetDetailContext(ctx context.Context, id uint) (*DefinitionDetail, error) {
+func GetDetailForAdminContext(ctx context.Context, id, adminID uint) (*DefinitionDetail, error) {
 	if id == 0 {
 		return nil, errors.New("流程定义 ID 无效")
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var item model.WorkflowDefinition
-	if err := activeWorkflowDefinitionQuery(db).First(&item, id).Error; err != nil {
+	query, err := scopedWorkflowDefinitionQuery(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if err := query.First(&item, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name, item.DisplayName)
@@ -218,14 +227,18 @@ func CreateContext(ctx context.Context, adminID uint, request CreateRequest) (*D
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
 }
 
-func CopyContext(ctx context.Context, adminID, sourceID uint, request CopyRequest) (*DefinitionDetail, error) {
+func CopyForAdminContext(ctx context.Context, adminID, sourceID uint, request CopyRequest) (*DefinitionDetail, error) {
 	if sourceID == 0 {
 		return nil, errors.New("源流程定义 ID 无效")
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var source model.WorkflowDefinition
-	if err := activeWorkflowDefinitionQuery(db).First(&source, sourceID).Error; err != nil {
+	query, err := scopedWorkflowDefinitionQuery(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if err := query.First(&source, sourceID).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	if len(bytes.TrimSpace([]byte(source.DraftJSON))) == 0 {
@@ -280,14 +293,18 @@ func definitionModelForCreate(adminID uint, request CreateRequest, draftJSON, st
 	}
 }
 
-func UpdateContext(ctx context.Context, adminID, id uint, request UpdateRequest) (*DefinitionDetail, error) {
+func UpdateForAdminContext(ctx context.Context, adminID, id uint, request UpdateRequest) (*DefinitionDetail, error) {
 	if id == 0 {
 		return nil, errors.New("流程定义 ID 无效")
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var item model.WorkflowDefinition
-	if err := activeWorkflowDefinitionQuery(db).First(&item, id).Error; err != nil {
+	query, err := scopedWorkflowDefinitionQuery(ctx, db, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if err := query.First(&item, id).Error; err != nil {
 		return nil, definitionError(err)
 	}
 	name := strings.TrimSpace(request.Name)
@@ -452,7 +469,15 @@ func activeWorkflowDefinitionQuery(db *gorm.DB) *gorm.DB {
 	return db.Where("definition_deleted_at = ?", int64(0))
 }
 
-func UpdateStatusContext(ctx context.Context, adminID, id uint, status int) (*DefinitionSummary, error) {
+func scopedWorkflowDefinitionQuery(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
+	scope, err := adminscope.NewResolver(db).ResolveByAdminID(ctx, adminID)
+	if err != nil {
+		return nil, err
+	}
+	return scope.ApplyDefinitionQuery(activeWorkflowDefinitionQuery(db)), nil
+}
+
+func UpdateStatusForAdminContext(ctx context.Context, adminID, id uint, status int) (*DefinitionSummary, error) {
 	if id == 0 {
 		return nil, errors.New("流程定义 ID 无效")
 	}
@@ -461,7 +486,11 @@ func UpdateStatusContext(ctx context.Context, adminID, id uint, status int) (*De
 	var result DefinitionSummary
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var item model.WorkflowDefinition
-		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
+		query, err := scopedWorkflowDefinitionQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := query.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
 		if err := validateDefinitionStatusChange(item, status); err != nil {
@@ -523,8 +552,8 @@ func validatePublishedRuntimeStartConfig(db *gorm.DB, item model.WorkflowDefinit
 	return nil
 }
 
-func ValidateContext(ctx context.Context, id uint) (*ValidationResponse, error) {
-	detail, err := GetDetailContext(ctx, id)
+func ValidateForAdminContext(ctx context.Context, id, adminID uint) (*ValidationResponse, error) {
+	detail, err := GetDetailForAdminContext(ctx, id, adminID)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +568,7 @@ func validateDesignDraft(definition workflowcore.Definition) []workflowcore.Vali
 	return workflowcore.ValidateDefinition(definition)
 }
 
-func PublishContext(ctx context.Context, adminID, id uint, request PublishRequest) (*PublishResponse, error) {
+func PublishForAdminContext(ctx context.Context, adminID, id uint, request PublishRequest) (*PublishResponse, error) {
 	if id == 0 {
 		return nil, errors.New("流程定义 ID 无效")
 	}
@@ -552,7 +581,11 @@ func PublishContext(ctx context.Context, adminID, id uint, request PublishReques
 	var result PublishResponse
 	err = db.Transaction(func(tx *gorm.DB) error {
 		var item model.WorkflowDefinition
-		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
+		query, err := scopedWorkflowDefinitionQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := query.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
 		draft, _, err := normalizeDraft(json.RawMessage(item.DraftJSON), item.Key, item.Name, item.DisplayName)
@@ -665,7 +698,7 @@ func applyPublishInitiator(definition *workflowcore.Definition, requested *workf
 	}
 }
 
-func DeleteContext(ctx context.Context, adminID, id uint) error {
+func DeleteForAdminContext(ctx context.Context, adminID, id uint) error {
 	if id == 0 {
 		return errors.New("流程定义 ID 无效")
 	}
@@ -673,7 +706,11 @@ func DeleteContext(ctx context.Context, adminID, id uint) error {
 	defer cancel()
 	return db.Transaction(func(tx *gorm.DB) error {
 		var item model.WorkflowDefinition
-		if err := activeWorkflowDefinitionQuery(tx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
+		query, err := scopedWorkflowDefinitionQuery(ctx, tx, adminID)
+		if err != nil {
+			return err
+		}
+		if err := query.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return definitionError(err)
 		}
 		return tx.Model(&model.WorkflowDefinition{}).

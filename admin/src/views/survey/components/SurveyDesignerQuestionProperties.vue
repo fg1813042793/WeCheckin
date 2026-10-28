@@ -195,6 +195,7 @@
     <div v-else-if="showSurveySettings" class="props-panel">
       <SurveyDesignerPanelTitle title="问卷设置" :context="form.title || '未命名问卷'" closable @close="closePropertiesPanel" />
       <div class="setting-row"><span class="setting-label">标题</span><el-input v-model="form.title" placeholder="问卷标题" style="flex:1" /></div>
+      <div class="setting-row"><span class="setting-label">显示标题</span><el-input v-model="form.displayTitle" aria-label="显示标题" placeholder="留空使用标题" maxlength="100" clearable style="flex:1" /></div>
       <div class="setting-row description-row"><span class="setting-label">描述</span><el-input v-model="form.description" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="问卷描述" style="flex:1" /></div>
       <div class="setting-row"><span class="setting-label">模式</span><span>{{ form.mode === 'exam' ? '考试' : '问卷' }}</span></div>
       <el-divider />
@@ -299,7 +300,7 @@ function openSurveySettings() { selected.value = null; showSurveySettings.value 
 .props-panel :deep(.el-input__wrapper), .props-panel :deep(.el-textarea__inner), .props-panel :deep(.el-select__wrapper), .props-panel :deep(.el-input-number .el-input__wrapper) { border-radius:7px; }
 .props-footer { padding:10px 0 0; border-top:1px solid var(--designer-border); background:#fff; position:sticky; bottom:0; z-index:1; margin-top:12px; }
 .setting-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; font-size:12px; color:#667085; }
-.setting-label { font-weight:500; }
+.setting-label { flex-shrink:0; min-width:48px; font-weight:500; }
 .description-row { align-items:flex-start; }
 .description-row .setting-label { margin-top:4px; }
 .props-options-section { margin-bottom:10px; padding:10px; background:#f8fafc; border:1px solid #edf0f5; border-radius:8px; }

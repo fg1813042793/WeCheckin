@@ -36,20 +36,22 @@ var (
 )
 
 type WebhookRecord struct {
-	ID          uint64 `json:"id"`
-	Title       string `json:"title"`
-	Content     string `json:"content"`
-	SourceType  string `json:"sourceType"`
-	SourceID    string `json:"sourceId"`
-	WebhookType string `json:"webhookType"`
-	Target      string `json:"target"`
-	Status      string `json:"status"`
-	Attempts    int    `json:"attempts"`
-	NextRetryAt int64  `json:"nextRetryAt"`
-	LastError   string `json:"lastError"`
-	SentAt      int64  `json:"sentAt"`
-	AddTime     int64  `json:"addTime"`
-	EditTime    int64  `json:"editTime"`
+	ID                 uint64 `json:"id"`
+	Title              string `json:"title"`
+	Content            string `json:"content"`
+	SourceType         string `json:"sourceType"`
+	SourceID           string `json:"sourceId"`
+	WebhookType        string `json:"webhookType"`
+	Target             string `json:"target"`
+	Status             string `json:"status"`
+	Attempts           int    `json:"attempts"`
+	NextRetryAt        int64  `json:"nextRetryAt"`
+	LastError          string `json:"lastError"`
+	SentAt             int64  `json:"sentAt"`
+	ResponseStatusCode int    `json:"responseStatusCode"`
+	ResponseBody       string `json:"responseBody"`
+	AddTime            int64  `json:"addTime"`
+	EditTime           int64  `json:"editTime"`
 }
 
 type WebhookRecordList struct {
@@ -116,6 +118,8 @@ func (service *Service) RetryWebhookRecord(ctx context.Context, id uint64) (Webh
 	row.NextRetryAt = now
 	row.LastError = ""
 	row.SentAt = 0
+	row.ResponseStatusCode = 0
+	row.ResponseBody = ""
 	row.AddTime = now
 	row.EditTime = now
 	row.CreatedAt = time.Time{}
@@ -161,7 +165,9 @@ func webhookRecordFromOutbox(row notificationmodel.Outbox) WebhookRecord {
 		SourceType: row.SourceType, SourceID: row.SourceID,
 		WebhookType: strings.TrimSpace(recipient.Type), Target: maskWebhookTarget(recipient.URL),
 		Status: row.Status, Attempts: row.Attempts, NextRetryAt: row.NextRetryAt,
-		LastError: row.LastError, SentAt: row.SentAt, AddTime: row.AddTime, EditTime: row.EditTime,
+		LastError: row.LastError, SentAt: row.SentAt,
+		ResponseStatusCode: row.ResponseStatusCode, ResponseBody: row.ResponseBody,
+		AddTime: row.AddTime, EditTime: row.EditTime,
 	}
 }
 

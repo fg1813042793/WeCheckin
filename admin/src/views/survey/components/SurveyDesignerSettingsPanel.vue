@@ -124,7 +124,13 @@
           </el-form-item>
           <el-form-item class="settings-full" label="问卷链接">
             <div class="share-settings">
-              <el-input v-if="form.id" :model-value="publicUrl" readonly><template #append><el-button @click="emit('copyLink')">复制</el-button></template></el-input>
+              <el-input
+                v-if="form.id"
+                :model-value="publicUrl"
+                @update:model-value="emit('update:publicUrl', $event)"
+              >
+                <template #append><el-button @click="emit('copyLink')">复制</el-button></template>
+              </el-input>
               <span v-else class="setting-help">请先保存问卷</span>
               <div v-if="form.id" class="qr-settings">
                 <el-image v-if="qrUrl" :src="qrUrl" class="qr-image" />
@@ -185,6 +191,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: []
+  'update:publicUrl': [value: string]
   copyLink: []
   generateQr: []
   downloadQr: []

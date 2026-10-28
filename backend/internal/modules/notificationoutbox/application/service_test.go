@@ -80,7 +80,10 @@ func TestServiceEnqueuePersistsPendingNotification(t *testing.T) {
 func TestServiceDispatchDueMarksSuccessfulDeliverySent(t *testing.T) {
 	now := time.Date(2026, 9, 4, 10, 0, 0, 0, time.UTC)
 	store := &storeStub{due: []notificationmodel.Outbox{{ID: 7, Channel: "internal", Status: notificationmodel.StatusSending}}}
-	channel := &channelStub{name: "internal"}
+	channel := &channelStub{name: "internal", result: DeliveryResult{
+		ResponseStatusCode: 200,
+		ResponseBody:       `{"errcode":0,"token":"secret-value","errmsg":"ok"}`,
+	}}
 	service := newService(store, func() time.Time { return now }, channel)
 
 	count, err := service.DispatchDue(context.Background(), 25)
@@ -90,12 +93,18 @@ func TestServiceDispatchDueMarksSuccessfulDeliverySent(t *testing.T) {
 	if count != 1 || store.sentID != 7 || channel.delivered != 1 {
 		t.Fatalf("count=%d sent=%d delivered=%d", count, store.sentID, channel.delivered)
 	}
+	if store.sentResult.ResponseStatusCode != 200 || strings.Contains(store.sentResult.ResponseBody, "secret-value") || !strings.Contains(store.sentResult.ResponseBody, "[REDACTED]") {
+		t.Fatalf("sent result = %#v", store.sentResult)
+	}
 }
 
 func TestServiceDispatchDueSchedulesFailureForRetry(t *testing.T) {
 	now := time.Date(2026, 9, 4, 10, 0, 0, 0, time.UTC)
 	store := &storeStub{due: []notificationmodel.Outbox{{ID: 8, Channel: "webhook", Status: notificationmodel.StatusSending}}}
-	service := newService(store, func() time.Time { return now }, &channelStub{name: "webhook", err: errors.New("temporary failure")})
+	service := newService(store, func() time.Time { return now }, &channelStub{
+		name: "webhook", err: errors.New("temporary failure"),
+		result: DeliveryResult{ResponseStatusCode: 502, ResponseBody: "gateway unavailable"},
+	})
 
 	count, err := service.DispatchDue(context.Background(), 25)
 	if count != 1 || err == nil {
@@ -106,6 +115,9 @@ func TestServiceDispatchDueSchedulesFailureForRetry(t *testing.T) {
 	}
 	if store.failed.NextRetryAt != now.Add(time.Minute).UnixMilli() {
 		t.Fatalf("next retry = %d", store.failed.NextRetryAt)
+	}
+	if store.failed.ResponseStatusCode != 502 || store.failed.ResponseBody != "gateway unavailable" {
+		t.Fatalf("failure response = %#v", store.failed)
 	}
 }
 
@@ -123,11 +135,23 @@ func TestServiceDispatchDueMovesFifthFailureToDead(t *testing.T) {
 	}
 }
 
+func TestSanitizeResponseBodyRedactsAndTruncates(t *testing.T) {
+	body := `{"access_token":"secret-value","content":"` + strings.Repeat("x", maxResponseRunes+200) + `"}`
+	result := sanitizeResponseBody(body)
+	if strings.Contains(result, "secret-value") || !strings.Contains(result, "[REDACTED]") {
+		t.Fatalf("response secrets were not redacted: %q", result)
+	}
+	if len([]rune(result)) != maxResponseRunes || !strings.HasSuffix(result, responseTruncatedTag) {
+		t.Fatalf("response length=%d", len([]rune(result)))
+	}
+}
+
 type storeStub struct {
-	enqueued notificationmodel.Outbox
-	due      []notificationmodel.Outbox
-	sentID   uint64
-	failed   Failure
+	enqueued   notificationmodel.Outbox
+	due        []notificationmodel.Outbox
+	sentID     uint64
+	sentResult DeliveryResult
+	failed     Failure
 }
 
 func (store *storeStub) Enqueue(_ context.Context, row notificationmodel.Outbox) (bool, error) {
@@ -139,8 +163,9 @@ func (store *storeStub) ClaimDue(_ context.Context, _, _ int64, _ int) ([]notifi
 	return store.due, nil
 }
 
-func (store *storeStub) MarkSent(_ context.Context, id uint64, _ int64) error {
+func (store *storeStub) MarkSent(_ context.Context, id uint64, _ int64, result DeliveryResult) error {
 	store.sentID = id
+	store.sentResult = result
 	return nil
 }
 
@@ -152,12 +177,13 @@ func (store *storeStub) MarkFailed(_ context.Context, failure Failure) error {
 type channelStub struct {
 	name      string
 	err       error
+	result    DeliveryResult
 	delivered int
 }
 
 func (channel *channelStub) Name() string { return channel.name }
 
-func (channel *channelStub) Deliver(context.Context, notificationmodel.Outbox) error {
+func (channel *channelStub) Deliver(context.Context, notificationmodel.Outbox) (DeliveryResult, error) {
 	channel.delivered++
-	return channel.err
+	return channel.result, channel.err
 }

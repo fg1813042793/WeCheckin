@@ -38,14 +38,22 @@ export function useSurveyDesignerTransfer(options: SurveyDesignerTransferOptions
   const bankUploadQuestionId = ref('')
   const exportedJson = ref('')
   const fillTemplates: Record<string, string> = { sf: '默认模版', sf1: '新样式模版' }
-  const publicUrl = computed(() => options.form.id
+  const generatedPublicUrl = computed(() => options.form.id
     ? `${window.location.origin}/${options.form.fillTemplate || 'sf'}/${options.form.id}`
     : '')
-  const qrUrl = computed(() => publicUrl.value
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value)}`
+  const publicUrl = computed({
+    get: () => typeof options.form.publicUrl === 'string' && options.form.publicUrl
+      ? options.form.publicUrl
+      : generatedPublicUrl.value,
+    set(value: string) {
+      options.form.publicUrl = value
+    },
+  })
+  const qrUrl = computed(() => publicUrl.value.trim()
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value.trim())}`
     : '')
   const embedCode = computed(() => options.form.id
-    ? `<iframe src="${publicUrl.value}" width="100%" height="600" frameborder="0"></iframe>`
+    ? `<iframe src="${publicUrl.value.trim()}" width="100%" height="600" frameborder="0"></iframe>`
     : '')
 
   function importTextQuestions(payload: SurveyTextImportPayload) {
@@ -166,9 +174,18 @@ export function useSurveyDesignerTransfer(options: SurveyDesignerTransferOptions
     ElMessage.success('二维码已生成')
   }
 
-  function copyLink() {
-    void navigator.clipboard.writeText(publicUrl.value)
-    ElMessage.success('已复制')
+  async function copyLink() {
+    const link = publicUrl.value.trim()
+    if (!link) {
+      ElMessage.warning('请先填写问卷链接')
+      return
+    }
+    try {
+      await writeClipboardText(link)
+      ElMessage.success('已复制')
+    } catch {
+      ElMessage.error('复制失败，请手动复制')
+    }
   }
 
   async function downloadQR() {
@@ -232,6 +249,29 @@ export function useSurveyDesignerTransfer(options: SurveyDesignerTransferOptions
     exportSurveyKingJson,
     loadSurveyKingJson,
     downloadJson,
+  }
+}
+
+async function writeClipboardText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {}
+  }
+
+  const input = document.createElement('textarea')
+  input.value = text
+  input.setAttribute('readonly', '')
+  input.style.position = 'fixed'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  try {
+    input.focus()
+    input.select()
+    if (!document.execCommand('copy')) throw new Error('copy failed')
+  } finally {
+    input.remove()
   }
 }
 

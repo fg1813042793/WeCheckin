@@ -64,3 +64,20 @@ func TestAdminRolePageSplitsMenuAndAPIPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminRolePageLimitsDataScopeOptionsByDelegationMetadata(t *testing.T) {
+	src, err := os.ReadFile("../../../../../admin/src/views/role/index.vue")
+	if err != nil {
+		t.Fatalf("read role page: %v", err)
+	}
+	text := string(src)
+	for _, snippet := range []string{
+		"allowedDataScopeOptions",
+		"res.data?.delegation?.allowedDataScopes",
+		"form.dataScope = delegationAllowedDataScopes.value[0] || 3",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("role page must apply delegation data-scope metadata with %q", snippet)
+		}
+	}
+}

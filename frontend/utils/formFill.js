@@ -14,6 +14,11 @@ export function parseSettings(raw) {
   return parseJsonLike(raw, {}) || {}
 }
 
+export function resolveSurveyTitle(title, displayTitle) {
+  const display = typeof displayTitle === 'string' ? displayTitle.trim() : ''
+  return display || title || ''
+}
+
 export function parseQuestions(raw) {
   const schema = parseJsonLike(raw, { questions: [] }) || { questions: [] }
   return Array.isArray(schema.questions) ? schema.questions : []

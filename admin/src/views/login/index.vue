@@ -154,6 +154,14 @@ async function login() {
   border: 1px solid #e5e7eb;
 }
 
+.login-card :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.login-card :deep(.el-input__inner:focus) {
+  outline: none;
+}
+
 .login-card__header {
   margin-bottom: 24px;
 }

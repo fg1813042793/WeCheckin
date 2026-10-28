@@ -194,7 +194,7 @@
             <div v-else-if="panelMode==='preview'" class="survey-preview-panel" :style="{ backgroundImage: form.backgroundImages?.length ? 'url(\''+(typeof form.backgroundImages[0]==='string'?form.backgroundImages[0]:form.backgroundImages[0].url)+'\')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }">
               <div v-if="form.headerImages?.length" class="preview-header-img"><img :src="typeof form.headerImages[0]==='string'?form.headerImages[0]:form.headerImages[0].url" /></div>
               <div class="survey-preview-header">
-                <div class="preview-form-title">{{ form.title || '未命名问卷' }}</div>
+                <div class="preview-form-title">{{ resolveSurveyTitle(form.title, form.displayTitle) || '未命名问卷' }}</div>
                 <div v-if="form.description" class="preview-form-desc">{{ form.description }}</div>
               </div>
               <div class="survey-preview-body">
@@ -233,7 +233,7 @@
         :saving="saving"
         :save-status-label="saveStatusLabel"
         :save-status-tag-type="saveStatusTagType"
-        :public-url="publicUrl"
+        v-model:public-url="publicUrl"
         :qr-url="qrUrl"
         :fill-templates="fillTemplates"
         :has-invalid-time-range="hasInvalidTimeRange"
@@ -266,7 +266,7 @@
           <template v-else>
             <div class="share-card">
               <div class="share-title">访问链接</div>
-              <div class="share-row"><el-input v-model="publicUrl" readonly><template #append><el-button @click="copyLink">复制</el-button></template></el-input></div>
+              <div class="share-row"><el-input v-model="publicUrl"><template #append><el-button @click="copyLink">复制</el-button></template></el-input></div>
               <div class="share-title">二维码</div>
               <el-button size="small" @click="genQR">生成二维码</el-button>
               <div v-if="qrUrl" class="qr-box"><el-image :src="qrUrl" style="width:180px;height:180px;border-radius:8px" /></div>
@@ -310,6 +310,7 @@ import { collectSurveyDesignerIssues, type SurveyDesignerIssue } from './survey-
 import { createSurveyDesignerForm, useSurveyDesignerDocument } from './composables/useSurveyDesignerDocument'
 import { useSurveyDesignerQuestions } from './composables/useSurveyDesignerQuestions'
 import { useSurveyDesignerTransfer } from './composables/useSurveyDesignerTransfer'
+import { resolveSurveyTitle } from '../../utils/surveyTitle'
 import './survey-designer-responsive.css'
 
 const route = useRoute()

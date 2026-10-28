@@ -1,118 +1,143 @@
 <template>
   <div class="admin-page question-bank-page">
-    <el-card class="admin-card" shadow="never">
-      <div class="bank-header">
-        <el-tabs v-model="activeScope" class="bank-tabs" @tab-change="handleScopeChange">
-          <el-tab-pane label="问卷题库" name="survey" />
-          <el-tab-pane label="考试题库" name="exam" />
-        </el-tabs>
-      </div>
+    <section class="question-bank-mobile-notice" aria-label="移动端编辑提示">
+      <strong>建议在桌面端维护题库</strong>
+      <span>题库工作台需要同时显示题库、编辑区和属性面板，请使用宽度不小于 768px 的设备。</span>
+    </section>
 
-      <div class="admin-toolbar">
-        <div class="admin-toolbar__left">
-          <el-input v-model="keyword" placeholder="搜索题目标题/题型" clearable style="width:300px" @keyup.enter="search" />
-          <el-select v-model="category" placeholder="分类" clearable filterable allow-create style="width:160px" @change="search">
-            <el-option v-for="item in categories" :key="item" :label="item" :value="item" />
-          </el-select>
-          <el-select v-model="questionType" placeholder="题型" clearable filterable style="width:150px" @change="search">
-            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-          <el-button type="primary" @click="search">搜索</el-button>
+    <section class="question-bank-workspace">
+      <header class="question-bank-workspace__toolbar">
+        <div class="question-bank-workspace__identity">
+          <strong>题库管理</strong>
+          <div class="question-bank-workspace__scope" role="tablist" aria-label="题库类型">
+            <button type="button" :class="{ active: activeScope === 'survey' }" @click="handleScopeSelect('survey')">问卷题库</button>
+            <button type="button" :class="{ active: activeScope === 'exam' }" @click="handleScopeSelect('exam')">考试题库</button>
+          </div>
         </div>
-      </div>
 
-      <div class="admin-toolbar">
-        <div class="admin-toolbar__left">
-          <el-button type="primary" @click="openCreate">+ 新增题目</el-button>
-          <el-button icon="Upload" :loading="importing" @click="triggerImport">导入</el-button>
-          <el-button icon="Download" :loading="exporting" @click="exportQuestions">导出</el-button>
+        <div class="question-bank-workspace__actions">
           <input ref="importFileInput" class="bank-import-input" type="file" accept=".json,application/json" @change="handleImportFile" />
+          <el-button :icon="Upload" :loading="importing" :disabled="!canAddQuestion" @click="triggerImport">导入</el-button>
+          <el-button :icon="Download" :loading="exporting" @click="exportQuestions">导出</el-button>
+          <el-button :icon="Refresh" title="刷新题目" @click="load" />
+          <el-button :icon="Menu" title="显示或隐藏题库导航" @click="toggleLeftPanel" />
+          <el-button :icon="Setting" title="显示或隐藏题目属性" @click="toggleRightPanel" />
+          <span v-if="editDialog.visible" class="question-bank-workspace__save-state" :class="`is-${saveState}`">{{ saveStatusLabel }}</span>
+          <el-button
+            v-if="editDialog.visible"
+            type="primary"
+            :icon="Check"
+            :loading="saving"
+            :disabled="!canModifyCurrentQuestion"
+            @click="save(false)"
+          >立即保存</el-button>
         </div>
-        <div class="admin-toolbar__right">
-          <el-button circle icon="Refresh" title="刷新" @click="load" />
-        </div>
+      </header>
+
+      <div
+        class="question-bank-workspace__body"
+        :class="{ 'is-left-collapsed': leftCollapsed, 'is-right-collapsed': rightCollapsed }"
+      >
+        <QuestionBankNavigator
+          v-show="!leftCollapsed"
+          :categories="categories"
+          :active-category="category"
+          :keyword="keyword"
+          :question-type="questionType"
+          :type-options="typeOptions"
+          :list="list"
+          :selected-id="form.id"
+          :loading="loading"
+          :error="listError"
+          :total="total"
+          :page="page"
+          :page-size="pageSize"
+          :can-add="canAddQuestion"
+          :question-title="questionTitle"
+          :type-name="typeName"
+          @select-category="selectCategory"
+          @select-question="selectQuestion"
+          @add-question="openCreate"
+          @update:keyword="keyword = $event"
+          @update:question-type="questionType = $event"
+          @update:page="page = $event; load()"
+          @search="search"
+          @retry="load"
+        />
+
+        <QuestionEditorCanvas
+          v-model:editor-mode="editorMode"
+          :active="editDialog.visible"
+          :can-add="canAddQuestion"
+          :readonly="!canModifyCurrentQuestion"
+          :form="form"
+          :visual-question="visualQuestion"
+          :rich-title-editor-options="richTitleEditorOptions"
+          :rich-option-editor-options="richOptionEditorOptions"
+          :rich-full-editor-options="richFullEditorOptions"
+          :rich-edit-dialog="richEditDialog"
+          :rich-edit-title="richEditTitle"
+          :bind-compact-rich-editor="bindCompactRichEditor"
+          :sync-plain-title-from-visual="syncPlainTitleFromVisual"
+          :uses-options="usesOptions"
+          :uses-fields="usesFields"
+          :uses-matrix="usesMatrix"
+          :add-visual-option="addVisualOption"
+          :remove-visual-option="removeVisualOption"
+          :add-visual-field="addVisualField"
+          :remove-visual-field="removeVisualField"
+          :add-matrix-row="addMatrixRow"
+          :remove-matrix-row="removeMatrixRow"
+          :add-matrix-column="addMatrixColumn"
+          :remove-matrix-column="removeMatrixColumn"
+          :format-schema="formatSchema"
+          :apply-json-to-visual="applyJsonToVisual"
+          :confirm-rich-full-edit="confirmRichFullEdit"
+          @add-question="openCreate"
+        />
+
+        <QuestionPropertiesPanel
+          v-show="!rightCollapsed"
+          :active="editDialog.visible"
+          :active-scope="activeScope"
+          :form="form"
+          :visual-question="visualQuestion"
+          :categories="categories"
+          :type-options="typeOptions"
+          :readonly="!canModifyCurrentQuestion"
+          :can-delete="canDeleteQuestion && editDialog.isEdit"
+          :type-name="typeName"
+          @type-change="handleTypeChange"
+          @delete-question="deleteCurrentQuestion"
+        />
       </div>
-
-      <div class="bank-stat-bar">
-        <div class="bank-stat"><strong>{{ total }}</strong> 总题目</div>
-        <div class="bank-stat"><strong>{{ list.length }}</strong> 当前页</div>
-        <div class="bank-stat"><strong>{{ categories.length }}</strong> 分类</div>
-      </div>
-
-      <QuestionBankTable
-        v-model:page="page"
-        v-model:page-size="pageSize"
-        :list="list"
-        :loading="loading"
-        :active-scope="activeScope"
-        :total="total"
-        :question-title="questionTitle"
-        :type-name="typeName"
-        :format-time="formatTime"
-        @load="load"
-        @size-change="handleSizeChange"
-        @preview="openPreview"
-        @edit="openEdit"
-        @delete="deleteRow"
-      />
-    </el-card>
-
-    <QuestionEditorDialog
-      v-model:visible="editDialog.visible"
-      v-model:editor-mode="editorMode"
-      :is-edit="editDialog.isEdit"
-      :form="form"
-      :visual-question="visualQuestion"
-      :categories="categories"
-      :type-options="typeOptions"
-      :active-scope="activeScope"
-      :saving="saving"
-      :rich-title-editor-options="richTitleEditorOptions"
-      :rich-option-editor-options="richOptionEditorOptions"
-      :rich-full-editor-options="richFullEditorOptions"
-      :rich-edit-dialog="richEditDialog"
-      :rich-edit-title="richEditTitle"
-      :bind-compact-rich-editor="bindCompactRichEditor"
-      :sync-plain-title-from-visual="syncPlainTitleFromVisual"
-      :handle-type-change="handleTypeChange"
-      :handle-editor-mode-change="handleEditorModeChange"
-      :uses-options="usesOptions"
-      :uses-fields="usesFields"
-      :uses-matrix="usesMatrix"
-      :add-visual-option="addVisualOption"
-      :remove-visual-option="removeVisualOption"
-      :add-visual-field="addVisualField"
-      :remove-visual-field="removeVisualField"
-      :add-matrix-row="addMatrixRow"
-      :remove-matrix-row="removeMatrixRow"
-      :add-matrix-column="addMatrixColumn"
-      :remove-matrix-column="removeMatrixColumn"
-      :type-name="typeName"
-      :preview-placeholder="previewPlaceholder"
-      :format-schema="formatSchema"
-      :apply-json-to-visual="applyJsonToVisual"
-      :confirm-rich-full-edit="confirmRichFullEdit"
-      :save="save"
-    />
-
-    <QuestionPreviewDrawer
-      v-model:visible="preview.visible"
-      :row="preview.row"
-      :question-title="questionTitle"
-      :type-name="typeName"
-      :format-time="formatTime"
-      :pretty-schema="prettySchema"
-    />
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Check, Download, Menu, Refresh, Setting, Upload } from '@element-plus/icons-vue'
 import { adminApi } from '../../api'
-import QuestionBankTable from './components/QuestionBankTable.vue'
-import QuestionEditorDialog from './components/QuestionEditorDialog.vue'
-import QuestionPreviewDrawer from './components/QuestionPreviewDrawer.vue'
+import { hasPerm } from '../../utils/permission'
+import QuestionBankNavigator from './components/QuestionBankNavigator.vue'
+import QuestionEditorCanvas from './components/QuestionEditorCanvas.vue'
+import QuestionPropertiesPanel from './components/QuestionPropertiesPanel.vue'
+import {
+  ensureQuestionBankQuestionShape,
+  nextOptionValue,
+  parseQuestionBankSchema,
+  questionBankTypeOptions,
+  richFullEditorOptions,
+  richOptionEditorOptions,
+  richTitleEditorOptions,
+  stripQuestionHtml as stripHtml,
+  typeName,
+  usesFields,
+  usesMatrix,
+  usesOptions,
+} from './questionBankEditor'
 import {
   buildQuestionBankExportPayload,
   downloadJson,
@@ -133,14 +158,22 @@ const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const loading = ref(false)
+const listError = ref('')
 const saving = ref(false)
 const importing = ref(false)
 const exporting = ref(false)
 const list = ref<any[]>([])
 const categories = ref<string[]>([])
 const importFileInput = ref<HTMLInputElement | null>(null)
-const editorMode = ref<'visual' | 'json'>('visual')
+const editorMode = ref<'visual' | 'preview' | 'json'>('visual')
 const visualQuestion = ref<any>({ props: {} })
+const saveState = ref<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle')
+const leftCollapsed = ref(false)
+const rightCollapsed = ref(false)
+const canAddQuestion = computed(() => hasPerm('admin:menu:question-bank:add'))
+const canEditQuestion = computed(() => hasPerm('admin:menu:question-bank:edit'))
+const canDeleteQuestion = computed(() => hasPerm('admin:menu:question-bank:del'))
+const canModifyCurrentQuestion = computed(() => editDialog.isEdit ? canEditQuestion.value : canAddQuestion.value)
 
 const editDialog = reactive({ visible: false, isEdit: false })
 const form = reactive({
@@ -151,115 +184,30 @@ const form = reactive({
   tags: '',
   schema: ''
 })
-const preview = reactive<{ visible: boolean; row: any | null }>({ visible: false, row: null })
 const richEditDialog = reactive({
   visible: false,
   target: 'title' as RichEditTarget,
   optionIndex: -1,
   content: ''
 })
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let activeSavePromise: Promise<boolean> | null = null
+let suppressDraftWatch = false
+let lastSavedSnapshot = ''
 
-const typeMap: Record<string, string> = {
-  radio: '单选题',
-  checkbox: '多选题',
-  select: '下拉题',
-  picker: '选择器',
-  cascade: '级联选择',
-  judge: '判断题',
-  file: '文件/图片',
-  input: '单行文本',
-  textarea: '多行文本',
-  number: '数字',
-  multiInput: '多项填空',
-  hInput: '横向填空',
-  signature: '签名',
-  scanCode: '扫码',
-  rating: '评分',
-  nps: 'NPS评分',
-  matrixRadio: '矩阵单选',
-  matrixCheckbox: '矩阵多选',
-  matrixFillBlank: '矩阵填空',
-  matrixAuto: '表格自增',
-  divider: '分割线',
-  description: '文字描述',
-  questionSet: '问题组',
-  pagination: '分页',
-  user: '成员',
-  dept: '部门',
-  richText: '富文本',
-  autopop: '自动填充',
-  name: '姓名',
-  studentId: '学号',
-  employeeId: '工号',
-  class: '班级',
-  phone: '手机',
-  email: '邮箱',
-  idCard: '身份证',
-  password: '密码',
-  date: '日期',
-  time: '时间',
-  dateRange: '日期范围',
-  switch: '开关',
-  location: '地理位置'
-}
+const saveStatusLabel = computed(() => ({
+  idle: '选择题目后开始编辑',
+  dirty: editDialog.isEdit ? '有未保存修改' : '新题目需首次保存',
+  saving: '保存中...',
+  saved: '已保存',
+  error: '保存失败，修改已保留',
+})[saveState.value])
 
-const typeOptions = computed(() => Object.entries(typeMap).map(([value, label]) => ({ value, label })))
-const optionTypes = new Set(['radio', 'checkbox', 'select', 'picker', 'cascade', 'judge'])
-const fieldTypes = new Set(['multiInput', 'hInput'])
-const matrixTypes = new Set(['matrixRadio', 'matrixCheckbox', 'matrixFillBlank', 'matrixAuto'])
-const layoutTypes = new Set(['description', 'questionSet', 'pagination', 'divider'])
-const richTitleEditorOptions = {
-  theme: 'snow',
-  placeholder: '请输入题目标题',
-  modules: {
-    toolbar: [
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ color: [] }, { background: [] }],
-      [{ list: 'ordered' }, { list: 'bullet' }],
-      ['clean']
-    ]
-  }
-}
-const richOptionEditorOptions = {
-  theme: 'snow',
-  placeholder: '选项文本',
-  modules: {
-    toolbar: [
-      ['bold', 'italic', 'underline'],
-      [{ color: [] }, { background: [] }],
-      ['clean']
-    ]
-  }
-}
-const richFullEditorOptions = {
-  theme: 'snow',
-  placeholder: '请输入富文本内容',
-  modules: {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ color: [] }, { background: [] }],
-      [{ list: 'ordered' }, { list: 'bullet' }],
-      [{ indent: '-1' }, { indent: '+1' }],
-      [{ align: [] }],
-      ['blockquote', 'code-block'],
-      ['link'],
-      ['clean']
-    ]
-  }
-}
+const typeOptions = computed(() => questionBankTypeOptions)
 const richEditTitle = computed(() => richEditDialog.target === 'title' ? '完整编辑题目标题' : `完整编辑选项 ${richEditDialog.optionIndex + 1}`)
 
 function scopeName(scope: BankScope) {
   return scope === 'survey' ? '问卷题库' : '考试题库'
-}
-
-function typeName(type: string) {
-  return typeMap[type] || type || '-'
-}
-
-function stripHtml(value: string) {
-  return String(value || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
 }
 
 function bindCompactRichEditor(quill: any, target: RichEditTarget, optionIndex = -1) {
@@ -321,113 +269,14 @@ function prettySchema(schema: string) {
   }
 }
 
-function clonePlain<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value ?? {}))
-}
-
-function usesOptions(type: string) {
-  return optionTypes.has(type)
-}
-
-function usesFields(type: string) {
-  return fieldTypes.has(type)
-}
-
-function usesMatrix(type: string) {
-  return matrixTypes.has(type)
-}
-
-function previewPlaceholder(type: string) {
-  if (type === 'date') return '选择日期'
-  if (type === 'time') return '选择时间'
-  if (type === 'file') return '上传文件'
-  if (type === 'signature') return '签名'
-  if (type === 'scanCode') return '扫码'
-  return '请输入'
-}
-
-function optionValue(index: number) {
-  return String.fromCharCode(65 + index)
-}
-
-function normalizeOption(option: any, index: number) {
-  return {
-    ...clonePlain(option || {}),
-    label: String(option?.label ?? option?.title ?? option?.text ?? `选项${optionValue(index)}`),
-    value: String(option?.value ?? optionValue(index))
-  }
-}
-
-function normalizeField(field: any, index: number) {
-  return {
-    ...clonePlain(field || {}),
-    label: String(field?.label ?? field?.title ?? `填空${index + 1}`),
-    placeholder: String(field?.placeholder ?? '')
-  }
-}
-
-function normalizeMatrixItem(item: any, index: number, prefix: string) {
-  return {
-    ...clonePlain(item || {}),
-    id: String(item?.id || `${prefix}${index + 1}`),
-    title: String(item?.title ?? item?.label ?? `${prefix === 'r' ? '行' : '列'}${index + 1}`)
-  }
-}
-
 function ensureVisualQuestionShape(question: any) {
-  const q = clonePlain(question || {})
-  q.type = String(q.type || form.type || 'radio')
-  q.title = String(q.title || form.title || typeName(q.type) || '未命名题目')
-  q.required = Boolean(q.required)
-  q.readOnly = Boolean(q.readOnly)
-  q.placeholder = String(q.placeholder || '')
-  q.description = String(q.description || '')
-  q.showDescription = q.showDescription ?? !layoutTypes.has(q.type)
-  q.props = q.props && typeof q.props === 'object' && !Array.isArray(q.props) ? q.props : {}
-  if (usesOptions(q.type)) {
-    const defaults = q.type === 'judge'
-      ? [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
-      : [{ label: '选项A', value: 'A' }, { label: '选项B', value: 'B' }]
-    q.props.options = Array.isArray(q.props.options) && q.props.options.length
-      ? q.props.options.map(normalizeOption)
-      : defaults
-  }
-  if (usesFields(q.type)) {
-    const source = Array.isArray(q.props.fields) && q.props.fields.length ? q.props.fields : q.props.options
-    q.props.fields = Array.isArray(source) && source.length
-      ? source.map(normalizeField)
-      : [{ label: '填空1', placeholder: '' }, { label: '填空2', placeholder: '' }]
-  }
-  if (usesMatrix(q.type)) {
-    q.props.rows = Array.isArray(q.props.rows) && q.props.rows.length
-      ? q.props.rows.map((item: any, index: number) => normalizeMatrixItem(item, index, 'r'))
-      : [{ id: 'r1', title: '行1' }, { id: 'r2', title: '行2' }]
-    q.props.columns = Array.isArray(q.props.columns) && q.props.columns.length
-      ? q.props.columns.map((item: any, index: number) => normalizeMatrixItem(item, index, 'c'))
-      : [{ id: 'c1', title: '列A' }, { id: 'c2', title: '列B' }]
-    if (q.type === 'matrixAuto') q.props.rows = Array.isArray(q.props.rows) ? q.props.rows : []
-  }
-  if (q.type === 'file') {
-    q.fileTypes = Array.isArray(q.fileTypes) ? q.fileTypes : ['image']
-    q.maxFileSize = Number(q.maxFileSize || 10)
-    q.maxFileCount = Number(q.maxFileCount || 1)
-  }
-  if (q.type === 'rating') q.props.maxRating = Number(q.props.maxRating || 5)
-  if (q.type === 'nps') q.props.maxRating = Number(q.props.maxRating || 10)
-  if (activeScope.value === 'exam') {
-    q.examScore = Number(q.examScore || 0)
-    q.examCorrectAnswer = String(q.examCorrectAnswer || '')
-    q.examAnalysis = String(q.examAnalysis || '')
-  }
-  return q
+  return ensureQuestionBankQuestionShape(question, {
+    type: form.type || 'radio', title: form.title || typeName(form.type || 'radio'), scope: activeScope.value,
+  })
 }
 
 function parseSchemaQuestion(schema: any, fallback: any = {}) {
-  let parsed = schema
-  if (typeof schema === 'string' && schema.trim()) parsed = JSON.parse(schema)
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback
-  if (Array.isArray(parsed.questions)) return parsed.questions[0] || fallback
-  return parsed
+  return parseQuestionBankSchema(schema, fallback)
 }
 
 function syncPlainTitleFromVisual() {
@@ -444,6 +293,56 @@ function syncSchemaFromVisual() {
   delete schema.id
   visualQuestion.value = schema
   form.schema = JSON.stringify(schema, null, 2)
+}
+
+function draftSnapshot() {
+  return JSON.stringify({
+    title: form.title,
+    type: form.type,
+    category: form.category,
+    tags: form.tags,
+    visualQuestion: visualQuestion.value,
+  })
+}
+
+function clearAutoSaveTimer() {
+  if (!autoSaveTimer) return
+  clearTimeout(autoSaveTimer)
+  autoSaveTimer = null
+}
+
+function scheduleAutoSave() {
+  if (suppressDraftWatch || !editDialog.visible || !canModifyCurrentQuestion.value) return
+  const snapshot = draftSnapshot()
+  if (snapshot === lastSavedSnapshot) return
+  saveState.value = 'dirty'
+  clearAutoSaveTimer()
+  if (!editDialog.isEdit) return
+  autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null
+    void save(true)
+  }, 800)
+}
+
+async function flushPendingSave() {
+  clearAutoSaveTimer()
+  if (!editDialog.visible || saveState.value === 'idle' || saveState.value === 'saved') return true
+  if (!editDialog.isEdit) return false
+  return await save(true)
+}
+
+async function confirmWorkspaceChange() {
+  if (await flushPendingSave()) return true
+  try {
+    await ElMessageBox.confirm(
+      editDialog.isEdit ? '当前题目保存失败，继续切换将放弃未保存修改。' : '新增题目尚未保存，继续切换将放弃当前内容。',
+      '存在未保存修改',
+      { type: 'warning', confirmButtonText: '放弃修改', cancelButtonText: '继续编辑' },
+    )
+    return true
+  } catch {
+    return false
+  }
 }
 
 function applyVisualFromSchema(showMessage = false) {
@@ -485,7 +384,7 @@ function handleTypeChange(type: string) {
 
 function addVisualOption() {
   const options = visualQuestion.value.props.options
-  options.push({ label: `选项${optionValue(options.length)}`, value: optionValue(options.length) })
+  options.push({ label: `选项${nextOptionValue(options.length)}`, value: nextOptionValue(options.length) })
 }
 
 function removeVisualOption(index: number) {
@@ -524,7 +423,7 @@ function buildListParams(extra: Record<string, any> = {}) {
     page: page.value,
     pageSize: pageSize.value,
     keyword: keyword.value,
-    category: category.value,
+    category: category.value === '__uncategorized__' ? '' : category.value,
     type: questionType.value,
     ...extra
   }
@@ -557,10 +456,23 @@ async function loadCategories() {
 
 async function load() {
   loading.value = true
+  listError.value = ''
   try {
-    const res: any = await requestQuestionBankList(activeScope.value, buildListParams())
-    list.value = listFromResponse(res)
-    total.value = Number(res.data?.total || 0)
+    if (category.value === '__uncategorized__') {
+      const rows = await fetchAllQuestionRows(activeScope.value, { keyword: keyword.value, type: questionType.value })
+      const uncategorized = rows.filter(row => !String(row?.category || '').trim())
+      total.value = uncategorized.length
+      const offset = (page.value - 1) * pageSize.value
+      list.value = uncategorized.slice(offset, offset + pageSize.value)
+    } else {
+      const res: any = await requestQuestionBankList(activeScope.value, buildListParams())
+      list.value = listFromResponse(res)
+      total.value = Number(res.data?.total || 0)
+    }
+  } catch (error: any) {
+    list.value = []
+    total.value = 0
+    listError.value = error?.message || error?.msg || '题目加载失败'
   } finally {
     loading.value = false
   }
@@ -571,40 +483,53 @@ function search() {
   load()
 }
 
-function handleSizeChange() {
-  page.value = 1
-  load()
-}
-
-async function handleScopeChange() {
+async function handleScopeSelect(scope: BankScope) {
+  if (scope === activeScope.value) return
+  if (!await confirmWorkspaceChange()) return
+  activeScope.value = scope
   page.value = 1
   keyword.value = ''
   category.value = ''
   questionType.value = ''
   list.value = []
   total.value = 0
+  clearCurrentQuestion()
   await loadCategories()
   await load()
 }
 
 function resetForm() {
+  suppressDraftWatch = true
   form.id = 0
   form.title = '未命名题目'
   form.type = 'radio'
-  form.category = category.value || ''
+  form.category = category.value === '__uncategorized__' ? '' : category.value
   form.tags = ''
   visualQuestion.value = ensureVisualQuestionShape({ title: form.title, type: form.type })
   syncSchemaFromVisual()
   editorMode.value = 'visual'
+  nextTick(() => {
+    suppressDraftWatch = false
+    lastSavedSnapshot = ''
+    saveState.value = 'dirty'
+  })
 }
 
-function openCreate() {
+async function openCreate() {
+  if (!canAddQuestion.value || !await confirmWorkspaceChange()) return
   resetForm()
   editDialog.isEdit = false
   editDialog.visible = true
 }
 
+async function selectQuestion(row: any) {
+  if (Number(row?.id || 0) === form.id && editDialog.visible) return
+  if (!await confirmWorkspaceChange()) return
+  openEdit(row)
+}
+
 function openEdit(row: any) {
+  suppressDraftWatch = true
   form.id = Number(row.id || 0)
   form.title = stripHtml(row.title || '')
   form.type = row.type || ''
@@ -627,11 +552,29 @@ function openEdit(row: any) {
   editorMode.value = 'visual'
   editDialog.isEdit = true
   editDialog.visible = true
+  nextTick(() => {
+    suppressDraftWatch = false
+    lastSavedSnapshot = draftSnapshot()
+    saveState.value = 'saved'
+  })
 }
 
-function openPreview(row: any) {
-  preview.row = row
-  preview.visible = true
+function clearCurrentQuestion() {
+  clearAutoSaveTimer()
+  editDialog.visible = false
+  editDialog.isEdit = false
+  form.id = 0
+  lastSavedSnapshot = ''
+  saveState.value = 'idle'
+}
+
+async function selectCategory(value: string) {
+  if (value === category.value) return
+  if (!await confirmWorkspaceChange()) return
+  category.value = value
+  page.value = 1
+  clearCurrentQuestion()
+  await load()
 }
 
 function formatSchema() {
@@ -643,18 +586,34 @@ function formatSchema() {
   }
 }
 
-async function save() {
-  if (editorMode.value === 'visual') syncSchemaFromVisual()
+function save(automatic = false): Promise<boolean> {
+  if (activeSavePromise) return activeSavePromise
+  activeSavePromise = persistQuestion(automatic).finally(() => {
+    activeSavePromise = null
+  })
+  return activeSavePromise
+}
+
+async function persistQuestion(automatic = false): Promise<boolean> {
+  if (!canModifyCurrentQuestion.value) return false
+  clearAutoSaveTimer()
+  suppressDraftWatch = true
+  if (editorMode.value !== 'json') syncSchemaFromVisual()
   const plainTitle = stripHtml(form.title || visualQuestion.value.title || '').trim()
   if (!plainTitle) {
-    ElMessage.warning('请输入题目标题')
-    return
+    if (!automatic) ElMessage.warning('请输入题目标题')
+    suppressDraftWatch = false
+    saveState.value = 'error'
+    return false
   }
   if (!form.type) {
-    ElMessage.warning('请选择题型')
-    return
+    if (!automatic) ElMessage.warning('请选择题型')
+    suppressDraftWatch = false
+    saveState.value = 'error'
+    return false
   }
   saving.value = true
+  saveState.value = 'saving'
   try {
     const payload = {
       id: form.id,
@@ -664,33 +623,62 @@ async function save() {
       tags: form.tags || '',
       schema: form.schema || ''
     }
+    let response: any
     if (activeScope.value === 'survey') {
-      if (editDialog.isEdit) await adminApi.surveyQuestionBankEdit(payload)
-      else await adminApi.surveyQuestionBankInsert(payload)
+      response = editDialog.isEdit
+        ? await adminApi.surveyQuestionBankEdit(payload)
+        : await adminApi.surveyQuestionBankInsert(payload)
     } else {
-      if (editDialog.isEdit) await adminApi.examQuestionBankEdit(payload)
-      else await adminApi.examQuestionBankInsert(payload)
+      response = editDialog.isEdit
+        ? await adminApi.examQuestionBankEdit(payload)
+        : await adminApi.examQuestionBankInsert(payload)
     }
-    ElMessage.success('已保存')
-    editDialog.visible = false
+    if (!editDialog.isEdit) {
+      form.id = Number(response?.data?.id || form.id || 0)
+      editDialog.isEdit = form.id > 0
+    }
+    lastSavedSnapshot = draftSnapshot()
+    saveState.value = 'saved'
+    if (!automatic) ElMessage.success('已保存')
     await loadCategories()
     await load()
+    return true
+  } catch {
+    saveState.value = 'error'
+    return false
   } finally {
     saving.value = false
+    suppressDraftWatch = false
   }
 }
 
-async function fetchExportQuestions(scope: BankScope) {
+async function fetchAllQuestionRows(scope: BankScope, filters: Record<string, any> = {}) {
   const pageSizeForExport = 500
-  const first: any = await requestQuestionBankList(scope, buildListParams({ page: 1, pageSize: pageSizeForExport }))
+  const first: any = await requestQuestionBankList(scope, {
+    page: 1,
+    pageSize: pageSizeForExport,
+    keyword: filters.keyword ?? keyword.value,
+    category: filters.category ?? (category.value === '__uncategorized__' ? '' : category.value),
+    type: filters.type ?? questionType.value,
+  })
   const items = [...listFromResponse(first)]
   const allTotal = Number(first.data?.total || items.length)
   const pageCount = Math.ceil(allTotal / pageSizeForExport)
   for (let currentPage = 2; currentPage <= pageCount; currentPage++) {
-    const res: any = await requestQuestionBankList(scope, buildListParams({ page: currentPage, pageSize: pageSizeForExport }))
+    const res: any = await requestQuestionBankList(scope, {
+      page: currentPage,
+      pageSize: pageSizeForExport,
+      keyword: filters.keyword ?? keyword.value,
+      category: filters.category ?? (category.value === '__uncategorized__' ? '' : category.value),
+      type: filters.type ?? questionType.value,
+    })
     items.push(...listFromResponse(res))
   }
-  return items.map(normalizeExportQuestion)
+  return items
+}
+
+async function fetchExportQuestions(scope: BankScope) {
+  return (await fetchAllQuestionRows(scope)).map(normalizeExportQuestion)
 }
 
 async function exportQuestions() {
@@ -766,11 +754,13 @@ async function handleImportFile(event: Event) {
 }
 
 async function deleteRow(row: any) {
+  if (!canDeleteQuestion.value) return
   try {
     await ElMessageBox.confirm(`确认删除「${questionTitle(row)}」?`, '删除题目', { type: 'warning' })
   } catch {
     return
   }
+  clearAutoSaveTimer()
   if (activeScope.value === 'survey') {
     await adminApi.surveyQuestionBankDel({ id: row.id })
   } else {
@@ -778,72 +768,55 @@ async function deleteRow(row: any) {
   }
   ElMessage.success('已删除')
   if (list.value.length === 1 && page.value > 1) page.value--
+  if (Number(row.id || 0) === form.id) clearCurrentQuestion()
   await loadCategories()
   await load()
 }
 
+async function deleteCurrentQuestion() {
+  if (!form.id) return
+  const row = list.value.find(item => Number(item.id) === form.id) || { id: form.id, title: form.title }
+  await deleteRow(row)
+}
+
+function handleWorkspaceKeydown(event: KeyboardEvent) {
+  if (!editDialog.visible || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
+  event.preventDefault()
+  void save(false)
+}
+
+function applyResponsivePanelDefaults() {
+  rightCollapsed.value = window.innerWidth < 1200
+  leftCollapsed.value = window.innerWidth < 900
+}
+
+function toggleLeftPanel() {
+  const opening = leftCollapsed.value
+  leftCollapsed.value = !leftCollapsed.value
+  if (opening && window.innerWidth < 1200) rightCollapsed.value = true
+}
+
+function toggleRightPanel() {
+  const opening = rightCollapsed.value
+  rightCollapsed.value = !rightCollapsed.value
+  if (opening && window.innerWidth < 1200) leftCollapsed.value = true
+}
+
+watch(form, scheduleAutoSave, { deep: true })
+watch(visualQuestion, scheduleAutoSave, { deep: true })
+watch(editorMode, value => handleEditorModeChange(value))
+
 onMounted(async () => {
+  window.addEventListener('keydown', handleWorkspaceKeydown)
+  applyResponsivePanelDefaults()
   await loadCategories()
   await load()
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleWorkspaceKeydown)
+  clearAutoSaveTimer()
+})
 </script>
 
-<style scoped>
-.question-bank-page {
-  --bank-accent: #2563eb;
-  --bank-accent-soft: #eff6ff;
-  --bank-border: #e5e7eb;
-}
-
-.bank-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--bank-border);
-}
-
-.bank-tabs {
-  width: 260px;
-  max-width: 100%;
-}
-
-.bank-tabs :deep(.el-tabs__header) {
-  margin-bottom: 0;
-}
-
-.bank-tabs :deep(.el-tabs__nav-wrap::after) {
-  display: none;
-}
-
-.bank-import-input {
-  display: none;
-}
-
-.bank-stat-bar {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  height: 40px;
-  margin-bottom: 14px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #667085;
-  font-size: 13px;
-}
-
-.bank-stat strong {
-  margin-right: 4px;
-  color: var(--bank-accent);
-  font-size: 17px;
-}
-
-
-@media (max-width: 768px) {
-  .bank-tabs {
-    width: 100%;
-  }
-}
-</style>
+<style scoped src="./question-bank-workspace.css"></style>

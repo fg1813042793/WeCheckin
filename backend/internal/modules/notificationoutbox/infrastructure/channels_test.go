@@ -19,7 +19,7 @@ func TestInternalChannelUsesAllScopeForNotifyAdmin(t *testing.T) {
 		Title: "统计", Content: "内容", SourceType: "survey", SourceID: "12",
 	})
 
-	if err := channel.Deliver(context.Background(), row); err != nil {
+	if _, err := channel.Deliver(context.Background(), row); err != nil {
 		t.Fatal(err)
 	}
 	if sender.input.Scope != inappnotificationapp.ScopeAll || sender.input.SourceType != "survey" || sender.input.SourceID != "12" || sender.input.DeliveryKey != "outbox-key" {
@@ -33,7 +33,7 @@ func TestInternalChannelUsesSelectedUsers(t *testing.T) {
 	row := notificationRow(t, notificationoutboxapp.InternalRecipient{UserIDs: []uint{7, 9}}, notificationoutboxapp.MessagePayload{Title: "统计", Content: "内容"})
 	row.SourceType, row.SourceID = "survey_response", "34"
 
-	if err := channel.Deliver(context.Background(), row); err != nil {
+	if _, err := channel.Deliver(context.Background(), row); err != nil {
 		t.Fatal(err)
 	}
 	if sender.input.Scope != inappnotificationapp.ScopeUsers || len(sender.input.UserIDs) != 2 || sender.input.NotificationType != "" {
@@ -49,7 +49,7 @@ func TestInternalChannelForwardsTrimmedNotificationType(t *testing.T) {
 		NotificationType: "  feedback_status  ", SourceType: "user_feedback", SourceID: "91",
 	})
 
-	if err := channel.Deliver(context.Background(), row); err != nil {
+	if _, err := channel.Deliver(context.Background(), row); err != nil {
 		t.Fatal(err)
 	}
 	if sender.input.NotificationType != "feedback_status" {
@@ -58,14 +58,18 @@ func TestInternalChannelForwardsTrimmedNotificationType(t *testing.T) {
 }
 
 func TestWebhookChannelKeepsDingTalkPayloadFormat(t *testing.T) {
-	client := &outboundClientStub{response: outboundhttp.Response{StatusCode: 200}}
+	client := &outboundClientStub{response: outboundhttp.Response{StatusCode: 200, Body: []byte(`{"errcode":0,"errmsg":"ok"}`)}}
 	channel := NewWebhookChannel(client)
 	row := notificationRow(t, notificationoutboxapp.WebhookRecipient{Type: "dingtalk", URL: "https://example.com/hook"}, notificationoutboxapp.MessagePayload{
 		Title: "问卷", Content: "第一行\n第二行", NotificationType: "feedback_status",
 	})
 
-	if err := channel.Deliver(context.Background(), row); err != nil {
+	result, err := channel.Deliver(context.Background(), row)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if result.ResponseStatusCode != 200 || result.ResponseBody != `{"errcode":0,"errmsg":"ok"}` {
+		t.Fatalf("delivery result = %#v", result)
 	}
 	if client.request.Method != "POST" || client.request.URL != "https://example.com/hook" || client.request.Timeout <= 0 {
 		t.Fatalf("request = %#v", client.request)
@@ -90,9 +94,12 @@ func TestWebhookChannelRejectsNonSuccessStatus(t *testing.T) {
 	channel := NewWebhookChannel(client)
 	row := notificationRow(t, notificationoutboxapp.WebhookRecipient{URL: "https://example.com/hook"}, notificationoutboxapp.MessagePayload{Title: "问卷", Content: "内容"})
 
-	err := channel.Deliver(context.Background(), row)
+	result, err := channel.Deliver(context.Background(), row)
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("error = %v", err)
+	}
+	if result.ResponseStatusCode != 500 || result.ResponseBody != "failed" {
+		t.Fatalf("delivery result = %#v", result)
 	}
 }
 

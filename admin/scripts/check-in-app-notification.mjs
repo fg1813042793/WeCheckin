@@ -60,6 +60,11 @@ for (const snippet of [
 	"hasPerm('admin:menu:workflow:notification:delete')",
   "消息样式",
   "hasPerm('admin:menu:notification:style:list')",
+  'HTTP 状态码',
+  '响应正文',
+  '投递判定',
+  'webhookDetail.responseStatusCode',
+  'formatWebhookResponseBody',
 ]) {
   if (!page.includes(snippet)) throw new Error(`in-app notification page missing ${snippet}`)
 }

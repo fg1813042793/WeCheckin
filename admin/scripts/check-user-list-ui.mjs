@@ -7,10 +7,9 @@ const source = readFileSync(resolve(currentDir, '../src/views/user/index.vue'), 
 
 const requiredSnippets = [
   'class="admin-page user-page"',
-  'class="admin-card"',
-  'class="admin-toolbar"',
-  'class="admin-toolbar__left"',
-  'class="admin-toolbar__right"',
+  'class="admin-toolbar',
+  'class="admin-toolbar__left',
+  'class="admin-toolbar__right',
   'class="admin-table-actions"',
   'width="220"',
   '<el-dropdown',

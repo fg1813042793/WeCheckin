@@ -18,7 +18,7 @@ const DEFAULT_RESULT_CONFIG = {
 
 export function createSurveyDesignerForm() {
   return reactive<any>({
-    id: 0, title: '', description: '', category: '', tags: '', mode: 'survey',
+    id: 0, title: '', displayTitle: '', publicUrl: '', description: '', category: '', tags: '', mode: 'survey',
     visibility: 0, allowMultiBool: 0, anonymousBool: 0, showResultBool: 0,
     startDate: null, endDate: null, maxResponse: 0, statusBool: 1, deptIds: '',
     questionNumber: true, progressBar: false, autoSave: false,
@@ -124,6 +124,8 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
   function buildSettingsPayload() {
     const form = options.form
     return {
+      displayTitle: typeof form.displayTitle === 'string' ? form.displayTitle.trim() : '',
+      publicUrl: typeof form.publicUrl === 'string' ? form.publicUrl.trim() : '',
       questionNumber: form.questionNumber, progressBar: form.progressBar, autoSave: form.autoSave,
       password: form.password, loginRequired: form.loginRequired,
       onePageOneQuestion: form.onePageOneQuestion, answerSheetVisible: form.answerSheetVisible,
@@ -408,6 +410,8 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
         options.logicRules.value = []
       }
       return {
+        displayTitle: typeof settings.displayTitle === 'string' ? settings.displayTitle : '',
+        publicUrl: typeof settings.publicUrl === 'string' ? settings.publicUrl : '',
         questionNumber: settings.questionNumber ?? true,
         progressBar: settings.progressBar ?? false,
         autoSave: settings.autoSave ?? false,
@@ -455,6 +459,8 @@ function withoutLegacyResultConfig(value: unknown) {
 
 function defaultSettings() {
   return {
+    displayTitle: '',
+    publicUrl: '',
     questionNumber: true, progressBar: false, autoSave: false, password: '',
     loginRequired: false, onePageOneQuestion: false, answerSheetVisible: true,
     copyEnabled: true, triggerType: 'onBlur', transcriptVisible: true,

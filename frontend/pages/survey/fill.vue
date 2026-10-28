@@ -29,7 +29,7 @@
     <view v-else-if="survey" class="survey-card">
       <view v-if="headerImage" class="survey-card-img"><image :src="headerImage" mode="aspectFill" /></view>
       <view class="survey-header">
-        <text class="survey-title">{{ survey.title }}</text>
+        <text class="survey-title">{{ displayTitle }}</text>
         <text v-if="survey.description" class="survey-desc">{{ survey.description }}</text>
         <view class="survey-meta">
           <text v-if="survey.anonymous === 1" class="survey-tag survey-tag--anon">匿名收集</text>
@@ -127,6 +127,7 @@ import {
   getQuestionInitialValue,
   isQuestionAnswered,
   parseQuestions,
+  resolveSurveyTitle,
   parseSettings
 } from '../../utils/formFill'
 
@@ -168,6 +169,7 @@ export default {
     }
   },
   computed: {
+    displayTitle() { return resolveSurveyTitle(this.survey?.title, this.settings?.displayTitle) },
     answerProgress() { return getAnswerProgress(this.questions, this.answers, { hiddenIds: this.hiddenIds }) },
     totalQuestions() { return this.answerProgress.total },
     answeredCount() { return this.answerProgress.answered },

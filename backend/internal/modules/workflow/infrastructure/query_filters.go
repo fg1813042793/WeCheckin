@@ -118,6 +118,10 @@ func applyInstanceFilters(db *gorm.DB, query application.InstanceQuery) *gorm.DB
 }
 
 func instanceVisibilityWhere(visibility *application.InstanceVisibility) (string, []interface{}) {
+	return instanceVisibilityWhereForStarter(visibility, "starter_id")
+}
+
+func instanceVisibilityWhereForStarter(visibility *application.InstanceVisibility, starterColumn string) (string, []interface{}) {
 	if visibility == nil || (visibility.Ready && visibility.All) {
 		return "", nil
 	}
@@ -127,13 +131,13 @@ func instanceVisibilityWhere(visibility *application.InstanceVisibility) (string
 	clauses := make([]string, 0, 2)
 	args := make([]interface{}, 0, 2)
 	if userIDs := normalizeVisibilityUintIDs(visibility.UserIDs); len(userIDs) > 0 {
-		clauses = append(clauses, "CAST(starter_id AS UNSIGNED) IN ?")
+		clauses = append(clauses, "CAST("+starterColumn+" AS UNSIGNED) IN ?")
 		args = append(args, userIDs)
 	}
 	if departmentIDs := normalizeVisibilityUintIDs(visibility.DepartmentIDs); len(departmentIDs) > 0 {
 		clauses = append(clauses, `EXISTS (
 			SELECT 1 FROM user_depts summary_user_dept
-			WHERE summary_user_dept.user_dept_user_id = CAST(workflow_process_instances.starter_id AS UNSIGNED)
+			WHERE summary_user_dept.user_dept_user_id = CAST(`+starterColumn+` AS UNSIGNED)
 			AND summary_user_dept.user_dept_dept_id IN ?
 		)`)
 		args = append(args, departmentIDs)
@@ -169,6 +173,9 @@ func applyTaskFilters(db *gorm.DB, query application.TaskQuery) *gorm.DB {
 		WHERE active_instance.id = workflow_process_tasks.instance_id
 		AND active_instance.admin_deleted_at = 0
 	)`)
+	if len(query.IDs) > 0 {
+		db = db.Where("workflow_process_tasks.id IN ?", query.IDs)
+	}
 	if value := strings.TrimSpace(query.InstanceID); value != "" {
 		db = db.Where("instance_id = ?", value)
 	}
@@ -189,6 +196,7 @@ func applyTaskFilters(db *gorm.DB, query application.TaskQuery) *gorm.DB {
 			StarterName:        query.StarterName,
 			StartTimeFrom:      query.StartTimeFrom,
 			StartTimeTo:        query.StartTimeTo,
+			Visibility:         query.Visibility,
 		})
 		db = db.Where("instance_id IN (?)", instances)
 	}
@@ -200,7 +208,7 @@ func hasTaskInstanceFilters(query application.TaskQuery) bool {
 		strings.TrimSpace(query.DefinitionName) != "" ||
 		strings.TrimSpace(query.DefinitionCategory) != "" ||
 		strings.TrimSpace(query.StarterName) != "" ||
-		query.StartTimeFrom > 0 || query.StartTimeTo > 0
+		query.StartTimeFrom > 0 || query.StartTimeTo > 0 || query.Visibility != nil
 }
 
 func containsLikePattern(value string) string {

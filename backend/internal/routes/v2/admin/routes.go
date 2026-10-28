@@ -38,6 +38,7 @@ import (
 	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
 	userfeedbackinfra "wecheckin/backend/internal/modules/userfeedback/infrastructure"
 	userfeedbackhttp "wecheckin/backend/internal/modules/userfeedback/transport/httpadmin"
+	"wecheckin/backend/internal/modules/workflow/adminscope"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpadmin"
@@ -121,7 +122,7 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 		workflowapp.DefaultLifecycleEventPublisher(),
 		notificationDispatcher,
 	)
-	runtimeHandler := workflowhttp.NewRuntimeHandler(runtimeService)
+	runtimeHandler := workflowhttp.NewRuntimeHandlerWithAccess(runtimeService, adminscope.NewResolver(db))
 
 	admin.GET("/workflow-definitions", aWorkflow.List)
 	admin.POST("/workflow-definitions", aWorkflow.Create)

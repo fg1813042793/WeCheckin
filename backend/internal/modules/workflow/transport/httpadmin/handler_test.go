@@ -11,6 +11,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/route/param"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/modules/workflow/adminscope"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowdomain "wecheckin/backend/internal/modules/workflow/domain"
 	"wecheckin/backend/internal/workflowcore"
@@ -23,6 +24,7 @@ type runtimeServiceStub struct {
 	resumeInstanceID          string
 	resumeActorID             string
 	instanceQuery             workflowapp.InstanceQuery
+	instanceList              *workflowapp.InstanceList
 	taskQuery                 workflowapp.TaskQuery
 	definitionID              uint
 	listDefinitions           int
@@ -51,6 +53,13 @@ type runtimeServiceStub struct {
 	listDefinitionsErr        error
 }
 
+func newTestRuntimeHandler(service RuntimeService) *RuntimeHandler {
+	return NewRuntimeHandlerWithAccess(service, scopeResolverStub{scope: adminscope.Scope{
+		Visibility:     workflowapp.InstanceVisibility{Ready: true, All: true},
+		AllDefinitions: true,
+	}})
+}
+
 func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]workflowapp.PublishedDefinition, error) {
 	stub.listDefinitions++
 	if stub.listDefinitionsErr != nil {
@@ -75,7 +84,7 @@ func (stub *runtimeServiceStub) ListPublishedDefinitions(context.Context) ([]wor
 
 func TestListDefinitionsDoesNotExposeUnknownServiceError(t *testing.T) {
 	stub := &runtimeServiceStub{listDefinitionsErr: errors.New("SELECT password FROM admins: secret")}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 
 	handler.ListDefinitions(context.Background(), c)
@@ -133,6 +142,9 @@ func (stub *runtimeServiceStub) ResumeTimers(_ context.Context, instanceID, acto
 
 func (stub *runtimeServiceStub) ListInstances(_ context.Context, query workflowapp.InstanceQuery) (*workflowapp.InstanceList, error) {
 	stub.instanceQuery = query
+	if stub.instanceList != nil {
+		return stub.instanceList, nil
+	}
 	return &workflowapp.InstanceList{Page: query.Page, PageSize: query.PageSize}, nil
 }
 
@@ -192,7 +204,7 @@ func (stub *runtimeServiceStub) DeleteTask(_ context.Context, actorID, taskID st
 
 func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 
 	handler.ListDefinitions(context.Background(), c)
@@ -214,7 +226,7 @@ func TestListDefinitionsReturnsPublishedFormSchemasForAdmins(t *testing.T) {
 
 func TestGetDefinitionReturnsPublishedFormSchemaForAdmins(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 	c.Params = append(c.Params, param.Param{Key: "id", Value: "7"})
 
@@ -231,7 +243,7 @@ func TestGetDefinitionReturnsPublishedFormSchemaForAdmins(t *testing.T) {
 
 func TestStartInstanceUsesSelectedStarterAndAuthenticatedAdminAsOperator(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 	c.Request.SetBodyString(`{
 		"definitionId": 7,
@@ -267,7 +279,7 @@ func TestStartInstanceUsesSelectedStarterAndAuthenticatedAdminAsOperator(t *test
 
 func TestCompleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 	c.Params = append(c.Params, param.Param{Key: "id", Value: "task-1001"})
 	c.Request.SetBodyString(`{
@@ -297,7 +309,7 @@ func TestCompleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
 
 func TestCancelInstanceUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1001"})
 	c.Request.SetBodyString(`{"instanceId":"forged-instance","actorId":"forged-user","reason":"invalid request"}`)
@@ -314,7 +326,7 @@ func TestCancelInstanceUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 
 func TestResumeTimersUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := newAdminContext(42)
 	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1001"})
 	resumer, ok := interface{}(handler).(interface {
@@ -333,7 +345,7 @@ func TestResumeTimersUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 
 func TestDeleteInstancesUsesAuthenticatedAdminAndStableIDs(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 
 	single := newAdminContext(42)
 	single.Params = append(single.Params, param.Param{Key: "id", Value: "instance-route"})
@@ -363,7 +375,7 @@ func TestDeleteInstancesUsesAuthenticatedAdminAndStableIDs(t *testing.T) {
 
 func TestDeleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 
 	request := newAdminContext(42)
 	request.Params = append(request.Params, param.Param{Key: "id", Value: "task-route"})
@@ -386,7 +398,7 @@ func TestDeleteTaskUsesAuthenticatedAdminAndRouteTaskID(t *testing.T) {
 
 func TestNotificationManagementUsesAuthenticatedAdminAndStableInputs(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 
 	listContext := newAdminContext(42)
 	listContext.Request.SetRequestURI("/api/v2/admin/workflow-notifications?instanceId=instance-1&recipientUserId=7&kind=node_cc&channel=dingtalk_oa&status=failed&page=2&pageSize=15")
@@ -442,8 +454,8 @@ func TestNotificationManagementUsesAuthenticatedAdminAndStableInputs(t *testing.
 
 func TestListInstancesParsesStableFilters(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
-	c := app.NewContext(1)
+	handler := newTestRuntimeHandler(stub)
+	c := newAdminContext(42)
 	c.Request.SetRequestURI("/api/v2/admin/workflow-instances?definitionId=7&definitionName=%E7%BB%A9%E6%95%88%E8%80%83%E8%AF%84&instanceTitle=2026%E5%B9%B48%E6%9C%88%E7%BB%A9%E6%95%88&businessPeriodKey=2026-08&definitionCategory=performance&status=running&businessType=leave&businessKey=LEAVE-1001&starterId=42&startTimeFrom=1000&startTimeTo=1999&endTimeFrom=2000&endTimeTo=2999&page=2&pageSize=40")
 
 	handler.ListInstances(context.Background(), c)
@@ -452,7 +464,8 @@ func TestListInstancesParsesStableFilters(t *testing.T) {
 		DefinitionID: 7, DefinitionName: "绩效考评", InstanceTitle: "2026年8月绩效", BusinessPeriodKey: "2026-08", DefinitionCategory: "performance",
 		Status: "running", BusinessType: "leave", BusinessKey: "LEAVE-1001", StarterID: "42",
 		StartTimeFrom: 1000, StartTimeTo: 1999, EndTimeFrom: 2000, EndTimeTo: 2999,
-		Page: 2, PageSize: 40,
+		Visibility: &workflowapp.InstanceVisibility{Ready: true, All: true},
+		Page:       2, PageSize: 40,
 	}
 	if !reflect.DeepEqual(stub.instanceQuery, want) {
 		t.Fatalf("unexpected instance query: got %+v want %+v", stub.instanceQuery, want)
@@ -461,23 +474,24 @@ func TestListInstancesParsesStableFilters(t *testing.T) {
 
 func TestListTasksParsesStableFilters(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
-	c := app.NewContext(1)
+	handler := newTestRuntimeHandler(stub)
+	c := newAdminContext(42)
 	c.Request.SetRequestURI("/api/v2/admin/workflow-tasks?instanceId=instance-1&assigneeId=42&status=pending&page=3&pageSize=15")
 
 	handler.ListTasks(context.Background(), c)
 
 	want := workflowapp.TaskQuery{
-		InstanceID: "instance-1", AssigneeID: "42", Status: "pending", HideAdminDeleted: true, Page: 3, PageSize: 15,
+		InstanceID: "instance-1", AssigneeID: "42", Status: "pending", HideAdminDeleted: true,
+		Visibility: &workflowapp.InstanceVisibility{Ready: true, All: true}, Page: 3, PageSize: 15,
 	}
-	if stub.taskQuery != want {
+	if !reflect.DeepEqual(stub.taskQuery, want) {
 		t.Fatalf("unexpected task query: got %+v want %+v", stub.taskQuery, want)
 	}
 }
 
 func TestStartInstanceRejectsUnauthenticatedRequest(t *testing.T) {
 	stub := &runtimeServiceStub{}
-	handler := NewRuntimeHandler(stub)
+	handler := newTestRuntimeHandler(stub)
 	c := app.NewContext(1)
 	c.Request.SetBodyString(`{"definitionId":7,"businessType":"leave","businessKey":"LEAVE-1001"}`)
 

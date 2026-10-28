@@ -170,6 +170,10 @@ func unifiedTaskBranchWhere(query application.TaskQuery, revision bool) (string,
 	}
 	clauses := []string{"task_instance.admin_deleted_at = 0"}
 	args := make([]interface{}, 0)
+	if len(query.IDs) > 0 {
+		clauses = append(clauses, taskAlias+".id IN ?")
+		args = append(args, query.IDs)
+	}
 	if query.HideAdminDeleted && !revision {
 		clauses = append(clauses, taskAlias+".admin_deleted_at = 0")
 	}
@@ -212,6 +216,10 @@ func unifiedTaskBranchWhere(query application.TaskQuery, revision bool) (string,
 	if query.StartTimeTo > 0 {
 		clauses = append(clauses, "task_instance.start_time <= ?")
 		args = append(args, query.StartTimeTo)
+	}
+	if where, visibilityArgs := instanceVisibilityWhereForStarter(query.Visibility, "task_instance.starter_id"); where != "" {
+		clauses = append(clauses, where)
+		args = append(args, visibilityArgs...)
 	}
 	return strings.Join(clauses, " AND "), args
 }
