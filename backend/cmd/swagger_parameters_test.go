@@ -97,6 +97,7 @@ func TestSwaggerDocumentsWriteRequestPayloads(t *testing.T) {
 		"patch /api/v2/admin/in-app-notifications/read-all":             true,
 		"post /api/v2/admin/scheduled-task-runs/{id}/cancel":            true,
 		"post /api/v2/admin/scheduled-task-runs/{id}/retry":             true,
+		"post /api/v2/admin/webhook-notifications/{id}/retry":           true,
 		"post /api/v2/admin/scheduled-tasks/{id}/run":                   true,
 		"post /api/v2/admin/surveys/{id}/copy":                          true,
 		"patch /api/v2/admin/users/{id}/password":                       true,

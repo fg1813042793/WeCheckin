@@ -118,8 +118,12 @@ for (const pattern of [
   '<SurveyDesignerTextImportDialog',
   '<SurveyDesignerBankUploadDialog',
   ':invalid-ids="invalidQuestionIds"',
+  '@pointerdown.capture="handleDesignerPointerDown"',
   'const designerIssues = computed(',
   'function locateDesignerIssue(',
+  'function handleDesignerPointerDown(event: PointerEvent)',
+  "target.closest<HTMLElement>('[data-survey-question-id]')",
+  "target.closest('.survey-setting-panel')",
   'v-loading="designerLoading"',
   'v-if="designerLoadError"',
   '@click="retryLoad"',
@@ -140,6 +144,7 @@ for (const pattern of [
 }
 
 assert.doesNotMatch(designer, /function typeName\(/, 'question type labels must stay outside SurveyDesigner.vue')
+assert.doesNotMatch(designer, /@click\.self="deselectQuestion"/, 'question deselection must use the workspace pointer boundary')
 assert.doesNotMatch(designer, /tabsBarRef/, 'question palette scrolling must stay outside SurveyDesigner.vue')
 assert.doesNotMatch(designer, /function parseTextToQuestions\(/, 'text parsing must stay outside SurveyDesigner.vue')
 assert.doesNotMatch(designer, /function surveyToText\(/, 'text serialization must stay outside SurveyDesigner.vue')

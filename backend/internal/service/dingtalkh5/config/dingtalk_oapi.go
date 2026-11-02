@@ -288,7 +288,7 @@ func dingTalkAgentNotificationMessage(notification DingTalkWorkNotificationPaylo
 			"msgtype": DingTalkMessageTypeActionCard,
 			"action_card": map[string]string{
 				"title":        notification.Title,
-				"markdown":     notification.Content,
+				"markdown":     dingTalkActionCardContent(notification.Title, notification.Content),
 				"single_title": notification.ButtonTitle,
 				"single_url":   notification.URL,
 			},
@@ -333,7 +333,7 @@ func dingTalkRobotNotificationMessage(notification DingTalkWorkNotificationPaylo
 	if notification.MessageType == DingTalkMessageTypeActionCard {
 		msgParam, _ := json.Marshal(map[string]string{
 			"title":       notification.Title,
-			"text":        notification.Content,
+			"text":        dingTalkActionCardContent(notification.Title, notification.Content),
 			"singleTitle": notification.ButtonTitle,
 			"singleURL":   notification.URL,
 		})
@@ -358,6 +358,18 @@ func dingTalkRobotNotificationMessage(notification DingTalkWorkNotificationPaylo
 	}
 	msgParam, _ := json.Marshal(map[string]string{"content": notification.Content})
 	return "sampleText", string(msgParam)
+}
+
+func dingTalkActionCardContent(title, content string) string {
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+	if title == "" || strings.Contains(content, title) {
+		return content
+	}
+	if content == "" {
+		return "### " + title
+	}
+	return "### " + title + "\n\n" + content
 }
 
 func validateDingTalkWorkNotificationPayload(notification DingTalkWorkNotificationPayload) error {

@@ -56,6 +56,11 @@ func (h *AdminDingTalkHandler) GetSettings(ctx context.Context, c *app.RequestCo
 	unifiedAppID := adminDingTalkSetupValue(ctx, "DINGTALK_H5_UNIFIED_APP_ID")
 	notifyMode := adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_NOTIFY_MODE", "agent")
 	notifyEnabled := boolToSwitch(dingtalkh5service.DingTalkH5NotificationEnabledContext(ctx))
+	loginCaptchaEnabled, err := dingtalkh5service.LoginCaptchaEnabledContext(ctx)
+	if err != nil {
+		response.Fail(c, "读取配置失败")
+		return
+	}
 	robotCode := adminDingTalkSetupValue(ctx, "DINGTALK_H5_ROBOT_CODE")
 	if len(corpConfigs) > 0 {
 		corpID = corpConfigs[0].CorpID
@@ -75,11 +80,12 @@ func (h *AdminDingTalkHandler) GetSettings(ctx context.Context, c *app.RequestCo
 		NotifyMode: notifyMode, RobotCode: robotCode, AppSecretSet: appSecret != "",
 		CorpConfigs: adminDingTalkCorpConfigResponses(corpConfigs), TokenExpire: expire.String(), RedisPrefix: prefix,
 		SingleLogin: singleLogin, SelfBind: boolToSwitch(dingtalkh5service.SelfBindEnabledContext(ctx)),
-		NotifyEnabled: notifyEnabled,
-		AppName:       adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_APP_NAME", defaultDingTalkH5AppName),
-		LogoText:      adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_LOGO_TEXT", defaultDingTalkH5LogoText),
-		LogoURL:       adminDingTalkSetupValue(ctx, "DINGTALK_H5_LOGO_URL"),
-		AppURL:        adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_URL"),
+		LoginCaptchaEnabled: boolToSwitch(loginCaptchaEnabled),
+		NotifyEnabled:       notifyEnabled,
+		AppName:             adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_APP_NAME", defaultDingTalkH5AppName),
+		LogoText:            adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_LOGO_TEXT", defaultDingTalkH5LogoText),
+		LogoURL:             adminDingTalkSetupValue(ctx, "DINGTALK_H5_LOGO_URL"),
+		AppURL:              adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_URL"),
 	})
 }
 
@@ -115,11 +121,16 @@ func (h *AdminDingTalkHandler) SaveSettings(ctx context.Context, c *app.RequestC
 		if value := strings.TrimSpace(c.PostForm("selfBind")); value == "" || value == "1" || strings.EqualFold(value, "true") {
 			selfBind = "1"
 		}
+		loginCaptchaEnabled := "0"
+		if value := strings.TrimSpace(c.PostForm("loginCaptchaEnabled")); value == "1" || strings.EqualFold(value, "true") {
+			loginCaptchaEnabled = "1"
+		}
 		setupItems = append(setupItems,
 			setupservice.SetupItem{Key: "TOKEN_DINGTALK_H5_EXPIRE", Value: tokenExpire, Type: "string"},
 			setupservice.SetupItem{Key: "TOKEN_DINGTALK_H5_REDIS_PREFIX", Value: redisPrefix, Type: "string"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_SINGLE_LOGIN", Value: singleLogin, Type: "switch"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_SELF_BIND_ENABLED", Value: selfBind, Type: "switch"},
+			setupservice.SetupItem{Key: "DINGTALK_H5_LOGIN_CAPTCHA_ENABLED", Value: loginCaptchaEnabled, Type: "switch"},
 		)
 	}
 

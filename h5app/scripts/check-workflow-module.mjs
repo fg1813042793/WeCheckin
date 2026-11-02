@@ -271,7 +271,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
-    patterns: ['definitionName', '流程名称', 'placeholder="输入流程名称"', 'instance.definitionName', 'instance.definitionId', '请选择同一流程的记录批量导出', ':definitions="definitions"', 'refreshTick?: number', 'watch(\n  () => props.refreshTick,\n  () => void loadSummary(),\n)', '.workflow-summary__filters {\n  display: flex;\n  flex-wrap: wrap;', '.workflow-summary__filter-actions {\n  flex: 0 0 auto;\n  width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    min-width: 0;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
+    patterns: ['definitionName', '用户显示名称', 'placeholder="输入用户显示名称"', 'instance.definitionName', 'workflowSummaryExportUrl(instanceIds, exportFormat.value, content)', ':definitions="definitions"', 'refreshTick?: number', 'watch(\n  () => props.refreshTick,\n  () => void loadSummary(),\n)', '.workflow-summary__filters {\n  display: flex;\n  flex-wrap: wrap;', '.workflow-summary__filter-actions {\n  flex: 0 0 auto;\n  width: fit-content;', 'workflow-summary__mobile-label', 'custom-class="workflow-summary__checkbox"', 'workflow-summary__cell--mobile-secondary', '.workflow-summary__row--header {\n    display: none;', '.workflow-summary__table {\n    // Desktop column choices set inline widths; mobile uses stacked record cards.\n    min-width: 0 !important;', '.workflow-summary__cell--mobile-secondary {\n    display: none;'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowCenter.vue',
@@ -752,6 +752,14 @@ const requiredContent = [
 ]
 
 const forbiddenContent = [
+  {
+    file: 'src/pages/workflow/components/WorkflowSummarySection.vue',
+    patterns: [
+      'selectedDefinitionIds',
+      '请选择同一流程的记录批量导出',
+      'workflowSummaryExportUrl(selectedDefinitionIds[0]',
+    ],
+  },
   { file: 'src/pages/workflow/components/WorkflowFormDetailPage.vue', patterns: [':readonly="false"', ':field-actions=', 'completeWorkflowTask', 'reviseWorkflowInstanceForm'] },
   { file: 'src/pages/workflow/components/WorkflowCenter.vue', patterns: [`listWorkflowTasks({ status: 'pending', page: 1, pageSize: 1 })`] },
   { file: 'src/api/workflow.ts', patterns: ['const WORKFLOW_API = \'/api/v2/workflows\''] },

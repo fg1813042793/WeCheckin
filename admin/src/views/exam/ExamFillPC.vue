@@ -33,7 +33,7 @@
     </div>
     <div v-if="showResultView && result && (settings.transcriptVisible !== false || settings.showAnalysis)" class="fill-container result-container">
       <div v-if="settings.transcriptVisible !== false" class="header">
-        <h1>{{ exam?.title }}</h1>
+        <h1>{{ displayTitle }}</h1>
         <div class="meta">
           <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
           <el-tag size="small">正确 {{ result.correctCnt }} 题</el-tag>
@@ -60,7 +60,7 @@
     <div v-if="!submitted && exam" class="fill-container">
       <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
       <div class="header">
-        <h1>{{ exam.title }}</h1>
+        <h1>{{ displayTitle }}</h1>
         <p v-if="exam.description" class="desc">{{ exam.description }}</p>
         <div class="meta">
           <el-tag v-if="exam.anonymous === 1" size="small">匿名收集</el-tag>
@@ -342,10 +342,12 @@ import { useRoute } from 'vue-router'
 import { computed, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { publicFormApi } from '../../api/public'
+import { resolveSurveyTitle as resolveExamTitle } from '../../utils/surveyTitle'
 
 const route = useRoute()
 const exam = ref<any>(null)
 const settings = ref<any>({})
+const displayTitle = computed(() => resolveExamTitle(exam.value?.title, settings.value?.displayTitle))
 const questions = ref<any[]>([])
 const answers = ref<any>({})
 const loading = ref(true)

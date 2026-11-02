@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -13,12 +14,30 @@ import (
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"wecheckin/backend/internal/model"
+	notificationmodel "wecheckin/backend/internal/model/notification"
 	"wecheckin/backend/internal/modules/inappnotification/application"
 	"wecheckin/backend/internal/support/notificationstyle"
 	"wecheckin/backend/pkg/database"
 )
+
+type dingTalkRecordCounts struct {
+	PlannedCount int `json:"plannedCount"`
+	SentCount    int `json:"sentCount"`
+	SkippedCount int `json:"skippedCount"`
+	FailedCount  int `json:"failedCount"`
+}
+
+type dingTalkRecordPayload struct {
+	Title            string `json:"title"`
+	Content          string `json:"content"`
+	NotificationType string `json:"notificationType"`
+	TemplateID       uint   `json:"templateId,omitempty"`
+	TemplateVersion  int    `json:"templateVersion,omitempty"`
+	TemplateName     string `json:"templateName,omitempty"`
+}
 
 type GormStore struct {
 	db  *gorm.DB
@@ -144,6 +163,155 @@ func (store *GormStore) Deliver(ctx context.Context, batch application.DeliveryB
 		return application.DeliveryResult{}, err
 	}
 	return application.DeliveryResult{SentCount: int(existing), Replayed: true}, nil
+}
+
+func (store *GormStore) RecordDingTalkDelivery(ctx context.Context, record application.DingTalkDeliveryRecord) error {
+	if store == nil || store.db == nil {
+		return errors.New("DingTalk delivery record database is not initialized")
+	}
+	counts, err := json.Marshal(dingTalkRecordCounts{
+		PlannedCount: record.PlannedCount, SentCount: record.SentCount,
+		SkippedCount: record.SkippedCount, FailedCount: record.FailedCount,
+	})
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(dingTalkRecordPayload{
+		Title: record.Title, Content: record.Content, NotificationType: record.NotificationType,
+		TemplateID: record.TemplateID, TemplateVersion: record.TemplateVersion, TemplateName: record.TemplateName,
+	})
+	if err != nil {
+		return err
+	}
+	db, cancel := store.withContext(ctx)
+	defer cancel()
+	now := store.now
+	if now == nil {
+		now = time.Now
+	}
+	nowMillis := now().UnixMilli()
+	lastError := ""
+	if record.FailedCount > 0 {
+		lastError = fmt.Sprintf("%d recipients failed", record.FailedCount)
+	}
+	sentAt := int64(0)
+	if record.SentCount > 0 {
+		sentAt = nowMillis
+	}
+	row := notificationmodel.Outbox{
+		IdempotencyKey: dingTalkRecordKey(record.SourceType, record.SourceID),
+		SourceType:     record.SourceType, SourceID: record.SourceID, Channel: notificationmodel.ChannelDingTalk,
+		RecipientJSON: string(counts), PayloadJSON: string(payload), Status: record.Status,
+		Attempts: 1, LastError: lastError, SentAt: sentAt, AddTime: nowMillis, EditTime: nowMillis,
+	}
+	return db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "idempotency_key"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"recipient_json": row.RecipientJSON, "payload_json": row.PayloadJSON,
+			"notification_status": row.Status, "attempts": gorm.Expr("attempts + 1"),
+			"last_error": row.LastError, "sent_at": row.SentAt, "edit_time": row.EditTime,
+		}),
+	}).Create(&row).Error
+}
+
+func (store *GormStore) ListDingTalkDeliveryRecords(ctx context.Context, recordQuery application.DingTalkDeliveryRecordQuery) ([]application.DingTalkDeliveryRecord, int64, error) {
+	if store == nil || store.db == nil {
+		return nil, 0, errors.New("DingTalk delivery record database is not initialized")
+	}
+	db, cancel := store.withContext(ctx)
+	defer cancel()
+	query := db.Model(&notificationmodel.Outbox{}).Where("notification_channel = ?", notificationmodel.ChannelDingTalk)
+	if recordQuery.SourceType != "" {
+		query = query.Where("source_type = ?", recordQuery.SourceType)
+	}
+	if recordQuery.Status != "" {
+		query = query.Where("notification_status = ?", recordQuery.Status)
+	}
+	if recordQuery.Title != "" {
+		query = query.Where("JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.title')) LIKE ? ESCAPE '!'", notificationContainsLikePattern(recordQuery.Title))
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []notificationmodel.Outbox
+	if err := query.Order("add_time DESC").Order("id DESC").Offset((recordQuery.Page - 1) * recordQuery.PageSize).Limit(recordQuery.PageSize).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	result := make([]application.DingTalkDeliveryRecord, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, dingTalkRecordFromOutbox(row))
+	}
+	return result, total, nil
+}
+
+func (store *GormStore) GetDingTalkDeliveryRecord(ctx context.Context, id uint64) (application.DingTalkDeliveryRecord, error) {
+	if store == nil || store.db == nil {
+		return application.DingTalkDeliveryRecord{}, errors.New("DingTalk delivery record database is not initialized")
+	}
+	db, cancel := store.withContext(ctx)
+	defer cancel()
+	var row notificationmodel.Outbox
+	err := db.Where("id = ? AND notification_channel = ?", id, notificationmodel.ChannelDingTalk).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return application.DingTalkDeliveryRecord{}, application.ErrDingTalkDeliveryRecordNotFound
+	}
+	if err != nil {
+		return application.DingTalkDeliveryRecord{}, err
+	}
+	return dingTalkRecordFromOutbox(row), nil
+}
+
+func (store *GormStore) DeleteDingTalkDeliveryRecord(ctx context.Context, id uint64) error {
+	if store == nil || store.db == nil {
+		return errors.New("DingTalk delivery record database is not initialized")
+	}
+	db, cancel := store.withContext(ctx)
+	defer cancel()
+	result := db.Where("id = ? AND notification_channel = ?", id, notificationmodel.ChannelDingTalk).Delete(&notificationmodel.Outbox{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return application.ErrDingTalkDeliveryRecordNotFound
+	}
+	return nil
+}
+
+func dingTalkRecordFromOutbox(row notificationmodel.Outbox) application.DingTalkDeliveryRecord {
+	var counts dingTalkRecordCounts
+	var payload dingTalkRecordPayload
+	_ = json.Unmarshal([]byte(row.RecipientJSON), &counts)
+	_ = json.Unmarshal([]byte(row.PayloadJSON), &payload)
+	// Direct-send records keep their counts in RecipientJSON. Only the new
+	// feedback queue shape stores recipients there and attempt counts in the response.
+	if row.Channel == notificationmodel.ChannelDingTalk && row.SourceType == "user_feedback" {
+		var recipient struct {
+			NotifyAdmin bool   `json:"notifyAdmin"`
+			UserIDs     []uint `json:"userIds"`
+		}
+		if err := json.Unmarshal([]byte(row.RecipientJSON), &recipient); err == nil &&
+			!recipient.NotifyAdmin && len(recipient.UserIDs) == 1 && recipient.UserIDs[0] != 0 {
+			counts = dingTalkRecordCounts{PlannedCount: 1}
+			var responseCounts dingTalkRecordCounts
+			if err := json.Unmarshal([]byte(row.ResponseBody), &responseCounts); err == nil && responseCounts.PlannedCount == 1 {
+				counts = responseCounts
+			}
+		}
+	}
+	return application.DingTalkDeliveryRecord{
+		ID: row.ID, Title: payload.Title, Content: payload.Content, NotificationType: payload.NotificationType,
+		SourceType: row.SourceType, SourceID: row.SourceID,
+		TemplateID: payload.TemplateID, TemplateVersion: payload.TemplateVersion, TemplateName: payload.TemplateName,
+		Status: row.Status, PlannedCount: counts.PlannedCount, SentCount: counts.SentCount,
+		SkippedCount: counts.SkippedCount, FailedCount: counts.FailedCount,
+		Attempts: row.Attempts, LastError: row.LastError, SentAt: row.SentAt, AddTime: row.AddTime, EditTime: row.EditTime,
+	}
+}
+
+func dingTalkRecordKey(sourceType, sourceID string) string {
+	sum := sha256.Sum256([]byte("dingtalk\x00" + strings.TrimSpace(sourceType) + "\x00" + strings.TrimSpace(sourceID)))
+	return hex.EncodeToString(sum[:])
 }
 
 func (store *GormStore) ListRecords(ctx context.Context, recordQuery application.NotificationRecordQuery) ([]application.Notification, int64, error) {

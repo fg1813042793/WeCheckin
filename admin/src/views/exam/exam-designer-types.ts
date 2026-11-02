@@ -23,4 +23,11 @@ export interface ExamLogicRule {
   branchToIdx?: number
   branchToEnd?: boolean
   formula?: string
+  calculateTotalScore?: boolean
+  notifyAdmin?: boolean
+  notifyUserIds?: string
+  notifyChannel?: string
+  webhookType?: string
+  webhookUrl?: string
+  messageTemplate?: string
 }

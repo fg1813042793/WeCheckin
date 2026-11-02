@@ -10,6 +10,10 @@ const pagePath = 'src/views/notification/index.vue'
 if (!existsSync(resolve(root, pagePath))) throw new Error(`in-app notification UI missing ${pagePath}`)
 const workflowRecordsPath = 'src/views/notification/components/WorkflowDeliveryRecords.vue'
 if (!existsSync(resolve(root, workflowRecordsPath))) throw new Error(`workflow delivery record UI missing ${workflowRecordsPath}`)
+const dingTalkRecordsPath = 'src/views/notification/components/DingTalkDeliveryRecords.vue'
+if (!existsSync(resolve(root, dingTalkRecordsPath))) throw new Error(`DingTalk delivery record UI missing ${dingTalkRecordsPath}`)
+const notificationListStylePath = 'src/styles/notification-list.css'
+if (!existsSync(resolve(root, notificationListStylePath))) throw new Error(`notification list styles missing ${notificationListStylePath}`)
 
 const routes = read('src/router/adminRoutes.ts')
 for (const snippet of ["path: 'notifications'", "title: '通知记录管理'", "menuPath: '/notifications'", "../views/notification/index.vue"]) {
@@ -20,13 +24,13 @@ if (!routes.includes("path: 'survey/notify', name: 'SurveyNotify', component: ()
 }
 
 const api = read('src/api/index.ts')
-for (const method of ['inAppNotificationList', 'inAppNotificationDelete', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest', 'workflowNotificationSend', 'workflowNotificationDelete']) {
+for (const method of ['inAppNotificationList', 'inAppNotificationDelete', 'inAppNotificationSend', 'dingTalkNotificationRecipientOptions', 'dingTalkNotificationSend', 'dingTalkNotificationRecordList', 'dingTalkNotificationRecordDetail', 'dingTalkNotificationRecordDelete', 'notificationStylesGet', 'notificationStylesSave', 'notificationStyleInAppTest', 'notificationStyleDingTalkTest', 'workflowNotificationSend', 'workflowNotificationDelete']) {
   if (!api.includes(`${method}(`)) throw new Error(`in-app notification API missing ${method}`)
 }
 if (!api.includes('/in-app-notifications')) throw new Error('in-app notification API must use the canonical admin endpoint')
 if (!api.includes('/dingtalk-notifications')) throw new Error('DingTalk notification API must use the canonical admin endpoint')
 
-const page = read(pagePath)
+const page = [pagePath, 'src/views/notification/components/NotificationSendDialog.vue', 'src/views/notification/useNotificationSend.ts'].map(read).join('\n')
 for (const snippet of [
   '通知记录管理',
   '接收人',
@@ -52,9 +56,11 @@ for (const snippet of [
   'const sendRequestID = ref',
   'sendRequestID.value = newRequestID()',
   'requestId: sendRequestID.value',
-  "sendChannel.value === 'dingtalk'",
+  "channel() === 'dingtalk'",
   'NotificationStyleDialog',
   'WorkflowDeliveryRecords',
+  'DingTalkDeliveryRecords',
+  'name="dingtalk"',
   "name=\"workflow\"",
   "hasPerm('admin:menu:workflow:notification:list')",
 	"hasPerm('admin:menu:workflow:notification:delete')",
@@ -67,6 +73,34 @@ for (const snippet of [
   'formatWebhookResponseBody',
 ]) {
   if (!page.includes(snippet)) throw new Error(`in-app notification page missing ${snippet}`)
+}
+
+const dingTalkRecords = read(dingTalkRecordsPath)
+for (const snippet of [
+  '钉钉投递记录',
+  '计划人数',
+  '成功人数',
+  '跳过人数',
+  '失败人数',
+  'adminApi.dingTalkNotificationRecordList',
+  'adminApi.dingTalkNotificationRecordDetail',
+  'adminApi.dingTalkNotificationRecordDelete',
+  "sourceType === 'scheduled_task_run'",
+]) {
+  if (!dingTalkRecords.includes(snippet)) throw new Error(`DingTalk delivery record UI missing ${snippet}`)
+}
+
+const notificationListStyles = read(notificationListStylePath)
+for (const snippet of [
+  'body .notification-page .record-filters .admin-toolbar__left {',
+  'flex-direction: row;',
+  'flex: 1 1 auto;',
+  'width: auto;',
+  'body .notification-page .record-filters .admin-toolbar__right {',
+  'margin-left: auto;',
+  'justify-content: flex-end;',
+]) {
+  if (!notificationListStyles.includes(snippet)) throw new Error(`notification toolbar layout missing ${snippet}`)
 }
 
 const workflowRecords = read(workflowRecordsPath)
@@ -102,7 +136,7 @@ for (const declaration of ['overflow: hidden', 'white-space: nowrap', 'text-over
 }
 if (notificationContentStyle.includes('line-clamp')) throw new Error('notification content cell must remain single-line')
 
-const styleDialog = read('src/views/notification/components/NotificationStyleDialog.vue')
+const styleDialog = ['src/views/notification/components/NotificationStyleDialog.vue', 'src/views/notification/components/BusinessNotificationStyles.vue', 'src/views/notification/useNotificationStyles.ts'].map(read).join('\n')
 for (const snippet of [
   '实时预览',
   '测试收件人',

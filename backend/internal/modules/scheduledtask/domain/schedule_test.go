@@ -91,7 +91,7 @@ func TestComputeDueAppliesMisfirePolicies(t *testing.T) {
 		{policy: MisfirePolicyCatchUp, maxCatchUp: 2, wantRuns: 2, wantSkipped: 2},
 	} {
 		t.Run(test.policy, func(t *testing.T) {
-			result, err := schedule.ComputeDue(cursor, now, test.policy, test.maxCatchUp)
+			result, err := schedule.ComputeDue(cursor, now, test.policy, test.maxCatchUp, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -105,6 +105,41 @@ func TestComputeDueAppliesMisfirePolicies(t *testing.T) {
 				t.Fatalf("next = %v", result.Next)
 			}
 		})
+	}
+}
+
+func TestComputeDueRunsOccurrenceInsideMisfireGrace(t *testing.T) {
+	schedule, err := ParseSchedule("minute", "* * * * *", "UTC", 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursor := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	now := cursor.Add(time.Minute + 20*time.Second)
+	result, err := schedule.ComputeDue(cursor, now, MisfirePolicySkip, 0, 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Runs) != 1 || result.SkippedCount != 0 || result.Runs[0].Misfire || !result.Runs[0].ScheduledAt.Equal(cursor.Add(time.Minute)) {
+		t.Fatalf("due result = %#v", result)
+	}
+}
+
+func TestComputeDueAppliesSkipOnlyBeforeMisfireGrace(t *testing.T) {
+	schedule, err := ParseSchedule("minute", "* * * * *", "UTC", 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursor := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	now := cursor.Add(4*time.Minute + 20*time.Second)
+	result, err := schedule.ComputeDue(cursor, now, MisfirePolicySkip, 0, 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Runs) != 1 || result.SkippedCount != 3 || !result.SkippedAt.Equal(cursor.Add(time.Minute)) {
+		t.Fatalf("due result = %#v", result)
+	}
+	if result.Runs[0].Misfire || !result.Runs[0].ScheduledAt.Equal(cursor.Add(4*time.Minute)) {
+		t.Fatalf("current occurrence = %#v", result.Runs[0])
 	}
 }
 

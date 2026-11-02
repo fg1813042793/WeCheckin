@@ -15,9 +15,16 @@ import (
 type TemplatePreset = map[string]string
 
 func GetTemplatePresetsContext(ctx context.Context, adminID uint) ([]TemplatePreset, error) {
+	return getTemplatePresetsByKeyContext(ctx, templatePresetKey(adminID))
+}
+
+func GetExamTemplatePresetsContext(ctx context.Context, adminID uint) ([]TemplatePreset, error) {
+	return getTemplatePresetsByKeyContext(ctx, examTemplatePresetKey(adminID))
+}
+
+func getTemplatePresetsByKeyContext(ctx context.Context, key string) ([]TemplatePreset, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	key := templatePresetKey(adminID)
 	var entry model.Setup
 	if err := db.Where("`setup_key` = ?", key).First(&entry).Error; err != nil {
 		if IsNotFound(err) {
@@ -38,9 +45,16 @@ func GetTemplatePresetsContext(ctx context.Context, adminID uint) ([]TemplatePre
 }
 
 func SaveTemplatePresetsContext(ctx context.Context, adminID uint, presets []TemplatePreset) error {
+	return saveTemplatePresetsByKeyContext(ctx, templatePresetKey(adminID), presets)
+}
+
+func SaveExamTemplatePresetsContext(ctx context.Context, adminID uint, presets []TemplatePreset) error {
+	return saveTemplatePresetsByKeyContext(ctx, examTemplatePresetKey(adminID), presets)
+}
+
+func saveTemplatePresetsByKeyContext(ctx context.Context, key string, presets []TemplatePreset) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	key := templatePresetKey(adminID)
 	now := time.Now().Unix()
 	bytes, err := json.Marshal(presets)
 	if err != nil {
@@ -70,4 +84,8 @@ func SaveTemplatePresetsContext(ctx context.Context, adminID uint, presets []Tem
 
 func templatePresetKey(adminID uint) string {
 	return fmt.Sprintf("template_presets_%d", adminID)
+}
+
+func examTemplatePresetKey(adminID uint) string {
+	return fmt.Sprintf("exam_template_presets_%d", adminID)
 }

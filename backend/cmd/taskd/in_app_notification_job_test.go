@@ -16,8 +16,12 @@ func TestTaskdRegistersNotificationJobs(t *testing.T) {
 		"inappnotificationinfra.NewGormStore(db)",
 		"inappnotificationapp.NewServiceWithDingTalk(",
 		"inappnotificationinfra.NewDingTalkDelivery(db, nil)",
+		"dingTalkDelivery := inappnotificationinfra.NewDingTalkDelivery(db, nil)",
+		"notificationStore,\n\t\tdingTalkDelivery,",
+		"notificationoutboxinfra.NewDingTalkChannel(dingTalkDelivery)",
 		"scheduledtaskinfra.NewInAppNotificationJob(notificationService)",
 		"scheduledtaskinfra.NewDingTalkNotificationJob(notificationService)",
+		"scheduledtaskinfra.NewWorkflowStartNotificationJob(notificationService, workflowRuntime, notificationStore)",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("taskd main missing %q", snippet)

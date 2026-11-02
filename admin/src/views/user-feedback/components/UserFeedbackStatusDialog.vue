@@ -61,6 +61,7 @@ function open(feedback: UserFeedbackDetail) {
     ElMessage.warning('当前账号没有反馈处理权限')
     return
   }
+  if (submitting.value || visible.value) return
   const nextStatuses = nextUserFeedbackStatuses(feedback.status)
   detail.value = feedback
   form.status = nextStatuses[0] || ''
@@ -85,7 +86,7 @@ async function submit() {
     ElMessage.warning('当前账号没有反馈处理权限')
     return
   }
-  if (!detail.value || !form.status) return
+  if (submitting.value || !visible.value || !detail.value || !form.status) return
   if (!nextUserFeedbackStatuses(detail.value.status).includes(form.status)) {
     submitError.value = '当前状态已不允许执行该操作，请关闭后刷新详情'
     return
@@ -122,7 +123,7 @@ async function submit() {
   }
 }
 
-defineExpose({ open })
+defineExpose({ open, visible })
 </script>
 
 <template>

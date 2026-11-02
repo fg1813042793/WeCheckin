@@ -1,5 +1,6 @@
+import type { RequestMeta } from 'uview-pro'
 import type { ApiEnvelope } from '@/types/dingtalk-h5'
-import { http } from 'uview-pro'
+import { http, useLocale } from 'uview-pro'
 import { appErrorMessage } from '@/common/app-error'
 import {
   handleDingTalkH5AuthExpired,
@@ -56,12 +57,14 @@ export function authToken() {
   return String(uni.getStorageSync(DINGTALK_H5_CONFIG.TOKEN_KEY) || '')
 }
 
-export function setAuthToken(token: string) {
+export function setAuthToken(token: string, corpId = '') {
   uni.setStorageSync(DINGTALK_H5_CONFIG.TOKEN_KEY, token || '')
+  uni.setStorageSync(DINGTALK_H5_CONFIG.TOKEN_CORP_ID_KEY, corpId)
 }
 
 export function clearAuthToken() {
   uni.removeStorageSync(DINGTALK_H5_CONFIG.TOKEN_KEY)
+  uni.removeStorageSync(DINGTALK_H5_CONFIG.TOKEN_CORP_ID_KEY)
 }
 
 export function buildApiUrl(url: string, query: Record<string, QueryValue> = {}) {
@@ -81,8 +84,8 @@ export function get<T>(url: string, data: unknown = {}) {
   return http.get<ApiEnvelope<T>>(url, data)
 }
 
-export function post<T>(url: string, data: unknown = {}) {
-  return http.post<ApiEnvelope<T>>(url, data)
+export function post<T>(url: string, data: unknown = {}, meta?: RequestMeta) {
+  return http.post<ApiEnvelope<T>>(url, data, { meta })
 }
 
 export function put<T>(url: string, data: unknown = {}) {
@@ -175,12 +178,17 @@ function isAbortError(error: unknown) {
   return Boolean(error && typeof error === 'object' && 'name' in error && error.name === 'AbortError')
 }
 
+function uploadSessionChangedError() {
+  return new Error(useLocale('auth.dingtalk').t('sessionChanged'))
+}
+
 // #ifdef H5
 async function uploadMultipartFilesInH5<T>(
   url: string,
   files: readonly MultipartUploadFile[],
   options: UploadMultipartFilesOptions,
 ) {
+  const requestToken = authToken()
   const controller = new AbortController()
   const timeout = Math.max(1, options.timeout || 30000)
   let timeoutTriggered = false
@@ -208,9 +216,11 @@ async function uploadMultipartFilesInH5<T>(
       form.append(options.fileFieldName || 'images', uploadBlob, safeUploadFilename(file, index, mimeType))
     }
 
+    if (requestToken !== authToken())
+      throw uploadSessionChangedError()
     const headers: Record<string, string> = {
       ...options.header,
-      'Authorization': authToken(),
+      'Authorization': requestToken,
       'X-Client-Platform': DINGTALK_H5_CONFIG.CLIENT_PLATFORM,
     }
     for (const key of Object.keys(headers)) {
@@ -226,6 +236,8 @@ async function uploadMultipartFilesInH5<T>(
       signal: controller.signal,
     })
     const responseText = await response.text()
+    if (requestToken !== authToken())
+      throw uploadSessionChangedError()
     const data = parseUploadResponseData<T>(responseText)
     if (data && data.code !== undefined && data.code !== 0) {
       handleDingTalkH5AuthExpired(data)
@@ -269,6 +281,7 @@ export function uploadMultipartFiles<T>(
 }
 
 export function uploadFile<T>(url: string, filePath: string, options: UploadFileOptions = {}) {
+  const requestToken = authToken()
   return new Promise<ApiEnvelope<T>>((resolve, reject) => {
     uni.uploadFile({
       url: buildApiUrl(url),
@@ -277,11 +290,15 @@ export function uploadFile<T>(url: string, filePath: string, options: UploadFile
       formData: options.formData || {},
       timeout: options.timeout || 30000,
       header: {
-        'Authorization': authToken(),
-        'X-Client-Platform': 'dingtalk-h5',
         ...options.header,
+        'Authorization': requestToken,
+        'X-Client-Platform': 'dingtalk-h5',
       },
       success: (res) => {
+        if (requestToken !== authToken()) {
+          reject(uploadSessionChangedError())
+          return
+        }
         const statusCode = Number(res.statusCode || 0)
         if (statusCode < 200 || statusCode >= 300) {
           uni.showToast({ title: appErrorMessage(res, '上传失败'), icon: 'none' })
@@ -302,6 +319,10 @@ export function uploadFile<T>(url: string, filePath: string, options: UploadFile
         reject(data)
       },
       fail: (error) => {
+        if (requestToken !== authToken()) {
+          reject(uploadSessionChangedError())
+          return
+        }
         uni.showToast({ title: appErrorMessage(error, '上传失败'), icon: 'none' })
         reject(error)
       },

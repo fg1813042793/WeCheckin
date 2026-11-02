@@ -40,6 +40,7 @@ func TestPermissionServiceChecksSchemaWithoutRuntimeDDL(t *testing.T) {
 	for _, snippet := range []string{
 		"func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error",
 		"HasColumn(&model.Permission{}, \"Icon\")",
+		"HasColumn(&model.Permission{}, \"Hidden\")",
 		"ErrPermissionSchemaNotReady",
 	} {
 		if !strings.Contains(text, snippet) {

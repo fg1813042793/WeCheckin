@@ -12,6 +12,7 @@ import (
 	_ "wecheckin/backend/internal/formkit/question/builtin" // 注册 24 个内置题型
 	"wecheckin/backend/internal/formkit/report"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -144,6 +145,18 @@ func (h *AdminSurveyHandler) ResponseExport(ctx context.Context, c *app.RequestC
 		return
 	}
 	csvData := report.ToCSV(tbl)
+	auditlog.Update(ctx, func(d *auditlog.Details) {
+		d.AffectedCount = len(list)
+		for i, row := range list {
+			if i >= 1000 {
+				break
+			}
+			d.TargetIDs = append(d.TargetIDs, strconv.FormatUint(uint64(row.ID), 10))
+		}
+		d.TargetType = "survey_response"
+		d.RelatedType = "survey"
+		d.RelatedID = strconv.Itoa(surveyID)
+	})
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", "attachment; filename=survey_"+strconv.Itoa(surveyID)+".csv")
 	c.Write(csvData)

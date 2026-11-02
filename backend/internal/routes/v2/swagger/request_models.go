@@ -64,8 +64,8 @@ type PublicExamSubmissionRequest struct {
 	Answers map[string]interface{} `json:"answers"`
 	// Session 是匿名考试会话标识。
 	Session string `json:"session" example:"exam-session"`
-	// Device 是设备类型。
-	Device string `json:"device" example:"h5"`
+	// Device 是客户端 User-Agent；省略时读取 HTTP User-Agent，最长保存512个字符。
+	Device string `json:"device" example:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0"`
 	// DeviceID 是设备唯一标识。
 	DeviceID string `json:"deviceId" example:"device-001"`
 	// AutoSubmit 表示是否由超时机制自动提交。
@@ -139,6 +139,11 @@ type WorkflowReasonRequest struct {
 	Reason string `json:"reason" example:"业务申请撤销"`
 }
 
+// WorkflowInstanceVersionUpgradeRequest carries the source-version optimistic lock.
+type WorkflowInstanceVersionUpgradeRequest struct {
+	ExpectedFromVersion int `json:"expectedFromVersion" example:"1"`
+}
+
 // WorkflowCompletedFormRevisionPreviewRequest describes a completed-instance form revision preview.
 type WorkflowCompletedFormRevisionPreviewRequest struct {
 	// SourceNodeID 是本次修订来源的实际已办理人工节点 ID。
@@ -186,6 +191,14 @@ type UserFeedbackStatusRequest struct {
 	RequestID string `json:"requestId" validate:"required" example:"8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"`
 }
 
+// UserFeedbackNotifyRequest sends a message to the submitting user only.
+type UserFeedbackNotifyRequest struct {
+	Channel   string `json:"channel" enums:"internal,dingtalk" default:"internal" example:"internal"`
+	Content   string `json:"content" validate:"required" minLength:"1" maxLength:"5000" example:"问题已修复，请确认是否恢复正常。"`
+	Version   uint64 `json:"version" validate:"required" minimum:"1" example:"3"`
+	RequestID string `json:"requestId" validate:"required" maxLength:"64" example:"8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"`
+}
+
 // ScheduledTaskStatusRequest applies an optimistic-locking status change.
 type ScheduledTaskStatusRequest struct {
 	// Enabled 表示是否启用定时任务。
@@ -226,6 +239,10 @@ type InAppNotificationSendRequest struct {
 
 // DingTalkNotificationSendRequest describes an administrator-created DingTalk notification.
 type DingTalkNotificationSendRequest struct {
+	// TemplateID 是可选的已启用发送模板ID，省略时沿用后台手动通知消息样式。
+	TemplateID uint `json:"templateId" example:"7"`
+	// TemplateVersion 是选择时的模板版本；指定templateId时必填，版本变化会拒绝发送。
+	TemplateVersion int `json:"templateVersion" example:"1"`
 	// Title 是钉钉通知标题。
 	Title string `json:"title" example:"系统维护通知"`
 	// Content 是钉钉通知正文。
@@ -315,5 +332,17 @@ type SurveyQuestionBankRequest struct {
 // SurveyTemplatePresetsRequest describes all presets saved for the current administrator.
 type SurveyTemplatePresetsRequest struct {
 	// Presets 是当前管理员的模板预设列表。
+	Presets []map[string]string `json:"presets"`
+}
+
+// SurveyNotificationTemplatesSaveRequest describes one survey notification template group update.
+type SurveyNotificationTemplatesSaveRequest struct {
+	Scope   string              `json:"scope"`
+	Presets []map[string]string `json:"presets"`
+}
+
+// ExamNotificationTemplatesSaveRequest describes one exam notification template group update.
+type ExamNotificationTemplatesSaveRequest struct {
+	Scope   string              `json:"scope"`
 	Presets []map[string]string `json:"presets"`
 }

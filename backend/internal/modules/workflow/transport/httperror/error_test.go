@@ -17,6 +17,7 @@ func TestFormRevisionHTTPStatus(t *testing.T) {
 		want int
 	}{
 		{err: workflowapp.ErrCompletedRevisionNoReviewPath, want: consts.StatusBadRequest},
+		{err: workflowdomain.ErrAssigneeUnavailable, want: consts.StatusBadRequest},
 		{err: workflowapp.ErrCompletedRevisionNotAllowed, want: consts.StatusForbidden},
 		{err: workflowapp.ErrCompletedRevisionActive, want: consts.StatusConflict},
 		{err: workflowdomain.ErrRevisionTaskNotFound, want: consts.StatusNotFound},
@@ -39,6 +40,7 @@ func TestPublicMessageMapsWrappedWorkflowSentinels(t *testing.T) {
 		{name: "permission", err: workflowapp.ErrInstanceAccessDenied, want: "无权执行该流程操作"},
 		{name: "task actor", err: workflowdomain.ErrTaskActorMismatch, want: "无权执行该流程操作"},
 		{name: "state conflict", err: workflowdomain.ErrTaskAlreadyHandled, want: "工作流任务已处理"},
+		{name: "unavailable assignee", err: fmt.Errorf("resolve next node: %w", workflowdomain.ErrAssigneeUnavailable), want: "流程节点未解析到处理人，请联系管理员检查审批人配置"},
 		{name: "wrapped", err: fmt.Errorf("complete task: %w", workflowapp.ErrTaskReturnCommentRequired), want: "退回原因不能为空"},
 	}
 	for _, test := range tests {

@@ -9,7 +9,7 @@ import (
 )
 
 type SchedulerStore interface {
-	GenerateDueRuns(context.Context, int64, int) ([]string, error)
+	GenerateDueRuns(context.Context, int64, int64, int) ([]string, error)
 	ListUndeliveredRuns(context.Context, int64, int) ([]string, error)
 	WakeRetryRuns(context.Context, int64, int) ([]string, error)
 	WakeWaitingRuns(context.Context, int64, int) ([]string, error)
@@ -29,6 +29,7 @@ type SchedulerConfig struct {
 	StaleRunAge         time.Duration
 	RetryInitialDelay   time.Duration
 	RetryMaxDelay       time.Duration
+	MisfireGrace        time.Duration
 	Logf                logFunc
 	Now                 func() time.Time
 }
@@ -57,6 +58,9 @@ func NewScheduler(store SchedulerStore, publisher RunPublisher, cfg SchedulerCon
 	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
+	}
+	if cfg.MisfireGrace <= 0 {
+		cfg.MisfireGrace = time.Minute
 	}
 	return &Scheduler{store: store, publisher: publisher, config: cfg}
 }
@@ -101,7 +105,7 @@ func (scheduler *Scheduler) Tick(ctx context.Context, now time.Time) error {
 	now = now.UTC()
 	return scheduler.tickCollections(ctx, now, []runCollection{
 		{name: "generate due runs", collect: func() ([]string, error) {
-			return scheduler.store.GenerateDueRuns(ctx, now.UnixMilli(), scheduler.config.BatchSize)
+			return scheduler.store.GenerateDueRuns(ctx, now.UnixMilli(), scheduler.config.MisfireGrace.Milliseconds(), scheduler.config.BatchSize)
 		}},
 		{name: "list undelivered runs", collect: func() ([]string, error) {
 			return scheduler.store.ListUndeliveredRuns(ctx, now.Add(-scheduler.config.DispatchRecoveryAge).UnixMilli(), scheduler.config.BatchSize)
@@ -127,7 +131,7 @@ func (scheduler *Scheduler) tickDue(ctx context.Context, now time.Time) error {
 	now = now.UTC()
 	return scheduler.tickCollections(ctx, now, []runCollection{
 		{name: "generate due runs", collect: func() ([]string, error) {
-			return scheduler.store.GenerateDueRuns(ctx, now.UnixMilli(), scheduler.config.BatchSize)
+			return scheduler.store.GenerateDueRuns(ctx, now.UnixMilli(), scheduler.config.MisfireGrace.Milliseconds(), scheduler.config.BatchSize)
 		}},
 		{name: "wake retry runs", collect: func() ([]string, error) {
 			return scheduler.store.WakeRetryRuns(ctx, now.UnixMilli(), scheduler.config.BatchSize)

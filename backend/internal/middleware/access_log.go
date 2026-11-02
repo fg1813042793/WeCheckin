@@ -39,11 +39,22 @@ func maskSensitiveParam(raw string) string {
 				return string(masked)
 			}
 		}
+		return "<redacted:invalid-json>"
+	}
+	if strings.HasPrefix(trimmed, "[") {
+		var data []interface{}
+		if err := json.Unmarshal([]byte(trimmed), &data); err == nil {
+			masked, err := json.Marshal(maskSensitiveJSONArray(data))
+			if err == nil {
+				return string(masked)
+			}
+		}
+		return "<redacted:invalid-json>"
 	}
 	if values, err := url.ParseQuery(raw); err == nil && len(values) > 0 {
 		return encodeMaskedQuery(values)
 	}
-	return raw
+	return "<redacted:unparsed>"
 }
 
 func encodeMaskedQuery(values url.Values) string {
@@ -90,6 +101,8 @@ func maskSensitiveJSONArray(values []interface{}) []interface{} {
 	for i, value := range values {
 		if item, ok := value.(map[string]interface{}); ok {
 			masked[i] = maskSensitiveJSON(item)
+		} else if item, ok := value.([]interface{}); ok {
+			masked[i] = maskSensitiveJSONArray(item)
 		} else {
 			masked[i] = value
 		}
@@ -101,7 +114,9 @@ func isSensitiveLogKey(key string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(key))
 	for _, token := range []string{
 		"password", "pwd", "token", "authorization", "auth", "mobile", "phone",
+		"captcha", "bindticket", "secret", "privatekey", "accesskey", "appkey", "signature", "credential", "handlerconfig", "dsn",
 		"content", "answer", "answers", "schema", "description", "richtext", "html", "remark",
+		"formdata", "forms", "variables", "payload", "config", "template", "comment", "note",
 	} {
 		if normalized == token || strings.Contains(normalized, token) {
 			return true
@@ -189,7 +204,6 @@ func AccessLog() app.HandlerFunc {
 		start := time.Now()
 		path := string(c.Path())
 		method := string(c.Method())
-		requestID := accessLogRequestID(c)
 
 		rawQuery := string(c.Request.URI().QueryString())
 		contentType := string(c.Request.Header.ContentType())
@@ -200,17 +214,22 @@ func AccessLog() app.HandlerFunc {
 		}
 
 		c.Next(ctx)
+		requestID := accessLogRequestID(c)
 
 		latency := time.Since(start)
 		statusCode := c.Response.StatusCode()
 		clientIP := c.ClientIP()
 		detail := accessLogDetail(method, rawQuery, body, contentType, contentLength)
+		if confidentialAuditPath(path) && method != "GET" {
+			detail = " | body:<redacted:sensitive-operation>"
+		}
 
-		logger.Logger.Printf("[ACCESS] %s | %3d | %13v | %15s | %s %s%s",
+		logger.Logger.Printf("[ACCESS] %s | %3d | %13v | %15s | requestId=%s | %s %s%s",
 			time.Now().Format("2006/01/02 15:04:05"),
 			statusCode,
 			latency,
 			clientIP,
+			requestID,
 			method,
 			path,
 			detail,
@@ -219,4 +238,13 @@ func AccessLog() app.HandlerFunc {
 			logger.Logger.Print(slowRequestLogLine(time.Now(), method, path, statusCode, latency, requestID))
 		}
 	}
+}
+
+func confidentialAuditPath(path string) bool {
+	for _, prefix := range []string{"/api/v2/admin/settings", "/api/v2/admin/dingtalk/settings", "/api/v2/admin/notification-styles", "/api/v2/admin/dingtalk-notification-templates", "/api/v2/admin/survey-notification-templates", "/api/v2/admin/survey-template-presets"} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }

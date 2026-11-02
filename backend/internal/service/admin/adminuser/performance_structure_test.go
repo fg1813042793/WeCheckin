@@ -104,7 +104,7 @@ func TestUserListCachesUnfilteredTotalCount(t *testing.T) {
 	}
 	text := string(src)
 	required := []string{
-		"useTotalCountCache := keyword == \"\" && !hasDataScopeFilter",
+		"useTotalCountCache := !filter.HasAny() && !hasDataScopeFilter",
 		"getUserTotalCountCache(now)",
 		"setUserTotalCountCache(total, now)",
 		"invalidateUserTotalCountCache()",

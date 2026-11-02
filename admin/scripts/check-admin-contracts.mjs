@@ -101,6 +101,24 @@ for (const snippet of [
   requireSnippet(surveyFillPC1Source, snippet, 'SurveyFillPC1 mobile progress and answer-sheet dragging contract')
 }
 
+const examFillPC1Source = read('src/views/exam/ExamFillPC1.vue')
+for (const snippet of [
+  ':disabled="!hasPreviousPage"',
+  'const hasPreviousPage = computed(() => previousVisiblePageIndex(currentIndex.value) >= 0)',
+  'function nextVisiblePageIndex(from: number)',
+  'function previousVisiblePageIndex(from: number)',
+  '.exam :deep(.el-input__wrapper.is-focus),',
+  '.exam :deep(.el-select__wrapper.is-focused),',
+  '.exam :deep(.el-textarea__inner:focus),',
+  '.exam :deep(.el-input__inner:focus-visible),',
+  '.exam :deep(.el-textarea__inner:focus-visible),',
+  '.exam :deep(.el-select__input:focus-visible),',
+  '.exam :deep(.el-range-input:focus-visible) {',
+  'box-shadow: 0 0 0 1px var(--el-color-primary) inset;',
+]) {
+  requireSnippet(examFillPC1Source, snippet, 'ExamFillPC1 must keep one visible Element Plus focus ring')
+}
+
 const publicApiSource = read('src/api/public.ts')
 for (const path of [
   '/api/v2/auth/password-login',
@@ -153,7 +171,8 @@ requireSnippet(
 const layoutSource = read('src/views/layout/index.vue')
 requireSnippet(layoutSource, 'loadAdminAccessSnapshot', 'layout and router must share one access snapshot')
 forbidSnippet(layoutSource, "request.get('/api/v2/home/setup'", 'admin settings must use an authenticated admin endpoint')
-requireSnippet(layoutSource, "permissions.includes('admin:api:setup:list')", 'layout settings reads must honor setup:list')
+forbidSnippet(layoutSource, 'setupGetContent(', 'layout must not load global frontend settings')
+forbidSnippet(layoutSource, 'ADMIN_FRONTEND_CONFIG', 'layout cache policy must come from menu configuration')
 forbidSnippet(layoutSource, ': [defaultVisitedTab, ...tabs]', 'stored tabs must not restore an unauthorized dashboard')
 
 const permissionRequirements = {

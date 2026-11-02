@@ -37,7 +37,7 @@
         </el-result>
       </div>
       <!-- 编辑视图 -->
-      <div v-show="activeView==='edit'" id="editor" class="survey-editor survey-light survey-app pc" :class="{ 'has-open-settings': selected || showSurveySettings }">
+      <div v-show="activeView==='edit'" id="editor" class="survey-editor survey-light survey-app pc" :class="{ 'has-open-settings': selected || showSurveySettings }" @pointerdown.capture="handleDesignerPointerDown">
         <SurveyDesignerSidebar
           ref="sidebarRef"
           v-model="middleTab"
@@ -70,7 +70,7 @@
         />
 
         <!-- 中: 画布 -->
-        <div v-show="middleTab!=='logic' && middleTab!=='result'" class="survey-main-panel" @click.self="deselectQuestion">
+        <div v-show="middleTab!=='logic' && middleTab!=='result'" class="survey-main-panel">
           <div class="survey-main-panel-toolbar">
             <div class="toolbar-left">
               <el-button-group class="toolbar-btn-group">
@@ -164,7 +164,7 @@
                 </div>
 
                 <!-- 题目列表 -->
-                <div class="questions-area" @click.self="deselectQuestion">
+                <div class="questions-area">
                   <draggable-list :questions="questions" :invalid-ids="invalidQuestionIds" @update:questions="onQuestionsUpdate" @select="selectQuestion" :selected-id="selected?.id??null" editing @remove="removeQuestionById" @select-option="selectOption" @upload-bank="onUploadBank" />
                   <div v-if="!questions.length" class="designer-empty-canvas">
                     <div class="empty-canvas-icon">+</div>
@@ -373,6 +373,16 @@ const {
 
 const designerIssues = computed(() => collectSurveyDesignerIssues({ form, questions: questions.value }))
 const invalidQuestionIds = computed(() => Array.from(new Set(designerIssues.value.filter(issue => issue.severity === 'error' && issue.questionId).map(issue => issue.questionId!))))
+
+function handleDesignerPointerDown(event: PointerEvent) {
+  if (!selected.value) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  const questionCard = target.closest<HTMLElement>('[data-survey-question-id]')
+  if (questionCard?.dataset.surveyQuestionId === selected.value.id) return
+  if (target.closest('.survey-setting-panel')) return
+  deselectQuestion()
+}
 
 const {
   textImportDialogRef, bankUploadDialogRef, exportedJson, fillTemplates,

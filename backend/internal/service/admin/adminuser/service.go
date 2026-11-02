@@ -322,6 +322,64 @@ func GetUserList(keyword, sortStr string, page, pageSize int, adminID uint) ([]U
 	return GetUserListContext(context.Background(), keyword, sortStr, page, pageSize, adminID)
 }
 
+type UserListFilter struct {
+	Keyword       string
+	Mobile        string
+	Status        *int
+	PositionID    uint
+	ManagerUserID uint
+	RoleID        uint
+}
+
+func (filter UserListFilter) HasAny() bool {
+	return strings.TrimSpace(filter.Keyword) != "" ||
+		strings.TrimSpace(filter.Mobile) != "" ||
+		filter.Status != nil ||
+		filter.PositionID > 0 ||
+		filter.ManagerUserID > 0 ||
+		filter.RoleID > 0
+}
+
+func applyUserListFilters(queryBuilder *gorm.DB, filter UserListFilter, now int64, userRolesReady bool) *gorm.DB {
+	if keyword := strings.TrimSpace(filter.Keyword); keyword != "" {
+		likeKeyword := "%" + keyword + "%"
+		queryBuilder = queryBuilder.Where("`user_name` LIKE ? OR `user_mobile` LIKE ?", likeKeyword, likeKeyword)
+	}
+	if mobile := strings.TrimSpace(filter.Mobile); mobile != "" {
+		queryBuilder = queryBuilder.Where("`user_mobile` LIKE ?", "%"+mobile+"%")
+	}
+	if filter.Status != nil {
+		queryBuilder = queryBuilder.Where("`user_status` = ?", *filter.Status)
+	}
+	if filter.PositionID > 0 {
+		queryBuilder = queryBuilder.Where("`user_position_id` = ?", filter.PositionID)
+	}
+	if filter.ManagerUserID > 0 {
+		queryBuilder = queryBuilder.Where(`EXISTS (
+			SELECT 1 FROM user_reporting_relations AS filter_reporting
+			WHERE filter_reporting.employee_user_id = users.id
+			  AND filter_reporting.manager_user_id = ?
+			  AND filter_reporting.relation_type = ?
+			  AND filter_reporting.relation_status = ?
+			  AND (filter_reporting.effective_from = 0 OR filter_reporting.effective_from <= ?)
+			  AND (filter_reporting.effective_to = 0 OR filter_reporting.effective_to > ?)
+		)`, filter.ManagerUserID, model.ReportingRelationTypeDirect, model.ReportingRelationStatusOn, now, now)
+	}
+	if filter.RoleID > 0 {
+		if userRolesReady {
+			queryBuilder = queryBuilder.Where(`(`+"`user_role_id`"+` = ? OR EXISTS (
+				SELECT 1 FROM user_roles AS filter_user_role
+				WHERE filter_user_role.user_role_user_id = users.id
+				  AND filter_user_role.user_role_role_id = ?
+				  AND filter_user_role.user_role_status = ?
+			))`, filter.RoleID, filter.RoleID, 1)
+		} else {
+			queryBuilder = queryBuilder.Where("`user_role_id` = ?", filter.RoleID)
+		}
+	}
+	return queryBuilder
+}
+
 func userVisibleQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*gorm.DB, error) {
 	var admin model.Admin
 	if err := db.First(&admin, adminID).Error; err != nil {
@@ -336,6 +394,10 @@ func userVisibleQueryContext(ctx context.Context, db *gorm.DB, adminID uint) (*g
 }
 
 func GetUserListContext(ctx context.Context, keyword, sortStr string, page, pageSize int, adminID uint) ([]UserListItem, int64, error) {
+	return GetUserListByFilterContext(ctx, UserListFilter{Keyword: keyword}, sortStr, page, pageSize, adminID)
+}
+
+func GetUserListByFilterContext(ctx context.Context, filter UserListFilter, sortStr string, page, pageSize int, adminID uint) ([]UserListItem, int64, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var admin model.Admin
@@ -344,17 +406,13 @@ func GetUserListContext(ctx context.Context, keyword, sortStr string, page, page
 	}
 	var list []model.User
 	var total int64
-	queryBuilder := db.Model(&model.User{})
-	if keyword != "" {
-		likeKeyword := "%" + keyword + "%"
-		queryBuilder = queryBuilder.Where("`user_name` LIKE ? OR `user_mobile` LIKE ?", likeKeyword, likeKeyword)
-	}
+	queryBuilder := applyUserListFilters(db.Model(&model.User{}), filter, database.Now(), filter.RoleID > 0 && permissionsupport.UserRolesTableReady(db))
 	where, args := access.UserDataScopeFilterWithDBContext(ctx, db, &admin)
 	hasDataScopeFilter := where != ""
 	if hasDataScopeFilter {
 		queryBuilder = queryBuilder.Where(where, args...)
 	}
-	useTotalCountCache := keyword == "" && !hasDataScopeFilter
+	useTotalCountCache := !filter.HasAny() && !hasDataScopeFilter
 	if useTotalCountCache {
 		now := time.Now()
 		if cachedTotal, ok := getUserTotalCountCache(now); ok {

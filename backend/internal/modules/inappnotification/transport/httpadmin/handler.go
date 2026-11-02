@@ -28,6 +28,9 @@ type Service interface {
 	RecipientOptions(context.Context) (application.RecipientOptions, error)
 	NotificationStyles(context.Context) (notificationstyle.Config, error)
 	SaveNotificationStyles(context.Context, notificationstyle.Config) (notificationstyle.Config, error)
+	ListDingTalkDeliveryRecords(context.Context, application.DingTalkDeliveryRecordQuery) (application.DingTalkDeliveryRecordList, error)
+	GetDingTalkDeliveryRecord(context.Context, uint64) (application.DingTalkDeliveryRecord, error)
+	DeleteDingTalkDeliveryRecord(context.Context, uint64) error
 }
 
 type Handler struct {
@@ -36,12 +39,14 @@ type Handler struct {
 }
 
 type SendRequest struct {
-	RequestID     string                     `json:"requestId"`
-	Title         string                     `json:"title"`
-	Content       string                     `json:"content"`
-	Scope         application.RecipientScope `json:"scope"`
-	UserIDs       []uint                     `json:"userIds"`
-	DepartmentIDs []uint                     `json:"departmentIds"`
+	TemplateID      uint                       `json:"templateId,omitempty"`
+	TemplateVersion int                        `json:"templateVersion,omitempty"`
+	RequestID       string                     `json:"requestId"`
+	Title           string                     `json:"title"`
+	Content         string                     `json:"content"`
+	Scope           application.RecipientScope `json:"scope"`
+	UserIDs         []uint                     `json:"userIds"`
+	DepartmentIDs   []uint                     `json:"departmentIds"`
 }
 
 type StyleTestRequest struct {
@@ -213,15 +218,91 @@ func (handler *Handler) SendDingTalk(ctx context.Context, c *app.RequestContext)
 		}
 	}
 	result, err := handler.service.SendDingTalk(ctx, application.SendInput{
-		Title:         request.Title,
-		Content:       request.Content,
-		Scope:         request.Scope,
-		UserIDs:       request.UserIDs,
-		DepartmentIDs: request.DepartmentIDs,
-		SourceType:    application.SourceAdminManualDingTalk,
-		SourceID:      sourceID,
+		Title:           request.Title,
+		Content:         request.Content,
+		Scope:           request.Scope,
+		UserIDs:         request.UserIDs,
+		DepartmentIDs:   request.DepartmentIDs,
+		TemplateID:      request.TemplateID,
+		TemplateVersion: request.TemplateVersion,
+		SourceType:      application.SourceAdminManualDingTalk,
+		SourceID:        sourceID,
 	})
 	respond(ctx, c, result, err)
+}
+
+// ListDingTalkDeliveryRecords godoc
+// @Summary 查询钉钉通知投递记录
+// @Tags API v2-后台管理-通知记录
+// @Produce json
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页数量"
+// @Param title query string false "通知标题，模糊匹配"
+// @Param sourceType query string false "来源类型"
+// @Param status query string false "投递状态"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk-notification-records [get]
+func (handler *Handler) ListDingTalkDeliveryRecords(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedAdmin(c); !ok {
+		response.Fail(c, "管理员未登录")
+		return
+	}
+	result, err := handler.service.ListDingTalkDeliveryRecords(ctx, application.DingTalkDeliveryRecordQuery{
+		Title: c.Query("title"), SourceType: c.Query("sourceType"), Status: c.Query("status"),
+		Page: queryPositiveInt(c.Query("page")), PageSize: queryPositiveInt(c.Query("pageSize")),
+	})
+	respond(ctx, c, result, err)
+}
+
+// GetDingTalkDeliveryRecord godoc
+// @Summary 查询钉钉通知投递详情
+// @Tags API v2-后台管理-通知记录
+// @Produce json
+// @Param id path int true "钉钉投递记录ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk-notification-records/{id} [get]
+func (handler *Handler) GetDingTalkDeliveryRecord(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedAdmin(c); !ok {
+		response.Fail(c, "管理员未登录")
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || id == 0 {
+		response.Fail(c, "钉钉投递记录ID无效")
+		return
+	}
+	result, err := handler.service.GetDingTalkDeliveryRecord(ctx, id)
+	respond(ctx, c, result, err)
+}
+
+// DeleteDingTalkDeliveryRecord godoc
+// @Summary 删除钉钉通知投递记录
+// @Description 仅删除后台记录，不撤回已发送的钉钉通知
+// @Tags API v2-后台管理-通知记录
+// @Produce json
+// @Param id path int true "钉钉投递记录ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/dingtalk-notification-records/{id} [delete]
+func (handler *Handler) DeleteDingTalkDeliveryRecord(ctx context.Context, c *app.RequestContext) {
+	if _, ok := authenticatedAdmin(c); !ok {
+		response.Fail(c, "管理员未登录")
+		return
+	}
+	id, err := strconv.ParseUint(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || id == 0 {
+		response.Fail(c, "钉钉投递记录ID无效")
+		return
+	}
+	if err := handler.service.DeleteDingTalkDeliveryRecord(ctx, id); err != nil {
+		respond(ctx, c, nil, err)
+		return
+	}
+	response.JSON(c, map[string]uint64{"id": id})
+}
+
+func queryPositiveInt(value string) int {
+	parsed, _ := strconv.Atoi(strings.TrimSpace(value))
+	return parsed
 }
 
 // MarkRead godoc
@@ -444,6 +525,7 @@ func randomSourceID() (string, error) {
 
 func respond(ctx context.Context, c *app.RequestContext, data interface{}, err error) {
 	if err != nil {
+		recordTemplateError(ctx, err)
 		if message := localizedError(err); message != "" {
 			response.Fail(c, message)
 		} else {
@@ -455,6 +537,9 @@ func respond(ctx context.Context, c *app.RequestContext, data interface{}, err e
 }
 
 func localizedError(err error) string {
+	if _, message := templateErrorReason(err); message != "" {
+		return message
+	}
 	switch {
 	case errors.Is(err, application.ErrTitleRequired):
 		return "请输入通知标题"

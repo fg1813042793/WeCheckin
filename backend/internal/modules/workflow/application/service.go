@@ -109,6 +109,7 @@ type TransactionStore interface {
 	LoadDefinitionAndStateByInstanceForUpdate(ctx context.Context, instanceID string) (workflowcore.Definition, *workflowdomain.State, error)
 	SaveState(ctx context.Context, state *workflowdomain.State) error
 	AppendInstanceHistory(ctx context.Context, instanceID string, event workflowdomain.HistoryEvent, eventTime int64) error
+	UpdateInstanceDefinitionVersion(ctx context.Context, instanceID string, fromVersion, toVersion int) error
 	PersistEffects(ctx context.Context, state *workflowdomain.State) ([]string, error)
 	LoadInstancesForDelete(ctx context.Context, instanceIDs []string) ([]InstanceSummary, error)
 	SoftDeleteInstances(ctx context.Context, instanceIDs []string, actorID string, deletedAt int64) (int64, error)

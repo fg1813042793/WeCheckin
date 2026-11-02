@@ -24,15 +24,18 @@ const props = withDefaults(defineProps<{
   modelValue: boolean
   feedbackId?: string | null
   canHandle?: boolean
+  actionLoading?: boolean
   formatTime: (timestamp: number) => string
 }>(), {
   feedbackId: null,
   canHandle: false,
+  actionLoading: false,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'request-status-update': [detail: UserFeedbackDetail]
+  'request-notify': [detail: UserFeedbackDetail]
   'detail-change': [detail: UserFeedbackDetail | null]
 }>()
 
@@ -84,8 +87,17 @@ function requestStatusUpdate() {
     ElMessage.warning('当前账号没有反馈处理权限')
     return
   }
-  if (!detail.value) return
+  if (!props.canHandle || !visible.value || loading.value || props.actionLoading || error.value || !detail.value) return
   emit('request-status-update', detail.value)
+}
+
+function requestNotify() {
+  if (!canHandleUserFeedback()) {
+    ElMessage.warning('当前账号没有反馈处理权限')
+    return
+  }
+  if (!props.canHandle || !visible.value || loading.value || props.actionLoading || error.value || !detail.value) return
+  emit('request-notify', detail.value)
 }
 
 function handleClosed() {
@@ -119,9 +131,7 @@ defineExpose({ refresh: loadDetail })
     :title="drawerTitle"
     size="lg"
     :show-footer="Boolean(canHandle && detail && !loading && !error)"
-    confirm-text="更新状态"
     append-to-body
-    @confirm="requestStatusUpdate"
     @closed="handleClosed"
   >
     <div v-loading="loading" class="feedback-detail">
@@ -165,6 +175,11 @@ defineExpose({ refresh: loadDetail })
       </template>
     </div>
 
+    <template v-if="canHandle && detail && !loading && !error" #footer>
+      <el-button @click="visible = false">关闭</el-button>
+      <el-button :loading="actionLoading" @click="requestNotify">通知提交人</el-button>
+      <el-button type="primary" :loading="actionLoading" @click="requestStatusUpdate">处理</el-button>
+    </template>
   </AdminDrawer>
 </template>
 

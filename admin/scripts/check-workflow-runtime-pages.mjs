@@ -26,6 +26,7 @@ const userTreePickerPath = resolve(srcDir, 'views/workflow/components/WorkflowUs
 const flowConfigPath = resolve(srcDir, 'views/workflow/designer/components/WorkflowStartConfig.vue')
 const formPreviewDialogPath = resolve(srcDir, 'views/workflow/designer/components/WorkflowFormPreviewDialog.vue')
 const workflowStatusPath = resolve(srcDir, 'views/workflow/workflowStatus.ts')
+const versionUpgradeDialogPath = resolve(srcDir, 'views/workflow/instances/InstanceVersionUpgradeDialog.vue')
 
 if (!existsSync(instancePagePath)) {
   throw new Error('workflow instance page missing: src/views/workflow/instances/index.vue')
@@ -57,6 +58,9 @@ if (!existsSync(formPreviewDialogPath)) {
 if (!existsSync(workflowStatusPath)) {
   throw new Error('workflow status mapping missing: src/views/workflow/workflowStatus.ts')
 }
+if (!existsSync(versionUpgradeDialogPath)) {
+  throw new Error('workflow instance version upgrade dialog missing')
+}
 
 const api = read('api/index.ts')
 const workflowTypes = read('types/workflow.ts')
@@ -71,6 +75,7 @@ const userTreePicker = read('views/workflow/components/WorkflowUserTreePicker.vu
 const flowConfig = read('views/workflow/designer/components/WorkflowStartConfig.vue')
 const formPreviewDialog = read('views/workflow/designer/components/WorkflowFormPreviewDialog.vue')
 const workflowStatus = read('views/workflow/workflowStatus.ts')
+const versionUpgradeDialog = read('views/workflow/instances/InstanceVersionUpgradeDialog.vue')
 
 for (const snippet of [
   'workflowDefinitionStatus(id: ID, status: 0 | 2)',
@@ -159,6 +164,8 @@ for (const snippet of [
   'workflowInstanceStart(',
   'workflowInstanceDetail(',
   'workflowInstanceResume(',
+	'workflowInstanceVersionUpgradePreview(',
+	'workflowInstanceVersionUpgrade(',
 	'workflowInstanceDelete(',
 	'workflowInstanceBatchDelete(',
   'workflowTaskList(',
@@ -189,6 +196,9 @@ for (const snippet of [
 for (const snippet of [
   "hasPerm('admin:menu:workflow:instance:start')",
   "hasPerm('admin:menu:workflow:instance:detail')",
+	"hasPerm('admin:menu:workflow:instance:upgrade')",
+	'<InstanceVersionUpgradeDialog',
+	'openVersionUpgrade',
 	"hasPerm('admin:menu:workflow:instance:delete')",
   'WorkflowRuntimeForm',
   'workflowFieldActionMap',
@@ -265,6 +275,22 @@ for (const snippet of [
   'class="admin-pagination"',
 ]) {
   requireSnippet(instances, snippet, 'workflow instance page')
+}
+
+for (const snippet of [
+  'WorkflowInstanceVersionUpgradePreview',
+  'workflowInstanceVersionUpgradePreview',
+  'workflowInstanceVersionUpgrade',
+  'expectedFromVersion',
+  'preview.compatible',
+  'preview.blockers',
+  "emit('upgraded', result)",
+]) {
+  requireSnippet(versionUpgradeDialog, snippet, 'workflow instance version upgrade dialog')
+}
+
+for (const snippet of ['export interface WorkflowInstanceVersionUpgradePreview', 'export interface WorkflowInstanceVersionUpgradeResult']) {
+  requireSnippet(workflowTypes, snippet, 'workflow instance version upgrade types')
 }
 
 assert.ok(!/\bdefinitionId:\s*0\b/.test(instances), 'workflow start form must use an empty value when no definition is selected')
@@ -468,9 +494,7 @@ for (const snippet of [
   'border-radius: 8px',
   'background: #fff',
   'box-shadow: 0 2px 10px',
-  'display: flex',
-  'flex-wrap: wrap',
-  'flex: 1 1 380px',
+  'grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr))',
   'max-width: 520px',
   'box-sizing: border-box',
   '.availability-mode { display: grid;',

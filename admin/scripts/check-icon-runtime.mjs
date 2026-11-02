@@ -106,7 +106,7 @@ for (const snippet of [
 
 for (const snippet of [
   "import { resolveAdminIcon } from '../../icons'",
-  'resolveAdminIcon(item.icon)'
+  'resolveAdminIcon(props.item.icon)'
 ]) {
   if (!menuNodeSource.includes(snippet)) {
     throw new Error(`admin recursive menu missing resolved icon usage: ${snippet}`)

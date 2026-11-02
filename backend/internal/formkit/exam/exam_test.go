@@ -107,11 +107,21 @@ func TestGrade_AnswerAsNumberString(t *testing.T) {
 	}
 }
 
-func TestGrade_InvalidJSON(t *testing.T) {
-	qs := []Question{{ID: 1, Type: "input", Answer: `not json`, Score: 5}}
-	res := Grade(qs, map[string]interface{}{"1": "x"})
-	// not json → 原样字符串 "not json"
-	if !res.Results[0].NeedManual {
-		t.Error("invalid json should fall back to manual")
+func TestGrade_PlainTextCorrectAnswer(t *testing.T) {
+	qs := []Question{{ID: 1, Type: "input", Answer: `Agent`, Score: 5}}
+	res := Grade(qs, map[string]interface{}{"1": " agent "})
+	if !res.Results[0].Correct || res.TotalScore != 5 {
+		t.Fatalf("plain text answer should match case-insensitively: %#v", res)
+	}
+}
+
+func TestGrade_MultiInputScoresEachField(t *testing.T) {
+	qs := []Question{{
+		ID: 1, Type: "multiInput", ScoreMode: "partialCorrect",
+		Fields: []AnswerField{{Answer: "Agent", Score: 3}, {Answer: "LLM", Score: 2}},
+	}}
+	res := Grade(qs, map[string]interface{}{"1": []interface{}{"agent", "wrong"}})
+	if res.TotalScore != 3 || res.FullScore != 5 || res.Results[0].Correct {
+		t.Fatalf("multi input partial score = %#v", res)
 	}
 }

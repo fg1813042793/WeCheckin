@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"strings"
 	workflowmodel "wecheckin/backend/internal/model/workflow"
 	"wecheckin/backend/internal/modules/workflow/application"
 	"wecheckin/backend/internal/support/media"
@@ -136,13 +137,18 @@ func loadDefinitionVersion(db *gorm.DB, definitionID uint, version int) (workflo
 }
 
 func publishedDefinition(row workflowmodel.Definition, definition workflowcore.Definition, version int, labels publishedAssigneeLabels, includeGraph bool) application.PublishedDefinition {
+	managementName := strings.TrimSpace(row.Name)
+	if managementName == "" {
+		managementName = definition.Name
+	}
 	result := application.PublishedDefinition{
-		ID: row.ID, Key: row.Key, Name: definition.Name, DisplayName: definition.DisplayName, Description: row.Description,
+		ID: row.ID, Key: row.Key, Name: managementName, DisplayName: definition.DisplayName, Description: row.Description,
 		Category: row.Category, LogoURL: row.LogoURL, Version: version, Form: cloneDefinitionForm(definition),
 		FieldPermissions: definitionFieldPermissions(definition), StartNodeID: definitionStartNodeID(definition),
 		Initiator: definitionInitiator(definition), Availability: definitionStartAvailability(definition),
 		StartLimit: definitionStartLimit(definition), StartLimitStatus: application.StartLimitStatus{Allowed: true},
 		InstanceIdentity: cloneInstanceIdentity(definition.InstanceIdentity),
+		HistoryImport:    workflowcore.CloneHistoryImportConfig(definition.HistoryImport),
 	}
 	if includeGraph {
 		result.Nodes, result.Edges = buildPublishedWorkflowGraph(definition, labels)

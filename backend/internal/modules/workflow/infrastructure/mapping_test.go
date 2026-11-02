@@ -244,6 +244,30 @@ func TestRenderNotificationPayloadUsesActionCardForInteractiveUpdates(t *testing
 	}
 }
 
+func TestRenderNotificationPayloadUsesTaskViewForActionableTaskNotifications(t *testing.T) {
+	state := &workflowdomain.State{Instance: workflowdomain.ProcessInstance{ID: "instance-1", StarterID: "7"}}
+	for _, kind := range []workflowdomain.NotificationKind{
+		workflowdomain.NotificationKindTaskArrived,
+		workflowdomain.NotificationKindTaskReminder,
+	} {
+		payload := renderNotificationPayload(state, workflowdomain.NotificationIntent{
+			Kind: kind, TaskID: "task-1",
+			Config: workflowcore.NotificationConfig{Title: "待办", Content: "请处理"},
+		}, "Foster")
+		if payload.View != "workflow:task:task-1:instance:instance-1" {
+			t.Fatalf("%s notification view = %q", kind, payload.View)
+		}
+	}
+
+	result := renderNotificationPayload(state, workflowdomain.NotificationIntent{
+		Kind: workflowdomain.NotificationKindApprovalResultApproved, TaskID: "task-1",
+		Config: workflowcore.NotificationConfig{Title: "结果", Content: "已通过"},
+	}, "Foster")
+	if result.View != "" {
+		t.Fatalf("approval result view = %q, want instance-detail fallback", result.View)
+	}
+}
+
 func TestRenderNotificationPayloadIncludesInstanceIdentityVariables(t *testing.T) {
 	state := &workflowdomain.State{Instance: workflowdomain.ProcessInstance{
 		ID: "instance-1", StarterID: "7", Title: "2026年8月 Foster绩效考评",

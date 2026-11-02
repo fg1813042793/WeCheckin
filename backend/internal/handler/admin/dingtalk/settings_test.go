@@ -148,6 +148,46 @@ func TestDingTalkSettingsSeparatesCorpConfigFromLoginConfig(t *testing.T) {
 	}
 }
 
+func TestDingTalkSettingsExposeH5LoginCaptchaToggle(t *testing.T) {
+	handlerSrc, err := os.ReadFile("handler.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dtoSrc, err := os.ReadFile("../../../service/admin/dingtalk/dto.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	typeSrc, err := os.ReadFile("../../../../../admin/src/api/types.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrationSrc, err := os.ReadFile("../../../../migrations/20261028170000_add_dingtalk_h5_login_captcha_setup.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	combined := string(handlerSrc) + string(dtoSrc) + string(viewSrc) + string(typeSrc) + string(migrationSrc)
+	for _, want := range []string{
+		"DINGTALK_H5_LOGIN_CAPTCHA_ENABLED",
+		"LoginCaptchaEnabled",
+		`json:"loginCaptchaEnabled"`,
+		"loginCaptchaEnabled?: number",
+		"form.loginCaptchaEnabled",
+		"账号密码登录图片验证码",
+		"ON DUPLICATE KEY UPDATE",
+	} {
+		if !strings.Contains(combined, want) {
+			t.Fatalf("DingTalk H5 login captcha setting missing %q", want)
+		}
+	}
+	if !strings.Contains(string(handlerSrc), `c.PostForm("loginCaptchaEnabled")`) {
+		t.Fatal("login settings save must read loginCaptchaEnabled")
+	}
+}
+
 func TestDingTalkSettingsCorpDeleteRequiresConfirmation(t *testing.T) {
 	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {

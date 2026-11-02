@@ -18,13 +18,15 @@ func TestUnifiedPermissionModelsUseExpectedTables(t *testing.T) {
 func TestPermissionModelHasStableColumns(t *testing.T) {
 	typ := reflect.TypeOf(Permission{})
 	checks := map[string][]string{
-		"Key":        {`json:"key"`, "column:permission_key", "uniqueIndex"},
-		"Platform":   {`json:"platform"`, "column:permission_platform", "index"},
-		"Type":       {`json:"type"`, "column:permission_type", "index"},
-		"ParentKey":  {`json:"parentKey"`, "column:permission_parent_key"},
-		"ResourceID": {`json:"resourceId"`, "column:permission_resource_id"},
-		"Icon":       {`json:"icon"`, "column:permission_icon"},
-		"Perms":      {`json:"perms"`, "column:permission_perms"},
+		"Key":          {`json:"key"`, "column:permission_key", "uniqueIndex"},
+		"Platform":     {`json:"platform"`, "column:permission_platform", "index"},
+		"Type":         {`json:"type"`, "column:permission_type", "index"},
+		"ParentKey":    {`json:"parentKey"`, "column:permission_parent_key"},
+		"ResourceID":   {`json:"resourceId"`, "column:permission_resource_id"},
+		"Icon":         {`json:"icon"`, "column:permission_icon"},
+		"Perms":        {`json:"perms"`, "column:permission_perms"},
+		"CacheEnabled": {`json:"cacheEnabled"`, "column:permission_cache_enabled"},
+		"Hidden":       {`json:"hidden"`, "column:permission_hidden"},
 	}
 	for name, snippets := range checks {
 		field, ok := typ.FieldByName(name)
@@ -37,6 +39,16 @@ func TestPermissionModelHasStableColumns(t *testing.T) {
 				t.Fatalf("Permission.%s tag must include %s, got %s", name, snippet, tag)
 			}
 		}
+	}
+}
+
+func TestPermissionHiddenDefaultsToVisible(t *testing.T) {
+	if got := (Permission{}).HiddenValue(); got != 0 {
+		t.Fatalf("nil hidden value = %d, want visible", got)
+	}
+	hidden := 1
+	if got := (Permission{Hidden: &hidden}).HiddenValue(); got != 1 {
+		t.Fatalf("hidden value = %d, want hidden", got)
 	}
 }
 

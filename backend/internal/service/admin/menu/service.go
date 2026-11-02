@@ -12,19 +12,21 @@ import (
 )
 
 type AdminMenu struct {
-	ID        string       `json:"id"`
-	Key       string       `json:"key"`
-	Name      string       `json:"name"`
-	ParentKey string       `json:"parentKey"`
-	Path      string       `json:"path"`
-	Perms     string       `json:"perms"`
-	Icon      string       `json:"icon"`
-	Sort      int          `json:"sort"`
-	Status    int          `json:"status"`
-	Type      int          `json:"type"`
-	AddTime   int64        `json:"addTime"`
-	EditTime  int64        `json:"editTime"`
-	Children  []*AdminMenu `json:"children,omitempty"`
+	ID           string       `json:"id"`
+	Key          string       `json:"key"`
+	Name         string       `json:"name"`
+	ParentKey    string       `json:"parentKey"`
+	Path         string       `json:"path"`
+	Perms        string       `json:"perms"`
+	Icon         string       `json:"icon"`
+	Sort         int          `json:"sort"`
+	Status       int          `json:"status"`
+	CacheEnabled int          `json:"cacheEnabled"`
+	Hidden       int          `json:"hidden"`
+	Type         int          `json:"type"`
+	AddTime      int64        `json:"addTime"`
+	EditTime     int64        `json:"editTime"`
+	Children     []*AdminMenu `json:"children,omitempty"`
 }
 
 func GetAdminMenuTree(admin *model.Admin) ([]*AdminMenu, error) {
@@ -147,18 +149,20 @@ func permissionRowsToMenus(rows []model.Permission) []*AdminMenu {
 	list := make([]*AdminMenu, 0, len(rows))
 	for _, row := range rows {
 		list = append(list, &AdminMenu{
-			ID:        row.Key,
-			Key:       row.Key,
-			Name:      row.Name,
-			ParentKey: row.ParentKey,
-			Path:      row.ResourcePath,
-			Perms:     row.Perms,
-			Icon:      row.Icon,
-			Sort:      row.Sort,
-			Status:    row.Status,
-			Type:      permissionTypeToMenuType(row.Type),
-			AddTime:   row.AddTime,
-			EditTime:  row.EditTime,
+			ID:           row.Key,
+			Key:          row.Key,
+			Name:         row.Name,
+			ParentKey:    row.ParentKey,
+			Path:         row.ResourcePath,
+			Perms:        row.Perms,
+			Icon:         row.Icon,
+			Sort:         row.Sort,
+			Status:       row.Status,
+			CacheEnabled: row.CacheEnabledValue(),
+			Hidden:       row.HiddenValue(),
+			Type:         permissionTypeToMenuType(row.Type),
+			AddTime:      row.AddTime,
+			EditTime:     row.EditTime,
 		})
 	}
 	return list

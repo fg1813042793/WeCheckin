@@ -1,6 +1,7 @@
 const workflowStartPrefix = 'workflow:start:'
 const workflowInstancePrefix = 'workflow:instance:'
 const workflowFormDetailPrefix = 'workflow:form-detail:'
+const workflowSummaryFormDetailPrefix = 'workflow:summary-form-detail:'
 const workflowTaskPrefix = 'workflow:task:'
 const workflowFormRevisionPrefix = 'workflow:form-revision:'
 const workflowCompletedFormRevisionPrefix = 'workflow:completed-form-revision:'
@@ -31,17 +32,25 @@ export function workflowInstanceIdFromContentKey(key: string) {
   return decodeWorkflowRouteValue(key.slice(workflowInstancePrefix.length))
 }
 
-export function workflowFormDetailContentKey(instanceId: string) {
+export type WorkflowFormDetailSource = 'instance' | 'summary'
+
+export function workflowFormDetailContentKey(instanceId: string, source: WorkflowFormDetailSource = 'instance') {
   const normalizedInstanceId = String(instanceId || '').trim()
+  const prefix = source === 'summary' ? workflowSummaryFormDetailPrefix : workflowFormDetailPrefix
   return normalizedInstanceId
-    ? `${workflowFormDetailPrefix}${encodeURIComponent(normalizedInstanceId)}`
+    ? `${prefix}${encodeURIComponent(normalizedInstanceId)}`
     : ''
 }
 
+export function workflowFormDetailSourceFromContentKey(key: string): WorkflowFormDetailSource {
+  return key.startsWith(workflowSummaryFormDetailPrefix) ? 'summary' : 'instance'
+}
+
 export function workflowFormDetailInstanceIdFromContentKey(key: string) {
-  if (!key.startsWith(workflowFormDetailPrefix))
+  const prefix = workflowFormDetailSourceFromContentKey(key) === 'summary' ? workflowSummaryFormDetailPrefix : workflowFormDetailPrefix
+  if (!key.startsWith(prefix))
     return ''
-  return decodeWorkflowRouteValue(key.slice(workflowFormDetailPrefix.length))
+  return decodeWorkflowRouteValue(key.slice(prefix.length))
 }
 
 export function workflowFormRevisionContentKey(instanceId: string) {
@@ -112,7 +121,7 @@ export function normalizeWorkflowDynamicContentKey(key: string) {
 
   const formDetailInstanceId = workflowFormDetailInstanceIdFromContentKey(key)
   if (formDetailInstanceId)
-    return workflowFormDetailContentKey(formDetailInstanceId)
+    return workflowFormDetailContentKey(formDetailInstanceId, workflowFormDetailSourceFromContentKey(key))
 
   const revisionInstanceId = workflowFormRevisionInstanceIdFromContentKey(key)
   if (revisionInstanceId)

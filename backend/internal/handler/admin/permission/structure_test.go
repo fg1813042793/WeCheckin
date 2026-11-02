@@ -21,6 +21,8 @@ func TestAdminPermissionHandlerExposesRESTResource(t *testing.T) {
 		"EditPermission",
 		"DelPermission",
 		"adminpermission.SaveRequest",
+		"cacheEnabled",
+		"hidden",
 		`c.Query("types")`,
 		`TreeForAdminContext(ctx, admin.ID, c.Query("platform"), c.Query("types"))`,
 		`ListForAdminContext(ctx, admin.ID, c.Query("platform"), c.Query("types"))`,

@@ -59,8 +59,11 @@ Go 任务不能填写函数名，只能选择服务端注册键。当前内置�
 - `workflow.notification.dispatch_due`：派发已经到期的通用流程通知。
 - `notification.outbox.dispatch_due`：派发通用通知 Outbox，支持站内信和受控 Webhook 渠道的重试与死信状态。
 - `notification.in_app.send`：按任务执行时的组织数据向启用用户发送站内信。
+- `notification.workflow_start.send`：按发送模板绑定流程当前发布的发起范围，向当前符合条件的用户发送流程开始钉钉通知。
 
 流程通知与通用通知 Outbox 由迁移创建为系统任务，管理端可查看和手工立即执行，不允许修改、停用或删除。自定义任务可选择已注册处理器，例如：
+
+任务列表的“记录”操作会打开运行记录页面并按任务 ID 自动过滤。计划时间已经到达但采用“错过跳过”策略时，调度器仍会创建一条 `skipped` 终态记录，结果中说明跳过次数和策略；该记录只用于审计，不投递给 worker。升级前已经被旧版本跳过且未落库的历史调度不会自动补写。
 
 ```json
 {
@@ -84,6 +87,23 @@ Go 任务不能填写函数名，只能选择服务端注册键。当前内置�
 ```
 
 任务保存接收范围规则，执行时重新解析当前启用用户；同一运行 ID 重试不会重复投递。创建或编辑该任务的管理员除定时任务管理权限外，还必须具有 `notification:send` 权限。运行日志只记录计划、发送、跳过和重放数量，不记录通知正文或完整收件人列表。
+
+流程开始通知任务只保存发送模板 ID，例如：
+
+```json
+{
+  "handlerKey": "notification.workflow_start.send",
+  "params": {
+    "templateId": 7
+  }
+}
+```
+
+模板必须处于启用状态，且跳转目标为“发起指定流程”。每次执行都会读取模板当前版本、目标流程当前发布版本和当前组织数据：全部用户范围会剔除排除用户；指定范围会合并指定用户、指定部门及其子部门中的启用用户，去重后再剔除排除用户。创建或编辑该任务还需具备 `notification:dingtalk:send` 权限。运行日志只记录数量，不记录模板正文或完整用户列表。
+
+钉钉发送完成后会按运行 ID 幂等写入通用通知 Outbox 的钉钉终态记录，可在后台“通知管理 > 钉钉投递”查看模板、来源以及计划、成功、跳过和失败人数。该记录不会写入 `notify` 站内信表，因此不会增加 H5 或管理后台的未读站内信数量。
+
+钉钉属于外部副作用，当前发送链路遵循至少一次执行语义；运行 ID 用于来源关联，但不能替代下游幂等保证。若 Worker 在钉钉已接收后、运行结果落库前中断，重试可能再次发送。
 
 ## 4. 安全配置
 
@@ -120,8 +140,9 @@ MySQL 是唯一事实源，Redis 只承担投递和节点心跳。平台采用�
 
 - `scheduler_poll_seconds`：到期任务、重试任务和串行等待任务扫描，默认 2 秒。
 - `scheduler_recovery_seconds`：未投递消息和失联 Worker 恢复扫描，默认 30 秒。
+- `misfire_grace_seconds`：Cron 计划时间后的正常扫描宽限，默认 60 秒且不得小于 `scheduler_poll_seconds`。宽限内触发始终按正常计划执行；只有更早的历史触发点才应用错过策略。
 
-可通过 `WECHECKIN_SCHEDULED_TASK_SCHEDULER_POLL_SECONDS` 和 `WECHECKIN_SCHEDULED_TASK_SCHEDULER_RECOVERY_SECONDS` 覆盖。查询仍保留独立超时，网络恢复后由连接池重新建立连接并继续扫描，不建议仅通过调大查询超时掩盖连接问题。
+可通过 `WECHECKIN_SCHEDULED_TASK_SCHEDULER_POLL_SECONDS`、`WECHECKIN_SCHEDULED_TASK_SCHEDULER_RECOVERY_SECONDS` 和 `WECHECKIN_SCHEDULED_TASK_MISFIRE_GRACE_SECONDS` 覆盖。仓库 `config.yaml` 当前使用30秒扫描、60秒宽限。查询仍保留独立超时，网络恢复后由连接池重新建立连接并继续扫描，不建议仅通过调大查询超时掩盖连接问题。
 
 `taskd` 的 GORM 日志级别固定为 `Warn`，正常轮询和空结果查询不会逐条打印；慢 SQL、数据库错误以及运行时退避/恢复事件仍会记录。HTTP 服务的数据库日志级别不受此设置影响。
 

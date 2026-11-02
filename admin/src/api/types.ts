@@ -26,11 +26,56 @@ export interface PageQuery extends QueryParams {
   sort?: string
 }
 
+export interface AdminUserListQuery extends PageQuery {
+  mobile?: string
+  status?: number
+  positionId?: number
+  managerUserId?: number
+  roleId?: number
+}
+
 export interface PageResult<T> {
   list: T[]
   total: number
   page?: number
   size?: number
+}
+
+export interface AdminHomeQuery extends QueryParams {
+  days?: 7 | 30
+}
+
+export interface AdminHomeTrendPoint {
+  date: string
+  userCount: number
+  enrollJoinCount: number
+  surveyResponseCount: number
+  examRecordCount: number
+}
+
+export interface AdminHomeData {
+  userCnt: number
+  enrollCnt: number
+  newsCnt: number
+  joinCnt: number
+  eventCnt: number
+  eventUserCnt: number
+  mgrCnt: number
+  surveyCnt: number
+  todaySurveyResponseCnt: number
+  examCnt: number
+  todayExamRecordCnt: number
+  pendingUserCnt: number
+  pendingWorkflowTaskCnt: number
+  failedWorkflowNotificationCnt: number
+  failedScheduledRunCnt: number
+  pendingFeedbackCnt: number
+  unboundDingTalkUserCnt: number
+  unreadNotificationCnt: number
+  trendDays: 7 | 30
+  trend: AdminHomeTrendPoint[]
+  updatedAt: number
+  capabilities: Record<string, boolean>
 }
 
 export type InAppNotificationScope = 'all' | 'departments' | 'users'
@@ -127,6 +172,43 @@ export interface WebhookNotificationList {
   pageSize: number
 }
 
+export type DingTalkDeliveryStatus = 'sent' | 'partial' | 'failed_final' | 'skipped'
+
+export interface DingTalkDeliveryRecordItem {
+  id: number
+  title: string
+  content: string
+  notificationType: string
+  sourceType: string
+  sourceId: string
+  templateId?: number
+  templateVersion?: number
+  templateName?: string
+  status: DingTalkDeliveryStatus
+  plannedCount: number
+  sentCount: number
+  skippedCount: number
+  failedCount: number
+  attempts: number
+  lastError: string
+  sentAt: number
+  addTime: number
+  editTime: number
+}
+
+export interface DingTalkDeliveryRecordQuery extends PageQuery {
+  title?: string
+  sourceType?: string
+  status?: DingTalkDeliveryStatus
+}
+
+export interface DingTalkDeliveryRecordList {
+  list: DingTalkDeliveryRecordItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export interface InAppNotificationRecipientOptions {
   users: AdminUser[]
   departments: DepartmentNode[]
@@ -150,7 +232,10 @@ export interface InAppNotificationSendResult {
   replayed: boolean
 }
 
-export type DingTalkNotificationSendPayload = Omit<InAppNotificationSendPayload, 'requestId'>
+export type DingTalkNotificationSendPayload = Omit<InAppNotificationSendPayload, 'requestId'> & {
+  templateId?: number
+  templateVersion?: number
+}
 export type DingTalkNotificationSendResult = InAppNotificationSendResult
 
 export interface NotificationStyleTestPayload {
@@ -168,6 +253,8 @@ export interface AdminMenuItem {
   status: number
   path?: string
   icon?: string
+  cacheEnabled?: number
+  hidden?: number
   children?: AdminMenuItem[]
 }
 
@@ -178,6 +265,13 @@ export interface AdminLoginData {
   pic?: string
   roleId?: number
   roleIds?: number[]
+}
+
+export interface AdminCaptchaChallenge {
+  enabled: boolean
+  captchaId?: string
+  imageData?: string
+  expiresIn?: number
 }
 
 export interface DingTalkCorpConfig {
@@ -200,6 +294,7 @@ export interface DingTalkSettings extends DingTalkCorpConfig {
   redisPrefix?: string
   singleLogin?: number
   selfBind?: number
+  loginCaptchaEnabled?: number
   appName?: string
   logoText?: string
   logoUrl?: string
@@ -350,6 +445,7 @@ export interface ExamItem {
   category?: string
   status: number
   duration?: number
+  passScore?: number
   addTime?: number
 }
 

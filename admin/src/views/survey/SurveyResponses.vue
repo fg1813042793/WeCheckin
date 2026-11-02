@@ -109,7 +109,7 @@
         </el-table>
       </div>
       <div class="admin-pagination">
-        <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total,prev,pager,next" background @current-change="load" />
+        <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="handlePageSizeChange" />
       </div>
     </el-card>
 
@@ -197,6 +197,11 @@ async function load() {
 }
 
 function search() {
+  page.value = 1
+  load()
+}
+
+function handlePageSizeChange() {
   page.value = 1
   load()
 }
@@ -462,7 +467,7 @@ onMounted(load)
 }
 .admin-pagination {
   display:flex;
-  justify-content:flex-start;
+  justify-content:flex-end;
   margin-top:16px;
 }
 

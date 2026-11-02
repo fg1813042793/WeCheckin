@@ -15,6 +15,7 @@ import {
   bindSelf,
   bootstrap,
   clearAuthToken,
+  captcha as fetchLoginCaptcha,
   login,
   logout,
   publicConfig,
@@ -24,6 +25,8 @@ import {
 import { createAppNavItems, flattenAppNav, normalizeAppMenus } from '@/config/app-navigation'
 import { DINGTALK_H5_BIND_REQUIRED_CODE, DINGTALK_H5_CONFIG } from '@/config/dingtalk-h5'
 import { isDingTalkRuntime, requestAuthCode, setBrowserFavicon, setNavigationTitle, waitForDingTalkJSAPI } from '@/utils/dingtalk'
+import { useAppContentStore } from './appContent'
+import { useAppShellStore } from './appShell'
 
 function defaultAppConfig(): AppConfig {
   return {
@@ -51,7 +54,7 @@ function firstText(...values: Array<unknown>) {
 
 function resolveErrorEnvelope(error: unknown): ApiEnvelope {
   const candidate = error as { data?: unknown, code?: unknown, msg?: unknown, message?: unknown }
-  if (isApiEnvelope(candidate.data)) {
+  if (isApiEnvelope(candidate?.data)) {
     return candidate.data
   }
   if (isApiEnvelope(candidate)) {
@@ -118,6 +121,12 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
   const publicCorpId = ref('')
   const autoLoginTried = ref(false)
   const autoLoginMessage = ref('')
+  const canRetryDingTalkLogin = ref(isDingTalkRuntime())
+  const captchaEnabled = ref(false)
+  const captchaId = ref('')
+  const captchaImage = ref('')
+  const captchaLoading = ref(false)
+  const captchaUnavailable = ref(false)
   const sessionAccessDenied = ref(false)
   const sessionAccessDeniedMessage = ref('无权限访问，请联系管理员配置钉钉 H5 权限')
   const bindState = reactive({
@@ -130,6 +139,10 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
   })
 
   let publicConfigLoaded = false
+  let publicConfigRequest: Promise<boolean> | null = null
+  let contextCorpId: string | null = null
+  let authRevision = 0
+  let initRequest: { corpId: string, promise: Promise<void> } | null = null
 
   const isLoggedIn = computed(() => Boolean(user.value))
   const normalizedMenus = computed(() => normalizeAppMenus(menus.value))
@@ -170,7 +183,7 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
   }
 
   function currentCorpId() {
-    return queryParam('corpId') || queryParam('corpID') || queryParam('corp_id') || publicCorpId.value || DINGTALK_H5_CONFIG.DINGTALK_CORP_ID
+    return firstText(queryParam('corpId'), queryParam('corpID'), queryParam('corp_id'), publicCorpId.value, DINGTALK_H5_CONFIG.DINGTALK_CORP_ID)
   }
 
   function applyAppConfig(payload: Partial<AppConfig> = {}) {
@@ -259,20 +272,20 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     }
   }
 
-  async function ensurePublicConfig() {
+  function ensurePublicConfig(): Promise<boolean> {
     if (publicConfigLoaded) {
-      return true
+      return Promise.resolve(true)
     }
-    publicConfigLoaded = true
-    try {
-      const res = await publicConfig()
+    if (publicConfigRequest)
+      return publicConfigRequest
+    publicConfigRequest = publicConfig().then((res) => {
       applyPublicConfig(res.data || {})
+      publicConfigLoaded = true
       return true
-    }
-    catch {
-      publicConfigLoaded = false
-      return false
-    }
+    }).catch(() => false).finally(() => {
+      publicConfigRequest = null
+    })
+    return publicConfigRequest
   }
 
   function resetBindState() {
@@ -282,6 +295,42 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     bindState.dingTalkUserIdMasked = ''
     bindState.unionIdMasked = ''
     bindState.expiresIn = 0
+  }
+
+  async function refreshLoginCaptcha() {
+    const revision = authRevision
+    captchaLoading.value = true
+    captchaUnavailable.value = false
+    captchaId.value = ''
+    captchaImage.value = ''
+    try {
+      const res = await fetchLoginCaptcha()
+      if (revision !== authRevision)
+        return false
+      const payload = res.data || { enabled: false }
+      captchaEnabled.value = payload.enabled === true
+      if (!captchaEnabled.value) {
+        return true
+      }
+      captchaId.value = String(payload.captchaId || '')
+      captchaImage.value = String(payload.imageData || '')
+      if (!captchaId.value || !captchaImage.value) {
+        captchaUnavailable.value = true
+        return false
+      }
+      return true
+    }
+    catch {
+      if (revision !== authRevision)
+        return false
+      captchaEnabled.value = true
+      captchaUnavailable.value = true
+      return false
+    }
+    finally {
+      if (revision === authRevision)
+        captchaLoading.value = false
+    }
   }
 
   function showBindRequired(payload: BindRequiredPayload = {}) {
@@ -297,9 +346,12 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     applySessionPayload(payload)
   }
 
-  function resetSession() {
+  function clearSessionState() {
     clearAuthToken()
     resetBindState()
+    autoLoginTried.value = false
+    autoLoginMessage.value = ''
+    loading.value = false
     user.value = null
     menus.value = []
     buttonPermissionKeys.value = []
@@ -309,6 +361,24 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     permissionVersion.value = 0
     sessionAccessDenied.value = false
     sessionAccessDeniedMessage.value = '无权限访问，请联系管理员配置钉钉 H5 权限'
+    captchaEnabled.value = false
+    captchaId.value = ''
+    captchaImage.value = ''
+    captchaLoading.value = false
+    captchaUnavailable.value = false
+    useAppContentStore().resetContent()
+    useAppShellStore().resetSessionTabs()
+  }
+
+  function resetSession() {
+    authRevision++
+    initRequest = null
+    clearSessionState()
+    ready.value = true
+  }
+
+  function isCurrentAuthRequest(revision: number, corpId: string) {
+    return revision === authRevision && corpId === currentCorpId()
   }
 
   function handleAuthError(error: unknown) {
@@ -333,29 +403,51 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     return false
   }
 
-  async function loadBootstrap() {
+  async function loadBootstrap(revision = authRevision, corpId = currentCorpId()) {
+    const token = authToken()
     const res = await bootstrap()
+    if (!isCurrentAuthRequest(revision, corpId) || token !== authToken())
+      return false
     applySessionPayload(res)
+    return true
   }
 
   async function loginWithPassword(form: LoginRequest) {
+    if (contextCorpId !== currentCorpId()) {
+      await syncCorpContext()
+      return false
+    }
+    if (loading.value)
+      return false
+    const revision = authRevision
+    const corpId = currentCorpId()
     loading.value = true
+    let succeeded = false
     try {
       autoLoginMessage.value = ''
       resetBindState()
       const res = await login(form)
+      if (!isCurrentAuthRequest(revision, corpId))
+        return false
       const payload = resolveSessionPayload(res)
       if (payload.token) {
-        setAuthToken(payload.token)
+        setAuthToken(payload.token, corpId)
       }
       applySessionPayload(payload)
       if (!payload.menus) {
-        await loadBootstrap()
+        await loadBootstrap(revision, corpId)
       }
+      if (!isCurrentAuthRequest(revision, corpId))
+        return false
+      succeeded = true
       return true
     }
     finally {
-      loading.value = false
+      if (isCurrentAuthRequest(revision, corpId) && captchaEnabled.value && !succeeded) {
+        await refreshLoginCaptcha()
+      }
+      if (isCurrentAuthRequest(revision, corpId))
+        loading.value = false
     }
   }
 
@@ -376,14 +468,19 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     }
     autoLoginTried.value = true
     autoLoginMessage.value = ''
+    const revision = authRevision
     await ensurePublicConfig()
+    if (revision !== authRevision)
+      return false
+    const corpId = currentCorpId()
 
     const shouldTry = await shouldTryDingTalkAutoLogin()
-    if (!shouldTry) {
+    if (isCurrentAuthRequest(revision, corpId))
+      canRetryDingTalkLogin.value = shouldTry
+    if (!shouldTry || !isCurrentAuthRequest(revision, corpId)) {
       return false
     }
 
-    const corpId = currentCorpId()
     if (!corpId) {
       autoLoginMessage.value = '未配置钉钉企业 CorpId，请在后台配置企业应用，或在应用地址增加 corpId 参数。'
       return false
@@ -392,34 +489,49 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     loading.value = true
     try {
       const authCode = await requestAuthCode(corpId)
+      if (!isCurrentAuthRequest(revision, corpId))
+        return false
       if (!authCode) {
         autoLoginMessage.value = '钉钉免登未返回授权码，请确认当前应用地址配置在钉钉工作台微应用中。'
         return false
       }
       const res = await ssoLogin({ corpId, authCode })
+      if (!isCurrentAuthRequest(revision, corpId))
+        return false
       const payload = resolveSessionPayload(res)
       if (payload.token) {
-        setAuthToken(payload.token)
+        setAuthToken(payload.token, corpId)
       }
       applySessionPayload(payload)
       if (!payload.menus) {
-        await loadBootstrap()
+        await loadBootstrap(revision, corpId)
       }
-      return true
+      return isCurrentAuthRequest(revision, corpId) && Boolean(user.value)
     }
     catch (error) {
-      return handleAuthError(error)
+      if (isCurrentAuthRequest(revision, corpId))
+        handleAuthError(error)
+      return false
     }
     finally {
-      loading.value = false
+      if (isCurrentAuthRequest(revision, corpId))
+        loading.value = false
     }
   }
 
   async function bindDingTalkUser(account: string, password: string) {
+    const corpId = currentCorpId()
+    if (contextCorpId !== corpId || (bindState.corpId && bindState.corpId !== corpId)) {
+      await syncCorpContext()
+      return false
+    }
+    if (loading.value)
+      return false
     if (!bindState.bindTicket) {
       uni.showToast({ title: '绑定会话已过期，请重新打开应用', icon: 'none' })
       return false
     }
+    const revision = authRevision
     loading.value = true
     try {
       const res = await bindSelf({
@@ -427,55 +539,108 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
         account,
         password,
       })
+      if (!isCurrentAuthRequest(revision, corpId))
+        return false
       const payload = resolveSessionPayload(res)
       resetBindState()
       if (payload.token) {
-        setAuthToken(payload.token)
+        setAuthToken(payload.token, corpId)
       }
       applySessionPayload(payload)
       if (!payload.menus) {
-        await loadBootstrap()
+        await loadBootstrap(revision, corpId)
       }
-      return true
+      return isCurrentAuthRequest(revision, corpId) && Boolean(user.value)
     }
     catch (error) {
-      return handleAuthError(error)
+      if (isCurrentAuthRequest(revision, corpId))
+        handleAuthError(error)
+      return false
     }
     finally {
-      loading.value = false
+      if (isCurrentAuthRequest(revision, corpId))
+        loading.value = false
     }
   }
 
-  async function restoreSession() {
+  async function restoreSession(revision: number, corpId: string) {
     if (!authToken()) {
       return false
     }
     try {
-      await loadBootstrap()
-      return true
+      return await loadBootstrap(revision, corpId)
     }
     catch (error) {
-      handleAuthError(error)
+      if (!isCurrentAuthRequest(revision, corpId))
+        return false
+      const envelope = resolveErrorEnvelope(error)
+      const message = firstText(envelope.msg, envelope.message)
+      if (['未登录', '登录已过期', '登录已过期或已被强制下线', '账号异常'].includes(message))
+        clearSessionState()
+      else
+        handleAuthError(error)
       return false
     }
   }
 
-  async function init() {
+  function init(): Promise<void> {
+    const requestedCorpId = currentCorpId()
+    if (initRequest?.corpId === requestedCorpId)
+      return initRequest.promise
+    const revision = ++authRevision
     ready.value = false
-    await ensurePublicConfig()
-    const restored = await restoreSession()
-    if (!restored) {
-      await tryDingTalkAutoLogin()
-    }
-    ready.value = true
+    const promise = (async () => {
+      await ensurePublicConfig()
+      if (revision !== authRevision)
+        return
+      const corpId = currentCorpId()
+      if (initRequest)
+        initRequest.corpId = corpId
+      const tokenCorpId = String(uni.getStorageSync(DINGTALK_H5_CONFIG.TOKEN_CORP_ID_KEY) || '')
+      const changedCorp = contextCorpId !== null && contextCorpId !== corpId
+      const wrongTokenCorp = authToken() && tokenCorpId !== corpId && (tokenCorpId || isDingTalkRuntime())
+      // Old unmarked DingTalk sessions must identify their enterprise once after upgrading.
+      const unknownTokenCorp = authToken() && !tokenCorpId && isDingTalkRuntime()
+      if (changedCorp || wrongTokenCorp || unknownTokenCorp)
+        clearSessionState()
+      contextCorpId = corpId
+      const restored = await restoreSession(revision, corpId)
+      if (isCurrentAuthRequest(revision, corpId) && !restored)
+        await tryDingTalkAutoLogin()
+    })().finally(() => {
+      if (revision === authRevision)
+        ready.value = true
+      if (initRequest?.promise === promise)
+        initRequest = null
+    })
+    initRequest = { corpId: requestedCorpId, promise }
+    return promise
+  }
+
+  async function syncCorpContext() {
+    const corpId = currentCorpId()
+    const tokenCorpId = String(uni.getStorageSync(DINGTALK_H5_CONFIG.TOKEN_CORP_ID_KEY) || '')
+    if (!ready.value || contextCorpId !== corpId || (authToken() && tokenCorpId && tokenCorpId !== corpId))
+      await init()
+  }
+
+  async function retryDingTalkLogin() {
+    if (loading.value)
+      return false
+    resetSession()
+    await init()
+    return Boolean(user.value)
   }
 
   async function logoutSession() {
+    const request = logout()
+    // Clear immediately so a late logout response cannot erase a new enterprise session.
+    resetSession()
     try {
-      await logout()
+      await request
     }
-    finally {
-      resetSession()
+    catch {
+      // The request layer reports the failure; local logout remains effective.
     }
   }
 
@@ -485,6 +650,12 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     appConfig,
     appTitle,
     autoLoginMessage,
+    canRetryDingTalkLogin,
+    captchaEnabled,
+    captchaId,
+    captchaImage,
+    captchaLoading,
+    captchaUnavailable,
     bindDingTalkUser,
     bindState,
     buttonPermissionKeys,
@@ -506,10 +677,13 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     normalizedMenus,
     permissionVersion,
     ready,
+    refreshLoginCaptcha,
     resetSession,
+    retryDingTalkLogin,
     sessionAccessDenied,
     sessionAccessDeniedMessage,
     tryDingTalkAutoLogin,
+    syncCorpContext,
     updateCurrentUser,
     user,
   }

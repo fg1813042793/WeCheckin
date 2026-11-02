@@ -22,24 +22,30 @@ const (
 	TypeAdminManual   = "admin_manual"
 	TypeScheduledTask = "scheduled_task"
 	TypeSurveyStat    = "survey_stat"
+
+	DingTalkDeliveryStatusSent    = "sent"
+	DingTalkDeliveryStatusPartial = "partial"
+	DingTalkDeliveryStatusFailed  = "failed_final"
+	DingTalkDeliveryStatusSkipped = "skipped"
 )
 
 var (
-	ErrUnauthenticated             = errors.New("notification user is not authenticated")
-	ErrNotificationMissing         = errors.New("notification not found")
-	ErrTitleRequired               = errors.New("notification title is required")
-	ErrTitleTooLong                = errors.New("notification title must not exceed 255 characters")
-	ErrContentRequired             = errors.New("notification content is required")
-	ErrContentTooLong              = errors.New("notification content must not exceed 5000 characters")
-	ErrInvalidScope                = errors.New("notification recipient scope is invalid")
-	ErrRecipientsRequired          = errors.New("notification recipients are required")
-	ErrSourceRequired              = errors.New("notification source is required")
-	ErrSourceTooLong               = errors.New("notification source ID must not exceed 64 characters")
-	ErrNoRecipients                = errors.New("notification has no active recipients")
-	ErrDingTalkDeliveryUnavailable = errors.New("DingTalk notification delivery is unavailable")
-	ErrInvalidNotificationType     = errors.New("notification type is invalid")
-	ErrInvalidReadStatus           = errors.New("notification read status is invalid")
-	ErrInvalidTimeRange            = errors.New("notification time range is invalid")
+	ErrUnauthenticated                = errors.New("notification user is not authenticated")
+	ErrNotificationMissing            = errors.New("notification not found")
+	ErrTitleRequired                  = errors.New("notification title is required")
+	ErrTitleTooLong                   = errors.New("notification title must not exceed 255 characters")
+	ErrContentRequired                = errors.New("notification content is required")
+	ErrContentTooLong                 = errors.New("notification content must not exceed 5000 characters")
+	ErrInvalidScope                   = errors.New("notification recipient scope is invalid")
+	ErrRecipientsRequired             = errors.New("notification recipients are required")
+	ErrSourceRequired                 = errors.New("notification source is required")
+	ErrSourceTooLong                  = errors.New("notification source ID must not exceed 64 characters")
+	ErrNoRecipients                   = errors.New("notification has no active recipients")
+	ErrDingTalkDeliveryUnavailable    = errors.New("DingTalk notification delivery is unavailable")
+	ErrInvalidNotificationType        = errors.New("notification type is invalid")
+	ErrInvalidReadStatus              = errors.New("notification read status is invalid")
+	ErrInvalidTimeRange               = errors.New("notification time range is invalid")
+	ErrDingTalkDeliveryRecordNotFound = errors.New("DingTalk delivery record not found")
 )
 
 type RecipientRule struct {
@@ -49,6 +55,8 @@ type RecipientRule struct {
 }
 
 type SendInput struct {
+	TemplateID       uint           `json:"templateId,omitempty"`
+	TemplateVersion  int            `json:"templateVersion,omitempty"`
 	Title            string         `json:"title"`
 	Content          string         `json:"content"`
 	Scope            RecipientScope `json:"scope"`
@@ -81,6 +89,7 @@ type DeliveryResult struct {
 }
 
 type DingTalkDeliveryBatch struct {
+	Template         *DingTalkSendTemplate
 	Title            string
 	Content          string
 	NotificationType string
@@ -91,6 +100,43 @@ type DingTalkDeliveryResult struct {
 	SentCount    int
 	SkippedCount int
 	FailedCount  int
+}
+
+type DingTalkDeliveryRecord struct {
+	ID               uint64 `json:"id"`
+	Title            string `json:"title"`
+	Content          string `json:"content"`
+	NotificationType string `json:"notificationType"`
+	SourceType       string `json:"sourceType"`
+	SourceID         string `json:"sourceId"`
+	TemplateID       uint   `json:"templateId,omitempty"`
+	TemplateVersion  int    `json:"templateVersion,omitempty"`
+	TemplateName     string `json:"templateName,omitempty"`
+	Status           string `json:"status"`
+	PlannedCount     int    `json:"plannedCount"`
+	SentCount        int    `json:"sentCount"`
+	SkippedCount     int    `json:"skippedCount"`
+	FailedCount      int    `json:"failedCount"`
+	Attempts         int    `json:"attempts"`
+	LastError        string `json:"lastError"`
+	SentAt           int64  `json:"sentAt"`
+	AddTime          int64  `json:"addTime"`
+	EditTime         int64  `json:"editTime"`
+}
+
+type DingTalkDeliveryRecordQuery struct {
+	Title      string
+	SourceType string
+	Status     string
+	Page       int
+	PageSize   int
+}
+
+type DingTalkDeliveryRecordList struct {
+	List     []DingTalkDeliveryRecord `json:"list"`
+	Total    int64                    `json:"total"`
+	Page     int                      `json:"page"`
+	PageSize int                      `json:"pageSize"`
 }
 
 type DingTalkDelivery interface {
@@ -168,4 +214,8 @@ type Store interface {
 	RecipientOptions(context.Context) (RecipientOptions, error)
 	NotificationStyles(context.Context) (notificationstyle.Config, error)
 	SaveNotificationStyles(context.Context, notificationstyle.Config) (notificationstyle.Config, error)
+	RecordDingTalkDelivery(context.Context, DingTalkDeliveryRecord) error
+	ListDingTalkDeliveryRecords(context.Context, DingTalkDeliveryRecordQuery) ([]DingTalkDeliveryRecord, int64, error)
+	GetDingTalkDeliveryRecord(context.Context, uint64) (DingTalkDeliveryRecord, error)
+	DeleteDingTalkDeliveryRecord(context.Context, uint64) error
 }

@@ -1,21 +1,58 @@
 <script setup lang="ts">
 import type { AppConfig, LoginRequest } from '@/types/dingtalk-h5'
-import { reactive } from 'vue'
+import { useLocale } from 'uview-pro'
+import { computed, onMounted, reactive, watch } from 'vue'
 
-defineProps<{
+const props = withDefaults(defineProps<{
   appConfig: AppConfig
   autoLoginMessage: string
+  showDingtalkLogin?: boolean
+  captchaEnabled?: boolean
+  captchaId?: string
+  captchaImage?: string
+  captchaLoading?: boolean
+  captchaUnavailable?: boolean
   loading: boolean
-}>()
+}>(), {
+  captchaEnabled: false,
+  showDingtalkLogin: false,
+  captchaId: '',
+  captchaImage: '',
+  captchaLoading: false,
+  captchaUnavailable: false,
+})
 
 const emit = defineEmits<{
-  login: [form: LoginRequest]
+  'login': [form: LoginRequest]
+  'refresh-captcha': []
+  'retry-dingtalk': []
 }>()
+
+const { t } = useLocale('auth.loginCaptcha')
+const { t: authText } = useLocale('auth.dingtalk')
 
 const form = reactive<LoginRequest>({
   name: '',
   password: '',
+  captchaCode: '',
 })
+
+const captchaReady = computed(() => !props.captchaLoading && (
+  !props.captchaEnabled
+  || Boolean(props.captchaId && props.captchaImage && !props.captchaUnavailable)
+))
+
+watch(() => props.captchaId, () => {
+  form.captchaCode = ''
+})
+
+onMounted(refreshCaptcha)
+
+function refreshCaptcha() {
+  if (props.captchaLoading)
+    return
+  emit('refresh-captcha')
+}
 
 function submit() {
   if (!form.name.trim() || !form.password.trim()) {
@@ -25,15 +62,31 @@ function submit() {
     })
     return
   }
+  if (props.captchaEnabled && !String(form.captchaCode || '').trim()) {
+    uni.showToast({
+      title: t('required'),
+      icon: 'none',
+    })
+    return
+  }
+  if (!captchaReady.value) {
+    uni.showToast({
+      title: t('unavailable'),
+      icon: 'none',
+    })
+    return
+  }
   emit('login', {
     name: form.name.trim(),
     password: form.password,
+    captchaId: props.captchaEnabled ? props.captchaId : undefined,
+    captchaCode: props.captchaEnabled ? String(form.captchaCode || '').trim().toUpperCase() : undefined,
   })
 }
 </script>
 
 <template>
-  <view class="auth-panel">
+  <view class="auth-panel app-pc-control-scope">
     <view class="auth-panel__card">
       <view class="brand">
         <image v-if="appConfig.logoUrl" class="brand__logo-image" :src="appConfig.logoUrl" mode="aspectFill" />
@@ -50,12 +103,57 @@ function submit() {
 
       <view v-if="autoLoginMessage" class="auth-tip">
         {{ autoLoginMessage }}
+        <view v-if="showDingtalkLogin" class="auth-tip__retry">
+          {{ authText('retryHint') }}
+        </view>
       </view>
 
       <view class="auth-form">
+        <u-button v-if="showDingtalkLogin" type="primary" :loading="loading" @click="emit('retry-dingtalk')">
+          {{ authText('retry') }}
+        </u-button>
         <u-input v-model="form.name" placeholder="请输入系统账号" clearable :border="true" />
         <u-input v-model="form.password" type="password" placeholder="请输入密码" clearable :border="true" />
-        <u-button type="primary" :loading="loading" @click="submit">
+        <view v-if="captchaEnabled" class="captcha-field">
+          <u-input
+            v-model="form.captchaCode"
+            custom-class="captcha-input"
+            :placeholder="t('placeholder')"
+            clearable
+            :border="true"
+          />
+          <image
+            v-if="captchaImage"
+            class="captcha-image"
+            :src="captchaImage"
+            mode="aspectFit"
+            role="button"
+            tabindex="0"
+            :title="t('refresh')"
+            :aria-label="t('refresh')"
+            :aria-disabled="captchaLoading"
+            @click="refreshCaptcha"
+            @keyup.enter="refreshCaptcha"
+          />
+          <view
+            v-else
+            class="captcha-image captcha-image--empty"
+            role="button"
+            tabindex="0"
+            :title="t('refresh')"
+            :aria-label="t('refresh')"
+            :aria-disabled="captchaLoading"
+            @click="refreshCaptcha"
+            @keyup.enter="refreshCaptcha"
+          >
+            <u-loading v-if="captchaLoading" mode="circle" />
+            <u-icon v-else name="photo" size="36" color="var(--u-tips-color)" />
+          </view>
+        </view>
+        <view v-if="captchaEnabled && captchaUnavailable" class="captcha-error">
+          {{ t('unavailable') }}
+        </view>
+        <u-button :type="showDingtalkLogin ? 'default' : 'primary'" :loading="loading" :disabled="!captchaReady" @click="submit">
           登录
         </u-button>
       </view>
@@ -134,6 +232,47 @@ function submit() {
   gap: 24rpx;
 }
 
+.auth-tip__retry {
+  margin-top: 8px;
+}
+
+.captcha-field {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  gap: 12rpx;
+}
+
+.captcha-field :deep(.captcha-input) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.captcha-image {
+  box-sizing: border-box;
+  width: 256rpx;
+  height: 88rpx;
+  flex: 0 0 256rpx;
+  border: 1rpx solid $u-border-color;
+  border-radius: 8rpx;
+  background: $u-bg-color;
+  cursor: pointer;
+  object-fit: contain;
+}
+
+.captcha-image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.captcha-error {
+  margin-top: -12rpx;
+  color: $u-type-error;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
 @media screen and (min-width: 769px) {
   .auth-panel {
     padding: 64px 24px;
@@ -196,11 +335,49 @@ function submit() {
     background: $u-bg-white;
   }
 
+  .captcha-field {
+    gap: 8px;
+  }
+
+  .captcha-image {
+    width: 128px;
+    height: 44px;
+    flex-basis: 128px;
+    border-width: 1px;
+    border-radius: 6px;
+  }
+
+  .captcha-error {
+    margin-top: -6px;
+    font-size: 12px;
+  }
+
   .auth-form :deep(.u-btn) {
     width: 100%;
     height: 40px;
     margin-top: 4px;
     border-radius: 6px;
+  }
+}
+
+@media screen and (min-width: 769px) and (max-width: 1023px) {
+  .auth-panel {
+    padding: 24px;
+  }
+
+  .auth-panel__card {
+    padding: 28px;
+    gap: 20px;
+  }
+
+  .auth-form {
+    gap: 12px;
+  }
+
+  .captcha-image {
+    width: 112px;
+    height: var(--app-control-height);
+    flex-basis: 112px;
   }
 }
 </style>

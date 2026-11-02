@@ -54,7 +54,29 @@
               <code>注册键：{{ selectedGoJob.value }}</code>
             </div>
           </el-form-item>
-          <template v-if="isNotificationJob">
+          <template v-if="isWorkflowStartNotificationJob">
+            <el-form-item label="发送模板" required>
+              <el-select
+                v-model="workflowStartNotificationTemplateId"
+                filterable
+                remote
+                clearable
+                :remote-method="loadWorkflowStartNotificationTemplates"
+                :loading="workflowStartTemplatesLoading"
+                placeholder="选择流程开始通知模板"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="template in workflowStartNotificationTemplates"
+                  :key="template.id"
+                  :label="`${template.name}｜${template.target.definitionName || `流程 #${template.target.definitionId}`}`"
+                  :value="template.id"
+                />
+              </el-select>
+              <span class="workflow-start-notification-help">执行时按模板目标流程当前的发起范围重新计算收件用户。</span>
+            </el-form-item>
+          </template>
+          <template v-else-if="isNotificationJob">
             <el-form-item label="通知标题" required>
               <el-input v-model="notificationParams.title" maxlength="255" show-word-limit placeholder="请输入通知标题" />
             </el-form-item>
@@ -255,7 +277,9 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { adminApi } from '../../../api'
+import { notificationTemplatesApi } from '../../../api/notificationTemplates'
 import type { InAppNotificationRecipientOptions, InAppNotificationScope } from '../../../api/types'
+import type { DingTalkSendTemplate } from '../../../types/notificationTemplate'
 import { hasPerm } from '../../../utils/permission'
 import WorkflowUserTreePicker from '../../workflow/components/WorkflowUserTreePicker.vue'
 import type { WorkflowAssigneeUser, WorkflowPublishedDefinition } from '../../workflow/types'
@@ -282,6 +306,9 @@ const workflowUsers = ref<WorkflowAssigneeUser[]>([])
 const workflowDepartments = ref<DepartmentNode[]>([])
 const notificationOptionsLoading = ref(false)
 const notificationOptionsLoaded = ref(false)
+const workflowStartTemplatesLoading = ref(false)
+const workflowStartNotificationTemplates = ref<DingTalkSendTemplate[]>([])
+const workflowStartNotificationTemplateId = ref<number>()
 const notificationEmptyUserSelection = ref<number[]>([])
 const notificationRecipientOptions = reactive<InAppNotificationRecipientOptions>({ users: [], departments: [] })
 const notificationParams = reactive({
@@ -323,6 +350,7 @@ const goJobOptions = computed(() => {
   return (property?.enum || []).filter((value) => {
     if (value === 'notification.in_app.send') return canNotificationSend.value
     if (value === 'notification.dingtalk.send') return canDingTalkNotificationSend.value
+    if (value === 'notification.workflow_start.send') return canDingTalkNotificationSend.value
     return true
   }).map(value => ({
     value,
@@ -334,6 +362,7 @@ const selectedGoJob = computed(() => (
 ))
 const isInAppNotificationJob = computed(() => handlerConfig.handlerKey === 'notification.in_app.send')
 const isDingTalkNotificationJob = computed(() => handlerConfig.handlerKey === 'notification.dingtalk.send')
+const isWorkflowStartNotificationJob = computed(() => handlerConfig.handlerKey === 'notification.workflow_start.send')
 const isNotificationJob = computed(() => isInAppNotificationJob.value || isDingTalkNotificationJob.value)
 const selectedWorkflowDefinition = computed(() => (
   workflowDefinitions.value.find(definition => Number(definition.id) === Number(handlerConfig.definitionId)) || null
@@ -372,6 +401,7 @@ watch(() => props.modelValue, async visible => {
   loadTask(props.task)
   if (form.handlerType === 'workflow') await loadWorkflowOptions()
   if (isNotificationJob.value) await loadNotificationOptions()
+  if (isWorkflowStartNotificationJob.value) await loadWorkflowStartNotificationTemplates()
 }, { immediate: true })
 
 function clearObject(target: Record<string, any>) {
@@ -421,18 +451,23 @@ function resetHandlerConfig(existing?: Record<string, any>) {
   jsonFields.env = formatJSON(value.env ?? {})
   jsonFields.parameters = formatJSON(value.parameters ?? [])
   resetNotificationParams(value.params)
+  workflowStartNotificationTemplateId.value = Number.isInteger(Number(value.params?.templateId)) && Number(value.params?.templateId) > 0
+    ? Number(value.params.templateId)
+    : undefined
 }
 
 async function handleHandlerTypeChange() {
   resetHandlerConfig()
   if (form.handlerType === 'workflow') await loadWorkflowOptions()
   if (isNotificationJob.value) await loadNotificationOptions()
+  if (isWorkflowStartNotificationJob.value) await loadWorkflowStartNotificationTemplates()
 }
 
 async function handleGoJobChange() {
   resetNotificationParams()
   jsonFields.params = '{}'
   if (isNotificationJob.value) await loadNotificationOptions()
+  if (isWorkflowStartNotificationJob.value) await loadWorkflowStartNotificationTemplates()
 }
 
 function resetNotificationParams(value: Record<string, unknown> = {}) {
@@ -460,6 +495,26 @@ async function loadNotificationOptions() {
     notificationOptionsLoaded.value = true
   } finally {
     notificationOptionsLoading.value = false
+  }
+}
+
+async function loadWorkflowStartNotificationTemplates(keyword = '') {
+  if (!isWorkflowStartNotificationJob.value || !canDingTalkNotificationSend.value) return
+  workflowStartTemplatesLoading.value = true
+  try {
+    const selectedID = workflowStartNotificationTemplateId.value
+    const requests = [notificationTemplatesApi.options({
+      keyword: String(keyword || '').trim(), page: 1, pageSize: 100, targetKind: 'workflow_start',
+    })]
+    if (selectedID) requests.push(notificationTemplatesApi.options({ id: selectedID, page: 1, pageSize: 1, targetKind: 'workflow_start' }))
+    const responses = await Promise.all(requests)
+    const merged = new Map<number, DingTalkSendTemplate>()
+    for (const response of responses) {
+      for (const template of response.data?.list || []) merged.set(template.id, template)
+    }
+    workflowStartNotificationTemplates.value = Array.from(merged.values())
+  } finally {
+    workflowStartTemplatesLoading.value = false
   }
 }
 
@@ -529,7 +584,9 @@ function requiredJSON<T>(label: string, text: string, type: 'object' | 'array'):
 function buildHandlerConfig() {
   const value = { ...handlerConfig }
   if (form.handlerType === 'go') {
-    value.params = isNotificationJob.value ? {
+    value.params = isWorkflowStartNotificationJob.value ? {
+      templateId: workflowStartNotificationTemplateId.value,
+    } : isNotificationJob.value ? {
       title: notificationParams.title.trim(),
       content: notificationParams.content,
       scope: notificationParams.scope,
@@ -573,6 +630,8 @@ async function save() {
   if (form.handlerType === 'workflow' && workflowStarterIds.value.length > 100) return ElMessage.warning('流程发起人最多选择 100 人')
   if (isInAppNotificationJob.value && !canNotificationSend.value) return ElMessage.error('缺少站内信发送权限')
   if (isDingTalkNotificationJob.value && !canDingTalkNotificationSend.value) return ElMessage.error('缺少钉钉通知发送权限')
+  if (isWorkflowStartNotificationJob.value && !canDingTalkNotificationSend.value) return ElMessage.error('缺少钉钉通知发送权限')
+  if (isWorkflowStartNotificationJob.value && !workflowStartNotificationTemplateId.value) return ElMessage.warning('请选择流程开始通知模板')
   if (isNotificationJob.value && !notificationParams.title.trim()) return ElMessage.warning('请输入通知标题')
   if (isNotificationJob.value && !notificationParams.content.trim()) return ElMessage.warning('请输入通知正文')
   if (isNotificationJob.value && notificationParams.scope === 'departments' && notificationParams.departmentIds.length === 0) return ElMessage.warning('请选择收件部门')
@@ -601,6 +660,22 @@ async function save() {
 
 <style scoped>
 :global(.task-editor-dialog .el-dialog__body) { max-height: calc(90vh - 140px); overflow-y: auto; padding-top: 8px; }
+:global(.task-editor-dialog .el-input__wrapper.is-focus),
+:global(.task-editor-dialog .el-input__wrapper:focus-within),
+:global(.task-editor-dialog .el-select__wrapper.is-focused),
+:global(.task-editor-dialog .el-textarea__inner:focus),
+:global(.task-editor-dialog .el-date-editor.el-input__wrapper.is-active),
+:global(.task-editor-dialog .el-range-editor.is-active) {
+  outline: none !important;
+  box-shadow: 0 0 0 1px var(--admin-ui-color-primary, var(--el-color-primary)) inset !important;
+}
+:global(.task-editor-dialog .el-input__inner:focus),
+:global(.task-editor-dialog .el-select__input:focus),
+:global(.task-editor-dialog .el-range-input:focus),
+:global(.task-editor-dialog .el-range-input:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
 .editor-section { padding: 0 0 20px; margin-bottom: 20px; border-bottom: 1px solid var(--el-border-color-lighter); }
 .editor-section:last-child { border-bottom: 0; }
 .editor-section__title { margin-bottom: 16px; font-size: 15px; font-weight: 650; color: var(--admin-text); }
@@ -613,6 +688,7 @@ async function save() {
 .handler-option { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; }
 .registered-job-meta { display: flex; width: 100%; min-width: 0; justify-content: space-between; gap: 12px; margin-top: 6px; color: var(--admin-muted); font-size: 12px; line-height: 18px; }
 .registered-job-meta code { overflow: hidden; color: var(--admin-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-start-notification-help { display: block; width: 100%; margin-top: 6px; color: var(--admin-muted); font-size: 12px; line-height: 18px; }
 .cron-preview { display: grid; gap: 6px; padding: 10px 12px; margin: -4px 0 16px; background: #f7f8fa; border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-muted); font-size: 13px; }
 .el-alert { margin-bottom: 16px; }
 @media (max-width: 720px) {

@@ -11,6 +11,7 @@ type RuntimeStartConfig struct {
 	Availability     StartAvailabilityConfig `json:"availability"`
 	StartLimit       StartLimitConfig        `json:"startLimit"`
 	InstanceIdentity *InstanceIdentityConfig `json:"instanceIdentity,omitempty"`
+	HistoryImport    *HistoryImportConfig    `json:"historyImport,omitempty"`
 }
 
 func RuntimeStartConfigFromDefinition(definition Definition) RuntimeStartConfig {
@@ -19,6 +20,7 @@ func RuntimeStartConfigFromDefinition(definition Definition) RuntimeStartConfig 
 		Availability:     DefaultStartAvailability(),
 		StartLimit:       DefaultStartLimit(),
 		InstanceIdentity: cloneInstanceIdentityConfig(definition.InstanceIdentity),
+		HistoryImport:    CloneHistoryImportConfig(definition.HistoryImport),
 	}
 	for index := range definition.Nodes {
 		node := definition.Nodes[index]
@@ -40,6 +42,7 @@ func ApplyRuntimeStartConfig(definition *Definition, config RuntimeStartConfig) 
 		return
 	}
 	definition.InstanceIdentity = cloneInstanceIdentityConfig(config.InstanceIdentity)
+	definition.HistoryImport = CloneHistoryImportConfig(config.HistoryImport)
 	for index := range definition.Nodes {
 		if definition.Nodes[index].Type != NodeTypeStart {
 			continue
@@ -80,6 +83,7 @@ func ValidateRuntimeStartConfig(definition Definition) []ValidationError {
 		ValidationStartAvailability: {},
 		ValidationStartLimit:        {},
 		ValidationInstanceIdentity:  {},
+		ValidationHistoryImport:     {},
 	}
 	result := make([]ValidationError, 0)
 	for _, validationError := range ValidateDefinition(definition) {

@@ -12,6 +12,7 @@
           </header>
           <WorkflowRuntimeForm
             :fields="field.fields || []"
+            :validation-fields="validationFields || fields"
             :model-value="modelValue"
             :field-access="props.fieldAccess"
             :field-actions="props.fieldActions"
@@ -475,6 +476,7 @@ const props = withDefaults(defineProps<{
   modelValue: WorkflowFormData
   fieldAccess?: WorkflowFieldAccessMap
   fieldActions?: WorkflowFieldActionMap
+  validationFields?: WorkflowFormField[]
   readonly?: boolean
   emptyText?: string
   embedded?: boolean
@@ -511,7 +513,7 @@ const accessMap = computed<WorkflowFieldAccessMap>(() => {
 })
 
 const visibleFields = computed(() => visibleWorkflowFormFields(props.fields || [], accessMap.value))
-const validationErrors = computed(() => validateWorkflowFormData(props.fields || [], props.modelValue || {}, accessMap.value))
+const validationErrors = computed(() => validateWorkflowFormData(props.validationFields || props.fields || [], props.modelValue || {}, accessMap.value))
 const errorsVisible = computed(() => props.showErrors || showValidationErrors.value)
 
 const remoteOptionSignature = computed(() => {

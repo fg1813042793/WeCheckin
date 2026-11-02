@@ -12,8 +12,7 @@
           </el-select>
           <el-input v-model="filters.workerId" clearable placeholder="Worker ID" style="width: 180px" @keyup.enter="search" />
           <el-date-picker v-model="filters.range" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" style="width: 400px" />
-          <el-button type="primary" icon="Search" @click="search">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="search" @reset="resetFilters" />
         </div>
       </div>
         <div class="admin-toolbar">
@@ -24,7 +23,7 @@
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="list" stripe @selection-change="handleSelectionChange">
+      <el-table v-loading="loading" :data="list" stripe :empty-text="runEmptyText" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="48" :selectable="selectableRun" />
         <el-table-column label="运行 ID" min-width="230"><template #default="{ row }"><button class="run-link" type="button" @click="openDetail(row)">{{ row.id }}</button><small class="run-parent" v-if="row.parentRunId">重试自 {{ row.parentRunId }}</small></template></el-table-column>
         <el-table-column prop="taskId" label="任务 ID" width="100" />
@@ -77,8 +76,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { adminApi } from '../../../api'
 import { hasPerm } from '../../../utils/permission'
 import type { ScheduledTaskRun, ScheduledTaskRunDetail } from '../types'
@@ -89,6 +90,8 @@ const statusOptions = [
   { label: '已取消', value: 'canceled' }, { label: '已跳过', value: 'skipped' },
 ]
 const loading = ref(false)
+const route = useRoute()
+const router = useRouter()
 const list = ref<ScheduledTaskRun[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -101,8 +104,18 @@ const filters = reactive<{ taskId: string; status: string; triggerType: string; 
 const canRetry = computed(() => hasPerm('admin:menu:scheduled-task:run:retry'))
 const canCancel = computed(() => hasPerm('admin:menu:scheduled-task:run:cancel'))
 const canDelete = computed(() => hasPerm('admin:menu:scheduled-task:run:delete'))
+const runEmptyText = computed(() => filters.taskId ? '当前任务暂无运行记录' : '暂无运行记录')
 
-onMounted(loadList)
+watch(
+  () => route.query.taskId,
+  (value) => {
+    const taskId = String(Array.isArray(value) ? value[0] || '' : value || '').trim()
+    filters.taskId = /^\d+$/.test(taskId) ? taskId : ''
+    page.value = 1
+    void loadList()
+  },
+  { immediate: true },
+)
 
 async function loadList() {
   loading.value = true
@@ -118,7 +131,16 @@ async function loadList() {
 }
 
 function search() { page.value = 1; loadList() }
-function resetFilters() { Object.assign(filters, { taskId: '', status: '', triggerType: '', workerId: '', range: null }); search() }
+function resetFilters() {
+  Object.assign(filters, { taskId: '', status: '', triggerType: '', workerId: '', range: null })
+  if (route.query.taskId !== undefined) {
+    const query = { ...route.query }
+    delete query.taskId
+    void router.replace({ query })
+    return
+  }
+  search()
+}
 function changePageSize() { page.value = 1; loadList() }
 
 function selectableRun(row: ScheduledTaskRun) {

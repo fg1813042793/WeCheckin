@@ -14,7 +14,7 @@ func TestSettingsResponseKeepsStableJSONFields(t *testing.T) {
 	text := string(encoded)
 	for _, field := range []string{
 		`"corpId":""`, `"appSecretSet":false`, `"corpConfigs":[]`, `"tokenExpire":""`,
-		`"redisPrefix":""`, `"singleLogin":0`, `"selfBind":0`, `"notifyEnabled":0`,
+		`"redisPrefix":""`, `"singleLogin":0`, `"selfBind":0`, `"loginCaptchaEnabled":0`, `"notifyEnabled":0`,
 		`"appName":""`, `"logoText":""`, `"logoUrl":""`, `"appUrl":""`,
 	} {
 		if !strings.Contains(text, field) {

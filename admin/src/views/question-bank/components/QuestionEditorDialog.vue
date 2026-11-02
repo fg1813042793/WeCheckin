@@ -333,7 +333,7 @@ const editorModeModel = computed({
 
 .bank-rich-editor:focus-within {
   border-color: var(--bank-accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  box-shadow: none;
 }
 
 .bank-rich-editor :deep(.ql-toolbar) {

@@ -40,6 +40,7 @@ func Register(h *server.Hertz) {
 	feedbackHandler := userfeedbackhttp.NewHandler(feedbackService)
 	group := h.Group("/api/v2/dingtalk/h5")
 	group.GET("/public-config", handler.Auth.PublicConfig)
+	group.GET("/captcha", handler.Auth.Captcha)
 	group.POST("/login", handler.Auth.Login)
 	group.POST("/sso-login", handler.Auth.SSOLogin)
 	group.POST("/bind-self", handler.Auth.BindSelf)

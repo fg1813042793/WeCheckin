@@ -54,6 +54,22 @@
             <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '启用' : '停用' }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column v-if="permissionScope === 'admin_menu'" label="页面缓存" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.platform === 'admin' && row.type === 'menu'" :type="row.cacheEnabled === 0 ? 'info' : 'success'" size="small">
+              {{ row.cacheEnabled === 0 ? '关闭' : '开启' }}
+            </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="permissionScope === 'admin_menu'" label="左侧菜单" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.platform === 'admin' && (row.type === 'directory' || row.type === 'menu')" :type="row.hidden === 1 ? 'info' : 'success'" size="small">
+              {{ row.hidden === 1 ? '隐藏' : '显示' }}
+            </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="290" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
@@ -134,6 +150,30 @@
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
         </el-form-item>
+        <el-form-item v-if="showCacheConfig" label="页面缓存">
+          <div class="permission-cache-config">
+            <el-switch
+              v-model="form.cacheEnabled"
+              :active-value="1"
+              :inactive-value="0"
+              active-text="开启"
+              inactive-text="关闭"
+            />
+            <span>开启后，该菜单页在对应 Tab 未关闭时保留页面状态。</span>
+          </div>
+        </el-form-item>
+        <el-form-item v-if="showHiddenConfig" label="左侧菜单隐藏">
+          <div class="permission-cache-config">
+            <el-switch
+              v-model="form.hidden"
+              :active-value="1"
+              :inactive-value="0"
+              active-text="开启"
+              inactive-text="关闭"
+            />
+            <span>开启后，该目录或菜单不会显示在后台左侧导航中。</span>
+          </div>
+        </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio :value="1">启用</el-radio>
@@ -157,6 +197,7 @@ import IconPicker from '../../components/IconPicker.vue'
 import { resolveAdminIcon } from '../../icons'
 import { hasPerm } from '../../utils/permission'
 import { showRequestError } from '../../utils/request'
+import { notifyAdminMenuConfigChanged } from '../../router/menuCache'
 import '../../styles/uview-iconfont.css'
 import {
   DINGTALK_H5_ICON_OPTIONS,
@@ -235,7 +276,9 @@ const form = reactive({
   resourcePath: '',
   icon: '',
   sort: 0,
-  status: 1
+  status: 1,
+  cacheEnabled: 1,
+  hidden: 0
 })
 const resourcePathColumnLabel = computed(() => permissionScope.value === 'admin_api' ? 'API路径' : '路径')
 const resourcePathFormLabel = computed(() => (form.type === 'api' || form.type === 'api_category') ? 'API路径' : '路径')
@@ -249,6 +292,8 @@ const showIconPicker = computed(() => {
   if (form.type !== 'menu' && form.type !== 'directory') return false
   return form.platform === 'admin' || form.platform === 'dingtalk_h5'
 })
+const showCacheConfig = computed(() => form.platform === 'admin' && form.type === 'menu')
+const showHiddenConfig = computed(() => form.platform === 'admin' && (form.type === 'directory' || form.type === 'menu'))
 
 async function loadTree() {
   loading.value = true
@@ -291,6 +336,8 @@ function resetForm(parentKey: string) {
   form.icon = ''
   form.sort = 0
   form.status = 1
+  form.cacheEnabled = 1
+  form.hidden = 0
   normalizePermissionTypeForForm()
 }
 
@@ -314,6 +361,8 @@ function showEdit(row: any) {
   form.icon = row.icon || ''
   form.sort = row.sort || 0
   form.status = row.status
+  form.cacheEnabled = row.cacheEnabled === 0 ? 0 : 1
+  form.hidden = row.hidden === 1 ? 1 : 0
   normalizePermissionTypeForForm()
   dialog.visible = true
 }
@@ -338,7 +387,9 @@ async function handleSave() {
     path: form.resourcePath,
     icon: normalizedPermissionIcon(),
     sort: form.sort,
-    status: form.status
+    status: form.status,
+    cacheEnabled: form.cacheEnabled,
+    hidden: form.hidden
   }
   try {
     if (dialog.isCreate) {
@@ -351,6 +402,7 @@ async function handleSave() {
     dialog.visible = false
     permissionScope.value = scopeValueForPermission(form.platform, form.type)
     await loadTree()
+    notifyAdminMenuConfigChanged()
   } catch (error) { showRequestError(error, '操作失败') }
   saving.value = false
 }
@@ -419,6 +471,7 @@ function normalizePermissionTypeForForm() {
   if (!allowed.includes(form.type)) {
     form.type = allowed[0] || activePermissionScope.value.defaultType
   }
+  form.hidden = showHiddenConfig.value ? form.hidden : 0
 }
 
 async function handleDel(row: any) {
@@ -498,6 +551,15 @@ onMounted(loadTree)
   max-height: 360px;
   overflow: auto;
   padding-right: 2px;
+}
+
+.permission-cache-config {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .permission-h5-icon-search {

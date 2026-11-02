@@ -84,23 +84,20 @@ export function buildUserFeedbackOverviewQuery(filters: UserFeedbackFilterState)
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Picture, Refresh, View } from '@element-plus/icons-vue'
 import { AdminPageHeader, AdminPageShell, AdminSearchBar, AdminTablePanel } from '@/components/admin-ui'
 import { adminApi } from '@/api'
 import type { UserFeedbackDetail, UserFeedbackOverview as OverviewData, UserFeedbackStatus, UserFeedbackSummary } from '@/types/userFeedback'
 import { showRequestError } from '@/utils/request'
-import { canHandleUserFeedback, userFeedbackStatusMeta } from './userFeedbackStatus'
+import { userFeedbackStatusMeta } from './userFeedbackStatus'
+import { useUserFeedbackActions } from './composables/useUserFeedbackActions'
 import UserFeedbackOverview from './components/UserFeedbackOverview.vue'
 import UserFeedbackDetailDrawer from './components/UserFeedbackDetailDrawer.vue'
 import UserFeedbackStatusDialog from './components/UserFeedbackStatusDialog.vue'
+import UserFeedbackNotifyDialog from './components/UserFeedbackNotifyDialog.vue'
 
 interface DetailDrawerExposed {
   refresh: () => Promise<void>
-}
-
-interface StatusDialogExposed {
-  open: (detail: UserFeedbackDetail) => void
 }
 
 const filters = reactive<UserFeedbackFilterState>({
@@ -121,10 +118,9 @@ const listError = ref('')
 const detailVisible = ref(false)
 const selectedFeedbackId = ref<string | null>(null)
 const detailDrawerRef = ref<DetailDrawerExposed>()
-const statusDialogRef = ref<StatusDialogExposed>()
+const { statusDialogRef, notifyDialogRef, canHandle, actionLoading, actionError, openStatusDialog, openNotifyDialog, cancelPendingAction } = useUserFeedbackActions()
 const requestSequences: FeedbackRequestSequences = { overview: 0, list: 0 }
 
-const canHandle = computed(() => canHandleUserFeedback())
 const tableEmpty = computed(() => !listLoading.value && !listError.value && rows.value.length === 0)
 
 function formatTime(timestamp: number) {
@@ -212,16 +208,9 @@ function handlePageSizeChange() {
 }
 
 function openDetail(row: UserFeedbackSummary) {
+  cancelPendingAction()
   selectedFeedbackId.value = row.id
   detailVisible.value = true
-}
-
-function openStatusDialog(detail: UserFeedbackDetail) {
-  if (!canHandleUserFeedback()) {
-    ElMessage.warning('当前账号没有反馈处理权限')
-    return
-  }
-  statusDialogRef.value?.open(detail)
 }
 
 async function handleStatusSuccess(_detail: UserFeedbackDetail) {
@@ -274,21 +263,22 @@ onBeforeUnmount(unmountPage)
       @retry="loadOverview"
     />
 
-    <AdminSearchBar collapsible :loading="listLoading" @search="search" @reset="resetFilters">
-      <el-form-item label="编号 / 用户 / 消息">
-        <el-input v-model="filters.keyword" clearable placeholder="输入反馈编号、用户名或消息关键词" />
+    <AdminSearchBar title="" :loading="listLoading" @search="search" @reset="resetFilters">
+      <el-form-item>
+        <el-input v-model="filters.keyword" aria-label="编号、用户或消息" clearable placeholder="输入反馈编号、用户名或消息关键词" />
       </el-form-item>
-      <el-form-item label="状态">
-        <el-select v-model="filters.status" clearable placeholder="全部状态">
+      <el-form-item>
+        <el-select v-model="filters.status" aria-label="状态" clearable placeholder="全部状态">
           <el-option v-for="status in ['pending', 'processing', 'resolved', 'closed'] as UserFeedbackStatus[]" :key="status" :label="userFeedbackStatusMeta(status).label" :value="status" />
         </el-select>
       </el-form-item>
-      <el-form-item label="处理人 ID">
-        <el-input-number v-model="filters.handlerId" :min="1" :step="1" :precision="0" controls-position="right" placeholder="全部处理人" />
+      <el-form-item>
+        <el-input-number v-model="filters.handlerId" aria-label="处理人 ID" :min="1" :step="1" :precision="0" controls-position="right" placeholder="全部处理人" />
       </el-form-item>
-      <el-form-item label="提交时间">
+      <el-form-item>
         <el-date-picker
           v-model="filters.submittedDates"
+          aria-label="提交时间"
           type="daterange"
           value-format="YYYY-MM-DD"
           unlink-panels
@@ -298,6 +288,8 @@ onBeforeUnmount(unmountPage)
         />
       </el-form-item>
     </AdminSearchBar>
+
+    <el-alert v-if="actionError" :title="actionError" type="error" show-icon :closable="false" />
 
     <AdminTablePanel
       title="反馈列表"
@@ -352,9 +344,11 @@ onBeforeUnmount(unmountPage)
         <el-table-column label="提交时间" width="180">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="92" fixed="right" align="center">
+        <el-table-column label="操作" :width="canHandle ? 240 : 92" fixed="right" align="center">
           <template #default="{ row }">
             <el-button link type="primary" :icon="View" @click="openDetail(row)">查看</el-button>
+            <el-button v-if="canHandle" link type="primary" :loading="actionLoading?.id === row.id && actionLoading?.action === 'status'" @click="openStatusDialog(row)">处理</el-button>
+            <el-button v-if="canHandle" link type="primary" :loading="actionLoading?.id === row.id && actionLoading?.action === 'notify'" @click="openNotifyDialog(row)">通知提交人</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -365,7 +359,7 @@ onBeforeUnmount(unmountPage)
           v-model:page-size="pageSize"
           :total="total"
           :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
+          layout="total, sizes, prev, pager, next"
           @current-change="loadList"
           @size-change="handlePageSizeChange"
         />
@@ -377,10 +371,14 @@ onBeforeUnmount(unmountPage)
       v-model="detailVisible"
       :feedback-id="selectedFeedbackId"
       :can-handle="canHandle"
+      :action-loading="actionLoading?.id === selectedFeedbackId"
       :format-time="formatTime"
       @request-status-update="openStatusDialog"
+      @request-notify="openNotifyDialog"
+      @update:model-value="cancelPendingAction"
     />
     <UserFeedbackStatusDialog ref="statusDialogRef" @success="handleStatusSuccess" />
+    <UserFeedbackNotifyDialog ref="notifyDialogRef" @success="handleStatusSuccess" />
   </AdminPageShell>
 </template>
 

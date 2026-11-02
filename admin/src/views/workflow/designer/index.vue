@@ -111,20 +111,20 @@
     <el-drawer v-model="metadataDrawer" title="流程信息" size="440px" append-to-body>
       <el-form v-if="detail" label-position="top">
         <el-form-item label="管理名称" required>
-          <el-input v-model="detail.name" maxlength="80" @input="markDirty" />
+          <el-input v-model="detail.name" maxlength="80" @input="markMetadataDirty" />
         </el-form-item>
         <el-form-item label="用户显示名称">
-          <el-input v-model="detail.displayName" maxlength="80" placeholder="留空时使用管理名称" @input="markDirty" />
+          <el-input v-model="detail.displayName" maxlength="80" placeholder="留空时使用管理名称" @input="markMetadataDirty" />
           <div class="metadata-help">H5 与流程通知使用；重新发布后对新流程生效。</div>
         </el-form-item>
         <el-form-item label="流程编码">
           <el-input :model-value="detail.key" disabled />
         </el-form-item>
         <el-form-item label="流程分类">
-          <el-input v-model="detail.category" maxlength="50" placeholder="例如：行政审批" @input="markDirty" />
+          <el-input v-model="detail.category" maxlength="50" placeholder="例如：行政审批" @input="markMetadataDirty" />
         </el-form-item>
         <el-form-item label="流程说明">
-          <el-input v-model="detail.description" type="textarea" :rows="5" maxlength="300" show-word-limit @input="markDirty" />
+          <el-input v-model="detail.description" type="textarea" :rows="5" maxlength="300" show-word-limit @input="markMetadataDirty" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -192,6 +192,7 @@ const validating = ref(false)
 const detail = ref<WorkflowDefinitionDetail | null>(null)
 const selectedNodeId = ref('')
 const dirty = ref(false)
+const metadataDirty = ref(false)
 const validationErrors = ref<WorkflowValidationError[]>([])
 const nodeDrawer = ref(false)
 const metadataDrawer = ref(false)
@@ -233,6 +234,7 @@ async function loadDetail() {
     data.draft = cloneDraft(data.draft)
     const permissionsNormalized = normalizeWorkflowCalculationPermissions(data.draft)
     detail.value = data
+    metadataDirty.value = false
     selectedNodeId.value = ''
     activeDesignerTab.value = 'process'
     nodeDrawer.value = false
@@ -267,6 +269,11 @@ async function loadAssigneeOptions() {
 function markDirty() {
   dirty.value = true
   validationErrors.value = []
+}
+
+function markMetadataDirty() {
+  metadataDirty.value = true
+  markDirty()
 }
 
 function handleFormChange() {
@@ -372,7 +379,7 @@ function addGatewayBranch(splitId: string) {
   markDirty()
 }
 
-async function saveDraft(showMessage = true) {
+async function saveDraft(showMessage = true, includeMetadata = false) {
   if (!detail.value) return false
   const name = detail.value.name.trim()
   if (!name) {
@@ -385,19 +392,25 @@ async function saveDraft(showMessage = true) {
     detail.value.draft.name = name
     detail.value.draft.displayName = detail.value.displayName.trim()
     normalizeWorkflowCalculationPermissions(detail.value.draft)
-    const response = await adminApi.workflowDefinitionUpdate(detail.value.id, {
-      name,
-      displayName: detail.value.displayName.trim(),
-      category: detail.value.category.trim(),
-      description: detail.value.description.trim(),
+    const payload: Record<string, unknown> = {
       status: detail.value.status,
       draft: detail.value.draft,
-    })
+    }
+    if (metadataDirty.value || includeMetadata) {
+      Object.assign(payload, {
+        name,
+        displayName: detail.value.displayName.trim(),
+        category: detail.value.category.trim(),
+        description: detail.value.description.trim(),
+      })
+    }
+    const response = await adminApi.workflowDefinitionUpdate(detail.value.id, payload)
     const saved = response.data as WorkflowDefinitionDetail
     saved.draft = cloneDraft(saved.draft)
     normalizeWorkflowCalculationPermissions(saved.draft)
     detail.value = saved
     dirty.value = false
+    metadataDirty.value = false
     if (showMessage) {
       ElMessage.success(activeDesignerTab.value === 'config' ? '流程配置已保存并立即生效' : '草稿已保存')
     }
@@ -461,7 +474,7 @@ function openFormPreview() {
 }
 
 async function saveMetadata() {
-  if (await saveDraft()) metadataDrawer.value = false
+  if (await saveDraft(true, true)) metadataDrawer.value = false
 }
 
 function openVersions() {

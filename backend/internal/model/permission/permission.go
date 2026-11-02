@@ -15,6 +15,8 @@ type Permission struct {
 	Perms        string    `json:"perms" gorm:"size:240;column:permission_perms;comment:兼容权限标识"`
 	Sort         int       `json:"sort" gorm:"default:0;column:permission_sort;comment:排序"`
 	Status       int       `json:"status" gorm:"default:1;column:permission_status;comment:状态:1启用 0停用"`
+	CacheEnabled *int      `json:"cacheEnabled" gorm:"default:1;column:permission_cache_enabled;comment:菜单页面缓存:1开启 0关闭"`
+	Hidden       *int      `json:"hidden" gorm:"default:0;column:permission_hidden;comment:左侧菜单隐藏:1隐藏 0显示"`
 	AddTime      int64     `json:"addTime" gorm:"column:permission_add_time;comment:创建时间"`
 	EditTime     int64     `json:"editTime" gorm:"column:permission_edit_time;comment:修改时间"`
 	CreatedAt    time.Time `json:"-"`
@@ -22,6 +24,20 @@ type Permission struct {
 }
 
 func (Permission) TableName() string { return "permissions" }
+
+func (permission Permission) CacheEnabledValue() int {
+	if permission.CacheEnabled != nil && *permission.CacheEnabled == 0 {
+		return 0
+	}
+	return 1
+}
+
+func (permission Permission) HiddenValue() int {
+	if permission.Hidden != nil && *permission.Hidden == 1 {
+		return 1
+	}
+	return 0
+}
 
 type PermissionGrant struct {
 	ID            uint      `json:"id" gorm:"primaryKey;comment:授权ID"`

@@ -146,7 +146,7 @@ func TestDingTalkAgentNotificationMessageUsesActionCardWhenRequested(t *testing.
 		t.Fatalf("msgtype = %#v, want action_card", message["msgtype"])
 	}
 	card, _ := message["action_card"].(map[string]string)
-	if card["title"] != "《绩效考评单》有新评论" || card["markdown"] == "" {
+	if card["title"] != "《绩效考评单》有新评论" || !strings.Contains(card["markdown"], "《绩效考评单》有新评论") || !strings.Contains(card["markdown"], "David 在“上级评价”评论：请关注本次评分") {
 		t.Fatalf("action_card = %#v", card)
 	}
 	if card["single_title"] != "查看流程" || card["single_url"] == "" {
@@ -534,7 +534,7 @@ func TestDingTalkRobotNotificationMessageUsesActionCardWhenRequested(t *testing.
 	if err := json.Unmarshal([]byte(rawMsgParam), &msgParam); err != nil {
 		t.Fatalf("decode msgParam: %v", err)
 	}
-	if msgParam["title"] == "" || msgParam["text"] == "" {
+	if msgParam["title"] == "" || !strings.Contains(msgParam["text"], "《绩效考评单》有新评论") || !strings.Contains(msgParam["text"], "David 在“上级评价”评论：请关注本次评分") {
 		t.Fatalf("action card content = %#v", msgParam)
 	}
 	if msgParam["singleTitle"] != "查看流程" || msgParam["singleURL"] == "" {

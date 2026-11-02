@@ -110,6 +110,7 @@ export function evaluateWorkflowCalculation(
   field: WorkflowFormField,
   values: WorkflowFormData,
   fields: WorkflowFormField[] = [],
+  options: { requireCompleteInputs?: boolean } = {},
 ): WorkflowCalculationEvaluation {
   if (field.type !== 'calculation')
     return { error: '字段不是计算组件' }
@@ -118,11 +119,50 @@ export function evaluateWorkflowCalculation(
     return { error: '请输入计算公式' }
   try {
     const node = new CalculationParser(expression).parse()
-    inferAggregateDetails(node, values)
-    return { value: roundCalculationValue(evaluateNode(node, values, '', undefined, buildSchema(fields)), field.calculation), error: '' }
+    const schema = buildSchema(fields)
+    if (options.requireCompleteInputs) {
+      validateNode(node, schema, false)
+      requireCalculationInputs(node, values)
+    }
+    else {
+      inferAggregateDetails(node, values)
+    }
+    return { value: roundCalculationValue(evaluateNode(node, values, '', undefined, schema), field.calculation), error: '' }
   }
   catch (error) {
     return { error: calculationErrorMessage(error) }
+  }
+}
+
+// Summary backfills must not turn missing historical inputs into an apparent zero score.
+function requireCalculationInputs(node: CalculationNode, values: WorkflowFormData, detailKey = '', row?: Record<string, unknown>): void {
+  if (node.kind === 'number')
+    return
+  if (node.kind === 'reference') {
+    const prefix = detailKey ? `${detailKey}.` : ''
+    const fromDetail = Boolean(prefix && node.reference.startsWith(prefix))
+    const source = fromDetail ? row : values
+    const key = fromDetail ? node.reference.slice(prefix.length) : node.reference
+    const value = source?.[key]
+    if (!source || !Object.prototype.hasOwnProperty.call(source, key) || value == null || (typeof value === 'string' && !value.trim()))
+      throw new Error('计算所需数据不完整')
+    if (typeof value !== 'string' && typeof value !== 'number')
+      throw new Error('计算所需数据类型无效')
+    return
+  }
+  if (node.kind === 'unary')
+    return requireCalculationInputs(node.argument, values, detailKey, row)
+  if (node.kind === 'binary') {
+    requireCalculationInputs(node.left, values, detailKey, row)
+    requireCalculationInputs(node.right, values, detailKey, row)
+    return
+  }
+  const rows = values[node.detailKey || '']
+  if (!Array.isArray(rows) || rows.some(item => !item || typeof item !== 'object' || Array.isArray(item)))
+    throw new Error('计算所需明细不完整')
+  if (node.function !== 'COUNT') {
+    for (const item of rows)
+      requireCalculationInputs(node.argument, values, node.detailKey, item)
   }
 }
 

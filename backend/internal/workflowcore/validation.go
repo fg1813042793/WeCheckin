@@ -22,6 +22,7 @@ func ValidateDefinition(definition Definition) []ValidationError {
 	formFields, formErrors := validateFormSchema(definition.Form)
 	errors = append(errors, formErrors...)
 	errors = append(errors, validateInstanceIdentity(definition.InstanceIdentity, formFields, definitionStartAvailability(definition))...)
+	errors = append(errors, validateHistoryImport(definition.HistoryImport, formFields)...)
 
 	nodes := make(map[string]Node, len(definition.Nodes))
 	incoming := make(map[string][]Edge, len(definition.Nodes))

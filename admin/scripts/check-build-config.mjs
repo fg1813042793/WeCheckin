@@ -13,7 +13,8 @@ const requiredSnippets = [
   'vendor-workflow-graph',
   'vendor-echarts',
   'vendor-editor',
-  'vendor-qrcode-map'
+  'vendor-qrcode-map',
+  'exam\\/(list|designer|responses|statistic|formkit|templates)'
 ]
 
 for (const snippet of requiredSnippets) {

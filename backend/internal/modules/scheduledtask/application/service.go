@@ -223,6 +223,24 @@ func (service *Service) CreateScheduledRun(ctx context.Context, task *scheduledt
 	return ScheduledRunResult{Run: run}, nil
 }
 
+func (service *Service) RecordMisfireSkippedRun(ctx context.Context, task *scheduledtaskmodel.Task, scheduledAt time.Time, skippedCount int) (*scheduledtaskmodel.Run, error) {
+	if task == nil || task.ID == 0 {
+		return nil, fmt.Errorf("%w: task is required", ErrInvalidTask)
+	}
+	if skippedCount < 1 {
+		skippedCount = 1
+	}
+	run, err := service.newRun(task, scheduledAt, scheduledtaskmodel.TriggerTypeMisfire, scheduledtaskmodel.RunStatusSkipped, "", skippedCount)
+	if err != nil {
+		return nil, err
+	}
+	run.ResultSummary = fmt.Sprintf("错过 %d 次计划执行，按错过策略跳过", skippedCount)
+	if err := service.store.CreateRun(ctx, run); err != nil {
+		return nil, err
+	}
+	return run, nil
+}
+
 func (service *Service) RunNow(ctx context.Context, taskID, _ uint64) (DispatchResult, error) {
 	task, err := service.store.GetTask(ctx, taskID)
 	if err != nil {

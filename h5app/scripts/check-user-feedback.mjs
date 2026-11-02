@@ -217,6 +217,7 @@ async function loadBaseUploadContractModule() {
     'imageExtension',
     'safeUploadFilename',
     'isAbortError',
+    'uploadSessionChangedError',
     'uploadMultipartFilesInH5',
   ])
   const baseStatements = baseSourceFile.statements.filter((statement) => {
@@ -257,7 +258,9 @@ const DINGTALK_H5_CONFIG = {
   BASE_URL: 'https://api.example.test/root/',
   CLIENT_PLATFORM: 'dingtalk-h5',
   TOKEN_KEY: 'DT_H5_TOKEN',
+  TOKEN_CORP_ID_KEY: 'DT_H5_TOKEN_CORP_ID',
 }
+const useLocale = () => ({ t: (key: string) => key })
 const DINGTALK_H5_AUTH_EXPIRED_EVENT = 'dingtalk-h5-auth-expired'
 const uni = globalThis.__feedbackContractUni
 ${authStatements.map(statement => statement.getText(authSourceFile)).join('\n')}

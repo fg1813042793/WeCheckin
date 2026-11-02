@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ArrowDown, ArrowUp } from '@element-plus/icons-vue'
+import AdminFilterActions from './AdminFilterActions.vue'
 
 const props = withDefaults(defineProps<{
   title?: string
@@ -60,12 +61,11 @@ function toggle() {
       <form v-show="isExpanded" class="admin-ui-search-bar__content" @submit.prevent="emit('search')">
         <div class="admin-ui-search-bar__fields">
           <slot />
-        </div>
-        <div v-if="showActions || $slots.actions" class="admin-ui-search-bar__actions">
-          <slot name="actions">
-            <el-button @click="emit('reset')">{{ resetText }}</el-button>
-            <el-button type="primary" native-type="submit" :loading="loading">{{ searchText }}</el-button>
-          </slot>
+          <div v-if="showActions || $slots.actions" class="admin-ui-search-bar__actions">
+            <slot name="actions">
+              <AdminFilterActions native-type="submit" :loading="loading" :search-text="searchText" :reset-text="resetText" @reset="emit('reset')" />
+            </slot>
+          </div>
         </div>
       </form>
     </el-collapse-transition>
@@ -96,29 +96,33 @@ function toggle() {
 }
 
 .admin-ui-search-bar__content {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--admin-ui-space-4);
-  padding: var(--admin-ui-space-4);
+  display: block;
+  padding: 12px 14px;
 }
 
 .admin-ui-search-bar__fields {
-  display: grid;
-  flex: 1 1 auto;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
-  gap: var(--admin-ui-space-3) var(--admin-ui-space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--admin-ui-space-2);
   min-width: 0;
 }
 
 .admin-ui-search-bar__fields :deep(.el-form-item) {
   min-width: 0;
+  max-width: 100%;
   margin-bottom: 0;
 }
 
 .admin-ui-search-bar__fields :deep(.el-input),
-.admin-ui-search-bar__fields :deep(.el-select),
+.admin-ui-search-bar__fields :deep(.el-select) {
+  width: 240px;
+  max-width: 100%;
+}
+
 .admin-ui-search-bar__fields :deep(.el-date-editor) {
-  width: 100%;
+  width: 320px;
+  max-width: 100%;
 }
 
 .admin-ui-search-bar__actions {
@@ -132,26 +136,19 @@ function toggle() {
   margin-left: 0;
 }
 
-@media (max-width: 1199px) {
-  .admin-ui-search-bar__fields {
-    grid-template-columns: repeat(2, minmax(160px, 1fr));
-  }
-}
-
 @media (max-width: 767px) {
   .admin-ui-search-bar__content {
-    align-items: stretch;
-    flex-direction: column;
     padding: var(--admin-ui-space-3);
   }
 
   .admin-ui-search-bar__fields {
-    grid-template-columns: minmax(0, 1fr);
     width: 100%;
   }
 
-  .admin-ui-search-bar__actions {
-    justify-content: flex-end;
+  .admin-ui-search-bar__fields :deep(.el-form-item),
+  .admin-ui-search-bar__fields :deep(.el-input),
+  .admin-ui-search-bar__fields :deep(.el-select),
+  .admin-ui-search-bar__fields :deep(.el-date-editor) {
     width: 100%;
   }
 }

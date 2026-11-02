@@ -7,7 +7,7 @@
     <view v-if="list.length > 0" class="exam-list">
       <view v-for="s in list" :key="s.id" class="exam-item card">
         <view class="s-head" :class="{ 's-head--disabled': !canFill(s) }" @click="goFill(s)">
-          <view class="s-title">{{ s.title }}</view>
+          <view class="s-title">{{ s.displayTitle }}</view>
           <view class="s-desc" v-if="s.description">{{ s.description }}</view>
           <view class="s-meta">
             <text class="meta-tag" v-if="s.category">{{ s.category }}</text>
@@ -48,6 +48,7 @@
 import { examApi } from '../../api/index'
 import { getClientUserInfo, hasClientAuth } from '../../utils/auth'
 import { guardClientMenuPage } from '../../utils/clientPermission'
+import { parseSettings, resolveSurveyTitle as resolveExamTitle } from '../../utils/formFill'
 
 export default {
   data() {
@@ -101,7 +102,10 @@ export default {
         const params = { page: this.page, pageSize: this.pageSize, keyword: this.keyword }
         params['deviceId'] = this.getDeviceId()
         const res = await examApi.getList(params)
-        const data = (res.data && res.data.list) || []
+        const data = ((res.data && res.data.list) || []).map(item => {
+          const settings = parseSettings(item.settings)
+          return { ...item, displayTitle: resolveExamTitle(item.title, settings.displayTitle) }
+        })
         if (this.page === 1) {
           this.list = data
         } else {

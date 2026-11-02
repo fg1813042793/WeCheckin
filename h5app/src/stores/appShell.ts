@@ -24,6 +24,11 @@ export const useAppShellStore = defineStore('appShell', () => {
     openedTabKeys.value = openedTabKeys.value.filter(item => item !== key)
   }
 
+  function resetSessionTabs() {
+    openedTabKeys.value = []
+    expandedRootKeys.value = []
+  }
+
   function isRootExpanded(key: string) {
     return expandedRootKeySet.value.has(key)
   }
@@ -65,6 +70,7 @@ export const useAppShellStore = defineStore('appShell', () => {
     openedTabKeys,
     rememberOpenedTab,
     removeOpenedTab,
+    resetSessionTabs,
     setMenuLayout,
     setSidebarCollapsed,
     sidebarCollapsed,

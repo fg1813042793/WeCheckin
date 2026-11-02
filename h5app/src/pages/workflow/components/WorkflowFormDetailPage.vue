@@ -5,13 +5,14 @@ import type {
   WorkflowInstanceDetail,
 } from '@/types/workflow'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getWorkflowInstance } from '@/api/workflow'
+import { getWorkflowInstance, getWorkflowSummaryInstance } from '@/api/workflow'
+import { appErrorMessage } from '@/common/app-error'
 import { useAppContentStore } from '@/stores'
 import {
   initialWorkflowFormData,
   workflowFieldAccessMap,
 } from '../workflow-form'
-import { workflowFormDetailInstanceIdFromContentKey } from '../workflow-route-keys'
+import { workflowFormDetailInstanceIdFromContentKey, workflowFormDetailSourceFromContentKey } from '../workflow-route-keys'
 import { workflowInstanceStatusMeta } from '../workflow-status'
 import WorkflowRuntimeForm from './WorkflowRuntimeForm.vue'
 
@@ -115,8 +116,12 @@ async function loadDetail() {
     return
   loading.value = true
   loadError.value = ''
+  detail.value = null
+  formData.value = {}
   try {
-    const response = await getWorkflowInstance(instanceId.value)
+    const response = workflowFormDetailSourceFromContentKey(props.contentKey) === 'summary'
+      ? await getWorkflowSummaryInstance(instanceId.value)
+      : await getWorkflowInstance(instanceId.value)
     if (!response?.data) {
       loadError.value = '流程表单加载失败'
       return
@@ -124,8 +129,8 @@ async function loadDetail() {
     detail.value = response.data
     formData.value = initialWorkflowFormData(response.data.form || [], response.data.formData || {})
   }
-  catch {
-    loadError.value = '流程表单加载失败，请稍后重试'
+  catch (error) {
+    loadError.value = appErrorMessage(error, '流程表单加载失败，请稍后重试')
   }
   finally {
     loading.value = false

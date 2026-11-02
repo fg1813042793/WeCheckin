@@ -91,6 +91,7 @@ func renderNotificationPayload(state *workflowdomain.State, intent workflowdomai
 		InstanceID: state.Instance.ID, TaskID: intent.TaskID,
 		RecipientUserID: intent.RecipientUserID, Kind: string(intent.Kind),
 	}
+	payload.View = workflowTaskNotificationView(string(intent.Kind), intent.TaskID, state.Instance.ID)
 	if intent.Kind == workflowdomain.NotificationKindInstanceCommented || intent.Kind == workflowdomain.NotificationKindInstanceFormRevised {
 		payload.MessageType = application.NotificationMessageTypeActionCard
 	}

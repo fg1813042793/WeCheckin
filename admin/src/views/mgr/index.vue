@@ -154,6 +154,8 @@ import { adminApi } from '../../api'
 import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
+import { showRequestError } from '../../utils/request'
+import { exportCsvPage } from '../../utils/csvExport'
 
 const loading = ref(false)
 const list = ref<any[]>([])
@@ -295,18 +297,12 @@ async function delSelected() {
   } catch {}
 }
 
-function exportData() {
-  const rows = [['用户名', '状态']]
-  list.value.forEach((r: any) => {
-    rows.push([r.name || '', r.status === 1 ? '正常' : '停用'])
-  })
-  const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = '管理员列表.csv'
-  a.click()
-  URL.revokeObjectURL(a.href)
+async function exportData() {
+  try {
+    await exportCsvPage('管理员列表.csv', ['用户名', '状态'],
+      async () => (await adminApi.mgrExport({ page: page.value, pageSize: pageSize.value, keyword: keyword.value || undefined })).data.list,
+      r => [r.name || '', r.status === 1 ? '正常' : '停用'])
+  } catch (error) { showRequestError(error, '导出失败') }
 }
 
 // 修改密码

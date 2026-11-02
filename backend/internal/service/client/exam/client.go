@@ -38,6 +38,7 @@ var publishedExamListColumns = []string{
 	"exam_duration",
 	"exam_max_attempts",
 	"exam_show_score",
+	"exam_pass_score",
 	"exam_max_response",
 	"exam_mode",
 	"exam_order",
@@ -107,7 +108,9 @@ func (s *Service) PublishedListWithLimitsContext(ctx context.Context, keyword st
 	defer cancel()
 	q := db.Model(&model.Exam{}).Where("`exam_status` = 1")
 	if keyword != "" {
-		q = q.Where("`exam_title` LIKE ?", "%"+keyword+"%")
+		// Legacy settings can be empty or malformed; only text display names participate in candidate search.
+		displayTitle := "JSON_EXTRACT(IF(JSON_VALID(`exam_settings`), `exam_settings`, '{}'), '$.displayTitle')"
+		q = q.Where("`exam_title` LIKE ? OR (JSON_TYPE("+displayTitle+") = 'STRING' AND LOWER(JSON_UNQUOTE("+displayTitle+")) LIKE LOWER(?))", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -283,7 +286,7 @@ func safeExamQuestions(questions []model.ExamQuestion, options PaperQuestionOpti
 	return safe
 }
 
-func (s *Service) StartContext(ctx context.Context, examID int, userID uint, deviceID string) (StartResult, error) {
+func (s *Service) StartContext(ctx context.Context, examID int, userID uint, deviceID string, client ClientEnvironment) (StartResult, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var exam model.Exam
@@ -330,6 +333,8 @@ func (s *Service) StartContext(ctx context.Context, examID int, userID uint, dev
 			Status:     0,
 			StartTime:  nowMs,
 			DeviceID:   deviceID,
+			Device:     client.Device,
+			AddIP:      client.IP,
 		}
 		if err := db.Create(&record).Error; err != nil {
 			return StartResult{}, err
@@ -343,6 +348,7 @@ func (s *Service) StartContext(ctx context.Context, examID int, userID uint, dev
 	if record.Answers != "" {
 		_ = json.Unmarshal([]byte(record.Answers), &prevAnswers)
 	}
+	normalizeRecordDeviceMetadata(&record)
 	return StartResult{
 		Record:    record,
 		Paper:     paperResult.Paper,
@@ -363,10 +369,23 @@ func (s *Service) SaveAnswerContext(ctx context.Context, recordID int, userID ui
 		}
 		return err
 	}
-	if record.Status == 2 {
+	if record.Status != 0 {
 		return ErrExamRecordSubmitted
 	}
-	return db.Model(&record).Update("exam_r_answers", answersJSON).Error
+	change := db.Model(&record).Where("exam_r_status = 0").Update("exam_r_answers", answersJSON)
+	if change.Error != nil {
+		return change.Error
+	}
+	if change.RowsAffected == 0 {
+		var ongoing int64
+		if err := db.Model(&model.ExamRecord{}).Where("exam_r_id = ? AND exam_r_user_id = ? AND exam_r_status = 0", recordID, uidStr).Count(&ongoing).Error; err != nil {
+			return err
+		}
+		if ongoing == 0 {
+			return ErrExamRecordSubmitted
+		}
+	}
+	return nil
 }
 
 func (s *Service) PaperSubmissionContext(ctx context.Context, recordID int, userID uint) (model.ExamRecord, model.ExamPaper, []model.ExamQuestion, error) {
@@ -380,7 +399,7 @@ func (s *Service) PaperSubmissionContext(ctx context.Context, recordID int, user
 		}
 		return model.ExamRecord{}, model.ExamPaper{}, nil, err
 	}
-	if record.Status == 2 {
+	if record.Status != 0 {
 		return model.ExamRecord{}, model.ExamPaper{}, nil, ErrExamRecordSubmitted
 	}
 	var paper model.ExamPaper
@@ -397,12 +416,20 @@ func (s *Service) PaperSubmissionContext(ctx context.Context, recordID int, user
 func (s *Service) UpdatePaperSubmissionContext(ctx context.Context, recordID uint, updates map[string]interface{}) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	return db.Model(&model.ExamRecord{}).Where("`exam_r_id` = ?", recordID).Updates(updates).Error
+	change := db.Model(&model.ExamRecord{}).Where("`exam_r_id` = ? AND exam_r_status = 0", recordID).Updates(updates)
+	if change.Error != nil {
+		return change.Error
+	}
+	if change.RowsAffected != 1 {
+		return ErrExamRecordSubmitted
+	}
+	return nil
 }
 
 func (s *Service) CreateSchemaSubmissionContext(ctx context.Context, record *model.ExamRecord) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	normalizeRecordDeviceMetadata(record)
 	return db.Create(record).Error
 }
 
@@ -434,10 +461,8 @@ func (s *Service) RecordForUserContext(ctx context.Context, recordID int, userID
 	if record.Answers != "" {
 		_ = json.Unmarshal([]byte(record.Answers), &prevAnswers)
 	}
-	var results []examPkg.Result
-	if record.Result != "" {
-		_ = json.Unmarshal([]byte(record.Result), &results)
-	}
+	results := DecodeRecordResults(record.Result)
+	normalizeRecordDeviceMetadata(&record)
 	return RecordViewResult{
 		Record:    record,
 		Exam:      exam,
@@ -454,6 +479,7 @@ func (s *Service) UserRecordsContext(ctx context.Context, userID uint, limit int
 	uidStr := strconv.FormatUint(uint64(userID), 10)
 	var list []model.ExamRecord
 	err := db.Where("`exam_r_user_id` = ?", uidStr).Order("`exam_r_id` DESC").Limit(limit).Find(&list).Error
+	normalizeRecordListDeviceMetadata(list)
 	return list, err
 }
 
@@ -471,6 +497,7 @@ func (s *Service) SessionResultContext(ctx context.Context, session string) (Ses
 	if err := db.Where("`exam_id` = ?", record.ExamID).First(&exam).Error; err != nil {
 		return SessionResult{}, err
 	}
+	normalizeRecordDeviceMetadata(&record)
 	return SessionResult{Record: record, Exam: exam}, nil
 }
 

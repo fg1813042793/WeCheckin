@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ type ScheduledTaskConfig struct {
 	WorkerCount              int                            `mapstructure:"worker_count"`
 	SchedulerPollSeconds     int                            `mapstructure:"scheduler_poll_seconds"`
 	SchedulerRecoverySeconds int                            `mapstructure:"scheduler_recovery_seconds"`
+	MisfireGraceSeconds      int                            `mapstructure:"misfire_grace_seconds"`
 	WorkerPollBlockSeconds   int                            `mapstructure:"worker_poll_block_seconds"`
 	WorkerHeartbeatSeconds   int                            `mapstructure:"worker_heartbeat_seconds"`
 	WorkerTTLSeconds         int                            `mapstructure:"worker_ttl_seconds"`
@@ -125,13 +127,14 @@ type CORSConfig struct {
 }
 
 type ServerConfig struct {
-	Port            string `mapstructure:"port"`
-	Host            string `mapstructure:"host"`
-	Mode            string `mapstructure:"mode"`
-	TimeoutSec      int    `mapstructure:"timeout"`
-	ReadTimeoutSec  int    `mapstructure:"read_timeout_seconds"`
-	WriteTimeoutSec int    `mapstructure:"write_timeout_seconds"`
-	IdleTimeoutSec  int    `mapstructure:"idle_timeout_seconds"`
+	AuditTrustedProxyCIDRs []string `mapstructure:"audit_trusted_proxy_cidrs"`
+	Port                   string   `mapstructure:"port"`
+	Host                   string   `mapstructure:"host"`
+	Mode                   string   `mapstructure:"mode"`
+	TimeoutSec             int      `mapstructure:"timeout"`
+	ReadTimeoutSec         int      `mapstructure:"read_timeout_seconds"`
+	WriteTimeoutSec        int      `mapstructure:"write_timeout_seconds"`
+	IdleTimeoutSec         int      `mapstructure:"idle_timeout_seconds"`
 }
 
 type DatabaseConfig struct {
@@ -211,6 +214,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("cors.allow_methods", []string{"get", "post", "put", "patch", "delete", "options"})
 	v.SetDefault("cors.allow_headers", []string{"Origin", "Content-Type", "Accept", "Authorization"})
 	v.SetDefault("cors.allow_credentials", false)
+	v.SetDefault("server.audit_trusted_proxy_cidrs", []string{})
 
 	v.SetDefault("log.dir", "./logs")
 	v.SetDefault("log.level", "info")
@@ -222,6 +226,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("scheduled_task.worker_count", 4)
 	v.SetDefault("scheduled_task.scheduler_poll_seconds", 2)
 	v.SetDefault("scheduled_task.scheduler_recovery_seconds", 30)
+	v.SetDefault("scheduled_task.misfire_grace_seconds", 60)
 	v.SetDefault("scheduled_task.worker_poll_block_seconds", 5)
 	v.SetDefault("scheduled_task.worker_heartbeat_seconds", 10)
 	v.SetDefault("scheduled_task.worker_ttl_seconds", 30)
@@ -290,6 +295,7 @@ func bindEnv(v *viper.Viper) {
 		"scheduled_task.worker_count":                "WECHECKIN_SCHEDULED_TASK_WORKER_COUNT",
 		"scheduled_task.scheduler_poll_seconds":      "WECHECKIN_SCHEDULED_TASK_SCHEDULER_POLL_SECONDS",
 		"scheduled_task.scheduler_recovery_seconds":  "WECHECKIN_SCHEDULED_TASK_SCHEDULER_RECOVERY_SECONDS",
+		"scheduled_task.misfire_grace_seconds":       "WECHECKIN_SCHEDULED_TASK_MISFIRE_GRACE_SECONDS",
 		"scheduled_task.worker_poll_block_seconds":   "WECHECKIN_SCHEDULED_TASK_WORKER_POLL_BLOCK_SECONDS",
 		"scheduled_task.worker_heartbeat_seconds":    "WECHECKIN_SCHEDULED_TASK_WORKER_HEARTBEAT_SECONDS",
 		"scheduled_task.worker_ttl_seconds":          "WECHECKIN_SCHEDULED_TASK_WORKER_TTL_SECONDS",
@@ -315,6 +321,7 @@ func bindEnv(v *viper.Viper) {
 	}
 
 	for key, env := range map[string]string{
+		"server.audit_trusted_proxy_cidrs":  "WECHECKIN_SERVER_AUDIT_TRUSTED_PROXY_CIDRS",
 		"cors.allow_origins":                "WECHECKIN_CORS_ALLOW_ORIGINS",
 		"cors.allow_methods":                "WECHECKIN_CORS_ALLOW_METHODS",
 		"cors.allow_headers":                "WECHECKIN_CORS_ALLOW_HEADERS",
@@ -352,6 +359,16 @@ func (cfg *Config) normalize() {
 }
 
 func (cfg Config) Validate() error {
+	for _, raw := range cfg.Server.AuditTrustedProxyCIDRs {
+		_, network, err := net.ParseCIDR(strings.TrimSpace(raw))
+		if err != nil {
+			return fmt.Errorf("server.audit_trusted_proxy_cidrs contains an invalid CIDR")
+		}
+		ones, _ := network.Mask.Size()
+		if ones == 0 {
+			return fmt.Errorf("server.audit_trusted_proxy_cidrs must not trust all addresses")
+		}
+	}
 	port, err := strconv.Atoi(strings.TrimSpace(cfg.Server.Port))
 	if err != nil || port < 1 || port > 65535 {
 		return fmt.Errorf("server.port must be an integer between 1 and 65535")
@@ -435,6 +452,7 @@ func validateScheduledTaskConfig(cfg ScheduledTaskConfig) error {
 		{key: "scheduled_task.worker_count", value: cfg.WorkerCount},
 		{key: "scheduled_task.scheduler_poll_seconds", value: cfg.SchedulerPollSeconds},
 		{key: "scheduled_task.scheduler_recovery_seconds", value: cfg.SchedulerRecoverySeconds},
+		{key: "scheduled_task.misfire_grace_seconds", value: cfg.MisfireGraceSeconds},
 		{key: "scheduled_task.worker_poll_block_seconds", value: cfg.WorkerPollBlockSeconds},
 		{key: "scheduled_task.worker_heartbeat_seconds", value: cfg.WorkerHeartbeatSeconds},
 		{key: "scheduled_task.worker_ttl_seconds", value: cfg.WorkerTTLSeconds},
@@ -452,6 +470,9 @@ func validateScheduledTaskConfig(cfg ScheduledTaskConfig) error {
 	}
 	if cfg.WorkerTTLSeconds <= cfg.WorkerHeartbeatSeconds {
 		return fmt.Errorf("scheduled_task.worker_ttl_seconds must be greater than scheduled_task.worker_heartbeat_seconds")
+	}
+	if cfg.MisfireGraceSeconds < cfg.SchedulerPollSeconds {
+		return fmt.Errorf("scheduled_task.misfire_grace_seconds must be at least scheduled_task.scheduler_poll_seconds")
 	}
 	if cfg.RecoveryTimeoutSeconds < cfg.WorkerTTLSeconds {
 		return fmt.Errorf("scheduled_task.recovery_timeout_seconds must be at least scheduled_task.worker_ttl_seconds")

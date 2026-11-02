@@ -165,9 +165,11 @@ a:focus-visible,
 }
 
 .admin-main .el-input__wrapper.is-focus,
+.admin-main .el-input__wrapper:focus-within,
 .admin-main .el-select__wrapper.is-focused,
 .admin-main .el-textarea__inner:focus {
-  box-shadow: 0 0 0 1px var(--admin-ui-color-primary) inset, 0 0 0 2px var(--admin-ui-color-focus);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--admin-ui-color-primary) inset;
 }
 
 .admin-main .el-input__inner:focus,
@@ -183,7 +185,8 @@ a:focus-visible,
 .admin-main .el-date-editor.el-input__wrapper.is-active,
 .admin-main .el-range-editor.is-active,
 .admin-main .el-date-editor.is-active {
-  box-shadow: 0 0 0 1px var(--admin-ui-color-primary) inset, 0 0 0 2px var(--admin-ui-color-focus);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--admin-ui-color-primary) inset;
 }
 
 .admin-main .el-range-input:focus,
@@ -197,7 +200,8 @@ body .el-picker-panel .el-input__wrapper.is-focus,
 body .el-picker-panel .el-select__wrapper.is-focused,
 body .el-picker-panel .el-date-editor.el-input__wrapper.is-active,
 body .el-picker-panel .el-range-editor.is-active {
-  box-shadow: 0 0 0 1px var(--admin-ui-color-primary) inset, 0 0 0 2px var(--admin-ui-color-focus);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--admin-ui-color-primary, var(--el-color-primary)) inset;
 }
 
 body .el-picker-panel .el-input__inner:focus,
@@ -206,6 +210,47 @@ body .el-picker-panel .el-range-input:focus,
 body .el-picker-panel .el-range-input:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+body .el-overlay .el-input__wrapper.is-focus,
+body .el-overlay .el-input__wrapper:focus-within,
+body .el-overlay .el-select__wrapper.is-focused,
+body .el-overlay .el-textarea__inner:focus,
+body .el-overlay .el-date-editor.el-input__wrapper.is-active,
+body .el-overlay .el-range-editor.is-active,
+body .el-overlay .el-date-editor.is-active {
+  outline: none !important;
+  box-shadow: 0 0 0 1px var(--admin-ui-color-primary, var(--el-color-primary)) inset !important;
+}
+
+body .el-overlay .el-input__inner:focus,
+body .el-overlay .el-select__input:focus,
+body .el-overlay .el-range-input:focus,
+body .el-overlay .el-range-input:focus-visible,
+body .el-overlay .el-date-editor .el-input__inner:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body .el-popper .el-input__wrapper.is-focus,
+body .el-popper .el-input__wrapper:focus-within,
+body .el-popper .el-select__wrapper.is-focused {
+  outline: none !important;
+  box-shadow: 0 0 0 1px var(--admin-ui-color-primary, var(--el-color-primary)) inset !important;
+}
+
+body .el-popper .el-input__inner:focus,
+body .el-popper .el-select__input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body .el-popper.is-dark {
+  box-sizing: border-box;
+  max-width: min(420px, calc(100vw - 32px));
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .admin-main .el-table {
@@ -258,8 +303,11 @@ body .el-picker-panel .el-range-input:focus-visible {
 }
 
 .admin-main .el-pagination {
+  --el-pagination-bg-color: transparent;
   --el-pagination-button-bg-color: transparent;
+  --el-pagination-button-disabled-bg-color: transparent;
   --el-pagination-hover-color: var(--admin-ui-color-primary);
+  margin-left: auto;
   color: var(--admin-ui-color-text-secondary);
 }
 
@@ -289,7 +337,7 @@ body .el-picker-panel .el-range-input:focus-visible {
 
 .admin-pagination {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-items: center;
   margin-top: 16px;
 }

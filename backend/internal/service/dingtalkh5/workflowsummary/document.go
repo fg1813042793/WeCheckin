@@ -32,15 +32,34 @@ type exportFieldCell struct {
 	Span  int
 }
 
-func buildExportDocument(detail *workflowapp.InstanceDetail) exportDocument {
+// Document describes a structured file that can be rendered as PDF, DOCX or XLSX.
+// The aliases keep the existing workflow export implementation compatible while
+// allowing other bounded services to reuse the renderer without duplicating it.
+type Document = exportDocument
+type Section = exportSection
+type FieldCell = exportFieldCell
+
+func buildExportDocument(detail *workflowapp.InstanceDetail, content ExportContent) exportDocument {
 	if detail == nil {
 		return exportDocument{Title: "流程记录", FileStem: "workflow"}
 	}
 	instance := detail.Instance
+	starterPrefix := ""
+	if name := firstText(instance.StarterName, detail.UserNames[instance.StarterID]); name != "" {
+		starterPrefix = name + "-"
+	}
+	if content == ExportContentForm {
+		title := starterPrefix + firstText(instance.DefinitionName, "表单")
+		return exportDocument{
+			Title:    title,
+			FileStem: safeFileStem(title),
+			Sections: exportFormSections(detail.Form, detail.FormData, detail.UserNames, true),
+		}
+	}
 	title := firstText(instance.DefinitionName, instance.DefinitionKey, "流程记录")
 	fileStem := safeFileStem(firstText(instance.BusinessKey, instance.ID, title))
 	document := exportDocument{
-		Title:    title,
+		Title:    starterPrefix + title,
 		FileStem: fileStem,
 		Metadata: [][]string{
 			{"流程名称", title},
@@ -53,12 +72,12 @@ func buildExportDocument(detail *workflowapp.InstanceDetail) exportDocument {
 			{"完成时间", formatExportTime(instance.EndTime)},
 		},
 	}
-	document.Sections = append(document.Sections, exportFormSections(detail.Form, detail.FormData, detail.UserNames)...)
+	document.Sections = append(document.Sections, exportFormSections(detail.Form, detail.FormData, detail.UserNames, false)...)
 	document.Sections = append(document.Sections, exportHistorySection(detail.Tasks))
 	return document
 }
 
-func exportFormSections(fields []workflowcore.FormField, data map[string]interface{}, userNames map[string]string) []exportSection {
+func exportFormSections(fields []workflowcore.FormField, data map[string]interface{}, userNames map[string]string, preserveGroups bool) []exportSection {
 	sections := make([]exportSection, 0)
 	fieldCells := make([]exportFieldCell, 0)
 	flushFields := func(title string) {
@@ -75,6 +94,10 @@ func exportFormSections(fields []workflowcore.FormField, data map[string]interfa
 			switch field.Type {
 			case workflowcore.FormFieldTypeGroup:
 				flushFields(sectionTitle)
+				// Groups without leading scalar fields need their own heading.
+				if preserveGroups && (len(field.Fields) == 0 || field.Fields[0].Type == workflowcore.FormFieldTypeGroup || field.Fields[0].Type == workflowcore.FormFieldTypeDetailList) {
+					sections = append(sections, exportSection{Title: label})
+				}
 				appendFields(field.Fields, label)
 				sectionTitle = "表单内容"
 			case workflowcore.FormFieldTypeDetailList:
@@ -361,14 +384,15 @@ func safeFileStem(value string) string {
 }
 
 func uniqueFileStems(documents []exportDocument) []string {
-	seen := make(map[string]int, len(documents))
+	seen := make(map[string]bool, len(documents))
 	result := make([]string, 0, len(documents))
 	for _, document := range documents {
 		stem := safeFileStem(document.FileStem)
-		seen[stem]++
-		if seen[stem] > 1 {
-			stem = fmt.Sprintf("%s-%d", stem, seen[stem])
+		base := stem
+		for ordinal := 2; seen[strings.ToLower(stem)]; ordinal++ {
+			stem = fmt.Sprintf("%s-%d", base, ordinal)
 		}
+		seen[strings.ToLower(stem)] = true
 		result = append(result, stem)
 	}
 	return result

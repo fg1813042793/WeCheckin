@@ -1,129 +1,60 @@
+<script setup lang="ts">
+import { AdminPageShell, AdminTablePanel } from '@/components/admin-ui'
+import AuditLogFilters from './AuditLogFilters.vue'
+import AuditLogDetail from './AuditLogDetail.vue'
+import { actionLabel, actorLabel, logTime, moduleLabel, outcomeMeta, sourceLabel } from './auditLogHelpers'
+import { useAuditLogs } from './useAuditLogs'
+
+const { category, canReadOperations, canReadLogin, canRead, canExport, filters, rows, total, page, pageSize,
+  loading, dirty, error, filterError, exporting, exportNotice, detailOpen, detail, detailLoading, detailError,
+  load, search, reset, changePage, changeSize, showDetail, retryDetail, exportData } = useAuditLogs()
+</script>
+
 <template>
-  <div class="admin-page log-page">
-  <el-card class="admin-card" shadow="never">
-    <div class="log-toolbar log-search-toolbar">
-      <div class="log-toolbar__left">
-      <el-input v-model="keyword" placeholder="搜索" clearable style="width:300px" @keyup.enter="search" />
-      <el-button type="primary" @click="search">搜索</el-button>
-      </div>
-    </div>
-    <div class="log-toolbar log-actions-toolbar">
-      <div class="log-toolbar__left" />
-      <div class="log-toolbar__right">
-        <el-button v-if="hasPerm('admin:menu:log:del')" type="danger" :disabled="selected.length === 0" @click="delSelected">批量删除</el-button>
-        <el-button circle icon="Refresh" title="刷新" @click="load" />
-        <el-button circle icon="Download" title="导出" @click="exportData" />
-      </div>
-    </div>
-    <div class="log-summary">共 {{ total }} 条记录</div>
-    <el-table :data="list" v-loading="loading" stripe style="width:100%" @selection-change="selected = $event">
-      <el-table-column type="selection" width="45" />
-      <el-table-column type="index" label="#" width="50" />
-      <el-table-column label="操作类型" width="100">
-        <template #default="{ row }">
-          <el-tag :type="logTypeTag(row.type)" size="small">{{ logTypeLabel(row.type) }}</el-tag>
+  <AdminPageShell width="fluid" class="audit-log-page">
+    <el-tabs v-model="category" class="audit-log-tabs" aria-label="日志类别">
+      <el-tab-pane v-if="canReadOperations" label="操作日志" name="operation" />
+      <el-tab-pane v-if="canReadLogin" label="登录日志" name="login" />
+    </el-tabs>
+    <el-empty v-if="!canRead" description="暂无查看审计日志的权限" />
+    <template v-else>
+      <AuditLogFilters :filters="filters" :can-export="canExport" :export-disabled="loading || dirty || !!error || !!filterError || total === 0" :exporting="exporting" :loading="loading" @search="search" @reset="reset" @refresh="load" @export="exportData" />
+      <el-alert v-if="filterError" :title="filterError" type="warning" :closable="false" show-icon />
+      <el-alert v-if="exportNotice" :title="exportNotice" type="info" :closable="false" show-icon />
+      <AdminTablePanel :title="category === 'login' ? '登录记录' : '操作记录'" :count="total" :loading="loading" :error="error" :empty="rows.length === 0" :empty-text="dirty ? '筛选条件已修改，请点击查询' : '暂无符合条件的日志'">
+        <template #actions>
+          <span v-if="canExport" class="audit-export-limit">每次导出最多 1000 条</span>
+          <el-button v-if="error" type="primary" plain @click="load">重试</el-button>
         </template>
-      </el-table-column>
-      <el-table-column label="操作人" width="180">
-        <template #default="{ row }">{{ row.adminName }} ({{ row.adminDesc }})</template>
-      </el-table-column>
-      <el-table-column prop="content" label="操作内容" min-width="200" />
-      <el-table-column label="操作时间" width="170">
-        <template #default="{ row }">{{ fmtLogTime(row._createTime) }}</template>
-      </el-table-column>
-      <el-table-column prop="LOG_ADD_IP" label="IP地址" width="140" />
-    </el-table>
-    <div class="admin-pagination">
-      <el-pagination
-        v-model:current-page="page"
-        :page-size="pageSize"
-        :page-sizes="[10,20,50,100]"
-        :total="total"
-        layout="total,sizes,prev,pager,next"
-        @current-change="load"
-        @size-change="(val:number) => { pageSize = val; page = 1; load() }"
-      />
-    </div>
-  </el-card>
-  </div>
+        <el-table :data="rows" row-key="id" stripe style="width: 100%">
+          <el-table-column label="时间" width="180"><template #default="{ row }">{{ logTime(row._createTime) }}</template></el-table-column>
+          <el-table-column label="结果" width="160"><template #default="{ row }"><el-tag :type="outcomeMeta(row.outcome).type" size="small">{{ outcomeMeta(row.outcome).label }}</el-tag></template></el-table-column>
+          <el-table-column label="来源" width="110"><template #default="{ row }">{{ sourceLabel(row.source) }}</template></el-table-column>
+          <el-table-column label="模块 / 动作" min-width="160" show-overflow-tooltip><template #default="{ row }">{{ moduleLabel(row.module) }} / {{ actionLabel(row) }}</template></el-table-column>
+          <el-table-column label="实际操作者" min-width="210" show-overflow-tooltip><template #default="{ row }">{{ actorLabel(row) }}</template></el-table-column>
+          <el-table-column v-if="category === 'login'" prop="attemptedAccount" label="尝试账号（待核实）" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="content" label="内容" min-width="240" show-overflow-tooltip />
+          <el-table-column prop="LOG_ADD_IP" label="IP 地址" min-width="150" show-overflow-tooltip />
+          <el-table-column label="详情" width="80" fixed="right"><template #default="{ row }"><el-button link type="primary" :aria-label="`查看日志 ${row.id} 详情`" @click="showDetail(row)">详情</el-button></template></el-table-column>
+        </el-table>
+      </AdminTablePanel>
+      <div class="audit-pagination">
+        <el-pagination :current-page="page" :page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" :disabled="loading || dirty || !!filterError" layout="total, sizes, prev, pager, next" :pager-count="7" @current-change="changePage" @size-change="changeSize" />
+      </div>
+      <p class="audit-note">历史记录缺少结果时显示“未知”。“已受理”仅表示请求被接受，不代表异步任务已完成。</p>
+    </template>
+    <AuditLogDetail v-model="detailOpen" :record="detail" :loading="detailLoading" :error="detailError" @retry="retryDetail" />
+  </AdminPageShell>
 </template>
 
-<script lang="ts" setup>
-import { ref, onMounted } from 'vue'
-import { adminApi } from '../../api'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { hasPerm } from '../../utils/permission'
-
-const loading = ref(false)
-const list = ref<any[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
-const keyword = ref('')
-const selected = ref<any[]>([])
-
-function fmtLogTime(ts: number) {
-  if (!ts) return '-'
-  return new Date(ts).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+<style scoped>
+.audit-log-tabs :deep(.el-tabs__header) { margin: 0; }
+.audit-log-tabs :deep(.el-tabs__content) { display: none; }
+.audit-export-limit, .audit-note { font-size: var(--admin-ui-font-size-caption); color: var(--admin-ui-color-text-muted); }
+.audit-note { margin: 0; line-height: 1.6; }
+.audit-pagination { width: 100%; min-width: 0; overflow-x: auto; display: flex; justify-content: flex-end; }
+@media (max-width: 767px) {
+  .audit-pagination { justify-content: flex-end; }
+  .audit-pagination :deep(.el-pagination) { flex-wrap: wrap; row-gap: var(--admin-ui-space-2); }
 }
-function logTypeLabel(t: string | number) {
-  return { '1': '登录', '2': '添加', '3': '删除', '4': '修改', '5': '其他' }[String(t)] || '其他'
-}
-function logTypeTag(t: string | number) {
-  return { '1': '', '2': 'success', '3': 'danger', '4': 'warning', '5': 'info' }[String(t)] || 'info'
-}
-
-async function load() {
-  loading.value = true
-  try {
-    const res = await adminApi.logList({ search: keyword.value, page: page.value, pageSize: pageSize.value })
-    list.value = res.data?.list || []
-    total.value = res.data?.total || 0
-  } catch { list.value = []; total.value = 0 }
-  loading.value = false
-}
-
-async function clearLog() {
-  try {
-    await ElMessageBox.confirm('确定清空所有操作日志？此操作不可恢复！', '警告', { confirmButtonText: '确定清空', type: 'warning' })
-    await adminApi.logClear()
-    ElMessage.success('日志已清空')
-    load()
-  } catch {}
-}
-
-function search() {
-  page.value = 1
-  load()
-}
-
-async function delSelected() {
-  if (selected.value.length === 0) return
-  try {
-    await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 条日志？`, '提示')
-    const ids = selected.value.map(row => row.id).filter(Boolean).join(',')
-    if (!ids) return
-    await adminApi.logDels({ ids })
-    ElMessage.success('已删除')
-    selected.value = []
-    load()
-  } catch {}
-}
-
-function exportData() {
-  const headers = Object.keys(list.value[0] || {})
-  const rows = [headers]
-  list.value.forEach((r: any) => {
-    rows.push(headers.map(h => String(r[h] ?? '')))
-  })
-  const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = '操作日志.csv'
-  a.click()
-  URL.revokeObjectURL(a.href)
-}
-
-onMounted(load)
-</script>
+</style>

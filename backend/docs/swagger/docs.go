@@ -113,6 +113,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/auth/captcha": {
+            "get": {
+                "tags": [
+                    "API v2-后台管理-认证"
+                ],
+                "summary": "获取管理员登录图片验证码",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminauth.CaptchaChallenge"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/auth/login": {
             "post": {
                 "consumes": [
@@ -141,6 +169,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "密码（兼容参数）",
                         "name": "pwd",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "验证码ID",
+                        "name": "captchaId",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "图片验证码",
+                        "name": "captchaCode",
                         "in": "formData"
                     }
                 ],
@@ -717,6 +757,472 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/dingtalk-notification-records": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "返回后台手工发送、定时任务等来源的钉钉投递数量与终态，不产生站内信未读记录。",
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "查询钉钉通知投递记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "通知标题",
+                        "name": "title",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源类型",
+                        "name": "sourceType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "sent、partial、failed_final或skipped",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkDeliveryRecordList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk-notification-records/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "查看钉钉通知投递详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "钉钉投递记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkDeliveryRecord"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "只删除后台记录，不撤回已发送的钉钉通知。",
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "删除钉钉通知投递记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "钉钉投递记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk-notification-templates": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要notification:style:list权限；支持查看停用模板。",
+                "tags": [
+                    "API v2-后台管理-通知模板"
+                ],
+                "summary": "查询钉钉发送模板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "模板名称或标题，最多80字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按模板ID定位",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "按启用状态筛选",
+                        "name": "enabled",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，1至10000",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，1至100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkTemplateList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要notification:style:edit权限。类型支持oa、link、action_card；目标支持app_home、workflow_start、url。自定义地址只允许完整HTTPS URL。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-通知模板"
+                ],
+                "summary": "创建钉钉发送模板",
+                "parameters": [
+                    {
+                        "description": "模板内容、启用状态和跳转目标",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.DingTalkTemplateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkSendTemplate"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk-notification-templates/options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "只需notification:dingtalk:send权限，不要求编辑模板权限；不产生通知投递。",
+                "tags": [
+                    "API v2-后台管理-通知模板"
+                ],
+                "summary": "查询发送时可选的启用模板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "模板名称或标题，最多80字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按模板ID定位",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，1至10000",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，1至100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkTemplateList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk-notification-templates/workflow-options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要notification:style:edit权限；仅返回ID和显示名称，不返回流程定义正文。",
+                "tags": [
+                    "API v2-后台管理-通知模板"
+                ],
+                "summary": "搜索模板跳转目标的已发布流程",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程名称，最多80字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "按已选流程ID定位",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，1至10000",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，1至100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkTemplateWorkflowList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/dingtalk-notification-templates/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要notification:style:edit权限；version必须为读取时版本，冲突时拒绝覆盖。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-通知模板"
+                ],
+                "summary": "修改或启停钉钉发送模板",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "完整模板配置及读取时版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.DingTalkTemplateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DingTalkSendTemplate"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要notification:style:edit权限；不撤回已经发出的消息。",
+                "tags": [
+                    "API v2-后台管理-通知模板"
+                ],
+                "summary": "删除钉钉发送模板",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "模板ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "读取时的模板版本，冲突时拒绝删除",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/dingtalk-notifications": {
             "post": {
                 "security": [
@@ -724,6 +1230,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "可选templateId与templateVersion选择启用模板；服务端校验版本和目标，标题正文采用本次提交值。省略模板时保持原通知样式与企业应用首页。",
                 "consumes": [
                     "application/json"
                 ],
@@ -3505,6 +4012,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/exam-notification-templates": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-考试管理"
+                ],
+                "summary": "查询考试通知模版",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-考试管理"
+                ],
+                "summary": "保存考试通知模版",
+                "parameters": [
+                    {
+                        "description": "考试通知模版",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ExamNotificationTemplatesSaveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/exam-question-bank": {
             "get": {
                 "security": [
@@ -3892,7 +4453,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "标题",
+                        "description": "管理名称",
                         "name": "title",
                         "in": "formData",
                         "required": true
@@ -3977,6 +4538,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "description": "及格分，0表示无门槛",
+                        "name": "passScore",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
                         "description": "状态",
                         "name": "status",
                         "in": "formData"
@@ -4001,7 +4568,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "设置JSON",
+                        "description": "设置JSON，displayTitle 为考生显示名称，最多100字，留空使用管理名称",
                         "name": "settings",
                         "in": "formData"
                     }
@@ -4068,7 +4635,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "标题",
+                        "description": "管理名称",
                         "name": "title",
                         "in": "formData",
                         "required": true
@@ -4153,6 +4720,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "description": "及格分，0表示无门槛",
+                        "name": "passScore",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
                         "description": "状态",
                         "name": "status",
                         "in": "formData"
@@ -4177,7 +4750,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "设置JSON",
+                        "description": "设置JSON，displayTitle 为考生显示名称，最多100字，留空使用管理名称",
                         "name": "settings",
                         "in": "formData"
                     }
@@ -4220,6 +4793,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/exams/{id}/copy": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 exam:copy 权限；复制考试配置和题目，副本默认停用且不包含历史答卷、二维码或自定义公开链接。",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "tags": [
+                    "API v2-后台管理-考试管理"
+                ],
+                "summary": "复制考试",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/exams/{id}/records": {
             "get": {
                 "security": [
@@ -4227,6 +4834,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "addIp 为请求来源 IP；browser/deviceType/platformType 复用问卷 UA 解析规则，历史缺失值显示 -。",
                 "tags": [
                     "API v2-后台管理-考试管理"
                 ],
@@ -4262,7 +4870,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/swagger.ExamRecordListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4313,6 +4933,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "record 包含 IP、原始 User-Agent 及派生的浏览器、设备类型、平台类型。",
                 "tags": [
                     "API v2-后台管理-考试管理"
                 ],
@@ -4337,7 +4958,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/exam.RecordDetailResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4373,6 +5006,175 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/records/{recordId}/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 exam-record:export 权限；支持 PDF、Word（DOCX）和 Excel（XLSX），只导出当前管理员数据范围内的考试答卷。",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "API v2-后台管理-考试管理"
+                ],
+                "summary": "导出单份考试答卷",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "答卷记录ID",
+                        "name": "recordId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "pdf",
+                            "docx",
+                            "xlsx"
+                        ],
+                        "type": "string",
+                        "description": "导出格式",
+                        "name": "format",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/exams/{id}/records/{recordId}/grading": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 exam-record:grade 权限及考试数据范围授权。返回题目、作答、参考答案、评分和版本；已完成的答卷只能查看。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台-考试"
+                ],
+                "summary": "获取考试答卷批改详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "答卷ID",
+                        "name": "recordId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/exam.RecordGradingDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 exam-record:grade 权限及考试数据范围授权。仅待批改答卷可提交，提交不可重复；版本或状态变化时须刷新。必须为所有人工题提供整数分数，不能修改自动题分数，评语最多1000字。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台-考试"
+                ],
+                "summary": "提交考试答卷人工批改",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "考试ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "答卷ID",
+                        "name": "recordId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "批改请求，提交不可重复；expectedVersion 取自批改详情，scores 包含全部人工题评分",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/exam.GradeRecordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/exam.RecordGradingDetail"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4495,6 +5297,19 @@ const docTemplate = `{
                     "API v2-后台管理-首页"
                 ],
                 "summary": "查询 /api/v2/admin/home",
+                "parameters": [
+                    {
+                        "enum": [
+                            7,
+                            30
+                        ],
+                        "type": "integer",
+                        "default": 7,
+                        "description": "趋势天数",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4760,6 +5575,283 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/login-logs": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "查询登录安全日志（独立授权）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账号、内容或请求 ID",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "admin",
+                            "client",
+                            "h5app",
+                            "system"
+                        ],
+                        "type": "string",
+                        "description": "来源",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动作",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failure",
+                            "blocked",
+                            "partial",
+                            "accepted",
+                            "unknown"
+                        ],
+                        "type": "string",
+                        "description": "结果",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "操作者 ID",
+                        "name": "actorId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 IP",
+                        "name": "ip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间：毫秒时间戳或 RFC3339",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间：毫秒时间戳或 RFC3339",
+                        "name": "endTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量：查询最多100，导出最多1000",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/login-logs/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "导出登录安全日志（独立授权，最多1000条）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账号、内容或请求 ID",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "admin",
+                            "client",
+                            "h5app",
+                            "system"
+                        ],
+                        "type": "string",
+                        "description": "来源",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动作",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failure",
+                            "blocked",
+                            "partial",
+                            "accepted",
+                            "unknown"
+                        ],
+                        "type": "string",
+                        "description": "结果",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "操作者 ID",
+                        "name": "actorId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 IP",
+                        "name": "ip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间：毫秒时间戳或 RFC3339",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间：毫秒时间戳或 RFC3339",
+                        "name": "endTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量：查询最多100，导出最多1000",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/login-logs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "查看登录安全日志详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "日志 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.Log"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/logs": {
             "get": {
                 "security": [
@@ -4767,15 +5859,78 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "仅返回操作日志；按操作者数据范围过滤。登录安全日志需独立权限。历史结果为 unknown。",
                 "tags": [
                     "API v2-后台管理-日志"
                 ],
-                "summary": "查询 /api/v2/admin/logs",
+                "summary": "查询操作审计日志",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "搜索关键词",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "admin",
+                            "client",
+                            "h5app",
+                            "system"
+                        ],
+                        "type": "string",
+                        "description": "来源",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动作",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failure",
+                            "blocked",
+                            "partial",
+                            "accepted",
+                            "unknown"
+                        ],
+                        "type": "string",
+                        "description": "结果",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "操作者 ID",
+                        "name": "actorId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 IP",
+                        "name": "ip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间：毫秒时间戳或 RFC3339",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间：毫秒时间戳或 RFC3339",
+                        "name": "endTime",
                         "in": "query"
                     },
                     {
@@ -4795,7 +5950,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.Page"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4806,13 +5973,14 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "不执行删除或清空，始终返回业务失败。",
                 "consumes": [
                     "application/x-www-form-urlencoded"
                 ],
                 "tags": [
                     "API v2-后台管理-日志"
                 ],
-                "summary": "删除 /api/v2/admin/logs",
+                "summary": "审计日志只读兼容入口（拒绝删除）",
                 "parameters": [
                     {
                         "type": "string",
@@ -4826,6 +5994,166 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/logs/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "导出操作审计日志（最多1000条）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账号、内容或请求 ID",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "admin",
+                            "client",
+                            "h5app",
+                            "system"
+                        ],
+                        "type": "string",
+                        "description": "来源",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "动作",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "success",
+                            "failure",
+                            "blocked",
+                            "partial",
+                            "accepted",
+                            "unknown"
+                        ],
+                        "type": "string",
+                        "description": "结果",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "操作者 ID",
+                        "name": "actorId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 IP",
+                        "name": "ip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间：毫秒时间戳或 RFC3339",
+                        "name": "startTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间：毫秒时间戳或 RFC3339",
+                        "name": "endTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量：查询最多100，导出最多1000",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/logs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。\nsnapshotStatus/snapshotReason独立表示快照采集状态与原因；历史记录默认legacy_unknown。明确白名单的普通配置可返回真实标量，敏感值保持脱敏。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "查看操作审计详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "日志 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.Log"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4952,6 +6280,50 @@ const docTemplate = `{
                         "description": "ID 列表，多个值用逗号分隔",
                         "name": "ids",
                         "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/managers/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "保持与原列表相同的数据权限；最多1000条，返回JSON分页供客户端生成CSV，并记录导出审计事件。",
+                "tags": [
+                    "API v2-后台管理-审计导出"
+                ],
+                "summary": "导出当前筛选的管理员列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量（最多1000）",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6063,6 +7435,18 @@ const docTemplate = `{
                         "description": "状态",
                         "name": "status",
                         "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "菜单页面缓存：1开启 0关闭",
+                        "name": "cacheEnabled",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "左侧菜单隐藏：1隐藏 0显示",
+                        "name": "hidden",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -6205,6 +7589,18 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "状态",
                         "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "菜单页面缓存：1开启 0关闭",
+                        "name": "cacheEnabled",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "左侧菜单隐藏：1隐藏 0显示",
+                        "name": "hidden",
                         "in": "formData"
                     }
                 ],
@@ -6592,6 +7988,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/roles/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "保持与原列表相同的数据权限；最多1000条，返回JSON分页供客户端生成CSV，并记录导出审计事件。",
+                "tags": [
+                    "API v2-后台管理-审计导出"
+                ],
+                "summary": "导出当前筛选的角色列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量（最多1000）",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/roles/{id}": {
             "put": {
                 "security": [
@@ -6812,6 +8252,39 @@ const docTemplate = `{
                         "description": "每页数量",
                         "name": "pageSize",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-定时任务"
+                ],
+                "summary": "批量删除终态运行记录及分段日志",
+                "parameters": [
+                    {
+                        "description": "运行 ID 列表",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ScheduledRunDeleteRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -7484,6 +8957,60 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/survey-notification-templates": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-问卷管理"
+                ],
+                "summary": "查询问卷通知模版",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-问卷管理"
+                ],
+                "summary": "保存问卷通知模版",
+                "parameters": [
+                    {
+                        "description": "问卷通知模版",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.SurveyNotificationTemplatesSaveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
                         }
                     }
                 }
@@ -8977,6 +10504,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/user-feedbacks/{id}/notify": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "使用 user-feedback:handle 权限，接收人由后端从反馈记录确定。content 必填且最多5000字；不改变反馈状态或处理人，追加 notification 消息并增加 version。requestId 是幂等键，重试必须沿用；version 用于乐观锁校验。channel 支持 internal（默认站内通知）或 dingtalk（钉钉通知），钉钉渠道检查提交人有效绑定及企业通知配置。消息记录和所选渠道 Outbox 在同一事务提交，成功仅表示已提交发送，由 taskd 异步投递。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-用户反馈"
+                ],
+                "summary": "通知反馈提交人",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "反馈 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "通知内容、当前版本和幂等请求标识",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.UserFeedbackNotifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.FeedbackDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/user-feedbacks/{id}/status": {
             "patch": {
                 "security": [
@@ -9170,6 +10752,36 @@ const docTemplate = `{
                         "type": "string",
                         "description": "排序值",
                         "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "手机号",
+                        "name": "mobile",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态:0待审核 1正常 2禁用 9管理员",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "岗位ID",
+                        "name": "positionId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "直属上级用户ID",
+                        "name": "managerUserId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "roleId",
                         "in": "query"
                     }
                 ],
@@ -9370,6 +10982,50 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/users/export": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "保持与原列表相同的数据权限；最多1000条，返回JSON分页供客户端生成CSV，并记录导出审计事件。",
+                "tags": [
+                    "API v2-后台管理-审计导出"
+                ],
+                "summary": "导出当前筛选的用户列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量（最多1000）",
+                        "name": "pageSize",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9636,6 +11292,196 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/webhook-notifications": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "查询 Webhook 投递记录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "投递状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源类型",
+                        "name": "sourceType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Webhook 类型",
+                        "name": "webhookType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "开始毫秒时间戳",
+                        "name": "addTimeFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "结束毫秒时间戳",
+                        "name": "addTimeTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.WebhookRecordList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/webhook-notifications/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "查看脱敏后的 Webhook 投递详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "投递记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.WebhookRecord"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "删除 Webhook 投递记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "投递记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/webhook-notifications/{id}/retry": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "请求受理后投递状态仍以运行记录为准。",
+                "tags": [
+                    "API v2-后台管理-通知"
+                ],
+                "summary": "重试 Webhook 投递",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "投递记录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.WebhookRecord"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -10554,6 +12400,102 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/workflow-instances/{id}/version-upgrade": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "将兼容的运行中实例升级至最新发布版本",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "源版本并发检查",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowInstanceVersionUpgradeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.UpgradeInstanceVersionResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-instances/{id}/version-upgrade-preview": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "预检工作流实例版本升级兼容性",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.InstanceVersionUpgradePreview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/workflow-notifications": {
             "get": {
                 "security": [
@@ -10860,7 +12802,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/application.PublishedDefinition"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -10890,7 +12847,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.PublishedDefinition"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -11469,6 +13438,34 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/dingtalk/h5/captcha": {
+            "get": {
+                "tags": [
+                    "API v2-H5App-认证"
+                ],
+                "summary": "获取 H5App 账号密码登录图片验证码",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/performance.CaptchaChallenge"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -12835,6 +14832,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
+                "description": "historyImport为当前生效的历史表单导入预设；未配置或未启用时保留手工导入向导。",
                 "tags": [
                     "API v2-H5App-OA流程"
                 ],
@@ -12843,7 +14841,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/application.PublishedDefinition"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -12856,6 +14869,7 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
+                "description": "historyImport支持历史记录选择/最近一次、状态范围、字段及明细列映射和覆盖策略；仅作为本流程本人历史表单的预填规则，不提升字段权限。",
                 "tags": [
                     "API v2-H5App-OA流程"
                 ],
@@ -12873,7 +14887,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.PublishedDefinition"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -13826,19 +15852,12 @@ const docTemplate = `{
                         "H5AppToken": []
                     }
                 ],
-                "description": "单个实例直接返回文件；批量 PDF/Word 返回 ZIP，批量 Excel 返回每实例一个工作表的 XLSX",
+                "description": "单个实例直接返回文件；批量 PDF/Word 返回 ZIP，批量 Excel 返回每实例一个工作表的 XLSX。默认导出完整记录；仅表单模式保留实例历史版本的表单标题、字段、分组和明细，不含流程元数据及审批记录，两种模式均校验相同的数据权限。",
                 "tags": [
                     "API v2-H5App-OA流程"
                 ],
                 "summary": "导出流程汇总表单",
                 "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "流程定义 ID",
-                        "name": "definitionId",
-                        "in": "query",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "当前页选中的流程实例 ID，逗号分隔，最多 50 个",
@@ -13857,6 +15876,17 @@ const docTemplate = `{
                         "name": "format",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "full",
+                            "form"
+                        ],
+                        "type": "string",
+                        "default": "full",
+                        "description": "导出内容：full 完整记录，form 仅表单；为空时默认 full",
+                        "name": "content",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -14852,6 +16882,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "设备标识",
                         "name": "deviceId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户端 User-Agent；省略时读取请求头",
+                        "name": "device",
                         "in": "query"
                     }
                 ],
@@ -16071,7 +18107,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/application.PublishedDefinition"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -16101,7 +18152,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.PublishedDefinition"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -16510,6 +18573,187 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "admin.Log": {
+            "type": "object",
+            "properties": {
+                "LOG_ADD_IP": {
+                    "type": "string"
+                },
+                "_createTime": {
+                    "type": "integer"
+                },
+                "action": {
+                    "type": "string"
+                },
+                "actorType": {
+                    "type": "string"
+                },
+                "adminDesc": {
+                    "type": "string"
+                },
+                "adminId": {
+                    "type": "integer"
+                },
+                "adminName": {
+                    "type": "string"
+                },
+                "affectedCount": {
+                    "type": "integer"
+                },
+                "attemptedAccount": {
+                    "type": "string"
+                },
+                "browser": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "content": {
+                    "type": "string"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "deviceType": {
+                    "type": "string"
+                },
+                "durationMs": {
+                    "type": "integer"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "eventId": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "module": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "platformType": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "reasonCode": {
+                    "type": "string"
+                },
+                "relatedId": {
+                    "type": "string"
+                },
+                "relatedType": {
+                    "type": "string"
+                },
+                "requestId": {
+                    "type": "string"
+                },
+                "requestedCount": {
+                    "type": "integer"
+                },
+                "snapshotReason": {
+                    "type": "string"
+                },
+                "snapshotStatus": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "recorded",
+                        "unchanged",
+                        "not_applicable",
+                        "not_configured",
+                        "operation_failed",
+                        "unavailable",
+                        "legacy_unknown"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "targetId": {
+                    "type": "string"
+                },
+                "targetIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "targetName": {
+                    "type": "string"
+                },
+                "targetType": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "integer"
+                },
+                "updateBy": {
+                    "type": "integer"
+                },
+                "updateDeptId": {
+                    "type": "integer"
+                },
+                "userAgent": {
+                    "type": "string"
+                }
+            }
+        },
+        "adminauth.CaptchaChallenge": {
+            "type": "object",
+            "properties": {
+                "captchaId": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "expiresIn": {
+                    "type": "integer"
+                },
+                "imageData": {
+                    "type": "string"
+                }
+            }
+        },
+        "adminlog.Page": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Log"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "application.Attachment": {
             "type": "object",
             "properties": {
@@ -16589,6 +18833,226 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "timezone": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.DingTalkDeliveryRecord": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "attempts": {
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "failedCount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "lastError": {
+                    "type": "string"
+                },
+                "notificationType": {
+                    "type": "string"
+                },
+                "plannedCount": {
+                    "type": "integer"
+                },
+                "sentAt": {
+                    "type": "integer"
+                },
+                "sentCount": {
+                    "type": "integer"
+                },
+                "skippedCount": {
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "type": "string"
+                },
+                "sourceType": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "templateId": {
+                    "type": "integer"
+                },
+                "templateName": {
+                    "type": "string"
+                },
+                "templateVersion": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.DingTalkDeliveryRecordList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.DingTalkDeliveryRecord"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.DingTalkSendTemplate": {
+            "type": "object",
+            "properties": {
+                "buttonTitle": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "headColor": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "messageType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "target": {
+                    "$ref": "#/definitions/application.DingTalkTemplateTarget"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.DingTalkTemplateInput": {
+            "type": "object",
+            "properties": {
+                "buttonTitle": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "headColor": {
+                    "type": "string"
+                },
+                "messageType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "target": {
+                    "$ref": "#/definitions/application.DingTalkTemplateTarget"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.DingTalkTemplateList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.DingTalkSendTemplate"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.DingTalkTemplateTarget": {
+            "type": "object",
+            "properties": {
+                "definitionId": {
+                    "type": "integer"
+                },
+                "definitionName": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.DingTalkTemplateWorkflowList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.DingTalkTemplateWorkflowOption"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.DingTalkTemplateWorkflowOption": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -16967,6 +19431,46 @@ const docTemplate = `{
                 }
             }
         },
+        "application.InstanceVersionUpgradeBlocker": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.InstanceVersionUpgradePreview": {
+            "type": "object",
+            "properties": {
+                "alreadyLatest": {
+                    "type": "boolean"
+                },
+                "blockers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.InstanceVersionUpgradeBlocker"
+                    }
+                },
+                "compatible": {
+                    "type": "boolean"
+                },
+                "currentVersion": {
+                    "type": "integer"
+                },
+                "definitionId": {
+                    "type": "integer"
+                },
+                "instanceId": {
+                    "type": "string"
+                },
+                "targetVersion": {
+                    "type": "integer"
+                }
+            }
+        },
         "application.Message": {
             "type": "object",
             "properties": {
@@ -17019,6 +19523,155 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "resolved": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.PublishedDefinition": {
+            "type": "object",
+            "properties": {
+                "availability": {
+                    "$ref": "#/definitions/workflowcore.StartAvailabilityConfig"
+                },
+                "availabilityStatus": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "edges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.PublishedEdge"
+                    }
+                },
+                "fieldPermissions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/workflowcore.FieldPermission"
+                        }
+                    }
+                },
+                "form": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormField"
+                    }
+                },
+                "historyImport": {
+                    "$ref": "#/definitions/workflowcore.HistoryImportConfig"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "initiator": {
+                    "$ref": "#/definitions/workflowcore.InitiatorConfig"
+                },
+                "instanceIdentity": {
+                    "$ref": "#/definitions/workflowcore.InstanceIdentityConfig"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "logoUrl": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.PublishedNode"
+                    }
+                },
+                "startLimit": {
+                    "$ref": "#/definitions/workflowcore.StartLimitConfig"
+                },
+                "startLimitStatus": {
+                    "$ref": "#/definitions/application.StartLimitStatus"
+                },
+                "startNodeId": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.PublishedEdge": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sourceHandle": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "targetHandle": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.PublishedNode": {
+            "type": "object",
+            "properties": {
+                "approvalMode": {
+                    "type": "string"
+                },
+                "assigneeDisplay": {
+                    "type": "string"
+                },
+                "gatewayMode": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "$ref": "#/definitions/workflowcore.Position"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.StartLimitStatus": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                },
+                "remainingCount": {
+                    "type": "integer"
+                },
+                "resetsAt": {
+                    "type": "integer"
+                },
+                "usedCount": {
                     "type": "integer"
                 }
             }
@@ -17174,6 +19827,96 @@ const docTemplate = `{
                 }
             }
         },
+        "application.UpgradeInstanceVersionResult": {
+            "type": "object",
+            "properties": {
+                "currentVersion": {
+                    "type": "integer"
+                },
+                "definitionId": {
+                    "type": "integer"
+                },
+                "instanceId": {
+                    "type": "string"
+                },
+                "previousVersion": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.WebhookRecord": {
+            "type": "object",
+            "properties": {
+                "addTime": {
+                    "type": "integer"
+                },
+                "attempts": {
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "lastError": {
+                    "type": "string"
+                },
+                "nextRetryAt": {
+                    "type": "integer"
+                },
+                "responseBody": {
+                    "type": "string"
+                },
+                "responseStatusCode": {
+                    "type": "integer"
+                },
+                "sentAt": {
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "type": "string"
+                },
+                "sourceType": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "webhookType": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.WebhookRecordList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.WebhookRecord"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "application.WorkflowOverview": {
             "type": "object",
             "properties": {
@@ -17188,6 +19931,88 @@ const docTemplate = `{
                 },
                 "started": {
                     "type": "integer"
+                }
+            }
+        },
+        "assessment.ExamRecord": {
+            "type": "object",
+            "properties": {
+                "addIp": {
+                    "type": "string"
+                },
+                "answers": {
+                    "description": "JSON {qid: value}",
+                    "type": "string"
+                },
+                "browser": {
+                    "description": "Client labels are derived from the stored User-Agent; no extra database columns are required.",
+                    "type": "string"
+                },
+                "device": {
+                    "type": "string"
+                },
+                "deviceId": {
+                    "type": "string"
+                },
+                "deviceType": {
+                    "type": "string"
+                },
+                "examId": {
+                    "type": "integer"
+                },
+                "gradedAt": {
+                    "type": "integer"
+                },
+                "gradedBy": {
+                    "type": "integer"
+                },
+                "gradingComment": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isAutoSubmit": {
+                    "type": "integer"
+                },
+                "paperId": {
+                    "type": "integer"
+                },
+                "pass": {
+                    "description": "1=通过 0=未通过",
+                    "type": "integer"
+                },
+                "platformType": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "session": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "0=进行中 1=已提交 2=已批改",
+                    "type": "integer"
+                },
+                "submitTime": {
+                    "type": "integer"
+                },
+                "timeSpent": {
+                    "description": "秒",
+                    "type": "integer"
+                },
+                "totalScore": {
+                    "type": "integer"
+                },
+                "userId": {
+                    "type": "string"
                 }
             }
         },
@@ -17557,6 +20382,9 @@ const docTemplate = `{
                 "corpId": {
                     "type": "string"
                 },
+                "loginCaptchaEnabled": {
+                    "type": "integer"
+                },
                 "logoText": {
                     "type": "string"
                 },
@@ -17751,12 +20579,14 @@ const docTemplate = `{
             "enum": [
                 "initial",
                 "supplement",
-                "status"
+                "status",
+                "notification"
             ],
             "x-enum-varnames": [
                 "MessageTypeInitial",
                 "MessageTypeSupplement",
-                "MessageTypeStatus"
+                "MessageTypeStatus",
+                "MessageTypeNotification"
             ]
         },
         "domain.Status": {
@@ -17773,6 +20603,400 @@ const docTemplate = `{
                 "StatusResolved",
                 "StatusClosed"
             ]
+        },
+        "exam.GradeRecordRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "expectedVersion": {
+                    "type": "string"
+                },
+                "scores": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/exam.ManualQuestionScore"
+                    }
+                }
+            }
+        },
+        "exam.GradingImage": {
+            "type": "object",
+            "properties": {
+                "alt": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "exam.GradingMaterial": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "exam.GradingQuestion": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "fullScore": {
+                    "type": "integer"
+                },
+                "gotScore": {
+                    "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/exam.GradingImage"
+                    }
+                },
+                "materials": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/exam.GradingMaterial"
+                    }
+                },
+                "needManual": {
+                    "type": "boolean"
+                },
+                "questionId": {
+                    "type": "integer"
+                },
+                "referenceAnswer": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "exam.ManualQuestionScore": {
+            "type": "object",
+            "properties": {
+                "questionId": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "integer"
+                }
+            }
+        },
+        "exam.RecordDetailResult": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "record": {
+                    "$ref": "#/definitions/model.ExamRecord"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/exam.Result"
+                    }
+                },
+                "schema": {},
+                "scoring": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                }
+            }
+        },
+        "exam.RecordGradingDetail": {
+            "type": "object",
+            "properties": {
+                "canGrade": {
+                    "type": "boolean"
+                },
+                "examTitle": {
+                    "type": "string"
+                },
+                "notice": {
+                    "type": "string"
+                },
+                "passScore": {
+                    "type": "integer"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/exam.GradingQuestion"
+                    }
+                },
+                "record": {
+                    "$ref": "#/definitions/model.ExamRecord"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "exam.Result": {
+            "type": "object",
+            "properties": {
+                "correct": {
+                    "type": "boolean"
+                },
+                "fullScore": {
+                    "type": "integer"
+                },
+                "gotScore": {
+                    "type": "integer"
+                },
+                "needManual": {
+                    "type": "boolean"
+                },
+                "questionId": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ExamRecord": {
+            "type": "object",
+            "properties": {
+                "addIp": {
+                    "type": "string"
+                },
+                "answers": {
+                    "description": "JSON {qid: value}",
+                    "type": "string"
+                },
+                "browser": {
+                    "description": "Client labels are derived from the stored User-Agent; no extra database columns are required.",
+                    "type": "string"
+                },
+                "device": {
+                    "type": "string"
+                },
+                "deviceId": {
+                    "type": "string"
+                },
+                "deviceType": {
+                    "type": "string"
+                },
+                "examId": {
+                    "type": "integer"
+                },
+                "gradedAt": {
+                    "type": "integer"
+                },
+                "gradedBy": {
+                    "type": "integer"
+                },
+                "gradingComment": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isAutoSubmit": {
+                    "type": "integer"
+                },
+                "paperId": {
+                    "type": "integer"
+                },
+                "pass": {
+                    "description": "1=通过 0=未通过",
+                    "type": "integer"
+                },
+                "platformType": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "session": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "0=进行中 1=已提交 2=已批改",
+                    "type": "integer"
+                },
+                "submitTime": {
+                    "type": "integer"
+                },
+                "timeSpent": {
+                    "description": "秒",
+                    "type": "integer"
+                },
+                "totalScore": {
+                    "type": "integer"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Log": {
+            "type": "object",
+            "properties": {
+                "LOG_ADD_IP": {
+                    "type": "string"
+                },
+                "_createTime": {
+                    "type": "integer"
+                },
+                "action": {
+                    "type": "string"
+                },
+                "actorType": {
+                    "type": "string"
+                },
+                "adminDesc": {
+                    "type": "string"
+                },
+                "adminId": {
+                    "type": "integer"
+                },
+                "adminName": {
+                    "type": "string"
+                },
+                "affectedCount": {
+                    "type": "integer"
+                },
+                "attemptedAccount": {
+                    "type": "string"
+                },
+                "browser": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "content": {
+                    "type": "string"
+                },
+                "deptId": {
+                    "type": "integer"
+                },
+                "deviceType": {
+                    "type": "string"
+                },
+                "durationMs": {
+                    "type": "integer"
+                },
+                "editTime": {
+                    "type": "integer"
+                },
+                "eventId": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "module": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "platformType": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "reasonCode": {
+                    "type": "string"
+                },
+                "relatedId": {
+                    "type": "string"
+                },
+                "relatedType": {
+                    "type": "string"
+                },
+                "requestId": {
+                    "type": "string"
+                },
+                "requestedCount": {
+                    "type": "integer"
+                },
+                "snapshotReason": {
+                    "type": "string"
+                },
+                "snapshotStatus": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "recorded",
+                        "unchanged",
+                        "not_applicable",
+                        "not_configured",
+                        "operation_failed",
+                        "unavailable",
+                        "legacy_unknown"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "targetId": {
+                    "type": "string"
+                },
+                "targetIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "targetName": {
+                    "type": "string"
+                },
+                "targetType": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "integer"
+                },
+                "updateBy": {
+                    "type": "integer"
+                },
+                "updateDeptId": {
+                    "type": "integer"
+                },
+                "userAgent": {
+                    "type": "string"
+                }
+            }
         },
         "model.Survey": {
             "type": "object",
@@ -17986,6 +21210,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "currentPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "performance.CaptchaChallenge": {
+            "type": "object",
+            "properties": {
+                "captchaId": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "expiresIn": {
+                    "type": "integer"
+                },
+                "imageData": {
                     "type": "string"
                 }
             }
@@ -18512,6 +21753,16 @@ const docTemplate = `{
                     ],
                     "example": "departments"
                 },
+                "templateId": {
+                    "description": "TemplateID 是可选的已启用发送模板ID，省略时沿用后台手动通知消息样式。",
+                    "type": "integer",
+                    "example": 7
+                },
+                "templateVersion": {
+                    "description": "TemplateVersion 是选择时的模板版本；指定templateId时必填，版本变化会拒绝发送。",
+                    "type": "integer",
+                    "example": 1
+                },
                 "title": {
                     "description": "Title 是钉钉通知标题。",
                     "type": "string",
@@ -18527,6 +21778,37 @@ const docTemplate = `{
                         66,
                         67
                     ]
+                }
+            }
+        },
+        "swagger.ExamNotificationTemplatesSaveRequest": {
+            "type": "object",
+            "properties": {
+                "presets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "scope": {
+                    "type": "string"
+                }
+            }
+        },
+        "swagger.ExamRecordListResponse": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/assessment.ExamRecord"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -18561,6 +21843,12 @@ const docTemplate = `{
         "swagger.H5AppLoginRequest": {
             "type": "object",
             "properties": {
+                "captchaCode": {
+                    "type": "string"
+                },
+                "captchaId": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -18983,9 +22271,9 @@ const docTemplate = `{
                     "example": false
                 },
                 "device": {
-                    "description": "Device 是设备类型。",
+                    "description": "Device 是客户端 User-Agent；省略时读取 HTTP User-Agent，最长保存512个字符。",
                     "type": "string",
-                    "example": "h5"
+                    "example": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0"
                 },
                 "deviceId": {
                     "description": "DeviceID 是设备唯一标识。",
@@ -19109,6 +22397,17 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.ScheduledRunDeleteRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "swagger.ScheduledTaskCronPreviewRequest": {
             "type": "object",
             "properties": {
@@ -19158,6 +22457,23 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.SurveyNotificationTemplatesSaveRequest": {
+            "type": "object",
+            "properties": {
+                "presets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "scope": {
+                    "type": "string"
+                }
+            }
+        },
         "swagger.SurveyQuestionBankRequest": {
             "type": "object",
             "properties": {
@@ -19200,6 +22516,41 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                }
+            }
+        },
+        "swagger.UserFeedbackNotifyRequest": {
+            "type": "object",
+            "required": [
+                "content",
+                "requestId",
+                "version"
+            ],
+            "properties": {
+                "channel": {
+                    "type": "string",
+                    "default": "internal",
+                    "enum": [
+                        "internal",
+                        "dingtalk"
+                    ],
+                    "example": "internal"
+                },
+                "content": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "minLength": 1,
+                    "example": "问题已修复，请确认是否恢复正常。"
+                },
+                "requestId": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "example": "8f9f4f33-f9b8-4f2f-9b26-f83c33d4f17f"
+                },
+                "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 3
                 }
             }
         },
@@ -19362,6 +22713,15 @@ const docTemplate = `{
                 }
             }
         },
+        "swagger.WorkflowInstanceVersionUpgradeRequest": {
+            "type": "object",
+            "properties": {
+                "expectedFromVersion": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "swagger.WorkflowReasonRequest": {
             "type": "object",
             "properties": {
@@ -19504,6 +22864,43 @@ const docTemplate = `{
                 }
             }
         },
+        "workflowcore.BusinessPeriodConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "field": {
+                    "type": "string"
+                },
+                "granularity": {
+                    "type": "string"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.FieldPermission": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "type": "string"
+                },
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "field": {
+                    "type": "string"
+                }
+            }
+        },
         "workflowcore.FormAttachment": {
             "type": "object",
             "properties": {
@@ -19520,6 +22917,311 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.FormCalculation": {
+            "type": "object",
+            "properties": {
+                "display": {
+                    "type": "string"
+                },
+                "expression": {
+                    "type": "string"
+                },
+                "precision": {
+                    "type": "integer"
+                },
+                "resultDisplay": {
+                    "$ref": "#/definitions/workflowcore.FormCalculationResultDisplay"
+                }
+            }
+        },
+        "workflowcore.FormCalculationResultDisplay": {
+            "type": "object",
+            "properties": {
+                "fallback": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormCalculationResultRule"
+                    }
+                }
+            }
+        },
+        "workflowcore.FormCalculationResultRule": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "workflowcore.FormField": {
+            "type": "object",
+            "properties": {
+                "calculation": {
+                    "$ref": "#/definitions/workflowcore.FormCalculation"
+                },
+                "columns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormField"
+                    }
+                },
+                "content": {
+                    "type": "string"
+                },
+                "default": {},
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormField"
+                    }
+                },
+                "help": {
+                    "$ref": "#/definitions/workflowcore.FormHelp"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "maxLength": {
+                    "type": "integer"
+                },
+                "maxRows": {
+                    "type": "integer"
+                },
+                "maxVisibleRows": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "minRows": {
+                    "type": "integer"
+                },
+                "minVisibleRows": {
+                    "type": "integer"
+                },
+                "optionSource": {
+                    "$ref": "#/definitions/workflowcore.FormOptionSource"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormOption"
+                    }
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "rowKey": {
+                    "type": "string"
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormValidationRule"
+                    }
+                },
+                "span": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.FormHelp": {
+            "type": "object",
+            "properties": {
+                "buttonText": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.FormOption": {
+            "type": "object",
+            "properties": {
+                "calculationValue": {
+                    "type": "number"
+                },
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.FormOption"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.FormOptionSource": {
+            "type": "object",
+            "properties": {
+                "calculationValueField": {
+                    "type": "string"
+                },
+                "childrenField": {
+                    "type": "string"
+                },
+                "labelField": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "responsePath": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "valueField": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.FormRuleCondition": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "operator": {
+                    "type": "string"
+                },
+                "value": {}
+            }
+        },
+        "workflowcore.FormValidationRule": {
+            "type": "object",
+            "properties": {
+                "column": {
+                    "type": "string"
+                },
+                "field": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "operator": {
+                    "type": "string"
+                },
+                "pattern": {
+                    "type": "string"
+                },
+                "precision": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                },
+                "when": {
+                    "$ref": "#/definitions/workflowcore.FormRuleCondition"
+                }
+            }
+        },
+        "workflowcore.HistoryImportColumnMapping": {
+            "type": "object",
+            "properties": {
+                "sourceKey": {
+                    "type": "string"
+                },
+                "targetKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.HistoryImportConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "mappingMode": {
+                    "type": "string"
+                },
+                "mappings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.HistoryImportMapping"
+                    }
+                },
+                "overwrite": {
+                    "type": "boolean"
+                },
+                "sourceMode": {
+                    "type": "string"
+                },
+                "sourceStatus": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.HistoryImportMapping": {
+            "type": "object",
+            "properties": {
+                "columns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workflowcore.HistoryImportColumnMapping"
+                    }
+                },
+                "sourceKey": {
+                    "type": "string"
+                },
+                "targetKey": {
                     "type": "string"
                 }
             }
@@ -19547,6 +23249,98 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "workflowcore.InstanceIdentityConfig": {
+            "type": "object",
+            "properties": {
+                "businessPeriod": {
+                    "$ref": "#/definitions/workflowcore.BusinessPeriodConfig"
+                },
+                "titleTemplate": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.Position": {
+            "type": "object",
+            "properties": {
+                "x": {
+                    "type": "integer"
+                },
+                "y": {
+                    "type": "integer"
+                }
+            }
+        },
+        "workflowcore.StartAvailabilityConfig": {
+            "type": "object",
+            "properties": {
+                "dailyEndTime": {
+                    "type": "string"
+                },
+                "dailyStartTime": {
+                    "type": "string"
+                },
+                "effectiveEndDate": {
+                    "type": "string"
+                },
+                "effectiveStartDate": {
+                    "type": "string"
+                },
+                "endsAt": {
+                    "type": "integer"
+                },
+                "lastDayOfMonth": {
+                    "type": "boolean"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "monthDays": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "startsAt": {
+                    "type": "integer"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "weekdays": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "windowEndDay": {
+                    "type": "integer"
+                },
+                "windowEndTime": {
+                    "type": "string"
+                },
+                "windowStartDayFromEnd": {
+                    "type": "integer"
+                },
+                "windowStartTime": {
+                    "type": "string"
+                }
+            }
+        },
+        "workflowcore.StartLimitConfig": {
+            "type": "object",
+            "properties": {
+                "maxCount": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string"
                 }
             }
         },

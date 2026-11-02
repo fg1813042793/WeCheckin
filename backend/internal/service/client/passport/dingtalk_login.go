@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"wecheckin/backend/internal/model"
 	onlineservice "wecheckin/backend/internal/service/admin/online"
 	dingtalkconfig "wecheckin/backend/internal/service/dingtalkh5/config"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/pkg/database"
@@ -68,18 +70,22 @@ func DingTalkLoginConfigContext(ctx context.Context) (*DingTalkLoginConfigRespon
 func CreateDingTalkAuthorizationContext(ctx context.Context, corpID, redirectURI string) (*DingTalkAuthorizationResponse, error) {
 	corpID = strings.TrimSpace(corpID)
 	if corpID == "" {
+		auditlog.SetReason(ctx, "invalid_request", "缺少钉钉企业标识")
 		return nil, ErrDingTalkLoginNotConfigured
 	}
 	if err := validateDingTalkOAuthRedirectURI(redirectURI); err != nil {
+		auditlog.SetReason(ctx, "invalid_redirect", "钉钉登录回调地址无效")
 		return nil, err
 	}
 	config, err := dingtalkconfig.LoadDingTalkH5CorpConfigContext(ctx, corpID)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "钉钉认证配置不可用")
 		return nil, fmt.Errorf("%w: %v", ErrDingTalkLoginNotConfigured, err)
 	}
 	state := randutil.HexString(24)
 	authorizationURL, err := buildDingTalkAuthorizationURL(config.AppKey, redirectURI, state)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "钉钉认证配置不可用")
 		return nil, err
 	}
 	return &DingTalkAuthorizationResponse{
@@ -98,37 +104,64 @@ func loginByDingTalkOAuthCodeContext(ctx context.Context, client dingtalkconfig.
 	corpID = strings.TrimSpace(corpID)
 	authCode = strings.TrimSpace(authCode)
 	if corpID == "" || authCode == "" {
+		if authCode == "" {
+			auditlog.SetReason(ctx, "auth_code_invalid", "钉钉授权码无效")
+		} else {
+			auditlog.SetReason(ctx, "invalid_request", "缺少钉钉企业标识")
+		}
 		return nil, fmt.Errorf("钉钉登录参数不完整")
 	}
 	config, err := dingtalkconfig.LoadDingTalkH5CorpConfigContext(ctx, corpID)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "钉钉认证配置不可用")
 		return nil, fmt.Errorf("%w: %v", ErrDingTalkLoginNotConfigured, err)
 	}
 	identity, err := client.ExchangeOAuthCodeContext(ctx, config, authCode)
 	if err != nil {
+		var networkErr net.Error
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.As(err, &networkErr) {
+			auditlog.SetReason(ctx, "system_error", "钉钉认证服务异常")
+		} else {
+			auditlog.SetReason(ctx, "auth_code_exchange_failed", "钉钉授权码换取身份失败")
+		}
 		return nil, err
 	}
 	if strings.TrimSpace(identity.UnionID) == "" {
+		auditlog.SetReason(ctx, "auth_identity_invalid", "钉钉身份异常")
 		return nil, fmt.Errorf("钉钉授权用户身份异常")
 	}
 
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	if db == nil {
+		auditlog.SetReason(ctx, "system_error", "认证服务异常")
 		return nil, fmt.Errorf("数据库未初始化")
 	}
 	binding, err := loadDingTalkOAuthBindingDB(db, corpID, identity.UnionID)
 	if err != nil {
+		switch {
+		case errors.Is(err, ErrDingTalkBindingRequired):
+			auditlog.SetReason(ctx, "binding_required", "钉钉账号未绑定系统用户")
+		case errors.Is(err, ErrDingTalkBindingDisabled):
+			auditlog.SetReason(ctx, "binding_disabled", "账号绑定已停用")
+		case errors.Is(err, ErrDingTalkBindingAmbiguous):
+			auditlog.SetReason(ctx, "binding_conflict", "钉钉账号存在重复绑定")
+		default:
+			auditlog.SetReason(ctx, "system_error", "账号绑定查询失败")
+		}
 		return nil, err
 	}
 	var user model.User
 	if err := db.Where("`id` = ?", binding.UserID).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			auditlog.SetReason(ctx, "binding_required", "钉钉账号未绑定有效系统用户")
 			return nil, ErrDingTalkBindingRequired
 		}
+		auditlog.SetReason(ctx, "system_error", "登录账号查询失败")
 		return nil, err
 	}
 	if user.Status != 1 {
+		auditlog.SetReason(ctx, "account_disabled", "账号已停用")
 		return nil, ErrDingTalkUserDisabled
 	}
 	setUserRole(&user)
@@ -137,6 +170,7 @@ func loginByDingTalkOAuthCodeContext(ctx context.Context, client dingtalkconfig.
 		"user_login_time": database.Now(),
 		"user_login_cnt":  gorm.Expr("user_login_cnt + 1"),
 	}).Error; err != nil {
+		auditlog.SetReason(ctx, "system_error", "登录状态保存失败")
 		return nil, err
 	}
 	return issueDingTalkClientLoginResponseContext(ctx, db, &user, addIP, device)
@@ -165,10 +199,12 @@ func loadDingTalkOAuthBindingDB(db *gorm.DB, corpID, unionID string) (*model.Din
 
 func issueDingTalkClientLoginResponseContext(ctx context.Context, db *gorm.DB, user *model.User, addIP, device string) (*LoginResponse, error) {
 	if user == nil || user.ID == 0 {
+		auditlog.SetReason(ctx, "system_error", "登录信息异常")
 		return nil, fmt.Errorf("登录信息异常")
 	}
 	token := randutil.HexString(32)
 	if err := onlineservice.StoreUserSessionContext(ctx, user, token, addIP, device); err != nil {
+		auditlog.SetReason(ctx, "system_error", "登录会话创建失败")
 		return nil, err
 	}
 	deptID := dept.UserDeptIDContext(ctx, user.ID)
@@ -179,6 +215,7 @@ func issueDingTalkClientLoginResponseContext(ctx context.Context, db *gorm.DB, u
 			deptName = department.Name
 		}
 	}
+	auditlog.SetActor(ctx, user.ID, user.Name, "user")
 	return &LoginResponse{
 		Token: token,
 		UserInfo: &UserInfo{

@@ -33,6 +33,23 @@ func TestDingTalkNotificationRoutesRequireDedicatedSendPermission(t *testing.T) 
 	}
 }
 
+func TestDingTalkDeliveryRecordRoutesReuseNotificationRecordPermissions(t *testing.T) {
+	source, err := os.ReadFile("route_permissions.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(source)), " ")
+	for _, snippet := range []string{
+		`"GET /api/v2/admin/dingtalk-notification-records": "notification:list"`,
+		`"GET /api/v2/admin/dingtalk-notification-records/:id": "notification:list"`,
+		`{method: "DELETE", path: "/api/v2/admin/dingtalk-notification-records/:id", perm: "notification:delete"}`,
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("DingTalk delivery record permission mapping missing %q", snippet)
+		}
+	}
+}
+
 func TestNotificationStyleRoutesRequireDedicatedPermissions(t *testing.T) {
 	source, err := os.ReadFile("route_permissions.go")
 	if err != nil {

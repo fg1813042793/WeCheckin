@@ -326,6 +326,20 @@ const requiredContent = [
     file: 'src/components/dingtalk-login-panel/dingtalk-login-panel.vue',
     patterns: [
       'auth-panel__card',
+      'captchaEnabled',
+      'captchaCode',
+      'captcha-image',
+      'refresh-captcha',
+      'mode="aspectFit"',
+      'object-fit: contain;',
+      'width: 256rpx;',
+      'flex: 0 0 256rpx;',
+      'width: 128px;',
+      'height: 44px;',
+      'flex-basis: 128px;',
+      'const captchaReady = computed(() => !props.captchaLoading && (',
+      '<u-input',
+      '<u-button',
       '@media screen and (min-width: 769px)',
       'width: min(420px, calc(100vw - 48px));',
       'box-shadow: 0 18px 48px rgba(15, 23, 42, 0.10);',
@@ -503,6 +517,43 @@ const requiredContent = [
       'flattenAppNav',
       'createAppNavItems',
       'updateCurrentUser',
+      'captchaEnabled',
+      'captchaId',
+      'captchaImage',
+      'captchaLoading',
+      'captchaUnavailable',
+      'refreshLoginCaptcha',
+    ],
+  },
+  {
+    file: 'src/types/dingtalk-h5.ts',
+    patterns: [
+      'export interface LoginCaptchaChallenge',
+      'captchaId?: string',
+      'captchaCode?: string',
+      'export interface SsoLoginRequest',
+      'export interface BindSelfRequest',
+    ],
+  },
+  {
+    file: 'src/api/dingtalk-h5/auth.ts',
+    patterns: [
+      'LoginCaptchaChallenge',
+      'export function captcha()',
+      'DINGTALK_H5_API}/captcha',
+      'export function ssoLogin(data: SsoLoginRequest)',
+      'export function bindSelf(data: BindSelfRequest)',
+    ],
+  },
+  {
+    file: 'src/components/app-auth-guard/app-auth-guard.vue',
+    patterns: [
+      ':captcha-enabled="auth.captchaEnabled"',
+      ':captcha-id="auth.captchaId"',
+      ':captcha-image="auth.captchaImage"',
+      ':captcha-loading="auth.captchaLoading"',
+      ':captcha-unavailable="auth.captchaUnavailable"',
+      '@refresh-captcha="auth.refreshLoginCaptcha"',
     ],
   },
   {
@@ -1712,6 +1763,16 @@ for (const item of forbiddenContent) {
   for (const pattern of item.patterns) {
     if (content.includes(pattern)) {
       missingContent.push(`${item.file}: forbidden ${pattern}`)
+    }
+  }
+}
+
+{
+  const typesSource = readFileSync(resolve(root, 'src/types/dingtalk-h5.ts'), 'utf8')
+  for (const interfaceName of ['SsoLoginRequest', 'BindSelfRequest']) {
+    const body = typesSource.match(new RegExp(`export interface ${interfaceName} \\{([\\s\\S]*?)\\n\\}`))?.[1] || ''
+    if (/captchaId|captchaCode/.test(body)) {
+      missingContent.push(`src/types/dingtalk-h5.ts: ${interfaceName} must remain captcha-free`)
     }
   }
 }

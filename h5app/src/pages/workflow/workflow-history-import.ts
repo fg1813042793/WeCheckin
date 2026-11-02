@@ -2,6 +2,8 @@ import type {
   WorkflowFieldAccessMap,
   WorkflowFormData,
   WorkflowFormField,
+  WorkflowHistoryImportColumnMapping,
+  WorkflowHistoryImportMapping,
 } from '@/types/workflow'
 import {
   cloneWorkflowValue,
@@ -9,12 +11,10 @@ import {
   flattenWorkflowOptions,
   normalizeWorkflowFormValue,
   workflowDataFields,
+  workflowDetailRowKey,
 } from './workflow-form'
 
-export interface WorkflowHistoryImportMapping {
-  sourceKey: string
-  targetKey: string
-}
+export type { WorkflowHistoryImportMapping } from '@/types/workflow'
 
 export type WorkflowHistoryImportResult
   = 'import'
@@ -34,6 +34,8 @@ export interface WorkflowHistoryImportPreviewItem {
   importValue: unknown
   result: WorkflowHistoryImportResult
   message: string
+  filteredCount?: number
+  dynamicCount?: number
 }
 
 export interface WorkflowHistoryImportPreview {
@@ -49,6 +51,8 @@ interface NormalizedImportValue {
   value: unknown
   result?: Extract<WorkflowHistoryImportResult, 'filtered' | 'dynamic_option' | 'skipped'>
   message?: string
+  filteredCount?: number
+  dynamicCount?: number
 }
 
 const stringTypes = new Set(['text', 'textarea', 'phone', 'email'])
@@ -64,8 +68,13 @@ function inSameTypeFamily(sourceType: string, targetType: string, family: Set<st
 export function isWorkflowImportTypeCompatible(
   sourceField: WorkflowFormField,
   targetField: WorkflowFormField,
+  columns?: WorkflowHistoryImportColumnMapping[],
 ): boolean {
   if (!sourceField || !targetField || excludedTypes.has(sourceField.type) || excludedTypes.has(targetField.type))
+    return false
+  if (sourceField.calculation || targetField.calculation)
+    return false
+  if (columns && (sourceField.type !== 'detail_list' || targetField.type !== 'detail_list'))
     return false
   if (inSameTypeFamily(sourceField.type, targetField.type, stringTypes))
     return true
@@ -81,6 +90,15 @@ export function isWorkflowImportTypeCompatible(
     return true
 
   const sourceColumns = new Map((sourceField.columns || []).map(column => [column.key, column]))
+  if (columns) {
+    const targetColumns = new Map((targetField.columns || []).map(column => [column.key, column]))
+    return columns.some((mapping) => {
+      const source = sourceColumns.get(mapping.sourceKey)
+      const target = targetColumns.get(mapping.targetKey)
+      return Boolean(source && target && source.type !== 'detail_list' && target.type !== 'detail_list'
+        && isWorkflowImportTypeCompatible(source, target))
+    })
+  }
   return (targetField.columns || []).every((targetColumn) => {
     const sourceColumn = sourceColumns.get(targetColumn.key)
     return Boolean(sourceColumn && isWorkflowImportTypeCompatible(sourceColumn, targetColumn))
@@ -165,38 +183,60 @@ function normalizeDetailListValue(
   sourceField: WorkflowFormField,
   targetField: WorkflowFormField,
   value: unknown,
+  columns?: WorkflowHistoryImportColumnMapping[],
 ): NormalizedImportValue {
   if (!Array.isArray(value))
     return { value: [], result: 'skipped', message: '历史明细格式无效' }
   const sourceColumns = new Map((sourceField.columns || []).map(column => [column.key, column]))
-  let filtered = false
-  let dynamicOption = false
+  const targetColumns = new Map((targetField.columns || []).map(column => [column.key, column]))
+  const mappings = columns || (targetField.columns || []).map(column => ({ sourceKey: column.key, targetKey: column.key }))
+  let filteredCount = 0
+  let dynamicCount = 0
   const rows = value
     .filter(row => row && typeof row === 'object' && !Array.isArray(row))
     .map((row) => {
       const sourceRow = row as Record<string, unknown>
       const targetRow = createWorkflowDetailRow(targetField)
-      for (const targetColumn of targetField.columns || []) {
-        const sourceColumn = sourceColumns.get(targetColumn.key)
-        if (!sourceColumn)
+      let imported = false
+      for (const mapping of mappings) {
+        const targetColumn = targetColumns.get(mapping.targetKey)
+        const sourceColumn = sourceColumns.get(mapping.sourceKey)
+        if (!sourceColumn || !targetColumn
+          || sourceColumn.key === workflowDetailRowKey(sourceField)
+          || targetColumn.key === workflowDetailRowKey(targetField)
+          || (columns && (sourceColumn.type === 'detail_list' || targetColumn.type === 'detail_list'))
+          || !isWorkflowImportTypeCompatible(sourceColumn, targetColumn)) {
+          filteredCount += 1
+          continue
+        }
+        if (isEmptyWorkflowImportValue(sourceRow[sourceColumn.key]))
           continue
         const normalized = normalizeImportedValue(sourceColumn, targetColumn, sourceRow[sourceColumn.key])
-        if (normalized.result === 'skipped') {
-          filtered = true
+        if (normalized.result === 'skipped' || isEmptyWorkflowImportValue(normalized.value)) {
+          filteredCount += 1
           continue
         }
         if (normalized.result === 'filtered')
-          filtered = true
+          filteredCount += normalized.filteredCount || 1
         if (normalized.result === 'dynamic_option')
-          dynamicOption = true
+          dynamicCount += normalized.dynamicCount || 1
         targetRow[targetColumn.key] = cloneWorkflowValue(normalized.value)
+        imported = true
       }
-      return targetRow
+      return imported ? targetRow : null
     })
-  if (filtered)
-    return { value: rows, result: 'filtered', message: '部分明细选项或无效值已过滤' }
-  if (dynamicOption)
-    return { value: rows, result: 'dynamic_option', message: '明细包含动态选项，请导入后确认' }
+    .filter(row => row !== null)
+  if (rows.length === 0)
+    return { value: [], result: 'skipped' }
+  if (filteredCount > 0 || dynamicCount > 0) {
+    return {
+      value: rows,
+      result: filteredCount > 0 ? 'filtered' : 'dynamic_option',
+      message: filteredCount > 0 ? '部分明细选项或无效值已过滤' : '明细包含动态选项，请导入后确认',
+      filteredCount,
+      dynamicCount,
+    }
+  }
   return { value: rows }
 }
 
@@ -204,9 +244,10 @@ function normalizeImportedValue(
   sourceField: WorkflowFormField,
   targetField: WorkflowFormField,
   value: unknown,
+  columns?: WorkflowHistoryImportColumnMapping[],
 ): NormalizedImportValue {
   if (targetField.type === 'detail_list')
-    return normalizeDetailListValue(sourceField, targetField, value)
+    return normalizeDetailListValue(sourceField, targetField, value, columns)
 
   const normalized = normalizeWorkflowFormValue(targetField, cloneWorkflowValue(value))
   if (singleOptionTypes.has(targetField.type)) {
@@ -254,6 +295,7 @@ function previewItem(
 export function previewWorkflowHistoryImport(input: {
   sourceFields: WorkflowFormField[]
   sourceData: WorkflowFormData
+  sourceAccess?: WorkflowFieldAccessMap
   targetFields: WorkflowFormField[]
   targetData: WorkflowFormData
   targetAccess: WorkflowFieldAccessMap
@@ -261,6 +303,10 @@ export function previewWorkflowHistoryImport(input: {
   overwrite: boolean
 }): WorkflowHistoryImportPreview {
   validateMappings(input.mappings)
+  for (const mapping of input.mappings) {
+    if (mapping.columns)
+      validateMappings(mapping.columns)
+  }
   const sourceByKey = new Map(workflowDataFields(input.sourceFields).map(field => [field.key, field]))
   const targetByKey = new Map(workflowDataFields(input.targetFields).map(field => [field.key, field]))
   const preview: WorkflowHistoryImportPreview = {
@@ -276,7 +322,13 @@ export function previewWorkflowHistoryImport(input: {
     const sourceField = sourceByKey.get(mapping.sourceKey)
     const targetField = targetByKey.get(mapping.targetKey)
     const currentValue = targetField ? input.targetData[targetField.key] : undefined
-    const sourceValue = sourceField ? input.sourceData[sourceField.key] : undefined
+    const sourceAllowed = !input.sourceAccess || input.sourceAccess[mapping.sourceKey] === 'write'
+    const sourceValue = sourceField && sourceAllowed ? input.sourceData[sourceField.key] : undefined
+    if (!sourceAllowed) {
+      preview.items.push(previewItem(sourceField, targetField, currentValue, undefined, 'skipped', ''))
+      preview.skipCount += 1
+      continue
+    }
     if (!sourceField || !targetField) {
       preview.items.push(previewItem(sourceField, targetField, currentValue, sourceValue, 'skipped', '字段已不存在'))
       preview.skipCount += 1
@@ -287,7 +339,7 @@ export function previewWorkflowHistoryImport(input: {
       preview.skipCount += 1
       continue
     }
-    if (!isWorkflowImportTypeCompatible(sourceField, targetField)) {
+    if (!isWorkflowImportTypeCompatible(sourceField, targetField, mapping.columns)) {
       preview.items.push(previewItem(sourceField, targetField, currentValue, sourceValue, 'incompatible', '字段类型不兼容'))
       preview.skipCount += 1
       continue
@@ -303,8 +355,8 @@ export function previewWorkflowHistoryImport(input: {
       continue
     }
 
-    const normalized = normalizeImportedValue(sourceField, targetField, sourceValue)
-    if (normalized.result === 'skipped') {
+    const normalized = normalizeImportedValue(sourceField, targetField, sourceValue, mapping.columns)
+    if (normalized.result === 'skipped' || isEmptyWorkflowImportValue(normalized.value)) {
       preview.items.push(previewItem(
         sourceField,
         targetField,
@@ -327,6 +379,9 @@ export function previewWorkflowHistoryImport(input: {
       normalized.message || (replacing ? '将覆盖当前内容' : '将导入历史内容'),
     ))
     preview.patch[targetField.key] = cloneWorkflowValue(normalized.value)
+    const item = preview.items[preview.items.length - 1]
+    item.filteredCount = normalized.filteredCount || (result === 'filtered' ? 1 : 0)
+    item.dynamicCount = normalized.dynamicCount || (result === 'dynamic_option' ? 1 : 0)
     if (replacing)
       preview.overwriteCount += 1
     else

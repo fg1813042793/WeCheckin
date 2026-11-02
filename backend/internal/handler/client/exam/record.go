@@ -8,7 +8,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	examPkg "wecheckin/backend/internal/formkit/exam"
 	examservice "wecheckin/backend/internal/service/client/exam"
 	"wecheckin/backend/pkg/response"
 )
@@ -115,9 +114,6 @@ func (h *ClientExamHandler) ResultBySession(ctx context.Context, c *app.RequestC
 	if result.Record.Answers != "" {
 		_ = json.Unmarshal([]byte(result.Record.Answers), &answers)
 	}
-	var results []examPkg.Result
-	if result.Record.Result != "" {
-		_ = json.Unmarshal([]byte(result.Record.Result), &results)
-	}
+	results := examservice.DecodeRecordResults(result.Record.Result)
 	response.JSON(c, examResultBySessionResponse{Exam: result.Exam, Record: result.Record, Questions: questions, Answers: answers, Results: results, Settings: settingsMap})
 }

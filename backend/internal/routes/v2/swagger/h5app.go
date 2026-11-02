@@ -11,13 +11,16 @@ var _ response.Resp
 var _ userfeedbackapp.Overview
 var _ workflowapp.WorkflowOverview
 var _ dingtalkh5service.AccountProfilePayload
+var _ dingtalkh5service.CaptchaChallenge
 var _ dingtalkh5service.ReviewPayload
 var _ dingtalkh5service.TemplateDTO
 var _ dingtalkh5service.UserPayload
 
 type H5AppLoginRequest struct {
-	Name     string `json:"name"`
-	Password string `json:"password"`
+	Name        string `json:"name"`
+	Password    string `json:"password"`
+	CaptchaID   string `json:"captchaId,omitempty"`
+	CaptchaCode string `json:"captchaCode,omitempty"`
 }
 
 type H5AppSSOLoginRequest struct {
@@ -99,6 +102,12 @@ type H5AppWorkflowReviseFormRequest struct {
 // @Success 200 {object} response.Resp
 // @Router /api/v2/dingtalk/h5/public-config [get]
 func swaggerV2H5AppPublicConfigGet() {}
+
+// @Tags API v2-H5App-认证
+// @Summary 获取 H5App 账号密码登录图片验证码
+// @Success 200 {object} response.Resp{data=dingtalkh5service.CaptchaChallenge}
+// @Router /api/v2/dingtalk/h5/captcha [get]
+func swaggerV2H5AppCaptchaGet() {}
 
 // @Tags API v2-H5App-认证
 // @Summary H5App 账号密码登录
@@ -418,7 +427,8 @@ func swaggerV2H5AppWorkflowOverviewGet() {}
 // @Tags API v2-H5App-OA流程
 // @Summary 查询 H5App 可发起流程
 // @Security H5AppToken
-// @Success 200 {object} response.Resp
+// @Description historyImport为当前生效的历史表单导入预设；未配置或未启用时保留手工导入向导。
+// @Success 200 {object} response.Resp{data=[]workflowapp.PublishedDefinition}
 // @Router /api/v2/dingtalk/h5/workflows/definitions [get]
 func swaggerV2H5AppWorkflowDefinitionsGet() {}
 
@@ -433,7 +443,8 @@ func swaggerV2H5AppWorkflowCategoriesGet() {}
 // @Summary 查询 H5App 流程定义
 // @Security H5AppToken
 // @Param id path int true "流程定义 ID"
-// @Success 200 {object} response.Resp
+// @Description historyImport支持历史记录选择/最近一次、状态范围、字段及明细列映射和覆盖策略；仅作为本流程本人历史表单的预填规则，不提升字段权限。
+// @Success 200 {object} response.Resp{data=workflowapp.PublishedDefinition}
 // @Router /api/v2/dingtalk/h5/workflows/definitions/{id} [get]
 func swaggerV2H5AppWorkflowDefinitionsIDGet() {}
 
@@ -696,11 +707,11 @@ func swaggerV2H5AppWorkflowSummaryInstancesIDGet() {}
 
 // @Tags API v2-H5App-OA流程
 // @Summary 导出流程汇总表单
-// @Description 单个实例直接返回文件；批量 PDF/Word 返回 ZIP，批量 Excel 返回每实例一个工作表的 XLSX
+// @Description 单个实例直接返回文件；批量 PDF/Word 返回 ZIP，批量 Excel 返回每实例一个工作表的 XLSX。默认导出完整记录；仅表单模式保留实例历史版本的表单标题、字段、分组和明细，不含流程元数据及审批记录，两种模式均校验相同的数据权限。
 // @Security H5AppToken
-// @Param definitionId query int true "流程定义 ID"
 // @Param instanceIds query string true "当前页选中的流程实例 ID，逗号分隔，最多 50 个"
 // @Param format query string true "导出格式" Enums(pdf,xlsx,docx)
+// @Param content query string false "导出内容：full 完整记录，form 仅表单；为空时默认 full" Enums(full,form) default(full)
 // @Success 200 {file} file
 // @Router /api/v2/dingtalk/h5/workflows/summary/export [get]
 func swaggerV2H5AppWorkflowSummaryExportGet() {}

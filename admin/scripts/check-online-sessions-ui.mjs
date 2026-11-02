@@ -26,4 +26,15 @@ for (const pattern of requiredPatterns)
 
 assert.doesNotMatch(source, /:data="filtered(?:Users|Admins)"/)
 
+assert.equal(
+  (source.match(/class="online-avatar"/g) || []).length,
+  2,
+  'Online user and admin avatars must share the stable row-height class',
+)
+assert.match(
+  source,
+  /\.online-avatar\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;[^}]*vertical-align:\s*middle;/s,
+  'Online avatar styles must keep image and fallback rows at the same height',
+)
+
 console.log('online session pagination checks passed')

@@ -7,8 +7,11 @@ import (
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
 	userfeedbackapp "wecheckin/backend/internal/modules/userfeedback/application"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
+	adminauthservice "wecheckin/backend/internal/service/admin/adminauth"
+	adminlogservice "wecheckin/backend/internal/service/admin/adminlog"
 	admindingtalkservice "wecheckin/backend/internal/service/admin/dingtalk"
 	workflowservice "wecheckin/backend/internal/service/admin/workflow"
+	clientexamservice "wecheckin/backend/internal/service/client/exam"
 	clientpassportservice "wecheckin/backend/internal/service/client/passport"
 	"wecheckin/backend/pkg/response"
 )
@@ -19,10 +22,13 @@ var _ adminsurveyhandler.EvalExprResponse
 var _ scheduledtaskapp.CreateTaskRequest
 var _ userfeedbackapp.Overview
 var _ workflowapp.TaskList
+var _ adminauthservice.CaptchaChallenge
+var _ adminlogservice.Page
 var _ admindingtalkservice.SettingsResponse
 var _ clientpassportservice.DingTalkLoginConfigResponse
 var _ clientpassportservice.DingTalkAuthorizationResponse
 var _ clientpassportservice.LoginResponse
+var _ clientexamservice.RecordDetailResult
 var _ workflowservice.PublishRequest
 var _ formkitschema.FormSchema
 
@@ -560,6 +566,7 @@ func swaggerV2EventsIdScoresPost53() {}
 // @Security ClientToken
 // @Param id path int true "id"
 // @Param deviceId query string false "设备标识"
+// @Param device query string false "客户端 User-Agent；省略时读取请求头"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/exams/{id}/start [post]
 func swaggerV2ExamsIdStartPost54() {}
@@ -583,11 +590,19 @@ func swaggerV2ExamRecordsIdGet55() {}
 func swaggerV2ExamRecordsIdAnswersPut56() {}
 
 // @Tags API v2-后台管理-认证
+// @Summary 获取管理员登录图片验证码
+// @Success 200 {object} response.Resp{data=adminauthservice.CaptchaChallenge}
+// @Router /api/v2/admin/auth/captcha [get]
+func swaggerV2AdminAuthCaptchaGet57Captcha() {}
+
+// @Tags API v2-后台管理-认证
 // @Summary 提交 /api/v2/admin/auth/login
 // @Accept application/x-www-form-urlencoded
 // @Param name formData string true "用户名"
 // @Param password formData string true "密码"
 // @Param pwd formData string false "密码（兼容参数）"
+// @Param captchaId formData string false "验证码ID"
+// @Param captchaCode formData string false "图片验证码"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/auth/login [post]
 func swaggerV2AdminAuthLoginPost57() {}
@@ -595,6 +610,7 @@ func swaggerV2AdminAuthLoginPost57() {}
 // @Tags API v2-后台管理-首页
 // @Summary 查询 /api/v2/admin/home
 // @Security AdminToken
+// @Param days query int false "趋势天数" Enums(7,30) default(7)
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/home [get]
 func swaggerV2AdminHomeGet58() {}
@@ -727,17 +743,27 @@ func swaggerV2AdminAdminSessionsBatchForceOfflinePost70() {}
 func swaggerV2AdminAuthLogoutPost71() {}
 
 // @Tags API v2-后台管理-日志
-// @Summary 查询 /api/v2/admin/logs
+// @Summary 查询操作审计日志
+// @Description 仅返回操作日志；按操作者数据范围过滤。登录安全日志需独立权限。历史结果为 unknown。
 // @Security AdminToken
 // @Param search query string false "搜索关键词"
+// @Param source query string false "来源" Enums(admin,client,h5app,system)
+// @Param module query string false "模块"
+// @Param action query string false "动作"
+// @Param outcome query string false "结果" Enums(success,failure,blocked,partial,accepted,unknown)
+// @Param actorId query int false "操作者 ID"
+// @Param ip query string false "客户端 IP"
+// @Param startTime query string false "开始时间：毫秒时间戳或 RFC3339"
+// @Param endTime query string false "结束时间：毫秒时间戳或 RFC3339"
 // @Param page query string false "页码"
 // @Param pageSize query string false "每页数量"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=adminlogservice.Page}
 // @Router /api/v2/admin/logs [get]
 func swaggerV2AdminLogsGet72() {}
 
 // @Tags API v2-后台管理-日志
-// @Summary 删除 /api/v2/admin/logs
+// @Summary 审计日志只读兼容入口（拒绝删除）
+// @Description 不执行删除或清空，始终返回业务失败。
 // @Security AdminToken
 // @Accept application/x-www-form-urlencoded
 // @Param ids formData string false "ID 列表，多个值用逗号分隔"
@@ -957,6 +983,11 @@ func swaggerV2AdminDingTalkPerfHistoriesIDDelete() {}
 // @Param keyword query string false "关键词"
 // @Param pageSize query string false "每页数量"
 // @Param sort query string false "排序值"
+// @Param mobile query string false "手机号"
+// @Param status query int false "状态:0待审核 1正常 2禁用 9管理员"
+// @Param positionId query int false "岗位ID"
+// @Param managerUserId query int false "直属上级用户ID"
+// @Param roleId query int false "角色ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/users [get]
 func swaggerV2AdminUsersGet78() {}
@@ -2021,6 +2052,8 @@ func swaggerV2AdminPermissionsGet166() {}
 // @Param icon formData string false "图标名称"
 // @Param sort formData int false "排序值"
 // @Param status formData int false "状态"
+// @Param cacheEnabled formData int false "菜单页面缓存：1开启 0关闭"
+// @Param hidden formData int false "左侧菜单隐藏：1隐藏 0显示"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/permissions [post]
 func swaggerV2AdminPermissionsPost167() {}
@@ -2042,6 +2075,8 @@ func swaggerV2AdminPermissionsPost167() {}
 // @Param icon formData string false "图标名称"
 // @Param sort formData int false "排序值"
 // @Param status formData int false "状态"
+// @Param cacheEnabled formData int false "菜单页面缓存：1开启 0关闭"
+// @Param hidden formData int false "左侧菜单隐藏：1隐藏 0显示"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/permissions/{key} [put]
 func swaggerV2AdminPermissionsKeyPut168() {}
@@ -2418,6 +2453,22 @@ func swaggerV2AdminSurveyTemplatePresetsGet207() {}
 // @Router /api/v2/admin/survey-template-presets [put]
 func swaggerV2AdminSurveyTemplatePresetsPut208() {}
 
+// @Tags API v2-后台管理-问卷管理
+// @Summary 查询问卷通知模版
+// @Security AdminToken
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/survey-notification-templates [get]
+func swaggerV2AdminSurveyNotificationTemplatesGet() {}
+
+// @Tags API v2-后台管理-问卷管理
+// @Summary 保存问卷通知模版
+// @Security AdminToken
+// @Accept application/json
+// @Param body body SurveyNotificationTemplatesSaveRequest true "问卷通知模版"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/survey-notification-templates [put]
+func swaggerV2AdminSurveyNotificationTemplatesPut() {}
+
 // @Tags API v2-后台管理-考试管理
 // @Summary 查询 /api/v2/admin/exams
 // @Security AdminToken
@@ -2434,7 +2485,7 @@ func swaggerV2AdminExamsGet209() {}
 // @Summary 提交 /api/v2/admin/exams
 // @Security AdminToken
 // @Accept application/x-www-form-urlencoded
-// @Param title formData string true "标题"
+// @Param title formData string true "管理名称"
 // @Param description formData string false "描述"
 // @Param category formData string false "分类"
 // @Param tags formData string false "标签"
@@ -2448,11 +2499,12 @@ func swaggerV2AdminExamsGet209() {}
 // @Param duration formData int false "答题时长"
 // @Param maxAttempts formData int false "最大次数"
 // @Param showScore formData int false "显示分数"
+// @Param passScore formData int false "及格分，0表示无门槛"
 // @Param status formData int false "状态"
 // @Param schema formData string false "题目JSON"
 // @Param deptIds formData string false "部门ID"
 // @Param mode formData string false "模式"
-// @Param settings formData string false "设置JSON"
+// @Param settings formData string false "设置JSON，displayTitle 为考生显示名称，最多100字，留空使用管理名称"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/exams [post]
 func swaggerV2AdminExamsPost210() {}
@@ -2470,7 +2522,7 @@ func swaggerV2AdminExamsIdGet211() {}
 // @Security AdminToken
 // @Accept application/x-www-form-urlencoded
 // @Param id path int true "id"
-// @Param title formData string true "标题"
+// @Param title formData string true "管理名称"
 // @Param description formData string false "描述"
 // @Param category formData string false "分类"
 // @Param tags formData string false "标签"
@@ -2484,11 +2536,12 @@ func swaggerV2AdminExamsIdGet211() {}
 // @Param duration formData int false "答题时长"
 // @Param maxAttempts formData int false "最大次数"
 // @Param showScore formData int false "显示分数"
+// @Param passScore formData int false "及格分，0表示无门槛"
 // @Param status formData int false "状态"
 // @Param schema formData string false "题目JSON"
 // @Param deptIds formData string false "部门ID"
 // @Param mode formData string false "模式"
-// @Param settings formData string false "设置JSON"
+// @Param settings formData string false "设置JSON，displayTitle 为考生显示名称，最多100字，留空使用管理名称"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/exams/{id} [put]
 func swaggerV2AdminExamsIdPut212() {}
@@ -2502,6 +2555,16 @@ func swaggerV2AdminExamsIdPut212() {}
 func swaggerV2AdminExamsIdDelete213() {}
 
 // @Tags API v2-后台管理-考试管理
+// @Summary 复制考试
+// @Description 需要 exam:copy 权限；复制考试配置和题目，副本默认停用且不包含历史答卷、二维码或自定义公开链接。
+// @Security AdminToken
+// @Accept application/x-www-form-urlencoded
+// @Param id path int true "考试ID"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/exams/{id}/copy [post]
+func swaggerV2AdminExamCopy() {}
+
+// @Tags API v2-后台管理-考试管理
 // @Summary 变更 /api/v2/admin/exams/{id}/status
 // @Security AdminToken
 // @Accept application/x-www-form-urlencoded
@@ -2513,23 +2576,37 @@ func swaggerV2AdminExamsIdStatusPatch214() {}
 
 // @Tags API v2-后台管理-考试管理
 // @Summary 查询 /api/v2/admin/exams/{id}/records
+// @Description addIp 为请求来源 IP；browser/deviceType/platformType 复用问卷 UA 解析规则，历史缺失值显示 -。
 // @Security AdminToken
 // @Param id path int true "id"
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
 // @Param keyword query string false "关键词"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=ExamRecordListResponse}
 // @Router /api/v2/admin/exams/{id}/records [get]
 func swaggerV2AdminExamsIdRecordsGet215() {}
 
 // @Tags API v2-后台管理-考试管理
 // @Summary 查询 /api/v2/admin/exams/{id}/records/{recordId}
+// @Description record 包含 IP、原始 User-Agent 及派生的浏览器、设备类型、平台类型。
 // @Security AdminToken
 // @Param id path int true "id"
 // @Param recordId path int true "recordId"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=clientexamservice.RecordDetailResult}
 // @Router /api/v2/admin/exams/{id}/records/{recordId} [get]
 func swaggerV2AdminExamsIdRecordsRecordIdGet216() {}
+
+// @Tags API v2-后台管理-考试管理
+// @Summary 导出单份考试答卷
+// @Description 需要 exam-record:export 权限；支持 PDF、Word（DOCX）和 Excel（XLSX），只导出当前管理员数据范围内的考试答卷。
+// @Security AdminToken
+// @Produce application/octet-stream
+// @Param id path int true "考试ID"
+// @Param recordId path int true "答卷记录ID"
+// @Param format query string true "导出格式" Enums(pdf,docx,xlsx)
+// @Success 200 {file} string
+// @Router /api/v2/admin/exams/{id}/records/{recordId}/export [get]
+func swaggerV2AdminExamRecordExport() {}
 
 // @Tags API v2-后台管理-考试管理
 // @Summary 删除 /api/v2/admin/exams/{id}/records/{recordId}
@@ -2813,7 +2890,7 @@ func swaggerV2AdminWorkflowOrgApproverAssignmentsPut() {}
 // @Tags API v2-后台管理-工作流
 // @Summary 查询可发起的已发布工作流
 // @Security AdminToken
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=[]workflowapp.PublishedDefinition}
 // @Router /api/v2/admin/workflow-published-definitions [get]
 func swaggerV2AdminWorkflowPublishedDefinitionsGet() {}
 
@@ -2821,7 +2898,7 @@ func swaggerV2AdminWorkflowPublishedDefinitionsGet() {}
 // @Summary 查询已发布工作流表单 Schema
 // @Security AdminToken
 // @Param id path int true "流程定义 ID"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=workflowapp.PublishedDefinition}
 // @Router /api/v2/admin/workflow-published-definitions/{id} [get]
 func swaggerV2AdminWorkflowPublishedDefinitionsIDGet() {}
 
@@ -2917,6 +2994,24 @@ func swaggerV2AdminWorkflowInstancesIDResumePost() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-instances/{id}/cancel [post]
 func swaggerV2AdminWorkflowInstancesIDCancelPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 预检工作流实例版本升级兼容性
+// @Security AdminToken
+// @Param id path string true "流程实例 ID"
+// @Success 200 {object} response.Resp{data=workflowapp.InstanceVersionUpgradePreview}
+// @Router /api/v2/admin/workflow-instances/{id}/version-upgrade-preview [get]
+func swaggerV2AdminWorkflowInstancesIDVersionUpgradePreviewGet() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 将兼容的运行中实例升级至最新发布版本
+// @Security AdminToken
+// @Accept application/json
+// @Param id path string true "流程实例 ID"
+// @Param body body WorkflowInstanceVersionUpgradeRequest true "源版本并发检查"
+// @Success 200 {object} response.Resp{data=workflowapp.UpgradeInstanceVersionResult}
+// @Router /api/v2/admin/workflow-instances/{id}/version-upgrade [post]
+func swaggerV2AdminWorkflowInstancesIDVersionUpgradePost() {}
 
 // @Tags API v2-后台管理-工作流
 // @Summary 查询工作流任务列表
@@ -3196,6 +3291,7 @@ func swaggerV2AdminDingTalkNotificationsRecipientOptionsGet() {}
 
 // @Tags API v2-后台管理-钉钉通知
 // @Summary 手动发送钉钉通知
+// @Description 可选templateId与templateVersion选择启用模板；服务端校验版本和目标，标题正文采用本次提交值。省略模板时保持原通知样式与企业应用首页。
 // @Security AdminToken
 // @Accept application/json
 // @Param body body DingTalkNotificationSendRequest true "钉钉通知内容与收件范围"
@@ -3240,7 +3336,7 @@ func swaggerV2AdminNotificationStylesTestDingTalkPost() {}
 // @Tags API v2-客户端-OA流程
 // @Summary 查询已发布的 OA 流程
 // @Security ClientToken
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=[]workflowapp.PublishedDefinition}
 // @Router /api/v2/workflows/definitions [get]
 func swaggerV2WorkflowsDefinitionsGet() {}
 
@@ -3248,7 +3344,7 @@ func swaggerV2WorkflowsDefinitionsGet() {}
 // @Summary 查询 OA 流程和表单 Schema
 // @Security ClientToken
 // @Param id path int true "流程定义 ID"
-// @Success 200 {object} response.Resp
+// @Success 200 {object} response.Resp{data=workflowapp.PublishedDefinition}
 // @Router /api/v2/workflows/definitions/{id} [get]
 func swaggerV2WorkflowsDefinitionsIDGet() {}
 
@@ -3396,3 +3492,14 @@ func swaggerV2AdminUserFeedbackDetailGet() {}
 // @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
 // @Router /api/v2/admin/user-feedbacks/{id}/status [patch]
 func swaggerV2AdminUserFeedbackStatusPatch() {}
+
+// @Tags API v2-后台管理-用户反馈
+// @Summary 通知反馈提交人
+// @Description 使用 user-feedback:handle 权限，接收人由后端从反馈记录确定。content 必填且最多5000字；不改变反馈状态或处理人，追加 notification 消息并增加 version。requestId 是幂等键，重试必须沿用；version 用于乐观锁校验。channel 支持 internal（默认站内通知）或 dingtalk（钉钉通知），钉钉渠道检查提交人有效绑定及企业通知配置。消息记录和所选渠道 Outbox 在同一事务提交，成功仅表示已提交发送，由 taskd 异步投递。
+// @Security AdminToken
+// @Accept application/json
+// @Param id path int true "反馈 ID"
+// @Param body body UserFeedbackNotifyRequest true "通知内容、当前版本和幂等请求标识"
+// @Success 200 {object} response.Resp{data=userfeedbackapp.FeedbackDetail}
+// @Router /api/v2/admin/user-feedbacks/{id}/notify [post]
+func swaggerV2AdminUserFeedbackNotifyPost() {}

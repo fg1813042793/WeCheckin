@@ -24,6 +24,9 @@ func TestSchedulerTickPublishesGeneratedAndRecoverableRuns(t *testing.T) {
 	if fmt.Sprint(publisher.runIDs) != want || fmt.Sprint(store.dispatched) != want {
 		t.Fatalf("published/marked = %v / %v, want %s", publisher.runIDs, store.dispatched, want)
 	}
+	if store.misfireGrace != int64(time.Minute/time.Millisecond) {
+		t.Fatalf("misfire grace = %d", store.misfireGrace)
+	}
 }
 
 func TestSchedulerDoesNotMarkRunDispatchedWhenRedisPublishFails(t *testing.T) {
@@ -86,9 +89,11 @@ type fakeSchedulerStore struct {
 	waitingReady   []string
 	staleRecovered []string
 	dispatched     []string
+	misfireGrace   int64
 }
 
-func (store *fakeSchedulerStore) GenerateDueRuns(context.Context, int64, int) ([]string, error) {
+func (store *fakeSchedulerStore) GenerateDueRuns(_ context.Context, _ int64, misfireGrace int64, _ int) ([]string, error) {
+	store.misfireGrace = misfireGrace
 	return store.generated, store.generateErr
 }
 
@@ -98,7 +103,7 @@ type recoveringSchedulerStore struct {
 	published     chan struct{}
 }
 
-func (store *recoveringSchedulerStore) GenerateDueRuns(context.Context, int64, int) ([]string, error) {
+func (store *recoveringSchedulerStore) GenerateDueRuns(context.Context, int64, int64, int) ([]string, error) {
 	if store.generateCalls.Add(1) == 1 {
 		return nil, errors.New("database timeout")
 	}

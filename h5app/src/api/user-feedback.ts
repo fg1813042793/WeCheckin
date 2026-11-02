@@ -2,7 +2,7 @@ import type { MultipartUploadFile } from '@/api/dingtalk-h5/base'
 import { get, uploadMultipartFiles } from '@/api/dingtalk-h5/base'
 
 export type UserFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed'
-export type UserFeedbackMessageType = 'initial' | 'supplement' | 'status'
+export type UserFeedbackMessageType = 'initial' | 'supplement' | 'status' | 'notification'
 export type UserFeedbackAuthorType = 'user' | 'admin'
 
 export interface UserFeedbackOverview {

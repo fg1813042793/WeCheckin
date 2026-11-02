@@ -24,6 +24,7 @@ export {
   workflowDefinitionIdFromContentKey,
   workflowFormDetailContentKey,
   workflowFormDetailInstanceIdFromContentKey,
+  workflowFormDetailSourceFromContentKey,
   workflowFormRevisionContentKey,
   workflowFormRevisionDetailContentKey,
   workflowFormRevisionDetailIdFromContentKey,

@@ -10,6 +10,7 @@ export const DINGTALK_H5_CONFIG = {
   CLIENT_PLATFORM: 'dingtalk-h5',
   DINGTALK_CORP_ID: readEnv('VITE_DINGTALK_CORP_ID'),
   TOKEN_KEY: 'DT_H5_TOKEN',
+  TOKEN_CORP_ID_KEY: 'DT_H5_TOKEN_CORP_ID',
 } as const
 
 export const DINGTALK_H5_AUTH_EXPIRED_EVENT = 'dingtalk-h5-auth-expired'

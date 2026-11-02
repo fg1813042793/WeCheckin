@@ -19,6 +19,13 @@ export interface PublicConfigPayload extends Partial<AppConfig> {
   corpId?: string
 }
 
+export interface LoginCaptchaChallenge {
+  enabled: boolean
+  captchaId?: string
+  imageData?: string
+  expiresIn?: number
+}
+
 export interface DingTalkMenu {
   key: string
   label?: string
@@ -72,6 +79,8 @@ export interface AuthSessionPayload {
 export interface LoginRequest {
   name: string
   password: string
+  captchaId?: string
+  captchaCode?: string
 }
 
 export interface SsoLoginRequest {

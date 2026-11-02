@@ -18,13 +18,22 @@ import (
 
 // Question 题目（来自题库）
 type Question struct {
-	ID         uint        `json:"id"`
-	Type       string      `json:"type"`
-	Title      string      `json:"title"`
-	Options    interface{} `json:"options"` // 旧/新格式均可
-	Answer     string      `json:"answer"`  // JSON 字符串
-	Score      int         `json:"score"`
-	NeedManual bool        `json:"needManual"` // 是否需要人工判分
+	ID         uint          `json:"id"`
+	Type       string        `json:"type"`
+	Title      string        `json:"title"`
+	Options    interface{}   `json:"options"` // 旧/新格式均可
+	Answer     string        `json:"answer"`  // JSON 字符串
+	Score      int           `json:"score"`
+	ScoreMode  string        `json:"scoreMode,omitempty"`
+	Fields     []AnswerField `json:"fields,omitempty"`
+	NeedManual bool          `json:"needManual"` // 是否需要人工判分
+}
+
+// AnswerField describes one independently graded blank in a multi-input question.
+type AnswerField struct {
+	Answer   string `json:"answer"`
+	Score    int    `json:"score"`
+	Required bool   `json:"required,omitempty"`
 }
 
 // Result 单题判分结果
@@ -53,12 +62,14 @@ func Grade(questions []Question, answers map[string]interface{}) PaperResult {
 		ansVal, _ := answers[fmt.Sprintf("%d", q.ID)]
 		r := gradeOne(q, ansVal)
 		res.Results = append(res.Results, r)
-		res.FullScore += q.Score
+		res.FullScore += r.FullScore
 		if r.NeedManual {
 			res.ManualCount++
-		} else if r.Correct {
+		} else {
 			res.TotalScore += r.GotScore
-			res.CorrectCnt++
+			if r.Correct {
+				res.CorrectCnt++
+			}
 		}
 	}
 	return res
@@ -74,6 +85,9 @@ func gradeOne(q Question, ansVal interface{}) Result {
 		r.Correct = false
 		r.Reason = "主观题，需人工判分"
 		return r
+	}
+	if q.Type == "multiInput" || q.Type == "hInput" {
+		return gradeInputFields(q, ansVal)
 	}
 
 	correctAns, err := parseAnswer(q.Answer)
@@ -171,7 +185,81 @@ func parseAnswer(ans string) (interface{}, error) {
 	if err := json.Unmarshal([]byte(ans), &s); err == nil {
 		return s, nil
 	}
-	return nil, fmt.Errorf("answer is not valid JSON: %s", ans)
+	return ans, nil
+}
+
+func gradeInputFields(q Question, ansVal interface{}) Result {
+	r := Result{QuestionID: q.ID}
+	answers := interfaceSlice(ansVal)
+	fields := q.Fields
+	if len(fields) == 0 {
+		r.NeedManual = true
+		r.Reason = "未配置分项正确答案"
+		return r
+	}
+	fullScore := q.Score
+	if q.ScoreMode == "perOption" || q.ScoreMode == "partialCorrect" || fullScore <= 0 {
+		fullScore = 0
+		for _, field := range fields {
+			fullScore += field.Score
+		}
+	}
+	r.FullScore = fullScore
+	allCorrect := true
+	gradedFields := 0
+	partialScore := 0
+	for index, field := range fields {
+		if strings.TrimSpace(field.Answer) == "" && !field.Required {
+			continue
+		}
+		gradedFields++
+		got := ""
+		if index < len(answers) {
+			got = fmt.Sprint(answers[index])
+		}
+		correct := strings.EqualFold(strings.TrimSpace(got), strings.TrimSpace(field.Answer))
+		if !correct {
+			allCorrect = false
+			continue
+		}
+		if q.ScoreMode == "perOption" || q.ScoreMode == "partialCorrect" {
+			partialScore += field.Score
+		}
+	}
+	if gradedFields == 0 {
+		r.NeedManual = true
+		r.Reason = "未配置分项正确答案"
+		return r
+	}
+	r.Correct = allCorrect
+	if q.ScoreMode == "perOption" || q.ScoreMode == "partialCorrect" {
+		r.GotScore = partialScore
+	} else if allCorrect {
+		r.GotScore = fullScore
+	}
+	if !allCorrect {
+		r.Reason = "部分填空答案不匹配"
+	}
+	return r
+}
+
+func interfaceSlice(value interface{}) []interface{} {
+	switch typed := value.(type) {
+	case []interface{}:
+		return typed
+	case []string:
+		result := make([]interface{}, len(typed))
+		for index := range typed {
+			result[index] = typed[index]
+		}
+		return result
+	case string:
+		var result []interface{}
+		if json.Unmarshal([]byte(typed), &result) == nil {
+			return result
+		}
+	}
+	return nil
 }
 
 func setEqual(a, b []interface{}) bool {

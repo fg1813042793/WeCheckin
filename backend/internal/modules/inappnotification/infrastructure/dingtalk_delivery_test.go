@@ -108,6 +108,9 @@ func TestDingTalkDeliveryAppliesConfiguredTemplateForNotificationType(t *testing
 type dingTalkTargetResolverStub struct {
 	resolution dingTalkTargetResolution
 	err        error
+	ctx        context.Context
+	userIDs    []uint
+	calls      int
 }
 
 type dingTalkStyleLoaderStub struct {
@@ -118,7 +121,9 @@ func (stub *dingTalkStyleLoaderStub) NotificationStyles(context.Context) (notifi
 	return stub.config, nil
 }
 
-func (stub *dingTalkTargetResolverStub) ResolveTargets(context.Context, []uint) (dingTalkTargetResolution, error) {
+func (stub *dingTalkTargetResolverStub) ResolveTargets(ctx context.Context, userIDs []uint) (dingTalkTargetResolution, error) {
+	stub.ctx, stub.userIDs = ctx, append([]uint(nil), userIDs...)
+	stub.calls++
 	return stub.resolution, stub.err
 }
 
@@ -136,4 +141,91 @@ type dingTalkClientStub struct {
 func (stub *dingTalkClientStub) SendWorkNotificationContext(_ context.Context, config configsvc.DingTalkH5CorpConfig, userIDs []string, payload configsvc.DingTalkWorkNotificationPayload) error {
 	stub.calls = append(stub.calls, dingTalkClientCall{corpID: config.CorpID, userIDs: append([]string(nil), userIDs...), payload: payload})
 	return stub.failures[config.CorpID]
+}
+
+func TestDingTalkCanDeliverToChecksSingleReadyTargetWithoutSending(t *testing.T) {
+	readyTarget := dingTalkNotificationTarget{
+		LocalUserID: 7, DingTalkUserID: "ding-7",
+		Config: configsvc.DingTalkH5CorpConfig{CorpID: "corp-a", AppKey: "test-key", AppSecret: "test-secret", AgentID: "123", Enabled: 1, NotifyEnabled: 1},
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func(*dingTalkNotificationTarget)
+		want   bool
+	}{
+		{"ready agent", func(*dingTalkNotificationTarget) {}, true},
+		{"wrong local user", func(target *dingTalkNotificationTarget) { target.LocalUserID = 9 }, false},
+		{"blank binding", func(target *dingTalkNotificationTarget) { target.DingTalkUserID = " " }, false},
+		{"blank corp", func(target *dingTalkNotificationTarget) { target.Config.CorpID = " " }, false},
+		{"disabled corp", func(target *dingTalkNotificationTarget) { target.Config.Enabled = 0 }, false},
+		{"disabled notifications", func(target *dingTalkNotificationTarget) { target.Config.NotifyEnabled = 0 }, false},
+		{"missing key", func(target *dingTalkNotificationTarget) { target.Config.AppKey = " " }, false},
+		{"missing secret", func(target *dingTalkNotificationTarget) { target.Config.AppSecret = " " }, false},
+		{"missing agent", func(target *dingTalkNotificationTarget) { target.Config.AgentID = " " }, false},
+		{"invalid agent", func(target *dingTalkNotificationTarget) { target.Config.AgentID = "invalid" }, false},
+		{"zero agent", func(target *dingTalkNotificationTarget) { target.Config.AgentID = "0" }, false},
+		{"robot defaults code to app key", func(target *dingTalkNotificationTarget) {
+			target.Config.NotifyMode = "robot"
+			target.Config.AgentID = ""
+		}, true},
+		{"robot inferred from code", func(target *dingTalkNotificationTarget) {
+			target.Config.RobotCode = "robot-code"
+			target.Config.AgentID = ""
+		}, true},
+		{"agent fallback", func(target *dingTalkNotificationTarget) { target.Config.NotifyMode = "agent-fallback" }, true},
+		{"fallback needs valid agent", func(target *dingTalkNotificationTarget) {
+			target.Config.NotifyMode = "agent_fallback"
+			target.Config.AgentID = ""
+		}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			target := readyTarget
+			test.mutate(&target)
+			resolver := &dingTalkTargetResolverStub{resolution: dingTalkTargetResolution{Targets: []dingTalkNotificationTarget{target}}}
+			client := &dingTalkClientStub{}
+			delivery := newDingTalkDelivery(client, resolver)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			got, err := delivery.CanDeliverTo(ctx, 7)
+			if err != nil || got != test.want {
+				t.Fatalf("ready=%v want=%v err=%v", got, test.want, err)
+			}
+			if resolver.calls != 1 || resolver.ctx != ctx || !reflect.DeepEqual(resolver.userIDs, []uint{7}) {
+				t.Fatalf("resolver calls=%d userIDs=%v", resolver.calls, resolver.userIDs)
+			}
+			if len(client.calls) != 0 {
+				t.Fatal("preflight sent a notification")
+			}
+		})
+	}
+	for _, resolution := range []dingTalkTargetResolution{
+		{}, {SkippedCount: 1}, {Targets: []dingTalkNotificationTarget{readyTarget, readyTarget}},
+		{Targets: []dingTalkNotificationTarget{readyTarget}, SkippedCount: 1},
+	} {
+		client := &dingTalkClientStub{}
+		delivery := newDingTalkDelivery(client, &dingTalkTargetResolverStub{resolution: resolution})
+		if ready, err := delivery.CanDeliverTo(context.Background(), 7); ready || err != nil || len(client.calls) != 0 {
+			t.Fatalf("ready=%v err=%v sends=%d", ready, err, len(client.calls))
+		}
+	}
+}
+
+func TestDingTalkCanDeliverToHandlesUnavailableAndResolverErrors(t *testing.T) {
+	for _, delivery := range []*DingTalkDelivery{nil, {}, {client: &dingTalkClientStub{}}, {resolver: &dingTalkTargetResolverStub{}}} {
+		if ready, err := delivery.CanDeliverTo(context.Background(), 7); ready || !errors.Is(err, application.ErrDingTalkDeliveryUnavailable) {
+			t.Fatalf("ready=%v err=%v", ready, err)
+		}
+	}
+	resolver := &dingTalkTargetResolverStub{err: errors.New("resolver unavailable")}
+	client := &dingTalkClientStub{}
+	delivery := newDingTalkDelivery(client, resolver)
+	if ready, err := delivery.CanDeliverTo(context.Background(), 0); ready || err != nil || resolver.calls != 0 {
+		t.Fatalf("zero user: ready=%v err=%v calls=%d", ready, err, resolver.calls)
+	}
+	if ready, err := delivery.CanDeliverTo(context.Background(), 7); ready || !errors.Is(err, resolver.err) {
+		t.Fatalf("ready=%v err=%v", ready, err)
+	}
+	if len(client.calls) != 0 {
+		t.Fatal("preflight sent a notification")
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,39 @@ func newDingTalkDelivery(client configsvc.DingTalkWorkNotificationClient, resolv
 	return &DingTalkDelivery{client: client, resolver: resolver}
 }
 
+// CanDeliverTo checks the current binding and local configuration without sending
+// or probing DingTalk. Bindings and credentials may change before outbox dispatch.
+func (delivery *DingTalkDelivery) CanDeliverTo(ctx context.Context, userID uint) (bool, error) {
+	if delivery == nil || delivery.client == nil || delivery.resolver == nil {
+		return false, application.ErrDingTalkDeliveryUnavailable
+	}
+	if userID == 0 {
+		return false, nil
+	}
+	resolution, err := delivery.resolver.ResolveTargets(ctx, []uint{userID})
+	if err != nil {
+		return false, err
+	}
+	if len(resolution.Targets) != 1 || resolution.SkippedCount != 0 {
+		return false, nil
+	}
+	target := resolution.Targets[0]
+	config := configsvc.NormalizeDingTalkH5CorpConfig(target.Config)
+	if target.LocalUserID != userID || strings.TrimSpace(target.DingTalkUserID) == "" ||
+		config.CorpID == "" || config.Enabled != 1 || config.NotifyEnabled != 1 || config.AppKey == "" || config.AppSecret == "" {
+		return false, nil
+	}
+	// Robot mode defaults RobotCode to AppKey. Agent/fallback modes first require
+	// a positive AgentID, matching the existing work notification client.
+	if config.NotifyMode != "robot" {
+		agentID, err := strconv.ParseInt(config.AgentID, 10, 64)
+		if err != nil || agentID <= 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (delivery *DingTalkDelivery) DeliverDingTalk(ctx context.Context, batch application.DingTalkDeliveryBatch) (application.DingTalkDeliveryResult, error) {
 	if delivery == nil || delivery.client == nil || delivery.resolver == nil {
 		return application.DingTalkDeliveryResult{}, application.ErrDingTalkDeliveryUnavailable
@@ -67,7 +101,7 @@ func (delivery *DingTalkDelivery) DeliverDingTalk(ctx context.Context, batch app
 	}
 	result := application.DingTalkDeliveryResult{SkippedCount: resolution.SkippedCount}
 	styles := notificationstyle.DefaultConfig()
-	if delivery.styleLoader != nil {
+	if batch.Template == nil && delivery.styleLoader != nil {
 		styles, err = delivery.styleLoader.NotificationStyles(ctx)
 		if err != nil {
 			return application.DingTalkDeliveryResult{}, err
@@ -96,9 +130,23 @@ func (delivery *DingTalkDelivery) DeliverDingTalk(ctx context.Context, batch app
 		group.localUserCount++
 	}
 	sort.Strings(groupKeys)
+	// Build every target before the first external call. A bad configuration must not cause partial delivery.
+	payloads := make(map[string]configsvc.DingTalkWorkNotificationPayload, len(groupKeys))
 	for _, corpID := range groupKeys {
 		group := groups[corpID]
-		payload := configsvc.ApplyDingTalkTemplate(template, dingTalkManualNotificationPayload(group.config, batch.Title, batch.Content))
+		if batch.Template != nil {
+			payload, err := dingTalkSendTemplatePayload(group.config, *batch.Template, batch.Title, batch.Content)
+			if err != nil {
+				return application.DingTalkDeliveryResult{}, err
+			}
+			payloads[corpID] = payload
+		} else {
+			payloads[corpID] = configsvc.ApplyDingTalkTemplate(template, dingTalkManualNotificationPayload(group.config, batch.Title, batch.Content))
+		}
+	}
+	for _, corpID := range groupKeys {
+		group := groups[corpID]
+		payload := payloads[corpID]
 		sendCtx, cancel := context.WithTimeout(ctx, dingTalkAdminNotificationTimeout)
 		err := delivery.client.SendWorkNotificationContext(sendCtx, group.config, group.userIDs, payload)
 		cancel()

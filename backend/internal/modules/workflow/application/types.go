@@ -40,6 +40,7 @@ type PublishedDefinition struct {
 	StartLimit         workflowcore.StartLimitConfig             `json:"startLimit"`
 	StartLimitStatus   StartLimitStatus                          `json:"startLimitStatus"`
 	InstanceIdentity   *workflowcore.InstanceIdentityConfig      `json:"instanceIdentity,omitempty"`
+	HistoryImport      *workflowcore.HistoryImportConfig         `json:"historyImport,omitempty"`
 	Nodes              []PublishedNode                           `json:"nodes,omitempty"`
 	Edges              []PublishedEdge                           `json:"edges,omitempty"`
 }

@@ -24,6 +24,8 @@ func TestExamStatisticsUsesAggregatedAndInMemoryAnswerStats(t *testing.T) {
 	}
 	required := []string{
 		"SUM(CASE WHEN `exam_r_status` >= 1 THEN 1 ELSE 0 END)",
+		"SUM(CASE WHEN `exam_r_status` = 2 THEN 1 ELSE 0 END)",
+		"float64(summary.Passed) / float64(summary.Graded)",
 		"DATE_FORMAT(FROM_UNIXTIME(`exam_r_submit_time` / 1000), '%m-%d')",
 		"Select(\"exam_r_answers\")",
 		"answerValueNonEmpty",

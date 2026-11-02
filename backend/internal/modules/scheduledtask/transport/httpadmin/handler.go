@@ -306,6 +306,8 @@ func riskPermission(handlerType string, raw json.RawMessage) string {
 			return "notification:send"
 		case "notification.dingtalk.send":
 			return "notification:dingtalk:send"
+		case "notification.workflow_start.send":
+			return "notification:dingtalk:send"
 		}
 		return ""
 	case scheduledtaskmodel.HandlerTypeHTTP:

@@ -19,12 +19,13 @@ func TestAdminUserFeedbackRoutesUseProtectedGroupAndExplicitDI(t *testing.T) {
 		"registerUserFeedbackRoutes(admin)",
 		"userfeedbackinfra.NewGormStore(database.GetDB())",
 		"userfeedbackinfra.NewObjectStorage()",
-		"userfeedbackapp.NewService(store, objectStorage)",
+		"userfeedbackapp.NewServiceWithDingTalk(store, objectStorage, inappnotificationinfra.NewDingTalkDelivery(database.GetDB(), nil))",
 		"userfeedbackhttp.NewHandler(service)",
 		`admin.GET("/user-feedbacks/overview", handler.Overview)`,
 		`admin.GET("/user-feedbacks", handler.List)`,
 		`admin.GET("/user-feedbacks/:id", handler.Detail)`,
 		`admin.PATCH("/user-feedbacks/:id/status", handler.UpdateStatus)`,
+		`admin.POST("/user-feedbacks/:id/notify", handler.NotifySubmitter)`,
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("Admin routes missing user feedback registration %q", snippet)
@@ -94,6 +95,7 @@ func TestAdminUserFeedbackPermissionCatalogAndMiddlewareMatchMigration(t *testin
 		`"GET /api/v2/admin/user-feedbacks":          "user-feedback:list"`,
 		`{method: "GET", path: "/api/v2/admin/user-feedbacks/:id", perm: "user-feedback:list"}`,
 		`{method: "PATCH", path: "/api/v2/admin/user-feedbacks/:id/status", perm: "user-feedback:handle"}`,
+		`{method: "POST", path: "/api/v2/admin/user-feedbacks/:id/notify", perm: "user-feedback:handle"}`,
 	} {
 		if !normalizedContains(string(middleware), snippet) {
 			t.Fatalf("admin middleware missing %q", snippet)

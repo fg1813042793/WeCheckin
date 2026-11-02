@@ -22,6 +22,7 @@ type Service interface {
 	ListAdminFeedbacks(context.Context, application.AdminListQuery) (application.FeedbackList, error)
 	GetAdminFeedback(context.Context, uint64) (*application.FeedbackDetail, error)
 	UpdateFeedbackStatus(context.Context, application.UpdateStatusCommand) (*application.FeedbackDetail, error)
+	NotifySubmitter(context.Context, application.NotifySubmitterCommand) (*application.FeedbackDetail, error)
 }
 
 var _ Service = (*application.Service)(nil)
@@ -281,6 +282,8 @@ func respond(ctx context.Context, c *app.RequestContext, data interface{}, err e
 
 func localizedError(err error) string {
 	switch {
+	case errors.Is(err, application.ErrDingTalkRecipientUnavailable):
+		return "提交人未绑定可用的钉钉账号，或绑定企业未启用通知，请检查钉钉配置或改用站内通知"
 	case errors.Is(err, application.ErrAttachmentTypeNotAllowed):
 		return "仅支持 JPG、PNG、WebP 图片"
 	case errors.Is(err, application.ErrAttachmentTooLarge):

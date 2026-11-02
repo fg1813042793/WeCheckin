@@ -350,12 +350,23 @@
         </el-form>
       </section>
 
+      <section class="config-section">
+        <div class="config-section__heading">
+          <div>
+            <span class="config-section__index">05</span>
+            <h3>导入规则设置</h3>
+          </div>
+        </div>
+        <WorkflowHistoryImportRules :draft="draft" :readonly="readonly" @change="emit('change')" />
+      </section>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed } from 'vue'
+import WorkflowHistoryImportRules from './WorkflowHistoryImportRules.vue'
+import { normalizeIDs, normalizeDays, normalizeInteger, normalizeClock, flattenFormFields } from '../workflowStartConfigHelpers'
 import WorkflowUserTreePicker from '../../components/WorkflowUserTreePicker.vue'
 import type {
   WorkflowAssigneeUser,
@@ -748,33 +759,12 @@ function updateStartLimitMaxCount(value: number | undefined) {
   emit('change')
 }
 
-function normalizeIDs(values: Array<number | string>) {
-  return Array.from(new Set(values.map(Number).filter(value => Number.isInteger(value) && value > 0)))
-}
-
-function normalizeDays(values: unknown[], maximum: number) {
-  return Array.from(new Set(values.map(Number).filter(value => Number.isInteger(value) && value >= 1 && value <= maximum))).sort((left, right) => left - right)
-}
-
-function normalizeInteger(value: unknown, minimum: number, maximum: number, fallback: number) {
-  const normalized = Math.trunc(Number(value))
-  return Number.isInteger(normalized) && normalized >= minimum && normalized <= maximum ? normalized : fallback
-}
-
-function normalizeClock(value: unknown, fallback: string) {
-  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : fallback
-}
-
-function flattenFormFields(fields: WorkflowDraft['form']): WorkflowDraft['form'] {
-  return fields.flatMap(field => field.type === 'group' ? flattenFormFields(field.fields || []) : [field])
-}
 </script>
 
 <style scoped>
 .workflow-start-config { width: 100%; min-width: 0; overflow: auto; background: #f7f9fc; }
-.workflow-start-config__content { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; width: calc(100% - 20px); margin: 10px; padding: 28px 0 48px; }
-.config-section { box-sizing: border-box; flex: 1 1 380px; max-width: 520px; min-width: 0; padding: 24px 28px 28px; border: 1px solid #dfe5ec; border-radius: 8px; background: #fff; box-shadow: 0 2px 10px rgb(15 23 42 / 5%); }
-.config-section--identity { max-width: 700px; }
+.workflow-start-config__content { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); align-items: start; gap: 20px; width: calc(100% - 20px); margin: 10px; padding: 28px 0 48px; }
+.config-section { box-sizing: border-box; width: 100%; max-width: 520px; min-width: 0; padding: 24px 28px 28px; border: 1px solid #dfe5ec; border-radius: 8px; background: #fff; box-shadow: 0 2px 10px rgb(15 23 42 / 5%); }
 .config-section__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -2px 0 22px; padding-bottom: 16px; border-bottom: 1px solid #edf1f5; }
 .config-section__heading > div { display: flex; align-items: center; gap: 10px; }
 .config-section__heading h3 { margin: 0; color: #1f2937; font-size: 17px; font-weight: 650; }

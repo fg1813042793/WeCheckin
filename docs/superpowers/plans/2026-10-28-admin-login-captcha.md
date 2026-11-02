@@ -18,9 +18,9 @@
 - Modify: `backend/go.mod`
 - Modify: `backend/go.sum`
 
-- [ ] Write failing tests for disabled mode, generation, case-insensitive one-time verification, expiry/missing challenge, and store failure.
-- [ ] Add `base64Captcha` dependency and implement generator, setup-backed switch, hashed Redis store, and atomic consume.
-- [ ] Run Admin auth package tests.
+- [x] Write failing tests for disabled mode, generation, case-insensitive one-time verification, expiry/missing challenge, and store failure.
+- [x] Add `base64Captcha` dependency and implement generator, setup-backed switch, hashed Redis store, and atomic consume.
+- [x] Run Admin auth package tests.
 
 ### Task 2: Public Captcha and Login Contract
 
@@ -31,9 +31,9 @@
 - Test: `backend/internal/handler/admin/mgr/captcha_structure_test.go`
 - Test: `backend/internal/routes/v2/admin/captcha_route_test.go`
 
-- [ ] Add failing route/handler tests.
-- [ ] Register no-store captcha route and pass captcha fields to `LoginWithCaptchaContext`.
-- [ ] Add Swagger annotations and verify route catalogs.
+- [x] Add failing route/handler tests.
+- [x] Register no-store captcha route and pass captcha fields to `LoginWithCaptchaContext`.
+- [x] Add Swagger annotations and verify route catalogs.
 
 ### Task 3: Admin Login and Setup UI
 
@@ -44,14 +44,14 @@
 - Modify: `admin/src/views/setup/index.vue`
 - Modify: `admin/scripts/check-login-input-focus.mjs`
 
-- [ ] Add captcha API types and requests.
-- [ ] Add conditional captcha input, image refresh, validation, and post-failure refresh.
-- [ ] Add `ADMIN_LOGIN_CAPTCHA_ENABLED` switch to Login Settings.
-- [ ] Extend static UI contract checks.
+- [x] Add captcha API types and requests.
+- [x] Add conditional captcha input, image refresh, validation, and post-failure refresh.
+- [x] Add `ADMIN_LOGIN_CAPTCHA_ENABLED` switch to Login Settings.
+- [x] Extend static UI contract checks.
 
 ### Task 4: Verification
 
-- [ ] Run focused Admin auth, handler, route, setup, and Swagger tests.
-- [ ] Run Admin login checks and production build.
-- [ ] Run Backend full tests and report unrelated baseline failures separately.
-- [ ] Verify `h5app/` remains untouched and run scoped `git diff --check`.
+- [x] Run focused Admin auth, handler, route, setup, and Swagger tests.
+- [x] Run Admin login checks and production build.
+- [x] Run Backend full tests and report unrelated baseline failures separately.
+- [x] Verify `h5app/` remains untouched and run scoped `git diff --check`.

@@ -25,6 +25,7 @@ import (
 	adminuser "wecheckin/backend/internal/handler/admin/user"
 	adminworkflow "wecheckin/backend/internal/handler/admin/workflow"
 	commonupload "wecheckin/backend/internal/handler/upload"
+	"wecheckin/backend/internal/middleware"
 	adminmw "wecheckin/backend/internal/middleware/admin"
 	inappnotificationapp "wecheckin/backend/internal/modules/inappnotification/application"
 	inappnotificationinfra "wecheckin/backend/internal/modules/inappnotification/infrastructure"
@@ -50,9 +51,12 @@ import (
 
 func Register(h *server.Hertz) {
 	aMgr := adminmgr.NewAdminMgrHandler()
-	h.POST("/api/v2/admin/auth/login", aMgr.AdminLogin)
+	auth := h.Group("/api/v2/admin/auth", adminmw.NoStore())
+	auth.GET("/captcha", aMgr.AdminCaptcha)
+	auth.POST("/login", aMgr.AdminLogin)
 
 	admin := h.Group("/api/v2/admin", adminmw.NoStore(), adminmw.AdminAuth(), adminmw.AdminPerm())
+	admin.Use(middleware.AuditSnapshot())
 	registerBaseRoutes(admin, aMgr)
 	registerContentRoutes(admin)
 	registerSystemRoutes(admin)
@@ -67,13 +71,14 @@ func Register(h *server.Hertz) {
 func registerUserFeedbackRoutes(admin *route.RouterGroup) {
 	store := userfeedbackinfra.NewGormStore(database.GetDB())
 	objectStorage := userfeedbackinfra.NewObjectStorage()
-	service := userfeedbackapp.NewService(store, objectStorage)
+	service := userfeedbackapp.NewServiceWithDingTalk(store, objectStorage, inappnotificationinfra.NewDingTalkDelivery(database.GetDB(), nil))
 	handler := userfeedbackhttp.NewHandler(service)
 
 	admin.GET("/user-feedbacks/overview", handler.Overview)
 	admin.GET("/user-feedbacks", handler.List)
 	admin.GET("/user-feedbacks/:id", handler.Detail)
 	admin.PATCH("/user-feedbacks/:id/status", handler.UpdateStatus)
+	admin.POST("/user-feedbacks/:id/notify", handler.NotifySubmitter)
 }
 
 func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.Service {
@@ -95,6 +100,15 @@ func registerNotificationRoutes(admin *route.RouterGroup) *inappnotificationapp.
 	admin.DELETE("/in-app-notifications/:id", handler.DeleteRecord)
 	admin.GET("/dingtalk-notifications/recipient-options", handler.RecipientOptions)
 	admin.POST("/dingtalk-notifications", handler.SendDingTalk)
+	admin.GET("/dingtalk-notification-records", handler.ListDingTalkDeliveryRecords)
+	admin.GET("/dingtalk-notification-records/:id", handler.GetDingTalkDeliveryRecord)
+	admin.DELETE("/dingtalk-notification-records/:id", handler.DeleteDingTalkDeliveryRecord)
+	admin.GET("/dingtalk-notification-templates", handler.ListDingTalkTemplates)
+	admin.GET("/dingtalk-notification-templates/options", handler.DingTalkTemplateOptions)
+	admin.GET("/dingtalk-notification-templates/workflow-options", handler.DingTalkTemplateWorkflowOptions)
+	admin.POST("/dingtalk-notification-templates", handler.CreateDingTalkTemplate)
+	admin.PUT("/dingtalk-notification-templates/:id", handler.UpdateDingTalkTemplate)
+	admin.DELETE("/dingtalk-notification-templates/:id", handler.DeleteDingTalkTemplate)
 	admin.GET("/notification-styles", handler.NotificationStyles)
 	admin.PUT("/notification-styles", handler.SaveNotificationStyles)
 	admin.POST("/notification-styles/test/in-app", handler.SendInAppStyleTest)
@@ -151,6 +165,8 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	admin.DELETE("/workflow-instances/:id", runtimeHandler.DeleteInstance)
 	admin.POST("/workflow-instances/:id/resume", runtimeHandler.ResumeTimers)
 	admin.POST("/workflow-instances/:id/cancel", runtimeHandler.CancelInstance)
+	admin.GET("/workflow-instances/:id/version-upgrade-preview", runtimeHandler.PreviewInstanceVersionUpgrade)
+	admin.POST("/workflow-instances/:id/version-upgrade", runtimeHandler.UpgradeInstanceVersion)
 	admin.GET("/workflow-tasks", runtimeHandler.ListTasks)
 	admin.POST("/workflow-tasks/:id/complete", runtimeHandler.CompleteTask)
 	admin.DELETE("/workflow-tasks/:id", runtimeHandler.DeleteTask)
@@ -165,6 +181,7 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *workflowapp.Service, notificationService *inappnotificationapp.Service) {
 	db := database.GetDB()
 	taskStore := scheduledtaskinfra.NewGormStore(db)
+	notificationStore := inappnotificationinfra.NewGormStore(db)
 	registry, err := scheduledtaskinfra.NewHandlerRegistry(
 		config.Cfg.ScheduledTask,
 		workflowRuntime,
@@ -172,6 +189,7 @@ func registerScheduledTaskRoutes(admin *route.RouterGroup, workflowRuntime *work
 		scheduledtaskinfra.NewWorkflowNotificationDispatchJob(workflowRuntime),
 		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
 		scheduledtaskinfra.NewDingTalkNotificationJob(notificationService),
+		scheduledtaskinfra.NewWorkflowStartNotificationJob(notificationService, workflowRuntime, notificationStore),
 	)
 	if err != nil {
 		panic(fmt.Sprintf("initialize scheduled task handlers: %v", err))
@@ -218,6 +236,7 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	admin.DELETE("/home/recommendations", aHome.ClearVouchData)
 
 	admin.GET("/managers", aMgr.GetMgrList)
+	admin.GET("/managers/export", middleware.AuditExportPage(), aMgr.GetMgrList)
 	admin.POST("/managers", aMgr.InsertMgr)
 	admin.GET("/managers/:id", routeparam.WithQueryID(aMgr.GetMgrDetail))
 	admin.PUT("/managers/:id", routeparam.WithFormID(aMgr.EditMgr))
@@ -232,6 +251,11 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	admin.PATCH("/me/password", aMgr.PwdMgr)
 
 	admin.GET("/logs", aMgr.GetLogList)
+	admin.GET("/logs/export", aMgr.ExportLogs)
+	admin.GET("/logs/:id", aMgr.GetLogDetail)
+	admin.GET("/login-logs", aMgr.GetLoginLogList)
+	admin.GET("/login-logs/export", aMgr.ExportLoginLogs)
+	admin.GET("/login-logs/:id", aMgr.GetLoginLogDetail)
 	admin.DELETE("/logs", aMgr.ClearLog)
 
 	admin.PUT("/settings", aSetup.SetSetup)
@@ -256,6 +280,7 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	admin.DELETE("/dingtalk/perf-histories/:id", routeparam.WithFormID(aDingTalk.DeletePerfHistory))
 
 	admin.GET("/users", aUser.GetUserList)
+	admin.GET("/users/export", middleware.AuditExportPage(), aUser.GetUserList)
 	admin.POST("/users", aUser.AddUser)
 	admin.GET("/users/by-openid/:openid", routeparam.WithQueryParam("openid", "openid", aUser.GetUserDetail))
 	admin.GET("/users/:id", routeparam.WithQueryID(aUser.GetUserByID))
@@ -370,6 +395,7 @@ func registerSystemRoutes(admin *route.RouterGroup) {
 
 	admin.GET("/roles/application-permissions", aRole.GetApplicationPermissionTree)
 	admin.GET("/roles", aRole.GetRoleList)
+	admin.GET("/roles/export", middleware.AuditExportPage(), aRole.GetRoleList)
 	admin.POST("/roles", aRole.AddRole)
 	admin.PUT("/roles/:id", routeparam.WithFormID(aRole.EditRole))
 	admin.DELETE("/roles/:id", routeparam.WithFormID(aRole.DelRole))
@@ -427,6 +453,8 @@ func registerSurveyRoutes(admin *route.RouterGroup) {
 	admin.GET("/survey-notifications/unread-count", aSurvey.NotifyUnreadCount)
 	admin.GET("/survey-template-presets", aSurvey.TemplatePresetsGet)
 	admin.PUT("/survey-template-presets", aSurvey.TemplatePresetsSave)
+	admin.GET("/survey-notification-templates", aSurvey.NotificationTemplatesGet)
+	admin.PUT("/survey-notification-templates", aSurvey.NotificationTemplatesSave)
 }
 
 func registerExamRoutes(admin *route.RouterGroup) {
@@ -437,9 +465,13 @@ func registerExamRoutes(admin *route.RouterGroup) {
 	admin.GET("/exams/:id", routeparam.WithQueryID(aExam.Detail))
 	admin.PUT("/exams/:id", routeparam.WithBodyOrFormID(aExam.Save))
 	admin.DELETE("/exams/:id", routeparam.WithFormID(aExam.Delete))
+	admin.POST("/exams/:id/copy", routeparam.WithFormID(aExam.Copy))
 	admin.PATCH("/exams/:id/status", routeparam.WithFormID(aExam.Status))
 	admin.GET("/exams/:id/records", routeparam.WithQueryParam("examId", "id", aExam.RecordList))
 	admin.GET("/exams/:id/records/:recordId", routeparam.WithQueryParam("id", "recordId", aExam.RecordDetail))
+	admin.GET("/exams/:id/records/:recordId/export", routeparam.WithQueryParam("examId", "id", routeparam.WithQueryParam("id", "recordId", aExam.RecordExport)))
+	admin.GET("/exams/:id/records/:recordId/grading", aExam.RecordGrading)
+	admin.POST("/exams/:id/records/:recordId/grading", aExam.GradeRecord)
 	admin.DELETE("/exams/:id/records/:recordId", routeparam.WithFormParam("id", "recordId", aExam.RecordDel))
 	admin.DELETE("/exams/:id/records", aExam.RecordBatchDel)
 	admin.GET("/exams/:id/statistics", routeparam.WithQueryParam("examId", "id", aExam.Statistics))
@@ -451,4 +483,6 @@ func registerExamRoutes(admin *route.RouterGroup) {
 	admin.PUT("/exam-question-bank/:id", routeparam.WithBodyOrFormID(aExam.QuestionBankEdit))
 	admin.DELETE("/exam-question-bank/:id", routeparam.WithFormID(aExam.QuestionBankDel))
 	admin.GET("/exam-question-bank/categories", aExam.QuestionBankCategories)
+	admin.GET("/exam-notification-templates", aExam.NotificationTemplatesGet)
+	admin.PUT("/exam-notification-templates", aExam.NotificationTemplatesSave)
 }

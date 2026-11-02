@@ -18,6 +18,14 @@ export type ApiRequest = Omit<AxiosInstance, 'get' | 'post' | 'put' | 'delete' |
 
 const REQUEST_ERROR_NOTIFIED = '__adminRequestErrorNotified'
 
+function notifyRequestError(message: string) {
+  if (message.startsWith('缺少权限-')) {
+    ElMessage.error({ message, grouping: true, duration: 6000 })
+    return
+  }
+  ElMessage.error(message)
+}
+
 function markRequestErrorNotified(error: unknown) {
   if (error && typeof error === 'object') {
     try {
@@ -38,7 +46,7 @@ export function showRequestError(error: unknown, fallback: string) {
   const message = error && typeof error === 'object' && 'msg' in error && typeof error.msg === 'string'
     ? error.msg
     : fallback
-  ElMessage.error(message)
+  notifyRequestError(message)
 }
 
 const LOGIN_EXPIRED_MESSAGES = new Set([
@@ -99,6 +107,9 @@ axiosInstance.interceptors.request.use(config => {
 
 axiosInstance.interceptors.response.use(
   res => {
+    if (res.config.responseType === 'blob') {
+      return res
+    }
     if (res.data.code === 0) {
       return res.data
     }
@@ -107,7 +118,7 @@ axiosInstance.interceptors.response.use(
       redirectToLogin()
       return Promise.reject(res.data)
     }
-    ElMessage.error(res.data.msg || '请求失败')
+    notifyRequestError(res.data.msg || '请求失败')
     return Promise.reject(markRequestErrorNotified(res.data))
   },
   err => {
@@ -117,5 +128,22 @@ axiosInstance.interceptors.response.use(
 )
 
 const request = axiosInstance as ApiRequest
+
+export async function getBlob(url: string, config?: AxiosRequestConfig): Promise<Blob> {
+  const response = await axiosInstance.get<Blob>(url, { ...config, responseType: 'blob' })
+  const contentType = String(response.headers['content-type'] || '').toLowerCase()
+  if (contentType.includes('application/json')) {
+    let payload: ApiResponse<unknown> | null = null
+    try {
+      payload = JSON.parse(await response.data.text()) as ApiResponse<unknown>
+    } catch {
+      // Keep the fallback below when the server returned malformed JSON.
+    }
+    const error = markRequestErrorNotified(payload || { msg: '下载失败' })
+    notifyRequestError(payload?.msg || '下载失败')
+    return Promise.reject(error)
+  }
+  return response.data
+}
 
 export default request

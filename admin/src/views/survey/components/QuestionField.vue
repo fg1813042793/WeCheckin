@@ -3,9 +3,9 @@
     <template v-if="LAYOUT_TYPES.includes(q.type)">
       <div class="q-type">
         <span v-if="q.type==='description'" class="q-type-label">描述</span>
-        <span v-else-if="q.type==='divider'" class="q-type-label">分隔</span>
-        <span v-else class="q-type-label">分页</span>
+        <span v-else-if="q.type==='pagination'" class="q-type-label">分页</span>
         <div v-if="q.type==='description'" class="q-content" v-html="q.description" />
+        <div v-if="q.type==='divider' && dividerTitleHtml" class="q-divider-title" v-html="dividerTitleHtml" />
         <el-divider v-if="q.type==='divider'" style="margin:4px 0" />
       </div>
     </template>
@@ -139,6 +139,7 @@ const emit = defineEmits<{
 }>()
 
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
+const dividerTitleHtml = computed(() => unwrapOuterP(props.q.title || ''))
 
 const processedTitleHtml = computed(() => {
   let html = ''
@@ -263,6 +264,8 @@ function removeMatrixRow(qid: string, ri: number) { emit('removeMatrixRow', qid,
   font-size: 12px; background: #f0f2f5; color: #909399; margin-bottom: 8px;
 }
 .q-content { font-size: 14px; color: #606266; white-space: pre-wrap; word-break: break-word; margin-top: 8px; }
+.q-divider-title { margin-bottom: 6px; color: #303133; font-size: 14px; font-weight: 500; line-height: 1.5; word-break: break-word; }
+.q-divider-title :deep(p) { margin: 0; }
 
 .q-input { width: 100%; min-height: 28px; }
 .q-input .el-input,

@@ -193,7 +193,7 @@ const editorModeModel = computed({
 .question-editor-canvas__json :deep(.el-textarea__inner) { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; line-height:1.6; }
 .question-editor-canvas__json-actions { display:flex; justify-content:flex-end; gap:8px; }
 .bank-rich-editor { min-width:0; overflow:hidden; border:1px solid #dcdfe6; border-radius:7px; background:#fff; }
-.bank-rich-editor:focus-within { border-color:#409eff; box-shadow:0 0 0 2px rgba(64,158,255,.1); }
+.bank-rich-editor:focus-within { border-color:#409eff; box-shadow:none; }
 .bank-rich-editor :deep(.ql-toolbar) { display:flex; flex-wrap:wrap; max-height:0; overflow:hidden; padding:0 8px; border:0; opacity:0; transition:max-height .18s,padding .18s,opacity .18s; }
 .bank-rich-editor:focus-within :deep(.ql-toolbar) { max-height:74px; padding:6px 8px; border-bottom:1px solid #eef0f3; opacity:1; }
 .bank-rich-editor :deep(.ql-container) { border:0; font-family:inherit; }

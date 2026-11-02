@@ -24,16 +24,24 @@ function forbidSnippet(source, snippet, label) {
 const dashboard = read('views/dashboard/index.vue')
 for (const snippet of [
   'class="admin-page dashboard-page"',
-  'dashboard-hero',
+  'dashboard-toolbar',
   'metric-grid',
   'quick-actions',
-  'pending-list',
-  'module-health',
+  'dashboard-trend',
+  'dashboard-todos',
+  'dashboard-health',
+  'DashboardTrendChart',
+  'hasPerm(',
+  'updatedAt',
   'goRoute(',
 ]) {
   requireSnippet(dashboard, snippet, 'admin dashboard')
 }
 forbidSnippet(dashboard, '<template #header>控制台</template>', 'admin dashboard')
+forbidSnippet(dashboard, 'const pendingItems = [', 'admin dashboard')
+forbidSnippet(dashboard, 'const moduleHealth = [', 'admin dashboard')
+forbidSnippet(dashboard, 'Record<string, any>', 'admin dashboard')
+forbidSnippet(dashboard, "from 'vue-echarts'", 'admin dashboard')
 
 const login = read('views/login/index.vue')
 for (const snippet of [
@@ -57,4 +65,16 @@ for (const snippet of [
   "path: 'exam/formkit/report'",
 ]) {
   requireSnippet(routes, snippet, 'admin route config')
+}
+
+const surveyList = read('views/survey/SurveyList.vue')
+const examList = read('views/exam/ExamList.vue')
+const surveyListStyles = read('styles/survey-list.css')
+for (const [source, label] of [[surveyList, 'survey list'], [examList, 'exam list']]) {
+  for (const snippet of [':show-actions="false"', 'class="survey-search-inline-actions"', 'native-type="submit"']) {
+    requireSnippet(source, snippet, label)
+  }
+}
+for (const snippet of ['.survey-search-inline-actions', 'justify-content:flex-start;', 'flex:0 0 auto;']) {
+  requireSnippet(surveyListStyles, snippet, 'survey and exam list styles')
 }

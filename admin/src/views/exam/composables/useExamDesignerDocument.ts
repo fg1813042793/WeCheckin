@@ -3,11 +3,11 @@ import { ElMessage } from 'element-plus'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { adminApi } from '../../../api'
 import { showRequestError } from '../../../utils/request'
-import type { ExamCompletionAction, ExamDesignerQuestion } from '../exam-designer-types'
+import type { ExamCompletionAction, ExamDesignerQuestion, ExamLogicRule } from '../exam-designer-types'
 
 export function createExamDesignerForm() {
   return reactive<any>({
-    id: 0, title: '', description: '', category: '', tags: '',
+    id: 0, title: '', displayTitle: '', publicUrl: '', description: '', category: '', tags: '',
     visibility: 0, allowMultiBool: 0, anonymousBool: 0, showResultBool: 0,
     startDate: null, endDate: null, maxResponse: 0, statusBool: 1, deptIds: '',
     questionNumber: true, progressBar: false, autoSave: false,
@@ -16,7 +16,7 @@ export function createExamDesignerForm() {
     loginRequired: false, transcriptVisible: true, rankVisible: false, showAnalysis: true,
     redirectUrl: '', endContent: '', examRankingEnabled: false, exerciseMode: false,
     randomOrder: false, minSubmitMinutes: 0, maxSubmitMinutes: 0,
-    duration: 60, maxAttempts: 1, showScore: 1,
+    duration: 60, maxAttempts: 1, showScore: 1, passScore: 0,
     deviceLimit: 0, ipLimit: 0, userLimit: 0,
     createBy: 0, collaborators: '', backgroundImages: [], headerImages: [],
     fillTemplate: 'ef',
@@ -27,6 +27,7 @@ interface ExamDesignerDocumentOptions {
   form: Record<string, any>
   questions: Ref<ExamDesignerQuestion[]>
   selected: Ref<ExamDesignerQuestion | null>
+  logicRules: Ref<ExamLogicRule[]>
   route: RouteLocationNormalizedLoaded
   router: Router
   onQuestionsLoaded: () => void
@@ -41,7 +42,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
   let designerLoaded = false
 
   const designerAutoSaveSnapshot = computed(() => JSON.stringify({
-    title: options.form.title, description: options.form.description,
+    title: options.form.title, displayTitle: options.form.displayTitle, publicUrl: options.form.publicUrl, description: options.form.description,
     category: options.form.category, tags: options.form.tags,
     visibility: options.form.visibility, allowMultiBool: options.form.allowMultiBool,
     anonymousBool: options.form.anonymousBool, showResultBool: options.form.showResultBool,
@@ -49,6 +50,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
     maxResponse: options.form.maxResponse, statusBool: options.form.statusBool,
     deptIds: options.form.deptIds, duration: options.form.duration,
     maxAttempts: options.form.maxAttempts, showScore: options.form.showScore,
+    passScore: options.form.passScore,
     collaborators: options.form.collaborators, questionNumber: options.form.questionNumber,
     progressBar: options.form.progressBar, autoSave: options.form.autoSave,
     password: options.form.password, loginRequired: options.form.loginRequired,
@@ -64,6 +66,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
     ipLimit: options.form.ipLimit, userLimit: options.form.userLimit,
     backgroundImages: options.form.backgroundImages, headerImages: options.form.headerImages,
     fillTemplate: options.form.fillTemplate,
+    logicRules: options.logicRules.value,
   }))
 
   watch(completionAction, (value, oldValue) => {
@@ -102,6 +105,8 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
   function buildSettings() {
     const form = options.form
     return {
+      displayTitle: typeof form.displayTitle === 'string' ? form.displayTitle.trim() : '',
+      publicUrl: typeof form.publicUrl === 'string' ? form.publicUrl.trim() : '',
       collaborators: form.collaborators, questionNumber: form.questionNumber,
       progressBar: form.progressBar, autoSave: form.autoSave, password: form.password,
       loginRequired: form.loginRequired, onePageOneQuestion: form.onePageOneQuestion,
@@ -115,6 +120,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
       ipLimit: form.ipLimit, userLimit: form.userLimit,
       backgroundImages: form.backgroundImages, headerImages: form.headerImages,
       fillTemplate: form.fillTemplate,
+      logicRules: JSON.stringify(options.logicRules.value),
     }
   }
 
@@ -130,6 +136,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
       schema: JSON.stringify({ version: '2.0', questions: options.questions.value, setting: {} }),
       settings: JSON.stringify(buildSettings()),
       duration: form.duration, maxAttempts: form.maxAttempts, showScore: form.showScore,
+      passScore: form.passScore,
     }
   }
 
@@ -147,14 +154,14 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
       const survey = response.data?.survey
       if (!survey) { ElMessage.error('加载失败'); return }
       Object.assign(options.form, {
-        id: survey.id, title: survey.title, description: survey.description || '',
+        id: survey.id, title: survey.title, displayTitle: '', description: survey.description || '',
         category: survey.category || '', tags: survey.tags || '', visibility: survey.visibility ?? 0,
         allowMultiBool: survey.allowMulti ?? 0, anonymousBool: survey.anonymous ?? 0,
         showResultBool: survey.showResult ?? 0, startDate: survey.startTime || null,
         endDate: survey.endTime || null, maxResponse: survey.maxResponse ?? 0,
         statusBool: survey.status ?? 1, deptIds: survey.deptIds || '',
         duration: survey.duration ?? 60, maxAttempts: survey.maxAttempts ?? 1,
-        showScore: survey.showScore ?? 1, createBy: survey.createBy || 0,
+        showScore: survey.showScore ?? 1, passScore: survey.passScore ?? 0, createBy: survey.createBy || 0,
       })
       if (survey.settings) applySettings(survey.settings)
       syncCompletionActionFromForm()
@@ -180,7 +187,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
 
   async function save(showMessage: boolean | Event = true, successMessage = '已保存') {
     const shouldShowMessage = typeof showMessage === 'boolean' ? showMessage : true
-    if (!options.form.title) { if (shouldShowMessage) ElMessage.warning('请填写标题'); return false }
+    if (!String(options.form.title || '').trim()) { if (shouldShowMessage) ElMessage.warning('请填写管理名称'); return false }
     normalizeCompletionSettings()
     if (!isValidRedirectUrl(options.form.redirectUrl)) { if (shouldShowMessage) ElMessage.warning('请输入有效的跳转链接'); return false }
     clearAutoSaveTimer()
@@ -211,7 +218,10 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
   function applySettings(raw: string) {
     try {
       const settings = JSON.parse(raw)
+      try { options.logicRules.value = JSON.parse(settings.logicRules || '[]') } catch { options.logicRules.value = [] }
       Object.assign(options.form, {
+        displayTitle: typeof settings.displayTitle === 'string' ? settings.displayTitle : '',
+        publicUrl: typeof settings.publicUrl === 'string' ? settings.publicUrl : '',
         questionNumber: settings.questionNumber ?? true, progressBar: settings.progressBar ?? false,
         autoSave: settings.autoSave ?? false, password: settings.password || '',
         loginRequired: settings.loginRequired ?? false, onePageOneQuestion: settings.onePageOneQuestion ?? false,

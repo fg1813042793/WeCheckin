@@ -2,11 +2,13 @@ package auth
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/auth"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/pkg/response"
 )
@@ -24,11 +26,23 @@ func (h *Handler) PublicConfig(ctx context.Context, c *app.RequestContext) {
 	response.JSON(c, data)
 }
 
+func (h *Handler) Captcha(ctx context.Context, c *app.RequestContext) {
+	c.Header("Cache-Control", "no-store")
+	data, err := dingtalkh5service.GenerateCaptchaContext(ctx)
+	if err != nil {
+		auditlog.SetReason(ctx, "captcha_unavailable", "验证码服务暂不可用")
+		response.Fail(c, "验证码生成失败，请稍后重试")
+		return
+	}
+	response.JSON(c, data)
+}
+
 func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
 	var req struct {
-		Name     string `json:"name"`
-		Password string `json:"password"`
-		AuthCode string `json:"authCode"`
+		Name        string `json:"name"`
+		Password    string `json:"password"`
+		CaptchaID   string `json:"captchaId"`
+		CaptchaCode string `json:"captchaCode"`
 	}
 	_ = c.BindAndValidate(&req)
 	if req.Name == "" {
@@ -37,8 +51,37 @@ func (h *Handler) Login(ctx context.Context, c *app.RequestContext) {
 	if req.Password == "" {
 		req.Password = c.PostForm("password")
 	}
-	data, err := dingtalkh5service.LoginContext(ctx, req.Name, req.Password, c.ClientIP(), string(c.UserAgent()))
+	if req.CaptchaID == "" {
+		req.CaptchaID = c.PostForm("captchaId")
+	}
+	if req.CaptchaCode == "" {
+		req.CaptchaCode = c.PostForm("captchaCode")
+	}
+	data, err := dingtalkh5service.LoginWithCaptchaContext(
+		ctx,
+		req.Name,
+		req.Password,
+		req.CaptchaID,
+		req.CaptchaCode,
+		c.ClientIP(),
+		string(c.UserAgent()),
+	)
 	if err != nil {
+		if errors.Is(err, dingtalkh5service.ErrCaptchaInvalid) {
+			auditlog.SetReason(ctx, "captcha_invalid", "验证码错误或已过期")
+			response.Fail(c, "验证码错误或已过期")
+			return
+		}
+		if errors.Is(err, dingtalkh5service.ErrCaptchaUnavailable) {
+			auditlog.SetReason(ctx, "captcha_unavailable", "验证码服务暂不可用")
+			response.Fail(c, "验证码服务暂不可用，请稍后重试")
+			return
+		}
+		auditlog.Update(ctx, func(details *auditlog.Details) {
+			if details.ReasonCode == "" {
+				details.ReasonCode, details.Reason = "system_error", "认证服务异常"
+			}
+		})
 		response.FailInternal(ctx, c, "dingtalkh5.auth.handler", "操作失败，请稍后重试", err)
 		return
 	}

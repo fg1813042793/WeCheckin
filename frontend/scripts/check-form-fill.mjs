@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { runInNewContext } from 'node:vm'
 
 const formFill = await import('../utils/formFill.js')
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -78,5 +79,94 @@ for (const required of [
 
 const examFillPage = readFileSync(resolve(currentDir, '../pages/exam/fill.vue'), 'utf8')
 assert.ok(!examFillPage.includes('$set'), 'exam fill must use Vue 3 reactive property assignment')
+
+const examListPage = readFileSync(resolve(currentDir, '../pages/exam/index.vue'), 'utf8')
+for (const [name, source] of [['fill', examFillPage], ['list', examListPage]]) {
+  assert.match(source, /import\s*\{[^}]*resolveSurveyTitle\s+as\s+resolveExamTitle[^}]*\}\s*from\s*['"]\.\.\/\.\.\/utils\/formFill['"]/, `exam ${name} must reuse the survey title resolver`)
+  const template = source.split('</template>')[0]
+  assert.doesNotMatch(template, /JSON\.parse|parseSettings\(/, `exam ${name} must parse settings before rendering`)
+  assert.doesNotMatch(template, /\b(?:exam|s)\.title\b/, `exam ${name} must not render the management title directly`)
+}
+for (const className of ['exam-login-desc', 'result-title', 'exam-title']) {
+  assert.match(examFillPage, new RegExp(`<text\\b[^>]*class="${className}"[^>]*>\\s*{{\\s*displayTitle\\s*}}\\s*</text>`), `${className} must bind the display title`)
+}
+assert.match(examFillPage, /<text\b[^>]*class="exam-login-desc"[^>]*v-if="displayTitle"/, 'login title visibility must follow the resolved display title')
+assert.match(examListPage, /<view\b[^>]*class="s-title"[^>]*>\s*{{\s*s\.displayTitle\s*}}\s*<\/view>/, 'exam cards must bind the prepared display title')
+
+// Exercise the actual page options without starting uni-app or making network requests.
+function readPageOptions(source, dependencies = {}) {
+  const script = source.match(/<script>([\s\S]*?)<\/script>/)[1]
+    .replace(/^import\b[\s\S]*?\sfrom\s+['"][^'"]+['"]\s*$/gm, '')
+    .replace('export default', 'const page =')
+  return runInNewContext(`${script}\npage`, {
+    ...formFill,
+    resolveExamTitle: resolveSurveyTitle,
+    QuestionField: {},
+    ...dependencies,
+  })
+}
+
+const examTitleCases = [
+  ['  考生显示名称 \n', '考生显示名称'],
+  ['', '内部考试'], [' \n\t ', '内部考试'], [undefined, '内部考试'],
+  [null, '内部考试'], [false, '内部考试'], [42, '内部考试'],
+  [{ title: '非法名称' }, '内部考试'], [['非法名称'], '内部考试'],
+].flatMap(([displayTitle, expected]) => [
+  [{ displayTitle }, expected],
+  [JSON.stringify({ displayTitle }), expected],
+])
+for (const settings of [undefined, null, '', '{bad json', 'null', '[]', '42', '"非法配置"']) {
+  examTitleCases.push([settings, '内部考试'])
+}
+
+let resultSettings
+const examFillOptions = readPageOptions(examFillPage, {
+  examApi: {
+    async getDetail() {
+      return { code: 0, data: { exam: { title: '内部考试' }, settings: resultSettings } }
+    },
+  },
+})
+assert.equal(typeof examFillOptions.computed.displayTitle, 'function', 'exam fill must compute its display title')
+for (const [settings, expected] of examTitleCases) {
+  const state = { exam: { title: '内部考试' }, settings: parseSettings(settings) }
+  assert.equal(examFillOptions.computed.displayTitle.call(state), expected, 'exam fill title fallback')
+  assert.equal(state.exam.title, '内部考试', 'exam fill must preserve the management title')
+
+  resultSettings = settings
+  const resultState = { ...examFillOptions.data(), examId: 1, $route: { query: { exSession: 'test-session' } } }
+  await examFillOptions.methods.load.call(resultState)
+  assert.equal(resultState.showResultView, true, 'result loading must still open the result view')
+  assert.equal(examFillOptions.computed.displayTitle.call(resultState), expected, 'result loading must parse settings before resolving the title')
+}
+assert.equal(examFillOptions.computed.displayTitle.call({ exam: null, settings: {} }), '', 'unloaded exam has no title')
+assert.equal(examFillOptions.computed.displayTitle.call({ exam: { title: '' }, settings: { displayTitle: ' 考生名称 ' } }), '考生名称', 'display title works without a management title')
+
+const records = examTitleCases.map(([settings], id) => ({ id, title: '内部考试', settings }))
+const originalRecords = structuredClone(records)
+const listCalls = []
+const examListOptions = readPageOptions(examListPage, {
+  examApi: {
+    async getList(params) {
+      listCalls.push({ ...params })
+      const list = params.page === 1 ? records : [{ id: records.length, title: '第二页考试', settings: '{bad json' }]
+      return { data: { list, limits: params.page === 1 ? { 0: { deviceFull: true } } : {} } }
+    },
+  },
+})
+const listState = { ...examListOptions.data(), pageSize: records.length, isLogged: false, getDeviceId: () => 'test-device' }
+await examListOptions.methods.load.call(listState)
+assert.deepEqual(Array.from(listState.list, item => item.displayTitle), examTitleCases.map(([, expected]) => expected), 'exam list must resolve object and JSON settings during loading')
+assert.deepEqual(Array.from(listState.list, item => item.title), records.map(item => item.title), 'exam list must retain management titles')
+assert.deepEqual(records, originalRecords, 'exam list must not mutate API records')
+assert.equal(listState.hasMore, true, 'a full page must still allow pagination')
+const firstItem = listState.list[0]
+listState.page = 2
+await examListOptions.methods.load.call(listState)
+assert.equal(listState.list[0], firstItem, 'pagination must preserve previous items')
+assert.equal(listState.list.at(-1).displayTitle, '第二页考试', 'subsequent pages must resolve titles too')
+assert.equal(listState.hasMore, false, 'a short page must still end pagination')
+assert.equal(listState.limitsMap[0].deviceFull, true, 'pagination must retain existing limits')
+assert.deepEqual(listCalls.map(params => params.page), [1, 2], 'title normalization must not change requested pages')
 
 assert.ok(!/\.survey-progress\s*\{[^}]*top:\s*0\b/s.test(surveyFillPage), 'survey progress must not be fixed to viewport top')

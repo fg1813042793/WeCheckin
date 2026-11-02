@@ -2,10 +2,11 @@
 :where(.admin-main) .survey-page { --survey-border:var(--admin-ui-color-border); --survey-text:var(--admin-ui-color-text); --survey-muted:var(--admin-ui-color-text-secondary); }
 :where(.admin-main .survey-page) .survey-toolbar-card { overflow:hidden; border:1px solid var(--survey-border); border-radius:8px; background:#fff; }
 :where(.admin-main .survey-page) .survey-search.admin-ui-search-bar { border:0; border-radius:0; background:transparent; }
-:where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__content { padding:12px 14px; align-items:center; }
-:where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__fields { display:flex; flex:initial; gap:10px; }
-:where(.admin-main .survey-page) .survey-search .el-input { width:270px; }
+:where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__content { padding:12px 14px; align-items:center; justify-content:flex-start; flex-wrap:wrap; }
+:where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__fields { display:flex !important; flex:0 1 auto !important; flex-wrap:wrap; gap:10px; }
+:where(.admin-main .survey-page) .survey-search .el-input, :where(.admin-main .survey-page) .survey-search .el-select { width:clamp(220px,20vw,300px) !important; flex:0 1 clamp(220px,20vw,300px); }
 :where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__actions { gap:8px; }
+:where(.admin-main .survey-page) .survey-search .survey-search-inline-actions { display:flex; flex:0 0 auto; align-items:center; justify-content:flex-start; gap:8px; white-space:nowrap; }
 :where(.admin-main .survey-page) .survey-actions-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:54px; padding:0 14px; border-top:1px solid var(--survey-border); }
 :where(.admin-main .survey-page) .survey-actions-row__left, :where(.admin-main .survey-page) .survey-actions-row__right { display:flex; align-items:center; gap:8px; }
 :where(.admin-main .survey-page) .survey-actions-row__right .el-button { width:32px; height:32px; margin:0; }
@@ -54,8 +55,9 @@
 :where(.admin-main .survey-page) .table-actions .el-button { margin:0; padding:6px; font-size:12px; }
 @media (max-width:767px) {
   :where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__content { padding:12px; }
-  :where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__fields { display:grid; grid-template-columns:1fr; width:100%; }
-  :where(.admin-main .survey-page) .survey-search .el-input { width:100%; }
+  :where(.admin-main .survey-page) .survey-search .admin-ui-search-bar__fields { display:grid !important; grid-template-columns:1fr; width:100%; }
+  :where(.admin-main .survey-page) .survey-search .el-input, :where(.admin-main .survey-page) .survey-search .el-select { width:100% !important; max-width:none; }
+  :where(.admin-main .survey-page) .survey-search .survey-search-inline-actions { width:100%; justify-content:flex-start; }
   :where(.admin-main .survey-page) .survey-actions-row { min-height:52px; padding:0 12px; }
   :where(.admin-main .survey-page) .collection-toolbar { align-items:stretch; flex-direction:column; }
   :where(.admin-main .survey-page) .status-tabs { min-height:40px; justify-content:space-between; gap:8px; }

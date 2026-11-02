@@ -67,6 +67,7 @@ type Exam struct {
 	Duration     int    `gorm:"column:exam_duration;default:60" json:"duration"`
 	MaxAttempts  int    `gorm:"column:exam_max_attempts;default:1" json:"maxAttempts"`
 	ShowScore    int    `gorm:"column:exam_show_score;default:1" json:"showScore"`
+	PassScore    int    `gorm:"column:exam_pass_score;default:0" json:"passScore"`
 	MaxResponse  int    `gorm:"column:exam_max_response;default:0" json:"maxResponse"`
 	DeptIds      string `gorm:"column:exam_dept_ids;size:512" json:"deptIds"`
 	Mode         string `gorm:"column:exam_mode;size:16;default:'exam'" json:"mode"`
@@ -101,9 +102,17 @@ type ExamRecord struct {
 	AddIP        string `gorm:"column:exam_r_add_ip;size:64" json:"addIp"`
 	IsAutoSubmit int    `gorm:"column:exam_r_auto_submit;default:0" json:"isAutoSubmit"`
 	Device       string `gorm:"column:exam_r_device;size:512" json:"device"`
-	DeviceID     string `gorm:"column:exam_r_device_id;size:128" json:"deviceId"`
-	Session      string `gorm:"column:exam_r_session;size:128" json:"session"`
-	Result       string `gorm:"column:exam_r_result;type:text" json:"result"`
+	// Client labels are derived from the stored User-Agent; no extra database columns are required.
+	Browser        string `gorm:"-" json:"browser"`
+	DeviceType     string `gorm:"-" json:"deviceType"`
+	PlatformType   string `gorm:"-" json:"platformType"`
+	DeviceID       string `gorm:"column:exam_r_device_id;size:128" json:"deviceId"`
+	Session        string `gorm:"column:exam_r_session;size:128" json:"session"`
+	Result         string `gorm:"column:exam_r_result;type:text" json:"result"`
+	ReviewSnapshot string `gorm:"column:exam_r_review_snapshot;type:mediumtext" json:"-"`
+	GradedBy       uint   `gorm:"column:exam_r_graded_by;default:0" json:"gradedBy"`
+	GradedAt       int64  `gorm:"column:exam_r_graded_at;default:0" json:"gradedAt"`
+	GradingComment string `gorm:"column:exam_r_grading_comment;size:1000;default:''" json:"gradingComment"`
 }
 
 func (ExamRecord) TableName() string { return "exam_record" }

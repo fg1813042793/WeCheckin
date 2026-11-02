@@ -54,15 +54,21 @@ const docxStyles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 func docxDocument(document exportDocument) string {
 	var body strings.Builder
 	body.WriteString(docxParagraph(document.Title, "Title"))
-	body.WriteString(docxMetadataTable(document.Metadata))
-	for _, section := range document.Sections {
-		body.WriteString(docxSpacer(100))
+	if len(document.Metadata) > 0 {
+		body.WriteString(docxMetadataTable(document.Metadata))
+	}
+	for index, section := range document.Sections {
+		if index > 0 || len(document.Metadata) > 0 {
+			body.WriteString(docxSpacer(100))
+		}
 		body.WriteString(docxSectionHeading(section.Title))
 		if len(section.FieldRows) > 0 {
 			body.WriteString(docxFieldTable(section.FieldRows))
 			continue
 		}
-		body.WriteString(docxTable(section.Headers, section.Rows))
+		if len(section.Headers) > 0 || len(section.Rows) > 0 {
+			body.WriteString(docxTable(section.Headers, section.Rows))
+		}
 	}
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>` + body.String() + `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850"/><w:cols w:space="425"/></w:sectPr></w:body></w:document>`

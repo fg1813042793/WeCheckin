@@ -2,20 +2,29 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	"gorm.io/gorm"
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/adminaccess"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/logger"
+	"wecheckin/backend/pkg/response"
 )
 
 func AdminPerm() app.HandlerFunc {
+	return adminPermWithLookup(adminHasAPIPermission)
+}
+
+type adminAPIPermissionLookup func(context.Context, *gorm.DB, *model.Admin, []uint, string) (bool, error)
+
+func adminPermWithLookup(lookup adminAPIPermissionLookup) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		adminVal, _ := c.Get("admin")
 		admin := adminVal.(*model.Admin)
@@ -47,9 +56,13 @@ func AdminPerm() app.HandlerFunc {
 		// No role assigned - no access
 		if len(roleIDs) == 0 {
 			auditAdminPermissionDenied(admin, string(c.Path()), "", "role_missing")
+			message := "未分配角色，无权限"
+			if required, ok := adminRoutePermission(string(c.Method()), string(c.Path())); ok && required != "" {
+				message = missingAdminPermissionMessage(required) + "；当前账号未分配角色"
+			}
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
-				"msg":  "未分配角色，无权限",
+				"msg":  message,
 			})
 			c.Abort()
 			return
@@ -66,7 +79,7 @@ func AdminPerm() app.HandlerFunc {
 			auditAdminPermissionDenied(admin, path, "", "route_not_declared")
 			c.JSON(consts.StatusOK, utils.H{
 				"code": 1,
-				"msg":  "无权限访问",
+				"msg":  "接口未配置权限规则，请联系管理员",
 			})
 			c.Abort()
 			return
@@ -78,24 +91,47 @@ func AdminPerm() app.HandlerFunc {
 		}
 
 		requiredCodes := permissionCodes(required)
+		var lookupError error
 		for _, code := range requiredCodes {
 			apiKey := permissionsupport.AdminAPIPermissionKey(code)
-			if effect, ok, err := permissionsupport.SubjectPermissionEffectContext(ctx, db, permissionsupport.SubjectUser, admin.ID, apiKey); err == nil && ok && effect == permissionsupport.EffectDeny {
+			allowed, err := lookup(ctx, db, admin, roleIDs, apiKey)
+			if err != nil {
+				lookupError = err
 				continue
 			}
-			if ok, err := permissionsupport.SubjectHasPermissionWithRoleIDsContext(ctx, db, admin.ID, roleIDs, apiKey); err == nil && ok {
+			if allowed {
 				c.Next(ctx)
 				return
 			}
 		}
+		if lookupError != nil {
+			auditAdminPermissionDenied(admin, path, required, "permission_lookup_failed")
+			response.FailInternal(ctx, c, "admin.permission", "权限校验失败，请稍后重试", lookupError)
+			c.Abort()
+			return
+		}
 
 		c.JSON(consts.StatusOK, utils.H{
 			"code": 1,
-			"msg":  "无权限访问",
+			"msg":  missingAdminPermissionMessage(required),
 		})
 		auditAdminPermissionDenied(admin, path, required, "permission_missing")
 		c.Abort()
 	}
+}
+
+func adminHasAPIPermission(ctx context.Context, db *gorm.DB, admin *model.Admin, roleIDs []uint, apiKey string) (bool, error) {
+	if db == nil {
+		return false, errors.New("admin permission database is unavailable")
+	}
+	effect, found, err := permissionsupport.SubjectPermissionEffectContext(ctx, db, permissionsupport.SubjectUser, admin.ID, apiKey)
+	if err != nil {
+		return false, err
+	}
+	if found && effect == permissionsupport.EffectDeny {
+		return false, nil
+	}
+	return permissionsupport.SubjectHasPermissionWithRoleIDsContext(ctx, db, admin.ID, roleIDs, apiKey)
 }
 
 func adminRoutePermission(method, path string) (string, bool) {

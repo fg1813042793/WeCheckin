@@ -18,9 +18,18 @@ const compiled = ts.transpileModule(source, {
 }).outputText
 const module = { exports: {} }
 const execute = runInThisContext(`(function (module, exports, require) {${compiled}\n})`)
-execute(module, module.exports, request => request === './workflow-form'
-  ? { flattenWorkflowOptions: options => options || [], workflowDataFields: fields => fields || [] }
-  : require(request))
+execute(module, module.exports, (request) => {
+  if (request === './workflow-form')
+    return { flattenWorkflowOptions: options => options || [], workflowDataFields: fields => fields || [] }
+  if (request === './workflow-calculation') {
+    const source = readFileSync(new URL('../src/pages/workflow/workflow-calculation.ts', import.meta.url), 'utf8')
+    const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+    const calculation = { exports: {} }
+    runInThisContext(`(function(module,exports){${compiled}\n})`)(calculation, calculation.exports)
+    return calculation.exports
+  }
+  return require(request)
+})
 
 const definition = {
   id: 7,

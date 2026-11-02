@@ -1,9 +1,22 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const source = readFileSync(resolve(currentDir, '../src/views/user/index.vue'), 'utf8')
+const filterComponentPath = resolve(currentDir, '../src/views/user/components/UserListFilters.vue')
+const filterComposablePath = resolve(currentDir, '../src/views/user/composables/useUserListFilters.ts')
+const apiTypes = readFileSync(resolve(currentDir, '../src/api/types.ts'), 'utf8')
+const apiSource = readFileSync(resolve(currentDir, '../src/api/index.ts'), 'utf8')
+
+if (!existsSync(filterComponentPath)) {
+  throw new Error('admin user list filter component is required')
+}
+if (!existsSync(filterComposablePath)) {
+  throw new Error('admin user list filter composable is required')
+}
+const filterComponent = readFileSync(filterComponentPath, 'utf8')
+const filterComposable = readFileSync(filterComposablePath, 'utf8')
 
 const requiredSnippets = [
   'class="admin-page user-page"',
@@ -55,12 +68,49 @@ const requiredSnippets = [
   '.user-avatar img.is-loaded',
   'opacity: 0;',
   'opacity: 1;',
+  "import UserListFilters from './components/UserListFilters.vue'",
+  '<UserListFilters',
+  "import { useUserListFilters } from './composables/useUserListFilters'",
+  'const { userListFilters, updateUserListFilters, resetUserFilters, buildUserListQuery } = useUserListFilters',
+  ':positions="positionOptions"',
+  ':managers="dataScopeUserOptions"',
+  ':roles="roleList"',
 ]
 
 for (const snippet of requiredSnippets) {
   if (!source.includes(snippet)) {
     throw new Error(`admin user list UI missing: ${snippet}`)
   }
+}
+
+for (const snippet of ['reactive<AdminUserListQuery>', 'function buildUserListQuery(', 'function resetUserFilters()', 'onSearch()']) {
+  if (!filterComposable.includes(snippet)) {
+    throw new Error(`admin user list filter composable missing: ${snippet}`)
+  }
+}
+
+for (const snippet of [
+  '搜索用户名/姓名',
+  '搜索手机号',
+  '全部状态',
+  '<el-option label="管理员" :value="9" />',
+  '全部岗位',
+  '全部直属上级',
+  '全部角色',
+  "emit('search')",
+  "emit('reset')",
+  'padding: 12px 14px;',
+]) {
+  if (!filterComponent.includes(snippet)) {
+    throw new Error(`admin user list filter component missing: ${snippet}`)
+  }
+}
+
+if (!apiTypes.includes('export interface AdminUserListQuery extends PageQuery')) {
+  throw new Error('admin user list query type is required')
+}
+if (!apiSource.includes('userList(params?: AdminUserListQuery)')) {
+  throw new Error('admin user list API must use AdminUserListQuery')
 }
 
 const denyPermissionColumnCount = source.match(/<section v-show="denyApplicationPermissionExpanded"/g)?.length || 0

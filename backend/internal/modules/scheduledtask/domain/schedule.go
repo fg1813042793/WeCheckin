@@ -24,11 +24,13 @@ type PreviewOccurrence struct {
 type DueRun struct {
 	ScheduledAt    time.Time
 	CoalescedCount int
+	Misfire        bool
 }
 
 type DueResult struct {
 	Runs         []DueRun
 	SkippedCount int
+	SkippedAt    time.Time
 	Next         time.Time
 }
 
@@ -91,12 +93,15 @@ func (s *Schedule) Preview(after time.Time, count int) []PreviewOccurrence {
 	return result
 }
 
-func (s *Schedule) ComputeDue(cursor, now time.Time, policy string, maxCatchUp int) (DueResult, error) {
+func (s *Schedule) ComputeDue(cursor, now time.Time, policy string, maxCatchUp int, misfireGrace time.Duration) (DueResult, error) {
 	if err := ValidateMisfirePolicy(policy); err != nil {
 		return DueResult{}, err
 	}
 	if maxCatchUp < 0 {
 		maxCatchUp = 0
+	}
+	if misfireGrace < 0 {
+		misfireGrace = 0
 	}
 
 	due := make([]time.Time, 0)
@@ -113,21 +118,41 @@ func (s *Schedule) ComputeDue(cursor, now time.Time, policy string, maxCatchUp i
 		return result, nil
 	}
 
+	timelyIndex := len(due)
+	for index, scheduledAt := range due {
+		if now.Sub(scheduledAt) <= misfireGrace {
+			timelyIndex = index
+			break
+		}
+	}
+	missed := due[:timelyIndex]
+	timely := due[timelyIndex:]
+
 	switch policy {
 	case MisfirePolicySkip:
-		result.SkippedCount = len(due)
+		result.SkippedCount = len(missed)
+		if len(missed) > 0 {
+			result.SkippedAt = missed[0]
+		}
 	case MisfirePolicyFireOnce:
-		result.Runs = []DueRun{{ScheduledAt: due[len(due)-1], CoalescedCount: len(due)}}
+		if len(missed) > 0 {
+			result.Runs = append(result.Runs, DueRun{ScheduledAt: missed[len(missed)-1], CoalescedCount: len(missed), Misfire: true})
+		}
 	case MisfirePolicyCatchUp:
 		limit := maxCatchUp
-		if limit > len(due) {
-			limit = len(due)
+		if limit > len(missed) {
+			limit = len(missed)
 		}
-		result.Runs = make([]DueRun, 0, limit)
-		for _, scheduledAt := range due[:limit] {
-			result.Runs = append(result.Runs, DueRun{ScheduledAt: scheduledAt, CoalescedCount: 1})
+		for _, scheduledAt := range missed[:limit] {
+			result.Runs = append(result.Runs, DueRun{ScheduledAt: scheduledAt, CoalescedCount: 1, Misfire: true})
 		}
-		result.SkippedCount = len(due) - limit
+		result.SkippedCount = len(missed) - limit
+		if result.SkippedCount > 0 {
+			result.SkippedAt = missed[limit]
+		}
+	}
+	for _, scheduledAt := range timely {
+		result.Runs = append(result.Runs, DueRun{ScheduledAt: scheduledAt, CoalescedCount: 1})
 	}
 	return result, nil
 }

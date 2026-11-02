@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WorkflowHistoryImportMapping } from '../workflow-history-import'
+import type { WorkflowHistoryImportApplied } from '../workflow-history-import-preset'
 import type {
   WorkflowFieldAccessMap,
   WorkflowFormData,
@@ -7,8 +8,10 @@ import type {
   WorkflowInstanceSummary,
   WorkflowPublishedDefinition,
 } from '@/types/workflow'
+import { useLocale } from 'uview-pro'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getWorkflowInstance, listWorkflowInstances } from '@/api/workflow'
+import { useWorkflowHistoryImportPreset } from '@/composables/useWorkflowHistoryImportPreset'
 import { workflowDataFields, workflowFieldAccessMap } from '../workflow-form'
 import {
   buildWorkflowImportMappings,
@@ -16,6 +19,7 @@ import {
   previewWorkflowHistoryImport,
   suggestWorkflowImportMappings,
 } from '../workflow-history-import'
+import { workflowHistoryImportSummary } from '../workflow-history-import-preset'
 import { workflowInstanceStatusMeta } from '../workflow-status'
 
 type ImportMode = 'all' | 'mapping'
@@ -39,19 +43,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'apply': [payload: { sourceInstanceId: string, patch: WorkflowFormData, importCount: number }]
+  'apply': [payload: WorkflowHistoryImportApplied]
 }>()
 
+const { t } = useLocale()
 const mobileBatchSize = 10
 const mobileVisibleRows = 3
 const desktopPageSize = 6
-const popupVisible = computed({
-  get: () => props.modelValue,
-  set: value => emit('update:modelValue', value),
-})
 const mobile = ref(false)
 const pageSize = computed(() => mobile.value ? mobileBatchSize : desktopPageSize)
-const initialDefinitionVersion = ref(0)
 const listLoading = ref(false)
 const mobileLoadingMore = ref(false)
 const listError = ref('')
@@ -73,14 +73,44 @@ let searchFocusTimer: ReturnType<typeof setTimeout> | null = null
 let keyboardHeightHandler: ((result: { height: number }) => void) | null = null
 let viewportResizeHandler: (() => void) | null = null
 
-const statusOptions = [
-  { label: '全部状态', value: '' },
-  { label: '审批中', value: 'running' },
-  { label: '已完成', value: 'completed' },
-  { label: '已驳回', value: 'rejected' },
-  { label: '已撤回', value: 'withdrawn' },
-  { label: '已取消', value: 'cancelled' },
-]
+const preset = useWorkflowHistoryImportPreset({
+  visible: () => props.modelValue,
+  definition: () => props.definition,
+  targetData: () => props.targetData,
+  targetAccess: () => props.targetAccess,
+  translate: t,
+  apply: (payload) => {
+    emit('apply', payload)
+    closeDialog()
+  },
+  contextChanged: () => {
+    closeDialog()
+    uni.showToast({ title: t('workflowHistoryImport.contextChanged'), icon: 'none' })
+  },
+})
+const popupVisible = computed({
+  get: () => props.modelValue,
+  set: (value) => {
+    if (!value)
+      preset.invalidate()
+    emit('update:modelValue', value)
+  },
+})
+const { enabled: presetEnabled, latestMode, statusLocked, configError } = preset
+const detailBusy = computed(() => detailLoading.value || preset.busy.value)
+const presetError = computed(() => configError.value || preset.error.value)
+const policyText = computed(() => t(preset.config.value?.overwrite ? 'workflowHistoryImport.overwritePolicy' : 'workflowHistoryImport.emptyPolicy'))
+let listRequest = 0
+const statusOptions = computed(() => statusLocked.value
+  ? [{ label: t('workflowHistoryImport.completed'), value: 'completed' }]
+  : [
+      { label: '全部状态', value: '' },
+      { label: '审批中', value: 'running' },
+      { label: '已完成', value: 'completed' },
+      { label: '已驳回', value: 'rejected' },
+      { label: '已撤回', value: 'withdrawn' },
+      { label: '已取消', value: 'cancelled' },
+    ])
 
 const popupMode = computed(() => mobile.value ? 'bottom' : 'center')
 const popupWidth = computed(() => mobile.value ? '100%' : '760px')
@@ -127,6 +157,7 @@ const previewState = computed(() => {
       preview: previewWorkflowHistoryImport({
         sourceFields: sourceFields.value,
         sourceData: sourceDetail.value.formData || {},
+        sourceAccess: sourceAccess.value,
         targetFields: props.definition.form || [],
         targetData: props.targetData,
         targetAccess: props.targetAccess,
@@ -181,6 +212,7 @@ watch(
     if (visible)
       void openDialog()
   },
+  { immediate: true },
 )
 
 onMounted(() => {
@@ -217,36 +249,40 @@ onBeforeUnmount(() => {
   // #endif
 })
 
-watch(
-  () => props.definition.version,
-  (version) => {
-    if (!props.modelValue || !initialDefinitionVersion.value || version === initialDefinitionVersion.value)
-      return
-    popupVisible.value = false
-    uni.showToast({ title: '流程版本已更新，请重新打开导入', icon: 'none' })
-  },
-)
-
 async function openDialog() {
   mobile.value = resolveMobilePage()
-  initialDefinitionVersion.value = props.definition.version
+  listRequest += 1
+  listLoading.value = false
+  mobileLoadingMore.value = false
+  detailLoading.value = false
+  listError.value = ''
+  instances.value = []
   currentStep.value = 'select'
   page.value = 1
   total.value = 0
   instanceTitle.value = ''
-  statusFilter.value = ''
+  statusFilter.value = statusLocked.value ? 'completed' : ''
   selectedInstanceId.value = ''
   sourceDetail.value = null
   detailError.value = ''
   importMode.value = 'all'
   manualMappings.value = []
   overwrite.value = false
-  await loadInstances()
+  if (configError.value)
+    return
+  if (latestMode.value)
+    await preset.latest()
+  else
+    await loadInstances()
 }
 
 async function loadInstances(append = false) {
-  if (listLoading.value || mobileLoadingMore.value)
+  append = append === true
+  const session = preset.capture()
+  if (!preset.isCurrent(session) || listLoading.value || mobileLoadingMore.value || detailBusy.value || configError.value || latestMode.value)
     return
+  const request = ++listRequest
+  const current = () => preset.isCurrent(session) && request === listRequest
   if (append)
     mobileLoadingMore.value = true
   else
@@ -258,11 +294,14 @@ async function loadInstances(append = false) {
       definitionId: props.definition.id,
       scope: 'started',
       instanceTitle: instanceTitle.value.trim() || undefined,
-      status: statusFilter.value || undefined,
+      status: statusLocked.value ? 'completed' : statusFilter.value || undefined,
       page: page.value,
       pageSize: pageSize.value,
     })
-    const nextInstances = Array.isArray(response?.data?.list) ? response.data.list : []
+    if (!current())
+      return
+    const nextInstances = (Array.isArray(response?.data?.list) ? response.data.list : [])
+      .filter(item => !presetEnabled.value || (item.definitionId === props.definition.id && (!statusLocked.value || item.status === 'completed')))
     instances.value = append
       ? [...instances.value, ...nextInstances.filter(next => !instances.value.some(current => current.id === next.id))]
       : nextInstances
@@ -274,6 +313,8 @@ async function loadInstances(append = false) {
     }
   }
   catch (error) {
+    if (!current())
+      return
     if (append) {
       page.value = Math.max(1, page.value - 1)
       uni.showToast({ title: requestErrorMessage(error, '更多历史申请加载失败'), icon: 'none' })
@@ -285,10 +326,12 @@ async function loadInstances(append = false) {
     }
   }
   finally {
-    if (append)
-      mobileLoadingMore.value = false
-    else
-      listLoading.value = false
+    if (current()) {
+      if (append)
+        mobileLoadingMore.value = false
+      else
+        listLoading.value = false
+    }
   }
 }
 
@@ -345,7 +388,7 @@ function clearInstanceSearch() {
 
 function resetFilters() {
   instanceTitle.value = ''
-  statusFilter.value = ''
+  statusFilter.value = statusLocked.value ? 'completed' : ''
   page.value = 1
   void loadInstances()
 }
@@ -356,16 +399,23 @@ function handlePageChange(payload: PaginationChangePayload) {
 }
 
 async function selectInstance(instance: WorkflowInstanceSummary) {
-  if (detailLoading.value)
+  const session = preset.capture()
+  if (!preset.isCurrent(session) || detailBusy.value || !instances.value.some(item => item.id === instance.id))
     return
   selectedInstanceId.value = instance.id
+  if (presetEnabled.value) {
+    await preset.select(instance)
+    return
+  }
   sourceDetail.value = null
   detailError.value = ''
   detailLoading.value = true
   try {
     const response = await getWorkflowInstance(instance.id)
+    if (!preset.isCurrent(session))
+      return
     const detail = response?.data || null
-    if (!detail || detail.instance.definitionId !== props.definition.id)
+    if (!detail || detail.instance.id !== instance.id || detail.instance.definitionId !== props.definition.id)
       throw new Error('历史申请不属于当前流程')
     sourceDetail.value = detail
     importMode.value = 'all'
@@ -377,11 +427,18 @@ async function selectInstance(instance: WorkflowInstanceSummary) {
     currentStep.value = 'configure'
   }
   catch (error) {
-    detailError.value = requestErrorMessage(error, '历史申请详情加载失败')
+    if (preset.isCurrent(session))
+      detailError.value = requestErrorMessage(error, '历史申请详情加载失败')
   }
   finally {
-    detailLoading.value = false
+    if (preset.isCurrent(session))
+      detailLoading.value = false
   }
+}
+
+function clearPresetSelection() {
+  preset.error.value = ''
+  selectedInstanceId.value = ''
 }
 
 function retryDetail() {
@@ -409,7 +466,7 @@ function removeMapping(index: number) {
   manualMappings.value.splice(index, 1)
 }
 
-function updateMapping(index: number, key: keyof WorkflowHistoryImportMapping, event: SelectChangeEvent) {
+function updateMapping(index: number, key: 'sourceKey' | 'targetKey', event: SelectChangeEvent) {
   const mapping = manualMappings.value[index]
   if (!mapping)
     return
@@ -452,12 +509,13 @@ function goToPreview() {
 }
 
 function applyImport() {
-  if (!canApply.value || !sourceDetail.value)
+  if (!preset.isCurrent(preset.capture()) || presetEnabled.value || !canApply.value || !sourceDetail.value)
     return
   emit('apply', {
     sourceInstanceId: sourceDetail.value.instance.id,
     patch: preview.value.patch,
     importCount: applicableCount.value,
+    summary: workflowHistoryImportSummary(preview.value),
   })
   popupVisible.value = false
 }
@@ -540,7 +598,7 @@ function resolveMobilePage() {
     custom-class="workflow-history-import-popup app-pc-control-scope"
     :border-radius="8"
     :safe-area-inset-bottom="mobile"
-    :mask-close-able="!detailLoading"
+    :mask-close-able="true"
   >
     <view class="workflow-history-import-dialog" :class="{ 'workflow-history-import-dialog--mobile': mobile }">
       <view class="workflow-history-import-dialog__header">
@@ -548,7 +606,7 @@ function resolveMobilePage() {
           <text class="workflow-history-import-dialog__title">
             导入历史表单
           </text>
-          <view class="workflow-history-import-dialog__step-meta">
+          <view v-if="!presetEnabled" class="workflow-history-import-dialog__step-meta">
             <text class="workflow-history-import-dialog__subtitle">
               {{ stepTitle }}
             </text>
@@ -572,7 +630,24 @@ function resolveMobilePage() {
       </view>
 
       <scroll-view scroll-y class="workflow-history-import-dialog__body" :scroll-top="dialogScrollTop">
-        <section v-if="currentStep === 'select'" class="workflow-history-import-dialog__section workflow-history-import-dialog__step-page">
+        <view v-if="presetEnabled && !configError" class="workflow-history-import-dialog__preset-policy" role="status">
+          <text>{{ policyText }}</text>
+          <text>{{ t(statusLocked ? 'workflowHistoryImport.completedOnly' : 'workflowHistoryImport.allStatuses') }}</text>
+          <text>{{ t(latestMode ? 'workflowHistoryImport.latestHint' : 'workflowHistoryImport.selectHint') }}</text>
+        </view>
+        <section v-if="configError || latestMode" class="workflow-history-import-dialog__section workflow-history-import-dialog__step-page">
+          <view v-if="detailBusy" class="workflow-history-import-dialog__state">
+            <u-loading mode="circle" size="28" />
+            <text>{{ t('workflowHistoryImport.loading') }}</text>
+          </view>
+          <view v-else class="workflow-history-import-dialog__state" role="status">
+            <text>{{ presetError }}</text>
+            <u-button v-if="!configError" plain size="small" @click="preset.latest()">
+              {{ t('workflowHistoryImport.retry') }}
+            </u-button>
+          </view>
+        </section>
+        <section v-else-if="currentStep === 'select'" class="workflow-history-import-dialog__section workflow-history-import-dialog__step-page">
           <view class="workflow-history-import-dialog__section-head">
             <text class="workflow-history-import-dialog__section-title">
               仅显示当前流程中由我发起的历史申请
@@ -592,7 +667,7 @@ function resolveMobilePage() {
                 :adjust-position="false"
                 :show-action="false"
                 :animation="false"
-                :disabled="listLoading || detailLoading"
+                :disabled="listLoading || detailBusy"
                 @search="submitInstanceSearch"
                 @custom="submitInstanceSearch"
                 @clear="clearInstanceSearch"
@@ -600,7 +675,7 @@ function resolveMobilePage() {
               />
             </view>
             <view class="workflow-history-import-dialog__filter-secondary">
-              <select v-model="statusFilter" class="workflow-history-import-dialog__select" aria-label="审批状态">
+              <select v-model="statusFilter" :disabled="statusLocked || detailBusy" class="workflow-history-import-dialog__select" aria-label="审批状态">
                 <option v-for="option in statusOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
                 </option>
@@ -627,25 +702,28 @@ function resolveMobilePage() {
           <view v-else-if="listError" class="workflow-history-import-dialog__state workflow-history-import-dialog__state--error">
             <u-icon name="error-circle" size="30" color="#ef4444" />
             <text>{{ listError }}</text>
-            <u-button plain size="small" @click="loadInstances">
+            <u-button plain size="small" @click="loadInstances()">
               重新加载
             </u-button>
           </view>
-          <view v-else-if="detailLoading" class="workflow-history-import-dialog__state workflow-history-import-dialog__state--compact">
+          <view v-else-if="detailBusy" class="workflow-history-import-dialog__state workflow-history-import-dialog__state--compact">
             <u-loading mode="circle" color="#0f766e" size="28" />
             <text>正在读取历史表单...</text>
           </view>
-          <view v-else-if="detailError" class="workflow-history-import-dialog__state workflow-history-import-dialog__state--error workflow-history-import-dialog__state--compact">
+          <view v-else-if="detailError || presetError" class="workflow-history-import-dialog__state workflow-history-import-dialog__state--error workflow-history-import-dialog__state--compact">
             <u-icon name="error-circle" size="30" color="#ef4444" />
-            <text>{{ detailError }}</text>
+            <text>{{ detailError || presetError }}</text>
             <u-button plain size="small" @click="retryDetail">
               重新加载
+            </u-button>
+            <u-button v-if="presetEnabled" plain size="small" @click="clearPresetSelection">
+              {{ t('workflowHistoryImport.chooseAnother') }}
             </u-button>
           </view>
           <view v-else-if="instances.length === 0" class="workflow-history-import-dialog__state">
             <u-icon name="order" size="34" color="#a8b0bd" />
-            <text>暂无历史申请</text>
-            <u-button plain size="small" @click="loadInstances">
+            <text>{{ presetEnabled ? t('workflowHistoryImport.empty') : '暂无历史申请' }}</text>
+            <u-button plain size="small" @click="loadInstances()">
               重新加载
             </u-button>
           </view>
@@ -664,6 +742,10 @@ function resolveMobilePage() {
                 :key="instance.id"
                 class="workflow-history-import-dialog__instance"
                 :class="{ 'workflow-history-import-dialog__instance--selected': selectedInstanceId === instance.id }"
+                role="button"
+                tabindex="0"
+                @keydown.enter.prevent="selectInstance(instance)"
+                @keydown.space.prevent="selectInstance(instance)"
                 @click="selectInstance(instance)"
               >
                 <view class="workflow-history-import-dialog__instance-main">
@@ -856,10 +938,10 @@ function resolveMobilePage() {
 
       <view
         class="workflow-history-import-dialog__actions"
-        :class="{ 'workflow-history-import-dialog__actions--mobile-hidden': mobile && currentStep === 'select' }"
+        :class="{ 'workflow-history-import-dialog__actions--mobile-hidden': mobile && currentStep === 'select' && !latestMode && !configError }"
       >
         <template v-if="currentStep === 'select'">
-          <u-button v-if="!mobile" class="workflow-history-import-dialog__cancel" plain :disabled="detailLoading" @click="closeDialog">
+          <u-button v-if="!mobile || latestMode || configError" class="workflow-history-import-dialog__cancel" plain @click="closeDialog">
             取消
           </u-button>
         </template>
@@ -885,6 +967,17 @@ function resolveMobilePage() {
 </template>
 
 <style lang="scss" scoped>
+.workflow-history-import-dialog__preset-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 20rpx 28rpx;
+  color: var(--u-main-color);
+  background: var(--u-bg-color);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .workflow-history-import-dialog {
   width: 100%;
   height: 100%;

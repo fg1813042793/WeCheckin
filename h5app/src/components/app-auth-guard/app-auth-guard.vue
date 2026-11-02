@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LoginRequest } from '@/types/dingtalk-h5'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import DingtalkBindPanel from '@/components/dingtalk-bind-panel/dingtalk-bind-panel.vue'
 import DingtalkLoginPanel from '@/components/dingtalk-login-panel/dingtalk-login-panel.vue'
 import { useDingtalkAuthStore } from '@/stores'
@@ -10,63 +10,57 @@ const emit = defineEmits<{
 }>()
 
 const auth = useDingtalkAuthStore()
-const initializing = ref(false)
-
 const userId = computed(() => auth.user?.id || '')
 
 async function ensureReady() {
-  if (auth.ready) {
-    if (auth.user) {
-      emit('authenticated')
-    }
-    return
-  }
-  if (initializing.value) {
-    return
-  }
-  initializing.value = true
-  try {
-    await auth.init()
-    if (auth.user) {
-      emit('authenticated')
-    }
-  }
-  finally {
-    initializing.value = false
-  }
+  await auth.syncCorpContext()
 }
 
 async function handleLogin(form: LoginRequest) {
-  const loggedIn = await auth.loginWithPassword(form)
-  if (loggedIn) {
-    emit('authenticated')
-  }
+  await auth.loginWithPassword(form)
 }
 
 async function handleBind(account: string, password: string) {
-  const loggedIn = await auth.bindDingTalkUser(account, password)
-  if (loggedIn) {
-    emit('authenticated')
-  }
+  await auth.bindDingTalkUser(account, password)
 }
 
 async function handleRetryAutoLogin() {
-  auth.resetSession()
-  const loggedIn = await auth.tryDingTalkAutoLogin()
-  if (loggedIn) {
-    emit('authenticated')
-  }
+  await auth.retryDingTalkLogin()
+}
+
+function handleVisibilityChange() {
+  // #ifdef H5
+  if (document.visibilityState === 'visible')
+    void ensureReady()
+  // #endif
 }
 
 onMounted(() => {
-  ensureReady()
+  void ensureReady()
+  // #ifdef H5
+  window.addEventListener('focus', ensureReady)
+  window.addEventListener('pageshow', ensureReady)
+  window.addEventListener('hashchange', ensureReady)
+  window.addEventListener('popstate', ensureReady)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  // #endif
+})
+
+onBeforeUnmount(() => {
+  // #ifdef H5
+  window.removeEventListener('focus', ensureReady)
+  window.removeEventListener('pageshow', ensureReady)
+  window.removeEventListener('hashchange', ensureReady)
+  window.removeEventListener('popstate', ensureReady)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  // #endif
 })
 
 watch(userId, (nextUserId) => {
   if (nextUserId) {
     emit('authenticated')
   }
-})
+}, { immediate: true })
 </script>
 
 <template>
@@ -102,8 +96,16 @@ watch(userId, (nextUserId) => {
       v-else-if="!auth.user"
       :app-config="auth.appConfig"
       :auto-login-message="auth.autoLoginMessage"
+      :show-dingtalk-login="auth.canRetryDingTalkLogin"
+      :captcha-enabled="auth.captchaEnabled"
+      :captcha-id="auth.captchaId"
+      :captcha-image="auth.captchaImage"
+      :captcha-loading="auth.captchaLoading"
+      :captcha-unavailable="auth.captchaUnavailable"
       :loading="auth.loading"
+      @refresh-captcha="auth.refreshLoginCaptcha"
       @login="handleLogin"
+      @retry-dingtalk="handleRetryAutoLogin"
     />
 
     <slot v-else />

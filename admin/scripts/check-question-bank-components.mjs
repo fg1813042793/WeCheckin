@@ -52,6 +52,12 @@ for (const snippet of [
   'scheduleAutoSave',
   'flushPendingSave',
   'handleWorkspaceKeydown',
+  "hasPerm('admin:menu:bank:add')",
+  "hasPerm('admin:menu:bank:edit')",
+  "hasPerm('admin:menu:bank:del')",
+  "hasPerm('admin:menu:question-bank:add')",
+  "hasPerm('admin:menu:question-bank:edit')",
+  "hasPerm('admin:menu:question-bank:del')",
 ]) {
   requireSnippet(page, snippet, 'question bank page')
 }
@@ -77,6 +83,12 @@ const canvas = read('views/question-bank/components/QuestionEditorCanvas.vue')
 for (const snippet of ['编辑', '预览', 'JSON', 'QuestionRichEditorDialog', "emit('add-question'"]) {
   requireSnippet(canvas, snippet, 'question editor canvas')
 }
+requireSnippet(canvas, '.bank-rich-editor:focus-within', 'question editor canvas')
+requireSnippet(canvas, 'box-shadow:none;', 'question editor canvas')
+
+const editorDialog = read('views/question-bank/components/QuestionEditorDialog.vue')
+requireSnippet(editorDialog, '.bank-rich-editor:focus-within', 'question editor dialog')
+requireSnippet(editorDialog, 'box-shadow: none;', 'question editor dialog')
 
 const properties = read('views/question-bank/components/QuestionPropertiesPanel.vue')
 for (const snippet of ['题目属性', '所属题库', "activeScope === 'exam'", '正确答案', '答案解析']) {

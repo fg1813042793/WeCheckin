@@ -3,6 +3,7 @@ package exam
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 
@@ -45,8 +46,33 @@ func (h *AdminExamHandler) Detail(ctx context.Context, c *app.RequestContext) {
 }
 
 // @Tags PC端-考试管理
+// @Summary 复制考试
+// @Param id formData int true "考试ID"
+// @Success 200 {object} response.Resp
+func (h *AdminExamHandler) Copy(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	id, _ := strconv.Atoi(c.PostForm("id"))
+	if id <= 0 {
+		response.Fail(c, "无效的考试ID")
+		return
+	}
+	deptID, err := formkitadmin.FirstAdminDeptIDContext(ctx, admin.ID)
+	if err != nil {
+		response.FailInternal(ctx, c, "admin.exam.handler", "获取部门失败，请稍后重试", err)
+		return
+	}
+	copied, err := h.svc.CopyForAdminContext(ctx, uint(id), admin.ID, deptID, admin.ID)
+	if err != nil {
+		response.FailInternal(ctx, c, "admin.exam.handler", "复制失败，请稍后重试", err)
+		return
+	}
+	response.JSON(c, newExamListItem(*copied))
+}
+
+// @Tags PC端-考试管理
 // @Summary 创建/更新考试
-// @Param title formData string true "标题"
+// @Param title formData string true "管理名称"
 // @Param description formData string false "描述"
 // @Param category formData string false "分类"
 // @Param tags formData string false "标签"
@@ -60,11 +86,12 @@ func (h *AdminExamHandler) Detail(ctx context.Context, c *app.RequestContext) {
 // @Param duration formData int false "答题时长"
 // @Param maxAttempts formData int false "最大次数"
 // @Param showScore formData int false "显示分数"
+// @Param passScore formData int false "及格分，0表示无门槛"
 // @Param status formData int false "状态"
 // @Param schema formData string false "题目JSON"
 // @Param deptIds formData string false "部门ID"
 // @Param mode formData string false "模式"
-// @Param settings formData string false "设置JSON"
+// @Param settings formData string false "设置JSON，displayTitle 为显示名称，最多100字，留空使用管理名称"
 // @Success 200 {object} response.Resp
 func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
@@ -85,6 +112,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 		Duration    int    `json:"duration" form:"duration"`
 		MaxAttempts int    `json:"maxAttempts" form:"maxAttempts"`
 		ShowScore   int    `json:"showScore" form:"showScore"`
+		PassScore   int    `json:"passScore" form:"passScore"`
 		Status      int    `json:"status" form:"status"`
 		Schema      string `json:"schema" form:"schema"`
 		DeptIds     string `json:"deptIds" form:"deptIds"`
@@ -96,8 +124,19 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 		response.FailInternal(ctx, c, "admin.exam.handler", "参数错误，请稍后重试", err)
 		return
 	}
+	req.Title = strings.TrimSpace(req.Title)
 	if req.Title == "" {
-		response.Fail(c, "标题不能为空")
+		response.Fail(c, "管理名称不能为空")
+		return
+	}
+	normalizedSettings, settingsErr := examservice.NormalizeDisplayTitleSettings(req.Settings)
+	if settingsErr != nil {
+		response.Fail(c, "考试设置无效，显示名称须为100字以内的文本")
+		return
+	}
+	req.Settings = normalizedSettings
+	if req.PassScore < 0 {
+		response.Fail(c, "及格分不能小于0")
 		return
 	}
 	if req.ID == 0 {
@@ -129,6 +168,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 			Duration:    req.Duration,
 			MaxAttempts: req.MaxAttempts,
 			ShowScore:   req.ShowScore,
+			PassScore:   req.PassScore,
 			Status:      req.Status,
 			DeptID:      deptID,
 			CreateBy:    createBy,
@@ -159,6 +199,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 			"exam_duration":     req.Duration,
 			"exam_max_attempts": req.MaxAttempts,
 			"exam_show_score":   req.ShowScore,
+			"exam_pass_score":   req.PassScore,
 			"exam_status":       req.Status,
 		}
 		if err := h.svc.UpdateForAdminContext(ctx, req.ID, updates, admin.ID); err != nil {

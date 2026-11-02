@@ -1,9 +1,10 @@
 <template>
   <AdminPageShell width="fluid" density="compact" class="survey-page">
     <section class="survey-toolbar-card" aria-label="问卷工具栏">
-      <AdminSearchBar title="" class="survey-search" @search="search" @reset="resetSearch">
-        <el-input v-model="keyword" :prefix-icon="Search" placeholder="搜索问卷名称或 ID" clearable @keyup.enter="search" />
-        <el-input v-model="category" placeholder="按分类筛选" clearable @keyup.enter="search" />
+      <AdminSearchBar title="" class="survey-search" :show-actions="false" @search="search" @reset="resetSearch">
+        <el-input v-model="keyword" :prefix-icon="Search" placeholder="搜索问卷名称或 ID" clearable />
+        <el-input v-model="category" placeholder="按分类筛选" clearable />
+        <AdminFilterActions class="survey-search-inline-actions" native-type="submit" :loading="loading" @reset="resetSearch" />
       </AdminSearchBar>
       <div class="survey-actions-row">
         <div class="survey-actions-row__left">
@@ -68,10 +69,10 @@
         <el-table-column label="状态" width="100"><template #default="{ row }"><span class="status-label" :class="row.status === 1 ? 'published' : 'stopped'"><i />{{ row.status === 1 ? '已发布' : '已停用' }}</span></template></el-table-column>
         <el-table-column label="操作" width="190" fixed="right"><template #default="{ row }"><div class="table-actions"><el-button text type="primary" @click="goEdit(row)">编辑</el-button><el-button text @click="goResponses(row)">数据</el-button><el-button text @click="goStatistic(row)">统计</el-button><el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)"><el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" /></el-dropdown></div></template></el-table-column>
       </el-table>
-      <template #footer><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total, prev, pager, next" background @current-change="load" /></template>
+      <template #footer><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="handlePageSizeChange" /></template>
     </AdminTablePanel>
 
-    <footer v-if="gridView" class="collection-footer"><span>共 {{ total }} 份问卷</span><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="prev, pager, next" background @current-change="load" /></footer>
+    <footer v-if="gridView" class="collection-footer"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="handlePageSizeChange" /></footer>
   </AdminPageShell>
 </template>
 
@@ -80,7 +81,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DataAnalysis, Document, EditPen, Grid, List, MoreFilled, Plus, RefreshRight, Search } from '@element-plus/icons-vue'
-import { AdminPageShell, AdminSearchBar, AdminTablePanel } from '../../components/admin-ui'
+import { AdminFilterActions, AdminPageShell, AdminSearchBar, AdminTablePanel } from '../../components/admin-ui'
 import { adminApi } from '../../api'
 
 const router = useRouter()
@@ -100,6 +101,7 @@ function visType(value: number) { return ({ 0: 'success', 1: 'primary', 2: 'warn
 function fmtDate(value: number) { return value ? new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) : '-' }
 async function load() { loading.value = true; try { const res: any = await adminApi.surveyList({ page: page.value, pageSize: pageSize.value, keyword: keyword.value.trim(), category: category.value.trim(), status: status.value === null ? -1 : status.value }); list.value = res.data?.list || []; total.value = res.data?.total || 0 } finally { loading.value = false } }
 function search() { page.value = 1; void load() }
+function handlePageSizeChange() { page.value = 1; void load() }
 function resetSearch() { keyword.value = ''; category.value = ''; status.value = null; page.value = 1; void load() }
 function selectStatus(value: number | null) { status.value = value; page.value = 1; void load() }
 function goCreate() { router.push('/survey/designer') }

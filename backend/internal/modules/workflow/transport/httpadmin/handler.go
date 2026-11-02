@@ -24,6 +24,8 @@ type RuntimeService interface {
 	CompleteTask(context.Context, workflowapp.CompleteTaskRequest) (*workflowdomain.State, error)
 	CancelInstance(context.Context, workflowapp.CancelInstanceRequest) (*workflowdomain.State, error)
 	ResumeTimers(context.Context, string, string) (*workflowdomain.State, int, error)
+	PreviewInstanceVersionUpgrade(context.Context, string) (*workflowapp.InstanceVersionUpgradePreview, error)
+	UpgradeInstanceVersion(context.Context, workflowapp.UpgradeInstanceVersionRequest) (*workflowapp.UpgradeInstanceVersionResult, error)
 	ListInstances(context.Context, workflowapp.InstanceQuery) (*workflowapp.InstanceList, error)
 	GetInstance(context.Context, string) (*workflowapp.InstanceDetail, error)
 	DeleteInstances(context.Context, string, []string) (int, error)
@@ -69,6 +71,10 @@ type completeTaskBody struct {
 
 type cancelInstanceBody struct {
 	Reason string `json:"reason"`
+}
+
+type upgradeInstanceVersionBody struct {
+	ExpectedFromVersion int `json:"expectedFromVersion"`
 }
 
 type dispatchDueNotificationsBody struct {
@@ -230,6 +236,57 @@ func (handler *RuntimeHandler) CancelInstance(ctx context.Context, c *app.Reques
 		return
 	}
 	response.JSON(c, newMutationResponse(state))
+}
+
+func (handler *RuntimeHandler) PreviewInstanceVersionUpgrade(ctx context.Context, c *app.RequestContext) {
+	_, scope, ok := handler.resolveScope(ctx, c)
+	if !ok {
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	if err := handler.ensureInstancesVisible(ctx, []string{instanceID}, scope); err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.preview_instance_version_upgrade", err)
+		return
+	}
+	data, err := handler.service.PreviewInstanceVersionUpgrade(ctx, instanceID)
+	if err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.preview_instance_version_upgrade", err)
+		return
+	}
+	response.JSON(c, data)
+}
+
+func (handler *RuntimeHandler) UpgradeInstanceVersion(ctx context.Context, c *app.RequestContext) {
+	admin, scope, ok := handler.resolveScope(ctx, c)
+	if !ok {
+		return
+	}
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	if err := handler.ensureInstancesVisible(ctx, []string{instanceID}, scope); err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.upgrade_instance_version", err)
+		return
+	}
+	var body upgradeInstanceVersionBody
+	if err := decodeJSONBody(c, &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	data, err := handler.service.UpgradeInstanceVersion(ctx, workflowapp.UpgradeInstanceVersionRequest{
+		InstanceID: instanceID, ActorID: strconv.FormatUint(uint64(admin.ID), 10), ExpectedFromVersion: body.ExpectedFromVersion,
+	})
+	if err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.upgrade_instance_version", err)
+		return
+	}
+	response.JSON(c, data)
 }
 
 func (handler *RuntimeHandler) ResumeTimers(ctx context.Context, c *app.RequestContext) {

@@ -144,6 +144,7 @@ type Logger interface {
 
 type Service struct {
 	store                       Store
+	dingTalkRecipientChecker    DingTalkRecipientChecker
 	imageStorage                ImageStorage
 	now                         func() time.Time
 	location                    *time.Location
@@ -154,6 +155,16 @@ type Service struct {
 
 func NewService(store Store, imageStorage ImageStorage) *Service {
 	return newServiceWithClock(store, imageStorage, time.Now, shanghaiLocation(time.LoadLocation))
+}
+
+type DingTalkRecipientChecker interface {
+	CanDeliverTo(context.Context, uint) (bool, error)
+}
+
+func NewServiceWithDingTalk(store Store, imageStorage ImageStorage, checker DingTalkRecipientChecker) *Service {
+	service := NewService(store, imageStorage)
+	service.dingTalkRecipientChecker = checker
+	return service
 }
 
 func shanghaiLocation(loader func(string) (*time.Location, error)) *time.Location {

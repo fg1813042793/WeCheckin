@@ -29,7 +29,7 @@ func (h *ClientExamHandler) Start(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	deviceId := c.Query("deviceId")
-	result, err := h.service().StartContext(ctx, examID, uid, deviceId)
+	result, err := h.service().StartContext(ctx, examID, uid, deviceId, clientEnvironment(c, c.Query("device")))
 	if err != nil {
 		switch {
 		case errors.Is(err, examservice.ErrExamNotPublished):

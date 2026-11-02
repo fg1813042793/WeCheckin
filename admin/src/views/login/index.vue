@@ -33,7 +33,37 @@
               @keyup.enter="login"
             />
           </el-form-item>
-          <el-button type="primary" class="login-submit" size="large" :loading="loading" @click="login">登 录</el-button>
+          <el-form-item v-if="captchaEnabled" label="图片验证码" prop="captchaCode">
+            <div class="captcha-field">
+              <el-input
+                v-model="form.captchaCode"
+                placeholder="请输入图片验证码"
+                maxlength="5"
+                autocomplete="off"
+                size="large"
+                @keyup.enter="login"
+              />
+              <button
+                type="button"
+                class="captcha-image-button"
+                :disabled="captchaLoading"
+                aria-label="刷新图片验证码"
+                title="点击刷新验证码"
+                @click="refreshCaptcha"
+              >
+                <img v-if="captchaImage" :src="captchaImage" alt="图片验证码" />
+                <el-icon v-else class="captcha-refresh-icon"><RefreshRight /></el-icon>
+              </button>
+            </div>
+          </el-form-item>
+          <el-button
+            type="primary"
+            class="login-submit"
+            size="large"
+            :loading="loading"
+            :disabled="captchaEnabled && (!captchaId || !captchaImage || captchaLoading)"
+            @click="login"
+          >登 录</el-button>
         </el-form>
         <p class="login-tip">登录后将根据账号权限展示对应菜单。</p>
       </el-card>
@@ -42,8 +72,9 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { RefreshRight } from '@element-plus/icons-vue'
 import { adminApi } from '../../api'
 import { clearAdminSession } from '../../utils/adminSession'
 import { invalidateAdminAccessSnapshot, loadAdminAccessSnapshot } from '../../router/adminAccess'
@@ -52,32 +83,66 @@ import type { FormInstance } from 'element-plus'
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
-const form = reactive({ name: '', password: '' })
-const rules = {
+const captchaLoading = ref(false)
+const captchaEnabled = ref(false)
+const captchaId = ref('')
+const captchaImage = ref('')
+const form = reactive({ name: '', password: '', captchaCode: '' })
+const rules = computed(() => ({
   name: [{ required: true, message: '请输入姓名或手机号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captchaCode: captchaEnabled.value
+    ? [{ required: true, message: '请输入图片验证码', trigger: 'blur' }]
+    : []
+}))
+
+async function refreshCaptcha() {
+  captchaLoading.value = true
+  form.captchaCode = ''
+  try {
+    const res = await adminApi.captcha()
+    captchaEnabled.value = res.data?.enabled === true
+    captchaId.value = captchaEnabled.value ? String(res.data?.captchaId || '') : ''
+    captchaImage.value = captchaEnabled.value ? String(res.data?.imageData || '') : ''
+  } catch {
+    captchaEnabled.value = true
+    captchaId.value = ''
+    captchaImage.value = ''
+  } finally {
+    captchaLoading.value = false
+  }
 }
 
 async function login() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
+  let succeeded = false
   try {
     clearAdminSession()
-    const res = await adminApi.login({ name: form.name, password: form.password })
+    const res = await adminApi.login({
+      name: form.name,
+      password: form.password,
+      captchaId: captchaEnabled.value ? captchaId.value : undefined,
+      captchaCode: captchaEnabled.value ? form.captchaCode.trim().toUpperCase() : undefined
+    })
     const d = res.data
     localStorage.setItem('admin_token', d.token || '')
     localStorage.setItem('admin_info', JSON.stringify(d))
     invalidateAdminAccessSnapshot()
     await loadAdminAccessSnapshot()
+    succeeded = true
     const redirect = typeof router.currentRoute.value.query.redirect === 'string'
       ? router.currentRoute.value.query.redirect
       : '/'
     router.push(redirect)
   } finally {
     loading.value = false
+    if (captchaEnabled.value && !succeeded) await refreshCaptcha()
   }
 }
+
+onMounted(refreshCaptcha)
 </script>
 
 <style scoped>
@@ -184,6 +249,45 @@ async function login() {
   margin-top: 4px;
 }
 
+.captcha-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 10px;
+  width: 100%;
+}
+
+.captcha-field :deep(.el-input__inner) {
+  text-transform: uppercase;
+}
+
+.captcha-image-button {
+  width: 150px;
+  height: 40px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  background: #f6f8fc;
+  cursor: pointer;
+}
+
+.captcha-image-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.captcha-image-button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.captcha-refresh-icon {
+  color: #64748b;
+  font-size: 20px;
+}
+
 .login-tip {
   text-align: center;
   margin-top: 18px;
@@ -204,6 +308,14 @@ async function login() {
 
   .login-card {
     width: 100%;
+  }
+
+  .captcha-field {
+    grid-template-columns: minmax(0, 1fr) 132px;
+  }
+
+  .captcha-image-button {
+    width: 132px;
   }
 }
 </style>

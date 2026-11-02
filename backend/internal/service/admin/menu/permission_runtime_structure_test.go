@@ -18,6 +18,10 @@ func TestMenuRuntimePrefersUnifiedPermissions(t *testing.T) {
 		"permissionsToMenuTree",
 		"permissionRowsToMenus",
 		"type AdminMenu struct",
+		"CacheEnabled",
+		"row.CacheEnabledValue()",
+		"Hidden",
+		"row.HiddenValue()",
 		"permissionKeys(rows)",
 	} {
 		if !strings.Contains(text, snippet) {

@@ -1,0 +1,63 @@
+<h2>验证码清晰度方案</h2>
+<p class="subtitle">以下均按登录卡片中的实际尺寸展示。点击选择你希望采用的效果。</p>
+
+<div class="cards" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:18px">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="min-height:210px;display:flex;align-items:center;justify-content:center;background:#f6f7f9">
+      <svg width="110" height="40" viewBox="0 0 150 48" style="border:1px solid #d9dde5;border-radius:6px;background:#f6f8fc">
+        <path d="M0 33 C25 8,45 51,72 22 S120 44,150 8" fill="none" stroke="#e85d04" stroke-width="6"/>
+        <path d="M0 18 C18 43,48 2,73 31 S118 4,150 28" fill="none" stroke="#2563eb" stroke-width="3"/>
+        <g fill="#1f2937" font-family="Arial Black,sans-serif" font-size="24" font-weight="800">
+          <text x="12" y="34" transform="rotate(-12 12 34)">7</text>
+          <text x="38" y="32" transform="rotate(9 38 32)">M</text>
+          <text x="73" y="35" transform="rotate(-8 73 35)">5</text>
+          <text x="101" y="31" transform="rotate(12 101 31)">K</text>
+          <text x="130" y="35" transform="rotate(-7 130 35)">8</text>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>A. 当前强干扰</h3>
+      <p>两种粗干扰线 + 2 组噪点，显示时还会裁切。抗机器识别较强，但人工识别成本最高。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="border-color:#10b981">
+    <div class="card-image" style="min-height:210px;display:flex;align-items:center;justify-content:center;background:#f6f7f9">
+      <svg width="128" height="44" viewBox="0 0 180 56" style="border:1px solid #cfd6df;border-radius:6px;background:#ffffff">
+        <path d="M0 39 C35 17,66 48,99 25 S148 35,180 14" fill="none" stroke="#94a3b8" stroke-width="1.5" opacity="0.75"/>
+        <circle cx="24" cy="10" r="1" fill="#cbd5e1"/><circle cx="158" cy="42" r="1" fill="#cbd5e1"/>
+        <g fill="#172033" font-family="Arial Black,sans-serif" font-size="31" font-weight="900">
+          <text x="12" y="41" transform="rotate(-5 12 41)">7</text>
+          <text x="44" y="40" transform="rotate(4 44 40)">M</text>
+          <text x="83" y="42" transform="rotate(-4 83 42)">5</text>
+          <text x="116" y="40" transform="rotate(5 116 40)">K</text>
+          <text x="151" y="42" transform="rotate(-3 151 42)">8</text>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>B. 平衡清晰度（推荐）</h3>
+      <p>单条细干扰线 + 少量噪点，字符和画布同步放大，图片完整显示。保留基础防护，同时明显提升可读性。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="min-height:210px;display:flex;align-items:center;justify-content:center;background:#f6f7f9">
+      <svg width="128" height="44" viewBox="0 0 180 56" style="border:1px solid #cfd6df;border-radius:6px;background:#ffffff">
+        <g fill="#111827" font-family="Arial Black,sans-serif" font-size="32" font-weight="900">
+          <text x="12" y="41">7</text><text x="44" y="41">M</text><text x="84" y="41">5</text><text x="117" y="41">K</text><text x="151" y="41">8</text>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>C. 极简高对比</h3>
+      <p>不使用干扰线，只保留随机字符。人工识别最好，但图形本身的机器识别难度最低。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:22px;padding:16px;border:1px solid #dce3eb;border-radius:8px;background:#f8fafc">
+  <strong>建议选择 B</strong>
+  <p style="margin:6px 0 0;color:#526071">登录接口已有一次性消费、两分钟有效期和错误即失效机制，不需要依赖过强视觉干扰来承担全部安全性。</p>
+</div>

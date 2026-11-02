@@ -33,8 +33,8 @@ func TestAdminPermRejectsUnmappedAdminRoute(t *testing.T) {
 	if strings.Contains(body, "allowed") {
 		t.Fatalf("unmapped admin route should be rejected, got body %q", body)
 	}
-	if !strings.Contains(body, "无权限") {
-		t.Fatalf("unmapped admin route should return permission error, got body %q", body)
+	if !strings.Contains(body, "接口未配置权限规则") {
+		t.Fatalf("unmapped admin route should identify missing route configuration, got body %q", body)
 	}
 }
 
@@ -114,7 +114,7 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "PUT", path: "/api/v2/admin/exams/8", want: "exam:edit"},
 		{method: "DELETE", path: "/api/v2/admin/exams/8/records/99", want: "exam:del"},
 		{method: "GET", path: "/api/v2/admin/workflow-instances", want: "workflow:instance:list"},
-		{method: "GET", path: "/api/v2/admin/workflow-published-definitions", want: "workflow:instance:start"},
+		{method: "GET", path: "/api/v2/admin/workflow-published-definitions", want: "workflow:instance:start,workflow:instance:upgrade"},
 		{method: "GET", path: "/api/v2/admin/workflow-user-options", want: "workflow:instance:start"},
 		{method: "GET", path: "/api/v2/admin/workflow-department-options", want: "workflow:instance:start"},
 		{method: "GET", path: "/api/v2/admin/workflow-published-definitions/7", want: "workflow:instance:start"},
@@ -128,6 +128,8 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "GET", path: "/api/v2/admin/workflow-instances/wfi_42", want: "workflow:instance:detail"},
 		{method: "DELETE", path: "/api/v2/admin/workflow-instances/wfi_42", want: "workflow:instance:delete"},
 		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/cancel", want: "workflow:instance:cancel"},
+		{method: "GET", path: "/api/v2/admin/workflow-instances/wfi_42/version-upgrade-preview", want: "workflow:instance:upgrade:preview"},
+		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/version-upgrade", want: "workflow:instance:upgrade"},
 		{method: "GET", path: "/api/v2/admin/workflow-tasks", want: "workflow:task:list"},
 		{method: "POST", path: "/api/v2/admin/workflow-tasks/wft_99/complete", want: "workflow:task:complete"},
 		{method: "DELETE", path: "/api/v2/admin/workflow-tasks/wft_99", want: "workflow:task:delete"},

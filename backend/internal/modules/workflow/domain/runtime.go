@@ -73,6 +73,7 @@ const (
 	HistoryInstanceFormRevisionRejected  HistoryEventType = "instance_form_revision_rejected"
 	HistoryInstanceFormRevisionCancelled HistoryEventType = "instance_form_revision_cancelled"
 	HistoryInstanceFormRevisionConflict  HistoryEventType = "instance_form_revision_conflict"
+	HistoryInstanceVersionUpgraded       HistoryEventType = "instance_version_upgraded"
 )
 
 type ParticipantRole string

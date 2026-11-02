@@ -25,6 +25,11 @@ func TestAdminPermissionServiceManagesUnifiedPermissions(t *testing.T) {
 		"DeleteContext",
 		"model.Permission",
 		"permission_icon",
+		"permission_cache_enabled",
+		"CacheEnabled",
+		"permission_hidden",
+		"Hidden",
+		"HiddenValue",
 		"permissionsupport.PlatformAdmin",
 	} {
 		if !strings.Contains(text, snippet) {

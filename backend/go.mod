@@ -6,6 +6,7 @@ require (
 	github.com/cloudwego/hertz v0.10.4
 	github.com/hertz-contrib/cors v0.1.0
 	github.com/hertz-contrib/swagger v0.1.1
+	github.com/mojocn/base64Captcha v1.3.8
 	github.com/redis/go-redis/v9 v9.20.0
 	github.com/spf13/viper v1.21.0
 	github.com/swaggo/files v1.0.1
@@ -33,6 +34,7 @@ require (
 	github.com/go-openapi/swag v0.22.4 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -54,6 +56,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
+	golang.org/x/image v0.23.0 // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect

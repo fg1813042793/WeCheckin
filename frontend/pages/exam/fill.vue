@@ -15,7 +15,7 @@
       <view class="exam-card exam-card--narrow">
         <view class="exam-login-header">
           <text class="exam-login-title">登录后参加考试</text>
-          <text class="exam-login-desc" v-if="exam && exam.title">{{ exam.title }}</text>
+          <text class="exam-login-desc" v-if="displayTitle">{{ displayTitle }}</text>
         </view>
         <view class="exam-login-form">
           <input v-model="loginForm.name" class="login-input" placeholder="用户名 / 手机号" @confirm="doLogin" />
@@ -50,7 +50,7 @@
     <!-- 成绩单 -->
     <view v-else-if="showResultView && result && (settings.transcriptVisible !== false || settings.showAnalysis)" class="result-container">
       <view v-if="settings.transcriptVisible !== false" class="result-header">
-        <text class="result-title">{{ exam ? exam.title : '' }}</text>
+        <text class="result-title">{{ displayTitle }}</text>
         <view class="result-score">
           <text class="result-score-num">{{ result.score }}</text>
           <text class="result-score-total">/{{ result.fullScore }}</text>
@@ -78,7 +78,7 @@
     <view v-else-if="exam" class="exam-card">
       <view v-if="headerImage" class="exam-card-img"><image :src="headerImage" mode="aspectFill" /></view>
       <view class="exam-header">
-        <text class="exam-title">{{ exam.title }}</text>
+        <text class="exam-title">{{ displayTitle }}</text>
         <text v-if="exam.description" class="exam-desc">{{ exam.description }}</text>
         <view class="exam-meta">
           <text v-if="exam.showScore && totalScore" class="exam-tag">满分 {{ totalScore }} 分</text>
@@ -180,6 +180,7 @@ import {
   getQuestionInitialValue,
   isQuestionAnswered,
   parseQuestions,
+  resolveSurveyTitle as resolveExamTitle,
   parseSettings
 } from '../../utils/formFill'
 
@@ -224,6 +225,7 @@ export default {
     }
   },
   computed: {
+    displayTitle() { return resolveExamTitle(this.exam?.title, this.settings?.displayTitle) },
     LAYOUT_TYPES() { return LAYOUT_TYPES },
     answerProgress() { return getAnswerProgress(this.questions, this.answers) },
     totalQuestions() { return this.answerProgress.total },
@@ -278,7 +280,7 @@ export default {
             this.exam = res.data.exam
             this.questions = res.data.questions || []
             this.answers = res.data.answers || {}
-            this.settings = res.data.settings || {}
+            this.settings = parseSettings(res.data.settings)
             if (res.data.record) {
               const d = res.data
               this.result = {

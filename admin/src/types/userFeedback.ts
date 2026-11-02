@@ -1,6 +1,7 @@
 export type UserFeedbackStatus = 'pending' | 'processing' | 'resolved' | 'closed'
-export type UserFeedbackMessageType = 'initial' | 'supplement' | 'status'
+export type UserFeedbackMessageType = 'initial' | 'supplement' | 'status' | 'notification'
 export type UserFeedbackAuthorType = 'user' | 'admin'
+export type UserFeedbackNotificationChannel = 'internal' | 'dingtalk'
 
 export interface UserFeedbackOverview {
   pending: number
@@ -78,6 +79,13 @@ export interface UpdateUserFeedbackStatusInput {
   status: UserFeedbackStatus
   note: string
   notifyUser: boolean
+  version: number
+  requestId: string
+}
+
+export interface NotifyUserFeedbackInput {
+  content: string
+  channel: UserFeedbackNotificationChannel
   version: number
   requestId: string
 }

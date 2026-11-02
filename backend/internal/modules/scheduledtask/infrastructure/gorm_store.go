@@ -382,7 +382,7 @@ func (store *GormStore) DeleteRuns(ctx context.Context, runIDs []string) (int, e
 	return int(deleted), err
 }
 
-func (store *GormStore) GenerateDueRuns(ctx context.Context, now int64, limit int) ([]string, error) {
+func (store *GormStore) GenerateDueRuns(ctx context.Context, now, misfireGraceMillis int64, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -404,13 +404,13 @@ func (store *GormStore) GenerateDueRuns(ctx context.Context, now int64, limit in
 			if task.LastScheduledAt <= 0 {
 				cursor = time.UnixMilli(task.NextRunAt).UTC().Add(-time.Nanosecond)
 			}
-			due, err := schedule.ComputeDue(cursor, nowTime, task.MisfirePolicy, task.MaxCatchUp)
+			due, err := schedule.ComputeDue(cursor, nowTime, task.MisfirePolicy, task.MaxCatchUp, time.Duration(misfireGraceMillis)*time.Millisecond)
 			if err != nil {
 				return fmt.Errorf("compute scheduled task %d: %w", task.ID, err)
 			}
 			for _, occurrence := range due.Runs {
 				triggerType := scheduledtaskmodel.TriggerTypeScheduled
-				if occurrence.CoalescedCount > 1 || due.SkippedCount > 0 {
+				if occurrence.Misfire || occurrence.CoalescedCount > 1 {
 					triggerType = scheduledtaskmodel.TriggerTypeMisfire
 				}
 				result, err := service.CreateScheduledRun(ctx, task, occurrence.ScheduledAt, occurrence.CoalescedCount, triggerType)
@@ -422,6 +422,15 @@ func (store *GormStore) GenerateDueRuns(ctx context.Context, now int64, limit in
 				}
 				if !result.Merged && result.Run != nil && result.Run.Status == scheduledtaskmodel.RunStatusQueued {
 					runIDs = append(runIDs, result.Run.ID)
+				}
+			}
+			if due.SkippedCount > 0 {
+				skippedAt := due.SkippedAt
+				if skippedAt.IsZero() {
+					skippedAt = time.UnixMilli(task.NextRunAt).UTC()
+				}
+				if _, err := service.RecordMisfireSkippedRun(ctx, task, skippedAt, due.SkippedCount); err != nil && !errors.Is(err, application.ErrDuplicateRunKey) {
+					return err
 				}
 			}
 			expectedVersion := task.Version

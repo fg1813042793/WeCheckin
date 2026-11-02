@@ -114,6 +114,24 @@ func TestCreateScheduledRunAppliesConcurrencyPolicies(t *testing.T) {
 	}
 }
 
+func TestRecordMisfireSkippedRunPersistsAuditReason(t *testing.T) {
+	store := &fakeStore{}
+	service := newTestService(store, &fakeValidator{}, &fakePublisher{})
+	task := validTask()
+	scheduledAt := time.Date(2026, time.November, 1, 8, 0, 0, 0, time.UTC)
+
+	run, err := service.RecordMisfireSkippedRun(context.Background(), task, scheduledAt, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.createdRun != run || run.Status != scheduledtaskmodel.RunStatusSkipped || run.TriggerType != scheduledtaskmodel.TriggerTypeMisfire {
+		t.Fatalf("skipped run = %#v", run)
+	}
+	if run.ScheduledAt != scheduledAt.UnixMilli() || run.CoalescedCount != 3 || run.ResultSummary != "错过 3 次计划执行，按错过策略跳过" {
+		t.Fatalf("skipped run audit = %#v", run)
+	}
+}
+
 func TestRunNowKeepsRunWhenQueuePublishFails(t *testing.T) {
 	store := &fakeStore{task: validTask()}
 	publisher := &fakePublisher{err: errors.New("redis unavailable")}

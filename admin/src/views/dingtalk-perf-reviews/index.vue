@@ -27,8 +27,7 @@
               :value="item.value"
             />
           </el-select>
-          <el-button type="primary" @click="handleFilter">搜索</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="handleFilter" @reset="resetFilters" />
         </div>
       </div>
       <div class="admin-toolbar">
@@ -124,7 +123,6 @@
         <el-pagination
           v-model:current-page="filters.page"
           v-model:page-size="filters.pageSize"
-          background
           layout="total, sizes, prev, pager, next"
           :page-sizes="[10, 20, 50, 100]"
           :total="total"
@@ -220,6 +218,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AdminFilterActions } from '@/components/admin-ui'
 import request from '../../utils/request'
 import { hasPerm } from '../../utils/permission'
 

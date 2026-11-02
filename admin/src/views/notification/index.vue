@@ -18,6 +18,7 @@
 
       <el-tabs v-model="activeRecordView" class="record-view-tabs" @tab-change="handleRecordViewChange">
         <el-tab-pane label="站内信记录" name="in_app" />
+        <el-tab-pane label="钉钉投递" name="dingtalk" />
         <el-tab-pane label="Webhook 投递" name="webhook" />
         <el-tab-pane v-if="canViewWorkflowNotifications" label="流程投递" name="workflow" />
       </el-tabs>
@@ -59,8 +60,7 @@
             end-placeholder="发送结束时间"
             style="width: 400px"
           />
-          <el-button type="primary" :icon="Search" @click="search">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="search" @reset="resetFilters" />
         </div>
         <div class="admin-toolbar__right">
           <el-button v-if="canDelete" type="danger" plain :icon="Delete" :disabled="inAppSelectedRows.length === 0" @click="deleteSelectedInApp">批量删除</el-button>
@@ -133,8 +133,7 @@
               <el-option label="待重试" value="failed" />
               <el-option label="已终止" value="dead" />
             </el-select>
-            <el-button type="primary" :icon="Search" @click="loadWebhookRecords">查询</el-button>
-            <el-button @click="webhookStatus = ''; loadWebhookRecords()">重置</el-button>
+            <AdminFilterActions @search="loadWebhookRecords" @reset="webhookStatus = ''; loadWebhookRecords()" />
           </div>
           <div class="admin-toolbar__right">
             <el-button v-if="canDelete" type="danger" plain :icon="Delete" :disabled="webhookSelectedRows.length === 0" @click="deleteSelectedWebhook">批量删除</el-button>
@@ -185,6 +184,11 @@
           />
         </div>
       </template>
+
+      <DingTalkDeliveryRecords
+        v-else-if="activeRecordView === 'dingtalk'"
+        :can-delete="canDelete"
+      />
 
       <WorkflowDeliveryRecords
         v-else-if="activeRecordView === 'workflow' && canViewWorkflowNotifications"
@@ -264,60 +268,12 @@
       </template>
     </el-dialog>
 
-    <el-dialog
+    <NotificationSendDialog
       v-model="sendDialogVisible"
-      :title="sendDialogTitle"
-      width="min(640px, 92vw)"
-      append-to-body
-      destroy-on-close
-      :close-on-click-modal="false"
-    >
-      <el-form label-position="top" @submit.prevent>
-        <el-form-item label="通知标题" required>
-          <el-input v-model="sendForm.title" maxlength="255" show-word-limit placeholder="请输入通知标题" />
-        </el-form-item>
-        <el-form-item label="通知正文" required>
-          <el-input
-            v-model="sendForm.content"
-            type="textarea"
-            :rows="7"
-            maxlength="5000"
-            show-word-limit
-            resize="vertical"
-            placeholder="请输入通知正文"
-          />
-        </el-form-item>
-        <el-form-item label="收件范围" required>
-          <el-segmented v-model="sendForm.scope" :options="scopeOptions" block />
-        </el-form-item>
-        <el-form-item v-if="sendForm.scope === 'departments'" label="指定部门" required>
-          <WorkflowUserTreePicker
-            v-model="emptyUserSelection"
-            v-model:department-model-value="departmentModelValue"
-            :departments="recipientOptions.departments"
-            :users="[]"
-            :multiple="true"
-            :select-department-rules="true"
-            :disabled="recipientOptionsLoading"
-            placeholder="请选择一个或多个部门"
-          />
-        </el-form-item>
-        <el-form-item v-if="sendForm.scope === 'users'" label="指定用户" required>
-          <WorkflowUserTreePicker
-            v-model="sendForm.userIds"
-            :departments="recipientOptions.departments"
-            :users="recipientOptions.users"
-            :multiple="true"
-            :disabled="recipientOptionsLoading"
-            placeholder="请选择一个或多个用户"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="sendDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="sending" @click="sendNotification">发送</el-button>
-      </template>
-    </el-dialog>
+      :channel="sendChannel"
+      :can-send="sendChannel === 'dingtalk' ? canSendDingTalk : canSend"
+      @sent="handleStyleTestSent"
+    />
 
     <NotificationStyleDialog
       v-model="styleDialogVisible"
@@ -330,19 +286,19 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, Brush, ChatDotRound, Check, Delete, Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
+import { Bell, Brush, ChatDotRound, Check, Delete, Promotion, Refresh, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api'
 import type {
   InAppNotificationItem,
-  InAppNotificationRecipientOptions,
-  InAppNotificationScope,
   WebhookNotificationItem,
 } from '../../api/types'
 import { hasPerm } from '../../utils/permission'
-import WorkflowUserTreePicker from '../workflow/components/WorkflowUserTreePicker.vue'
+import NotificationSendDialog from './components/NotificationSendDialog.vue'
 import NotificationStyleDialog from './components/NotificationStyleDialog.vue'
+import DingTalkDeliveryRecords from './components/DingTalkDeliveryRecords.vue'
 import WorkflowDeliveryRecords from './components/WorkflowDeliveryRecords.vue'
 
 const list = ref<InAppNotificationItem[]>([])
@@ -359,10 +315,8 @@ const detailRecord = ref<InAppNotificationItem | null>(null)
 const webhookDetailVisible = ref(false)
 const webhookDetail = ref<WebhookNotificationItem | null>(null)
 const deletingID = ref<number | null>(null)
-const sending = ref(false)
-const sendRequestID = ref('')
 const sendChannel = ref<'in_app' | 'dingtalk'>('in_app')
-const activeRecordView = ref<'in_app' | 'webhook' | 'workflow'>('in_app')
+const activeRecordView = ref<'in_app' | 'dingtalk' | 'webhook' | 'workflow'>('in_app')
 const webhookList = ref<WebhookNotificationItem[]>([])
 const webhookTotal = ref(0)
 const webhookPage = ref(1)
@@ -370,17 +324,6 @@ const webhookPageSize = ref(20)
 const webhookLoading = ref(false)
 const webhookStatus = ref('')
 const webhookSelectedRows = ref<WebhookNotificationItem[]>([])
-const recipientOptionsLoading = ref(false)
-const recipientOptionsLoadedFor = ref<'in_app' | 'dingtalk' | ''>('')
-const emptyUserSelection = ref<number[]>([])
-const recipientOptions = reactive<InAppNotificationRecipientOptions>({ users: [], departments: [] })
-const sendForm = reactive({
-  title: '',
-  content: '',
-  scope: 'all' as InAppNotificationScope,
-  userIds: [] as number[],
-  departmentIds: [] as number[],
-})
 const filters = reactive({
   title: '',
   recipientName: '',
@@ -388,11 +331,6 @@ const filters = reactive({
   notificationType: '',
   isRead: '' as '' | 0 | 1,
 })
-const scopeOptions = [
-  { label: '全部用户', value: 'all' },
-  { label: '指定部门', value: 'departments' },
-  { label: '指定用户', value: 'users' },
-]
 const sourceOptions = [
   { label: '后台发送', value: 'admin_manual' },
   { label: '流程通知', value: 'workflow_instance' },
@@ -425,14 +363,11 @@ const canRetryWorkflowNotifications = computed(() => hasPerm('admin:menu:workflo
 const canDeleteWorkflowNotifications = computed(() => hasPerm('admin:menu:workflow:notification:delete'))
 const recordSummary = computed(() => activeRecordView.value === 'workflow'
   ? '查看流程站内信与钉钉的完整投递状态'
+  : activeRecordView.value === 'dingtalk'
+    ? '查看后台与定时任务的钉钉通知投递结果'
   : activeRecordView.value === 'webhook'
     ? `共 ${webhookTotal.value} 条 Webhook 投递记录`
     : `共 ${total.value} 条站内信投递记录`)
-const sendDialogTitle = computed(() => sendChannel.value === 'dingtalk' ? '发送钉钉通知' : '发送站内信')
-const departmentModelValue = computed<number[]>({
-  get: () => sendForm.departmentIds,
-  set: value => { sendForm.departmentIds = normalizeIDs(value) },
-})
 const inAppReadCount = computed(() => list.value.filter(row => row.isRead).length)
 const inAppUnreadCount = computed(() => list.value.filter(row => !row.isRead).length)
 const webhookSentCount = computed(() => webhookList.value.filter(row => row.status === 'sent').length)
@@ -573,64 +508,10 @@ async function deleteRecord(row: InAppNotificationItem) {
   }
 }
 
-async function loadRecipientOptions() {
-  if (recipientOptionsLoadedFor.value === sendChannel.value) return
-  recipientOptionsLoading.value = true
-  try {
-    const response = sendChannel.value === 'dingtalk'
-      ? await adminApi.dingTalkNotificationRecipientOptions()
-      : await adminApi.inAppNotificationRecipientOptions()
-    recipientOptions.users = Array.isArray(response.data?.users) ? response.data.users : []
-    recipientOptions.departments = Array.isArray(response.data?.departments) ? response.data.departments : []
-    recipientOptionsLoadedFor.value = sendChannel.value
-  } finally {
-    recipientOptionsLoading.value = false
-  }
-}
-
-async function openSendDialog(channel: 'in_app' | 'dingtalk') {
+function openSendDialog(channel: 'in_app' | 'dingtalk') {
+  if (channel === 'dingtalk' ? !canSendDingTalk.value : !canSend.value) return
   sendChannel.value = channel
-  resetSendForm()
   sendDialogVisible.value = true
-  await loadRecipientOptions()
-}
-
-async function sendNotification() {
-  if (!sendForm.title.trim()) return ElMessage.warning('请输入通知标题')
-  if (!sendForm.content.trim()) return ElMessage.warning('请输入通知正文')
-  if (sendForm.scope === 'departments' && sendForm.departmentIds.length === 0) return ElMessage.warning('请选择收件部门')
-  if (sendForm.scope === 'users' && sendForm.userIds.length === 0) return ElMessage.warning('请选择收件用户')
-  sending.value = true
-  try {
-    const payload = {
-      title: sendForm.title.trim(),
-      content: sendForm.content,
-      scope: sendForm.scope,
-      userIds: sendForm.scope === 'users' ? normalizeIDs(sendForm.userIds) : undefined,
-      departmentIds: sendForm.scope === 'departments' ? normalizeIDs(sendForm.departmentIds) : undefined,
-    }
-    const response = sendChannel.value === 'dingtalk'
-      ? await adminApi.dingTalkNotificationSend(payload)
-      : await adminApi.inAppNotificationSend({ ...payload, requestId: sendRequestID.value })
-    const sentCount = Number(response.data?.sentCount || 0)
-    const skippedCount = Number(response.data?.skippedCount || 0)
-    const failedCount = Number(response.data?.failedCount || 0)
-    if (sendChannel.value === 'dingtalk') {
-      const detail = `成功 ${sentCount} 人，未绑定或未启用 ${skippedCount} 人，失败 ${failedCount} 人`
-      if (failedCount > 0 || skippedCount > 0) ElMessage.warning(`钉钉通知发送完成：${detail}`)
-      else ElMessage.success(`钉钉通知已发送给 ${sentCount} 人`)
-      if (failedCount > 0 && sentCount === 0) return
-    } else {
-      ElMessage.success(`站内信已发送给 ${sentCount} 人`)
-    }
-    sendDialogVisible.value = false
-    if (sendChannel.value === 'in_app') {
-      page.value = 1
-      await load()
-    }
-  } finally {
-    sending.value = false
-  }
 }
 
 async function handleStyleTestSent(channel: 'in_app' | 'dingtalk') {
@@ -658,25 +539,6 @@ function resetFilters() {
 function handlePageSizeChange() {
   page.value = 1
   load()
-}
-
-function resetSendForm() {
-  sendRequestID.value = newRequestID()
-  sendForm.title = ''
-  sendForm.content = ''
-  sendForm.scope = 'all'
-  sendForm.userIds = []
-  sendForm.departmentIds = []
-  emptyUserSelection.value = []
-}
-
-function normalizeIDs(values: Array<number | string>) {
-  return Array.from(new Set(values.map(Number).filter(value => Number.isInteger(value) && value > 0)))
-}
-
-function newRequestID() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function sourceLabel(sourceType: string) {

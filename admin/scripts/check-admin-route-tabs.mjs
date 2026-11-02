@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const layoutPath = resolve(currentDir, '../src/views/layout/index.vue')
+const routesPath = resolve(currentDir, '../src/router/adminRoutes.ts')
+const menuPath = resolve(currentDir, '../src/views/menu/index.vue')
+const setupPath = resolve(currentDir, '../src/views/setup/index.vue')
 const loginPath = resolve(currentDir, '../src/views/login/index.vue')
 const requestPath = resolve(currentDir, '../src/utils/request.ts')
 const sessionPath = resolve(currentDir, '../src/utils/adminSession.ts')
@@ -22,6 +25,9 @@ if (!existsSync(sessionPath)) {
 }
 
 const layoutSource = readFileSync(layoutPath, 'utf8')
+const routesSource = readFileSync(routesPath, 'utf8')
+const menuSource = readFileSync(menuPath, 'utf8')
+const setupSource = readFileSync(setupPath, 'utf8')
 const loginSource = readFileSync(loginPath, 'utf8')
 const requestSource = readFileSync(requestPath, 'utf8')
 const sessionSource = readFileSync(sessionPath, 'utf8')
@@ -46,9 +52,45 @@ for (const snippet of [
   'updateRouteTabsScrollState',
   'scrollActiveRouteTabIntoView',
   'router.push(tab.fullPath)',
+  'adminRouteCacheEnabled',
+  'ADMIN_MENU_CONFIG_CHANGED_EVENT',
+  '<keep-alive :include="cachedRouteNames">',
 ]) {
   if (!layoutSource.includes(snippet)) {
     throw new Error(`admin route tabs missing: ${snippet}`)
+  }
+}
+
+for (const forbidden of [
+  "if (tab.path === '/user') return false",
+  "target.path === '/user'",
+]) {
+  if (layoutSource.includes(forbidden)) {
+    throw new Error(`admin route tabs must not exclude user navigation: ${forbidden}`)
+  }
+}
+
+for (const forbidden of ['tabCacheEnabled', 'ADMIN_FRONTEND_CONFIG', 'keepAlive: false']) {
+  if (layoutSource.includes(forbidden) || routesSource.includes(forbidden)) {
+    throw new Error(`admin route cache must be controlled by menu configuration: ${forbidden}`)
+  }
+}
+
+for (const forbidden of ['<keep-alive v-if=', '<component v-else']) {
+  if (layoutSource.includes(forbidden)) {
+    throw new Error(`admin route cache must keep one stable KeepAlive parent: ${forbidden}`)
+  }
+}
+
+for (const snippet of ['页面缓存', 'cacheEnabled', 'notifyAdminMenuConfigChanged']) {
+  if (!menuSource.includes(snippet)) {
+    throw new Error(`admin menu editor missing cache configuration: ${snippet}`)
+  }
+}
+
+for (const forbidden of ['Tab 页面缓存', 'ADMIN_FRONTEND_CONFIG', 'frontendConfig']) {
+  if (setupSource.includes(forbidden)) {
+    throw new Error(`system setup must not retain global page cache config: ${forbidden}`)
   }
 }
 

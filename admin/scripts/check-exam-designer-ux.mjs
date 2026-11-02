@@ -5,9 +5,12 @@ const urls = {
   designer: new URL('../src/views/exam/ExamDesigner.vue', import.meta.url),
   sidebar: new URL('../src/views/exam/components/ExamDesignerSidebar.vue', import.meta.url),
   logic: new URL('../src/views/exam/components/ExamDesignerLogicPanel.vue', import.meta.url),
+  examPostStat: new URL('../src/views/exam/components/ExamPostStatSettings.vue', import.meta.url),
   settings: new URL('../src/views/exam/components/ExamDesignerSettingsPanel.vue', import.meta.url),
   document: new URL('../src/views/exam/composables/useExamDesignerDocument.ts', import.meta.url),
   transfer: new URL('../src/views/exam/composables/useExamDesignerTransfer.ts', import.meta.url),
+  questionField: new URL('../src/views/survey/components/QuestionField.vue', import.meta.url),
+  fillPC1: new URL('../src/views/exam/ExamFillPC1.vue', import.meta.url),
   styles: new URL('../src/views/exam/exam-designer.css', import.meta.url),
 }
 
@@ -18,9 +21,12 @@ for (const [name, url] of Object.entries(urls)) {
 const designer = readFileSync(urls.designer, 'utf8')
 const sidebar = readFileSync(urls.sidebar, 'utf8')
 const logic = readFileSync(urls.logic, 'utf8')
+const examPostStat = readFileSync(urls.examPostStat, 'utf8')
 const settings = readFileSync(urls.settings, 'utf8')
 const document = readFileSync(urls.document, 'utf8')
 const transfer = readFileSync(urls.transfer, 'utf8')
+const questionField = readFileSync(urls.questionField, 'utf8')
+const fillPC1 = readFileSync(urls.fillPC1, 'utf8')
 const styles = readFileSync(urls.styles, 'utf8')
 
 for (const pattern of [
@@ -54,19 +60,97 @@ for (const [pattern, message] of [
 for (const pattern of ['examQuestionBankList', 'examResourceList', 'defineExpose', "emit('addBank'", ":class=\"{ compact: middleTab === 'logic' }\""]) {
   assert.ok(sidebar.includes(pattern), `exam designer sidebar missing contract: ${pattern}`)
 }
-for (const pattern of ['defineModel<ExamLogicRule[]>', 'function renderRuleDSL(', "emit('save'"]) {
+for (const pattern of ['defineModel<ExamLogicRule[]>', 'function renderRuleDSL(', "emit('save'", 'value="postStat"', 'ExamPostStatSettings', "conditionType = 'none'"]) {
   assert.ok(logic.includes(pattern), `exam designer logic panel missing contract: ${pattern}`)
+}
+assert.ok(designer.includes('if (!cur) selected.value.examScore = undefined'), 'disabling grading must clear stale question score')
+for (const pattern of ['是否计算总分', 'calculateTotalScore', 'notifyChannel', 'webhookUrl', 'messageTemplate', '通知对象', '模版预设', 'examNotificationTemplatesGet']) {
+  assert.ok(examPostStat.includes(pattern), `exam post-stat settings missing contract: ${pattern}`)
 }
 for (const pattern of ["defineModel<Record<string, any>>('form'", 'function onAdminTreeCheck(', 'async function loadData(', 'async function loadDepartments(', 'async function loadManagers(', 'defineExpose({ loadData })']) {
   assert.ok(settings.includes(pattern), `exam designer settings panel missing contract: ${pattern}`)
+}
+for (const pattern of [
+  "@update:model-value=\"emit('update:publicUrl', $event)\"",
+  "@click=\"emit('downloadQr')\"",
+  "'update:publicUrl': [value: string]",
+  'downloadQr: []',
+  'label="及格分"',
+  'form.passScore',
+  `<el-form-item v-if="completionAction==='content'" class="settings-full" label="提交完成页内容">`,
+  `<el-form-item v-if="completionAction==='redirect'" class="settings-full" label="提交后跳转链接">`,
+]) {
+  assert.ok(settings.includes(pattern), `exam designer share settings missing contract: ${pattern}`)
+}
+let previousExamRuleIndex = -1
+for (const pattern of [
+  'label="每人考试次数"',
+  'label="及格分"',
+  'label="随机顺序"',
+  'label="开始时间"',
+  'label="结束时间"',
+  'class="settings-full" label="练习模式"',
+]) {
+  const index = settings.indexOf(pattern)
+  assert.ok(index > previousExamRuleIndex, `exam rule layout order missing contract: ${pattern}`)
+  previousExamRuleIndex = index
 }
 for (const pattern of ['export function createExamDesignerForm', 'export function useExamDesignerDocument', 'function scheduleAutoSave(', 'async function load(', 'async function save(']) {
   assert.ok(document.includes(pattern), `exam designer document composable missing contract: ${pattern}`)
 }
 assert.ok(document.includes("await save(true, '逻辑规则已保存')"), 'logic save failures must remain visible')
+for (const pattern of [
+  "id: 0, title: '', displayTitle: '', publicUrl: ''",
+  'passScore: 0',
+  'publicUrl: typeof form.publicUrl === \'string\' ? form.publicUrl.trim() : \'\'',
+  'passScore: form.passScore',
+  'passScore: survey.passScore ?? 0',
+  "publicUrl: typeof settings.publicUrl === 'string' ? settings.publicUrl : ''",
+  'logicRules: options.logicRules.value',
+  "options.logicRules.value = JSON.parse(settings.logicRules || '[]')",
+]) {
+  assert.ok(document.includes(pattern), `exam public URL persistence missing contract: ${pattern}`)
+}
 for (const pattern of ['export function useExamDesignerTransfer', 'function importTextQuestions(', 'function addFromBank(', 'function confirmUploadBank(']) {
   assert.ok(transfer.includes(pattern), `exam designer transfer composable missing contract: ${pattern}`)
 }
+for (const pattern of [
+  'const generatedPublicUrl = computed(',
+  'const publicUrl = computed({',
+  'const qrUrl = computed(',
+  'async function copyLink()',
+  'async function downloadQR()',
+]) {
+  assert.ok(transfer.includes(pattern), `exam share transfer missing contract: ${pattern}`)
+}
+for (const pattern of [
+  'v-model:public-url="publicUrl"',
+  ':qr-url="qrUrl"',
+  ':total-score="paperTotalScore"',
+  '@download-qr="downloadQR"',
+]) {
+  assert.ok(designer.includes(pattern), `ExamDesigner.vue missing exam share binding: ${pattern}`)
+}
+for (const pattern of [
+  `v-if="q.type==='divider' && dividerTitleHtml"`,
+  'class="q-divider-title"',
+  'v-html="dividerTitleHtml"',
+  "const dividerTitleHtml = computed(() => unwrapOuterP(props.q.title || ''))",
+]) {
+  assert.ok(questionField.includes(pattern), `exam ef1 divider title missing contract: ${pattern}`)
+}
+assert.ok(
+  questionField.includes(`<span v-else-if="q.type==='pagination'" class="q-type-label">分页</span>`),
+  'pagination layout label must remain explicit when divider label is hidden',
+)
+assert.doesNotMatch(
+  questionField,
+  /q\.type==='divider'[^>]*class="q-type-label">分隔<\/span>/,
+  'public fill pages must not show the divider type label',
+)
 assert.ok(styles.includes('.survey-main {'), 'exam designer layout styles are required')
+for (const pattern of ['resultForQuestion(i)', 'function resultForQuestion(index: number)']) {
+  assert.ok(fillPC1.includes(pattern), `exam result mapping missing contract: ${pattern}`)
+}
 
 console.log('exam designer UX checks passed')

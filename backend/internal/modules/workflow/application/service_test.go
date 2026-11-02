@@ -1863,7 +1863,9 @@ func assertNotificationDispatch(t *testing.T, dispatcher *recordingNotificationD
 
 type fakeStore struct {
 	definition                         workflowcore.Definition
+	targetDefinition                   workflowcore.Definition
 	publishedVersion                   int
+	targetVersion                      int
 	state                              *workflowdomain.State
 	loadDefinitionID                   uint
 	loadDefinitionVersion              int
@@ -1925,6 +1927,9 @@ type fakeStore struct {
 	userDisplayName                    string
 	userDisplayNameUserID              string
 	activeFormRevision                 *workflowdomain.FormRevisionRequest
+	updatedDefinitionVersionFrom       int
+	updatedDefinitionVersionTo         int
+	updatedVersionInTransaction        bool
 	createdFormRevision                *workflowdomain.FormRevisionRequest
 	savedFormRevision                  *workflowdomain.FormRevisionRequest
 	persistedRevisionNotifications     []FormRevisionNotificationIntent
@@ -1979,10 +1984,23 @@ func (store *fakeStore) UserDepartmentIDs(_ context.Context, userID string) ([]u
 func (store *fakeStore) LoadPublishedDefinition(_ context.Context, definitionID uint, version int) (workflowcore.Definition, int, error) {
 	store.loadDefinitionID = definitionID
 	store.loadDefinitionVersion = version
+	if version <= 0 && store.targetDefinition.Key != "" {
+		return store.targetDefinition, store.targetVersion, nil
+	}
 	if store.definition.Key == "" {
 		return workflowcore.Definition{}, 0, errors.New("definition unavailable")
 	}
 	return store.definition, store.publishedVersion, nil
+}
+
+func (store *fakeStore) UpdateInstanceDefinitionVersion(_ context.Context, _ string, fromVersion, toVersion int) error {
+	store.updatedDefinitionVersionFrom = fromVersion
+	store.updatedDefinitionVersionTo = toVersion
+	store.updatedVersionInTransaction = store.inTransaction
+	if store.state != nil {
+		store.state.Instance.DefinitionVersion = toVersion
+	}
+	return nil
 }
 
 func (store *fakeStore) IsActiveUser(_ context.Context, userID string) (bool, error) {

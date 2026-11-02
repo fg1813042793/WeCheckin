@@ -173,6 +173,47 @@ func TestServiceSendDingTalkCombinesRecipientAndChannelResults(t *testing.T) {
 	if result.PlannedCount != 2 || result.SentCount != 1 || result.SkippedCount != 3 || result.FailedCount != 1 {
 		t.Fatalf("send result = %#v", result)
 	}
+	if store.dingTalkRecord.SourceType != SourceAdminManualDingTalk || store.dingTalkRecord.SourceID != "request-1" ||
+		store.dingTalkRecord.Status != DingTalkDeliveryStatusPartial || store.dingTalkRecord.PlannedCount != 2 ||
+		store.dingTalkRecord.SentCount != 1 || store.dingTalkRecord.SkippedCount != 3 || store.dingTalkRecord.FailedCount != 1 ||
+		store.dingTalkRecord.NotificationType != notificationstyle.TypeTaskReminder {
+		t.Fatalf("DingTalk delivery record = %#v", store.dingTalkRecord)
+	}
+}
+
+func TestServiceSendDingTalkReturnsRecordFailureAfterDelivery(t *testing.T) {
+	want := errors.New("record unavailable")
+	store := &fakeStore{
+		resolution: RecipientResolution{UserIDs: []uint{7}},
+		recordErr:  want,
+	}
+	delivery := &fakeDingTalkDelivery{result: DingTalkDeliveryResult{SentCount: 1}}
+	_, err := NewServiceWithDingTalk(store, delivery).SendDingTalk(context.Background(), SendInput{
+		Title: "定时提醒", Content: "请填写", Scope: ScopeUsers, UserIDs: []uint{7},
+		SourceType: SourceScheduledTaskRun, SourceID: "run-7",
+	})
+	if !errors.Is(err, want) || delivery.batch.Title != "定时提醒" {
+		t.Fatalf("error=%v delivery=%#v", err, delivery.batch)
+	}
+}
+
+func TestDingTalkDeliveryStatusCoversTerminalOutcomes(t *testing.T) {
+	for _, tc := range []struct {
+		name                  string
+		sent, skipped, failed int
+		want                  string
+	}{
+		{name: "sent", sent: 2, want: DingTalkDeliveryStatusSent},
+		{name: "partial", sent: 1, failed: 1, want: DingTalkDeliveryStatusPartial},
+		{name: "failed", failed: 2, want: DingTalkDeliveryStatusFailed},
+		{name: "skipped", skipped: 2, want: DingTalkDeliveryStatusSkipped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := dingTalkDeliveryStatus(tc.sent, tc.skipped, tc.failed); got != tc.want {
+				t.Fatalf("status=%q want=%q", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestServiceSendDingTalkRequiresConfiguredDelivery(t *testing.T) {
@@ -316,6 +357,8 @@ type fakeStore struct {
 	deleteRecordActorID string
 	deleteRecordAt      int64
 	deleteRecordFound   bool
+	dingTalkRecord      DingTalkDeliveryRecord
+	recordErr           error
 }
 
 type fakeDingTalkDelivery struct {
@@ -338,6 +381,21 @@ func (store *fakeStore) Deliver(_ context.Context, batch DeliveryBatch) (Deliver
 	store.batch = batch
 	return store.delivery, store.deliverErr
 }
+
+func (store *fakeStore) RecordDingTalkDelivery(_ context.Context, record DingTalkDeliveryRecord) error {
+	store.dingTalkRecord = record
+	return store.recordErr
+}
+
+func (store *fakeStore) ListDingTalkDeliveryRecords(context.Context, DingTalkDeliveryRecordQuery) ([]DingTalkDeliveryRecord, int64, error) {
+	return nil, 0, nil
+}
+
+func (store *fakeStore) GetDingTalkDeliveryRecord(context.Context, uint64) (DingTalkDeliveryRecord, error) {
+	return DingTalkDeliveryRecord{}, nil
+}
+
+func (store *fakeStore) DeleteDingTalkDeliveryRecord(context.Context, uint64) error { return nil }
 
 func (store *fakeStore) ListRecords(_ context.Context, query NotificationRecordQuery) ([]Notification, int64, error) {
 	store.recordQuery = query

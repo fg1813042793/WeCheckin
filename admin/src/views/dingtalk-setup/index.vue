@@ -162,6 +162,16 @@
                 inline-prompt
               />
             </el-form-item>
+            <el-form-item label="登录图片验证码">
+              <el-switch
+                v-model="form.loginCaptchaEnabled"
+                :active-value="1"
+                :inactive-value="0"
+                active-text="开启"
+                inactive-text="关闭"
+                inline-prompt
+              />
+            </el-form-item>
           </el-form>
         </el-tab-pane>
 
@@ -272,6 +282,7 @@ const form = reactive({
   redisPrefix: 'dingtalk_h5_token:',
   singleLogin: 0,
   selfBind: 1,
+  loginCaptchaEnabled: 0,
   appName: defaultAppName,
   logoText: defaultLogoText,
   logoUrl: ''
@@ -350,6 +361,7 @@ async function loadSettings() {
     form.redisPrefix = data.redisPrefix || 'dingtalk_h5_token:'
     form.singleLogin = Number(data.singleLogin) === 1 ? 1 : 0
     form.selfBind = Number(data.selfBind) === 0 ? 0 : 1
+    form.loginCaptchaEnabled = Number(data.loginCaptchaEnabled) === 1 ? 1 : 0
     form.appName = data.appName || defaultAppName
     form.logoText = data.logoText || defaultLogoText
     form.logoUrl = data.logoUrl || ''
@@ -393,7 +405,8 @@ function buildSettingsPayload(): SettingsPayload | null {
         tokenExpire,
         redisPrefix,
         singleLogin: form.singleLogin,
-        selfBind: form.selfBind
+        selfBind: form.selfBind,
+        loginCaptchaEnabled: form.loginCaptchaEnabled
       }
     }
     case 'app':

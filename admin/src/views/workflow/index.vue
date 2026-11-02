@@ -10,8 +10,7 @@
             <el-option label="已发布" :value="2" />
             <el-option label="已关闭" :value="0" />
           </el-select>
-          <el-button type="primary" @click="search">搜索</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="search" @reset="resetFilters" />
         </div>
       </div>
 
@@ -25,7 +24,7 @@
       </div>
 
       <el-table v-loading="loading" :data="list" stripe>
-        <el-table-column prop="name" label="管理名称" min-width="190">
+        <el-table-column prop="name" label="管理名称" min-width="300">
           <template #default="{ row }">
             <div class="workflow-name">
               <span class="workflow-name__icon">
@@ -216,6 +215,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { adminApi } from '../../api'
 import { hasPerm } from '../../utils/permission'
 import WorkflowLogoPicker from './components/WorkflowLogoPicker.vue'

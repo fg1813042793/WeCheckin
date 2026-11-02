@@ -220,6 +220,24 @@ export interface WorkflowPublishedEdge {
   default?: boolean
 }
 
+export interface WorkflowHistoryImportColumnMapping {
+  sourceKey: string
+  targetKey: string
+}
+
+export interface WorkflowHistoryImportMapping extends WorkflowHistoryImportColumnMapping {
+  columns?: WorkflowHistoryImportColumnMapping[]
+}
+
+export interface WorkflowHistoryImportConfig {
+  enabled: boolean
+  sourceMode?: 'select_history' | 'latest_history'
+  sourceStatus?: 'completed' | 'all'
+  mappingMode?: 'same_key' | 'mapping'
+  overwrite?: boolean
+  mappings?: WorkflowHistoryImportMapping[]
+}
+
 export interface WorkflowPublishedDefinition {
   id: number
   key: string
@@ -238,6 +256,7 @@ export interface WorkflowPublishedDefinition {
   startLimit: WorkflowStartLimitConfig
   startLimitStatus: WorkflowStartLimitStatus
   instanceIdentity?: WorkflowInstanceIdentityConfig
+  historyImport?: WorkflowHistoryImportConfig | null
   nodes?: WorkflowPublishedNode[]
   edges?: WorkflowPublishedEdge[]
 }
@@ -612,6 +631,7 @@ export interface WorkflowInstanceQuery {
 }
 
 export type WorkflowSummaryExportFormat = 'pdf' | 'xlsx' | 'docx'
+export type WorkflowSummaryExportContent = 'full' | 'form'
 
 export interface WorkflowSummaryQuery {
   definitionId?: number

@@ -11,6 +11,7 @@ const (
 
 	ChannelInternal = "internal"
 	ChannelWebhook  = "webhook"
+	ChannelDingTalk = "dingtalk"
 )
 
 type Outbox struct {

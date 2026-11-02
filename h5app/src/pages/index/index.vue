@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DingTalkUser } from '@/types/dingtalk-h5'
 import type { AppNavItem } from '@/types/navigation'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { useLocale } from 'uview-pro'
 import { computed } from 'vue'
 import AppAuthGuard from '@/components/app-auth-guard/app-auth-guard.vue'
@@ -24,6 +24,7 @@ import {
   workflowTaskIdFromContentKey,
 } from '@/pages/workflow/workflow-route-keys'
 import { useAppContentStore, useDingtalkAuthStore } from '@/stores'
+import { mergeAppEntryRouteQuery } from './app-entry-route'
 
 const auth = useDingtalkAuthStore()
 const appContent = useAppContentStore()
@@ -145,6 +146,12 @@ function applyRouteQuery(query: Record<string, unknown> = {}) {
 }
 
 function handleAuthenticated() {
+  let href = ''
+  // #ifdef H5
+  if (typeof window !== 'undefined')
+    href = window.location.href
+  // #endif
+  applyRouteQuery(mergeAppEntryRouteQuery({}, href))
   if (!appContent.currentKey) {
     appContent.switchContent('dashboard')
   }
@@ -163,7 +170,16 @@ function handleNavigate(item: AppNavItem) {
 }
 
 onLoad((query = {}) => {
-  applyRouteQuery(query as Record<string, unknown>)
+  let href = ''
+  // #ifdef H5
+  if (typeof window !== 'undefined')
+    href = window.location.href
+  // #endif
+  applyRouteQuery(mergeAppEntryRouteQuery(query as Record<string, unknown>, href))
+})
+
+onShow(() => {
+  void auth.syncCorpContext()
 })
 </script>
 

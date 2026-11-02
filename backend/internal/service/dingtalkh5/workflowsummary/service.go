@@ -40,6 +40,7 @@ type AccessResolver interface {
 type Service struct {
 	runtime Runtime
 	access  AccessResolver
+	db      *gorm.DB
 }
 
 type InstanceQuery struct {
@@ -59,13 +60,13 @@ type InstanceQuery struct {
 }
 
 type ExportRequest struct {
-	DefinitionID uint
-	InstanceIDs  []string
-	Format       ExportFormat
+	InstanceIDs []string
+	Format      ExportFormat
+	Content     ExportContent
 }
 
 func NewService(db *gorm.DB, runtime Runtime) *Service {
-	return &Service{runtime: runtime, access: &permissionAccessResolver{db: db}}
+	return &Service{runtime: runtime, access: &permissionAccessResolver{db: db}, db: db}
 }
 
 func NewServiceWithAccess(runtime Runtime, resolver AccessResolver) *Service {
@@ -137,9 +138,6 @@ func (service *Service) GetInstance(ctx context.Context, user *model.DingTalkH5P
 }
 
 func (service *Service) Export(ctx context.Context, user *model.DingTalkH5PerfUser, request ExportRequest) (*ExportResult, error) {
-	if request.DefinitionID == 0 {
-		return nil, ErrDefinitionRequired
-	}
 	instanceIDs := normalizeStringIDs(request.InstanceIDs)
 	if len(instanceIDs) == 0 {
 		return nil, ErrExportInstancesEmpty
@@ -150,12 +148,22 @@ func (service *Service) Export(ctx context.Context, user *model.DingTalkH5PerfUs
 	if !request.Format.Valid() {
 		return nil, ErrExportFormatInvalid
 	}
-	instances, err := service.authorizedInstances(ctx, user, request.DefinitionID, instanceIDs)
+	if request.Content == "" {
+		request.Content = ExportContentFull
+	}
+	if request.Content != ExportContentFull && request.Content != ExportContentForm {
+		return nil, ErrExportContentInvalid
+	}
+	instances, err := service.authorizedInstances(ctx, user, 0, instanceIDs)
 	if err != nil {
 		return nil, err
 	}
 	if len(instances) != len(instanceIDs) {
 		return nil, ErrSummaryAccessDenied
+	}
+	managementNames, err := service.exportManagementNames(ctx, instances)
+	if err != nil {
+		return nil, err
 	}
 	details := make([]*workflowapp.InstanceDetail, 0, len(instances))
 	for _, instance := range instances {
@@ -167,9 +175,15 @@ func (service *Service) Export(ctx context.Context, user *model.DingTalkH5PerfUs
 	}
 	documents := make([]exportDocument, 0, len(details))
 	for _, detail := range details {
-		documents = append(documents, buildExportDocument(detail))
+		if detail == nil {
+			return nil, ErrSummaryAccessDenied
+		}
+		// Only the export view uses current metadata; keep the historical instance and form untouched.
+		exportDetail := *detail
+		exportDetail.Instance.DefinitionName = firstText(managementNames[detail.Instance.DefinitionID], detail.Instance.DefinitionName)
+		documents = append(documents, buildExportDocument(&exportDetail, request.Content))
 	}
-	return renderWorkflowExport(documents, request.Format)
+	return renderWorkflowExport(documents, request.Format, request.Content)
 }
 
 func (service *Service) authorizedInstances(ctx context.Context, user *model.DingTalkH5PerfUser, definitionID uint, instanceIDs []string) ([]workflowapp.InstanceSummary, error) {

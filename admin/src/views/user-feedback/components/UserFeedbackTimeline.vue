@@ -15,6 +15,7 @@ function messageTypeLabel(type: UserFeedbackMessageType) {
     case 'initial': return '提交反馈'
     case 'supplement': return '用户补充'
     case 'status': return '状态更新'
+    case 'notification': return '通知提交人'
   }
 }
 

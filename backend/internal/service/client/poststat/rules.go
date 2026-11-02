@@ -7,17 +7,18 @@ import (
 )
 
 type Rule struct {
-	ID              string `json:"id"`
-	Action          string `json:"action"`
-	ConditionType   string `json:"conditionType"`
-	StatField       string `json:"statField"`
-	StatScope       string `json:"statScope"`
-	NotifyChannel   string `json:"notifyChannel"`
-	WebhookType     string `json:"webhookType"`
-	WebhookURL      string `json:"webhookUrl"`
-	NotifyAdmin     bool   `json:"notifyAdmin"`
-	NotifyUserIds   string `json:"notifyUserIds"`
-	MessageTemplate string `json:"messageTemplate"`
+	ID                  string `json:"id"`
+	Action              string `json:"action"`
+	ConditionType       string `json:"conditionType"`
+	StatField           string `json:"statField"`
+	StatScope           string `json:"statScope"`
+	NotifyChannel       string `json:"notifyChannel"`
+	WebhookType         string `json:"webhookType"`
+	WebhookURL          string `json:"webhookUrl"`
+	NotifyAdmin         bool   `json:"notifyAdmin"`
+	NotifyUserIds       string `json:"notifyUserIds"`
+	MessageTemplate     string `json:"messageTemplate"`
+	CalculateTotalScore bool   `json:"calculateTotalScore"`
 }
 
 func parseRules(settings string) []Rule {

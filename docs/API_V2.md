@@ -15,6 +15,8 @@
 
 ## 基础约定
 
+用户反馈新增独立通知提交人接口：`POST /api/v2/admin/user-feedbacks/{id}/notify`，支持可编辑正文和 `internal` / `dingtalk` 渠道，复用反馈处理权限，详情见 [用户反馈处理与通知](USER_FEEDBACK_ACTIONS.md)。
+
 - 后端默认地址：`http://localhost:8083`
 - Swagger 页面：`http://localhost:8083/swagger/index.html`
 - Swagger JSON：`http://localhost:8083/swagger/doc.json`
@@ -73,7 +75,29 @@
 
 客户端钉钉登录的企业配置、用户绑定、回调地址和多企业行为见 [客户端钉钉验证登录](CLIENT_DINGTALK_LOGIN.md)。公开的用户 ID 直接登录入口已移除；密码登录保留为备用方式。
 
+### 考试管理名称与显示名称
+
+考试的 `title` 是后台管理名称，`settings.displayTitle` 是考生显示名称（可选、最多100字）。管理端列表、记录和管理导出保留管理名称；编辑预览、PC 两种答题模版及 uni-app 考生列表/答题/结果页优先使用去除首尾空白的显示名称，未配置时回退管理名称。考生列表关键词可匹配两种名称。保存接口校验该设置并保留其他设置字段，不新增数据库列。
+
+### 考试记录客户端信息
+
+考试记录复用问卷的 User-Agent 识别规则，返回 `addIp`（来源 IP）、`device`（原始 UA）、`browser`、`deviceType`、`platformType`。开始试卷考试与交卷时均采集 IP/UA；请求中的 `device` 优先，缺失或空白时读取 HTTP `User-Agent`，最多保存 512 个字符，IP 由服务端 `ClientIP()` 解析。
+
+浏览器、设备类型和平台类型在读取记录时由已有 `exam_r_device` 派生，不增加数据库列。后台列表、详情及客户端记录接口使用一致的标签；历史记录有 UA 时直接解析，无 UA 或无法识别的部分显示 `-`，不根据当前查看者的设备补造历史信息。
+
+后台考试记录列表和详情展示这四项客户端信息，详情另可查看原始 UA。需要同时更新后端与管理端，无需执行数据库迁移；本次不改变评分、权限、分页或导出格式。
+
+### 考试答卷人工批改
+
+`GET/POST /api/v2/admin/exams/{id}/records/{recordId}/grading` 提供人工批改上下文和提交；需要独立 `exam-record:grade` 权限及考试数据范围。POST 使用 JSON `{expectedVersion, scores:[{questionId,score}], comment}`，服务端校验全部人工题、整数分值、题目满分与版本，并在事务中更新成绩和批改状态。已提交答案及已完成批改不能被重复交卷覆盖。
+
+该功能需先执行人工批改迁移，权限、快照兼容和部署顺序见 [考试答卷人工批改](EXAM_MANUAL_GRADING.md)。
+
 ## 客户端登录后接口
+
+管理端登录安全和操作审计的事件字段、只读查询、独立权限、导出上限、可信代理 IP 及升级步骤见 [审计日志说明](AUDIT_LOGS.md)。操作日志使用 `/api/v2/admin/logs`，登录安全日志使用 `/api/v2/admin/login-logs`，各自支持 `/{id}` 和 `/export`；旧日志删除入口只返回拒绝结果。用户、管理员和角色列表分别新增 `/users/export`、`/managers/export`、`/roles/export`，保持原列表的数据范围与查看权限，支持受审计的当前分页导出。
+
+日志中的 `snapshotStatus`、`snapshotReason` 独立表示快照采集状态和原因；历史记录默认为 `legacy_unknown`。普通配置只有通过明确白名单与标量校验才返回真实值；敏感值继续脱敏，旧隐藏值不还原。部署前需执行 `20261029150000_add_audit_snapshot_status.sql`。
 
 | 功能 | 方法 | 路径 |
 | --- | --- | --- |
@@ -138,6 +162,7 @@
 | 角色 | `/api/v2/admin/roles` |
 | 权限管理 | `/api/v2/admin/permissions` |
 | 当前管理员菜单/权限 | `/api/v2/admin/me` |
+| 钉钉通知发送模板 | `/api/v2/admin/dingtalk-notification-templates` |
 | 问卷 | `/api/v2/admin/surveys` |
 | 问卷答卷 | `/api/v2/admin/survey-responses` |
 | 问卷题库 | `/api/v2/admin/survey-question-bank` |
@@ -149,6 +174,10 @@
 | 定时任务 | `/api/v2/admin/scheduled-tasks` |
 | 定时任务运行记录 | `/api/v2/admin/scheduled-task-runs` |
 | 定时任务执行节点 | `/api/v2/admin/scheduled-task-workers` |
+
+钉钉手动通知可选择独立发送模板：`GET /dingtalk-notification-templates/options` 提供启用模板，`POST /dingtalk-notifications` 通过可选 `templateId`、`templateVersion` 选择模板，并提交本次标题、正文及收件范围。服务端校验模板版本、启用状态和流程发布状态，按收件企业生成跳转地址。模板管理复用通知样式查看/编辑权限，发送候选复用钉钉发送权限；完整接口、使用与迁移说明见 [钉钉通知发送模板](DINGTALK_NOTIFICATION_TEMPLATES.md)。
+
+流程草稿与已发布流程响应支持可选 `historyImport`：配置历史来源、状态、字段/明细列映射及覆盖策略。保存复用既有流程更新接口和即时发起配置，不修改历史发布版本；没有配置或未启用时保留 H5 手工导入向导。契约与使用方式见 [历史表单导入规则](WORKFLOW_HISTORY_IMPORT_RULES.md)。
 
 字典接口约定：
 
@@ -182,6 +211,12 @@
 - `DELETE /api/v2/admin/workflow-definitions/{id}/versions/{version}`：物理删除未被流程实例或发起草稿引用的非当前版本；版本号不会重排或复用。
 - `POST /api/v2/admin/workflow-definitions/{id}/versions/{version}/rollback`：复制目标版本内容并发布为新版本，历史版本和运行中实例保持不变。
 - 旧版本没有元数据快照时，名称从其设计器 JSON 恢复，分类、说明和 Logo 沿用当前流程信息，不伪造历史值。
+
+### 钉钉 H5 任务提交错误
+
+`POST /api/v2/dingtalk/h5/workflows/tasks/{id}/complete` 沿用业务响应信封。提交失败时，H5 审批页显示接口公开的错误原因，保留未提交表单并恢复操作按钮，不自动重试。页面处理“通过/提交办理”的反馈时关闭该请求的公共 toast，避免重复提示覆盖具体原因。
+
+流转过程中未解析到处理人时，返回 `code: 1` 和“流程节点未解析到处理人，请联系管理员检查审批人配置”；事务回滚，本次任务不会被标记为已完成。未知内部错误继续使用通用提示，SQL、堆栈和内部错误链不向用户公开。
 
 ### 钉钉 H5 流程汇总
 

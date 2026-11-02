@@ -1,6 +1,10 @@
-import request from '../utils/request'
+import request, { getBlob } from '../utils/request'
 import type {
+  AdminHomeData,
+  AdminHomeQuery,
   AdminUser,
+  AdminUserListQuery,
+  AdminCaptchaChallenge,
   AdminLoginData,
   AdminMenuItem,
   AdminListRecord,
@@ -8,6 +12,9 @@ import type {
   DepartmentNode,
   DingTalkNotificationSendPayload,
   DingTalkNotificationSendResult,
+  DingTalkDeliveryRecordItem,
+  DingTalkDeliveryRecordList,
+  DingTalkDeliveryRecordQuery,
   EnrollItem,
   EventItem,
   FormkitQuestion,
@@ -43,6 +50,8 @@ import type {
   WorkflowDefinitionSummary,
   WorkflowInstanceDetail,
   WorkflowInstanceSummary,
+  WorkflowInstanceVersionUpgradePreview,
+  WorkflowInstanceVersionUpgradeResult,
   WorkflowNotificationList,
   WorkflowPublishResult,
   WorkflowPublishedDefinition,
@@ -62,6 +71,7 @@ import type {
 } from '../types/scheduledTask'
 import type {
   AdminUserFeedbackListQuery,
+  NotifyUserFeedbackInput,
   UpdateUserFeedbackStatusInput,
   UserFeedbackDetail,
   UserFeedbackList,
@@ -69,6 +79,10 @@ import type {
 } from '../types/userFeedback'
 
 export type TemplatePreset = { label: string; value: string }
+export type SurveyNotificationTemplateScope = 'builtin' | 'custom'
+export type SurveyNotificationTemplateCollection = { builtin: TemplatePreset[]; custom: TemplatePreset[] }
+export type ExamNotificationTemplateScope = SurveyNotificationTemplateScope
+export type ExamNotificationTemplateCollection = SurveyNotificationTemplateCollection
 type WorkflowInitiatorConfig = { scope: 'all' | 'specified'; userIds?: number[]; departmentIds?: number[]; excludedUserIds?: number[] }
 
 const API_V2 = '/api/v2'
@@ -97,18 +111,24 @@ function vouchValue(data: { vouch?: number | string; status?: number | string; i
 }
 
 export const adminApi = {
-  login(data: { name: string; password: string }) {
-    return request.post<AdminLoginData, { name: string; password: string }>(`${ADMIN_V2}/auth/login`, data)
+  captcha() {
+    return request.get<AdminCaptchaChallenge>(`${ADMIN_V2}/auth/captcha`)
   },
-  home() {
-    return request.get(`${ADMIN_V2}/home`)
+  login(data: { name: string; password: string; captchaId?: string; captchaCode?: string }) {
+    return request.post<AdminLoginData, { name: string; password: string; captchaId?: string; captchaCode?: string }>(`${ADMIN_V2}/auth/login`, data)
+  },
+  home(params?: AdminHomeQuery) {
+    return request.get<AdminHomeData>(`${ADMIN_V2}/home`, { params })
   },
   clearVouch() {
     return request.delete(`${ADMIN_V2}/home/recommendations`)
   },
   // 用户管理
-  userList(params?: PageQuery) {
+  userList(params?: AdminUserListQuery) {
     return request.get<PageResult<AdminUser>>(`${ADMIN_V2}/users`, { params })
+  },
+  userExport(params: AdminUserListQuery) {
+    return request.get<PageResult<AdminUser>>(`${ADMIN_V2}/users/export`, { params })
   },
   userDetailById(id: ID) {
     return request.get<AdminUser>(`${ADMIN_V2}/users/${encodePath(id)}`)
@@ -224,6 +244,9 @@ export const adminApi = {
   mgrList(params?: PageQuery) {
     return request.get<PageResult<AdminListRecord>>(`${ADMIN_V2}/managers`, { params })
   },
+  mgrExport(params: PageQuery) {
+    return request.get<PageResult<AdminListRecord>>(`${ADMIN_V2}/managers/export`, { params })
+  },
   mgrDetail(id: ID) {
     return request.get<AdminListRecord>(`${ADMIN_V2}/managers/${encodePath(id)}`)
   },
@@ -248,15 +271,24 @@ export const adminApi = {
     }
     return request.patch(`${ADMIN_V2}/me/password`, data)
   },
-  // 操作日志
-  logList(params?: PageQuery) {
-    return request.get<PageResult<AdminListRecord>>(`${ADMIN_V2}/logs`, { params })
+  // 统一审计日志（只读；类型局部引用以保持此分组独立）
+  logList(params: import('../types/auditLog').AuditLogQuery) {
+    return request.get<import('../types/auditLog').AuditLogPage>(`${ADMIN_V2}/logs`, { params })
   },
-  logDels(data: { ids: string }) {
-    return request.delete(`${ADMIN_V2}/logs`, deleteBody(data))
+  logDetail(id: ID) {
+    return request.get<import('../types/auditLog').AuditLogRecord>(`${ADMIN_V2}/logs/${encodePath(id)}`)
   },
-  logClear() {
-    return request.delete(`${ADMIN_V2}/logs`)
+  logExport(params: import('../types/auditLog').AuditLogQuery) {
+    return request.get<import('../types/auditLog').AuditLogPage>(`${ADMIN_V2}/logs/export`, { params })
+  },
+  loginLogList(params: import('../types/auditLog').AuditLogQuery) {
+    return request.get<import('../types/auditLog').AuditLogPage>(`${ADMIN_V2}/login-logs`, { params })
+  },
+  loginLogDetail(id: ID) {
+    return request.get<import('../types/auditLog').AuditLogRecord>(`${ADMIN_V2}/login-logs/${encodePath(id)}`)
+  },
+  loginLogExport(params: import('../types/auditLog').AuditLogQuery) {
+    return request.get<import('../types/auditLog').AuditLogPage>(`${ADMIN_V2}/login-logs/export`, { params })
   },
   // 设置
   setupSetContent(data: FormPayload) {
@@ -331,6 +363,9 @@ export const adminApi = {
   // 角色管理
   roleList(params?: PageQuery) {
     return request.get<PageResult<AdminListRecord>>(`${ADMIN_V2}/roles`, { params })
+  },
+  roleExport(params: PageQuery) {
+    return request.get<PageResult<AdminListRecord>>(`${ADMIN_V2}/roles/export`, { params })
   },
   roleAdd(data: FormPayload) {
     return request.post(`${ADMIN_V2}/roles`, data)
@@ -567,6 +602,9 @@ export const adminApi = {
   examDelete(data: { id: number }) {
     return request.delete(`${ADMIN_V2}/exams/${encodePath(data.id)}`, deleteBody(data))
   },
+  examCopy(data: { id: number }) {
+    return request.post(`${ADMIN_V2}/exams/${encodePath(data.id)}/copy`, data)
+  },
   examStatus(data: { id: number; status: number }) {
     return request.patch(`${ADMIN_V2}/exams/${encodePath(data.id)}/status`, data)
   },
@@ -575,6 +613,9 @@ export const adminApi = {
   },
   examRecordDetail(id: number) {
     return request.get(`${ADMIN_V2}/exams/0/records/${encodePath(id)}`, { params: { id } })
+  },
+  examRecordExport(params: { examId: ID; recordId: ID; format: 'pdf' | 'docx' | 'xlsx' }) {
+    return getBlob(`${ADMIN_V2}/exams/${encodePath(params.examId)}/records/${encodePath(params.recordId)}/export`, { params: { format: params.format } })
   },
   examRecordDel(data: { id: number; examId?: ID }) {
     return request.delete(`${ADMIN_V2}/exams/${encodePath(data.examId, 0)}/records/${encodePath(data.id)}`, deleteBody(data))
@@ -647,6 +688,15 @@ export const adminApi = {
   webhookNotificationRetry(id: ID) {
     return request.post<WebhookNotificationItem, Record<string, never>>(`${ADMIN_V2}/webhook-notifications/${encodePath(id)}/retry`, {}, jsonConfig)
   },
+  dingTalkNotificationRecordList(params?: DingTalkDeliveryRecordQuery) {
+    return request.get<DingTalkDeliveryRecordList>(`${ADMIN_V2}/dingtalk-notification-records`, { params })
+  },
+  dingTalkNotificationRecordDetail(id: ID) {
+    return request.get<DingTalkDeliveryRecordItem>(`${ADMIN_V2}/dingtalk-notification-records/${encodePath(id)}`)
+  },
+  dingTalkNotificationRecordDelete(id: ID) {
+    return request.delete(`${ADMIN_V2}/dingtalk-notification-records/${encodePath(id)}`)
+  },
   inAppNotificationDelete(id: number) {
     return request.delete(`${ADMIN_V2}/in-app-notifications/${encodePath(id)}`)
   },
@@ -679,6 +729,18 @@ export const adminApi = {
   },
   surveyTemplatePresetsSave(data: { presets: TemplatePreset[] }) {
     return request.put(`${ADMIN_V2}/survey-template-presets`, data, jsonConfig)
+  },
+  surveyNotificationTemplatesGet() {
+    return request.get<SurveyNotificationTemplateCollection>(`${ADMIN_V2}/survey-notification-templates`)
+  },
+  surveyNotificationTemplatesSave(data: { scope: SurveyNotificationTemplateScope; presets: TemplatePreset[] }) {
+    return request.put(`${ADMIN_V2}/survey-notification-templates`, data, jsonConfig)
+  },
+  examNotificationTemplatesGet() {
+    return request.get<ExamNotificationTemplateCollection>(`${ADMIN_V2}/exam-notification-templates`)
+  },
+  examNotificationTemplatesSave(data: { scope: ExamNotificationTemplateScope; presets: TemplatePreset[] }) {
+    return request.put(`${ADMIN_V2}/exam-notification-templates`, data, jsonConfig)
   },
   // 流程定义与版本管理
   workflowDefinitionList(params?: PageQuery & { category?: string; status?: number | string }) {
@@ -762,6 +824,12 @@ export const adminApi = {
   workflowInstanceDetail(id: ID) {
     return request.get<WorkflowInstanceDetail>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}`)
   },
+  workflowInstanceVersionUpgradePreview(id: ID) {
+    return request.get<WorkflowInstanceVersionUpgradePreview>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}/version-upgrade-preview`)
+  },
+  workflowInstanceVersionUpgrade(id: ID, data: { expectedFromVersion: number }) {
+    return request.post<WorkflowInstanceVersionUpgradeResult, typeof data>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}/version-upgrade`, data, jsonConfig)
+  },
   workflowInstanceDelete(id: ID) {
     return request.delete<{ deleted: number }>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}`)
   },
@@ -813,6 +881,9 @@ export const adminApi = {
   },
   userFeedbackUpdateStatus(id: ID, data: UpdateUserFeedbackStatusInput) {
     return request.patch<UserFeedbackDetail, UpdateUserFeedbackStatusInput>(`${ADMIN_V2}/user-feedbacks/${encodePath(id)}/status`, data, jsonConfig)
+  },
+  userFeedbackNotify(id: ID, data: NotifyUserFeedbackInput) {
+    return request.post<UserFeedbackDetail, NotifyUserFeedbackInput>(`${ADMIN_V2}/user-feedbacks/${encodePath(id)}/notify`, data, jsonConfig)
   },
   // 通用定时任务
   scheduledTaskList(params?: QueryParams) {

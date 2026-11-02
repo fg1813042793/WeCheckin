@@ -40,7 +40,7 @@ const editor = read('src/views/scheduled-task/components/TaskEditorDialog.vue')
 for (const handlerType of ['go', 'workflow', 'http', 'shell', 'sql']) {
   if (!editor.includes(`'${handlerType}'`)) throw new Error(`task editor missing ${handlerType} handler`)
 }
-for (const snippet of ['<el-dialog', 'class="task-editor-dialog"', 'width="min(960px, 94vw)"', ':close-on-click-modal="false"', 'append-to-body', ':global(.task-editor-dialog .el-dialog__body)', 'cronPreview', 'admin:menu:scheduled-task:shell', 'admin:menu:scheduled-task:sql:write', 'WorkflowUserTreePicker', 'workflowPublishedDefinitionList', 'workflowUserOptions', 'workflowDepartmentOptions', 'handlerConfig.starterIds', ':multiple="true"', '请选择已发布流程', 'excludedUserIds', 'goJobOptions', 'selectedGoJob', 'registered-job-meta', 'notification.in_app.send', 'notification.dingtalk.send', 'inAppNotificationRecipientOptions', 'dingTalkNotificationRecipientOptions', 'notificationParams', 'notificationDepartmentModelValue', 'isNotificationJob', 'admin:menu:notification:send', 'admin:menu:notification:dingtalk-send']) {
+for (const snippet of ['<el-dialog', 'class="task-editor-dialog"', 'width="min(960px, 94vw)"', ':close-on-click-modal="false"', 'append-to-body', ':global(.task-editor-dialog .el-dialog__body)', ':global(.task-editor-dialog .el-input__wrapper.is-focus)', ':global(.task-editor-dialog .el-select__wrapper.is-focused)', ':global(.task-editor-dialog .el-textarea__inner:focus)', ':global(.task-editor-dialog .el-date-editor.el-input__wrapper.is-active)', 'box-shadow: 0 0 0 1px var(--admin-ui-color-primary, var(--el-color-primary)) inset !important;', 'cronPreview', 'admin:menu:scheduled-task:shell', 'admin:menu:scheduled-task:sql:write', 'WorkflowUserTreePicker', 'workflowPublishedDefinitionList', 'workflowUserOptions', 'workflowDepartmentOptions', 'handlerConfig.starterIds', ':multiple="true"', '请选择已发布流程', 'excludedUserIds', 'goJobOptions', 'selectedGoJob', 'registered-job-meta', 'notification.in_app.send', 'notification.dingtalk.send', 'notification.workflow_start.send', 'workflowStartNotificationTemplateId', 'loadWorkflowStartNotificationTemplates', 'targetKind: \'workflow_start\'', 'inAppNotificationRecipientOptions', 'dingTalkNotificationRecipientOptions', 'notificationParams', 'notificationDepartmentModelValue', 'isNotificationJob', 'isWorkflowStartNotificationJob', 'admin:menu:notification:send', 'admin:menu:notification:dingtalk-send']) {
   if (!editor.includes(snippet)) throw new Error(`task editor missing ${snippet}`)
 }
 if (/workflow:\s*\{\s*definitionId:\s*0\b/.test(editor)) {
@@ -66,6 +66,9 @@ const tasks = read('src/views/scheduled-task/tasks/index.vue')
 for (const snippet of ['admin:menu:scheduled-task:add', 'admin:menu:scheduled-task:status', 'admin:menu:scheduled-task:run']) {
   if (!tasks.includes(snippet)) throw new Error(`task list missing permission ${snippet}`)
 }
+for (const snippet of ['useRouter', 'function openRuns(row: ScheduledTask)', "path: '/scheduled-task/runs'", 'query: { taskId: String(row.id) }', '@click="openRuns(row)"', '>记录<']) {
+  if (!tasks.includes(snippet)) throw new Error(`task list missing run history navigation ${snippet}`)
+}
 
 const handlerLabels = read('src/views/scheduled-task/handlerLabels.ts')
 for (const label of ['Go 注册任务', '发起流程', 'HTTP / Webhook 请求', '受控 Shell 命令', '受控 SQL 任务']) {
@@ -83,4 +86,7 @@ for (const [source, label] of [[editor, 'task editor'], [tasks, 'task list']]) {
 const runs = read('src/views/scheduled-task/runs/index.vue')
 for (const snippet of ['append-to-body', 'admin:menu:scheduled-task:run:retry', 'admin:menu:scheduled-task:run:cancel']) {
   if (!runs.includes(snippet)) throw new Error(`run list missing ${snippet}`)
+}
+for (const snippet of ['useRoute', 'route.query.taskId', 'watch(', '当前任务暂无运行记录']) {
+  if (!runs.includes(snippet)) throw new Error(`run list missing task-filter deep link ${snippet}`)
 }

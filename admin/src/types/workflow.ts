@@ -291,12 +291,31 @@ export interface WorkflowEdge {
   condition?: WorkflowCondition
 }
 
+export interface WorkflowHistoryImportColumnMapping {
+  sourceKey: string
+  targetKey: string
+}
+
+export interface WorkflowHistoryImportMapping extends WorkflowHistoryImportColumnMapping {
+  columns?: WorkflowHistoryImportColumnMapping[]
+}
+
+export interface WorkflowHistoryImportConfig {
+  enabled: boolean
+  sourceMode?: 'select_history' | 'latest_history'
+  sourceStatus?: 'completed' | 'all'
+  mappingMode?: 'same_key' | 'mapping'
+  overwrite?: boolean
+  mappings?: WorkflowHistoryImportMapping[]
+}
+
 export interface WorkflowDraft {
   schemaVersion: number
   key: string
   name: string
   displayName?: string
   instanceIdentity?: WorkflowInstanceIdentityConfig
+  historyImport?: WorkflowHistoryImportConfig
   form: WorkflowFormField[]
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
@@ -341,6 +360,7 @@ export interface WorkflowPublishedDefinition {
   startLimit: WorkflowStartLimitConfig
   startLimitStatus: WorkflowStartLimitStatus
   instanceIdentity?: WorkflowInstanceIdentityConfig
+  historyImport?: WorkflowHistoryImportConfig
 }
 
 export interface WorkflowValidationError {
@@ -422,6 +442,28 @@ export interface WorkflowInstanceSummary {
   status: WorkflowInstanceStatus
   startTime: number
   endTime: number
+}
+
+export interface WorkflowInstanceVersionUpgradeBlocker {
+  code: string
+  message: string
+}
+
+export interface WorkflowInstanceVersionUpgradePreview {
+  instanceId: string
+  definitionId: number
+  currentVersion: number
+  targetVersion: number
+  compatible: boolean
+  alreadyLatest: boolean
+  blockers: WorkflowInstanceVersionUpgradeBlocker[]
+}
+
+export interface WorkflowInstanceVersionUpgradeResult {
+  instanceId: string
+  definitionId: number
+  previousVersion: number
+  currentVersion: number
 }
 
 export interface WorkflowTokenSummary {
@@ -599,11 +641,29 @@ export interface WorkflowInstanceDetail {
   formRevisions: WorkflowFormRevisionDetail[]
 }
 
+export function normalizeWorkflowHistoryImportConfig(config?: WorkflowHistoryImportConfig): Required<WorkflowHistoryImportConfig> {
+  return {
+    enabled: config?.enabled ?? false,
+    sourceMode: config?.sourceMode ?? 'select_history',
+    sourceStatus: config?.sourceStatus ?? 'completed',
+    mappingMode: config?.mappingMode ?? 'same_key',
+    overwrite: config?.overwrite ?? false,
+    mappings: (config?.mappings || []).map(mapping => ({
+      sourceKey: mapping.sourceKey,
+      targetKey: mapping.targetKey,
+      ...(mapping.columns === undefined ? {} : {
+        columns: mapping.columns.map(column => ({ sourceKey: column.sourceKey, targetKey: column.targetKey })),
+      }),
+    })),
+  }
+}
+
 export function cloneDraft(draft: WorkflowDraft): WorkflowDraft {
   const cloned = JSON.parse(JSON.stringify(draft)) as WorkflowDraft
   cloned.form = Array.isArray(cloned.form) ? cloned.form : []
   cloned.nodes = Array.isArray(cloned.nodes) ? cloned.nodes : []
   cloned.edges = Array.isArray(cloned.edges) ? cloned.edges : []
+  if (cloned.historyImport) cloned.historyImport = normalizeWorkflowHistoryImportConfig(cloned.historyImport)
   cloned.nodes.forEach((node) => {
     node.formPermissions = Array.isArray(node.formPermissions) ? node.formPermissions : []
   })

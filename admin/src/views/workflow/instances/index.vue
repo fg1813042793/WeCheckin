@@ -11,8 +11,7 @@
             <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
           <el-input v-model="filters.starterId" placeholder="发起人 ID" clearable style="width: 150px" @keyup.enter="search" />
-          <el-button type="primary" @click="search">搜索</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="search" @reset="resetFilters" />
         </div>
       </div>
 
@@ -87,9 +86,10 @@
         <el-table-column label="结束时间" width="170">
           <template #default="{ row }">{{ formatTime(row.endTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <el-button v-if="canViewDetail" link type="primary" @click="openDetail(row)">详情</el-button>
+            <el-button v-if="canUpgradeInstance(row)" link type="warning" @click="openVersionUpgrade(row)">升级版本</el-button>
             <el-button
               v-if="canDelete"
               link
@@ -206,8 +206,9 @@
             <el-descriptions-item label="结束时间">{{ formatTime(detail.instance.endTime) }}</el-descriptions-item>
           </el-descriptions>
 
-          <div v-if="canStart && detail.instance.status === 'running'" class="detail-actions">
-            <el-button type="primary" plain :loading="resumingTimers" @click="resumeTimers">推进到期节点</el-button>
+          <div v-if="detail.instance.status === 'running' && (canStart || canUpgradeInstance(detail.instance))" class="detail-actions">
+            <el-button v-if="canStart" type="primary" plain :loading="resumingTimers" @click="resumeTimers">推进到期节点</el-button>
+            <el-button v-if="canUpgradeInstance(detail.instance)" type="warning" plain @click="openVersionUpgrade(detail.instance)">升级版本</el-button>
           </div>
 
           <section class="detail-section">
@@ -342,18 +343,26 @@
         </template>
       </div>
     </el-dialog>
+
+    <InstanceVersionUpgradeDialog
+      v-model="versionUpgradeDialog"
+      :instance="versionUpgradeTarget"
+      @upgraded="handleVersionUpgraded"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { adminApi } from '../../../api'
 import type { AdminUser } from '../../../api/types'
 import { hasPerm } from '../../../utils/permission'
 import WorkflowRuntimeForm from '../components/WorkflowRuntimeForm.vue'
 import WorkflowUserTreePicker from '../components/WorkflowUserTreePicker.vue'
 import WorkflowFormRevisionRecords from './components/WorkflowFormRevisionRecords.vue'
+import InstanceVersionUpgradeDialog from './InstanceVersionUpgradeDialog.vue'
 import { initialWorkflowFormData, workflowFieldActionMap, workflowFieldAccessMap, writableWorkflowFormData } from '../runtimeForm'
 import type {
   WorkflowInstanceDetail,
@@ -378,6 +387,7 @@ const statusOptions = [
 const canStart = computed(() => hasPerm('admin:menu:workflow:instance:start'))
 const canViewDetail = computed(() => hasPerm('admin:menu:workflow:instance:detail'))
 const canDelete = computed(() => hasPerm('admin:menu:workflow:instance:delete'))
+const canUpgrade = computed(() => hasPerm('admin:menu:workflow:instance:upgrade'))
 const canViewNotifications = computed(() => hasPerm('admin:menu:workflow:notification:list'))
 const canRetryNotifications = computed(() => hasPerm('admin:menu:workflow:notification:retry'))
 const loading = ref(false)
@@ -389,6 +399,8 @@ const filters = reactive({ instanceTitle: '', definitionName: '', businessType: 
 const selectedInstances = ref<WorkflowInstanceSummary[]>([])
 const deletingInstanceId = ref('')
 const batchDeleting = ref(false)
+const versionUpgradeDialog = ref(false)
+const versionUpgradeTarget = ref<WorkflowInstanceSummary | null>(null)
 
 const startDialog = ref(false)
 const starting = ref(false)
@@ -531,7 +543,7 @@ function historyEventLabel(type: string) {
     instance_started: '流程已发起', task_created: '任务已创建', task_activated: '任务已激活',
     task_approved: '任务已通过', task_rejected: '任务已驳回', task_returned: '任务已退回', task_submitted: '任务已提交', task_cancelled: '任务已取消',
     node_cc: '已记录抄送', node_notify: '通知节点已触发', node_automated: '自动动作已执行', timer_waiting: '定时节点等待中', timer_resumed: '定时节点已推进',
-    instance_completed: '流程已完成', instance_rejected: '流程已驳回',
+    instance_completed: '流程已完成', instance_rejected: '流程已驳回', instance_version_upgraded: '实例版本已升级',
   }[type] || type
 }
 
@@ -762,6 +774,28 @@ async function openDetail(row: WorkflowInstanceSummary) {
   }
 }
 
+function canUpgradeInstance(instance: WorkflowInstanceSummary) {
+  if (!canUpgrade.value || instance.status !== 'running') return false
+  const latest = publishedDefinitions.value.find(definition => definition.id === instance.definitionId)
+  return Boolean(latest && latest.version > instance.definitionVersion)
+}
+
+function openVersionUpgrade(instance: WorkflowInstanceSummary) {
+  if (!canUpgradeInstance(instance)) return
+  versionUpgradeTarget.value = instance
+  versionUpgradeDialog.value = true
+}
+
+async function handleVersionUpgraded(result: { instanceId: string; currentVersion: number }) {
+  const row = list.value.find(instance => instance.id === result.instanceId)
+  if (row) row.definitionVersion = result.currentVersion
+  if (detail.value?.instance.id === result.instanceId) {
+    const response = await adminApi.workflowInstanceDetail(result.instanceId)
+    detail.value = response.data as WorkflowInstanceDetail
+  }
+  await loadList()
+}
+
 async function deleteInstance(instance: WorkflowInstanceSummary) {
   if (!canSelectInstance(instance)) {
     ElMessage.warning('审批中的流程实例不能删除，请先取消或等待流程结束')
@@ -866,7 +900,12 @@ async function resumeTimers() {
   }
 }
 
-onMounted(loadList)
+onMounted(async () => {
+  await Promise.all([
+    loadList(),
+    (canStart.value || canUpgrade.value) ? loadPublishedDefinitions() : Promise.resolve(),
+  ])
+})
 </script>
 
 <style scoped>

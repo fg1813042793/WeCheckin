@@ -39,7 +39,7 @@ func TestRenderSingleWorkflowExportFormats(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(string(test.format), func(t *testing.T) {
-			result, err := renderWorkflowExport([]exportDocument{document}, test.format)
+			result, err := renderWorkflowExport([]exportDocument{document}, test.format, ExportContentFull)
 			if err != nil {
 				t.Fatalf("render export: %v", err)
 			}
@@ -67,7 +67,7 @@ func TestBuildExportDocumentUsesInstanceVersionAndFormSchema(t *testing.T) {
 			"reason": "项目使用",
 			"items":  []interface{}{map[string]interface{}{"name": "显示器"}},
 		},
-	})
+	}, ExportContentFull)
 	flat := document.Title
 	for _, row := range document.Metadata {
 		flat += strings.Join(row, "")
@@ -105,7 +105,7 @@ func TestBuildExportDocumentPreservesFormGrid(t *testing.T) {
 		FormData: map[string]interface{}{
 			"team": 50, "innovation": 60, "persistence": 70, "comment": "表现稳定",
 		},
-	})
+	}, ExportContentFull)
 
 	if len(document.Sections) < 1 || len(document.Sections[0].FieldRows) != 2 {
 		t.Fatalf("field rows = %#v, want two layout rows", document.Sections)
@@ -132,7 +132,7 @@ func TestWorkflowExportFormatsContainStructuredStyles(t *testing.T) {
 			},
 		}},
 		FormData: map[string]interface{}{"team": 50, "innovation": 60, "persistence": 70},
-	})
+	}, ExportContentFull)
 
 	pdf, err := renderPDF(document)
 	if err != nil {
@@ -173,7 +173,7 @@ func TestWorkflowExportFormatsContainStructuredStyles(t *testing.T) {
 func TestRenderBatchWorkflowExports(t *testing.T) {
 	documents := []exportDocument{sampleExportDocument("OA-001"), sampleExportDocument("OA-002")}
 
-	xlsx, err := renderWorkflowExport(documents, ExportFormatXLSX)
+	xlsx, err := renderWorkflowExport(documents, ExportFormatXLSX, ExportContentFull)
 	if err != nil {
 		t.Fatalf("render xlsx: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestRenderBatchWorkflowExports(t *testing.T) {
 	}
 
 	for _, format := range []ExportFormat{ExportFormatPDF, ExportFormatDOCX} {
-		result, err := renderWorkflowExport(documents, format)
+		result, err := renderWorkflowExport(documents, format, ExportContentFull)
 		if err != nil {
 			t.Fatalf("render %s: %v", format, err)
 		}

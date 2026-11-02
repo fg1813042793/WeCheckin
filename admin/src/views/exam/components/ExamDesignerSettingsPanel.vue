@@ -6,6 +6,10 @@
     </div>
     <div class="setting-scroll">
       <section class="setting-group">
+        <div class="group-title">考试名称</div><div class="group-desc">区分后台管理名称和考生看到的显示名称</div>
+        <ExamNameFields :form="form" />
+      </section>
+      <section class="setting-group">
         <div class="group-title">展示与答题体验</div><div class="group-desc">控制考生端页面结构、校验时机和答题辅助能力</div>
         <el-form label-position="top"><div class="settings-grid">
           <el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item><el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
@@ -21,8 +25,10 @@
           <el-form-item label="最短交卷时间"><number-setting v-model="form.minSubmitMinutes" help="0 表示不限制最短作答时间" /></el-form-item>
           <el-form-item label="最长交卷时间"><number-setting v-model="form.maxSubmitMinutes" help="单位：分钟，0 表示不限时" /></el-form-item>
           <el-form-item label="每人考试次数"><number-setting v-model="form.maxAttempts" help="0 表示不限次数" /></el-form-item>
-          <el-form-item label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item><el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item>
+          <el-form-item label="及格分"><div class="setting-control-stack"><el-input-number v-model="form.passScore" :min="0" :max="totalScore > 0 ? totalScore : undefined" /><span class="setting-help">0 表示完成自动阅卷即通过，当前满分 {{ totalScore }} 分</span></div></el-form-item>
+          <el-form-item label="随机顺序"><el-switch v-model="form.randomOrder" /></el-form-item>
           <el-form-item label="开始时间"><el-date-picker v-model="form.startDate" type="datetime" placeholder="不限" value-format="x" /></el-form-item><el-form-item label="结束时间"><el-date-picker v-model="form.endDate" type="datetime" placeholder="不限" value-format="x" /></el-form-item>
+          <el-form-item class="settings-full" label="练习模式"><el-switch v-model="form.exerciseMode" /></el-form-item>
         </div></el-form>
       </section>
       <section class="setting-group">
@@ -39,10 +45,10 @@
         <el-form label-position="top"><div class="settings-grid">
           <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item><el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item><el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnalysis" /></el-form-item><el-form-item label="考试状态"><el-switch v-model="form.statusBool" :active-value="1" :inactive-value="0" active-text="已开启" inactive-text="已停用" /></el-form-item>
           <el-form-item class="settings-full" label="填写模版"><el-select v-model="form.fillTemplate"><el-option v-for="(label, value) in fillTemplates" :key="value" :value="value" :label="label" /></el-select></el-form-item>
-          <el-form-item class="settings-full" label="考试链接"><el-input v-if="form.id" :model-value="publicUrl" readonly><template #append><el-button @click="emit('copyLink')">复制</el-button></template></el-input><span v-else class="setting-empty-tip">请先保存考试</span></el-form-item>
-          <el-form-item class="settings-full" label="二维码"><div v-if="form.id" class="qr-preview"><img :src="qrUrl" alt="二维码" /><div class="qr-preview-meta"><strong>扫码进入考试</strong><span>二维码内容随考试链接自动生成</span></div></div><span v-else class="setting-empty-tip">请先保存考试</span></el-form-item>
+          <el-form-item class="settings-full" label="考试链接"><el-input v-if="form.id" :model-value="publicUrl" @update:model-value="emit('update:publicUrl', $event)"><template #append><el-button @click="emit('copyLink')">复制</el-button></template></el-input><span v-else class="setting-empty-tip">请先保存考试</span></el-form-item>
+          <el-form-item class="settings-full" label="二维码"><div v-if="form.id" class="qr-preview"><img v-if="qrUrl" :src="qrUrl" alt="二维码" /><div class="qr-preview-meta"><strong>扫码进入考试</strong><span>修改考试链接后二维码会自动更新</span><el-button v-if="qrUrl" size="small" @click="emit('downloadQr')">下载二维码</el-button></div></div><span v-else class="setting-empty-tip">请先保存考试</span></el-form-item>
           <el-form-item class="settings-full" label="提交后处理"><el-radio-group v-model="completionAction" class="completion-radio-group"><el-radio-button value="default">默认完成页</el-radio-button><el-radio-button value="content">自定义页面</el-radio-button><el-radio-button value="redirect">跳转链接</el-radio-button></el-radio-group></el-form-item>
-          <el-form-item v-if="completionAction==='content'" label="提交完成页内容"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item><el-form-item v-if="completionAction==='redirect'" label="提交后跳转链接"><el-input v-model="form.redirectUrl" placeholder="https://example.com 或站内路径" /><div v-if="form.redirectUrl && !isValidRedirectUrl(form.redirectUrl)" class="setting-help danger">请输入 http(s) 链接或以 / 开头的站内路径</div></el-form-item>
+          <el-form-item v-if="completionAction==='content'" class="settings-full" label="提交完成页内容"><el-input v-model="form.endContent" type="textarea" :rows="3" placeholder="提交后显示的 HTML 内容" /></el-form-item><el-form-item v-if="completionAction==='redirect'" class="settings-full" label="提交后跳转链接"><el-input v-model="form.redirectUrl" placeholder="https://example.com 或站内路径" /><div v-if="form.redirectUrl && !isValidRedirectUrl(form.redirectUrl)" class="setting-help danger">请输入 http(s) 链接或以 / 开头的站内路径</div></el-form-item>
         </div></el-form>
       </section>
       <section class="setting-group">
@@ -54,20 +60,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, nextTick, ref, watch } from 'vue'
+import { defineComponent, h, nextTick, ref, watch } from 'vue'
 import { ElInputNumber } from 'element-plus'
 import { adminApi } from '../../../api'
 import { isValidRedirectUrl } from '../../survey/survey-designer-validation'
 import type { ExamCompletionAction } from '../exam-designer-types'
+import ExamNameFields from './ExamNameFields.vue'
 
-const props = defineProps<{ saving: boolean; publicUrl: string; fillTemplates: Record<string, string> }>()
+const props = defineProps<{ saving: boolean; publicUrl: string; qrUrl: string; fillTemplates: Record<string, string>; totalScore: number }>()
 const form = defineModel<Record<string, any>>('form', { required: true })
 const completionAction = defineModel<ExamCompletionAction>({ required: true })
-const emit = defineEmits<{ save: []; copyLink: [] }>()
+const emit = defineEmits<{ save: []; 'update:publicUrl': [value: string]; copyLink: []; downloadQr: [] }>()
 const deptTreeRef = ref<any>(null), adminTreeRef = ref<any>(null)
 const deptTreeOptions = ref<any[]>([]), adminTreeData = ref<any[]>([])
 const collaboratorCheckedKeys = ref<string[]>([]), creatorName = ref('')
-const qrUrl = computed(() => props.publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(props.publicUrl)}` : '')
 const NumberSetting = defineComponent({ props: { modelValue: Number, help: String }, emits: ['update:modelValue'], setup(componentProps, { emit: componentEmit }) { return () => h('div', { class: 'setting-control-stack' }, [h(ElInputNumber, { modelValue: componentProps.modelValue, min: 0, 'onUpdate:modelValue': (value: number | undefined) => componentEmit('update:modelValue', value) }), h('span', { class: 'setting-help' }, componentProps.help)]) } })
 function onAdminTreeCheck() { form.value.collaborators = adminTreeRef.value?.getCheckedKeys(true)?.filter((key: string) => key.startsWith('admin-'))?.map((key: string) => key.replace('admin-', ''))?.join(',') || '' }
 function onDeptCheckChange() { form.value.deptIds = deptTreeRef.value?.getCheckedKeys(false).join(',') || '' }
@@ -96,9 +102,10 @@ async function loadManagers() {
   } catch { creatorName.value = '加载失败'; adminTreeData.value = [] }
 }
 watch(() => form.value.visibility, value => { if (value === 2) void loadData() })
+watch(() => props.totalScore, value => { if (value >= 0 && form.value.passScore > value) form.value.passScore = value })
 defineExpose({ loadData })
 </script>
 
 <style scoped>
-.setting-wrapper { height:100%; overflow-y:auto; background:var(--designer-bg); }.setting-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 24px; border-bottom:1px solid var(--designer-border); background:#fff; }.setting-page-title { font-size:18px; font-weight:700; }.setting-page-desc,.group-desc,.setting-help,.setting-empty-tip { color:#98a2b3; font-size:12px; }.setting-header-actions { display:flex; gap:10px; }.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); align-items:start; gap:18px; padding:24px; }.setting-group { padding:18px 20px; border:1px solid var(--designer-border); border-radius:8px; background:#fff; }.group-title { margin-bottom:4px; font-size:14px; font-weight:650; }.group-desc { margin-bottom:14px; }.settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px; }.settings-full { grid-column:1/-1; }.settings-grid :deep(.el-select),.settings-grid :deep(.el-date-editor),.settings-grid :deep(.el-input-number) { width:100%; }.setting-radio-group { display:flex; flex-wrap:wrap; }.setting-control-stack { display:flex; flex-direction:column; width:100%; gap:4px; }.setting-tree-box { width:100%; max-height:300px; overflow:auto; padding:8px; border:1px solid #dcdfe6; border-radius:7px; }.setting-tree-box.large { max-height:400px; }.completion-radio-group { display:flex; width:100%; }.completion-radio-group :deep(.el-radio-button) { flex:1; }.qr-preview { display:flex; align-items:center; gap:12px; }.qr-preview img { width:120px; height:120px; }.qr-preview-meta { display:flex; flex-direction:column; gap:4px; }.setting-help.danger { color:#f04438; }
+.setting-wrapper { height:100%; overflow-y:auto; background:var(--designer-bg); }.setting-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 24px; border-bottom:1px solid var(--designer-border); background:#fff; }.setting-page-title { font-size:18px; font-weight:700; }.setting-page-desc,.group-desc,.setting-help,.setting-empty-tip { color:#98a2b3; font-size:12px; }.setting-header-actions { display:flex; gap:10px; }.setting-scroll { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); align-items:start; gap:18px; padding:24px; }.setting-group { padding:18px 20px; border:1px solid var(--designer-border); border-radius:8px; background:#fff; }.group-title { margin-bottom:4px; font-size:14px; font-weight:650; }.group-desc { margin-bottom:14px; }.settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px; }.settings-full { grid-column:1/-1; }.settings-grid :deep(.el-select),.settings-grid :deep(.el-date-editor),.settings-grid :deep(.el-input-number) { width:100%; }.setting-radio-group { display:flex; flex-wrap:wrap; }.setting-control-stack { display:flex; flex-direction:column; width:100%; gap:4px; }.setting-tree-box { width:100%; max-height:300px; overflow:auto; padding:8px; border:1px solid #dcdfe6; border-radius:7px; }.setting-tree-box.large { max-height:400px; }.completion-radio-group { display:flex; width:100%; }.completion-radio-group :deep(.el-radio-button) { flex:1; }.qr-preview { display:flex; align-items:center; gap:12px; }.qr-preview img { width:120px; height:120px; }.qr-preview-meta { display:flex; align-items:flex-start; flex-direction:column; gap:6px; }.setting-help.danger { color:#f04438; }
 </style>

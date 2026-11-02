@@ -35,7 +35,7 @@ function submit() {
 </script>
 
 <template>
-  <view class="bind-panel">
+  <view class="bind-panel app-pc-control-scope">
     <view class="bind-card">
       <view class="bind-card__head">
         <view class="bind-card__logo">
@@ -138,5 +138,68 @@ function submit() {
   display: flex;
   flex-direction: column;
   gap: 22rpx;
+}
+
+@media screen and (min-width: 769px) {
+  .bind-panel {
+    padding: 32px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bind-card {
+    width: min(420px, calc(100vw - 48px));
+    min-width: 0;
+    padding: 28px;
+    border: 1px solid var(--app-border-color);
+    border-radius: 12px;
+  }
+
+  .bind-card__head {
+    gap: 8px;
+  }
+
+  .bind-card__logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    font-size: 18px;
+  }
+
+  .bind-card__title {
+    margin-top: 8px;
+    font-size: 22px;
+    line-height: 1.25;
+  }
+
+  .bind-card__desc {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .bind-meta {
+    margin: 20px 0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .bind-form {
+    gap: 12px;
+  }
+
+  .bind-form :deep(.u-input) {
+    min-height: 40px;
+  }
+
+  .bind-form :deep(.u-btn) {
+    width: 100%;
+    height: 40px;
+    border-radius: 6px;
+  }
 }
 </style>

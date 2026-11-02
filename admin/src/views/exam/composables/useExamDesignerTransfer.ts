@@ -21,8 +21,19 @@ export function useExamDesignerTransfer(options: ExamDesignerTransferOptions) {
   const bankUploadQuestionId = ref('')
   const exportedJson = ref('')
   const fillTemplates: Record<string, string> = { ef: '默认模版', ef1: '新样式模版' }
-  const publicUrl = computed(() => options.form.id
+  const generatedPublicUrl = computed(() => options.form.id
     ? `${window.location.origin}/${options.form.fillTemplate || 'ef'}/${options.form.id}`
+    : '')
+  const publicUrl = computed({
+    get: () => typeof options.form.publicUrl === 'string' && options.form.publicUrl
+      ? options.form.publicUrl
+      : generatedPublicUrl.value,
+    set(value: string) {
+      options.form.publicUrl = value
+    },
+  })
+  const qrUrl = computed(() => publicUrl.value.trim()
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl.value.trim())}`
     : '')
 
   function importTextQuestions(payload: ExamTextImportPayload) {
@@ -112,7 +123,27 @@ export function useExamDesignerTransfer(options: ExamDesignerTransferOptions) {
     }
   }
 
-  function copyLink() { void navigator.clipboard.writeText(publicUrl.value); ElMessage.success('已复制') }
+  async function copyLink() {
+    const link = publicUrl.value.trim()
+    if (!link) { ElMessage.warning('请先填写考试链接'); return }
+    try {
+      await writeClipboardText(link)
+      ElMessage.success('已复制')
+    } catch {
+      ElMessage.error('复制失败，请手动复制')
+    }
+  }
+
+  async function downloadQR() {
+    if (!qrUrl.value) { ElMessage.warning('请先填写考试链接'); return }
+    try {
+      const response = await fetch(qrUrl.value)
+      if (!response.ok) throw new Error(`QR download failed: ${response.status}`)
+      downloadBlob(await response.blob(), `考试二维码_${options.form.id}.png`)
+    } catch {
+      ElMessage.error('下载失败')
+    }
+  }
   function prepareJson() { exportedJson.value = JSON.stringify({ version: '2.0', questions: options.questions.value }, null, 2) }
   function downloadJson() { downloadBlob(new Blob([exportedJson.value], { type: 'application/json;charset=utf-8' }), `${options.form.title || 'exam'}.json`) }
   function loadJson() {
@@ -132,7 +163,23 @@ export function useExamDesignerTransfer(options: ExamDesignerTransferOptions) {
     input.click()
   }
 
-  return { textImportDialogRef, bankUploadDialogRef, exportedJson, fillTemplates, publicUrl, importTextQuestions, openTextImport, exportExam, addFromBank, onUploadBank, confirmUploadBank, copyLink, prepareJson, downloadJson, loadJson }
+  return { textImportDialogRef, bankUploadDialogRef, exportedJson, fillTemplates, publicUrl, qrUrl, importTextQuestions, openTextImport, exportExam, addFromBank, onUploadBank, confirmUploadBank, copyLink, downloadQR, prepareJson, downloadJson, loadJson }
+}
+
+async function writeClipboardText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return } catch {}
+  }
+  const input = document.createElement('textarea')
+  input.value = text
+  input.setAttribute('readonly', '')
+  input.style.position = 'fixed'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  try {
+    input.focus(); input.select()
+    if (!document.execCommand('copy')) throw new Error('copy failed')
+  } finally { input.remove() }
 }
 
 function stripMarkup(value = '') { return value.replace(/<[^>]*>/g, '') }

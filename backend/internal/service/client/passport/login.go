@@ -3,10 +3,14 @@ package passport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
+	"gorm.io/gorm"
+
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
 	"wecheckin/backend/pkg/database"
@@ -39,10 +43,17 @@ func LoginUser(userID, addIP, device string) (*LoginResponse, error) {
 func LoginUserContext(ctx context.Context, userID, addIP, device string) (*LoginResponse, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	if db == nil {
+		return nil, loginStorageError(ctx, "system_error")
+	}
 
 	var user model.User
 	err := db.Where("`user_mini_openid` = ?", userID).First(&user).Error
 	if err != nil {
+		auditLoginLookupFailure(ctx, err)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, loginStorageError(ctx, "system_error")
+		}
 		return &LoginResponse{Token: nil}, nil
 	}
 	db.Model(&user).Update("user_login_time", database.Now())
@@ -50,8 +61,11 @@ func LoginUserContext(ctx context.Context, userID, addIP, device string) (*Login
 	setUserRole(&user)
 	fillUserRoleIDsContext(ctx, db, &user)
 	token := randutil.HexString(32)
-	storeUserTokenContext(ctx, &user, token, addIP, device)
-	deptID := dept.UserDeptID(user.ID)
+	if err := storeUserTokenContext(ctx, &user, token, addIP, device); err != nil {
+		return nil, err
+	}
+	deptID := dept.UserDeptIDContext(ctx, user.ID)
+	auditlog.SetActor(ctx, user.ID, user.Name, "user")
 	return &LoginResponse{
 		Token: token,
 		UserInfo: &UserInfo{
@@ -74,18 +88,24 @@ func LoginByPwd(name, password, addIP, device string) (*LoginResponse, error) {
 func LoginByPwdContext(ctx context.Context, name, password, addIP, device string) (*LoginResponse, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	if db == nil {
+		return nil, loginStorageError(ctx, "system_error")
+	}
 
 	var user model.User
 	err := db.Where("`user_name` = ? OR `user_mobile` = ?", name, name).First(&user).Error
 	if err != nil {
+		auditLoginLookupFailure(ctx, err)
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if !passwordutil.Verify(user.Password, password) {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if passwordutil.NeedsRehash(user.Password) {
 		newHash, err := passwordutil.Hash(password)
 		if err != nil {
+			auditlog.SetReason(ctx, "system_error", "登录服务异常")
 			return nil, err
 		}
 		db.Model(&user).Update("user_password", newHash)
@@ -96,14 +116,17 @@ func LoginByPwdContext(ctx context.Context, name, password, addIP, device string
 	setUserRole(&user)
 	fillUserRoleIDsContext(ctx, db, &user)
 	token := randutil.HexString(32)
-	storeUserTokenContext(ctx, &user, token, addIP, device)
-	deptID := dept.UserDeptID(user.ID)
+	if err := storeUserTokenContext(ctx, &user, token, addIP, device); err != nil {
+		return nil, err
+	}
+	deptID := dept.UserDeptIDContext(ctx, user.ID)
 	var deptName string
 	if deptID > 0 {
 		var d model.Department
 		db.First(&d, deptID)
 		deptName = d.Name
 	}
+	auditlog.SetActor(ctx, user.ID, user.Name, "user")
 	return &LoginResponse{
 		Token: token,
 		UserInfo: &UserInfo{
@@ -119,17 +142,28 @@ func LoginByPwdContext(ctx context.Context, name, password, addIP, device string
 	}, nil
 }
 
-func storeUserToken(user *model.User, token, addIP, device string) {
-	storeUserTokenContext(context.Background(), user, token, addIP, device)
+func auditLoginLookupFailure(ctx context.Context, err error) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
+	} else {
+		auditlog.SetReason(ctx, "system_error", "登录服务异常")
+	}
 }
 
-func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, device string) {
+func storeUserToken(user *model.User, token, addIP, device string) error {
+	return storeUserTokenContext(context.Background(), user, token, addIP, device)
+}
+
+func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, device string) (resultErr error) {
+	if user == nil || user.ID == 0 || token == "" {
+		return loginStorageError(ctx, "system_error")
+	}
+	if rd.RDB == nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
 	expire, prefix := tokenutil.GetTokenConfigContext(ctx, "user")
 	if prefix == "" {
 		prefix = "user_token:"
-	}
-	if rd.RDB == nil {
-		return
 	}
 	keyAuth := prefix + "a:" + token
 	idStr := strconv.Itoa(int(user.ID))
@@ -138,13 +172,21 @@ func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, 
 	defer cancel()
 
 	if tokenutil.IsUserSingleLoginContext(ctx) {
-		if oldTokens, _ := rd.RDB.SMembers(redisCtx, keySet).Result(); len(oldTokens) > 0 {
+		oldTokens, err := rd.RDB.SMembers(redisCtx, keySet).Result()
+		if err != nil {
+			return loginStorageError(ctx, "session_store_failed")
+		}
+		if len(oldTokens) > 0 {
 			for _, t := range oldTokens {
 				if t != token {
-					rd.RDB.Del(redisCtx, prefix+"a:"+t)
+					if err := rd.RDB.Del(redisCtx, prefix+"a:"+t).Err(); err != nil {
+						return loginStorageError(ctx, "session_store_failed")
+					}
 				}
 			}
-			rd.RDB.Del(redisCtx, keySet)
+			if err := rd.RDB.Del(redisCtx, keySet).Err(); err != nil {
+				return loginStorageError(ctx, "session_store_failed")
+			}
 		}
 	}
 
@@ -162,8 +204,29 @@ func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, 
 		"loginTime":  now,
 		"device":     device,
 	}
-	jsonBytes, _ := json.Marshal(info)
-	rd.RDB.Set(redisCtx, keyAuth, string(jsonBytes), expire)
-	rd.RDB.SAdd(redisCtx, keySet, token)
-	rd.RDB.Expire(redisCtx, keySet, expire*2)
+	jsonBytes, err := json.Marshal(info)
+	if err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	defer func() {
+		if resultErr != nil {
+			rd.RDB.Del(redisCtx, keyAuth)
+			rd.RDB.SRem(redisCtx, keySet, token)
+		}
+	}()
+	if err := rd.RDB.Set(redisCtx, keyAuth, string(jsonBytes), expire).Err(); err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	if err := rd.RDB.SAdd(redisCtx, keySet, token).Err(); err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	if ok, err := rd.RDB.Expire(redisCtx, keySet, expire*2).Result(); err != nil || !ok {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	return nil
+}
+
+func loginStorageError(ctx context.Context, reasonCode string) error {
+	auditlog.SetReason(ctx, reasonCode, "登录会话保存失败")
+	return fmt.Errorf("登录失败，请稍后重试")
 }

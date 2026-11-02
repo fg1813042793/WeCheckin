@@ -89,10 +89,14 @@ var publicErrors = []publicError{
 	{workflowapp.ErrCompletedRevisionNoReviewPath, "来源节点之后没有可确认的人工节点"},
 	{workflowapp.ErrCompletedRevisionCannotCancel, "表单修订已有确认任务被处理，不能取消"},
 	{workflowapp.ErrCompletedRevisionIDRequired, "表单修订请求不能为空"},
+	{workflowapp.ErrInstanceVersionAlreadyLatest, "流程实例已是最新版本"},
+	{workflowapp.ErrInstanceVersionIncompatible, "流程实例与最新版本不兼容"},
+	{workflowapp.ErrInstanceVersionConflict, "流程实例版本已变化，请刷新后重试"},
 	{workflowapp.ErrWorkflowImageInvalid, "流程图片数据无效"},
 	{workflowapp.ErrWorkflowImageTooMany, "流程图片最多上传9张"},
 	{workflowdomain.ErrTaskNotFound, "工作流任务不存在"},
 	{workflowdomain.ErrTaskAlreadyHandled, "工作流任务已处理"},
+	{workflowdomain.ErrAssigneeUnavailable, "流程节点未解析到处理人，请联系管理员检查审批人配置"},
 	{workflowdomain.ErrInvalidTaskAction, "工作流任务操作无效"},
 	{workflowdomain.ErrInstanceNotRunning, "工作流实例已结束"},
 	{workflowdomain.ErrReturnTargetUnavailable, "当前任务没有可退回的上一节点"},
@@ -115,6 +119,7 @@ var publicErrors = []publicError{
 	{workflowsummary.ErrExportInstancesEmpty, "请选择需要导出的流程实例"},
 	{workflowsummary.ErrExportInstancesMany, "单次最多导出50个流程实例"},
 	{workflowsummary.ErrExportFormatInvalid, "导出格式仅支持 pdf、xlsx、docx"},
+	{workflowsummary.ErrExportContentInvalid, "导出内容仅支持 full（完整记录）或 form（仅表单）"},
 	{workflowsummary.ErrExportBodyTooLarge, "导出文件过大，请减少本次导出数量"},
 }
 
@@ -140,6 +145,7 @@ func HTTPStatus(err error) int {
 	for _, target := range []error{
 		workflowapp.ErrCompletedRevisionActive,
 		workflowapp.ErrInstanceFormRevisionChanged,
+		workflowapp.ErrInstanceVersionConflict,
 		workflowdomain.ErrRevisionNotPending,
 		workflowdomain.ErrRevisionTaskAlreadyHandled,
 	} {

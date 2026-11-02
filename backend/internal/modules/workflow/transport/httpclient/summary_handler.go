@@ -104,11 +104,10 @@ func (handler *SummaryHandler) Export(ctx context.Context, c *app.RequestContext
 	if !ok {
 		return
 	}
-	definitionID, _ := strconv.ParseUint(c.Query("definitionId"), 10, 64)
 	data, err := handler.service.Export(ctx, user, workflowsummary.ExportRequest{
-		DefinitionID: uint(definitionID),
-		InstanceIDs:  splitSummaryInstanceIDs(c.Query("instanceIds")),
-		Format:       workflowsummary.ExportFormat(strings.ToLower(strings.TrimSpace(c.Query("format")))),
+		InstanceIDs: splitSummaryInstanceIDs(c.Query("instanceIds")),
+		Format:      workflowsummary.ExportFormat(strings.ToLower(strings.TrimSpace(c.Query("format")))),
+		Content:     workflowsummary.ExportContent(c.Query("content")),
 	})
 	if err != nil {
 		workflowhttperror.Respond(ctx, c, "workflow.summary.export", err)

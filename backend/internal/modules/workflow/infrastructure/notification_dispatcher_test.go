@@ -121,6 +121,22 @@ func TestRevisionNotificationUsesRevisionDeepLink(t *testing.T) {
 	}
 }
 
+func TestQueuedTaskNotificationWithoutPayloadViewUsesTaskDeepLink(t *testing.T) {
+	record := application.NotificationRecord{
+		ID: "outbox-task-1", InstanceID: "instance-1", TaskID: "task-1",
+		Kind:    workflowmodel.NotificationKindTaskArrived,
+		Payload: application.NotificationPayload{Title: "审批待办", Content: "请处理"},
+	}
+	operationURL := buildWorkflowNotificationRecordURL("https://example.test/h5", configsvc.DingTalkH5CorpConfig{}, record)
+	parsed, err := url.Parse(operationURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.Query().Get("view"); got != "workflow:task:task-1:instance:instance-1" {
+		t.Fatalf("queued task notification view=%q", got)
+	}
+}
+
 func TestSelectDingTalkNotificationTargetPrefersSmallestCommonEnabledCorp(t *testing.T) {
 	bindings := []model.DingTalkH5UserBinding{
 		{CorpID: "corp-c", DingTalkUserID: "user-c", Enabled: 1},

@@ -139,10 +139,27 @@ func buildWorkflowNotificationURL(baseURL string, config configsvc.DingTalkH5Cor
 
 func buildWorkflowNotificationRecordURL(baseURL string, config configsvc.DingTalkH5CorpConfig, notification application.NotificationRecord) string {
 	view := strings.TrimSpace(notification.Payload.View)
+	if view == "" {
+		view = workflowTaskNotificationView(notification.Kind, notification.TaskID, notification.InstanceID)
+	}
 	if view == "" && strings.TrimSpace(notification.InstanceID) != "" {
 		view = "workflow:instance:" + strings.TrimSpace(notification.InstanceID)
 	}
 	return buildWorkflowNotificationViewURL(baseURL, config, view)
+}
+
+func workflowTaskNotificationView(kind, taskID, instanceID string) string {
+	switch strings.TrimSpace(kind) {
+	case workflowmodel.NotificationKindTaskArrived, workflowmodel.NotificationKindTaskReminder:
+	default:
+		return ""
+	}
+	taskID = strings.TrimSpace(taskID)
+	instanceID = strings.TrimSpace(instanceID)
+	if taskID == "" || instanceID == "" {
+		return ""
+	}
+	return "workflow:task:" + url.PathEscape(taskID) + ":instance:" + url.PathEscape(instanceID)
 }
 
 func buildWorkflowNotificationViewURL(baseURL string, config configsvc.DingTalkH5CorpConfig, view string) string {

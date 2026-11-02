@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	examPkg "wecheckin/backend/internal/formkit/exam"
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/pkg/database"
@@ -36,6 +37,7 @@ var adminExamListColumns = []string{
 	"exam_duration",
 	"exam_max_attempts",
 	"exam_show_score",
+	"exam_pass_score",
 	"exam_max_response",
 	"exam_dept_ids",
 	"exam_mode",
@@ -67,6 +69,7 @@ type RecordDetailResult struct {
 	Record  model.ExamRecord       `json:"record"`
 	Answers map[string]interface{} `json:"answers"`
 	Scoring map[string]bool        `json:"scoring"`
+	Results []examPkg.Result       `json:"results"`
 	Schema  interface{}            `json:"schema"`
 }
 
@@ -361,6 +364,7 @@ func (s *Service) RecordListContext(ctx context.Context, examID int, keyword str
 	q.Count(&total)
 	var list []model.ExamRecord
 	q.Order("`exam_r_id` DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list)
+	normalizeRecordListDeviceMetadata(list)
 	return list, total, nil
 }
 
@@ -406,13 +410,20 @@ func (s *Service) RecordDetailForAdminContext(ctx context.Context, id uint, admi
 }
 
 func decodeRecordDetailPayload(record model.ExamRecord, exam model.Exam) *RecordDetailResult {
+	normalizeRecordDeviceMetadata(&record)
 	var answers map[string]interface{}
 	if record.Answers != "" {
 		_ = json.Unmarshal([]byte(record.Answers), &answers)
 	}
 	var scoring map[string]bool
+	var results []examPkg.Result
 	if record.Result != "" {
-		_ = json.Unmarshal([]byte(record.Result), &scoring)
+		var paperResult examPkg.PaperResult
+		if json.Unmarshal([]byte(record.Result), &paperResult) == nil && len(paperResult.Results) > 0 {
+			results = paperResult.Results
+		} else if json.Unmarshal([]byte(record.Result), &results) != nil || len(results) == 0 {
+			_ = json.Unmarshal([]byte(record.Result), &scoring)
+		}
 	}
 	var schema interface{}
 	if exam.Schema != "" {
@@ -422,6 +433,7 @@ func decodeRecordDetailPayload(record model.ExamRecord, exam model.Exam) *Record
 		Record:  record,
 		Answers: answers,
 		Scoring: scoring,
+		Results: results,
 		Schema:  schema,
 	}
 }
@@ -488,18 +500,19 @@ func (s *Service) StatisticsContext(ctx context.Context, examID int) (Statistics
 	type summaryRow struct {
 		Total     int64 `gorm:"column:total"`
 		Submitted int64 `gorm:"column:submitted"`
+		Graded    int64 `gorm:"column:graded"`
 		Passed    int64 `gorm:"column:passed"`
 	}
 	var summary summaryRow
 	if err := db.Model(&model.ExamRecord{}).
-		Select("COUNT(*) AS total, COALESCE(SUM(CASE WHEN `exam_r_status` >= 1 THEN 1 ELSE 0 END), 0) AS submitted, COALESCE(SUM(CASE WHEN `exam_r_pass` = 1 THEN 1 ELSE 0 END), 0) AS passed").
+		Select("COUNT(*) AS total, COALESCE(SUM(CASE WHEN `exam_r_status` >= 1 THEN 1 ELSE 0 END), 0) AS submitted, COALESCE(SUM(CASE WHEN `exam_r_status` = 2 THEN 1 ELSE 0 END), 0) AS graded, COALESCE(SUM(CASE WHEN `exam_r_pass` = 1 THEN 1 ELSE 0 END), 0) AS passed").
 		Where("`exam_r_exam_id` = ?", examID).
 		Scan(&summary).Error; err != nil {
 		return StatisticsResult{}, err
 	}
 	var passRate float64
-	if summary.Submitted > 0 {
-		passRate = float64(summary.Passed) / float64(summary.Submitted)
+	if summary.Graded > 0 {
+		passRate = float64(summary.Passed) / float64(summary.Graded)
 	}
 
 	now := time.Now()
@@ -535,7 +548,7 @@ func (s *Service) StatisticsContext(ctx context.Context, examID int) (Statistics
 	var sds []scoreDist
 	if err := db.Model(&model.ExamRecord{}).
 		Select("FLOOR(`exam_r_score`/10)*10 as score, COUNT(*) as count").
-		Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).
+		Where("`exam_r_exam_id` = ? AND `exam_r_status` = 2", examID).
 		Group("score").
 		Order("score").
 		Find(&sds).Error; err != nil {

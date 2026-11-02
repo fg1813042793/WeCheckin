@@ -1,3 +1,4 @@
+import type { RequestMeta } from 'uview-pro'
 import type {
   WorkflowAttachment,
   WorkflowCommentRequest,
@@ -21,6 +22,7 @@ import type {
   WorkflowSaveStartDraftRequest,
   WorkflowStartDraft,
   WorkflowStartRequest,
+  WorkflowSummaryExportContent,
   WorkflowSummaryExportFormat,
   WorkflowSummaryQuery,
   WorkflowTaskList,
@@ -131,14 +133,14 @@ export function getWorkflowSummaryInstance(id: string) {
 }
 
 export function workflowSummaryExportUrl(
-  definitionId: number,
   instanceIds: string[],
   format: WorkflowSummaryExportFormat,
+  content: WorkflowSummaryExportContent = 'full',
 ) {
   return buildApiUrl(`${WORKFLOW_API}/summary/export`, {
-    definitionId,
     instanceIds: instanceIds.join(','),
     format,
+    content,
     token: authToken(),
   })
 }
@@ -179,10 +181,11 @@ export function listWorkflowTasks(query: WorkflowTaskQuery = {}) {
   return get<WorkflowTaskList>(`${WORKFLOW_API}/tasks`, query)
 }
 
-export function completeWorkflowTask(id: string, data: WorkflowCompleteTaskRequest) {
+export function completeWorkflowTask(id: string, data: WorkflowCompleteTaskRequest, meta?: Pick<RequestMeta, 'toast'>) {
   return post<WorkflowMutationResult>(
     `${WORKFLOW_API}/tasks/${encodeURIComponent(id)}/complete`,
     data,
+    meta,
   )
 }
 

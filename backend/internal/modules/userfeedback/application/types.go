@@ -115,3 +115,12 @@ type UpdateStatusCommand struct {
 	Version    uint64
 	RequestID  string
 }
+
+type NotifySubmitterCommand struct {
+	FeedbackID uint64
+	AdminID    uint
+	Content    string
+	Channel    string
+	Version    uint64
+	RequestID  string
+}

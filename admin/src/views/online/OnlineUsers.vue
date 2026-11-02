@@ -44,7 +44,7 @@
             <el-table-column type="selection" width="46" />
             <el-table-column label="头像" width="60">
               <template #default="{ row }">
-                <el-avatar :src="row.pic" size="small">{{ row.name?.[0] }}</el-avatar>
+                <el-avatar class="online-avatar" :src="row.pic" size="small">{{ row.name?.[0] }}</el-avatar>
               </template>
             </el-table-column>
             <el-table-column prop="name" label="用户名" width="120" />
@@ -75,7 +75,6 @@
             <el-pagination
               v-model:current-page="userPage"
               v-model:page-size="userPageSize"
-              background
               layout="total, sizes, prev, pager, next"
               :page-sizes="pageSizes"
               :total="filteredUsers.length"
@@ -127,7 +126,7 @@
             <el-table-column type="selection" width="46" />
             <el-table-column label="头像" width="60">
               <template #default="{ row }">
-                <el-avatar :src="row.pic" size="small">{{ row.name?.[0] }}</el-avatar>
+                <el-avatar class="online-avatar" :src="row.pic" size="small">{{ row.name?.[0] }}</el-avatar>
               </template>
             </el-table-column>
             <el-table-column prop="name" label="用户名" width="120" />
@@ -157,7 +156,6 @@
             <el-pagination
               v-model:current-page="adminPage"
               v-model:page-size="adminPageSize"
-              background
               layout="total, sizes, prev, pager, next"
               :page-sizes="pageSizes"
               :total="filteredAdmins.length"
@@ -343,5 +341,11 @@ onMounted(() => {
 <style scoped>
 .online-tabs :deep(.el-tabs__header) {
   margin-bottom: 16px;
+}
+
+.online-avatar {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
 }
 </style>

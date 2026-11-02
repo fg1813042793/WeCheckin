@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import type { WorkflowHistoryDateFilters } from '../workflow-history-filter'
 import type { WorkflowSummaryColumn } from '../workflow-summary-columns'
+import type { SummaryMappedColumn } from '../workflow-summary-mappings'
 import type {
   WorkflowInstanceSummary,
   WorkflowPublishedDefinition,
+  WorkflowSummaryExportContent,
   WorkflowSummaryExportFormat,
 } from '@/types/workflow'
+import { useLocale } from 'uview-pro'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   listWorkflowSummaryInstances,
   workflowSummaryExportUrl,
 } from '@/api/workflow'
+import { useWorkflowSummaryVersionFields } from '@/composables/useWorkflowSummaryVersionFields'
 import { useDingtalkAuthStore } from '@/stores'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
 import { workflowInstanceStatusMeta } from '../workflow-status'
@@ -18,14 +22,17 @@ import {
   visibleWorkflowSummaryColumns,
   workflowSummaryBaseColumns,
   workflowSummaryFormFieldGroups,
-  workflowSummaryFormValue,
+  workflowSummaryFormValueInfo,
 } from '../workflow-summary-columns'
+import { normalizeSummaryMappedColumns, summaryMappedColumns, summaryMappedValue } from '../workflow-summary-mappings'
 import WorkflowDetailPanel from './WorkflowDetailPanel.vue'
 import WorkflowFilterPanel from './WorkflowFilterPanel.vue'
 import WorkflowHistoryDatePicker from './WorkflowHistoryDatePicker.vue'
+import WorkflowSummaryMappingEditor from './WorkflowSummaryMappingEditor.vue'
 
 interface SummaryFilters extends WorkflowHistoryDateFilters {
   instanceTitle: string
+  definitionId: string
   definitionName: string
   starterName: string
   status: string
@@ -40,6 +47,7 @@ interface SummaryColumnSettings {
   baseHiddenKeys: string[]
   activeDefinitionId: string
   formSelectedKeysByDefinition: Record<string, string[]>
+  mappedColumns: SummaryMappedColumn[]
 }
 
 const props = defineProps<{
@@ -48,6 +56,7 @@ const props = defineProps<{
 }>()
 
 const auth = useDingtalkAuthStore()
+const { t } = useLocale()
 const loading = ref(false)
 const loaded = ref(false)
 const instances = ref<WorkflowInstanceSummary[]>([])
@@ -66,6 +75,17 @@ const columnSettingsOpen = ref(false)
 const columnSettings = ref<SummaryColumnSettings>(loadColumnSettings())
 const formColumnKeyword = ref('')
 const formFieldDropdownOpen = ref(false)
+const mappingEditorOpen = ref(false)
+const editingMapping = ref<SummaryMappedColumn | null>(null)
+const versionFields = useWorkflowSummaryVersionFields(() => props.definitions, () => instances.value, () => auth.permissionVersion)
+const enabledMappedKeys = computed({
+  get: () => columnSettings.value.mappedColumns.filter(column => column.enabled).map(column => column.id),
+  set: (keys: string[]) => {
+    const selected = new Set(keys)
+    columnSettings.value.mappedColumns = columnSettings.value.mappedColumns.map(column => ({ ...column, enabled: selected.has(column.id) }))
+    saveColumnSettings()
+  },
+})
 
 const canExport = computed(() => auth.hasApiPermission('dingtalk_h5:api:workflow:export'))
 const allCurrentPageSelected = computed(() => {
@@ -73,6 +93,7 @@ const allCurrentPageSelected = computed(() => {
 })
 const filterCount = computed(() => [
   filters.value.instanceTitle.trim(),
+  filters.value.definitionId,
   filters.value.definitionName.trim(),
   filters.value.starterName.trim(),
   filters.value.status,
@@ -152,7 +173,21 @@ const summaryColumns = computed(() => visibleWorkflowSummaryColumns(
   columnSettings.value.baseHiddenKeys,
   selectedFormColumnKeys.value,
   formFieldGroups.value,
+  summaryMappedColumns(columnSettings.value.mappedColumns),
 ))
+const summaryFormValues = computed(() => {
+  const mapped = new Map(columnSettings.value.mappedColumns.map(column => [`mapped:${column.id}`, column]))
+  return new Map(instances.value.map(instance => [
+    instance.id,
+    new Map(summaryColumns.value.filter(column => column.kind === 'form').map((column) => {
+      const mapping = mapped.get(column.key)
+      const value: ReturnType<typeof summaryMappedValue> = mapping
+        ? summaryMappedValue(instance, mapping, formFieldGroups.value, versionFields.groups.value)
+        : workflowSummaryFormValueInfo(instance, column)
+      return [column.key, value]
+    })),
+  ]))
+})
 const summaryGridStyle = computed(() => ({
   gridTemplateColumns: summaryColumns.value.map(column => column.width).join(' '),
 }))
@@ -183,6 +218,21 @@ watch(
 )
 
 watch(
+  () => [instances.value, columnSettings.value.mappedColumns, auth.permissionVersion, props.definitions],
+  () => {
+    for (const column of columnSettings.value.mappedColumns) {
+      if (!column.enabled)
+        continue
+      for (const source of column.sources) {
+        if (source.version && instances.value.some(instance => instance.definitionId === source.definitionId && instance.definitionVersion === source.version))
+          void versionFields.ensure(source.definitionId, source.version)
+      }
+    }
+  },
+  { deep: true },
+)
+
+watch(
   () => props.definitions,
   () => {
     const normalized = normalizeColumnSettings(columnSettings.value)
@@ -197,6 +247,7 @@ watch(
 function emptyFilters(): SummaryFilters {
   return {
     instanceTitle: '',
+    definitionId: '',
     definitionName: '',
     starterName: '',
     status: '',
@@ -229,6 +280,7 @@ function loadColumnSettings(): SummaryColumnSettings {
     baseHiddenKeys: Array.isArray(value.baseHiddenKeys) ? value.baseHiddenKeys.map(String) : [],
     activeDefinitionId: Object.keys(formSelectedKeysByDefinition)[0] || '',
     formSelectedKeysByDefinition,
+    mappedColumns: [],
   }
 }
 
@@ -240,11 +292,12 @@ function saveColumnSettings() {
       Object.entries(columnSettings.value.formSelectedKeysByDefinition)
         .map(([definitionId, keys]) => [definitionId, [...keys]]),
     ),
+    mappedColumns: normalizeSummaryMappedColumns(columnSettings.value.mappedColumns),
   })
 }
 
 function emptyColumnSettings(): SummaryColumnSettings {
-  return { baseHiddenKeys: [], activeDefinitionId: '', formSelectedKeysByDefinition: {} }
+  return { baseHiddenKeys: [], activeDefinitionId: '', formSelectedKeysByDefinition: {}, mappedColumns: [] }
 }
 
 function normalizeStoredColumnSettings(stored: object): SummaryColumnSettings {
@@ -260,6 +313,7 @@ function normalizeStoredColumnSettings(stored: object): SummaryColumnSettings {
     baseHiddenKeys: Array.isArray(value.baseHiddenKeys) ? value.baseHiddenKeys.map(String) : [],
     activeDefinitionId: String(value.activeDefinitionId || ''),
     formSelectedKeysByDefinition: selections,
+    mappedColumns: normalizeSummaryMappedColumns(value.mappedColumns),
   }
 }
 
@@ -275,6 +329,7 @@ function normalizeColumnSettings(settings: SummaryColumnSettings): SummaryColumn
     baseHiddenKeys: [...settings.baseHiddenKeys],
     activeDefinitionId,
     formSelectedKeysByDefinition,
+    mappedColumns: normalizeSummaryMappedColumns(settings.mappedColumns),
   }
 }
 
@@ -318,6 +373,50 @@ function resetColumnSettings() {
   saveColumnSettings()
 }
 
+function editMappedColumn(column: SummaryMappedColumn | null = null) {
+  if (!column && columnSettings.value.mappedColumns.length >= 20)
+    return
+  editingMapping.value = column
+  closeColumnSettings()
+  mappingEditorOpen.value = true
+}
+
+function saveMappedColumn(column: SummaryMappedColumn, replaceSources = false) {
+  const columns = columnSettings.value.mappedColumns
+  const index = columns.findIndex(item => item.id === column.id)
+  columnSettings.value.mappedColumns = normalizeSummaryMappedColumns(index < 0
+    ? [...columns, column]
+    : columns.map(item => item.id === column.id ? column : item))
+  if (replaceSources && column.enabled) {
+    const sources = new Set(column.sources.map(source => `form:${source.definitionId}:${source.fieldKey}`))
+    columnSettings.value.formSelectedKeysByDefinition = Object.fromEntries(
+      Object.entries(columnSettings.value.formSelectedKeysByDefinition).map(([id, keys]) => [id, keys.filter(key => !sources.has(key))]),
+    )
+  }
+  saveColumnSettings()
+  uni.showToast({ title: t('summaryMappings.saved'), icon: 'none' })
+}
+
+function deleteMappedColumn(column: SummaryMappedColumn) {
+  uni.showModal({
+    title: t('summaryMappings.deleteTitle'),
+    content: t('summaryMappings.deletePrompt', { name: column.label }),
+    confirmText: t('summaryMappings.delete'),
+    cancelText: t('summaryMappings.cancel'),
+    success: ({ confirm }) => {
+      if (confirm) {
+        columnSettings.value.mappedColumns = columnSettings.value.mappedColumns.filter(item => item.id !== column.id)
+        saveColumnSettings()
+      }
+    },
+  })
+}
+
+function summaryCellHint(instance: WorkflowInstanceSummary, column: WorkflowSummaryColumn) {
+  const reason = summaryFormValues.value.get(instance.id)?.get(column.key)?.reason
+  return reason ? t(`summaryMappings.reasons.${reason}`) : ''
+}
+
 function summaryColumnClass(column: WorkflowSummaryColumn) {
   const key = column.baseKey || 'form'
   const classKeyMap: Partial<Record<NonNullable<WorkflowSummaryColumn['baseKey']>, string>> = {
@@ -341,7 +440,7 @@ function summaryColumnClass(column: WorkflowSummaryColumn) {
 
 function summaryCellText(instance: WorkflowInstanceSummary, column: WorkflowSummaryColumn) {
   if (column.kind === 'form')
-    return workflowSummaryFormValue(instance, column)
+    return summaryFormValues.value.get(instance.id)?.get(column.key)?.text || '-'
   switch (column.baseKey) {
     case 'title': return instance.instanceTitle || instance.definitionName || instance.definitionKey || '-'
     case 'workflowName': return instance.definitionName || instance.definitionKey || '-'
@@ -378,6 +477,7 @@ async function loadSummary() {
   try {
     const response = await listWorkflowSummaryInstances({
       instanceTitle: appliedFilters.value.instanceTitle.trim() || undefined,
+      definitionId: Number(appliedFilters.value.definitionId) || undefined,
       definitionName: appliedFilters.value.definitionName.trim() || undefined,
       definitionVersion: Number(appliedFilters.value.definitionVersion) || undefined,
       starterName: appliedFilters.value.starterName.trim() || undefined,
@@ -437,7 +537,7 @@ function openDetail(instanceId: string) {
   detailVisible.value = true
 }
 
-function exportInstances(instanceIds: string[]) {
+function exportInstances(instanceIds: string[], content: WorkflowSummaryExportContent = 'full') {
   if (!canExport.value) {
     uni.showToast({ title: '暂无流程导出权限', icon: 'none' })
     return
@@ -446,16 +546,7 @@ function exportInstances(instanceIds: string[]) {
     uni.showToast({ title: '请选择当前页需要导出的记录', icon: 'none' })
     return
   }
-  const selectedDefinitionIds = [...new Set(
-    instances.value
-      .filter(instance => instanceIds.includes(instance.id))
-      .map(instance => instance.definitionId),
-  )]
-  if (selectedDefinitionIds.length !== 1) {
-    uni.showToast({ title: '请选择同一流程的记录批量导出', icon: 'none' })
-    return
-  }
-  const url = workflowSummaryExportUrl(selectedDefinitionIds[0], instanceIds, exportFormat.value)
+  const url = workflowSummaryExportUrl(instanceIds, exportFormat.value, content)
   // #ifdef H5
   if (typeof window !== 'undefined') {
     window.open(url, '_blank')
@@ -489,16 +580,29 @@ function formatTime(timestamp?: number) {
             @confirm="querySummary"
           />
         </view>
+        <view class="workflow-summary__filter workflow-summary__filter--management-name">
+          <text class="workflow-summary__filter-label">
+            管理名称
+          </text>
+          <select v-model="filters.definitionId" class="workflow-summary__select" :disabled="loading" aria-label="流程管理名称">
+            <option value="">
+              全部管理名称
+            </option>
+            <option v-for="definition in definitions" :key="definition.id" :value="String(definition.id)">
+              {{ definition.name || definition.key }}
+            </option>
+          </select>
+        </view>
         <view class="workflow-summary__filter workflow-summary__filter--definition-name">
           <text class="workflow-summary__filter-label">
-            流程名称
+            用户显示名称
           </text>
           <u-input
             v-model="filters.definitionName"
             :border="true"
             clearable
             :maxlength="50"
-            placeholder="输入流程名称"
+            placeholder="输入用户显示名称"
             @confirm="querySummary"
           />
         </view>
@@ -680,6 +784,35 @@ function formatTime(timestamp?: number) {
                   请选择流程后配置表单字段
                 </text>
               </view>
+              <view class="workflow-summary__column-settings-group workflow-summary__mapped-settings">
+                <view class="workflow-summary__mapped-heading">
+                  <text class="workflow-summary__column-settings-group-title">
+                    {{ t('summaryMappings.title') }}
+                  </text>
+                  <u-button size="mini" type="primary" plain :disabled="columnSettings.mappedColumns.length >= 20" @click="editMappedColumn()">
+                    {{ t('summaryMappings.addTitle') }}
+                  </u-button>
+                </view>
+                <text v-if="!columnSettings.mappedColumns.length" class="workflow-summary__mapped-empty">
+                  {{ t('summaryMappings.empty') }}
+                </text>
+                <u-checkbox-group v-model="enabledMappedKeys" class="workflow-summary__mapped-list">
+                  <view v-for="column in columnSettings.mappedColumns" :key="column.id" class="workflow-summary__mapped-item">
+                    <u-checkbox :value="column.id" :label="column.label" />
+                    <view class="workflow-summary__mapped-meta">
+                      <text>{{ t('summaryMappings.sourceCount', { n: column.sources.length }) }}</text>
+                      <view class="workflow-summary__mapped-actions">
+                        <u-button size="mini" plain @click="editMappedColumn(column)">
+                          {{ t('summaryMappings.edit') }}
+                        </u-button>
+                        <u-button size="mini" type="error" plain @click="deleteMappedColumn(column)">
+                          {{ t('summaryMappings.delete') }}
+                        </u-button>
+                      </view>
+                    </view>
+                  </view>
+                </u-checkbox-group>
+              </view>
             </scroll-view>
           </view>
         </view>
@@ -699,6 +832,9 @@ function formatTime(timestamp?: number) {
           <u-button custom-class="workflow-summary__export-button" size="small" type="primary" :disabled="selectedIds.length === 0" @click="exportInstances(selectedIds)">
             <u-icon name="download" size="18" color="#ffffff" />
             <text>批量导出</text>
+          </u-button>
+          <u-button custom-class="workflow-summary__export-button" size="small" type="primary" plain :disabled="selectedIds.length === 0" :title="t('workflowSummaryExport.formHint')" @click="exportInstances(selectedIds, 'form')">
+            <text>{{ t('workflowSummaryExport.form') }}</text>
           </u-button>
         </view>
       </view>
@@ -753,14 +889,25 @@ function formatTime(timestamp?: number) {
                 <text v-if="canExport" class="workflow-summary__link" @click="exportInstances([instance.id])">
                   导出
                 </text>
+                <u-button v-if="canExport" custom-class="workflow-summary__form-export-link" size="mini" type="primary" plain :title="t('workflowSummaryExport.formHint')" @click="exportInstances([instance.id], 'form')">
+                  {{ t('workflowSummaryExport.form') }}
+                </u-button>
               </template>
               <template v-else>
                 <text class="workflow-summary__mobile-label">
                   {{ column.label }}
                 </text>
-                <text class="workflow-summary__cell-value">
-                  {{ summaryCellText(instance, column) }}
-                </text>
+                <view class="workflow-summary__cell-value-wrap">
+                  <text class="workflow-summary__cell-value" :title="summaryCellHint(instance, column)">
+                    {{ summaryCellText(instance, column) }}
+                  </text>
+                  <text v-if="summaryCellHint(instance, column)" class="workflow-summary__mapping-hint" :title="summaryCellHint(instance, column)">
+                    <u-icon name="info-circle" size="12px" />
+                  </text>
+                  <text v-if="summaryFormValues.get(instance.id)?.get(column.key)?.calculated" class="workflow-summary__calculated" :title="t('workflowSummary.calculatedHint')">
+                    {{ t('workflowSummary.calculated') }}
+                  </text>
+                </view>
               </template>
             </view>
           </view>
@@ -791,6 +938,19 @@ function formatTime(timestamp?: number) {
       />
     </view>
 
+    <!-- #ifdef H5 -->
+    <WorkflowSummaryMappingEditor
+      v-model="mappingEditorOpen"
+      :value="editingMapping"
+      :groups="formFieldGroups"
+      :instances="instances"
+      :version-groups="versionFields.groups.value"
+      :version-loading="versionFields.loading.value"
+      :version-errors="versionFields.errors.value"
+      @save="saveMappedColumn"
+      @load-version="versionFields.ensure"
+    />
+    <!-- #endif -->
     <WorkflowDetailPanel
       v-model="detailVisible"
       :instance-id="selectedInstanceId"
@@ -985,6 +1145,15 @@ function formatTime(timestamp?: number) {
   font-size: 13px;
   font-weight: 700;
 }
+
+.workflow-summary__mapped-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.workflow-summary__mapped-empty { display: block; margin-top: 10px; color: #86909c; font-size: 12px; line-height: 1.6; }
+:deep(.workflow-summary__mapped-list) { display: grid; width: 100%; gap: 10px; margin-top: 10px; }
+.workflow-summary__mapped-item { min-width: 0; padding: 10px; border: 1px solid #e5e9ef; border-radius: 4px; }
+.workflow-summary__mapped-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; color: #86909c; font-size: 11px; }
+.workflow-summary__mapped-actions { display: flex; gap: 6px; }
+.workflow-summary__mapped-actions :deep(.u-btn) { margin: 0; }
+.workflow-summary__mapping-hint { flex-shrink: 0; color: #86909c; }
 
 .workflow-summary__column-settings-reset {
   color: #0f766e;
@@ -1197,7 +1366,7 @@ function formatTime(timestamp?: number) {
 
 .workflow-summary__row {
   display: grid;
-  grid-template-columns: 66px minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(190px, 1.45fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 76px 94px 168px 168px 112px;
+  grid-template-columns: 66px minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(190px, 1.45fr) minmax(100px, 0.8fr) minmax(100px, 0.8fr) 76px 94px 168px 168px 208px;
   min-height: 58px;
   border-bottom: 1px solid #eef1f4;
   align-items: center;
@@ -1232,6 +1401,19 @@ function formatTime(timestamp?: number) {
   white-space: nowrap;
 }
 
+.workflow-summary__cell-value-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workflow-summary__calculated {
+  flex-shrink: 0;
+  color: #86909c;
+  font-size: 11px;
+}
+
 .workflow-summary__mobile-label {
   display: none;
 }
@@ -1244,8 +1426,25 @@ function formatTime(timestamp?: number) {
 }
 
 .workflow-summary__cell--action {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-start;
   gap: 12px;
+}
+
+:deep(.workflow-summary__form-export-link) {
+  width: auto;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: inherit;
+}
+
+:deep(.workflow-summary__form-export-link::after) {
+  border: 0;
 }
 
 .workflow-summary__link {
@@ -1311,6 +1510,7 @@ function formatTime(timestamp?: number) {
   }
 
   .workflow-summary__filter--instance-title,
+  .workflow-summary__filter--management-name,
   .workflow-summary__filter--definition-name,
   .workflow-summary__filter--starter,
   .workflow-summary__filter--status,
@@ -1380,11 +1580,12 @@ function formatTime(timestamp?: number) {
   }
 
   .workflow-summary__export-actions {
-    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .workflow-summary__select--format {
-    width: 96px;
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .workflow-summary__table-scroll {
@@ -1398,7 +1599,8 @@ function formatTime(timestamp?: number) {
   }
 
   .workflow-summary__table {
-    min-width: 0;
+    // Desktop column choices set inline widths; mobile uses stacked record cards.
+    min-width: 0 !important;
     display: grid;
     gap: 10px;
   }
@@ -1413,7 +1615,7 @@ function formatTime(timestamp?: number) {
     border: 1px solid #e5e9ef;
     border-radius: 6px;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     align-items: start;
     gap: 12px 14px;
     background: #ffffff;

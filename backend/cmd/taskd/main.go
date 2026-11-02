@@ -243,9 +243,10 @@ func run() error {
 	)
 	taskStore := scheduledtaskinfra.NewGormStore(db)
 	notificationStore := inappnotificationinfra.NewGormStore(db)
+	dingTalkDelivery := inappnotificationinfra.NewDingTalkDelivery(db, nil)
 	notificationService := inappnotificationapp.NewServiceWithDingTalk(
 		notificationStore,
-		inappnotificationinfra.NewDingTalkDelivery(db, nil),
+		dingTalkDelivery,
 	)
 	webhookClient, err := outboundhttp.NewClient(outboundhttp.Policy{
 		AllowAnyPublicHosts: true,
@@ -259,6 +260,7 @@ func run() error {
 	outboxService := notificationoutboxapp.NewService(
 		notificationoutboxinfra.NewGormStore(db),
 		notificationoutboxinfra.NewInternalChannel(notificationService),
+		notificationoutboxinfra.NewDingTalkChannel(dingTalkDelivery),
 		notificationoutboxinfra.NewWebhookChannel(webhookClient),
 	)
 	registry, err := scheduledtaskinfra.NewHandlerRegistry(
@@ -269,6 +271,7 @@ func run() error {
 		scheduledtaskinfra.NewWorkflowBusinessEventJob(workflowBusinessEvents),
 		scheduledtaskinfra.NewInAppNotificationJob(notificationService),
 		scheduledtaskinfra.NewDingTalkNotificationJob(notificationService),
+		scheduledtaskinfra.NewWorkflowStartNotificationJob(notificationService, workflowRuntime, notificationStore),
 		scheduledtaskinfra.NewNotificationOutboxDispatchJob(outboxService),
 	)
 	if err != nil {
@@ -279,6 +282,7 @@ func run() error {
 	scheduler := scheduledtaskruntime.NewScheduler(taskStore, queue, scheduledtaskruntime.SchedulerConfig{
 		PollInterval:     time.Duration(cfg.ScheduledTask.SchedulerPollSeconds) * time.Second,
 		RecoveryInterval: time.Duration(cfg.ScheduledTask.SchedulerRecoverySeconds) * time.Second,
+		MisfireGrace:     time.Duration(cfg.ScheduledTask.MisfireGraceSeconds) * time.Second,
 		BatchSize:        100, DispatchRecoveryAge: 30 * time.Second,
 		StaleRunAge: time.Duration(cfg.ScheduledTask.RecoveryTimeoutSeconds) * time.Second,
 	})

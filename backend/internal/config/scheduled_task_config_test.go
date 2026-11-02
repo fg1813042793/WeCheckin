@@ -22,6 +22,9 @@ func TestScheduledTaskConfigUsesSecureDefaults(t *testing.T) {
 	if got := scheduledTaskIntField(t, cfg.ScheduledTask, "SchedulerRecoverySeconds"); got != 30 {
 		t.Fatalf("scheduler recovery interval = %d, want 30", got)
 	}
+	if got := scheduledTaskIntField(t, cfg.ScheduledTask, "MisfireGraceSeconds"); got != 60 {
+		t.Fatalf("misfire grace = %d, want 60", got)
+	}
 	if cfg.ScheduledTask.RedisKeyPrefix != "wecheckin" {
 		t.Fatalf("redis key prefix = %q", cfg.ScheduledTask.RedisKeyPrefix)
 	}
@@ -32,6 +35,7 @@ func TestScheduledTaskConfigAllowsEnvironmentOverrides(t *testing.T) {
 	t.Setenv("WECHECKIN_SCHEDULED_TASK_WORKER_COUNT", "7")
 	t.Setenv("WECHECKIN_SCHEDULED_TASK_SCHEDULER_POLL_SECONDS", "3")
 	t.Setenv("WECHECKIN_SCHEDULED_TASK_SCHEDULER_RECOVERY_SECONDS", "45")
+	t.Setenv("WECHECKIN_SCHEDULED_TASK_MISFIRE_GRACE_SECONDS", "90")
 	t.Setenv("WECHECKIN_SCHEDULED_TASK_ENABLE_SHELL", "true")
 	t.Setenv("WECHECKIN_SCHEDULED_TASK_ENABLE_SQL", "true")
 	t.Setenv("WECHECKIN_SCHEDULED_TASK_REDIS_KEY_PREFIX", "test-env")
@@ -45,6 +49,9 @@ func TestScheduledTaskConfigAllowsEnvironmentOverrides(t *testing.T) {
 	}
 	if got := scheduledTaskIntField(t, cfg.ScheduledTask, "SchedulerRecoverySeconds"); got != 45 {
 		t.Fatalf("scheduler recovery interval = %d, want 45", got)
+	}
+	if got := scheduledTaskIntField(t, cfg.ScheduledTask, "MisfireGraceSeconds"); got != 90 {
+		t.Fatalf("misfire grace = %d, want 90", got)
 	}
 	if !cfg.ScheduledTask.EnableShell || !cfg.ScheduledTask.EnableSQL {
 		t.Fatalf("scheduled task handler switches = %#v", cfg.ScheduledTask)
@@ -60,6 +67,11 @@ func TestScheduledTaskConfigRejectsInvalidRuntimeRelationships(t *testing.T) {
 		yaml    string
 		wantKey string
 	}{
+		{
+			name:    "misfire grace must cover scheduler poll",
+			yaml:    "scheduled_task:\n  scheduler_poll_seconds: 30\n  misfire_grace_seconds: 29\n",
+			wantKey: "scheduled_task.misfire_grace_seconds",
+		},
 		{
 			name:    "worker ttl must exceed heartbeat",
 			yaml:    "scheduled_task:\n  worker_heartbeat_seconds: 10\n  worker_ttl_seconds: 10\n",

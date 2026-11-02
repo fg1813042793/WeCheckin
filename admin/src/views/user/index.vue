@@ -1,12 +1,10 @@
 <template>
   <div class="admin-page user-page">
     <div class="user-toolbar-card">
-      <div class="admin-toolbar user-toolbar-row user-search-row">
-        <div class="admin-toolbar__left" :class="'user-search-controls'">
-          <el-input v-model="keyword" placeholder="搜索用户名/姓名" clearable @keyup.enter="search" />
-          <el-button type="primary" @click="search">搜索</el-button>
-        </div>
-      </div>
+      <UserListFilters
+        :model-value="userListFilters" :positions="positionOptions" :managers="dataScopeUserOptions" :roles="roleList"
+        @update:model-value="updateUserListFilters" @search="search" @reset="resetUserFilters"
+      />
       <div class="admin-toolbar user-toolbar-row user-actions-row">
         <div class="admin-toolbar__left user-action-controls">
           <span v-if="selected.length" class="user-selected-count">已选 {{ selected.length }} 人</span>
@@ -552,6 +550,8 @@
 
 <script lang="ts" setup>
 import SortPopover from '../../components/SortPopover.vue'
+import UserListFilters from './components/UserListFilters.vue'
+import { useUserListFilters } from './composables/useUserListFilters'
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { adminApi } from '../../api'
 import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
@@ -559,6 +559,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 import { checkedKeys } from '../../utils/permissionAssignment'
 import { showRequestError } from '../../utils/request'
+import { exportCsvPage } from '../../utils/csvExport'
 import { Plus } from '@element-plus/icons-vue'
 
 const loading = ref(false)
@@ -567,7 +568,6 @@ const list = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-const keyword = ref('')
 const selected = ref<any[]>([])
 const sortRules = ref<{field:string;order:string}[]>([])
 const userApplicationPermissionExpanded = ref(false)
@@ -579,6 +579,7 @@ const sortColumns = [
   { label: '登录次数', field: 'loginCnt' },
   { label: '注册时间', field: 'addTime' },
 ]
+const { userListFilters, updateUserListFilters, resetUserFilters, buildUserListQuery } = useUserListFilters(() => search())
 
 const formFields = ref<any[]>([])
 const deptTreeData = ref<any[]>([])
@@ -1088,7 +1089,7 @@ async function loadApplicationPermissionTree() {
 async function load() {
   loading.value = true
   try {
-    const params: any = { page: page.value, pageSize: pageSize.value, keyword: keyword.value }
+    const params = buildUserListQuery(page.value, pageSize.value)
     if (sortRules.value.length) params.sort = sortRules.value.map(s => s.field + ':' + s.order).join(',')
     const res = await adminApi.userList(params)
     const rawList = res.data?.list || []
@@ -1170,18 +1171,15 @@ async function delSelected() {
   } catch {}
 }
 
-function exportData() {
-  const rows = [['用户名', '姓名', '手机号', '部门', '状态']]
-  list.value.forEach((r: any) => {
-    rows.push([r.name || '', r.realName || '', r.phone || '', r.deptName || '', r.status === 1 ? '正常' : '禁用'])
-  })
-  const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = '用户列表.csv'
-  a.click()
-  URL.revokeObjectURL(a.href)
+async function exportData() {
+  try {
+    const params = buildUserListQuery(page.value, pageSize.value)
+    if (sortRules.value.length) params.sort = sortRules.value.map(s => s.field + ':' + s.order).join(',')
+    await exportCsvPage('用户列表.csv', ['用户名', '姓名', '手机号', '部门', '状态'],
+      async () => (await adminApi.userExport(params)).data.list,
+      // 当前列表 DTO 没有单独的真实姓名字段，保留原列为空。
+      r => [r.name || '', '', r.mobile || '', deptPathText(r.deptIds || []), r.status === 1 ? '正常' : '禁用'])
+  } catch (error) { showRequestError(error, '导出失败') }
 }
 
 async function resetPwd(row: any) {

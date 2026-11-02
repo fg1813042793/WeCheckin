@@ -258,6 +258,7 @@ import { adminApi } from '../../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 import { showRequestError } from '../../utils/request'
+import { exportCsvPage } from '../../utils/csvExport'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -616,18 +617,12 @@ async function delSelected() {
   } catch {}
 }
 
-function exportData() {
-  const rows = [['角色名称', '后台入口权限', '状态', '备注']]
-  list.value.forEach((r: any) => {
-    rows.push([r.name || '', r.allowAdminLogin === 0 ? '未授权' : '已授权', r.status === 1 ? '正常' : '停用', r.remark || ''])
-  })
-  const csv = '\uFEFF' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = '角色列表.csv'
-  a.click()
-  URL.revokeObjectURL(a.href)
+async function exportData() {
+  try {
+    await exportCsvPage('角色列表.csv', ['角色名称', '后台入口权限', '状态', '备注'],
+      async () => (await adminApi.roleExport({ page: page.value, pageSize: pageSize.value, keyword: keyword.value || '' })).data.list,
+      r => [r.name || '', r.allowAdminLogin === 0 ? '未授权' : '已授权', r.status === 1 ? '正常' : '停用', r.remark || ''])
+  } catch (error) { showRequestError(error, '导出失败') }
 }
 
 onMounted(() => { loadList(); loadMenuTree(); loadApiTree(); loadDeptTree(); loadApplicationPermissionTree() })

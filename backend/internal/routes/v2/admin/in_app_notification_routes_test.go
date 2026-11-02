@@ -21,6 +21,9 @@ func TestAdminRoutesRegisterInAppNotificationEndpoints(t *testing.T) {
 		`admin.DELETE("/in-app-notifications/:id", handler.DeleteRecord)`,
 		`admin.GET("/dingtalk-notifications/recipient-options", handler.RecipientOptions)`,
 		`admin.POST("/dingtalk-notifications", handler.SendDingTalk)`,
+		`admin.GET("/dingtalk-notification-records", handler.ListDingTalkDeliveryRecords)`,
+		`admin.GET("/dingtalk-notification-records/:id", handler.GetDingTalkDeliveryRecord)`,
+		`admin.DELETE("/dingtalk-notification-records/:id", handler.DeleteDingTalkDeliveryRecord)`,
 		`admin.GET("/notification-styles", handler.NotificationStyles)`,
 		`admin.PUT("/notification-styles", handler.SaveNotificationStyles)`,
 		`admin.POST("/notification-styles/test/in-app", handler.SendInAppStyleTest)`,
@@ -29,6 +32,7 @@ func TestAdminRoutesRegisterInAppNotificationEndpoints(t *testing.T) {
 		`admin.PATCH("/in-app-notifications/:id/read", handler.MarkRead)`,
 		"scheduledtaskinfra.NewInAppNotificationJob(notificationService)",
 		"scheduledtaskinfra.NewDingTalkNotificationJob(notificationService)",
+		"scheduledtaskinfra.NewWorkflowStartNotificationJob(notificationService, workflowRuntime, notificationStore)",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("routes.go missing %q", snippet)

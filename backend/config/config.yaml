@@ -6,6 +6,8 @@ server:
   read_timeout_seconds: 30
   write_timeout_seconds: 60
   idle_timeout_seconds: 120
+  # Only these proxy peers may supply forwarded IPs for all request client-IP fields.
+  audit_trusted_proxy_cidrs: []
 
 cors:
   allow_credentials: false
@@ -63,6 +65,7 @@ scheduled_task:
   worker_count: 4
   scheduler_poll_seconds: 30
   scheduler_recovery_seconds: 30
+  misfire_grace_seconds: 60
   worker_poll_block_seconds: 5
   worker_heartbeat_seconds: 10
   worker_ttl_seconds: 30

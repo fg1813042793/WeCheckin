@@ -238,7 +238,7 @@ const required = type => ({ optional: false, type })
 const optional = type => ({ optional: true, type })
 
 assertStringUnion('UserFeedbackStatus', ['pending', 'processing', 'resolved', 'closed'])
-assertStringUnion('UserFeedbackMessageType', ['initial', 'supplement', 'status'])
+assertStringUnion('UserFeedbackMessageType', ['initial', 'supplement', 'status', 'notification'])
 assertStringUnion('UserFeedbackAuthorType', ['user', 'admin'])
 assertInterface('UserFeedbackOverview', {
   pending: required('number'), processing: required('number'), resolved: required('number'), closed: required('number'),
@@ -274,6 +274,10 @@ assertInterface('UpdateUserFeedbackStatusInput', {
   status: required('UserFeedbackStatus'), note: required('string'), notifyUser: required('boolean'),
   version: required('number'), requestId: required('string'),
 })
+assertInterface('NotifyUserFeedbackInput', {
+  content: required('string'), channel: required('UserFeedbackNotificationChannel'), version: required('number'), requestId: required('string'),
+})
+assertStringUnion('UserFeedbackNotificationChannel', ['internal', 'dingtalk'])
 
 function assertFeedbackRoute() {
   const file = sourceFile('routes')
@@ -327,6 +331,7 @@ function assertAdminApiRequests() {
   const request = {
     get: (...args) => calls.push({ verb: 'get', args }),
     patch: (...args) => calls.push({ verb: 'patch', args }),
+    post: (...args) => calls.push({ verb: 'post', args }),
   }
   const apiModule = executeTypeScriptModule(sources.api, paths.api, {
     '../utils/request': { __esModule: true, default: request },
@@ -339,9 +344,11 @@ function assertAdminApiRequests() {
   api.userFeedbackList(query)
   api.userFeedbackDetail('feedback/42')
   api.userFeedbackUpdateStatus(42, update)
+  const notification = { content: '请查看最新回复', channel: 'dingtalk', version: 4, requestId: 'notification-1' }
+  api.userFeedbackNotify('feedback/42', notification)
 
-  assert.equal(calls.length, 4, 'feedback API must issue exactly one request per method')
-  assert.deepEqual(calls.map(call => call.verb), ['get', 'get', 'get', 'patch'])
+  assert.equal(calls.length, 5, 'feedback API must issue exactly one request per method')
+  assert.deepEqual(calls.map(call => call.verb), ['get', 'get', 'get', 'patch', 'post'])
   assert.equal(calls[0].args[0], '/api/v2/admin/user-feedbacks/overview')
   assert.equal(calls[0].args[1]?.params, query, 'overview query must be passed through params')
   assert.deepEqual(Object.keys(calls[0].args[1]), ['params'])
@@ -356,6 +363,10 @@ function assertAdminApiRequests() {
   assert.equal(jsonConfig?.headers?.['Content-Type'], 'application/json', 'status PATCH must use jsonConfig')
   assert.equal(jsonConfig?.transformRequest?.length, 1, 'jsonConfig must retain its serializer')
   assert.equal(jsonConfig.transformRequest[0](update), JSON.stringify(update))
+  assert.equal(calls[4].args[0], '/api/v2/admin/user-feedbacks/feedback%2F42/notify')
+  assert.equal(calls[4].args[1], notification)
+  assert.equal(calls[4].args[2]?.headers?.['Content-Type'], 'application/json')
+  assert.equal(calls[4].args[2]?.transformRequest[0](notification), JSON.stringify(notification))
 }
 
 assertAdminApiRequests()
@@ -428,10 +439,30 @@ function assertPageTemplate() {
   assert.equal(elements(view.template, 'UserFeedbackOverview').length, 1)
   assert.equal(elements(view.template, 'UserFeedbackDetailDrawer').length, 1)
   assert.equal(elements(view.template, 'UserFeedbackStatusDialog').length, 1)
+  assert.equal(elements(view.template, 'UserFeedbackNotifyDialog').length, 1)
+  for (const name of ['UserFeedbackStatusDialog', 'UserFeedbackNotifyDialog']) {
+    assert.equal(directiveExpression(elements(view.template, name)[0], 'success', 'on'), 'handleStatusSuccess', '操作成功必须进入刷新流程')
+  }
+  const actionsColumn = elements(view.template, 'el-table-column').find(column => attributeValue(column, 'label') === '操作')
+  const actions = elements(actionsColumn, 'el-button')
+  assert.equal(actions.length, 3, '反馈操作列必须提供查看、处理和通知提交人')
+  assert.equal(directiveExpression(actions[1], 'click', 'on'), 'openStatusDialog(row)')
+  assert.equal(directiveExpression(actions[2], 'click', 'on'), 'openNotifyDialog(row)')
+  for (const action of actions.slice(1)) {
+    assert.equal(directiveExpression(action, 'if', 'if'), 'canHandle')
+    assert.ok(directiveExpression(action, 'loading', 'bind'))
+  }
 
   const filterLabels = elements(view.template, 'el-form-item').map(item => attributeValue(item, 'label'))
-  for (const label of ['编号 / 用户 / 消息', '状态', '处理人 ID', '提交时间']) {
-    assert.ok(filterLabels.includes(label), `view filters must include ${label}`)
+  assert.ok(filterLabels.every(label => label === undefined), 'view filters must not render visible form-item labels')
+  const accessibleFilterNames = [
+    ...elements(view.template, 'el-input'),
+    ...elements(view.template, 'el-select'),
+    ...elements(view.template, 'el-input-number'),
+    ...elements(view.template, 'el-date-picker'),
+  ].map(item => attributeValue(item, 'aria-label'))
+  for (const label of ['编号、用户或消息', '状态', '处理人 ID', '提交时间']) {
+    assert.ok(accessibleFilterNames.includes(label), `view filters must keep accessible name ${label}`)
   }
 
   const columnLabels = elements(view.template, 'el-table-column').map(item => attributeValue(item, 'label'))
@@ -468,9 +499,7 @@ function assertPageRefreshRuntime() {
   assertCalls(view.scriptFile, 'unmountPage', ['invalidateFeedbackRequestSequences', 'document.removeEventListener'])
   assertCalls(view.scriptFile, 'handleStatusSuccess', ['loadOverview', 'loadList'])
   assert.match(functionNode(view.scriptFile, 'handleStatusSuccess').getText(view.scriptFile), /detailDrawerRef\.value\?\.refresh\(\)/)
-  const openStatusGuard = firstStatement(view.scriptFile, 'openStatusDialog')
-  assert.ok(ts.isIfStatement(openStatusGuard), 'page status dialog handler must start with a permission guard')
-  assert.match(openStatusGuard.getText(view.scriptFile), /canHandleUserFeedback\(\)/)
+  assert.match(view.script, /useUserFeedbackActions\(\)/, 'page actions must use the shared guarded detail loader')
   assert.doesNotMatch(view.script, /\bsetInterval\s*\(/, 'feedback page must not poll on an interval')
 
   const overviewPhases = guardedRequestPhases(view.scriptFile, 'loadOverview', 'applyIfFeedbackRequestCurrent')
@@ -574,7 +603,9 @@ function assertDetailDrawerComponent() {
   const drawers = elements(detailDrawer.template, 'AdminDrawer')
   assert.equal(drawers.length, 1)
   assert.match(directiveExpression(drawers[0], 'show-footer', 'bind'), /canHandle/, 'detail drawer footer must not render without handle permission')
-  assert.match(directiveExpression(drawers[0], 'confirm', 'on'), /requestStatusUpdate/, 'fixed drawer footer must enter the guarded update handler')
+  const footerButtons = elements(detailDrawer.template, 'el-button')
+  assert.ok(footerButtons.some(button => directiveExpression(button, 'click', 'on') === 'requestStatusUpdate'))
+  assert.ok(footerButtons.some(button => directiveExpression(button, 'click', 'on') === 'requestNotify'))
   assert.equal(elements(detailDrawer.template, 'UserFeedbackTimeline').length, 1)
   const first = firstStatement(detailDrawer.scriptFile, 'requestStatusUpdate')
   assert.ok(ts.isIfStatement(first), 'drawer update handler must start with a permission guard')
@@ -614,7 +645,7 @@ function assertTimelineComponent() {
   assert.ok(directiveExpression(images[0], 'preview-src-list', 'bind'), 'timeline images must expose preview sources')
   assert.equal(attributeValue(images[0], 'preview-teleported'), true, 'image preview must be teleported')
   assert.match(timeline.script, /\.sort\s*\(.*createdAt/s, 'timeline must sort all messages by createdAt')
-  for (const messageType of ['initial', 'supplement', 'status']) {
+  for (const messageType of ['initial', 'supplement', 'status', 'notification']) {
     assert.match(timeline.script, new RegExp(`case\\s+'${messageType}'`), `timeline must label ${messageType} messages`)
   }
 }
@@ -677,5 +708,7 @@ assert.match(sources.viteConfig, /['"]@['"]\s*:\s*fileURLToPath\(new URL\(['"]\.
 const packageJSON = JSON.parse(sources.package)
 assert.equal(packageJSON.scripts?.['check:user-feedback'], 'node scripts/check-user-feedback.mjs')
 assert.match(packageJSON.scripts?.['check:all'] || '', /(?:^|&&\s*)npm run check:user-feedback(?:\s*&&|$)/)
+
+await import('./check-user-feedback-actions.mjs')
 
 console.log('Admin user feedback page AST and runtime contract passed.')

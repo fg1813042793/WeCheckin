@@ -21,6 +21,11 @@ func NewAdminUserHandler() *AdminUserHandler { return &AdminUserHandler{} }
 // @Param page query string false "页码"
 // @Param size query string false "每页数量"
 // @Param keyword query string false "关键词"
+// @Param mobile query string false "手机号"
+// @Param status query int false "状态:0待审核 1正常 2禁用 9管理员"
+// @Param positionId query int false "岗位ID"
+// @Param managerUserId query int false "直属上级用户ID"
+// @Param roleId query int false "角色ID"
 // @Success 200 {object} response.Resp
 func (h *AdminUserHandler) GetUserList(ctx context.Context, c *app.RequestContext) {
 	adminVal, _ := c.Get("admin")
@@ -31,9 +36,24 @@ func (h *AdminUserHandler) GetUserList(ctx context.Context, c *app.RequestContex
 		sizeStr = c.Query("size")
 	}
 	size, _ := strconv.Atoi(sizeStr)
-	keyword := c.Query("keyword")
+	status, statusOK := parseOptionalUserStatus(c.Query("status"))
+	positionID, positionOK := parseOptionalUserFilterID(c.Query("positionId"))
+	managerUserID, managerOK := parseOptionalUserFilterID(c.Query("managerUserId"))
+	roleID, roleOK := parseOptionalUserFilterID(c.Query("roleId"))
+	if !statusOK || !positionOK || !managerOK || !roleOK {
+		response.Fail(c, "筛选参数错误")
+		return
+	}
+	filter := adminuserservice.UserListFilter{
+		Keyword:       strings.TrimSpace(c.Query("keyword")),
+		Mobile:        strings.TrimSpace(c.Query("mobile")),
+		Status:        status,
+		PositionID:    positionID,
+		ManagerUserID: managerUserID,
+		RoleID:        roleID,
+	}
 	sortStr := c.Query("sort")
-	list, total, err := adminuserservice.GetUserListContext(ctx, keyword, sortStr, page, size, admin.ID)
+	list, total, err := adminuserservice.GetUserListByFilterContext(ctx, filter, sortStr, page, size, admin.ID)
 	if err != nil {
 		response.Fail(c, "获取失败")
 		return
@@ -179,6 +199,30 @@ func parsePositionID(value string) uint {
 		return 0
 	}
 	return uint(id)
+}
+
+func parseOptionalUserFilterID(value string) (uint, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, true
+	}
+	id, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || id == 0 {
+		return 0, false
+	}
+	return uint(id), true
+}
+
+func parseOptionalUserStatus(value string) (*int, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, true
+	}
+	status, err := strconv.Atoi(value)
+	if err != nil || !((status >= 0 && status <= 2) || status == 9) {
+		return nil, false
+	}
+	return &status, true
 }
 
 func parseAdminAccess(c *app.RequestContext) (adminuserservice.AdminAccessInput, bool) {

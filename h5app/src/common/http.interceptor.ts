@@ -46,11 +46,16 @@ const httpInterceptor: RequestInterceptor = {
       statusCode?: number
       data?: unknown
       errMsg?: string
-      config?: { meta?: RequestMeta }
+      config?: { meta?: RequestMeta, header?: Record<string, unknown> }
     }
     const meta: RequestMeta = rawResponse.config?.meta || {}
     meta.loading && hideLoading()
     const { statusCode, data: rawData, errMsg } = rawResponse
+    // Ignore every response from an older authenticated session, including successful profile saves.
+    const requestToken = String(rawResponse.config?.header?.Authorization || '').replace(/^Bearer\s+/i, '')
+    const currentToken = String(uni.getStorageSync(DINGTALK_H5_CONFIG.TOKEN_KEY) || '')
+    if (requestToken && requestToken !== currentToken)
+      return false
     // 网络错误
     if (errMsg && errMsg.includes('Failed to connect')) {
       meta.toast && showToast(appErrorMessage(rawResponse, '网络错误，请稍后重试'), 'error')
@@ -70,7 +75,8 @@ const httpInterceptor: RequestInterceptor = {
       if (rawData.code === undefined || rawData.code === 0) {
         return rawData
       }
-      handleDingTalkH5AuthExpired(rawData)
+      if (requestToken === currentToken)
+        handleDingTalkH5AuthExpired(rawData)
       if (Number(rawData.code) !== DINGTALK_H5_BIND_REQUIRED_CODE) {
         meta.toast && showToast(rawData.msg || rawData.message || '请求失败', 'none')
       }

@@ -82,7 +82,6 @@
       <footer v-if="total > pageSize" class="question-bank-navigator__pagination">
         <el-pagination
           small
-          background
           layout="prev, pager, next"
           :current-page="page"
           :page-size="pageSize"
@@ -168,5 +167,5 @@ const activeCategoryLabel = computed(() => {
 .question-bank-navigator__question-copy small { margin-top:4px; color:#98a2b3; font-size:11px; }
 .question-bank-navigator__state { flex:1; min-height:160px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:18px; color:#909399; font-size:13px; text-align:center; }
 .question-bank-navigator__state--error { color:#f56c6c; }
-.question-bank-navigator__pagination { display:flex; justify-content:center; padding:8px; border-top:1px solid #eef0f3; }
+.question-bank-navigator__pagination { display:flex; justify-content:flex-end; padding:8px; border-top:1px solid #eef0f3; }
 </style>

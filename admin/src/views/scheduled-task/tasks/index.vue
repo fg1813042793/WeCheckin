@@ -11,8 +11,7 @@
             <el-option label="已启用" value="true" />
             <el-option label="已停用" value="false" />
           </el-select>
-          <el-button type="primary" icon="Search" @click="search">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="search" @reset="resetFilters" />
         </div>
       </div>
 
@@ -52,10 +51,11 @@
             <el-tag v-else :type="row.enabled === 1 ? 'success' : 'info'" size="small">{{ row.enabled === 1 ? '启用' : '停用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="325" fixed="right">
           <template #default="{ row }">
             <div class="admin-table-actions">
               <el-button v-if="canEdit" size="small" icon="EditPen" @click="openEdit(row)">编辑</el-button>
+              <el-button v-if="canViewRuns" size="small" icon="Tickets" @click="openRuns(row)">记录</el-button>
               <el-button v-if="canRun" size="small" type="primary" plain icon="VideoPlay" :loading="runTaskId === row.id" @click="runNow(row)">运行</el-button>
               <el-button v-if="canDelete" size="small" type="danger" plain icon="Delete" @click="remove(row)" />
             </div>
@@ -75,6 +75,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { adminApi } from '../../../api'
 import { hasPerm } from '../../../utils/permission'
 import TaskEditorDialog from '../components/TaskEditorDialog.vue'
@@ -82,6 +84,7 @@ import { handlerTypeLabel } from '../handlerLabels'
 import type { HandlerMetadata, HandlerType, ScheduledTask } from '../types'
 
 const loading = ref(false)
+const router = useRouter()
 const list = ref<ScheduledTask[]>([])
 const handlers = ref<HandlerMetadata[]>([])
 const total = ref(0)
@@ -98,6 +101,7 @@ const canEdit = computed(() => hasPerm('admin:menu:scheduled-task:edit'))
 const canDelete = computed(() => hasPerm('admin:menu:scheduled-task:delete'))
 const canStatus = computed(() => hasPerm('admin:menu:scheduled-task:status'))
 const canRun = computed(() => hasPerm('admin:menu:scheduled-task:run'))
+const canViewRuns = computed(() => hasPerm('admin:menu:scheduled-task:run:list'))
 
 onMounted(async () => {
   await Promise.all([loadHandlers(), loadList()])
@@ -122,6 +126,7 @@ function resetFilters() { Object.assign(filters, { keyword: '', handlerType: '',
 function changePageSize() { page.value = 1; loadList() }
 function openCreate() { editTask.value = null; editorVisible.value = true }
 function openEdit(row: ScheduledTask) { editTask.value = row; editorVisible.value = true }
+function openRuns(row: ScheduledTask) { router.push({ path: '/scheduled-task/runs', query: { taskId: String(row.id) } }) }
 
 async function setStatus(row: ScheduledTask, enabled: boolean) {
   statusTaskId.value = row.id

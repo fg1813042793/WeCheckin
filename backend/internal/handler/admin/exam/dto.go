@@ -18,6 +18,7 @@ type examDetailSurveyDTO struct {
 	Duration    int    `json:"duration"`
 	MaxAttempts int    `json:"maxAttempts"`
 	ShowScore   int    `json:"showScore"`
+	PassScore   int    `json:"passScore"`
 	Status      int    `json:"status"`
 	DeptIds     string `json:"deptIds"`
 	Mode        string `json:"mode"`
@@ -51,6 +52,7 @@ type examListItem struct {
 	Duration     int    `json:"duration"`
 	MaxAttempts  int    `json:"maxAttempts"`
 	ShowScore    int    `json:"showScore"`
+	PassScore    int    `json:"passScore"`
 	MaxResponse  int    `json:"maxResponse"`
 	DeptIds      string `json:"deptIds"`
 	Mode         string `json:"mode"`
@@ -93,6 +95,7 @@ func newExamDetailSurveyDTO(exam *model.Exam) examDetailSurveyDTO {
 		Duration:    exam.Duration,
 		MaxAttempts: exam.MaxAttempts,
 		ShowScore:   exam.ShowScore,
+		PassScore:   exam.PassScore,
 		Status:      exam.Status,
 		DeptIds:     exam.DeptIds,
 		Mode:        exam.Mode,
@@ -118,6 +121,7 @@ func newExamListItem(exam model.Exam) examListItem {
 		Duration:     exam.Duration,
 		MaxAttempts:  exam.MaxAttempts,
 		ShowScore:    exam.ShowScore,
+		PassScore:    exam.PassScore,
 		MaxResponse:  exam.MaxResponse,
 		DeptIds:      exam.DeptIds,
 		Mode:         exam.Mode,

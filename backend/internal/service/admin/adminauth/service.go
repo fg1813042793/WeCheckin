@@ -3,12 +3,14 @@ package adminauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"gorm.io/gorm"
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/support/adminaccess"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/internal/support/media"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
@@ -65,24 +67,35 @@ func Login(name, password, addIP, device string) (*LoginResponse, error) {
 func LoginContext(ctx context.Context, name, password, addIP, device string) (*LoginResponse, error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
+	if db == nil {
+		return nil, loginStorageError(ctx, "system_error")
+	}
 
 	var admin model.Admin
 	err := db.Where("`user_mobile` = ? OR `user_name` = ? OR `user_account` = ?", name, name, name).First(&admin).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
+		} else {
+			auditlog.SetReason(ctx, "system_error", "登录服务异常")
+		}
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if !passwordutil.Verify(admin.Password, password) {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if passwordutil.NeedsRehash(admin.Password) {
 		newHash, err := passwordutil.Hash(password)
 		if err != nil {
+			auditlog.SetReason(ctx, "system_error", "登录服务异常")
 			return nil, err
 		}
 		db.Model(&admin).Update("user_password", newHash)
 		admin.Password = newHash
 	}
 	if admin.Status != 1 {
+		auditlog.SetReason(ctx, "account_disabled", "账号已禁用")
 		return nil, fmt.Errorf("账号已禁用")
 	}
 	role, roleIDs, roleNames, err := adminLoginAccess(ctx, db, &admin)
@@ -98,8 +111,10 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 		"user_login_cnt":  admin.LoginCnt,
 		"user_login_time": admin.LoginTime,
 	})
-	storeAdminTokenContext(ctx, &admin, token, addIP, device, role.Name, roleIDs, roleNames)
-	InsertLogContext(ctx, 1, "管理员登录", strconv.Itoa(int(admin.ID)), admin.Name, admin.Desc, addIP)
+	if err := storeAdminTokenContext(ctx, &admin, token, addIP, device, role.Name, roleIDs, roleNames); err != nil {
+		return nil, err
+	}
+	auditlog.SetActor(ctx, admin.ID, admin.Name, "admin")
 	return &LoginResponse{
 		Token:     token,
 		Name:      admin.Name,
@@ -122,14 +137,23 @@ func adminLoginRole(ctx context.Context, db *gorm.DB, admin *model.Admin) (model
 func adminLoginAccess(ctx context.Context, db *gorm.DB, admin *model.Admin) (model.Role, []uint, []string, error) {
 	roleIDs, err := permissionsupport.ActiveRoleIDsForUserContext(ctx, db, admin.ID, admin.RoleID)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "后台权限查询失败")
 		return model.Role{}, nil, nil, err
 	}
 	role, err := adminaccess.UserAllowsAdminAccessWithRoleIDsContext(ctx, db, admin.ID, roleIDs)
 	if err != nil {
+		// The access package exposes these fixed denials as plain errors.
+		switch err.Error() {
+		case "当前用户未分配后台角色", "当前角色已停用或不存在", "当前用户未获得后台入口权限":
+			auditlog.SetReason(ctx, "admin_access_denied", "未获得后台访问权限")
+		default:
+			auditlog.SetReason(ctx, "system_error", "后台权限查询失败")
+		}
 		return model.Role{}, nil, nil, err
 	}
 	roleNames, err := roleNamesByIDsContext(ctx, db, roleIDs)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "后台权限查询失败")
 		return model.Role{}, nil, nil, err
 	}
 	return role, roleIDs, roleNames, nil
@@ -156,22 +180,24 @@ func roleNamesByIDsContext(ctx context.Context, db *gorm.DB, roleIDs []uint) ([]
 	return names, nil
 }
 
-func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) {
-	storeAdminTokenContext(context.Background(), admin, token, addIP, device, roleName, []uint{admin.RoleID}, admin.RoleNames)
+func storeAdminToken(admin *model.Admin, token, addIP, device, roleName string) error {
+	if admin == nil {
+		return loginStorageError(context.Background(), "system_error")
+	}
+	return storeAdminTokenContext(context.Background(), admin, token, addIP, device, roleName, []uint{admin.RoleID}, admin.RoleNames)
 }
 
-func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addIP, device, roleName string, roleIDs []uint, roleNames []string) {
-	expire, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
-	now := database.Now()
+func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addIP, device, roleName string, roleIDs []uint, roleNames []string) (resultErr error) {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	db.Model(&model.Admin{}).Where("`id` = ?", admin.ID).Updates(map[string]interface{}{
-		"user_admin_token":      token,
-		"user_admin_token_time": now,
-	})
-	if rd.RDB == nil {
-		return
+	if db == nil || admin == nil || admin.ID == 0 || token == "" {
+		return loginStorageError(ctx, "system_error")
 	}
+	if rd.RDB == nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	expire, prefix := tokenutil.GetTokenConfigContext(ctx, "admin")
+	now := database.Now()
 	keyAuth := prefix + "a:" + token
 	idStr := strconv.Itoa(int(admin.ID))
 	keySet := prefix + "s:" + idStr
@@ -179,13 +205,21 @@ func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addI
 	defer redisCancel()
 
 	if tokenutil.IsAdminSingleLoginContext(ctx) {
-		if oldTokens, _ := rd.RDB.SMembers(redisCtx, keySet).Result(); len(oldTokens) > 0 {
+		oldTokens, err := rd.RDB.SMembers(redisCtx, keySet).Result()
+		if err != nil {
+			return loginStorageError(ctx, "session_store_failed")
+		}
+		if len(oldTokens) > 0 {
 			for _, t := range oldTokens {
 				if t != token {
-					rd.RDB.Del(redisCtx, prefix+"a:"+t)
+					if err := rd.RDB.Del(redisCtx, prefix+"a:"+t).Err(); err != nil {
+						return loginStorageError(ctx, "session_store_failed")
+					}
 				}
 			}
-			rd.RDB.Del(redisCtx, keySet)
+			if err := rd.RDB.Del(redisCtx, keySet).Err(); err != nil {
+				return loginStorageError(ctx, "session_store_failed")
+			}
 		}
 	}
 
@@ -202,8 +236,37 @@ func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addI
 		"loginTime": now,
 		"device":    device,
 	}
-	jsonBytes, _ := json.Marshal(info)
-	rd.RDB.Set(redisCtx, keyAuth, string(jsonBytes), expire)
-	rd.RDB.SAdd(redisCtx, keySet, token)
-	rd.RDB.Expire(redisCtx, keySet, expire*2)
+	jsonBytes, err := json.Marshal(info)
+	if err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	// A partially created session must not survive a failed login. Cleanup is
+	// best effort and only removes this attempt's token from a shared index.
+	defer func() {
+		if resultErr != nil {
+			rd.RDB.Del(redisCtx, keyAuth)
+			rd.RDB.SRem(redisCtx, keySet, token)
+		}
+	}()
+	if err := rd.RDB.Set(redisCtx, keyAuth, string(jsonBytes), expire).Err(); err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	if err := rd.RDB.SAdd(redisCtx, keySet, token).Err(); err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	if ok, err := rd.RDB.Expire(redisCtx, keySet, expire*2).Result(); err != nil || !ok {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	if err := db.Model(&model.Admin{}).Where("`id` = ?", admin.ID).Updates(map[string]interface{}{
+		"user_admin_token":      token,
+		"user_admin_token_time": now,
+	}).Error; err != nil {
+		return loginStorageError(ctx, "session_store_failed")
+	}
+	return nil
+}
+
+func loginStorageError(ctx context.Context, reasonCode string) error {
+	auditlog.SetReason(ctx, reasonCode, "登录会话保存失败")
+	return fmt.Errorf("登录失败，请稍后重试")
 }

@@ -223,6 +223,27 @@ func (store *GormStore) SaveState(ctx context.Context, state *workflowdomain.Sta
 	return createHistory(db, state.Instance.ID, state.History, now)
 }
 
+func (store *GormStore) UpdateInstanceDefinitionVersion(ctx context.Context, instanceID string, fromVersion, toVersion int) error {
+	db, cancel, err := store.contextDB(ctx)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+	result := db.Model(&workflowmodel.ProcessInstance{}).
+		Where("id = ? AND definition_version = ? AND instance_status = ?", strings.TrimSpace(instanceID), fromVersion, workflowmodel.InstanceStatusRunning).
+		Updates(map[string]interface{}{
+			"definition_version": toVersion,
+			"updated_at":         gorm.Expr("CURRENT_TIMESTAMP"),
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return application.ErrInstanceVersionConflict
+	}
+	return nil
+}
+
 func (store *GormStore) PersistEffects(ctx context.Context, state *workflowdomain.State) ([]string, error) {
 	if state == nil {
 		return nil, errors.New("流程运行状态不能为空")

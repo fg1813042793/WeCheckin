@@ -218,6 +218,10 @@ func (service *Service) SendDingTalk(ctx context.Context, input SendInput) (Send
 	if err := ValidateSendInput(input); err != nil {
 		return SendResult{}, err
 	}
+	template, err := service.resolveSendTemplate(ctx, input.TemplateID, input.TemplateVersion)
+	if err != nil {
+		return SendResult{}, err
+	}
 	input.Title = strings.TrimSpace(input.Title)
 	input.SourceType = strings.TrimSpace(input.SourceType)
 	input.SourceID = strings.TrimSpace(input.SourceID)
@@ -234,9 +238,25 @@ func (service *Service) SendDingTalk(ctx context.Context, input SendInput) (Send
 		return SendResult{}, ErrNoRecipients
 	}
 	delivery, err := service.dingTalkDelivery.DeliverDingTalk(ctx, DingTalkDeliveryBatch{
-		Title: input.Title, Content: input.Content, NotificationType: notificationType(input.SourceType, input.NotificationType), UserIDs: resolution.UserIDs,
+		Template: template, Title: input.Title, Content: input.Content, NotificationType: notificationType(input.SourceType, input.NotificationType), UserIDs: resolution.UserIDs,
 	})
 	if err != nil {
+		return SendResult{}, err
+	}
+	record := DingTalkDeliveryRecord{
+		Title: input.Title, Content: input.Content,
+		NotificationType: notificationType(input.SourceType, input.NotificationType),
+		SourceType:       input.SourceType, SourceID: input.SourceID,
+		PlannedCount: len(resolution.UserIDs), SentCount: delivery.SentCount,
+		SkippedCount: resolution.SkippedCount + delivery.SkippedCount, FailedCount: delivery.FailedCount,
+		Status: dingTalkDeliveryStatus(delivery.SentCount, resolution.SkippedCount+delivery.SkippedCount, delivery.FailedCount),
+	}
+	if template != nil {
+		record.TemplateID = template.ID
+		record.TemplateVersion = template.Version
+		record.TemplateName = template.Name
+	}
+	if err := service.store.RecordDingTalkDelivery(ctx, record); err != nil {
 		return SendResult{}, err
 	}
 	return SendResult{
@@ -246,6 +266,60 @@ func (service *Service) SendDingTalk(ctx context.Context, input SendInput) (Send
 		SkippedCount: resolution.SkippedCount + delivery.SkippedCount,
 		FailedCount:  delivery.FailedCount,
 	}, nil
+}
+
+func (service *Service) ListDingTalkDeliveryRecords(ctx context.Context, query DingTalkDeliveryRecordQuery) (DingTalkDeliveryRecordList, error) {
+	if service == nil || service.store == nil {
+		return DingTalkDeliveryRecordList{}, fmt.Errorf("notification record store is not initialized")
+	}
+	query.Title = strings.TrimSpace(query.Title)
+	query.SourceType = strings.TrimSpace(query.SourceType)
+	query.Status = strings.TrimSpace(query.Status)
+	query.Page, query.PageSize = normalizePagination(query.Page, query.PageSize)
+	rows, total, err := service.store.ListDingTalkDeliveryRecords(ctx, query)
+	if err != nil {
+		return DingTalkDeliveryRecordList{}, err
+	}
+	if rows == nil {
+		rows = []DingTalkDeliveryRecord{}
+	}
+	return DingTalkDeliveryRecordList{List: rows, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (service *Service) GetDingTalkDeliveryRecord(ctx context.Context, id uint64) (DingTalkDeliveryRecord, error) {
+	if service == nil || service.store == nil {
+		return DingTalkDeliveryRecord{}, fmt.Errorf("notification record store is not initialized")
+	}
+	if id == 0 {
+		return DingTalkDeliveryRecord{}, ErrDingTalkDeliveryRecordNotFound
+	}
+	return service.store.GetDingTalkDeliveryRecord(ctx, id)
+}
+
+func (service *Service) DeleteDingTalkDeliveryRecord(ctx context.Context, id uint64) error {
+	if service == nil || service.store == nil {
+		return fmt.Errorf("notification record store is not initialized")
+	}
+	if id == 0 {
+		return ErrDingTalkDeliveryRecordNotFound
+	}
+	return service.store.DeleteDingTalkDeliveryRecord(ctx, id)
+}
+
+func dingTalkDeliveryStatus(sentCount, skippedCount, failedCount int) string {
+	if failedCount > 0 && sentCount > 0 {
+		return DingTalkDeliveryStatusPartial
+	}
+	if failedCount > 0 {
+		return DingTalkDeliveryStatusFailed
+	}
+	if sentCount > 0 {
+		return DingTalkDeliveryStatusSent
+	}
+	if skippedCount > 0 {
+		return DingTalkDeliveryStatusSkipped
+	}
+	return DingTalkDeliveryStatusFailed
 }
 
 func normalizeIDs(values []uint) []uint {

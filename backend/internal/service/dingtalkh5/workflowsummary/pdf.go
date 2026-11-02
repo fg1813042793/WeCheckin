@@ -52,7 +52,9 @@ func renderPDF(document exportDocument) ([]byte, error) {
 	renderer := newPDFRenderer(document.Title)
 	renderer.drawText(pdfPageMargin, 43, 17, pdfColorText, document.Title)
 	renderer.y = 76
-	renderer.drawSectionBand("流程信息")
+	if len(document.Metadata) > 0 {
+		renderer.drawSectionBand("流程信息")
+	}
 	for _, metadata := range document.Metadata {
 		label, value := exportRowPair(metadata)
 		renderer.drawRow([]pdfCell{
@@ -61,15 +63,19 @@ func renderPDF(document exportDocument) ([]byte, error) {
 		}, 24, 13)
 	}
 
-	for _, section := range document.Sections {
-		renderer.y += 12
+	for index, section := range document.Sections {
+		if index > 0 || len(document.Metadata) > 0 {
+			renderer.y += 12
+		}
 		renderer.ensureSpace(54)
 		renderer.drawSectionBand(section.Title)
 		if len(section.FieldRows) > 0 {
 			renderer.drawFieldRows(section.FieldRows)
 			continue
 		}
-		renderer.drawTable(section.Headers, section.Rows)
+		if len(section.Headers) > 0 || len(section.Rows) > 0 {
+			renderer.drawTable(section.Headers, section.Rows)
+		}
 	}
 	return buildPDFFile(renderer.finish()), nil
 }

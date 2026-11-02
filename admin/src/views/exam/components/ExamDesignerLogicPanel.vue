@@ -42,12 +42,12 @@
     <el-dialog v-model="dialogVisible" :title="editingRuleIndex >= 0 ? '编辑规则' : '增加规则'" width="560px" :close-on-click-modal="false">
       <el-form label-position="top" size="small">
         <el-form-item label="条件类型">
-          <el-select v-model="ruleForm.conditionType" class="full-width">
+          <el-select v-model="ruleForm.conditionType" class="full-width" :disabled="ruleForm.action === 'postStat'">
             <el-option label="简单条件 (单个)" value="simple" />
             <el-option label="且 (AND)" value="and" />
             <el-option label="或 (OR)" value="or" />
             <el-option label="非 (NOT)" value="not" />
-            <el-option label="无条件 (赋值/校验/替换)" value="none" />
+            <el-option label="无条件 (赋值/校验/替换/交卷后统计)" value="none" />
           </el-select>
         </el-form-item>
         <template v-if="ruleForm.conditionType !== 'none'">
@@ -76,6 +76,7 @@
             <el-option label="勾选 (CHECK)" value="check" /><el-option label="赋值 (ASSIGNMENT)" value="assignment" />
             <el-option label="校验 (VALIDATE)" value="validate" /><el-option label="文本替换 (REPLACE)" value="replace" />
             <el-option label="结束考试 (END)" value="end" />
+            <el-option label="交卷后统计 (POST_STAT)" value="postStat" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="['show','hide','required','assignment','validate','replace'].includes(ruleForm.action)" label="目标题目">
@@ -102,6 +103,7 @@
         <el-form-item v-if="ruleForm.action === 'assignment'" label="赋值公式"><el-input v-model="ruleForm.formula" placeholder="如 SUM(Q1, Q2)" /></el-form-item>
         <el-form-item v-if="ruleForm.action === 'validate'" label="校验公式（返回空字符串表示通过）"><el-input v-model="ruleForm.formula" placeholder='如 IF(Q2>100,"不能超过100","")' /></el-form-item>
         <el-form-item v-if="ruleForm.action === 'replace'" label="替换文本/公式"><el-input v-model="ruleForm.formula" placeholder='如 CONCATENATE("你好，",Q1)' /></el-form-item>
+        <ExamPostStatSettings v-if="ruleForm.action === 'postStat'" v-model="ruleForm" />
       </el-form>
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="confirmRule">确定</el-button></template>
     </el-dialog>
@@ -109,9 +111,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { ExamDesignerQuestion, ExamLogicCondition, ExamLogicRule } from '../exam-designer-types'
+import ExamPostStatSettings from './ExamPostStatSettings.vue'
 
 const props = defineProps<{ questions: ExamDesignerQuestion[] }>()
 const rules = defineModel<ExamLogicRule[]>({ required: true })
@@ -122,7 +125,7 @@ const ruleForm = ref<ExamLogicRule>(createRule())
 const choiceTypes = ['select', 'radio', 'checkbox', 'picker', 'cascade', 'judge', 'multiInput', 'hInput']
 
 function createRule(): ExamLogicRule {
-  return { id: '', conditionType: 'simple', conditions: [{}], action: 'show', scope: 'frontend', targetOptionIdxs: [], branchToEnd: false, formula: '' }
+  return { id: '', conditionType: 'simple', conditions: [{}], action: 'show', scope: 'frontend', targetOptionIdxs: [], branchToEnd: false, formula: '', calculateTotalScore: true, notifyAdmin: false, notifyUserIds: '', notifyChannel: 'internal', webhookType: 'dingtalk', webhookUrl: '', messageTemplate: '' }
 }
 function addRule() { editingRuleIndex.value = -1; ruleForm.value = createRule(); dialogVisible.value = true }
 function hasOptionsByIndex(index?: number) { const question = index === undefined ? null : props.questions[index]; return Boolean(question && choiceTypes.includes(question.type) && question.props?.options?.length) }
@@ -145,6 +148,7 @@ function renderRuleDSL(rule: ExamLogicRule) {
   else if (rule.action === 'check') action = `CHECK ${(rule.targetOptionIdxs || []).map(index => `${target}A${index + 1}`).join(' ')}`
   else if (['assignment', 'validate', 'replace'].includes(rule.action)) action = `${rule.action.toUpperCase()} ${target} WITH ${rule.formula || '?'}`
   else if (rule.action === 'end') action = `BRANCH FROM Q${(rule.branchFromIdx ?? -1) + 1} TO END`
+  else if (rule.action === 'postStat') action = `POST_STAT SCORE(${rule.calculateTotalScore === false ? 'OFF' : 'ON'}) CHANNEL(${rule.notifyChannel || 'internal'})`
   return rule.conditionType === 'none' ? action : `IF ${condition} THEN ${action}`
 }
 function confirmRule() {
@@ -153,13 +157,20 @@ function confirmRule() {
   if (['show','hide','required','check','assignment','validate','replace'].includes(value.action) && value.targetQuestionIdx === undefined) return void ElMessage.warning('请选择目标题目')
   if (value.action === 'branch' && value.branchFromIdx === undefined) return void ElMessage.warning('请选择跳转来源题目')
   if (value.action === 'branch' && !value.branchToEnd && value.branchToIdx === undefined) return void ElMessage.warning('请选择跳转目标题目或勾选结束考试')
+  if (value.action === 'postStat') {
+    const internal = ['internal', 'both'].includes(value.notifyChannel || '') && (value.notifyAdmin || String(value.notifyUserIds || '').trim())
+    const webhook = ['webhook', 'both'].includes(value.notifyChannel || '') && String(value.webhookUrl || '').trim()
+    if (!internal && !webhook) return void ElMessage.warning('请配置至少一个通知目标')
+  }
   value.id = `rule_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+  value.scope = value.action === 'postStat' ? 'backend' : 'frontend'
   if (editingRuleIndex.value >= 0) rules.value[editingRuleIndex.value] = { ...value }
   else rules.value.push({ ...value })
   dialogVisible.value = false
 }
 function editRule(index: number) { editingRuleIndex.value = index; ruleForm.value = JSON.parse(JSON.stringify(rules.value[index])); dialogVisible.value = true }
 function removeRule(index: number) { rules.value.splice(index, 1) }
+watch(() => ruleForm.value.action, action => { if (action === 'postStat') ruleForm.value.conditionType = 'none' })
 </script>
 
 <style scoped>

@@ -249,6 +249,7 @@ const (
 	ValidationStartAvailability        = "start_availability_invalid"
 	ValidationStartLimit               = "start_limit_invalid"
 	ValidationInstanceIdentity         = "instance_identity_invalid"
+	ValidationHistoryImport            = "history_import_invalid"
 	ValidationCompletedRevision        = "completed_revision_invalid"
 )
 
@@ -258,6 +259,7 @@ type Definition struct {
 	Name             string                  `json:"name"`
 	DisplayName      string                  `json:"displayName,omitempty"`
 	InstanceIdentity *InstanceIdentityConfig `json:"instanceIdentity,omitempty"`
+	HistoryImport    *HistoryImportConfig    `json:"historyImport,omitempty"`
 	Form             []FormField             `json:"form,omitempty"`
 	Nodes            []Node                  `json:"nodes"`
 	Edges            []Edge                  `json:"edges"`
@@ -275,6 +277,35 @@ func (definition Definition) EffectiveName() string {
 type InstanceIdentityConfig struct {
 	TitleTemplate  string                `json:"titleTemplate"`
 	BusinessPeriod *BusinessPeriodConfig `json:"businessPeriod,omitempty"`
+}
+
+const (
+	HistoryImportSourceSelectHistory = "select_history"
+	HistoryImportSourceLatestHistory = "latest_history"
+	HistoryImportStatusCompleted     = "completed"
+	HistoryImportStatusAll           = "all"
+	HistoryImportMappingSameKey      = "same_key"
+	HistoryImportMappingExplicit     = "mapping"
+)
+
+type HistoryImportConfig struct {
+	Enabled      bool                   `json:"enabled"`
+	SourceMode   string                 `json:"sourceMode"`
+	SourceStatus string                 `json:"sourceStatus"`
+	MappingMode  string                 `json:"mappingMode"`
+	Overwrite    bool                   `json:"overwrite"`
+	Mappings     []HistoryImportMapping `json:"mappings"`
+}
+
+type HistoryImportMapping struct {
+	SourceKey string                       `json:"sourceKey"`
+	TargetKey string                       `json:"targetKey"`
+	Columns   []HistoryImportColumnMapping `json:"columns,omitempty"`
+}
+
+type HistoryImportColumnMapping struct {
+	SourceKey string `json:"sourceKey"`
+	TargetKey string `json:"targetKey"`
 }
 
 type BusinessPeriodConfig struct {

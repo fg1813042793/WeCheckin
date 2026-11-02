@@ -176,8 +176,10 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 		merge(row, 6, xlsxGridColumns)
 	}
 
-	for _, section := range document.Sections {
-		addRow(9, xlsxExportCell{column: 1, style: 0, value: ""})
+	for index, section := range document.Sections {
+		if index > 0 || len(document.Metadata) > 0 {
+			addRow(9, xlsxExportCell{column: 1, style: 0, value: ""})
+		}
 		sectionRow := addRow(26, xlsxExportCell{column: 1, style: 2, value: section.Title})
 		merge(sectionRow, 1, xlsxGridColumns)
 		if len(section.FieldRows) > 0 {
@@ -204,6 +206,9 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 			continue
 		}
 
+		if len(section.Headers) == 0 && len(section.Rows) == 0 {
+			continue
+		}
 		headers := section.Headers
 		if len(headers) == 0 {
 			headers = []string{"内容"}
@@ -314,7 +319,7 @@ func xlsxColumnName(index int) string {
 }
 
 func uniqueSheetNames(documents []exportDocument) []string {
-	seen := make(map[string]int, len(documents))
+	seen := make(map[string]bool, len(documents))
 	result := make([]string, 0, len(documents))
 	for _, document := range documents {
 		name := strings.Map(func(r rune) rune {
@@ -322,17 +327,17 @@ func uniqueSheetNames(documents []exportDocument) []string {
 				return '_'
 			}
 			return r
-		}, firstText(document.FileStem, document.Title, "流程"))
+		}, firstText(document.Title, document.FileStem, "流程"))
 		name = truncateRunes(strings.Trim(name, "' "), 31)
 		if name == "" {
 			name = "流程"
 		}
 		base := name
-		seen[base]++
-		if seen[base] > 1 {
-			suffix := fmt.Sprintf("-%d", seen[base])
+		for ordinal := 2; seen[strings.ToLower(name)]; ordinal++ {
+			suffix := fmt.Sprintf("-%d", ordinal)
 			name = truncateRunes(base, 31-utf8.RuneCountInString(suffix)) + suffix
 		}
+		seen[strings.ToLower(name)] = true
 		result = append(result, name)
 	}
 	return result

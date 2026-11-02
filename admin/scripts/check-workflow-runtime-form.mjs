@@ -305,7 +305,7 @@ assert(
   'only writable fields should participate in form validation',
 )
 assert(
-  runtimeSource.includes('validateWorkflowFormData(props.fields || [], props.modelValue || {}, accessMap.value)'),
+  runtimeSource.includes('validateWorkflowFormData(props.validationFields || props.fields || [], props.modelValue || {}, accessMap.value)'),
   'runtime form must pass the effective field access map into validation',
 )
 assert(runtimeSource.includes('userNameMap?: Record<string, string>'), '运行时表单应支持用户名映射')
@@ -355,6 +355,35 @@ const hiddenOnlyGroup = visibleWorkflowFormFields([{
   fields: [{ key: 'secret', label: '内部字段', type: 'text' }],
 }], { secret: 'hidden' })
 assert(hiddenOnlyGroup.length === 0, '只包含隐藏业务字段的空分组不应渲染')
+
+const crossGroupCompareFields = [
+  {
+    key: 'manager_group', label: '上级评价', type: 'group',
+    fields: [{ key: 'managerGrade', label: '上级分档', type: 'select', options: [{ label: 'C', value: '1.0' }] }],
+  },
+  {
+    key: 'hrbp_group', label: 'HRBP评价', type: 'group',
+    fields: [{
+      key: 'hrbpGrade', label: 'HRBP分档', type: 'select', options: [{ label: 'C', value: '1.0' }],
+      rules: [{ id: 'same_grade', type: 'compare_field', field: 'managerGrade', operator: 'eq', message: '与上级分档不一致，请确认！！！' }],
+    }],
+  },
+]
+const crossGroupValues = { managerGrade: '1.0', hrbpGrade: '1.0' }
+assert(
+  Object.keys(validateWorkflowFormData(crossGroupCompareFields, crossGroupValues, { managerGrade: 'read', hrbpGrade: 'write' })).length === 0,
+  '完整表单上下文中，相同的跨分组字段值应通过比较校验',
+)
+assert(
+  Boolean(validateWorkflowFormData(crossGroupCompareFields[1].fields, crossGroupValues, { hrbpGrade: 'write' }).hrbpGrade),
+  '仅使用当前分组字段会因找不到跨分组目标字段而误报',
+)
+assert(runtimeSource.includes('validationFields?: WorkflowFormField[]'), '运行时分组表单应接收完整校验字段上下文')
+assert(runtimeSource.includes(':validation-fields="validationFields || fields"'), '运行时分组表单应向子分组透传完整校验字段上下文')
+assert(
+  runtimeSource.includes('validateWorkflowFormData(props.validationFields || props.fields || [], props.modelValue || {}, accessMap.value)'),
+  '运行时分组表单校验应使用完整字段上下文解析跨分组规则',
+)
 
 const ruleFields = [
   { key: 'expenseType', label: '报销类型', type: 'select', options: [{ label: '其他', value: 'other' }] },

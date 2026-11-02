@@ -78,6 +78,11 @@ assert.equal(
   isWorkflowImportTypeCompatible(field('source', 'calculation'), field('target', 'number')),
   false,
 )
+assert.equal(
+  isWorkflowImportTypeCompatible(field('source', 'number'), field('target', 'number', { calculation: { expression: '1 + 1' } })),
+  false,
+  'calculation metadata must also prevent writes',
+)
 
 assert.deepEqual(
   buildWorkflowImportMappings(
@@ -238,6 +243,99 @@ assert.ok(String(detailPreview.patch.items[0].targetRowId).startsWith('row_'))
 assert.equal('sourceRowId' in detailPreview.patch.items[0], false)
 assert.equal('legacy' in detailPreview.patch.items[0], false)
 
+const columnMappings = [{ sourceKey: 'nextGoal', targetKey: 'goal' }]
+const oldDetails = field('next', 'detail_list', { columns: [field('nextGoal', 'text')] })
+const newDetails = field('current', 'detail_list', { columns: [field('goal', 'textarea'), field('total', 'calculation')] })
+assert.equal(isWorkflowImportTypeCompatible(oldDetails, newDetails, columnMappings), true, 'explicit detail column mappings must support renamed columns')
+const mappedDetails = previewWorkflowHistoryImport({
+  sourceFields: [oldDetails],
+  sourceData: { next: [{ nextGoal: 'Plan' }] },
+  sourceAccess: { next: 'write' },
+  targetFields: [newDetails],
+  targetData: {},
+  targetAccess: { current: 'write' },
+  mappings: [{ sourceKey: 'next', targetKey: 'current', columns: columnMappings }],
+  overwrite: false,
+})
+assert.equal(mappedDetails.patch.current[0].goal, 'Plan')
+assert.equal(mappedDetails.patch.current[0].total, undefined, 'never copy calculated values')
+for (const access of ['hidden', 'read']) {
+  const restricted = previewWorkflowHistoryImport({
+    sourceFields: [field('private', 'text')],
+    sourceData: { private: 'secret' },
+    sourceAccess: { private: access },
+    targetFields: [field('public', 'text')],
+    targetData: {},
+    targetAccess: { public: 'write' },
+    mappings: [{ sourceKey: 'private', targetKey: 'public' }],
+    overwrite: true,
+  })
+  assert.deepEqual(restricted.patch, {})
+  assert.equal(restricted.items[0].importValue, undefined, 'restricted source values must not leak through feedback')
+}
+const invalidAttachment = previewWorkflowHistoryImport({
+  sourceFields: [field('files', 'attachment')],
+  sourceData: { files: [{}] },
+  targetFields: [field('files', 'attachment')],
+  targetData: {},
+  targetAccess: { files: 'write' },
+  mappings: [{ sourceKey: 'files', targetKey: 'files' }],
+  overwrite: true,
+})
+assert.equal(invalidAttachment.importCount, 0, 'empty normalized values must not report success')
+
+const mixedColumnPreview = previewWorkflowHistoryImport({
+  sourceFields: [field('oldRows', 'detail_list', {
+    columns: [field('oldText', 'text'), field('oldChoice', 'select'), field('oldMany', 'multi_select'), field('total', 'calculation'), field('nested', 'detail_list')],
+  })],
+  sourceData: { oldRows: [{ oldText: 'kept', oldChoice: 'remote', oldMany: ['yes', 'gone'], total: 999, nested: [{}] }] },
+  sourceAccess: { oldRows: 'write' },
+  targetFields: [field('rows', 'detail_list', {
+    columns: [field('text', 'textarea'), field('choice', 'select', { optionSource: { type: 'api' } }), field('many', 'checkbox', { options: [{ label: 'yes', value: 'yes' }] }), field('sum', 'number'), field('nested', 'detail_list')],
+  })],
+  targetData: {},
+  targetAccess: { rows: 'write' },
+  mappings: [{ sourceKey: 'oldRows', targetKey: 'rows', columns: [
+    { sourceKey: 'oldText', targetKey: 'text' },
+    { sourceKey: 'oldChoice', targetKey: 'choice' },
+    { sourceKey: 'oldMany', targetKey: 'many' },
+    { sourceKey: 'missing', targetKey: 'deleted' },
+    { sourceKey: 'total', targetKey: 'sum' },
+    { sourceKey: 'nested', targetKey: 'nested' },
+  ] }],
+  overwrite: false,
+})
+assert.equal(mixedColumnPreview.importCount, 1)
+assert.equal(mixedColumnPreview.patch.rows[0].text, 'kept')
+assert.equal(mixedColumnPreview.patch.rows[0].choice, 'remote')
+assert.deepEqual(mixedColumnPreview.patch.rows[0].many, ['yes'])
+assert.equal(mixedColumnPreview.patch.rows[0].sum, undefined)
+assert.deepEqual(mixedColumnPreview.patch.rows[0].nested, [])
+assert.equal(mixedColumnPreview.items[0].dynamicCount, 1, 'dynamic warnings must survive filtered detail columns')
+assert.equal(mixedColumnPreview.items[0].filteredCount, 4)
+assert.equal(isWorkflowImportTypeCompatible(field('text', 'text'), field('other', 'text'), columnMappings), false)
+const allMissingColumns = previewWorkflowHistoryImport({
+  sourceFields: [oldDetails],
+  sourceData: { next: [{ nextGoal: 'value' }] },
+  targetFields: [newDetails],
+  targetData: {},
+  targetAccess: { current: 'write' },
+  mappings: [{ sourceKey: 'next', targetKey: 'current', columns: [{ sourceKey: 'deleted', targetKey: 'goal' }] }],
+  overwrite: false,
+})
+assert.equal(allMissingColumns.importCount, 0)
+assert.equal(allMissingColumns.skipCount, 1)
+const noColumnMapping = previewWorkflowHistoryImport({
+  sourceFields: [field('oldTable', 'detail_list', { columns: [field('same', 'text')] })],
+  sourceData: { oldTable: [{ same: 'legacy same column' }] },
+  targetFields: [field('table', 'detail_list', { columns: [field('same', 'textarea')] })],
+  targetData: {},
+  targetAccess: { table: 'write' },
+  mappings: [{ sourceKey: 'oldTable', targetKey: 'table' }],
+  overwrite: false,
+})
+assert.equal(noColumnMapping.patch.table[0].same, 'legacy same column')
+
 const dialogUrl = new URL('../src/pages/workflow/components/WorkflowHistoryImportDialog.vue', import.meta.url)
 assert.ok(existsSync(dialogUrl), 'WorkflowHistoryImportDialog.vue is required')
 const dialogSource = readFileSync(dialogUrl, 'utf8')
@@ -263,9 +361,9 @@ for (const snippet of [
   'const currentStep = ref<HistoryImportStep>(\'select\')',
   'currentStep.value = \'configure\'',
   'v-if="currentStep === \'select\'"',
-  ':class="{ \'workflow-history-import-dialog__actions--mobile-hidden\': mobile && currentStep === \'select\' }"',
+  ':class="{ \'workflow-history-import-dialog__actions--mobile-hidden\': mobile && currentStep === \'select\' && !latestMode && !configError }"',
   'workflow-history-import-dialog__cancel',
-  'v-if="!mobile"',
+  'v-if="!mobile || latestMode || configError"',
   'v-else-if="currentStep === \'configure\'"',
   'goToPreviousStep',
   'goToPreview',
@@ -378,6 +476,13 @@ for (const snippet of [
   'initialWorkflowFormData(value.form || [], {',
   '...formData.value,',
   '...payload.patch,',
+  'workflowHistoryImportNeedsAttention',
+  'historyImportSummaryText',
+  'historyImportDetailsVisible',
+  't(\'workflowHistoryImport.warningSummary\'',
+  't(\'workflowHistoryImport.viewDetails\')',
+  't(\'workflowHistoryImport.hideDetails\')',
+  'aria-live="polite"',
 ]) {
   assert.ok(startPageSource.includes(snippet), `WorkflowStartPage.vue missing ${snippet}`)
 }

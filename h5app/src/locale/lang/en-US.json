@@ -1,5 +1,99 @@
 {
   "name": "en-US",
+  "summaryMappings": {
+    "title": "Summary columns",
+    "addTitle": "Add summary column",
+    "editTitle": "Edit summary column",
+    "columnName": "Column name",
+    "namePlaceholder": "For example: Final rating",
+    "mappingHint": "Choose the corresponding field for each workflow. Each application uses its own workflow source.",
+    "replaceSources": "Replace selected source columns with this column to avoid duplicates",
+    "sourceNumber": "Source {n}",
+    "removeSource": "Remove source {n}",
+    "flowNumber": "Workflow for source {n}",
+    "versionNumber": "Version for source {n}",
+    "fieldNumber": "Field for source {n}",
+    "flow": "Management name",
+    "version": "Version",
+    "field": "Source field",
+    "chooseFlow": "Choose workflow",
+    "chooseField": "Choose field",
+    "unavailableFlow": "Unavailable workflow",
+    "unavailableField": "Unavailable field",
+    "defaultVersion": "Default rule",
+    "addSource": "Add field source",
+    "remove": "Remove",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save column",
+    "retry": "Reload fields",
+    "versionHint": "The default rule uses published fields. Add a separate source for a version appearing on this page; exact versions override the default.",
+    "versionLoading": "Loading historical fields…",
+    "versionNotOnPage": "No record for this version is on this page. Filter or navigate to one before choosing fields.",
+    "versionLoadFailed": "Historical fields could not be loaded or access was denied. Please retry.",
+    "typeWarning": "Source field types differ. Confirm their meaning, units and rating scales, or use separate columns.",
+    "empty": "Show corresponding fields from multiple workflows in one column",
+    "sourceCount": "{n} field sources",
+    "deleteTitle": "Delete summary column",
+    "deletePrompt": "Delete the display configuration for “{name}”? Application data is unaffected.",
+    "saved": "Summary column saved",
+    "errors": {
+      "idRequired": "Invalid column configuration. Create a new column.",
+      "idTooLong": "Column identity is too long. Create a new column.",
+      "labelRequired": "Enter a column name",
+      "labelTooLong": "Column names allow up to 50 characters",
+      "sourcesRequired": "Add at least one field source",
+      "sourceRequired": "Choose a workflow and field for every source",
+      "duplicateSource": "Only one field source is allowed per workflow and version",
+      "tooManySources": "A column allows up to 50 sources",
+      "invalidVersion": "Version must be a positive integer",
+      "invalidId": "Invalid column configuration. Create a new column."
+    },
+    "reasons": {
+      "unmapped": "No source configured for this workflow",
+      "definitionUnavailable": "Source workflow is unavailable or not loaded",
+      "fieldUnavailable": "Source field no longer exists; edit this mapping",
+      "versionUnavailable": "Fields for this version are not loaded or unavailable",
+      "ambiguousMapping": "Conflicting source mappings; edit this mapping",
+      "missingData": "No saved result or required calculation data is missing"
+    }
+  },
+  "workflowSummary": {
+    "calculated": "Calculated",
+    "calculatedHint": "Calculated using the selected form rules for this summary only; historical records are unchanged"
+  },
+  "workflowSummaryExport": {
+    "form": "Export form",
+    "formHint": "Export the form title and content without workflow information or approval history"
+  },
+  "workflowHistoryImport": {
+    "invalidConfig": "The history import rules are invalid. Ask the workflow administrator to correct them, then reopen import.",
+    "contextChanged": "The workflow or import rules changed. Reopen import to continue.",
+    "sourceChanged": "This record belongs to another workflow or no longer meets the required status. Select another record.",
+    "readFailed": "Unable to read the historical application. Please retry.",
+    "empty": "No historical applications match these import rules.",
+    "noValues": "No fields could be imported. Your form has not changed. Check the rules, permissions, or existing values.",
+    "emptyPolicy": "Import policy: fill empty fields and keep existing values.",
+    "overwritePolicy": "Import policy: overwrite existing values in mapped fields.",
+    "completed": "Completed",
+    "completedOnly": "Source: completed applications you started in this workflow.",
+    "allStatuses": "Source: applications you started in this workflow, including all visible statuses.",
+    "selectHint": "Selecting a record immediately imports it using the preset rules.",
+    "latestHint": "Finding the most recently started application that matches the rules.",
+    "loading": "Reading and importing the historical form…",
+    "chooseAnother": "Choose another record",
+    "retry": "Retry",
+    "success": "Imported {count} fields",
+    "warningSummary": "Import complete: {imported} succeeded; {issues}",
+    "skippedCount": "{count} skipped",
+    "filteredCount": "{count} filtered",
+    "dynamicCount": "{count} require confirmation",
+    "issueSeparator": ", ",
+    "viewDetails": "View details",
+    "hideDetails": "Hide details",
+    "result": "Imported {imported} fields ({overwritten} overwritten), kept {retained}, skipped {skipped}; filtered {filtered} invalid values or detail columns. Confirm {dynamic} dynamic option values. Skipped fields may be empty, removed, incompatible, or restricted."
+  },
   "common": {
     "appName": "OA Management",
     "home": "Home",
@@ -13,6 +107,19 @@
     "copySuccess": "Link copied, please open browser to paste and visit",
     "copyCommandSuccess": "Command copied to clipboard",
     "jumpFailed": "Navigation failed"
+  },
+  "auth": {
+    "dingtalk": {
+      "sessionChanged": "Your sign-in session has changed. Please try again.",
+      "retry": "Sign in with DingTalk again",
+      "retryHint": "DingTalk authentication did not finish. Try again. If it keeps failing, ask your administrator to check this organization's app settings."
+    },
+    "loginCaptcha": {
+      "placeholder": "Enter the image code",
+      "required": "Enter the image code",
+      "refresh": "Refresh verification code",
+      "unavailable": "Unable to load the verification code. Refresh and try again."
+    }
   },
   "appShell": {
     "unsavedNavigation": {
@@ -104,6 +211,7 @@
       "initial": "Feedback Submitted",
       "supplement": "Information Added",
       "status": "Status Updated",
+      "notification": "Administrator Message",
       "statusChange": "Status",
       "admin": "Administrator",
       "user": "User",

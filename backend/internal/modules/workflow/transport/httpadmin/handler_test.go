@@ -33,6 +33,10 @@ type runtimeServiceStub struct {
 	completeCalls             int
 	cancelCalls               int
 	resumeCalls               int
+	upgradePreviewInstanceID  string
+	upgradePreviewCalls       int
+	upgradeRequest            workflowapp.UpgradeInstanceVersionRequest
+	upgradeCalls              int
 	notificationQuery         workflowapp.NotificationQuery
 	notificationListCalls     int
 	retryNotificationID       string
@@ -138,6 +142,18 @@ func (stub *runtimeServiceStub) ResumeTimers(_ context.Context, instanceID, acto
 	stub.resumeInstanceID = instanceID
 	stub.resumeActorID = actorID
 	return &workflowdomain.State{}, 0, nil
+}
+
+func (stub *runtimeServiceStub) PreviewInstanceVersionUpgrade(_ context.Context, instanceID string) (*workflowapp.InstanceVersionUpgradePreview, error) {
+	stub.upgradePreviewCalls++
+	stub.upgradePreviewInstanceID = instanceID
+	return &workflowapp.InstanceVersionUpgradePreview{InstanceID: instanceID, CurrentVersion: 1, TargetVersion: 2, Compatible: true}, nil
+}
+
+func (stub *runtimeServiceStub) UpgradeInstanceVersion(_ context.Context, request workflowapp.UpgradeInstanceVersionRequest) (*workflowapp.UpgradeInstanceVersionResult, error) {
+	stub.upgradeCalls++
+	stub.upgradeRequest = request
+	return &workflowapp.UpgradeInstanceVersionResult{InstanceID: request.InstanceID, PreviousVersion: request.ExpectedFromVersion, CurrentVersion: 2}, nil
 }
 
 func (stub *runtimeServiceStub) ListInstances(_ context.Context, query workflowapp.InstanceQuery) (*workflowapp.InstanceList, error) {
@@ -340,6 +356,33 @@ func TestResumeTimersUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 
 	if stub.resumeCalls != 1 || stub.resumeInstanceID != "instance-1001" || stub.resumeActorID != "42" {
 		t.Fatalf("resume must use route instance and authenticated actor: calls=%d instance=%q actor=%q", stub.resumeCalls, stub.resumeInstanceID, stub.resumeActorID)
+	}
+}
+
+func TestPreviewInstanceVersionUpgradeUsesRouteInstanceID(t *testing.T) {
+	stub := &runtimeServiceStub{instanceList: &workflowapp.InstanceList{List: []workflowapp.InstanceSummary{{ID: "instance-1001", DefinitionID: 7}}}}
+	handler := newTestRuntimeHandler(stub)
+	c := newAdminContext(42)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1001"})
+
+	handler.PreviewInstanceVersionUpgrade(context.Background(), c)
+
+	if stub.upgradePreviewCalls != 1 || stub.upgradePreviewInstanceID != "instance-1001" {
+		t.Fatalf("preview calls/id = %d/%q", stub.upgradePreviewCalls, stub.upgradePreviewInstanceID)
+	}
+}
+
+func TestUpgradeInstanceVersionUsesAuthenticatedAdminAndExpectedVersion(t *testing.T) {
+	stub := &runtimeServiceStub{instanceList: &workflowapp.InstanceList{List: []workflowapp.InstanceSummary{{ID: "instance-1001", DefinitionID: 7}}}}
+	handler := newTestRuntimeHandler(stub)
+	c := newAdminContext(42)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1001"})
+	c.Request.SetBodyString(`{"instanceId":"forged","actorId":"forged","expectedFromVersion":1}`)
+
+	handler.UpgradeInstanceVersion(context.Background(), c)
+
+	if stub.upgradeCalls != 1 || stub.upgradeRequest.InstanceID != "instance-1001" || stub.upgradeRequest.ActorID != "42" || stub.upgradeRequest.ExpectedFromVersion != 1 {
+		t.Fatalf("upgrade request = %#v", stub.upgradeRequest)
 	}
 }
 

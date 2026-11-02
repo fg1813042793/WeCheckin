@@ -216,6 +216,7 @@ func (h *ClientExamHandler) View(ctx context.Context, c *app.RequestContext) {
 		Anonymous:   e.Anonymous,
 		ShowResult:  e.ShowResult,
 		ShowScore:   e.ShowScore,
+		PassScore:   e.PassScore,
 		Duration:    e.Duration,
 		MaxAttempts: e.MaxAttempts,
 		StartTime:   e.StartTime,

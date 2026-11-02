@@ -14,6 +14,13 @@ const maxExportBodyBytes = 64 << 20
 
 type ExportFormat string
 
+type ExportContent string
+
+const (
+	ExportContentFull ExportContent = "full"
+	ExportContentForm ExportContent = "form"
+)
+
 const (
 	ExportFormatPDF  ExportFormat = "pdf"
 	ExportFormatXLSX ExportFormat = "xlsx"
@@ -21,8 +28,9 @@ const (
 )
 
 var (
-	ErrExportFormatInvalid = errors.New("导出格式仅支持 pdf、xlsx、docx")
-	ErrExportBodyTooLarge  = errors.New("导出文件过大，请减少本次导出数量")
+	ErrExportFormatInvalid  = errors.New("导出格式仅支持 pdf、xlsx、docx")
+	ErrExportContentInvalid = errors.New("导出内容仅支持 full（完整记录）或 form（仅表单）")
+	ErrExportBodyTooLarge   = errors.New("导出文件过大，请减少本次导出数量")
 )
 
 type ExportResult struct {
@@ -31,11 +39,16 @@ type ExportResult struct {
 	Body        []byte
 }
 
+// RenderDocuments renders one or more generic structured documents.
+func RenderDocuments(documents []Document, format ExportFormat) (*ExportResult, error) {
+	return renderWorkflowExport(documents, format, ExportContentFull)
+}
+
 func (format ExportFormat) Valid() bool {
 	return format == ExportFormatPDF || format == ExportFormatXLSX || format == ExportFormatDOCX
 }
 
-func renderWorkflowExport(documents []exportDocument, format ExportFormat) (*ExportResult, error) {
+func renderWorkflowExport(documents []exportDocument, format ExportFormat, content ExportContent) (*ExportResult, error) {
 	if len(documents) == 0 {
 		return nil, ErrExportInstancesEmpty
 	}
@@ -43,12 +56,16 @@ func renderWorkflowExport(documents []exportDocument, format ExportFormat) (*Exp
 		return nil, ErrExportFormatInvalid
 	}
 	date := time.Now().Format("2006-01-02")
+	containerStem := "workflow-summary-" + date
+	if content == ExportContentForm {
+		containerStem = formExportContainerStem(documents)
+	}
 	if format == ExportFormatXLSX {
 		body, err := renderXLSX(documents)
 		if err != nil {
 			return nil, err
 		}
-		return checkedExportResult("workflow-summary-"+date+".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", body)
+		return checkedExportResult(containerStem+".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", body)
 	}
 	if len(documents) == 1 {
 		body, err := renderSingleDocument(documents[0], format)
@@ -88,7 +105,20 @@ func renderWorkflowExport(documents []exportDocument, format ExportFormat) (*Exp
 	if err := archive.Close(); err != nil {
 		return nil, err
 	}
-	return checkedExportResult("workflow-summary-"+date+".zip", "application/zip", buffer.Bytes())
+	return checkedExportResult(containerStem+".zip", "application/zip", buffer.Bytes())
+}
+
+func formExportContainerStem(documents []exportDocument) string {
+	stem := documents[0].FileStem
+	if len(documents) == 1 {
+		return stem
+	}
+	for _, document := range documents[1:] {
+		if document.Title != documents[0].Title {
+			return "表单导出"
+		}
+	}
+	return stem + "-批量"
 }
 
 func renderSingleDocument(document exportDocument, format ExportFormat) ([]byte, error) {

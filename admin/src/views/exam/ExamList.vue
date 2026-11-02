@@ -1,13 +1,14 @@
 <template>
   <AdminPageShell width="fluid" density="compact" class="survey-page exam-page">
     <section class="survey-toolbar-card" aria-label="考试工具栏">
-      <AdminSearchBar title="" class="survey-search" @search="search" @reset="resetSearch">
-        <el-input v-model="keyword" :prefix-icon="Search" placeholder="搜索考试名称或 ID" clearable @keyup.enter="search" />
-        <el-input v-model="category" placeholder="按分类筛选" clearable @keyup.enter="search" />
+      <AdminSearchBar title="" class="survey-search" :show-actions="false" @search="search" @reset="resetSearch">
+        <el-input v-model="keyword" :prefix-icon="Search" placeholder="搜索考试名称或 ID" clearable />
+        <el-input v-model="category" placeholder="按分类筛选" clearable />
         <el-select v-model="statusFilter" placeholder="全部状态" clearable @change="search">
           <el-option label="已发布" :value="1" />
           <el-option label="已停用" :value="0" />
         </el-select>
+        <AdminFilterActions class="survey-search-inline-actions" native-type="submit" :loading="loading" @reset="resetSearch" />
       </AdminSearchBar>
       <div class="survey-actions-row">
         <div class="survey-actions-row__left">
@@ -49,11 +50,14 @@
         </button>
         <div class="survey-card__meta"><span><strong>{{ row.maxResponse || 0 }}</strong> {{ row.maxResponse ? '次限制' : '不限次数' }}</span><time>{{ fmtDate(row.addTime) }} 更新</time></div>
         <footer class="survey-card__actions" @click.stop>
-          <el-button text type="primary" @click="goDesigner(row)">设计</el-button>
+          <el-button text type="primary" :icon="EditPen" @click="goDesigner(row)">设计</el-button>
+          <el-button text :icon="Document" @click="goResponses(row)">查看答卷</el-button>
+          <el-button text :icon="DataAnalysis" @click="goStatistic(row)">统计</el-button>
           <el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)">
             <el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" title="更多操作" />
             <template #dropdown><el-dropdown-menu>
               <el-dropdown-item command="edit">编辑考试</el-dropdown-item>
+              <el-dropdown-item v-if="hasPerm('admin:menu:exam:copy')" command="copy">复制考试</el-dropdown-item>
               <el-dropdown-item :command="row.status === 1 ? 'disable' : 'enable'">{{ row.status === 1 ? '停用考试' : '发布考试' }}</el-dropdown-item>
               <el-dropdown-item command="del" divided>删除考试</el-dropdown-item>
             </el-dropdown-menu></template>
@@ -71,12 +75,12 @@
         <el-table-column label="答题次数" width="100" align="center"><template #default="{ row }">{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</template></el-table-column>
         <el-table-column label="最近更新" width="120"><template #default="{ row }">{{ fmtDate(row.addTime) }}</template></el-table-column>
         <el-table-column label="状态" width="100"><template #default="{ row }"><span class="status-label" :class="row.status === 1 ? 'published' : 'stopped'"><i />{{ row.status === 1 ? '已发布' : '已停用' }}</span></template></el-table-column>
-        <el-table-column label="操作" width="150" fixed="right"><template #default="{ row }"><div class="table-actions"><el-button text type="primary" @click="goDesigner(row)">设计</el-button><el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)"><el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" /></el-dropdown></div></template></el-table-column>
+        <el-table-column label="操作" width="250" fixed="right"><template #default="{ row }"><div class="table-actions"><el-button text type="primary" @click="goDesigner(row)">设计</el-button><el-button text @click="goResponses(row)">查看答卷</el-button><el-button text @click="goStatistic(row)">统计</el-button><el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)"><el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" /></el-dropdown></div></template></el-table-column>
       </el-table>
-      <template #footer><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total, prev, pager, next" background @current-change="load" /></template>
+      <template #footer><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="handlePageSizeChange" /></template>
     </AdminTablePanel>
 
-    <footer v-if="gridView" class="collection-footer"><span>共 {{ total }} 份考试</span><el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="prev, pager, next" background @current-change="load" /></footer>
+    <footer v-if="gridView" class="collection-footer"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="handlePageSizeChange" /></footer>
   </AdminPageShell>
 </template>
 
@@ -84,9 +88,10 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { Document, Grid, List, MoreFilled, Plus, RefreshRight, Search } from '@element-plus/icons-vue'
-import { AdminPageShell, AdminSearchBar, AdminTablePanel } from '../../components/admin-ui'
+import { DataAnalysis, Document, EditPen, Grid, List, MoreFilled, Plus, RefreshRight, Search } from '@element-plus/icons-vue'
+import { AdminFilterActions, AdminPageShell, AdminSearchBar, AdminTablePanel } from '../../components/admin-ui'
 import { adminApi } from '../../api'
+import { hasPerm } from '../../utils/permission'
 
 const router = useRouter()
 const keyword = ref('')
@@ -119,6 +124,7 @@ async function load() {
   } finally { loading.value = false }
 }
 function search() { page.value = 1; void load() }
+function handlePageSizeChange() { page.value = 1; void load() }
 function resetSearch() { keyword.value = ''; category.value = ''; statusFilter.value = null; page.value = 1; void load() }
 function selectStatus(value: number | null) { statusFilter.value = value; page.value = 1; void load() }
 async function toggleStatus(row: any) {
@@ -129,6 +135,12 @@ async function toggleStatus(row: any) {
 }
 async function handleMore(command: string, row: any) {
   if (command === 'edit') return goEdit(row)
+  if (command === 'copy') {
+    if (!hasPerm('admin:menu:exam:copy')) return
+    await adminApi.examCopy({ id: row.id })
+    ElMessage.success('考试已复制，新副本默认停用')
+    return void load()
+  }
   if (command === 'enable' || command === 'disable') { await toggleStatus(row); return void load() }
   if (command === 'del') {
     try { await ElMessageBox.confirm(`确认删除「${row.title}」?`, '删除考试', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }
@@ -139,6 +151,8 @@ async function handleMore(command: string, row: any) {
 }
 function goEdit(row: any) { router.push({ path: '/exam/designer', query: { id: String(row.id) } }) }
 function goDesigner(row: any) { goEdit(row) }
+function goResponses(row: any) { router.push({ path: '/exam/responses', query: { examId: String(row.id), title: row.title } }) }
+function goStatistic(row: any) { router.push({ path: '/exam/statistic', query: { examId: String(row.id), title: row.title } }) }
 function goCreate() { router.push('/exam/designer') }
 onMounted(load)
 </script>

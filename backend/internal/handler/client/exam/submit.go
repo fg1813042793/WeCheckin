@@ -12,6 +12,7 @@ import (
 	examPkg "wecheckin/backend/internal/formkit/exam"
 	"wecheckin/backend/internal/model"
 	examservice "wecheckin/backend/internal/service/client/exam"
+	poststatservice "wecheckin/backend/internal/service/client/poststat"
 	"wecheckin/backend/pkg/logger"
 	rd "wecheckin/backend/pkg/redis"
 	"wecheckin/backend/pkg/response"
@@ -38,7 +39,9 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	answersJSON, _ := json.Marshal(req.Answers)
-	clientIP := c.ClientIP()
+	client := clientEnvironment(c, req.Device)
+	req.Device = client.Device
+	clientIP := client.IP
 
 	if req.RecordID > 0 {
 		uid := getUID(c)
@@ -61,6 +64,9 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		}
 		exQs := make([]examPkg.Question, 0, len(qs))
 		for _, q := range qs {
+			if !examservice.ShouldGradePaperQuestion(q.Type, q.Score) {
+				continue
+			}
 			exQs = append(exQs, examPkg.Question{
 				ID: q.ID, Type: q.Type, Title: q.Title,
 				Options: q.Options, Answer: q.Answer, Score: q.Score,
@@ -75,14 +81,19 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 			autoSubmitVal = 1
 		}
 		updates := map[string]interface{}{
-			"exam_r_answers":     string(answersJSON),
-			"exam_r_score":       res.TotalScore,
-			"exam_r_status":      1,
-			"exam_r_submit_time": nowMs,
-			"exam_r_result":      string(resultJSON),
-			"exam_r_auto_submit": autoSubmitVal,
-			"exam_r_device_id":   req.DeviceID,
-			"exam_r_add_ip":      clientIP,
+			"exam_r_answers":         string(answersJSON),
+			"exam_r_score":           res.TotalScore,
+			"exam_r_status":          1,
+			"exam_r_submit_time":     nowMs,
+			"exam_r_result":          string(resultJSON),
+			"exam_r_auto_submit":     autoSubmitVal,
+			"exam_r_device_id":       req.DeviceID,
+			"exam_r_add_ip":          clientIP,
+			"exam_r_total_score":     res.FullScore,
+			"exam_r_review_snapshot": examservice.BuildPaperReviewSnapshot(qs, p.PassScore),
+		}
+		if req.Device != "" {
+			updates["exam_r_device"] = req.Device
 		}
 		if rec.StartTime > 0 && nowMs > rec.StartTime {
 			updates["exam_r_time_spent"] = int((nowMs - rec.StartTime) / 1000)
@@ -92,11 +103,18 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 			updates["exam_r_pass"] = res.TotalScore >= p.PassScore
 		}
 		if err := h.service().UpdatePaperSubmissionContext(ctx, rec.ID, updates); err != nil {
+			if errors.Is(err, examservice.ErrExamRecordSubmitted) {
+				response.Fail(c, "已提交")
+				return
+			}
 			logger.Logger.Printf("[ExamSubmit] PaperID模式提交失败 examId=%d recordId=%d uid=%d err=%s", rec.ExamID, req.RecordID, uid, err.Error())
 			response.FailInternal(ctx, c, "client.exam.submit", "提交失败，请稍后重试", err)
 			return
 		}
 		logger.Logger.Printf("[ExamSubmit] PaperID模式提交成功 examId=%d recordId=%d uid=%d score=%d fullScore=%d", rec.ExamID, req.RecordID, uid, res.TotalScore, res.FullScore)
+		if err := poststatservice.ProcessExamSubmissionContext(ctx, rec.ExamID, rec.ID, uid, res.TotalScore, res.FullScore); err != nil {
+			logger.Logger.Printf("[ExamSubmit] PaperID模式交卷后统计失败 examId=%d recordId=%d err=%v", rec.ExamID, rec.ID, err)
+		}
 		response.JSON(c, examSubmitResponse{Score: res.TotalScore, FullScore: res.FullScore, CorrectCnt: res.CorrectCnt, ManualCnt: res.ManualCount, Results: res.Results})
 		return
 	}
@@ -125,6 +143,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	uidStr := ""
+	userID := uint(0)
 	auth := string(c.GetHeader("Authorization"))
 	if auth != "" {
 		rdKey := tokenutil.TokenAuthKeyContext(ctx, "user", auth)
@@ -133,6 +152,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 				ID uint `json:"id"`
 			}
 			if json.Unmarshal([]byte(jsonStr), &userInfo) == nil && userInfo.ID > 0 {
+				userID = userInfo.ID
 				uidStr = fmt.Sprintf("%d", userInfo.ID)
 			}
 		}
@@ -148,43 +168,14 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, msg)
 		return
 	}
-	var schMap map[string]interface{}
-	_ = json.Unmarshal([]byte(e.Schema), &schMap)
-	rawQuestions, _ := schMap["questions"].([]interface{})
-	var qs []examPkg.Question
-	idMap := make(map[string]uint)
-	seqID := uint(1)
-	for _, raw := range rawQuestions {
-		q, ok := raw.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		id, _ := q["id"].(string)
-		if id == "" {
-			continue
-		}
-		idMap[id] = seqID
-		typ, _ := q["type"].(string)
-		title, _ := q["title"].(string)
-		score := 0
-		if s, ok := q["examScore"].(float64); ok {
-			score = int(s)
-		}
-		answer, _ := q["examCorrectAnswer"].(string)
-		qs = append(qs, examPkg.Question{
-			ID: seqID, Type: typ, Title: title,
-			Answer: answer, Score: score,
-			NeedManual: examPkg.QWithType(typ),
-		})
-		seqID++
-	}
+	gradingPlan := examservice.BuildSchemaGradingPlan(e.Schema)
 	mapped := make(map[string]interface{})
 	for k, v := range req.Answers {
-		if sid, ok := idMap[k]; ok {
+		if sid, ok := gradingPlan.IDMap[k]; ok {
 			mapped[fmt.Sprintf("%d", sid)] = v
 		}
 	}
-	res := examPkg.Grade(qs, mapped)
+	res := examPkg.Grade(gradingPlan.Questions, mapped)
 	resultJSON, _ := json.Marshal(res)
 	nowMs := time.Now().UnixMilli()
 	timeSpent := 0
@@ -196,28 +187,30 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		autoSubmitVal = 1
 	}
 	rec := model.ExamRecord{
-		ExamID:       uint(req.ExamID),
-		UserID:       uidStr,
-		Answers:      string(answersJSON),
-		Score:        res.TotalScore,
-		TotalScore:   res.FullScore,
-		Status:       2,
-		StartTime:    sessionStart,
-		SubmitTime:   nowMs,
-		TimeSpent:    timeSpent,
-		IsAutoSubmit: autoSubmitVal,
-		Device:       req.Device,
-		DeviceID:     req.DeviceID,
-		AddIP:        clientIP,
-		Session:      req.Session,
-		Result:       string(resultJSON),
+		ExamID:         uint(req.ExamID),
+		UserID:         uidStr,
+		Answers:        string(answersJSON),
+		StartTime:      sessionStart,
+		SubmitTime:     nowMs,
+		TimeSpent:      timeSpent,
+		IsAutoSubmit:   autoSubmitVal,
+		Device:         req.Device,
+		DeviceID:       req.DeviceID,
+		AddIP:          clientIP,
+		Session:        req.Session,
+		Result:         string(resultJSON),
+		ReviewSnapshot: examservice.BuildSchemaReviewSnapshot(gradingPlan, e.PassScore),
 	}
+	examservice.ApplySchemaSubmissionOutcome(&rec, res, e.PassScore)
 	if err := h.service().CreateSchemaSubmissionContext(ctx, &rec); err != nil {
 		logger.Logger.Printf("[ExamSubmit] Schema模式持久化失败 examId=%d uid=%s err=%s", req.ExamID, uidStr, err.Error())
 		response.FailInternal(ctx, c, "client.exam.submit", "提交失败，请稍后重试", err)
 		return
 	}
 	logger.Logger.Printf("[ExamSubmit] Schema模式提交成功 examId=%d uid=%s score=%d fullScore=%d ip=%s device=%s", req.ExamID, uidStr, res.TotalScore, res.FullScore, clientIP, req.Device)
+	if err := poststatservice.ProcessExamSubmissionContext(ctx, uint(req.ExamID), rec.ID, userID, res.TotalScore, res.FullScore); err != nil {
+		logger.Logger.Printf("[ExamSubmit] Schema模式交卷后统计失败 examId=%d recordId=%d err=%v", req.ExamID, rec.ID, err)
+	}
 	rd.RDB.Del(redisCtx, redisKey)
 	response.JSON(c, examSubmitResponse{Score: res.TotalScore, FullScore: res.FullScore, CorrectCnt: res.CorrectCnt, ManualCnt: res.ManualCount, Results: res.Results})
 }

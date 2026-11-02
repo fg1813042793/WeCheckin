@@ -23,7 +23,7 @@
           <div class="responses-search">
             <el-input v-model="responseKeyword" placeholder="按提交人搜索" size="small" clearable @input="onSearch" />
           </div>
-          <el-table ref="dataTableRef" :data="responseRows" border size="small" max-height="500px" @selection-change="onSelectionChange">
+          <el-table ref="dataTableRef" :data="responseRows" border size="small" @selection-change="onSelectionChange">
             <el-table-column type="selection" width="40" fixed />
             <el-table-column
               v-for="column in dataColumns"
@@ -60,7 +60,6 @@
           <div v-if="!responseRows.length" class="responses-empty">暂无提交数据</div>
           <el-pagination
             class="responses-pagination"
-            size="small"
             layout="total, sizes, prev, pager, next"
             :total="responseTotal"
             :page-size="responsePageSize"
@@ -271,7 +270,7 @@ function findOption(question: SurveyDesignerQuestion, raw: unknown) {
 .responses-search { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
 .responses-search :deep(.el-input) { width:200px; }
 .responses-empty { padding:40px 0; color:#aaa; font-size:14px; text-align:center; }
-.responses-pagination { margin-top:12px; justify-content:flex-start; }
+.responses-pagination { margin-top:12px; justify-content:flex-end; }
 :deep(.el-table .cell), :deep(.el-table th.el-table__cell > .cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .response-actions { display:flex; align-items:center; gap:2px; white-space:nowrap; }
 .response-stat-summary { display:flex; justify-content:space-between; margin-bottom:12px; color:#606266; font-size:13px; }

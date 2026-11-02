@@ -33,6 +33,16 @@ func TestParseRulesSupportsStringEncodedRules(t *testing.T) {
 	}
 }
 
+func TestParseRulesKeepsExamTotalScoreSetting(t *testing.T) {
+	settings := `{"logicRules":[{"id":"exam-rule","action":"postStat","calculateTotalScore":true}]}`
+
+	rules := parseRules(settings)
+
+	if len(rules) != 1 || !rules[0].CalculateTotalScore {
+		t.Fatalf("unexpected exam postStat rule: %#v", rules)
+	}
+}
+
 func TestBuildResultTextAggregatesAndSortsDistribution(t *testing.T) {
 	text := buildResultText([]report.FieldStat{
 		{Title: "A", Type: "radio", Dist: map[string]int{"选项A": 2, "选项B": 1}},

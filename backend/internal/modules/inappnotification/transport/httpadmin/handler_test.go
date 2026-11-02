@@ -200,6 +200,25 @@ func TestSendStyleTestRejectsEmptyOriginalTitle(t *testing.T) {
 	}
 }
 
+func TestDingTalkDeliveryRecordHandlersPassFiltersAndIDs(t *testing.T) {
+	service := &serviceStub{dingTalkRecordList: application.DingTalkDeliveryRecordList{Total: 1}}
+	handler := NewHandler(service)
+	c := newAdminContext(66)
+	c.Request.SetRequestURI("/dingtalk-notification-records?title=%E7%BB%A9%E6%95%88&sourceType=scheduled_task_run&status=sent&page=2&pageSize=50")
+	handler.ListDingTalkDeliveryRecords(context.Background(), c)
+	if service.dingTalkRecordQuery.Title != "绩效" || service.dingTalkRecordQuery.SourceType != "scheduled_task_run" || service.dingTalkRecordQuery.Status != "sent" || service.dingTalkRecordQuery.Page != 2 || service.dingTalkRecordQuery.PageSize != 50 {
+		t.Fatalf("query=%#v", service.dingTalkRecordQuery)
+	}
+	for _, method := range []func(context.Context, *app.RequestContext){handler.GetDingTalkDeliveryRecord, handler.DeleteDingTalkDeliveryRecord} {
+		c = newAdminContext(66)
+		c.Params = param.Params{{Key: "id", Value: "7"}}
+		method(context.Background(), c)
+		if service.dingTalkRecordID != 7 {
+			t.Fatalf("record ID=%d", service.dingTalkRecordID)
+		}
+	}
+}
+
 type serviceStub struct {
 	sendInput           application.SendInput
 	sendResult          application.SendResult
@@ -217,6 +236,10 @@ type serviceStub struct {
 	savedStyles         notificationstyle.Config
 	styleReadCalls      int
 	styleSaveCalls      int
+	dingTalkRecordList  application.DingTalkDeliveryRecordList
+	dingTalkRecordQuery application.DingTalkDeliveryRecordQuery
+	dingTalkRecord      application.DingTalkDeliveryRecord
+	dingTalkRecordID    uint64
 }
 
 func (stub *serviceStub) Send(_ context.Context, input application.SendInput) (application.SendResult, error) {
@@ -265,6 +288,21 @@ func (stub *serviceStub) SaveNotificationStyles(_ context.Context, config notifi
 	stub.styleSaveCalls++
 	stub.savedStyles = config
 	return config, nil
+}
+
+func (stub *serviceStub) ListDingTalkDeliveryRecords(_ context.Context, query application.DingTalkDeliveryRecordQuery) (application.DingTalkDeliveryRecordList, error) {
+	stub.dingTalkRecordQuery = query
+	return stub.dingTalkRecordList, nil
+}
+
+func (stub *serviceStub) GetDingTalkDeliveryRecord(_ context.Context, id uint64) (application.DingTalkDeliveryRecord, error) {
+	stub.dingTalkRecordID = id
+	return stub.dingTalkRecord, nil
+}
+
+func (stub *serviceStub) DeleteDingTalkDeliveryRecord(_ context.Context, id uint64) error {
+	stub.dingTalkRecordID = id
+	return nil
 }
 
 func newAdminContext(adminID uint) *app.RequestContext {

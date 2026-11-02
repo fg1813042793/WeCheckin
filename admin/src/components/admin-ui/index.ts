@@ -1,5 +1,6 @@
 export { default as AdminDialog } from './AdminDialog.vue'
 export { default as AdminDrawer } from './AdminDrawer.vue'
+export { default as AdminFilterActions } from './AdminFilterActions.vue'
 export { default as AdminPageHeader } from './AdminPageHeader.vue'
 export { default as AdminPageShell } from './AdminPageShell.vue'
 export { default as AdminSearchBar } from './AdminSearchBar.vue'

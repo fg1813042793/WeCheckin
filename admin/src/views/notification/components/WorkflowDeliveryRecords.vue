@@ -13,8 +13,7 @@
         <el-select v-model="filters.status" clearable placeholder="全部状态" style="width: 140px">
           <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
-        <el-button type="primary" :icon="Search" @click="search">查询</el-button>
-        <el-button @click="resetFilters">重置</el-button>
+        <AdminFilterActions @search="search" @reset="resetFilters" />
       </div>
       <div class="admin-toolbar__right">
         <el-button
@@ -149,8 +148,9 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Promotion, Refresh, RefreshRight, Search, View } from '@element-plus/icons-vue'
+import { Delete, Promotion, Refresh, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../../api'
 import type {

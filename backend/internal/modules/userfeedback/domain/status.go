@@ -59,14 +59,15 @@ func ValidateTransition(from, to Status, note string) error {
 type MessageType string
 
 const (
-	MessageTypeInitial    MessageType = "initial"
-	MessageTypeSupplement MessageType = "supplement"
-	MessageTypeStatus     MessageType = "status"
+	MessageTypeInitial      MessageType = "initial"
+	MessageTypeSupplement   MessageType = "supplement"
+	MessageTypeStatus       MessageType = "status"
+	MessageTypeNotification MessageType = "notification"
 )
 
 func (t MessageType) Valid() bool {
 	switch t {
-	case MessageTypeInitial, MessageTypeSupplement, MessageTypeStatus:
+	case MessageTypeInitial, MessageTypeSupplement, MessageTypeStatus, MessageTypeNotification:
 		return true
 	default:
 		return false

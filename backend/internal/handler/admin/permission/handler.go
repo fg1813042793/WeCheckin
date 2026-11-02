@@ -122,6 +122,18 @@ func currentAdmin(c *app.RequestContext) (*model.Admin, bool) {
 func permissionRequestFromForm(c *app.RequestContext) adminpermission.SaveRequest {
 	sortValue, _ := strconv.Atoi(c.PostForm("sort"))
 	statusValue, _ := strconv.Atoi(c.PostForm("status"))
+	cacheEnabled := 1
+	if value := c.PostForm("cacheEnabled"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed == 0 {
+			cacheEnabled = 0
+		}
+	}
+	hidden := 0
+	if value := c.PostForm("hidden"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil && parsed == 1 {
+			hidden = 1
+		}
+	}
 	return adminpermission.SaveRequest{
 		Key:          c.PostForm("key"),
 		Name:         c.PostForm("name"),
@@ -134,6 +146,8 @@ func permissionRequestFromForm(c *app.RequestContext) adminpermission.SaveReques
 		Icon:         c.PostForm("icon"),
 		Sort:         sortValue,
 		Status:       statusValue,
+		CacheEnabled: cacheEnabled,
+		Hidden:       hidden,
 	}
 }
 

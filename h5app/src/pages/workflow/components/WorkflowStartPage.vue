@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WorkflowHistoryDateFilters } from '../workflow-history-filter'
+import type { WorkflowHistoryImportApplied, WorkflowHistoryImportSummary } from '../workflow-history-import-preset'
 import type {
   WorkflowFieldAccessMap,
   WorkflowFieldActionsMap,
@@ -8,6 +9,7 @@ import type {
   WorkflowPublishedDefinition,
   WorkflowStartDraft,
 } from '@/types/workflow'
+import { useLocale } from 'uview-pro'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   deleteWorkflowStartDraft,
@@ -28,6 +30,7 @@ import {
   writableWorkflowFormData,
 } from '../workflow-form'
 import { buildWorkflowHistoryTimeQuery } from '../workflow-history-filter'
+import { workflowHistoryImportNeedsAttention } from '../workflow-history-import-preset'
 import { workflowDefinitionIdFromContentKey, workflowInstanceContentKey } from '../workflow-route-keys'
 import { workflowStartBlockedByRunning } from '../workflow-start-restrictions'
 import { workflowInstanceStatusMeta } from '../workflow-status'
@@ -59,6 +62,7 @@ const props = defineProps<{
 }>()
 
 const auth = useDingtalkAuthStore()
+const { t } = useLocale()
 const appContent = useAppContentStore()
 const definition = ref<WorkflowPublishedDefinition | null>(null)
 const activeSection = ref<WorkflowStartSection>('start')
@@ -83,6 +87,8 @@ const appliedHistoryFilters = ref<WorkflowHistoryFilters>(emptyHistoryFilters())
 const detailVisible = ref(false)
 const selectedInstanceId = ref('')
 const historyImportVisible = ref(false)
+const historyImportSummary = ref<WorkflowHistoryImportSummary | null>(null)
+const historyImportDetailsVisible = ref(false)
 const formPresentationStorageKey = 'workflow_start_form_presentation_v1'
 const formPresentation = ref<WorkflowFormPresentation>(loadFormPresentation())
 const desktopFormPresentation = ref(resolveDesktopFormPresentation())
@@ -116,6 +122,25 @@ const startLimitMessage = computed(() => {
     return '当前周期的流程完成次数已达上限'
   return `当前周期还可发起 ${status.remainingCount} 次`
 })
+const historyImportSummaryText = computed(() => {
+  const summary = historyImportSummary.value
+  if (!summary)
+    return ''
+  const issues: string[] = []
+  if (summary.skipped > 0)
+    issues.push(t('workflowHistoryImport.skippedCount', { count: summary.skipped }))
+  if (summary.filtered > 0)
+    issues.push(t('workflowHistoryImport.filteredCount', { count: summary.filtered }))
+  if (summary.dynamic > 0)
+    issues.push(t('workflowHistoryImport.dynamicCount', { count: summary.dynamic }))
+  return t('workflowHistoryImport.warningSummary', {
+    imported: summary.imported,
+    issues: issues.join(t('workflowHistoryImport.issueSeparator')),
+  })
+})
+const historyImportDetailText = computed(() => historyImportSummary.value
+  ? t('workflowHistoryImport.result', historyImportSummary.value)
+  : '')
 const navigationItems = computed<Array<{ key: WorkflowStartSection, label: string, icon: string }>>(() => [
   ...(starterAllowed.value ? [{ key: 'start' as const, label: '发起审批', icon: 'plus-circle' }] : []),
   ...(canView.value ? [{ key: 'history' as const, label: '历史记录', icon: 'clock' }] : []),
@@ -263,7 +288,14 @@ function rememberDefinition(id: number) {
   uni.setStorageSync('workflow_recent_definition_ids', ids)
 }
 
+function clearHistoryImportFeedback() {
+  historyImportSummary.value = null
+  historyImportDetailsVisible.value = false
+}
+
 async function loadStartPage() {
+  historyImportVisible.value = false
+  clearHistoryImportFeedback()
   loading.value = true
   loadError.value = ''
   savedDraft.value = null
@@ -323,16 +355,25 @@ function applyWorkflowStartSeed() {
   return true
 }
 
-function applyHistoryImport(payload: { patch: WorkflowFormData, importCount: number }) {
+function openHistoryImport() {
+  if (!canImportHistory.value || busy.value || startBlocked.value)
+    return
+  clearHistoryImportFeedback()
+  historyImportVisible.value = true
+}
+
+function applyHistoryImport(payload: WorkflowHistoryImportApplied) {
   const value = definition.value
-  if (!value)
+  if (!value || !historyImportVisible.value || !canImportHistory.value || busy.value || startBlocked.value || payload.importCount <= 0)
     return
   formData.value = initialWorkflowFormData(value.form || [], {
     ...formData.value,
     ...payload.patch,
   })
   activeSection.value = 'start'
-  uni.showToast({ title: `已导入 ${payload.importCount} 个字段`, icon: 'success' })
+  historyImportSummary.value = workflowHistoryImportNeedsAttention(payload.summary) ? payload.summary : null
+  historyImportDetailsVisible.value = false
+  uni.showToast({ title: t('workflowHistoryImport.success', { count: payload.summary.imported }), icon: 'none' })
 }
 
 function continueSavedDraft() {
@@ -652,6 +693,8 @@ function cancelStart() {
             v-if="startLimitMessage"
             class="workflow-start-page__limit-status"
             :class="{ exhausted: startBlocked }"
+            role="status"
+            aria-live="polite"
           >
             <u-icon :name="startBlocked ? 'info-circle' : 'checkmark-circle'" size="22" :color="startBlocked ? '#b45309' : '#0f766e'" />
             <text>{{ startLimitMessage }}</text>
@@ -684,11 +727,36 @@ function cancelStart() {
                   size="small"
                   plain
                   :disabled="busy || startBlocked"
-                  @click="historyImportVisible = true"
+                  @click="openHistoryImport"
                 >
                   <u-icon name="download" size="15px" color="#0f766e" />
                   <text>导入</text>
                 </u-button>
+              </view>
+            </view>
+            <view
+              v-if="historyImportSummary"
+              class="workflow-start-page__import-result"
+              role="status"
+              aria-live="polite"
+            >
+              <view class="workflow-start-page__import-result-header">
+                <view class="workflow-start-page__import-result-summary">
+                  <u-icon name="info-circle" size="18px" color="#b45309" />
+                  <text>{{ historyImportSummaryText }}</text>
+                </view>
+                <u-button
+                  custom-class="workflow-start-page__import-result-action"
+                  size="mini"
+                  plain
+                  :aria-expanded="historyImportDetailsVisible"
+                  @click="historyImportDetailsVisible = !historyImportDetailsVisible"
+                >
+                  {{ historyImportDetailsVisible ? t('workflowHistoryImport.hideDetails') : t('workflowHistoryImport.viewDetails') }}
+                </u-button>
+              </view>
+              <view v-if="historyImportDetailsVisible" class="workflow-start-page__import-result-details">
+                {{ historyImportDetailText }}
               </view>
             </view>
             <WorkflowRuntimeForm
@@ -1009,6 +1077,58 @@ function cancelStart() {
 </template>
 
 <style lang="scss" scoped>
+.workflow-start-page__import-result {
+  margin-bottom: 20rpx;
+  padding: 10px 12px;
+  border: 1px solid #f4d7a1;
+  border-radius: 6px;
+  background: #fff8e8;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #7c4a03;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+}
+
+.workflow-start-page__import-result-header,
+.workflow-start-page__import-result-summary {
+  display: flex;
+  align-items: center;
+}
+
+.workflow-start-page__import-result-header {
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.workflow-start-page__import-result-summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 8px;
+}
+
+.workflow-start-page__import-result-summary text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:deep(.workflow-start-page__import-result-action) {
+  width: auto;
+  min-width: 72px;
+  margin: 0;
+  flex: 0 0 auto;
+  color: #9a5b00;
+  border-color: #e6bd72;
+  background: transparent;
+}
+
+.workflow-start-page__import-result-details {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(230 189 114 / 60%);
+  color: #795f3f;
+}
+
 .workflow-start-page {
   height: 100%;
   min-height: 0;

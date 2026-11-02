@@ -41,6 +41,7 @@ type examViewSchemaResponse struct {
 	Anonymous   int                    `json:"anonymous"`
 	ShowResult  int                    `json:"showResult"`
 	ShowScore   int                    `json:"showScore"`
+	PassScore   int                    `json:"passScore"`
 	Duration    int                    `json:"duration"`
 	MaxAttempts int                    `json:"maxAttempts"`
 	StartTime   int64                  `json:"startTime"`

@@ -2,6 +2,7 @@ package mgr
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"wecheckin/backend/internal/model"
 	adminauthservice "wecheckin/backend/internal/service/admin/adminauth"
 	adminmgrservice "wecheckin/backend/internal/service/admin/adminmgr"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -17,10 +19,24 @@ type AdminMgrHandler struct{}
 
 func NewAdminMgrHandler() *AdminMgrHandler { return &AdminMgrHandler{} }
 
+// @Tags API v2-后台认证
+// @Summary 获取管理员登录图片验证码
+// @Success 200 {object} response.Resp{data=adminauthservice.CaptchaChallenge}
+func (h *AdminMgrHandler) AdminCaptcha(ctx context.Context, c *app.RequestContext) {
+	data, err := adminauthservice.GenerateCaptchaContext(ctx)
+	if err != nil {
+		response.Fail(c, "验证码生成失败，请稍后重试")
+		return
+	}
+	response.JSON(c, data)
+}
+
 // @Tags PC端-管理员管理
 // @Summary 管理员登录
 // @Param name formData string true "用户名"
 // @Param password formData string true "密码"
+// @Param captchaId formData string false "验证码ID"
+// @Param captchaCode formData string false "图片验证码"
 // @Success 200 {object} response.Resp
 func (h *AdminMgrHandler) AdminLogin(ctx context.Context, c *app.RequestContext) {
 	name := c.PostForm("name")
@@ -28,10 +44,27 @@ func (h *AdminMgrHandler) AdminLogin(ctx context.Context, c *app.RequestContext)
 	if password == "" {
 		password = c.PostForm("pwd")
 	}
+	captchaID := c.PostForm("captchaId")
+	captchaCode := c.PostForm("captchaCode")
 	addIP := c.ClientIP()
 	device := string(c.UserAgent())
-	data, err := adminauthservice.LoginContext(ctx, name, password, addIP, device)
+	data, err := adminauthservice.LoginWithCaptchaContext(ctx, name, password, captchaID, captchaCode, addIP, device)
 	if err != nil {
+		if errors.Is(err, adminauthservice.ErrCaptchaInvalid) {
+			auditlog.SetReason(ctx, "captcha_invalid", "验证码错误或已过期")
+			response.Fail(c, "验证码错误或已过期")
+			return
+		}
+		if errors.Is(err, adminauthservice.ErrCaptchaUnavailable) {
+			auditlog.SetReason(ctx, "captcha_unavailable", "验证码服务暂不可用")
+			response.Fail(c, "验证码服务暂不可用，请稍后重试")
+			return
+		}
+		auditlog.Update(ctx, func(details *auditlog.Details) {
+			if details.ReasonCode == "" {
+				details.ReasonCode, details.Reason = "system_error", "认证服务异常"
+			}
+		})
 		response.Fail(c, "登录失败")
 		return
 	}

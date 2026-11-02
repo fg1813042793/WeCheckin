@@ -29,3 +29,14 @@ for (const path of ['src/views/workflow/index.vue', 'src/views/workflow/designer
     throw new Error(`${path} must reuse WorkflowVersionDrawer`)
   }
 }
+
+const designer = read('src/views/workflow/designer/index.vue')
+for (const snippet of [
+  'const metadataDirty = ref(false)',
+  'function markMetadataDirty()',
+  '@input="markMetadataDirty"',
+  'if (metadataDirty.value || includeMetadata)',
+  'await saveDraft(true, true)',
+]) {
+  if (!designer.includes(snippet)) throw new Error(`workflow designer metadata synchronization missing ${snippet}`)
+}

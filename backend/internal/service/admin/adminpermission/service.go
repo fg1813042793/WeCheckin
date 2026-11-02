@@ -30,6 +30,8 @@ type PermissionNode struct {
 	Icon          string            `json:"icon"`
 	Sort          int               `json:"sort"`
 	Status        int               `json:"status"`
+	CacheEnabled  int               `json:"cacheEnabled"`
+	Hidden        int               `json:"hidden"`
 	Children      []*PermissionNode `json:"children,omitempty"`
 }
 
@@ -45,6 +47,8 @@ type SaveRequest struct {
 	Icon         string `json:"icon"`
 	Sort         int    `json:"sort"`
 	Status       int    `json:"status"`
+	CacheEnabled int    `json:"cacheEnabled"`
+	Hidden       int    `json:"hidden"`
 }
 
 func Tree(platform string) ([]*PermissionNode, error) {
@@ -314,6 +318,8 @@ func EditContext(ctx context.Context, key string, req SaveRequest) error {
 			"permission_perms":         item.Perms,
 			"permission_sort":          item.Sort,
 			"permission_status":        item.Status,
+			"permission_cache_enabled": item.CacheEnabledValue(),
+			"permission_hidden":        item.HiddenValue(),
 			"permission_edit_time":     database.Now(),
 		}
 		res := tx.Model(&model.Permission{}).Where("`permission_key` = ?", oldKey).Updates(updates)
@@ -429,6 +435,16 @@ func normalizePermissionRequest(req SaveRequest) (model.Permission, error) {
 	if path == "" {
 		path = strings.TrimSpace(req.Path)
 	}
+	cacheEnabled := 1
+	if req.CacheEnabled == 0 {
+		cacheEnabled = 0
+	}
+	hidden := 0
+	if platform == permissionsupport.PlatformAdmin &&
+		(ptype == permissionsupport.TypeDirectory || ptype == permissionsupport.TypeMenu) &&
+		req.Hidden == 1 {
+		hidden = 1
+	}
 	return model.Permission{
 		Key:          key,
 		Name:         name,
@@ -440,6 +456,8 @@ func normalizePermissionRequest(req SaveRequest) (model.Permission, error) {
 		Perms:        strings.TrimSpace(req.Perms),
 		Sort:         req.Sort,
 		Status:       req.Status,
+		CacheEnabled: &cacheEnabled,
+		Hidden:       &hidden,
 	}, nil
 }
 
@@ -461,6 +479,8 @@ func permissionRowsToNodes(rows []model.Permission) []*PermissionNode {
 			Icon:          row.Icon,
 			Sort:          row.Sort,
 			Status:        row.Status,
+			CacheEnabled:  row.CacheEnabledValue(),
+			Hidden:        row.HiddenValue(),
 		})
 	}
 	return nodes

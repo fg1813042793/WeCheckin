@@ -762,6 +762,7 @@ func normalizeDraft(raw json.RawMessage, key, name string, displayNames ...strin
 		return workflowcore.Definition{}, "", errors.New("流程设计数据格式无效：" + err.Error())
 	}
 	definition := input.Definition
+	definition.HistoryImport = workflowcore.CloneHistoryImportConfig(definition.HistoryImport)
 	if input.LegacyInitiator != nil {
 		for index := range definition.Nodes {
 			if definition.Nodes[index].Type != workflowcore.NodeTypeStart {

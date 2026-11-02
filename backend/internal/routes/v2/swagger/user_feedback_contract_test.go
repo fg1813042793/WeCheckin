@@ -38,7 +38,7 @@ type userFeedbackSwaggerSchema struct {
 	Type       string                               `json:"type" yaml:"type"`
 	Format     string                               `json:"format" yaml:"format"`
 	Enum       []string                             `json:"enum" yaml:"enum"`
-	Default    *bool                                `json:"default" yaml:"default"`
+	Default    any                                  `json:"default" yaml:"default"`
 	Properties map[string]userFeedbackSwaggerSchema `json:"properties" yaml:"properties"`
 	Required   []string                             `json:"required" yaml:"required"`
 	AllOf      []userFeedbackSwaggerSchema          `json:"allOf" yaml:"allOf"`
@@ -66,6 +66,7 @@ func TestUserFeedbackSwaggerDocumentsAllRoutes(t *testing.T) {
 		"get /api/v2/admin/user-feedbacks":                         true,
 		"get /api/v2/admin/user-feedbacks/{id}":                    true,
 		"patch /api/v2/admin/user-feedbacks/{id}/status":           true,
+		"post /api/v2/admin/user-feedbacks/{id}/notify":            true,
 	}
 
 	got := make(map[string]bool)
@@ -79,8 +80,8 @@ func TestUserFeedbackSwaggerDocumentsAllRoutes(t *testing.T) {
 			}
 		}
 	}
-	if len(got) != 9 {
-		t.Errorf("Swagger user feedback operation count = %d, want 9: %v", len(got), sortedTrueKeys(got))
+	if len(got) != len(want) {
+		t.Errorf("Swagger user feedback operation count = %d, want %d: %v", len(got), len(want), sortedTrueKeys(got))
 	}
 	for operation := range want {
 		if !got[operation] {
@@ -155,8 +156,8 @@ func TestUserFeedbackSwaggerDocumentsExactAdminStatusBody(t *testing.T) {
 		}
 	}
 	assertExactStrings(t, "status enum", schema.Properties["status"].Enum, []string{"pending", "processing", "resolved", "closed"})
-	notifyUserDefault := schema.Properties["notifyUser"].Default
-	if notifyUserDefault == nil || !*notifyUserDefault {
+	notifyUserDefault, defaultIsBool := schema.Properties["notifyUser"].Default.(bool)
+	if !defaultIsBool || !notifyUserDefault {
 		t.Errorf("notifyUser default = %v, want true", notifyUserDefault)
 	}
 	wantRequired := []string{"requestId", "status", "version"}
@@ -169,8 +170,8 @@ func TestUserFeedbackSwaggerDocumentsExactAdminStatusBody(t *testing.T) {
 	}
 	assertExactRequiredFields(t, "swagger.yaml", yamlSchema.Required, wantRequired)
 	assertExactStrings(t, "swagger.yaml status enum", yamlSchema.Properties["status"].Enum, []string{"pending", "processing", "resolved", "closed"})
-	yamlNotifyUserDefault := yamlSchema.Properties["notifyUser"].Default
-	if yamlNotifyUserDefault == nil || !*yamlNotifyUserDefault {
+	yamlNotifyUserDefault, yamlDefaultIsBool := yamlSchema.Properties["notifyUser"].Default.(bool)
+	if !yamlDefaultIsBool || !yamlNotifyUserDefault {
 		t.Errorf("swagger.yaml notifyUser default = %v, want true", yamlNotifyUserDefault)
 	}
 
@@ -214,6 +215,7 @@ func TestUserFeedbackSwaggerDocumentsSecurityAndResponseModels(t *testing.T) {
 		{"/api/v2/admin/user-feedbacks", "get", "AdminToken", "#/definitions/application.FeedbackList"},
 		{"/api/v2/admin/user-feedbacks/{id}", "get", "AdminToken", "#/definitions/application.FeedbackDetail"},
 		{"/api/v2/admin/user-feedbacks/{id}/status", "patch", "AdminToken", "#/definitions/application.FeedbackDetail"},
+		{"/api/v2/admin/user-feedbacks/{id}/notify", "post", "AdminToken", "#/definitions/application.FeedbackDetail"},
 	}
 
 	for document, doc := range userFeedbackSwaggerDocuments(t) {
@@ -493,4 +495,22 @@ func sortedTrueKeys(values map[string]bool) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func TestUserFeedbackNotifyContractHasFixedRecipientAndChannel(t *testing.T) {
+	for name, doc := range userFeedbackSwaggerDocuments(t) {
+		op := requireSwaggerOperation(t, doc, "/api/v2/admin/user-feedbacks/{id}/notify", "post")
+		body := requireSwaggerParameter(t, op, "body", "body")
+		if body.Schema == nil || body.Schema.Ref != "#/definitions/swagger.UserFeedbackNotifyRequest" {
+			t.Fatalf("%s notify body=%#v", name, body)
+		}
+		schema := doc.Definitions["swagger.UserFeedbackNotifyRequest"]
+		assertExactStrings(t, name+" notify fields", sortedPropertyNames(schema.Properties), []string{"channel", "content", "requestId", "version"})
+		assertExactRequiredFields(t, name, schema.Required, []string{"content", "requestId", "version"})
+		assertExactStrings(t, name+" channels", schema.Properties["channel"].Enum, []string{"internal", "dingtalk"})
+		if value, ok := schema.Properties["channel"].Default.(string); !ok || value != "internal" {
+			t.Fatalf("%s channel default=%v", name, schema.Properties["channel"].Default)
+		}
+		assertDescriptionContains(t, op.Description, "user-feedback:handle", "接收人由后端", "不改变反馈状态", "taskd", "幂等")
+	}
 }

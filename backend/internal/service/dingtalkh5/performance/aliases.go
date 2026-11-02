@@ -40,6 +40,7 @@ type (
 	ValueTemplate             = templatesvc.ValueTemplate
 	TemplateDTO               = templatesvc.TemplateDTO
 	LoginResponse             = authsvc.LoginResponse
+	CaptchaChallenge          = authsvc.CaptchaChallenge
 	BootstrapResponse         = bootstrapsvc.BootstrapResponse
 	DingTalkH5AppConfigDTO    = configsvc.DingTalkH5AppConfigDTO
 	PublicConfigResponse      = configsvc.PublicConfigResponse
@@ -73,6 +74,7 @@ var (
 	BindSelfContext                           = authsvc.BindSelfContext
 	DingTalkH5BindRequiredData                = authsvc.DingTalkH5BindRequiredData
 	SelfBindEnabledContext                    = authsvc.SelfBindEnabledContext
+	LoginCaptchaEnabledContext                = authsvc.LoginCaptchaEnabledContext
 	BootstrapContext                          = bootstrapsvc.BootstrapContext
 	DingTalkH5MenusForUserContext             = bootstrapsvc.DingTalkH5MenusForUserContext
 	TemplateContext                           = templatesvc.TemplateContext

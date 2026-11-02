@@ -766,6 +766,7 @@ function historyLabel(eventType = '') {
     instance_cancelled: '流程已取消',
     instance_commented: '评论',
     instance_form_revised: '表单已修改',
+    instance_version_upgraded: '实例版本已升级',
     instance_reminded: '已提醒处理人',
   }
   return labels[eventType] || eventType || '流程记录'
@@ -880,7 +881,7 @@ async function submitTask(action: 'approve' | 'submit') {
       action,
       formData: patch,
       variables: patch,
-    })
+    }, { toast: false })
     if (!response?.data)
       return
     uni.showToast({ title: `${label}成功`, icon: 'success' })
@@ -888,8 +889,8 @@ async function submitTask(action: 'approve' | 'submit') {
     if (!pagePresentation.value)
       await loadDetail()
   }
-  catch {
-    uni.showToast({ title: `${label}失败`, icon: 'none' })
+  catch (error) {
+    uni.showToast({ title: workflowRequestErrorMessage(error, `${label}失败`), icon: 'none' })
   }
   finally {
     finishSubmission()
@@ -1214,7 +1215,7 @@ function openFormDetail() {
   const current = detail.value
   if (!current || !showFormDetailAction.value)
     return
-  const key = workflowFormDetailContentKey(current.instance.id)
+  const key = workflowFormDetailContentKey(current.instance.id, props.summaryMode ? 'summary' : 'instance')
   if (!key)
     return
   appContent.openDynamicTab({

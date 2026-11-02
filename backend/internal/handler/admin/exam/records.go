@@ -2,10 +2,14 @@ package exam
 
 import (
 	"context"
+	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/dingtalkh5/workflowsummary"
+	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/pkg/response"
 )
 
@@ -54,6 +58,44 @@ func (h *AdminExamHandler) RecordDetail(ctx context.Context, c *app.RequestConte
 		return
 	}
 	response.JSON(c, data)
+}
+
+// @Tags PC端-考试管理
+// @Summary 导出单份考试答卷
+// @Param examId query int true "考试ID"
+// @Param id query int true "记录ID"
+// @Param format query string true "导出格式" Enums(pdf,docx,xlsx)
+// @Produce application/octet-stream
+// @Success 200 {file} string
+func (h *AdminExamHandler) RecordExport(ctx context.Context, c *app.RequestContext) {
+	adminVal, _ := c.Get("admin")
+	admin := adminVal.(*model.Admin)
+	examID, _ := strconv.Atoi(c.Query("examId"))
+	recordID, _ := strconv.Atoi(c.Query("id"))
+	if examID <= 0 || recordID <= 0 {
+		response.Fail(c, "参数错误")
+		return
+	}
+	format := workflowsummary.ExportFormat(strings.ToLower(strings.TrimSpace(c.Query("format"))))
+	result, err := h.svc.ExportRecordForAdminContext(ctx, uint(examID), uint(recordID), admin.ID, format)
+	if err != nil {
+		if errors.Is(err, workflowsummary.ErrExportFormatInvalid) {
+			response.Fail(c, err.Error())
+			return
+		}
+		response.FailInternal(ctx, c, "admin.exam.records", "导出失败，请稍后重试", err)
+		return
+	}
+	auditlog.Update(ctx, func(details *auditlog.Details) {
+		details.AffectedCount = 1
+		details.TargetType = "exam_record"
+		details.TargetIDs = []string{strconv.Itoa(recordID)}
+		details.RelatedType = "exam"
+		details.RelatedID = strconv.Itoa(examID)
+	})
+	c.Header("Content-Type", result.ContentType)
+	c.Header("Content-Disposition", `attachment; filename="`+result.Filename+`"`)
+	c.Write(result.Body)
 }
 
 // @Tags PC端-考试管理

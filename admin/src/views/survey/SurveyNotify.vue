@@ -27,7 +27,7 @@
       </el-table-column>
     </el-table>
     <div class="page-footer" v-if="total>pageSize">
-      <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="prev,pager,next" @current-change="load" />
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="handlePageSizeChange" />
     </div>
   </div>
 </template>
@@ -60,6 +60,11 @@ async function loadUnreadCount() {
   } catch {}
 }
 
+function handlePageSizeChange() {
+  page.value = 1
+  void load()
+}
+
 async function markRead(id: number) {
   await adminApi.surveyNotifyRead({ id })
   await load()
@@ -84,5 +89,5 @@ onMounted(() => { load(); loadUnreadCount() })
 .survey-notify-page { padding: 20px; }
 .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
 .page-header h3 { margin:0; font-size:16px; }
-.page-footer { margin-top:16px; display:flex; justify-content:flex-start; }
+.page-footer { margin-top:16px; display:flex; justify-content:flex-end; }
 </style>

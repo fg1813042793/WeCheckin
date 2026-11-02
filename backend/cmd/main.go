@@ -95,6 +95,7 @@ func main() {
 		server.WithIdleTimeout(time.Duration(cfg.Server.IdleTimeoutSec)*time.Second),
 		server.WithMaxRequestBodySize(64*1024*1024),
 	)
+	h.SetClientIPFunc(middleware.ClientIPResolver())
 
 	h.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORS.AllowOrigins,

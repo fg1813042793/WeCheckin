@@ -10,7 +10,7 @@ const inspectorSource = read('src/views/workflow/designer/components/NodeInspect
 const fieldCatalogSource = read('src/views/workflow/designer/workflowFieldCatalog.ts')
 const recordsSource = read('src/views/workflow/instances/components/WorkflowFormRevisionRecords.vue')
 const notificationPageSource = read('src/views/notification/index.vue')
-const notificationStyleSource = read('src/views/notification/components/NotificationStyleDialog.vue')
+const notificationStyleSource = read('src/views/notification/useNotificationStyles.ts')
 
 for (const snippet of [
   'interface WorkflowPostHandleEditConfig',

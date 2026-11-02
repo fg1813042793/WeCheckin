@@ -1,5 +1,99 @@
 {
   "name": "zh-CN",
+  "summaryMappings": {
+    "title": "汇总列",
+    "addTitle": "新增汇总列",
+    "editTitle": "编辑汇总列",
+    "columnName": "列名称",
+    "namePlaceholder": "例如：最终分档",
+    "mappingHint": "为同一展示列选择各流程对应的字段，每条申请按所属流程取值。",
+    "replaceSources": "用此列替换已勾选的来源字段，避免重复列",
+    "sourceNumber": "来源 {n}",
+    "removeSource": "移除来源 {n}",
+    "flowNumber": "来源 {n} 的流程",
+    "versionNumber": "来源 {n} 的版本",
+    "fieldNumber": "来源 {n} 的字段",
+    "flow": "流程管理名称",
+    "version": "适用版本",
+    "field": "来源字段",
+    "chooseFlow": "请选择流程",
+    "chooseField": "请选择字段",
+    "unavailableFlow": "已不可用的流程",
+    "unavailableField": "已不可用的字段",
+    "defaultVersion": "默认规则",
+    "addSource": "添加字段来源",
+    "remove": "移除",
+    "edit": "编辑",
+    "delete": "删除",
+    "cancel": "取消",
+    "save": "保存汇总列",
+    "retry": "重新加载字段",
+    "versionHint": "默认规则使用当前发布字段。可为当前列表中的历史版本设置单独来源，指定版本优先于默认规则。",
+    "versionLoading": "正在读取历史版本字段…",
+    "versionNotOnPage": "当前页没有此版本的记录，请先筛选或翻页到对应记录再选择字段。",
+    "versionLoadFailed": "历史版本字段读取失败或无权访问，请重试。",
+    "typeWarning": "来源字段类型不同，请确认它们代表同一业务含义、分值单位或等级；需要时分别配置为不同列。",
+    "empty": "将多个流程的对应字段汇集为一列",
+    "sourceCount": "{n} 个字段来源",
+    "deleteTitle": "删除汇总列",
+    "deletePrompt": "删除“{name}”的展示配置？申请数据不受影响。",
+    "saved": "汇总列已保存",
+    "errors": {
+      "idRequired": "汇总列配置无效，请重新新建",
+      "idTooLong": "汇总列标识过长，请重新新建",
+      "labelRequired": "请填写列名称",
+      "labelTooLong": "列名称最多 50 个字符",
+      "sourcesRequired": "请至少添加一个字段来源",
+      "sourceRequired": "请为每个来源选择流程和字段",
+      "duplicateSource": "同一流程、同一适用版本只能配置一个字段来源",
+      "tooManySources": "每列最多配置 50 个来源",
+      "invalidVersion": "适用版本必须为正整数",
+      "invalidId": "汇总列配置无效，请重新新建"
+    },
+    "reasons": {
+      "unmapped": "尚未为此流程配置字段来源",
+      "definitionUnavailable": "来源流程已不可用或尚未加载",
+      "fieldUnavailable": "来源字段已不存在，请编辑映射",
+      "versionUnavailable": "该版本的表单字段尚未加载或不可用",
+      "ambiguousMapping": "来源映射存在冲突，请编辑映射",
+      "missingData": "未保存结果，或计算所需数据不完整"
+    }
+  },
+  "workflowSummary": {
+    "calculated": "补算",
+    "calculatedHint": "按当前所选表单规则计算，仅用于汇总展示，不修改历史申请"
+  },
+  "workflowSummaryExport": {
+    "form": "导出表单",
+    "formHint": "仅导出表单标题与内容，不包含流程信息和审批记录"
+  },
+  "workflowHistoryImport": {
+    "invalidConfig": "历史导入规则无效，请联系流程管理员修正规则后重新打开。",
+    "contextChanged": "流程或导入规则已更新，请重新打开导入",
+    "sourceChanged": "历史申请不属于当前流程或已不满足状态要求，请重新选择。",
+    "readFailed": "历史申请读取失败，请重试。",
+    "empty": "暂无符合导入规则的历史申请",
+    "noValues": "没有可导入的字段，当前表单未更改。请检查规则、字段权限或已有内容。",
+    "emptyPolicy": "导入策略：只填充空字段，保留已有内容。",
+    "overwritePolicy": "导入策略：覆盖映射字段中已有的内容。",
+    "completed": "已完成",
+    "completedOnly": "来源：仅限本人发起的当前流程已完成申请。",
+    "allStatuses": "来源：本人发起的当前流程申请，包含所有可见状态。",
+    "selectHint": "选择一条历史申请后将立即按预设规则导入。",
+    "latestHint": "正在按发起时间获取最近一条符合条件的历史申请。",
+    "loading": "正在读取并导入历史表单…",
+    "chooseAnother": "选择其他记录",
+    "retry": "重试",
+    "success": "已导入 {count} 个字段",
+    "warningSummary": "导入完成：成功 {imported} 项，{issues}",
+    "skippedCount": "跳过 {count} 项",
+    "filteredCount": "过滤 {count} 项",
+    "dynamicCount": "{count} 项待确认",
+    "issueSeparator": "，",
+    "viewDetails": "查看详情",
+    "hideDetails": "收起详情",
+    "result": "已导入 {imported} 项（覆盖 {overwritten} 项），保留 {retained} 项，跳过 {skipped} 项；过滤 {filtered} 个无效值或明细列，{dynamic} 个动态选项值需确认。跳过项可能为空、已删除、类型不兼容或无导入权限。"
+  },
   "common": {
     "appName": "OA管理",
     "home": "首页",
@@ -13,6 +107,19 @@
     "copySuccess": "链接已复制，请打开浏览器粘贴访问",
     "copyCommandSuccess": "命令已复制到剪贴板",
     "jumpFailed": "跳转失败"
+  },
+  "auth": {
+    "dingtalk": {
+      "sessionChanged": "登录状态已变化，请重新操作",
+      "retry": "钉钉重新登录",
+      "retryHint": "钉钉身份认证未完成，请重试。若持续失败，请联系管理员检查当前企业的应用配置。"
+    },
+    "loginCaptcha": {
+      "placeholder": "请输入图片验证码",
+      "required": "请输入图片验证码",
+      "refresh": "刷新验证码",
+      "unavailable": "验证码获取失败，请刷新后重试"
+    }
   },
   "appShell": {
     "unsavedNavigation": {
@@ -104,6 +211,7 @@
       "initial": "提交反馈",
       "supplement": "补充反馈",
       "status": "状态更新",
+      "notification": "管理员通知",
       "statusChange": "状态",
       "admin": "管理员",
       "user": "用户",

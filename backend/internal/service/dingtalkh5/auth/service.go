@@ -17,6 +17,7 @@ import (
 	onlineservice "wecheckin/backend/internal/service/admin/online"
 	bootstrapsvc "wecheckin/backend/internal/service/dingtalkh5/bootstrap"
 	configsvc "wecheckin/backend/internal/service/dingtalkh5/config"
+	"wecheckin/backend/internal/support/auditlog"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
 	"wecheckin/backend/pkg/passwordutil"
@@ -138,6 +139,7 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	name = strings.TrimSpace(name)
 	password = strings.TrimSpace(password)
 	if name == "" || password == "" {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("请填写账号和密码")
 	}
 
@@ -145,15 +147,19 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	defer cancel()
 	var user model.DingTalkH5PerfUser
 	if err := db.Where("`user_mini_openid` = ? OR `user_name` = ?", NormalizeUserID(name), name).First(&user).Error; err != nil {
+		auditAuthLookupFailure(ctx, err, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if err := hydratePerfUserWithUserDeptDB(db, &user); err != nil {
+		auditlog.SetReason(ctx, "system_error", "认证服务异常")
 		return nil, err
 	}
 	if user.Status != 1 {
+		auditlog.SetReason(ctx, "account_disabled", "账号已停用")
 		return nil, fmt.Errorf("账号已停用")
 	}
 	if !passwordutil.Verify(user.Password, password) {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if passwordutil.NeedsRehash(user.Password) {
@@ -173,27 +179,33 @@ func LoginByAuthCodeContext(ctx context.Context, corpID, authCode, addIP, device
 func loginByAuthCodeContext(ctx context.Context, client configsvc.DingTalkIdentityClient, corpID, authCode, addIP, device string) (*LoginResponse, error) {
 	corpID = strings.TrimSpace(corpID)
 	if corpID == "" {
+		auditlog.SetReason(ctx, "invalid_request", "缺少钉钉企业标识")
 		return nil, fmt.Errorf("钉钉企业 CorpId 不能为空")
 	}
 	authCode = strings.TrimSpace(authCode)
 	if authCode == "" {
+		auditlog.SetReason(ctx, "auth_code_invalid", "免登授权码无效")
 		return nil, fmt.Errorf("免登授权码不能为空")
 	}
 	config, err := configsvc.LoadDingTalkH5CorpConfigContext(ctx, corpID)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "钉钉认证配置不可用")
 		return nil, err
 	}
 	identity, err := client.ExchangeAuthCodeContext(ctx, config, authCode)
 	if err != nil {
+		auditAuthCodeExchangeFailure(ctx, err)
 		return nil, err
 	}
 	if strings.TrimSpace(identity.UserID) == "" {
+		auditlog.SetReason(ctx, "auth_identity_invalid", "钉钉身份异常")
 		return nil, fmt.Errorf("钉钉身份异常")
 	}
 
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	if db == nil {
+		auditlog.SetReason(ctx, "system_error", "认证服务异常")
 		return nil, fmt.Errorf("钉钉账号未开通绩效系统，请联系管理员")
 	}
 
@@ -203,31 +215,38 @@ func loginByAuthCodeContext(ctx context.Context, client configsvc.DingTalkIdenti
 		if configsvc.IsMissingDingTalkH5UserBindingTableError(err) {
 			loadedUser, err = loadLegacyDingTalkH5UserByIdentityDB(ctx, db, config, identity)
 			if err != nil {
+				auditAuthLookupFailure(ctx, err, "binding_required", "钉钉账号未绑定系统用户")
 				return nil, fmt.Errorf("钉钉账号未开通绩效系统，请联系管理员")
 			}
 		} else if errors.Is(err, gorm.ErrRecordNotFound) {
 			existingBinding, existingErr := configsvc.LoadAnyDingTalkH5UserBindingDB(db, corpID, identity.UserID)
 			if existingErr == nil && existingBinding.Enabled != 1 {
+				auditlog.SetReason(ctx, "binding_disabled", "账号绑定已停用")
 				return nil, fmt.Errorf("钉钉账号绑定已停用，请联系管理员")
 			}
 			if existingErr != nil && !errors.Is(existingErr, gorm.ErrRecordNotFound) {
+				auditlog.SetReason(ctx, "system_error", "账号绑定查询失败")
 				return nil, fmt.Errorf("钉钉账号未开通绩效系统，请联系管理员")
 			}
 			return nil, newDingTalkH5BindRequiredErrorContext(ctx, corpID, identity)
 		} else {
+			auditlog.SetReason(ctx, "system_error", "账号绑定查询失败")
 			return nil, fmt.Errorf("钉钉账号未开通绩效系统，请联系管理员")
 		}
 	} else {
 		loadedUser, err = loadPerfUserByIDDB(db, binding.UserID)
 		if err != nil {
+			auditAuthLookupFailure(ctx, err, "binding_required", "钉钉账号未绑定有效系统用户")
 			return nil, fmt.Errorf("钉钉账号未开通绩效系统，请联系管理员")
 		}
 	}
 	user := *loadedUser
 	if user.Status != 1 {
+		auditlog.SetReason(ctx, "account_disabled", "账号已停用")
 		return nil, fmt.Errorf("账号已停用")
 	}
 	if err := hydratePerfUserWithUserDeptDB(db, &user); err != nil {
+		auditlog.SetReason(ctx, "system_error", "认证服务异常")
 		return nil, err
 	}
 	return issueDingTalkH5LoginResponseContext(ctx, db, &user, addIP, device)
@@ -286,12 +305,15 @@ func BindSelfContext(ctx context.Context, bindTicket, account, password, addIP, 
 	account = strings.TrimSpace(account)
 	password = strings.TrimSpace(password)
 	if !SelfBindEnabledContext(ctx) {
+		auditlog.SetReason(ctx, "self_binding_disabled", "钉钉自助绑定已关闭")
 		return nil, fmt.Errorf("钉钉自助绑定已关闭")
 	}
 	if bindTicket == "" {
+		auditlog.SetReason(ctx, "bind_ticket_invalid", "绑定会话无效或已过期")
 		return nil, fmt.Errorf("绑定会话已过期，请重新打开应用")
 	}
 	if account == "" || password == "" {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("请填写系统账号和密码")
 	}
 
@@ -303,17 +325,21 @@ func BindSelfContext(ctx context.Context, bindTicket, account, password, addIP, 
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	if db == nil {
+		auditlog.SetReason(ctx, "system_error", "账号绑定服务异常")
 		return nil, fmt.Errorf("数据库未初始化")
 	}
 
 	baseUser, err := loadSelfBindUserByAccountDB(db, account)
 	if err != nil {
+		auditAuthLookupFailure(ctx, err, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if baseUser.Status != 1 {
+		auditlog.SetReason(ctx, "account_disabled", "账号已停用")
 		return nil, fmt.Errorf("账号已停用")
 	}
 	if !passwordutil.Verify(baseUser.Password, password) {
+		auditlog.SetReason(ctx, "invalid_credentials", "账号或密码错误")
 		return nil, fmt.Errorf("账号或密码错误")
 	}
 	if passwordutil.NeedsRehash(baseUser.Password) {
@@ -323,15 +349,18 @@ func BindSelfContext(ctx context.Context, bindTicket, account, password, addIP, 
 	}
 
 	if err := bindDingTalkH5IdentityToUserDB(db, ticket, baseUser.ID); err != nil {
+		auditBindingFailure(ctx, err)
 		return nil, err
 	}
 	_ = deleteDingTalkH5SelfBindTicketContext(ctx, bindTicket)
 
 	user, err := loadPerfUserByIDDB(db, baseUser.ID)
 	if err != nil {
+		auditAuthLookupFailure(ctx, err, "account_invalid", "绑定账号异常")
 		return nil, fmt.Errorf("账号异常")
 	}
 	if user.Status != 1 {
+		auditlog.SetReason(ctx, "account_disabled", "账号已停用")
 		return nil, fmt.Errorf("账号已停用")
 	}
 	return issueDingTalkH5LoginResponseContext(ctx, db, user, addIP, device)
@@ -355,20 +384,25 @@ func SelfBindEnabledContext(ctx context.Context) bool {
 
 func issueDingTalkH5LoginResponseContext(ctx context.Context, db *gorm.DB, user *model.DingTalkH5PerfUser, addIP, device string) (*LoginResponse, error) {
 	if user == nil {
+		auditlog.SetReason(ctx, "system_error", "登录信息异常")
 		return nil, fmt.Errorf("登录信息异常")
 	}
 	token := randutil.HexString(32)
 	safeDevice := sessionDevice(device)
 	if err := onlineservice.StoreDingTalkH5SessionContext(ctx, onlineUserFromDingTalkH5User(user), token, addIP, safeDevice); err != nil {
+		auditlog.SetReason(ctx, "system_error", "登录会话创建失败")
 		return nil, err
 	}
 	bootstrap, err := bootstrapsvc.BootstrapContext(ctx, user)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "登录信息加载失败")
 		return nil, err
 	}
 	if err := recordDingTalkH5LoginSuccessDB(db, user.ID); err != nil {
+		auditlog.SetReason(ctx, "system_error", "登录状态保存失败")
 		return nil, err
 	}
+	auditlog.SetActor(ctx, user.ID, user.Name, "user")
 	return &LoginResponse{
 		Token:                 token,
 		UserInfo:              bootstrapUserDTO(bootstrap),
@@ -890,11 +924,13 @@ func uniqueUintIDs(items []uint) []uint {
 }
 
 func newDingTalkH5BindRequiredErrorContext(ctx context.Context, corpID string, identity configsvc.DingTalkUserIdentity) error {
+	auditlog.SetReason(ctx, "binding_required", "钉钉账号未绑定系统用户")
 	if !SelfBindEnabledContext(ctx) {
 		return fmt.Errorf("钉钉账号未开通绩效系统，请联系管理员")
 	}
 	ticket, expiresIn, err := createDingTalkH5SelfBindTicketContext(ctx, corpID, identity)
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "自助绑定暂不可用")
 		return fmt.Errorf("自助绑定暂不可用，请联系管理员")
 	}
 	appConfig := configsvc.AppConfigContext(ctx)
@@ -1028,22 +1064,27 @@ func createDingTalkH5SelfBindTicketContext(ctx context.Context, corpID string, i
 
 func readDingTalkH5SelfBindTicketContext(ctx context.Context, ticket string) (dingTalkH5SelfBindTicket, error) {
 	if rd.RDB == nil {
+		auditlog.SetReason(ctx, "system_error", "绑定会话服务不可用")
 		return dingTalkH5SelfBindTicket{}, fmt.Errorf("绑定会话已过期，请重新打开应用")
 	}
 	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
 	raw, err := rd.RDB.Get(redisCtx, dingTalkH5SelfBindTicketRedisKey(ticket)).Result()
 	if errors.Is(err, goredis.Nil) {
+		auditlog.SetReason(ctx, "bind_ticket_invalid", "绑定会话无效或已过期")
 		return dingTalkH5SelfBindTicket{}, fmt.Errorf("绑定会话已过期，请重新打开应用")
 	}
 	if err != nil {
+		auditlog.SetReason(ctx, "system_error", "绑定会话读取失败")
 		return dingTalkH5SelfBindTicket{}, fmt.Errorf("绑定会话读取失败，请稍后重试")
 	}
 	var payload dingTalkH5SelfBindTicket
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		auditlog.SetReason(ctx, "bind_ticket_invalid", "绑定会话异常")
 		return dingTalkH5SelfBindTicket{}, fmt.Errorf("绑定会话异常，请重新打开应用")
 	}
 	if strings.TrimSpace(payload.CorpID) == "" || strings.TrimSpace(payload.DingTalkUserID) == "" || time.Now().UnixMilli() > payload.ExpiresAt {
+		auditlog.SetReason(ctx, "bind_ticket_invalid", "绑定会话无效或已过期")
 		return dingTalkH5SelfBindTicket{}, fmt.Errorf("绑定会话已过期，请重新打开应用")
 	}
 	return payload, nil

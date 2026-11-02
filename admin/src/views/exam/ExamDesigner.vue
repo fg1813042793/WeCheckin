@@ -56,7 +56,7 @@
             <div class="toolbar-right">
               <el-button-group class="toolbar-btn-group">
                 <el-tooltip content="编辑" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='edit' }" @click="panelMode='edit'">
+                  <el-button text size="small" class="toolbar-btn" aria-label="编辑考试" :class="{ active: panelMode==='edit' }" @click="panelMode='edit'">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </el-button>
                 </el-tooltip>
@@ -66,7 +66,7 @@
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="预览" placement="bottom">
-                  <el-button text size="small" class="toolbar-btn" :class="{ active: panelMode==='preview' }" @click="panelMode='preview'">
+                  <el-button text size="small" class="toolbar-btn" aria-label="预览考试" :class="{ active: panelMode==='preview' }" @click="panelMode='preview'">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   </el-button>
                 </el-tooltip>
@@ -82,7 +82,7 @@
               <div class="editor">
                 <div class="header">
                   <div class="header-content">
-                    <el-input v-model="form.title" placeholder="考试标题" class="header-title-input" maxlength="100" />
+                    <el-input v-model="form.title" aria-label="管理名称" placeholder="管理名称" class="header-title-input" maxlength="100" @focus="deselectQuestion" />
                   </div>
                 </div>
                 <div class="questions-area">
@@ -106,7 +106,7 @@
           <div v-else-if="panelMode==='preview'" class="survey-preview-panel">
             <div style="padding:12px">
               <div class="header" style="margin-bottom:12px">
-                <div class="header-content" style="font-size:18px;font-weight:600;text-align:center;padding:12px">{{ form.title }}</div>
+                <div class="header-content" style="font-size:18px;font-weight:600;text-align:center;padding:12px">{{ resolveExamTitle(form.title, form.displayTitle) || '未命名考试' }}</div>
               </div>
               <draggable-list :questions="questions" @select="selectQuestion" :selected-id="selected?.id??null" @upload-bank="onUploadBank" />
             </div>
@@ -498,7 +498,7 @@
               </div>
             </template>
           </div>
-          <el-empty v-else description="选择题目编辑属性" :image-size="60" />
+          <div v-else class="props-panel"><h3>考试名称设置</h3><ExamNameFields :form="form" /></div>
         </div>
 
       </div>
@@ -509,10 +509,13 @@
         v-model="completionAction"
         v-model:form="form"
         :saving="saving"
-        :public-url="publicUrl"
+        v-model:public-url="publicUrl"
+        :qr-url="qrUrl"
+        :total-score="paperTotalScore"
         :fill-templates="fillTemplates"
         @save="save"
         @copy-link="copyLink"
+        @download-qr="downloadQR"
       />
 
       <div v-show="activeView==='data'" class="setting-wrapper">
@@ -543,6 +546,8 @@ import DraggableList from './formkit/DraggableList.vue'
 import ExamDesignerSidebar from './components/ExamDesignerSidebar.vue'
 import ExamDesignerLogicPanel from './components/ExamDesignerLogicPanel.vue'
 import ExamDesignerSettingsPanel from './components/ExamDesignerSettingsPanel.vue'
+import ExamNameFields from './components/ExamNameFields.vue'
+import { resolveSurveyTitle as resolveExamTitle } from '../../utils/surveyTitle'
 import SurveyDesignerFormulaDialog from '../survey/components/SurveyDesignerFormulaDialog.vue'
 import SurveyDesignerTextImportDialog from '../survey/components/SurveyDesignerTextImportDialog.vue'
 import SurveyDesignerBankUploadDialog from '../survey/components/SurveyDesignerBankUploadDialog.vue'
@@ -777,8 +782,8 @@ const envFromAnswers = computed(() => {
 
 const {
   textImportDialogRef, bankUploadDialogRef, exportedJson, fillTemplates,
-  publicUrl, importTextQuestions, openTextImport, exportExam, addFromBank,
-  onUploadBank, confirmUploadBank, copyLink, prepareJson, downloadJson, loadJson,
+  publicUrl, qrUrl, importTextQuestions, openTextImport, exportExam, addFromBank,
+  onUploadBank, confirmUploadBank, copyLink, downloadQR, prepareJson, downloadJson, loadJson,
 } = useExamDesignerTransfer({
   form,
   questions,
@@ -794,6 +799,7 @@ const {
   form,
   questions,
   selected,
+  logicRules: logicRuleList,
   route,
   router,
   onQuestionsLoaded: () => { idCounter = questions.value.length },
@@ -813,6 +819,7 @@ watch([partialTotalScore, perOptionTotalScore], () => {
 
 watch(() => selected.value?.examScoreMode, (cur, prev) => {
   if (!selected.value || !prev) return
+  if (!cur) selected.value.examScore = undefined
   if (prev === 'single') {
     selected.value.examCorrectAnswer = undefined
   }

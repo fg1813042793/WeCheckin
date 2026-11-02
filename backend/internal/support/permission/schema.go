@@ -132,6 +132,14 @@ func EnsurePermissionSchemaContext(ctx context.Context, db *gorm.DB) error {
 		markPermissionTablesReady(false)
 		return ErrPermissionSchemaNotReady
 	}
+	if !db.Migrator().HasColumn(&model.Permission{}, "CacheEnabled") {
+		markPermissionTablesReady(false)
+		return ErrPermissionSchemaNotReady
+	}
+	if !db.Migrator().HasColumn(&model.Permission{}, "Hidden") {
+		markPermissionTablesReady(false)
+		return ErrPermissionSchemaNotReady
+	}
 	if !db.Migrator().HasTable(&model.PermissionGrant{}) {
 		markPermissionTablesReady(false)
 		return ErrPermissionSchemaNotReady

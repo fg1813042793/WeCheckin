@@ -30,6 +30,7 @@ export function handleDingTalkH5AuthExpired(payload: ApiEnvelope) {
     return false
   }
   uni.removeStorageSync(DINGTALK_H5_CONFIG.TOKEN_KEY)
+  uni.removeStorageSync(DINGTALK_H5_CONFIG.TOKEN_CORP_ID_KEY)
   uni.$emit(DINGTALK_H5_AUTH_EXPIRED_EVENT, payload)
   return true
 }

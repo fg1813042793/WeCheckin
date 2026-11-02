@@ -170,6 +170,7 @@ func TestSwaggerIncludesEveryDingTalkH5RouteOperation(t *testing.T) {
 	}
 	publicPaths := map[string]bool{
 		"/api/v2/dingtalk/h5/public-config": true,
+		"/api/v2/dingtalk/h5/captcha":       true,
 		"/api/v2/dingtalk/h5/login":         true,
 		"/api/v2/dingtalk/h5/sso-login":     true,
 		"/api/v2/dingtalk/h5/bind-self":     true,

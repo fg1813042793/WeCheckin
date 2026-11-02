@@ -22,7 +22,7 @@
       <div class="exam-card exam-card--narrow">
         <div class="exam-login-header">
           <h2 class="exam-login-title">登录后参加考试</h2>
-          <p class="exam-login-desc" v-if="exam?.title">{{ exam.title }}</p>
+          <p class="exam-login-desc" v-if="displayTitle">{{ displayTitle }}</p>
         </div>
         <el-form label-position="top" @submit.prevent="doLogin">
           <el-form-item label="账号">
@@ -63,20 +63,20 @@
     <!-- 成绩单 -->
     <div v-else-if="showResultView && result && (settings.transcriptVisible !== false || settings.showAnalysis)" class="exam-card result-container">
       <div v-if="settings.transcriptVisible !== false" class="exam-header" style="text-align:center">
-        <h2 class="exam-title">{{ exam?.title }}</h2>
+        <h2 class="exam-title">{{ displayTitle }}</h2>
         <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
         <el-tag v-if="result.correctCnt !== undefined" type="info" size="small">正确 {{ result.correctCnt }}/{{ totalQuestions }}</el-tag>
       </div>
       <div class="exam-form-scroll">
         <div v-for="(q, i) in questions" :key="q.id" class="q-item" :data-qid="q.id">
           <div class="q-title" v-html="resultTitleHtml(q, i)" />
-          <div class="q-answer" v-if="result.results?.[i]">
-            <span :style="{ color: result.results[i].correct ? '#67c23a' : '#f56c6c' }">
-              {{ result.results[i].correct ? '✓' : '✗' }}
+          <div class="q-answer" v-if="resultForQuestion(i)">
+            <span :style="{ color: resultForQuestion(i)?.correct ? '#67c23a' : '#f56c6c' }">
+              {{ resultForQuestion(i)?.correct ? '✓' : '✗' }}
             </span>
             <span style="margin-left:4px;color:#606266">你的答案：{{ formatResultAnswer(q, answers[q.id]) }}</span>
           </div>
-          <div v-if="q.examCorrectAnswer && !result.results?.[i]?.correct" style="margin-top:4px;font-size:13px;color:#67c23a">
+          <div v-if="q.examCorrectAnswer && resultForQuestion(i) && !resultForQuestion(i)?.correct" style="margin-top:4px;font-size:13px;color:#67c23a">
             ✓ 正确答案：<span v-html="displayAnswer(q, q.examCorrectAnswer)" />
           </div>
           <div v-if="q.examAnalysis" style="margin-top:4px;font-size:13px;color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
@@ -90,7 +90,7 @@
     <div v-else-if="exam" class="exam-card">
       <div v-if="settings.headerImages?.length" class="exam-card-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
       <div class="exam-header">
-        <h1 class="exam-title">{{ exam.title }}</h1>
+        <h1 class="exam-title">{{ displayTitle }}</h1>
         <p v-if="exam.description" class="exam-desc">{{ exam.description }}</p>
         <div class="exam-meta">
           <el-tag v-if="exam.showScore && totalScore" size="small">满分 {{ totalScore }} 分</el-tag>
@@ -134,7 +134,7 @@
             </div>
           </div>
           <div class="exam-nav">
-            <el-button :disabled="currentNavIndex <= 0" @click="goPrev">上一题</el-button>
+            <el-button :disabled="!hasPreviousPage" @click="goPrev">上一题</el-button>
             <span class="exam-nav-index">{{ currentNavIndex + 1 }} / {{ navQuestions.length }}</span>
             <el-button v-if="!isLast" type="primary" class="exam-btn--primary" @click="goNext">下一题</el-button>
             <el-button v-else type="primary" class="exam-btn--primary" size="large" :loading="submitting" @click="onSubmit">交卷</el-button>
@@ -210,10 +210,12 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import QuestionField from '../survey/components/QuestionField.vue'
 import { publicFormApi } from '../../api/public'
+import { resolveSurveyTitle as resolveExamTitle } from '../../utils/surveyTitle'
 
 const route = useRoute()
 const exam = ref<any>(null)
 const settings = ref<any>({})
+const displayTitle = computed(() => resolveExamTitle(exam.value?.title, settings.value?.displayTitle))
 const questions = ref<any[]>([])
 const answers = ref<any>({})
 const loading = ref(true)
@@ -234,6 +236,10 @@ const result = ref<any>(null)
 const showResultView = ref(false)
 const countdownToStart = ref(0)
 let startTimer: ReturnType<typeof setInterval> | null = null
+
+function resultForQuestion(index: number) {
+  return result.value?.results?.find((item: any) => Number(item.questionId) === index + 1) || null
+}
 
 function openRedirectUrl() {
   const url = settings.value?.redirectUrl
@@ -327,7 +333,8 @@ const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAn
 const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
 const navQuestions = computed(() => realQuestions.value)
 const currentNavIndex = computed(() => { const q = questions.value[currentIndex.value]; return q ? navQuestions.value.indexOf(q) : -1 })
-const isLast = computed(() => currentIndex.value >= questions.value.length - 1)
+const hasPreviousPage = computed(() => previousVisiblePageIndex(currentIndex.value) >= 0)
+const isLast = computed(() => nextVisiblePageIndex(currentIndex.value) < 0)
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
 
 const AUTO_SAVE_KEY = 'exam_draft_'
@@ -343,17 +350,23 @@ function loadDraft() {
 function clearDraft() { localStorage.removeItem(getDraftKey()) }
 function scheduleDraft() { if (draftTimer) clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 2000) }
 
+function nextVisiblePageIndex(from: number) {
+  let index = from + 1
+  while (index < questions.value.length && questions.value[index]?.defaultHidden) index++
+  return index < questions.value.length ? index : -1
+}
+function previousVisiblePageIndex(from: number) {
+  let index = from - 1
+  while (index >= 0 && questions.value[index]?.defaultHidden) index--
+  return index
+}
 function goNext() {
-  if (currentIndex.value < questions.value.length - 1) {
-    currentIndex.value++
-    while (currentIndex.value < questions.value.length - 1 && questions.value[currentIndex.value]?.defaultHidden) currentIndex.value++
-  }
+  const next = nextVisiblePageIndex(currentIndex.value)
+  if (next >= 0) currentIndex.value = next
 }
 function goPrev() {
-  if (currentIndex.value > 0) {
-    currentIndex.value--
-    while (currentIndex.value > 0 && questions.value[currentIndex.value]?.defaultHidden) currentIndex.value--
-  }
+  const previous = previousVisiblePageIndex(currentIndex.value)
+  if (previous >= 0) currentIndex.value = previous
 }
 
 const swipeStartX = ref(0)
@@ -804,6 +817,21 @@ onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); stopCountdown(); i
 .exam-tag--danger { background: #fff1f0; color: #f5222d; }
 
 .exam-form { width: 100%; }
+.exam :deep(.el-input__wrapper.is-focus),
+.exam :deep(.el-input__wrapper:focus-within),
+.exam :deep(.el-select__wrapper.is-focused),
+.exam :deep(.el-textarea__inner:focus),
+.exam :deep(.el-date-editor.el-input__wrapper.is-active),
+.exam :deep(.el-range-editor.is-active) {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+.exam :deep(.el-input__inner:focus-visible),
+.exam :deep(.el-textarea__inner:focus-visible),
+.exam :deep(.el-select__input:focus-visible),
+.exam :deep(.el-range-input:focus-visible) {
+  outline: none;
+}
 .exam-form-scroll { padding: 28px 36px; min-height: 600px; }
 
 .exam-nav {

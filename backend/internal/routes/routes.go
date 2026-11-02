@@ -2,12 +2,14 @@ package routes
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"wecheckin/backend/internal/middleware"
 	"wecheckin/backend/internal/routes/common"
 	clientv1 "wecheckin/backend/internal/routes/v1/client"
 	routesv2 "wecheckin/backend/internal/routes/v2"
 )
 
 func Register(h *server.Hertz) {
+	h.Use(middleware.AuditLog())
 	common.RegisterHealth(h)
 	common.RegisterSwagger(h)
 	clientv1.Register(h)

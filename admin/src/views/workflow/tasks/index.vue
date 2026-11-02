@@ -8,8 +8,7 @@
           <el-select v-model="filters.status" placeholder="全部状态" clearable style="width: 140px" @change="search">
             <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
-          <el-button type="primary" @click="search">搜索</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <AdminFilterActions @search="search" @reset="resetFilters" />
         </div>
         <div class="admin-toolbar__right">
           <el-button circle icon="Refresh" title="刷新" :loading="loading" @click="loadList" />
@@ -132,6 +131,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AdminFilterActions } from '@/components/admin-ui'
 import { adminApi } from '../../../api'
 import { hasPerm } from '../../../utils/permission'
 import WorkflowRuntimeForm from '../components/WorkflowRuntimeForm.vue'

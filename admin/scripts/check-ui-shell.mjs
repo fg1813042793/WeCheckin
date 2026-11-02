@@ -24,8 +24,20 @@ if (!stylesSource.includes('.admin-main .el-dialog:not(.admin-ui-dialog) .el-dia
   throw new Error('native admin dialog forms must have spacing below the header divider')
 }
 
-if (!stylesSource.includes('.admin-main .el-input__inner:focus') || !stylesSource.includes('0 0 0 2px var(--admin-ui-color-focus)')) {
-  throw new Error('admin form focus state must use one compact blue focus ring')
+if (!stylesSource.includes('.admin-main .el-input__inner:focus') || !stylesSource.includes('box-shadow: 0 0 0 1px var(--admin-ui-color-primary) inset;')) {
+  throw new Error('admin form focus state must use one thin blue border')
+}
+
+if (!stylesSource.includes('body .el-overlay .el-input__wrapper.is-focus') || !stylesSource.includes('var(--admin-ui-color-primary, var(--el-color-primary))')) {
+  throw new Error('teleported admin form controls must use the single focus border')
+}
+
+if (!stylesSource.includes('body .el-popper .el-input__wrapper.is-focus') || !stylesSource.includes('body .el-popper .el-input__inner:focus')) {
+  throw new Error('popper search inputs must use the single focus border without a native outline')
+}
+
+if (stylesSource.includes('inset, 0 0 0 2px var(--admin-ui-color-focus)')) {
+  throw new Error('admin form focus state must not include an outer focus shadow')
 }
 
 if (!stylesSource.includes('.admin-main .el-range-input:focus') || !stylesSource.includes('.admin-main .el-range-editor.is-active')) {
@@ -34,6 +46,19 @@ if (!stylesSource.includes('.admin-main .el-range-input:focus') || !stylesSource
 
 if (!stylesSource.includes('body .el-picker-panel .el-input__wrapper.is-focus') || !stylesSource.includes('body .el-picker-panel .el-range-input:focus')) {
   throw new Error('teleported date and time picker controls must share the compact focus ring')
+}
+
+const tooltipStyleBlock = stylesSource.match(/body \.el-popper\.is-dark\s*\{([^}]*)\}/)?.[1] || ''
+for (const snippet of [
+  'max-width: min(420px, calc(100vw - 32px));',
+  'white-space: normal;',
+  'overflow-wrap: anywhere;',
+  'line-height: 1.5;',
+  'box-sizing: border-box;',
+]) {
+  if (!tooltipStyleBlock.includes(snippet)) {
+    throw new Error(`admin tooltip wrapping style missing: ${snippet}`)
+  }
 }
 
 const requiredLayoutSnippets = [

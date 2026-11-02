@@ -102,6 +102,7 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 		`Colorful: cfg.Server.Mode == "debug"`,
 		"redispkg.Init(",
 		"scheduledtaskruntime.NewScheduler(",
+		"MisfireGrace:",
 		"RecoveryInterval:",
 		"scheduledtaskruntime.NewWorker(",
 		"scheduledtaskinfra.NewHandlerRegistry(",
@@ -114,6 +115,7 @@ func TestTaskdMainWiresDedicatedRuntimeWithoutHTTPServer(t *testing.T) {
 		"inappnotificationapp.NewServiceWithDingTalk(",
 		"inappnotificationinfra.NewDingTalkDelivery(db, nil)",
 		"scheduledtaskinfra.NewDingTalkNotificationJob(notificationService)",
+		"scheduledtaskinfra.NewWorkflowStartNotificationJob(notificationService, workflowRuntime, notificationStore)",
 		"runRole(ctx, selectedRole, scheduler, worker)",
 	} {
 		if !strings.Contains(text, want) {

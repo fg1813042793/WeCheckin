@@ -69,7 +69,7 @@ export default defineConfig({
         changeOrigin: true,
         bypass(req) {
           const path = req.url || ''
-          if (/^\/(exam(\/?$|\?)|exam\/(list|designer|responses|statistic|formkit)(\/|\?|$))/.test(path)) {
+          if (/^\/(exam(\/?$|\?)|exam\/(list|designer|responses|statistic|formkit|templates)(\/|\?|$))/.test(path)) {
             return req.url
           }
         }
