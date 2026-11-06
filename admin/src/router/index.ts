@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { adminChildRoutes } from './adminRoutes'
 import { canAccessAdminRoute, loadAdminAccessSnapshot } from './adminAccess'
+import { adminPasswordChangeRequired } from '../utils/adminSession'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -11,9 +12,21 @@ const router = createRouter({
       component: () => import('../views/login/index.vue')
     },
     {
+      path: '/change-password',
+      name: 'ChangePassword',
+      component: () => import('../views/change-password/index.vue'),
+      meta: { title: '修改密码', adminUi: { version: 1, pattern: 'form' } }
+    },
+    {
       path: '/',
       component: () => import('../views/layout/index.vue'),
       children: adminChildRoutes
+    },
+    {
+      path: '/public/activities',
+      name: 'PublicActivities',
+      component: () => import('../views/public/Activities.vue'),
+      meta: { title: '公开问卷与考试', public: true }
     },
     {
       path: '/sf/:id',
@@ -46,6 +59,12 @@ router.beforeEach(async (to) => {
   const token = localStorage.getItem('admin_token')
   if (to.path === '/login' || to.meta.public) return true
   if (!token) return { path: '/login', query: { redirect: to.fullPath } }
+  const passwordChangeRequired = adminPasswordChangeRequired()
+  if (passwordChangeRequired && to.path !== '/change-password') {
+    return { path: '/change-password', query: { redirect: to.fullPath } }
+  }
+  if (!passwordChangeRequired && to.path === '/change-password') return { path: '/' }
+  if (to.path === '/change-password') return true
   if (to.meta.allowWithoutMenu) return true
   try {
     const snapshot = await loadAdminAccessSnapshot()

@@ -35,6 +35,9 @@ var (
 	ErrInstanceDeleteNotAllowed              = errors.New("当前流程状态不能删除")
 	ErrInstanceDeleteTargetNotFound          = errors.New("部分流程实例不存在或已删除")
 	ErrInstanceDeleteTooMany                 = errors.New("单次最多删除100个流程实例")
+	ErrInstanceVoidReasonRequired            = errors.New("流程作废原因不能为空")
+	ErrInstanceVoidReasonTooLong             = errors.New("流程作废原因过长")
+	ErrInstanceVoidActiveRevision            = errors.New("流程存在进行中的表单修订")
 	ErrInstanceCommentRequired               = errors.New("流程评论不能为空")
 	ErrInstanceCommentTooLong                = errors.New("流程评论不能超过500个字符")
 	ErrCommentNotificationRecipientsRequired = errors.New("请选择评论通知对象")
@@ -224,6 +227,12 @@ type WithdrawInstanceRequest struct {
 }
 
 type CancelInstanceRequest struct {
+	InstanceID string `json:"instanceId"`
+	ActorID    string `json:"actorId"`
+	Reason     string `json:"reason"`
+}
+
+type VoidInstanceRequest struct {
 	InstanceID string `json:"instanceId"`
 	ActorID    string `json:"actorId"`
 	Reason     string `json:"reason"`

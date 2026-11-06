@@ -5071,7 +5071,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
-                "description": "需要 exam-record:grade 权限及考试数据范围授权。返回题目、作答、参考答案、评分和版本；已完成的答卷只能查看。",
+                "description": "需要 exam-record:grade 权限及考试数据范围授权。返回题目、作答、参考答案、评分和版本；已完成的答卷只能查看。不计分题返回 unscored=true，仅展示题目和作答，不参与评分；历史缺失题目按当前配置补充时返回 notice 提示。",
                 "produces": [
                     "application/json"
                 ],
@@ -7318,6 +7318,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/admin/password-policy": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台系统设置"
+                ],
+                "summary": "获取密码策略",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/accountsecurity.Policy"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "API v2-后台系统设置"
+                ],
+                "summary": "保存密码策略",
+                "parameters": [
+                    {
+                        "description": "密码策略",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/accountsecurity.Policy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/accountsecurity.Policy"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/admin/permissions": {
             "get": {
                 "security": [
@@ -7793,6 +7868,340 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/public-portal": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 public-portal:list。来源不可管理时隐藏源管理名称并返回 canManage=false；配置不自动向公众发布。",
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "读取公共页面配置与展示项",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.AdminResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/public-portal/items": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 public-portal:edit。后台再次校验来源范围和公开状态，来源类型加 ID 唯一，最多200项。title/description 留空时实时跟随来源显示名称和说明。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "添加公共页面展示项",
+                "parameters": [
+                    {
+                        "description": "来源、展示文案、启用状态及排序",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.ItemInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.AdminItem"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/public-portal/items/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 public-portal:edit。version 乐观锁；对原来源和新来源的可管理范围做校验，不能通过修改 ID 将无权管理的内容公开。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "更新公共页面展示项",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "展示项 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "展示项完整配置与版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.ItemUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.AdminItem"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "仅移除展示配置，不删除关联问卷或考试。需要 public-portal:edit 和来源可管理范围；已删除来源允许创建者或超级管理员清理。",
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "移除公共页面展示项",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "展示项 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "当前展示项版本",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.DeleteResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/public-portal/options": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 public-portal:list。结果仅包含已发布、公开且处于当前管理员数据范围的来源，供选择时区分管理名称与显示名称。",
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "搜索可展示的问卷或考试",
+                "parameters": [
+                    {
+                        "enum": [
+                            "survey",
+                            "exam"
+                        ],
+                        "type": "string",
+                        "description": "来源类型",
+                        "name": "kind",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "管理名称或显示名称关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，最多100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.OptionsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/public-portal/preview": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 public-portal:list。仅绕过页面总开关，仍过滤未启用和非公开的来源；不会发布页面或保存未提交的编辑内容。",
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "预览已保存公共页面",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.PublicResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/public-portal/settings": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要 public-portal:edit。version 乐观锁，冲突返回配置已更新。不需要配置公共域名；公共链接和二维码使用当前访问站点。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-公共页面"
+                ],
+                "summary": "保存公共页面设置",
+                "parameters": [
+                    {
+                        "description": "页面设置及当前版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/application.Settings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.Settings"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -11228,10 +11637,14 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
+                "description": "按密码策略校验新密码，成功后撤销用户全部登录会话。密码重复或不满足策略时返回具体原因。",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
                 "tags": [
                     "API v2-后台管理-用户管理"
                 ],
-                "summary": "变更 /api/v2/admin/users/{id}/password",
+                "summary": "重置用户密码",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11239,6 +11652,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新密码，至少6位且不超过72字节；省略时兼容重置为123456",
+                        "name": "password",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -11588,7 +12007,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "流程草稿定义（JSON）",
+                        "description": "流程草稿定义（JSON）；approval 节点可设 skipIfNoAssignee=true，默认关闭，仅成功解析且无审批人时跳过，发布新版本后生效",
                         "name": "draft",
                         "in": "formData"
                     },
@@ -11692,7 +12111,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "流程草稿定义（JSON）",
+                        "description": "流程草稿定义（JSON）；approval 节点可设 skipIfNoAssignee=true，默认关闭，仅成功解析且无审批人时跳过，发布新版本后生效",
                         "name": "draft",
                         "in": "formData"
                     },
@@ -12241,7 +12660,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
-                "description": "仅允许删除已完成、已驳回或已取消的实例；删除后保留审计数据",
+                "description": "仅允许删除已完成、已驳回、已取消或已作废的实例；删除后保留审计数据",
                 "consumes": [
                     "application/json"
                 ],
@@ -12305,7 +12724,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
-                "description": "仅允许删除已完成、已驳回或已取消的实例；删除后保留审计数据",
+                "description": "仅允许删除已完成、已驳回、已取消或已作废的实例；删除后保留审计数据",
                 "tags": [
                     "API v2-后台管理-工作流"
                 ],
@@ -12491,6 +12910,49 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/admin/workflow-instances/{id}/void": {
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "作废后保留客户端记录和审计历史，并从流程完成次数中排除；不会自动回滚外部业务动作",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-工作流"
+                ],
+                "summary": "作废已完成的工作流实例",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "流程实例 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "作废原因",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.WorkflowReasonRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Resp"
                         }
                     }
                 }
@@ -17691,6 +18153,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v2/me/password": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "API v2-客户端账号"
+                ],
+                "summary": "修改当前用户密码",
+                "parameters": [
+                    {
+                        "description": "密码信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/swagger.ClientPasswordChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/accountsecurity.PasswordState"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v2/me/phone": {
             "post": {
                 "security": [
@@ -17862,6 +18368,76 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Resp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/public/activities": {
+            "get": {
+                "description": "无需登录。仅展示后台选中、启用、仍已发布且允许公开访问的问卷或考试。已结束内容按页面设置隐藏。每项实时返回来源管理名称和 category 分类；分类为空时使用问卷/考试默认标签，kind 仍表示实际来源类型。不返回原表单设置、题目、答案或密码；关闭时 enabled=false 且 items 为空。URL 返回根相对填写路径，由浏览器按当前站点生成访问链接和二维码。使用 no-store 避免停用内容被缓存继续展示。",
+                "tags": [
+                    "API v2-公共页面"
+                ],
+                "summary": "获取公开问卷与考试入口",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/application.PublicResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/public/exam-record-exports/download": {
+            "get": {
+                "description": "Token 由考试交卷后的通知模版变量 {answerDownloadUrl} 生成；格式、考试和答卷均绑定在 Redis 凭证中，调用方不能通过参数修改。Token 过期、答卷删除或凭证不存在时返回 410。",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "API v2-公开考试"
+                ],
+                "summary": "使用限时凭证下载单份考试答卷",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "限时答卷下载凭证",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "410": {
+                        "description": "答卷下载链接已失效",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "答卷下载失败，请稍后重试",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -18573,6 +19149,73 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "accountsecurity.PasswordState": {
+            "type": "object",
+            "properties": {
+                "passwordChangeRequired": {
+                    "type": "boolean"
+                },
+                "passwordExpired": {
+                    "type": "boolean"
+                },
+                "passwordExpiresAt": {
+                    "type": "integer"
+                },
+                "passwordExpiryWarning": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "accountsecurity.Policy": {
+            "type": "object",
+            "properties": {
+                "allowWeakTemporaryPassword": {
+                    "type": "boolean"
+                },
+                "effectiveAt": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "expiryWarningDays": {
+                    "type": "integer"
+                },
+                "forceChangeOnCreate": {
+                    "type": "boolean"
+                },
+                "forceChangeOnReset": {
+                    "type": "boolean"
+                },
+                "historyCount": {
+                    "type": "integer"
+                },
+                "maxAgeDays": {
+                    "type": "integer"
+                },
+                "minLength": {
+                    "type": "integer"
+                },
+                "requireLetter": {
+                    "type": "boolean"
+                },
+                "requireLowercase": {
+                    "type": "boolean"
+                },
+                "requireNumber": {
+                    "type": "boolean"
+                },
+                "requireSpecial": {
+                    "type": "boolean"
+                },
+                "requireUppercase": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.Log": {
             "type": "object",
             "properties": {
@@ -18754,6 +19397,67 @@ const docTemplate = `{
                 }
             }
         },
+        "application.AdminItem": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "boolean"
+                },
+                "canManage": {
+                    "type": "boolean"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayTitle": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/application.Kind"
+                },
+                "managementTitle": {
+                    "type": "string"
+                },
+                "sort": {
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "unavailableReason": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.AdminResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.AdminItem"
+                    }
+                },
+                "settings": {
+                    "$ref": "#/definitions/application.Settings"
+                }
+            }
+        },
         "application.Attachment": {
             "type": "object",
             "properties": {
@@ -18834,6 +19538,14 @@ const docTemplate = `{
                 },
                 "timezone": {
                     "type": "string"
+                }
+            }
+        },
+        "application.DeleteResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
                 }
             }
         },
@@ -19471,6 +20183,66 @@ const docTemplate = `{
                 }
             }
         },
+        "application.ItemInput": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/application.Kind"
+                },
+                "sort": {
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "application.ItemUpdate": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/application.Kind"
+                },
+                "sort": {
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.Kind": {
+            "type": "string",
+            "enum": [
+                "survey",
+                "exam"
+            ],
+            "x-enum-varnames": [
+                "Survey",
+                "Exam"
+            ]
+        },
         "application.Message": {
             "type": "object",
             "properties": {
@@ -19510,6 +20282,26 @@ const docTemplate = `{
                 }
             }
         },
+        "application.OptionsResponse": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.SourceOption"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "application.Overview": {
             "type": "object",
             "properties": {
@@ -19524,6 +20316,74 @@ const docTemplate = `{
                 },
                 "resolved": {
                     "type": "integer"
+                }
+            }
+        },
+        "application.PublicItem": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "endTime": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/application.Kind"
+                },
+                "loginRequired": {
+                    "type": "boolean"
+                },
+                "managementTitle": {
+                    "type": "string"
+                },
+                "passwordRequired": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "type": "integer"
+                },
+                "startTime": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is a root-relative filling route; the browser resolves it on its current site.",
+                    "type": "string"
+                }
+            }
+        },
+        "application.PublicResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/application.PublicItem"
+                    }
+                },
+                "logoUrl": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
                 }
             }
         },
@@ -19656,6 +20516,61 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "application.Settings": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "logoUrl": {
+                    "type": "string"
+                },
+                "showEnded": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "application.SourceOption": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "displayTitle": {
+                    "type": "string"
+                },
+                "endTime": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/application.Kind"
+                },
+                "loginRequired": {
+                    "type": "boolean"
+                },
+                "managementTitle": {
+                    "type": "string"
+                },
+                "passwordRequired": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "type": "integer"
+                },
+                "startTime": {
+                    "type": "integer"
                 }
             }
         },
@@ -20409,6 +21324,9 @@ const docTemplate = `{
                 "singleLogin": {
                     "type": "integer"
                 },
+                "slidingExpireEnabled": {
+                    "type": "integer"
+                },
                 "tokenExpire": {
                     "type": "string"
                 },
@@ -20681,6 +21599,10 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                },
+                "unscored": {
+                    "description": "仅展示题目与答案，不参与评分。",
+                    "type": "boolean"
                 }
             }
         },
@@ -21165,6 +22087,18 @@ const docTemplate = `{
         "passport.LoginResponse": {
             "type": "object",
             "properties": {
+                "passwordChangeRequired": {
+                    "type": "boolean"
+                },
+                "passwordExpired": {
+                    "type": "boolean"
+                },
+                "passwordExpiresAt": {
+                    "type": "integer"
+                },
+                "passwordExpiryWarning": {
+                    "type": "boolean"
+                },
                 "token": {},
                 "userInfo": {
                     "$ref": "#/definitions/passport.UserInfo"
@@ -21612,6 +22546,9 @@ const docTemplate = `{
                 "admin_prefix": {
                     "type": "string"
                 },
+                "admin_sliding_expire_enabled": {
+                    "type": "boolean"
+                },
                 "dingtalk_h5_expire_seconds": {
                     "type": "integer"
                 },
@@ -21621,6 +22558,9 @@ const docTemplate = `{
                 "dingtalk_h5_prefix": {
                     "type": "string"
                 },
+                "dingtalk_h5_sliding_expire_enabled": {
+                    "type": "boolean"
+                },
                 "user_expire_seconds": {
                     "type": "integer"
                 },
@@ -21629,6 +22569,9 @@ const docTemplate = `{
                 },
                 "user_prefix": {
                     "type": "string"
+                },
+                "user_sliding_expire_enabled": {
+                    "type": "boolean"
                 }
             }
         },
@@ -21721,6 +22664,20 @@ const docTemplate = `{
                     "description": "CorpID 必须与发起授权时选择的企业一致。",
                     "type": "string",
                     "example": "dingxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                }
+            }
+        },
+        "swagger.ClientPasswordChangeRequest": {
+            "type": "object",
+            "properties": {
+                "confirmPassword": {
+                    "type": "string"
+                },
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newPassword": {
+                    "type": "string"
                 }
             }
         },
@@ -22726,7 +23683,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "reason": {
-                    "description": "Reason 是撤回或取消原因。",
+                    "description": "Reason 是撤回、取消或作废原因；作废时必填。",
                     "type": "string",
                     "example": "业务申请撤销"
                 }
@@ -23049,7 +24006,7 @@ const docTemplate = `{
                     }
                 },
                 "span": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "type": {
                     "type": "string"

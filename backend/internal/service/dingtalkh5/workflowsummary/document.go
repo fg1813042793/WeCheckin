@@ -13,6 +13,7 @@ import (
 )
 
 type exportDocument struct {
+	Layout   string
 	Title    string
 	FileStem string
 	Metadata [][]string
@@ -20,16 +21,31 @@ type exportDocument struct {
 }
 
 type exportSection struct {
-	Title     string
-	FieldRows [][]exportFieldCell
-	Headers   []string
-	Rows      [][]string
+	Title        string
+	FieldRows    [][]exportFieldCell
+	Headers      []string
+	Rows         [][]string
+	AnswerBlocks []AnswerBlock
+}
+
+// DocumentLayoutAnswerSheet opts PDF and DOCX into a flowing answer-sheet layout.
+// XLSX continues to use the section headers and rows.
+const DocumentLayoutAnswerSheet = "answer_sheet"
+
+// AnswerBlock contains display text supplied by the caller, including scoring
+// and empty-answer wording. Renderers must not infer or recalculate these values.
+type AnswerBlock struct {
+	Title           string
+	Answer          string
+	ReferenceAnswer string
+	Score           string
+	Result          string
 }
 
 type exportFieldCell struct {
 	Label string
 	Value string
-	Span  int
+	Span  float64
 }
 
 // Document describes a structured file that can be rendered as PDF, DOCX or XLSX.
@@ -133,11 +149,8 @@ func exportFormSections(fields []workflowcore.FormField, data map[string]interfa
 	return sections
 }
 
-func exportFieldSpan(field workflowcore.FormField) int {
-	if field.Span <= 0 || field.Span > 24 {
-		return 24
-	}
-	return field.Span
+func exportFieldSpan(field workflowcore.FormField) float64 {
+	return normalizedExportSpan(field.Span)
 }
 
 func packExportFieldRows(fields []exportFieldCell) [][]exportFieldCell {
@@ -145,17 +158,17 @@ func packExportFieldRows(fields []exportFieldCell) [][]exportFieldCell {
 	current := make([]exportFieldCell, 0)
 	used := 0
 	for _, field := range fields {
-		if field.Span <= 0 || field.Span > 24 {
-			field.Span = 24
-		}
-		if used > 0 && used+field.Span > 24 {
+		field.Span = normalizedExportSpan(field.Span)
+		// Integer units keep five fifths on one row without float accumulation.
+		span := exportGridSpan(field.Span, exportFineGridColumns)
+		if used > 0 && used+span > exportFineGridColumns {
 			rows = append(rows, current)
 			current = nil
 			used = 0
 		}
 		current = append(current, field)
-		used += field.Span
-		if used == 24 {
+		used += span
+		if used == exportFineGridColumns {
 			rows = append(rows, current)
 			current = nil
 			used = 0
@@ -330,7 +343,7 @@ func exportObjectRows(value interface{}) []map[string]interface{} {
 func instanceStatusLabel(status string) string {
 	return map[string]string{
 		"running": "审批中", "completed": "已完成", "rejected": "已驳回",
-		"withdrawn": "已撤回", "cancelled": "已取消",
+		"withdrawn": "已撤回", "cancelled": "已取消", "voided": "已作废",
 	}[status]
 }
 

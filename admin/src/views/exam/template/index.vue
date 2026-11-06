@@ -4,7 +4,7 @@
       <template #actions><el-button circle :icon="Refresh" title="刷新" :loading="loading" @click="loadTemplates" /></template>
     </AdminPageHeader>
     <el-alert type="info" :closable="false" show-icon>
-      <template #title>支持变量：<code>{title}</code> 考试名称、<code>{total}</code> 总提交数、<code>{submitter}</code> 提交人、<code>{date}</code> 提交时间、<code>{score}</code> 得分、<code>{fullScore}</code> 满分、<code>{result}</code> 统计结果</template>
+      <template #title>支持变量：<code>{title}</code> 考试名称、<code>{total}</code> 总提交数、<code>{submitter}</code> 提交人、<code>{date}</code> 提交时间、<code>{score}</code> 得分、<code>{fullScore}</code> 满分、<code>{result}</code> 统计结果、<code>{answerDownloadUrl}</code> 限时答卷下载链接</template>
     </el-alert>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon><template #default><el-button size="small" @click="loadTemplates">重新加载</el-button></template></el-alert>
     <section v-loading="loading" class="template-panel">

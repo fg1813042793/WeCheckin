@@ -114,6 +114,7 @@ for (const snippet of [
   "completed: { label: '已完成', type: 'success' }",
   "rejected: { label: '已驳回', type: 'danger' }",
   "cancelled: { label: '已取消', type: 'info' }",
+  "voided: { label: '已作废', type: 'info' }",
 ]) {
   requireSnippet(workflowStatus, snippet, 'workflow status mapping')
 }
@@ -238,6 +239,14 @@ for (const snippet of [
   'failedUserIds',
   'workflowInstanceResume',
   'workflowInstanceDetail',
+  'workflowInstanceCancel',
+  "hasPerm('admin:menu:workflow:instance:cancel')",
+  '取消流程',
+  '取消后，客户端仍可查看该流程记录，并可重新发起',
+  'workflowInstanceVoid',
+  "hasPerm('admin:menu:workflow:instance:void')",
+  '作废流程',
+  '作废后客户端仍保留该流程记录，完成次数限制将释放',
 	'workflowInstanceDelete',
 	'workflowInstanceBatchDelete',
 	'ElMessageBox.confirm',

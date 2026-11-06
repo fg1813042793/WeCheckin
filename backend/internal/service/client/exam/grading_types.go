@@ -32,6 +32,7 @@ type GradingQuestion struct {
 	FullScore       int               `json:"fullScore"`
 	GotScore        int               `json:"gotScore"`
 	NeedManual      bool              `json:"needManual"`
+	Unscored        bool              `json:"unscored"` // 仅展示题目与答案，不参与评分。
 	Materials       []GradingMaterial `json:"materials,omitempty"`
 	Images          []GradingImage    `json:"images,omitempty"`
 }

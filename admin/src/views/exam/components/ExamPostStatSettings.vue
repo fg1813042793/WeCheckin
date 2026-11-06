@@ -27,7 +27,7 @@
         <el-option-group v-if="customPresets.length" label="自定义模版"><el-option v-for="item in customPresets" :key="item.key" :label="item.label" :value="item.key" /></el-option-group>
       </el-select>
       <el-input v-model="rule.messageTemplate" type="textarea" :rows="4" :placeholder="defaultTemplate" />
-      <div class="field-help">变量：<code>{title}</code>、<code>{submitter}</code>、<code>{date}</code>、<code>{total}</code>、<code>{score}</code>、<code>{fullScore}</code>、<code>{result}</code></div>
+      <div class="field-help">变量：<code>{title}</code>、<code>{submitter}</code>、<code>{date}</code>、<code>{total}</code>、<code>{score}</code>、<code>{fullScore}</code>、<code>{result}</code>、<code>{answerDownloadUrl}</code> 答卷下载链接</div>
     </el-form-item>
     <el-form-item label="通知对象">
       <el-checkbox v-model="rule.notifyAdmin" class="notify-admin">通知管理员</el-checkbox>

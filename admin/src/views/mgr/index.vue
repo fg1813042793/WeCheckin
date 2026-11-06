@@ -150,13 +150,17 @@
 
 <script lang="ts" setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { adminApi } from '../../api'
 import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasPerm } from '../../utils/permission'
 import { showRequestError } from '../../utils/request'
 import { exportCsvPage } from '../../utils/csvExport'
+import { clearAdminSession } from '../../utils/adminSession'
+import { invalidateAdminAccessSnapshot } from '../../router/adminAccess'
 
+const router = useRouter()
 const loading = ref(false)
 const list = ref<any[]>([])
 const total = ref(0)
@@ -320,9 +324,12 @@ async function savePwd() {
   if (pwdForm.password.length < 6) { ElMessage.warning('新密码至少6位'); return }
   pwdLoading.value = true
   try {
-      await adminApi.mgrPwd({ oldPassword: pwdForm.oldPassword, password: pwdForm.password })
-    ElMessage.success('密码修改成功')
+    await adminApi.mgrPwd({ oldPassword: pwdForm.oldPassword, password: pwdForm.password })
+    clearAdminSession()
+    invalidateAdminAccessSnapshot()
+    ElMessage.success('密码修改成功，请重新登录')
     pwdDialog.visible = false
+    await router.replace('/login')
   } finally { pwdLoading.value = false }
 }
 

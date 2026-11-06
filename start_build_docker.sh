@@ -1,0 +1,1 @@
+docker run --hostname=471580d0395e --mac-address=86:bb:8f:f2:32:03 --env=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin --env=BUILDKIT_SETUP_CGROUPV2_ROOT=1 --volume=/var/lib/buildkit --network=bridge --privileged --workdir=/ --restart=unless-stopped --runtime=runc -d moby/buildkit:buildx-stable-1

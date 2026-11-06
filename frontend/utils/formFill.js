@@ -81,3 +81,8 @@ export function formatRemainingTime(ms) {
   const t = Math.ceil(ms / 1000)
   return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`
 }
+
+// Explicit none wins over stale schema scores; preserve all legacy fallbacks.
+export function examDisplayScore(question) {
+  return question.examScoreMode === 'none' ? 0 : Number(question.examScore) || 0
+}

@@ -71,6 +71,13 @@ export default {
         const res = await passportApi.loginByPwd(this.form)
         if (res.data) {
           setClientAuth(res.data)
+          if (res.data.passwordChangeRequired) {
+            uni.redirectTo({ url: '/pages/my/change_password' })
+            return
+          }
+          if (res.data.passwordExpiryWarning) {
+            uni.showToast({ title: '登录密码即将到期，请及时修改', icon: 'none' })
+          }
           await ensureClientPermissionSnapshot()
         }
         uni.showToast({ title: '登录成功', icon: 'success' })

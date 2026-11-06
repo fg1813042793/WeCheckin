@@ -49,6 +49,7 @@ import type {
   WorkflowDefinitionDetail,
   WorkflowDefinitionSummary,
   WorkflowInstanceDetail,
+  WorkflowInstanceStatus,
   WorkflowInstanceSummary,
   WorkflowInstanceVersionUpgradePreview,
   WorkflowInstanceVersionUpgradeResult,
@@ -148,7 +149,7 @@ export const adminApi = {
   userDels(data: { ids: string }) {
     return request.delete(`${ADMIN_V2}/users`, deleteBody(data))
   },
-  userResetPwd(data: { id: ID }) {
+  userResetPwd(data: { id: ID; password?: string }) {
     return request.patch(`${ADMIN_V2}/users/${encodePath(data.id)}/password`, data)
   },
   userFormFields() {
@@ -829,6 +830,12 @@ export const adminApi = {
   },
   workflowInstanceVersionUpgrade(id: ID, data: { expectedFromVersion: number }) {
     return request.post<WorkflowInstanceVersionUpgradeResult, typeof data>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}/version-upgrade`, data, jsonConfig)
+  },
+  workflowInstanceCancel(id: ID, data: { reason: string }) {
+    return request.post<{ instanceId: string; status: WorkflowInstanceStatus }, typeof data>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}/cancel`, data, jsonConfig)
+  },
+  workflowInstanceVoid(id: ID, data: { reason: string }) {
+    return request.post<{ instanceId: string; status: WorkflowInstanceStatus }, typeof data>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}/void`, data, jsonConfig)
   },
   workflowInstanceDelete(id: ID) {
     return request.delete<{ deleted: number }>(`${ADMIN_V2}/workflow-instances/${encodePath(id)}`)

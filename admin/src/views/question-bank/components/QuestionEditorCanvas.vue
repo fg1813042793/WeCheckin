@@ -106,7 +106,7 @@
       </div>
     </div>
 
-    <QuestionRichEditorDialog :dialog="richEditDialog" :title="richEditTitle" :options="richFullEditorOptions" :confirm="confirmRichFullEdit" />
+    <QuestionRichEditorDialog :dialog="richEditDialog" :title="richEditTitle" :confirm="confirmRichFullEdit" />
   </main>
 </template>
 
@@ -131,7 +131,6 @@ const props = defineProps<{
   editorMode: EditorMode
   richTitleEditorOptions: Record<string, any>
   richOptionEditorOptions: Record<string, any>
-  richFullEditorOptions: Record<string, any>
   richEditDialog: { visible: boolean; target: RichEditTarget; optionIndex: number; content: string }
   richEditTitle: string
   bindCompactRichEditor: (quill: any, target: RichEditTarget, optionIndex?: number) => void

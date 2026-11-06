@@ -30,7 +30,7 @@ func TestManagerServiceUsesMergedUserAccountColumns(t *testing.T) {
 		t.Fatalf("read password.go: %v", err)
 	}
 	passwordText := string(passwordSrc)
-	for _, snippet := range []string{"adminLoginRoleFilter", "user_password"} {
+	for _, snippet := range []string{"adminLoginRoleFilter", "accountsecurity.ChangeOwnPasswordContext"} {
 		if !strings.Contains(passwordText, snippet) {
 			t.Fatalf("password.go must use users table role-login rule %q", snippet)
 		}

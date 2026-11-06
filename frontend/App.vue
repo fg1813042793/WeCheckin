@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { hasClientAuth, navigateToAuthPage } from './utils/auth'
+import { clientPasswordChangeRequired, hasClientAuth, navigateToAuthPage } from './utils/auth'
 
 export default {
   globalData: {
@@ -15,6 +15,8 @@ export default {
   onLaunch: function() {
     if (!hasClientAuth()) {
       navigateToAuthPage('/pages/login/login', 'reLaunch')
+    } else if (clientPasswordChangeRequired()) {
+      navigateToAuthPage('/pages/my/change_password', 'reLaunch')
     }
   },
   methods: {

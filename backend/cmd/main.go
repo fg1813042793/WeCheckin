@@ -37,6 +37,8 @@ import (
 	_ "wecheckin/backend/docs/swagger"
 	"wecheckin/backend/internal/config"
 	"wecheckin/backend/internal/middleware"
+	examrecordexportlinkapp "wecheckin/backend/internal/modules/examrecordexportlink/application"
+	examrecordexportlinkinfra "wecheckin/backend/internal/modules/examrecordexportlink/infrastructure"
 	notificationoutboxapp "wecheckin/backend/internal/modules/notificationoutbox/application"
 	notificationoutboxinfra "wecheckin/backend/internal/modules/notificationoutbox/infrastructure"
 	poststatservice "wecheckin/backend/internal/service/client/poststat"
@@ -87,6 +89,9 @@ func main() {
 
 	outboxService := notificationoutboxapp.NewService(notificationoutboxinfra.NewGormStore(database.GetDB()))
 	poststatservice.ConfigureNotificationDispatcher(poststatservice.NewOutboxDispatcher(outboxService))
+	poststatservice.ConfigureExamAnswerDownloadLinkIssuer(
+		examrecordexportlinkapp.NewService(examrecordexportlinkinfra.NewRedisStore(rd.RDB)),
+	)
 
 	h := server.Default(
 		server.WithHostPorts(net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)),

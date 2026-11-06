@@ -136,11 +136,15 @@ function extractRoutes(routerFile) {
         }
         const name = stringValue(property(node, 'name', sourceFile)?.initializer) || ''
         const importPath = componentImport(componentProp.initializer)
+        const metaProp = property(node, 'meta', sourceFile)
+        const publicProp = metaProp && ts.isObjectLiteralExpression(metaProp.initializer)
+          ? property(metaProp.initializer, 'public', sourceFile) : undefined
         routes.push({
           name,
           path,
           source: relative(adminDir, routerFile),
           component: routeComponentPath(routerFile, importPath),
+          isPublic: publicProp?.initializer?.kind === ts.SyntaxKind.TrueKeyword,
           contract: adminUiContract(property(node, 'meta', sourceFile)?.initializer, sourceFile),
         })
       }
@@ -165,13 +169,15 @@ const newRoutes = routes.filter((route) => !legacyRouteKeys.has(routeKey(route))
 const errors = []
 for (const route of newRoutes) {
   const label = route.name || route.path
-  if (route.contract?.version !== 1 || !allowedPatterns.has(route.contract?.pattern)) {
+  if (!route.isPublic && (route.contract?.version !== 1 || !allowedPatterns.has(route.contract?.pattern))) {
     errors.push(`${label}: meta.adminUi must declare version 1 and one of ${[...allowedPatterns].join(', ')}`)
   }
   if (!route.component || !existsSync(route.component)) {
     errors.push(`${label}: route component must be a lazy-loaded local Vue SFC`)
     continue
   }
+  // Standalone anonymous pages intentionally omit the administrative shell.
+  if (route.isPublic) continue
   const componentSource = readFileSync(route.component, 'utf8')
   const importsFoundation = /from\s+['"]@\/components\/admin-ui(?:\/index)?['"]/.test(componentSource)
   const usesPageShell = /<AdminPageShell(?:\s|>)/.test(componentSource)

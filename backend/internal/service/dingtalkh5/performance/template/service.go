@@ -11,9 +11,9 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/pkg/database"
-	"wecheckin/backend/pkg/passwordutil"
 )
 
 const TemplateKeyDefault = "default"
@@ -95,12 +95,8 @@ func EnsureSeedContext(ctx context.Context) error {
 	}
 	now := database.Now()
 
-	hash, err := passwordutil.Hash("123456")
-	if err != nil {
-		return err
-	}
 	for _, item := range defaultUsers() {
-		if err := upsertDefaultPerfUser(db, item, hash, now); err != nil {
+		if err := upsertDefaultPerfUser(ctx, db, item, now); err != nil {
 			return err
 		}
 	}
@@ -225,11 +221,10 @@ func defaultUsers() []defaultUser {
 	}
 }
 
-func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, now int64) error {
+func upsertDefaultPerfUser(ctx context.Context, db *gorm.DB, item defaultUser, now int64) error {
 	user := model.DingTalkH5PerfUser{
 		Account:                item.Account,
 		Name:                   item.Name,
-		Password:               passwordHash,
 		Position:               item.Position,
 		Department:             departmentText(item.DepartmentLevel1, item.DepartmentLevel2, item.DepartmentLevel3),
 		DepartmentLevel1:       item.DepartmentLevel1,
@@ -250,10 +245,15 @@ func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, n
 			"user_obj":       encodePerfUserObj(existing.Obj, user),
 			"user_edit_time": now,
 		}
-		if strings.TrimSpace(existing.Password) == "" {
-			updates["user_password"] = passwordHash
-		}
-		return db.Model(&model.User{}).Where("`id` = ?", existing.ID).Updates(updates).Error
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&model.User{}).Where("`id` = ?", existing.ID).Updates(updates).Error; err != nil {
+				return err
+			}
+			if strings.TrimSpace(existing.Password) == "" {
+				return accountsecurity.SetInitialPasswordWithDBContext(ctx, tx, existing.ID, "123456")
+			}
+			return nil
+		})
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
@@ -261,7 +261,6 @@ func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, n
 	baseUser := model.User{
 		MiniOpenID: item.Account,
 		Name:       item.Name,
-		Password:   passwordHash,
 		Pic:        "/static/default-avatar.png",
 		Forms:      "[]",
 		Obj:        encodePerfUserObj("", user),
@@ -271,7 +270,12 @@ func upsertDefaultPerfUser(db *gorm.DB, item defaultUser, passwordHash string, n
 		EditTime:   now,
 		EditIP:     "127.0.0.1",
 	}
-	return db.Create(&baseUser).Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&baseUser).Error; err != nil {
+			return err
+		}
+		return accountsecurity.SetInitialPasswordWithDBContext(ctx, tx, baseUser.ID, "123456")
+	})
 }
 
 func ensureDefaultTemplateDB(db *gorm.DB) error {

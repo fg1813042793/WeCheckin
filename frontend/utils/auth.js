@@ -1,11 +1,13 @@
 export const CLIENT_TOKEN_KEY = 'token'
 export const CLIENT_INFO_KEY = 'userInfo'
+export const CLIENT_PASSWORD_STATE_KEY = 'client_password_state'
 export const ADMIN_TOKEN_KEY = 'admin_token'
 export const ADMIN_INFO_KEY = 'admin_info'
 
 export const AUTH_STORAGE_KEYS = [
   CLIENT_TOKEN_KEY,
   CLIENT_INFO_KEY,
+  CLIENT_PASSWORD_STATE_KEY,
   ADMIN_TOKEN_KEY,
   ADMIN_INFO_KEY
 ]
@@ -52,10 +54,37 @@ export function getClientAuth() {
   }
 }
 
+export function getClientPasswordState() {
+  return readStorage(CLIENT_PASSWORD_STATE_KEY, {}) || {}
+}
+
+export function clientPasswordChangeRequired() {
+  return getClientPasswordState().passwordChangeRequired === true
+}
+
+export function markClientPasswordChangeRequired() {
+  writeStorage(CLIENT_PASSWORD_STATE_KEY, { ...getClientPasswordState(), passwordChangeRequired: true })
+}
+
+export function clearClientPasswordChangeRequired() {
+  writeStorage(CLIENT_PASSWORD_STATE_KEY, {
+    passwordChangeRequired: false,
+    passwordExpired: false,
+    passwordExpiresAt: 0,
+    passwordExpiryWarning: false
+  })
+}
+
 export function setClientUserInfo(userInfo) {
   if (userInfo) {
     writeStorage(CLIENT_INFO_KEY, userInfo)
   }
+  writeStorage(CLIENT_PASSWORD_STATE_KEY, {
+    passwordChangeRequired: data.passwordChangeRequired === true,
+    passwordExpired: data.passwordExpired === true,
+    passwordExpiresAt: Number(data.passwordExpiresAt || 0),
+    passwordExpiryWarning: data.passwordExpiryWarning === true
+  })
 }
 
 export function setClientAuth(data = {}) {
@@ -72,6 +101,7 @@ export function setClientAuth(data = {}) {
 export function clearClientAuth() {
   removeStorage(CLIENT_TOKEN_KEY)
   removeStorage(CLIENT_INFO_KEY)
+  removeStorage(CLIENT_PASSWORD_STATE_KEY)
   removeStorage('clientMenuPermissionKeys')
   removeStorage('clientApiPermissionKeys')
   removeStorage('clientMenus')
@@ -103,6 +133,25 @@ export function getAdminAuth() {
   }
 }
 
+export function adminPasswordChangeRequired() {
+  const info = getAdminInfo() || {}
+  return info.passwordChangeRequired === true
+}
+
+export function markAdminPasswordChangeRequired() {
+  writeStorage(ADMIN_INFO_KEY, { ...(getAdminInfo() || {}), passwordChangeRequired: true })
+}
+
+export function clearAdminPasswordChangeRequired() {
+  writeStorage(ADMIN_INFO_KEY, {
+    ...(getAdminInfo() || {}),
+    passwordChangeRequired: false,
+    passwordExpired: false,
+    passwordExpiresAt: 0,
+    passwordExpiryWarning: false
+  })
+}
+
 export function setAdminAuth(data = {}) {
   if (data.token) {
     writeStorage(ADMIN_TOKEN_KEY, data.token)
@@ -123,7 +172,8 @@ export function getRequestAuthState(isAdmin) {
   return {
     isAdmin,
     token: isAdmin ? getAdminToken() : getClientToken(),
-    loginUrl: isAdmin ? '/pages/admin/admin_login' : '/pages/login/login'
+    loginUrl: isAdmin ? '/pages/admin/admin_login' : '/pages/login/login',
+    passwordChangeUrl: isAdmin ? '/pages/admin/mgr/admin_mgr_pwd' : '/pages/my/change_password'
   }
 }
 

@@ -16,6 +16,8 @@ import (
 	"wecheckin/backend/internal/formkit/question"
 )
 
+const ScoreModeNone = "none"
+
 // Question 题目（来自题库）
 type Question struct {
 	ID         uint          `json:"id"`
@@ -59,6 +61,9 @@ type PaperResult struct {
 func Grade(questions []Question, answers map[string]interface{}) PaperResult {
 	res := PaperResult{Results: make([]Result, 0, len(questions))}
 	for _, q := range questions {
+		if strings.TrimSpace(q.ScoreMode) == ScoreModeNone {
+			continue
+		}
 		ansVal, _ := answers[fmt.Sprintf("%d", q.ID)]
 		r := gradeOne(q, ansVal)
 		res.Results = append(res.Results, r)

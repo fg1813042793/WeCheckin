@@ -534,7 +534,7 @@ const canModifyApplication = computed(() => {
 
 const resubmitApplication = computed(() => {
   const status = detail.value?.instance.status || ''
-  return ['completed', 'cancelled'].includes(status)
+  return ['completed', 'cancelled', 'voided'].includes(status)
 })
 
 const showResubmitAction = computed(() => Boolean(
@@ -612,7 +612,7 @@ const canDeleteApplication = computed(() => {
   const status = detail.value?.instance.status || ''
   return Boolean(
     applicationOwner.value
-    && ['completed', 'rejected', 'withdrawn', 'cancelled'].includes(status),
+    && ['completed', 'rejected', 'withdrawn', 'cancelled', 'voided'].includes(status),
   )
 })
 
@@ -760,10 +760,12 @@ function historyLabel(eventType = '') {
     task_submitted: '办理已提交',
     node_entered: '进入节点',
     node_completed: '节点已完成',
+    node_skipped: '审批节点已自动跳过',
     instance_completed: '流程已完成',
     instance_rejected: '流程已驳回',
     instance_withdrawn: '流程已撤回',
     instance_cancelled: '流程已取消',
+    instance_voided: '流程已作废',
     instance_commented: '评论',
     instance_form_revised: '表单已修改',
     instance_version_upgraded: '实例版本已升级',
@@ -1806,6 +1808,7 @@ async function deleteApplication() {
               <WorkflowReadOnlyGraph
                 :nodes="detail.nodes || []"
                 :edges="detail.edges || []"
+                :node-progress="detail.nodeProgress || []"
               />
             </view>
           </scroll-view>

@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import ts from 'typescript'
+import './check-workflow-field-width.mjs'
+import './check-workflow-graph-progress.mjs'
 
 const root = process.cwd()
 
@@ -193,7 +195,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/workflow-status.ts',
-    patterns: ['WorkflowStatusMeta', 'workflowInstanceStatusMeta', 'workflowTaskStatusMeta', 'workflowNodeProgressStatusMeta', 'running: { label: \'审批中\', type: \'warning\' }', 'waiting: { label: \'待激活\', type: \'warning\' }', 'processing: { label: \'处理中\', type: \'warning\' }', 'completed: { label: \'已完成\', type: \'success\' }', 'rejected: { label: \'已驳回\', type: \'error\' }', 'cancelled: { label: \'已取消\', type: \'info\' }'],
+    patterns: ['WorkflowStatusMeta', 'workflowInstanceStatusMeta', 'workflowTaskStatusMeta', 'workflowNodeProgressStatusMeta', 'running: { label: \'审批中\', type: \'warning\' }', 'waiting: { label: \'待激活\', type: \'warning\' }', 'processing: { label: \'处理中\', type: \'warning\' }', 'completed: { label: \'已完成\', type: \'success\' }', 'rejected: { label: \'已驳回\', type: \'error\' }', 'cancelled: { label: \'已取消\', type: \'info\' }', 'voided: { label: \'已作废\', type: \'info\' }'],
   },
   {
     file: 'src/pages/workflow/workflow-route-keys.ts',
@@ -548,7 +550,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowRuntimeForm.vue',
-    patterns: ['WorkflowFormField', 'fieldAccess', 'detail_list', 'WorkflowFieldControl', ':textarea-default-min-rows="2"', ':textarea-default-max-rows="6"', '<u-modal', ':z-index="10120"', 'workflow-help-modal', 'width: 680px', 'helpVisible.value = true', 'validateWorkflowFormData(props.fields, props.modelValue, accessMap.value)', 'readonlyAppearance?: \'disabled\' | \'plain\'', '\'workflow-form--plain-readonly\': readonlyAppearance === \'plain\'', '\'workflow-form--fully-readonly\': readonly && readonlyAppearance === \'plain\'', ':readonly-appearance="readonlyAppearance"', 'class="workflow-form__help-action"', '.workflow-form--fully-readonly {', '.workflow-form--plain-readonly {', ':deep(.u-input--disabled .u-input__input)', ':deep(.u-textarea--disabled .u-textarea__field)', ':deep(.u-switch--disabled)'],
+    patterns: ['WorkflowFormField', 'fieldAccess', 'detail_list', 'WorkflowFieldControl', ':textarea-default-min-rows="2"', ':textarea-default-max-rows="6"', '<u-modal', ':z-index="10120"', 'workflow-help-modal', 'width: 680px', 'helpVisible.value = true', 'validateWorkflowFormDataDetailed(props.fields, props.modelValue, accessMap.value)', 'touchedFields', 'touchedDetailCells', 'workflowDetailCellValidationKey', '@blur="touchField(field, \'blur\')"', '@change="touchField(field, \'change\')"', 'detailCellError(field, row, rowIndex, column)', 'workflow-detail__column--error', 'readonlyAppearance?: \'disabled\' | \'plain\'', '\'workflow-form--plain-readonly\': readonlyAppearance === \'plain\'', '\'workflow-form--fully-readonly\': readonly && readonlyAppearance === \'plain\'', ':readonly-appearance="readonlyAppearance"', 'class="workflow-form__help-action"', '.workflow-form--fully-readonly {', '.workflow-form--plain-readonly {', ':deep(.u-input--disabled .u-input__input)', ':deep(.u-textarea--disabled .u-textarea__field)', ':deep(.u-switch--disabled)'],
   },
   {
     file: 'src/pages/workflow/workflow-form.ts',
@@ -556,7 +558,7 @@ const requiredContent = [
   },
   {
     file: 'src/pages/workflow/components/WorkflowFieldControl.vue',
-    patterns: ['WorkflowFormField', 'WorkflowTextarea', 'textareaDefaultMinRows', 'textareaDefaultMaxRows', 'field.minVisibleRows || textareaDefaultMinRows', 'field.maxVisibleRows || textareaDefaultMaxRows', 'u-input', 'u-select', 'u-checkbox-group', 'readonlyAppearance?: \'disabled\' | \'plain\'', 'const plainReadonlyEmpty = computed', 'value.every((item) =>', 'v-if="plainReadonlyEmpty" class="workflow-control__empty"', '暂无填写', '.workflow-control__empty {'],
+    patterns: ['WorkflowFormField', 'WorkflowTextarea', 'textareaDefaultMinRows', 'textareaDefaultMaxRows', 'field.minVisibleRows || textareaDefaultMinRows', 'field.maxVisibleRows || textareaDefaultMaxRows', 'u-input', 'u-select', 'u-checkbox-group', "'blur': []", "'change': []", '@blur="emit(\'blur\')"', '@change="emit(\'change\')"', 'readonlyAppearance?: \'disabled\' | \'plain\'', 'const plainReadonlyEmpty = computed', 'value.every((item) =>', 'v-if="plainReadonlyEmpty" class="workflow-control__empty"', '暂无填写', '.workflow-control__empty {'],
   },
   {
     file: 'src/pages/workflow/components/WorkflowFieldControl.vue',
@@ -657,7 +659,8 @@ const requiredContent = [
       ':disabled="applicationActionBusy"',
       'workflowRequestErrorMessage(error, \'申请删除失败\')',
       'const resubmitApplication = computed',
-      '[\'completed\', \'cancelled\'].includes(status)',
+      '[\'completed\', \'cancelled\', \'voided\'].includes(status)',
+      'instance_voided: \'流程已作废\'',
       'const modifyApplicationLabel = computed',
       '{{ modifyApplicationLabel }}',
       'resubmitApplication.value ? \'再次提交\' : \'修改申请\'',
@@ -1225,6 +1228,7 @@ if (existsSync(resolve(root, workflowStatusPath))) {
     assert.deepEqual(workflowInstanceStatusMeta('completed'), { label: '已完成', type: 'success' })
     assert.deepEqual(workflowInstanceStatusMeta('rejected'), { label: '已驳回', type: 'error' })
     assert.deepEqual(workflowInstanceStatusMeta('cancelled'), { label: '已取消', type: 'info' })
+    assert.deepEqual(workflowInstanceStatusMeta('voided'), { label: '已作废', type: 'info' })
     assert.equal(workflowTaskStatusMeta('waiting').type, 'warning')
     assert.equal(workflowTaskStatusMeta('approved').type, 'success')
     assert.equal(workflowTaskStatusMeta('cancelled').type, 'info')

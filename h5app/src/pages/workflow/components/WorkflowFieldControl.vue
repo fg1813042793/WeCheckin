@@ -28,6 +28,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: unknown]
+  'blur': []
+  'change': []
 }>()
 
 const remoteOptions = ref<WorkflowFormOption[]>([])
@@ -238,6 +240,7 @@ function closeDesktopSelect() {
 
 function selectDesktopOption(option: WorkflowFormOption) {
   emit('update:modelValue', option.value)
+  emit('change')
   closeDesktopSelect()
 }
 
@@ -245,6 +248,7 @@ function clearSelect() {
   if (props.readonly)
     return
   emit('update:modelValue', '')
+  emit('change')
   desktopSelectOpen.value = false
   mobileSelectVisible.value = false
 }
@@ -253,6 +257,7 @@ function confirmSelect(items: Array<{ value?: string }>) {
   const selected = items[0]
   if (selected?.value !== undefined) {
     emit('update:modelValue', String(selected.value))
+    emit('change')
     mobileSelectVisible.value = false
   }
 }
@@ -265,6 +270,7 @@ function updateDate(event: { detail?: { value?: string } }) {
   else {
     emit('update:modelValue', value)
   }
+  emit('change')
 }
 
 function updateTime(event: { detail?: { value?: string } }) {
@@ -275,13 +281,24 @@ function updateTime(event: { detail?: { value?: string } }) {
   else {
     emit('update:modelValue', value ? `${value}:00` : '')
   }
+  emit('change')
 }
 
 function updateRange(index: number, event: { detail?: { value?: string } }) {
-  const next = [...arrayModel.value]
+  const previous = [...arrayModel.value]
+  const next = [...previous]
   while (next.length < 2) next.push('')
   next[index] = String(event.detail?.value || '')
   emit('update:modelValue', next)
+  const previousComplete = Boolean(previous[0] && previous[1])
+  const nextComplete = Boolean(next[0] && next[1])
+  if (previousComplete || nextComplete)
+    emit('change')
+}
+
+function updateWithChange(value: unknown) {
+  emit('update:modelValue', value)
+  emit('change')
 }
 </script>
 
@@ -295,7 +312,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       :field="field"
       :model-value="modelValue"
       :readonly="readonly"
-      @update:model-value="emit('update:modelValue', $event)"
+      @update:model-value="updateWithChange"
     />
     <u-input
       v-else-if="['text', 'phone', 'email', 'user', 'department'].includes(field.type)"
@@ -305,6 +322,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       :disabled="readonly"
       :maxlength="field.maxLength || undefined"
       :placeholder="field.placeholder || '请输入'"
+      @blur="emit('blur')"
     />
     <WorkflowTextarea
       v-else-if="field.type === 'textarea'"
@@ -315,6 +333,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       :max-rows="field.maxVisibleRows || textareaDefaultMaxRows"
       :placeholder="field.placeholder || '请输入内容'"
       count
+      @blur="emit('blur')"
     />
     <u-input
       v-else-if="field.type === 'number' || field.type === 'amount'"
@@ -323,6 +342,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       :disabled="readonly"
       type="number"
       :placeholder="field.placeholder || (field.type === 'amount' ? '请输入金额' : '请输入数字')"
+      @blur="emit('blur')"
     />
     <view
       v-else-if="field.type === 'select'"
@@ -381,6 +401,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       v-model="stringModel"
       :disabled="readonly"
       wrap
+      @change="emit('change')"
     >
       <u-radio
         v-for="option in options"
@@ -394,6 +415,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       v-model="arrayModel"
       :disabled="readonly"
       wrap
+      @change="emit('change')"
     >
       <u-checkbox
         v-for="option in options"
@@ -403,7 +425,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       />
     </u-checkbox-group>
     <view v-else-if="field.type === 'boolean'" class="workflow-control__switch">
-      <u-switch v-model="booleanModel" :disabled="readonly" />
+      <u-switch v-model="booleanModel" :disabled="readonly" @change="emit('change')" />
       <text>{{ booleanModel ? '是' : '否' }}</text>
     </view>
     <picker
@@ -474,6 +496,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       v-model="arrayTextModel"
       :disabled="readonly"
       :placeholder="field.placeholder || '每行填写一项'"
+      @blur="emit('blur')"
     />
     <u-input
       v-else
@@ -481,6 +504,7 @@ function updateRange(index: number, event: { detail?: { value?: string } }) {
       :border="true"
       :disabled="readonly"
       :placeholder="field.placeholder || '请输入'"
+      @blur="emit('blur')"
     />
   </view>
 </template>

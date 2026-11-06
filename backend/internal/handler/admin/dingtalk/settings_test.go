@@ -188,6 +188,36 @@ func TestDingTalkSettingsExposeH5LoginCaptchaToggle(t *testing.T) {
 	}
 }
 
+func TestDingTalkSettingsExposeIndependentSlidingExpirationToggle(t *testing.T) {
+	files := []string{
+		"handler.go",
+		"../../../service/admin/dingtalk/dto.go",
+		"../../../../../admin/src/views/dingtalk-setup/index.vue",
+		"../../../../../admin/src/api/types.ts",
+	}
+	combined := ""
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		combined += string(data)
+	}
+	for _, want := range []string{
+		"TOKEN_DINGTALK_H5_SLIDING_EXPIRE_ENABLED",
+		"SlidingExpireEnabled",
+		`json:"slidingExpireEnabled"`,
+		"slidingExpireEnabled?: number",
+		"form.slidingExpireEnabled",
+		`c.PostForm("slidingExpireEnabled")`,
+		`label="Token 滑动过期"`,
+	} {
+		if !strings.Contains(combined, want) {
+			t.Fatalf("DingTalk H5 sliding expiration setting missing %q", want)
+		}
+	}
+}
+
 func TestDingTalkSettingsCorpDeleteRequiresConfirmation(t *testing.T) {
 	viewSrc, err := os.ReadFile("../../../../../admin/src/views/dingtalk-setup/index.vue")
 	if err != nil {

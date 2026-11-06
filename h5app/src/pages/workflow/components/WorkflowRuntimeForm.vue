@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { WorkflowValidationEvent } from '../workflow-form'
 import type {
   WorkflowFieldAccessMap,
   WorkflowFieldActionsMap,
@@ -12,14 +13,17 @@ import {
   workflowCalculationDisplay,
   workflowCalculationResultText,
 } from '../workflow-calculation'
+import { workflowFieldSpanStyle as fieldSpanStyle } from '../workflow-field-width'
 import {
   cloneWorkflowValue,
   createWorkflowDetailRow,
   emptyWorkflowFieldValue,
-  validateWorkflowFormData,
+  validateWorkflowFormDataDetailed,
   visibleWorkflowFormFields,
+  workflowDetailCellValidationKey,
   workflowDetailRowKey,
   workflowFieldAccessMap,
+  workflowFieldValidationTrigger,
 } from '../workflow-form'
 import WorkflowFieldControl from './WorkflowFieldControl.vue'
 
@@ -52,6 +56,8 @@ const emit = defineEmits<{
 }>()
 
 const localShowErrors = ref(false)
+const touchedFields = ref<Record<string, true>>({})
+const touchedDetailCells = ref<Record<string, true>>({})
 const helpVisible = ref(false)
 const activeHelp = ref({ title: '字段说明', content: '' })
 const activeTabKey = ref('')
@@ -73,7 +79,8 @@ const renderedFields = computed(() => {
   const active = visibleFields.value.find(field => field.key === activeTabKey.value)
   return active ? [active] : visibleFields.value.slice(0, 1)
 })
-const validationErrors = computed(() => validateWorkflowFormData(props.fields, props.modelValue, accessMap.value))
+const validationResult = computed(() => validateWorkflowFormDataDetailed(props.fields, props.modelValue, accessMap.value))
+const validationErrors = computed(() => validationResult.value.errors)
 const errorsVisible = computed(() => props.showErrors || localShowErrors.value)
 watch(
   [visibleFields, () => props.presentation],
@@ -87,6 +94,7 @@ watch(
 
 watch(activeTabKey, () => void nextTick(ensureActiveTabVisible))
 watch(tabOverflow, () => void nextTick(syncTabOverflow))
+watch(() => props.fields, () => resetValidationState())
 
 onMounted(() => {
   // #ifdef H5
@@ -116,13 +124,22 @@ function calculationText(field: WorkflowFormField) {
   return workflowCalculationResultText(result.value, field.calculation)
 }
 
-function fieldSpanStyle(field: WorkflowFormField) {
-  const span = [6, 8, 12, 24].includes(Number(field.span || 24)) ? Number(field.span || 24) : 24
-  return { width: `${span / 24 * 100}%` }
+function fieldError(field: WorkflowFormField) {
+  if (errorsVisible.value)
+    return validationErrors.value[field.key] || ''
+  return touchedFields.value[field.key] ? validationResult.value.fieldErrors[field.key] || '' : ''
 }
 
-function fieldError(field: WorkflowFormField) {
-  return errorsVisible.value ? validationErrors.value[field.key] || '' : ''
+function resetValidationState() {
+  localShowErrors.value = false
+  touchedFields.value = {}
+  touchedDetailCells.value = {}
+}
+
+function touchField(field: WorkflowFormField, event: WorkflowValidationEvent) {
+  if (fieldReadonly(field) || workflowFieldValidationTrigger(field) !== event)
+    return
+  touchedFields.value = { ...touchedFields.value, [field.key]: true }
 }
 
 function updateField(field: WorkflowFormField, value: unknown) {
@@ -145,6 +162,36 @@ function detailRowId(field: WorkflowFormField, row: Record<string, unknown>, ind
   return String(row[workflowDetailRowKey(field)] || '') || `${field.key}_${index}`
 }
 
+function detailCellKey(field: WorkflowFormField, row: Record<string, unknown>, index: number, column: WorkflowFormField) {
+  return workflowDetailCellValidationKey(field.key, detailRowId(field, row, index), column.key)
+}
+
+function touchDetailCell(
+  field: WorkflowFormField,
+  row: Record<string, unknown>,
+  rowIndex: number,
+  column: WorkflowFormField,
+  event: WorkflowValidationEvent,
+) {
+  if (fieldReadonly(field) || workflowFieldValidationTrigger(column) !== event)
+    return
+  const key = detailCellKey(field, row, rowIndex, column)
+  touchedDetailCells.value = { ...touchedDetailCells.value, [key]: true }
+  if (event === 'change')
+    touchField(field, 'change')
+}
+
+function detailCellError(field: WorkflowFormField, row: Record<string, unknown>, rowIndex: number, column: WorkflowFormField) {
+  const key = detailCellKey(field, row, rowIndex, column)
+  if (!errorsVisible.value && !touchedDetailCells.value[key])
+    return ''
+  return validationResult.value.detailCellErrors[key] || ''
+}
+
+function detailRowHasError(field: WorkflowFormField, row: Record<string, unknown>, rowIndex: number) {
+  return (field.columns || []).some(column => Boolean(detailCellError(field, row, rowIndex, column)))
+}
+
 function canAddRow(field: WorkflowFormField) {
   if (fieldReadonly(field))
     return false
@@ -163,12 +210,21 @@ function addDetailRow(field: WorkflowFormField) {
   if (!canAddRow(field))
     return
   updateField(field, [...detailRows(field), createWorkflowDetailRow(field)])
+  touchField(field, 'change')
 }
 
 function removeDetailRow(field: WorkflowFormField, index: number) {
   if (!canDeleteRow(field) || detailRows(field).length <= Number(field.minRows || 0))
     return
-  updateField(field, detailRows(field).filter((_, rowIndex) => rowIndex !== index))
+  const rows = detailRows(field)
+  const removed = rows[index]
+  if (removed) {
+    const rowID = detailRowId(field, removed, index)
+    const prefix = `${field.key}:${rowID}:`
+    touchedDetailCells.value = Object.fromEntries(Object.entries(touchedDetailCells.value).filter(([key]) => !key.startsWith(prefix))) as Record<string, true>
+  }
+  updateField(field, rows.filter((_, rowIndex) => rowIndex !== index))
+  touchField(field, 'change')
 }
 
 function updateDetailCell(field: WorkflowFormField, rowIndex: number, column: WorkflowFormField, value: unknown) {
@@ -287,7 +343,7 @@ function firstErrorTab(errors: Record<string, string>) {
 
 function validate() {
   localShowErrors.value = true
-  const errors = validateWorkflowFormData(props.fields, props.modelValue, accessMap.value)
+  const errors = validateWorkflowFormDataDetailed(props.fields, props.modelValue, accessMap.value).errors
   if (tabMode.value && Object.keys(errors).length > 0) {
     const target = firstErrorTab(errors)
     if (target)
@@ -438,6 +494,7 @@ defineExpose({ validate })
                 v-else
                 :key="detailRowId(field, row, rowIndex)"
                 class="workflow-detail__row"
+                :class="{ 'workflow-detail__row--error': detailRowHasError(field, row, rowIndex) }"
               >
                 <view class="workflow-detail__row-header">
                   <text>第 {{ rowIndex + 1 }} 行</text>
@@ -454,6 +511,7 @@ defineExpose({ validate })
                     v-for="column in field.columns || []"
                     :key="column.key"
                     class="workflow-detail__column"
+                    :class="{ 'workflow-detail__column--error': Boolean(detailCellError(field, row, rowIndex, column)) }"
                     :style="fieldSpanStyle(column)"
                   >
                     <view class="workflow-form__field-label">
@@ -470,7 +528,12 @@ defineExpose({ validate })
                       :textarea-default-min-rows="2"
                       :textarea-default-max-rows="6"
                       @update:model-value="updateDetailCell(field, rowIndex, column, $event)"
+                      @blur="touchDetailCell(field, row, rowIndex, column, 'blur')"
+                      @change="touchDetailCell(field, row, rowIndex, column, 'change')"
                     />
+                    <text v-if="detailCellError(field, row, rowIndex, column)" class="workflow-form__error workflow-detail__cell-error">
+                      {{ detailCellError(field, row, rowIndex, column) }}
+                    </text>
                   </view>
                 </view>
               </view>
@@ -497,6 +560,8 @@ defineExpose({ validate })
               :readonly="fieldReadonly(field)"
               :readonly-appearance="readonlyAppearance"
               @update:model-value="updateField(field, $event)"
+              @blur="touchField(field, 'blur')"
+              @change="touchField(field, 'change')"
             />
             <text v-if="fieldError(field)" class="workflow-form__error">
               {{ fieldError(field) }}
@@ -787,6 +852,34 @@ defineExpose({ validate })
   border: 1px solid $u-border-color;
   border-radius: 8rpx;
   background: #fff;
+}
+
+.workflow-detail__row--error {
+  border-color: rgba(250, 53, 52, 0.55);
+}
+
+.workflow-detail__row--error .workflow-detail__row-header {
+  color: $u-type-error;
+}
+
+.workflow-detail__column--error {
+  border-radius: 6rpx;
+  background: rgba(250, 53, 52, 0.035);
+}
+
+.workflow-detail__column--error {
+  :deep(.u-input),
+  :deep(.u-textarea),
+  :deep(.workflow-textarea__native),
+  :deep(.workflow-picker),
+  :deep(.workflow-control__select > .u-input) {
+    border-color: $u-type-error !important;
+    box-shadow: 0 0 0 1px rgba(250, 53, 52, 0.12);
+  }
+}
+
+.workflow-detail__cell-error {
+  margin-top: 6rpx;
 }
 
 .workflow-detail__row-header {

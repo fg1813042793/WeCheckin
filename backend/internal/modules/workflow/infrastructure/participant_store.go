@@ -92,8 +92,32 @@ func renderNotificationPayload(state *workflowdomain.State, intent workflowdomai
 		RecipientUserID: intent.RecipientUserID, Kind: string(intent.Kind),
 	}
 	payload.View = workflowTaskNotificationView(string(intent.Kind), intent.TaskID, state.Instance.ID)
+	if payload.View == "" {
+		payload.View = approvalResultRecipientTaskView(state, intent)
+	}
 	if intent.Kind == workflowdomain.NotificationKindInstanceCommented || intent.Kind == workflowdomain.NotificationKindInstanceFormRevised {
 		payload.MessageType = application.NotificationMessageTypeActionCard
 	}
 	return payload
+}
+
+func approvalResultRecipientTaskView(state *workflowdomain.State, intent workflowdomain.NotificationIntent) string {
+	switch intent.Kind {
+	case workflowdomain.NotificationKindApprovalResultApproved,
+		workflowdomain.NotificationKindApprovalResultRejected,
+		workflowdomain.NotificationKindApprovalResultReturned:
+	default:
+		return ""
+	}
+	recipientID := strings.TrimSpace(intent.RecipientUserID)
+	if state == nil || recipientID == "" {
+		return ""
+	}
+	for index := len(state.Tasks) - 1; index >= 0; index-- {
+		task := state.Tasks[index]
+		if task.Status == workflowdomain.TaskStatusPending && strings.TrimSpace(task.AssigneeID) == recipientID {
+			return workflowTaskView(task.ID, state.Instance.ID)
+		}
+	}
+	return ""
 }

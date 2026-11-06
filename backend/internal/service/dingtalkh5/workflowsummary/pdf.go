@@ -49,6 +49,9 @@ type pdfTextRun struct {
 }
 
 func renderPDF(document exportDocument) ([]byte, error) {
+	if document.Layout == DocumentLayoutAnswerSheet {
+		return renderAnswerSheetPDF(document), nil
+	}
 	renderer := newPDFRenderer(document.Title)
 	renderer.drawText(pdfPageMargin, 43, 17, pdfColorText, document.Title)
 	renderer.y = 76
@@ -137,7 +140,7 @@ func (renderer *pdfRenderer) drawFieldRows(rows [][]exportFieldCell) {
 		valueCells := make([]pdfCell, 0, len(fields))
 		for _, field := range fields {
 			span := normalizedExportSpan(field.Span)
-			width := pdfContentWidth * float64(span) / 24
+			width := pdfContentWidth * span / exportBaseGridColumns
 			labelCells = append(labelCells, newPDFCell(x, width, field.Label, pdfColorLabelFill, pdfColorMuted, 9))
 			valueCells = append(valueCells, newPDFCell(x, width, field.Value, pdfColorWhite, pdfColorText, 10))
 			x += width

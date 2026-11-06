@@ -77,6 +77,7 @@ func (store *GormStore) SoftDeleteInstances(ctx context.Context, instanceIDs []s
 			workflowmodel.InstanceStatusCompleted,
 			workflowmodel.InstanceStatusRejected,
 			workflowmodel.InstanceStatusCancelled,
+			workflowmodel.InstanceStatusVoided,
 			"withdrawn",
 		}).
 		Updates(map[string]interface{}{"admin_deleted_at": deletedAt, "admin_deleted_by": strings.TrimSpace(actorID)})

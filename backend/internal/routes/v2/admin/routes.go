@@ -33,6 +33,9 @@ import (
 	notificationoutboxapp "wecheckin/backend/internal/modules/notificationoutbox/application"
 	notificationoutboxinfra "wecheckin/backend/internal/modules/notificationoutbox/infrastructure"
 	notificationoutboxhttp "wecheckin/backend/internal/modules/notificationoutbox/transport/httpadmin"
+	portalapp "wecheckin/backend/internal/modules/publicportal/application"
+	portalinfra "wecheckin/backend/internal/modules/publicportal/infrastructure"
+	portalhttp "wecheckin/backend/internal/modules/publicportal/transport/httpadmin"
 	scheduledtaskapp "wecheckin/backend/internal/modules/scheduledtask/application"
 	scheduledtaskinfra "wecheckin/backend/internal/modules/scheduledtask/infrastructure"
 	scheduledtaskhttp "wecheckin/backend/internal/modules/scheduledtask/transport/httpadmin"
@@ -63,9 +66,21 @@ func Register(h *server.Hertz) {
 	registerSurveyRoutes(admin)
 	registerExamRoutes(admin)
 	registerUserFeedbackRoutes(admin)
+	registerPublicPortalRoutes(admin)
 	workflowRuntime := registerWorkflowRoutes(admin)
 	notificationService := registerNotificationRoutes(admin)
 	registerScheduledTaskRoutes(admin, workflowRuntime, notificationService)
+}
+
+func registerPublicPortalRoutes(admin *route.RouterGroup) {
+	handler := portalhttp.NewHandler(portalapp.NewService(portalinfra.NewGormStore(database.GetDB())))
+	admin.GET("/public-portal", handler.Get)
+	admin.GET("/public-portal/options", handler.Options)
+	admin.GET("/public-portal/preview", handler.Preview)
+	admin.PUT("/public-portal/settings", handler.SaveSettings)
+	admin.POST("/public-portal/items", handler.CreateItem)
+	admin.PUT("/public-portal/items/:id", handler.UpdateItem)
+	admin.DELETE("/public-portal/items/:id", handler.DeleteItem)
 }
 
 func registerUserFeedbackRoutes(admin *route.RouterGroup) {
@@ -165,6 +180,7 @@ func registerWorkflowRoutes(admin *route.RouterGroup) *workflowapp.Service {
 	admin.DELETE("/workflow-instances/:id", runtimeHandler.DeleteInstance)
 	admin.POST("/workflow-instances/:id/resume", runtimeHandler.ResumeTimers)
 	admin.POST("/workflow-instances/:id/cancel", runtimeHandler.CancelInstance)
+	admin.POST("/workflow-instances/:id/void", runtimeHandler.VoidInstance)
 	admin.GET("/workflow-instances/:id/version-upgrade-preview", runtimeHandler.PreviewInstanceVersionUpgrade)
 	admin.POST("/workflow-instances/:id/version-upgrade", runtimeHandler.UpgradeInstanceVersion)
 	admin.GET("/workflow-tasks", runtimeHandler.ListTasks)
@@ -263,6 +279,8 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	admin.PUT("/settings/content", aSetup.SetContentSetup)
 	admin.GET("/settings/mini-qr", aSetup.GenMiniQr)
 	admin.GET("/settings/debug-token", aSetup.DebugTokenConfig)
+	admin.GET("/password-policy", aSetup.GetPasswordPolicy)
+	admin.PUT("/password-policy", aSetup.SavePasswordPolicy)
 	admin.GET("/dingtalk/settings", aDingTalk.GetSettings)
 	admin.POST("/uploads", aUpload.Upload)
 	admin.PUT("/dingtalk/settings", aDingTalk.SaveSettings)

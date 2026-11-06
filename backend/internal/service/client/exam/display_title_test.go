@@ -30,6 +30,36 @@ func TestNormalizeExamDisplayTitleSettings(t *testing.T) {
 	}
 }
 
+func TestNormalizeExamDownloadSettings(t *testing.T) {
+	raw := `{"answerDownloadFormat":" DOCX ","answerDownloadExpireDays":30,"answerDownloadBaseUrl":" https://api.example.com:8086/ ","publicUrl":" https://exam.example.com/ef1/5 ","logicRules":"[]"}`
+	result, err := NormalizeDisplayTitleSettings(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var settings map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings["answerDownloadFormat"] != "docx" || settings["answerDownloadExpireDays"] != float64(30) || settings["answerDownloadBaseUrl"] != "https://api.example.com:8086" || settings["logicRules"] != "[]" {
+		t.Fatalf("normalized settings = %#v", settings)
+	}
+
+	for _, invalid := range []string{
+		`{"answerDownloadFormat":"zip"}`,
+		`{"answerDownloadFormat":1}`,
+		`{"answerDownloadExpireDays":0}`,
+		`{"answerDownloadExpireDays":31}`,
+		`{"answerDownloadExpireDays":"7"}`,
+		`{"answerDownloadBaseUrl":"https://api.example.com/base"}`,
+		`{"answerDownloadBaseUrl":"https://api.example.com?token=x"}`,
+		`{"answerDownloadBaseUrl":"https://user:pass@api.example.com"}`,
+	} {
+		if _, err := NormalizeDisplayTitleSettings(invalid); err == nil {
+			t.Fatalf("accepted invalid download settings: %s", invalid)
+		}
+	}
+}
+
 func TestCopyKeepsDisplayNameSeparateFromManagementName(t *testing.T) {
 	copied := buildExamCopy(model.Exam{Title: "内部管理名", Settings: `{"displayTitle":"考生名称"}`}, 1, 2, 1000)
 	var settings map[string]interface{}

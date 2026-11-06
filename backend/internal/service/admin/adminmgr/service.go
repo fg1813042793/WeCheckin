@@ -8,12 +8,13 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	onlineservice "wecheckin/backend/internal/service/admin/online"
 	"wecheckin/backend/internal/support/access"
 	"wecheckin/backend/internal/support/adminaccess"
 	"wecheckin/backend/internal/support/media"
+	"wecheckin/backend/internal/support/passwordsession"
 	"wecheckin/backend/pkg/database"
-	"wecheckin/backend/pkg/passwordutil"
 )
 
 type ListItem struct {
@@ -217,15 +218,10 @@ func InsertContext(ctx context.Context, name, password, desc, phone, addIP strin
 	if cnt > 0 {
 		return fmt.Errorf("用户姓名已存在")
 	}
-	hash, err := passwordutil.Hash(password)
-	if err != nil {
-		return err
-	}
 	now := database.Now()
 	admin := model.Admin{
 		MiniOpenID: fmt.Sprintf("admin:%s:%d", name, now),
 		Name:       name,
-		Password:   hash,
 		Desc:       desc,
 		Phone:      phone,
 		Status:     1,
@@ -238,6 +234,9 @@ func InsertContext(ctx context.Context, name, password, desc, phone, addIP strin
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&admin).Error; err != nil {
+			return err
+		}
+		if err := accountsecurity.SetInitialPasswordWithDBContext(ctx, tx, admin.ID, password); err != nil {
 			return err
 		}
 		return access.SaveAdminDeptsTx(tx, admin.ID, deptIDs)
@@ -338,20 +337,25 @@ func EditContext(ctx context.Context, id, name, desc, pic, phone, password, addI
 	if pic != "" {
 		updates["user_pic"] = pic
 	}
-	if password != "" {
-		hash, err := passwordutil.Hash(password)
-		if err != nil {
-			return err
-		}
-		updates["user_password"] = hash
-	}
 	uid, _ := strconv.Atoi(id)
-	return db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.Admin{}).Where("`id` = ?", id).Updates(updates).Error; err != nil {
 			return err
 		}
+		if password != "" {
+			if err := accountsecurity.ResetTemporaryPasswordWithDBContext(ctx, tx, uint(uid), password); err != nil {
+				return err
+			}
+		}
 		return access.SaveAdminDeptsTx(tx, uint(uid), deptIDs)
 	})
+	if err != nil {
+		return err
+	}
+	if password != "" {
+		return passwordsession.InvalidateAllContext(ctx, uint(uid))
+	}
+	return nil
 }
 
 func SetStatus(id string, status int) error {
@@ -359,12 +363,19 @@ func SetStatus(id string, status int) error {
 }
 
 func SetStatusContext(ctx context.Context, id string, status int) error {
+	uid, err := strconv.Atoi(id)
+	if err != nil {
+		return err
+	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 
-	err := db.Model(&model.Admin{}).Where("`id` = ?", id).Scopes(adminLoginRoleFilter).Update("user_status", status).Error
-	if err == nil && status != 1 {
-		onlineservice.ForceOfflineAdmin(id, "")
+	err = db.Model(&model.Admin{}).Where("`id` = ?", id).Scopes(adminLoginRoleFilter).Update("user_status", status).Error
+	if err != nil {
+		return err
 	}
-	return err
+	if status != 1 {
+		return passwordsession.InvalidateAllContext(ctx, uint(uid))
+	}
+	return nil
 }

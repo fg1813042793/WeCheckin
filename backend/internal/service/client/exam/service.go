@@ -158,6 +158,31 @@ func (s *Service) ListForAdminContext(ctx context.Context, keyword, category, st
 	return list, total, nil
 }
 
+func (s *Service) ResponseCountsContext(ctx context.Context, examIDs []uint) (map[uint]int, error) {
+	countMap := make(map[uint]int, len(examIDs))
+	if len(examIDs) == 0 {
+		return countMap, nil
+	}
+	type responseCountRow struct {
+		ExamID uint `gorm:"column:exam_r_exam_id"`
+		Count  int  `gorm:"column:cnt"`
+	}
+	var rows []responseCountRow
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	if err := db.Model(&model.ExamRecord{}).
+		Select("`exam_r_exam_id`, COUNT(*) AS cnt").
+		Where("`exam_r_exam_id` IN ? AND `exam_r_status` >= ?", examIDs, 1).
+		Group("`exam_r_exam_id`").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		countMap[row.ExamID] = row.Count
+	}
+	return countMap, nil
+}
+
 func (s *Service) Get(id uint) (*model.Exam, error) {
 	return s.GetContext(context.Background(), id)
 }

@@ -154,6 +154,10 @@ func workflowTaskNotificationView(kind, taskID, instanceID string) string {
 	default:
 		return ""
 	}
+	return workflowTaskView(taskID, instanceID)
+}
+
+func workflowTaskView(taskID, instanceID string) string {
 	taskID = strings.TrimSpace(taskID)
 	instanceID = strings.TrimSpace(instanceID)
 	if taskID == "" || instanceID == "" {

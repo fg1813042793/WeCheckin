@@ -3,7 +3,7 @@
     <!-- 题目标题 -->
     <div v-show="editing" class="edit-title-line">
       <el-tag size="small" :type="tagType(q.type)||undefined" style="flex-shrink:0;margin-top:5px" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
-      <el-tag v-if="q.examScore" size="small" type="warning" style="flex-shrink:0;margin-top:5px">{{ q.examScore }}分</el-tag>
+      <el-tag v-if="examDisplayScore(q)" size="small" type="warning" style="flex-shrink:0;margin-top:5px">{{ examDisplayScore(q) }}分</el-tag>
       <div class="title-editor-wrap" @click.stop>
         <QuillEditor v-model:content="q.title" content-type="html"
           :options="titleEditorOptions"
@@ -35,7 +35,7 @@
     </div>
     <div v-show="!editing" class="preview-header">
       <el-tag size="small" :type="tagType(q.type)||undefined" class="preview-type-tag" :class="{'required-tag': q.required}">{{ typeName(q.type) }}</el-tag>
-      <el-tag v-if="q.examScore" size="small" type="warning" class="preview-score-tag">{{ q.examScore }}分</el-tag>
+      <el-tag v-if="examDisplayScore(q)" size="small" type="warning" class="preview-score-tag">{{ examDisplayScore(q) }}分</el-tag>
       <div class="preview-title" v-html="q.title"></div>
     </div>
 
@@ -68,7 +68,7 @@
             placeholder="输入选项"
             @ready="(quill: any) => onOptionEditorReady(quill, i)" />
         </div>
-        <el-tag v-if="o.value===examCorrectAnswer||o.examCorrect" size="small" type="success" effect="dark" style="margin-right:4px;flex-shrink:0">✓</el-tag>
+        <el-tag v-if="q.examScoreMode!=='none' && (o.value===examCorrectAnswer||o.examCorrect)" size="small" type="success" effect="dark" style="margin-right:4px;flex-shrink:0">✓</el-tag>
         <el-button text size="small" type="danger" class="opt-del-btn" @click.stop="removeOption(i)">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         </el-button>
@@ -334,10 +334,7 @@
       modal-class="question-rich-editor-modal"
       @close="cancelTitleAdvancedEdit"
     >
-      <QuillEditor v-model:content="titleEditBuffer" content-type="html"
-        class="question-rich-editor"
-        :options="fullTitleEditorOptions"
-        @ready="onFullEditorReady" />
+      <AdvancedRichTextEditor v-model="titleEditBuffer" :min-height="420" placeholder="请输入题干内容" />
       <template #footer>
         <el-button @click="showTitleAdvancedEditor = false">取消</el-button>
         <el-button type="primary" @click="confirmTitleAdvancedEdit">确定</el-button>
@@ -359,10 +356,7 @@
       modal-class="question-rich-editor-modal"
       @close="cancelOptionAdvancedEdit"
     >
-      <QuillEditor v-model:content="optionEditBuffer" content-type="html"
-        class="question-rich-editor"
-        :options="fullTitleEditorOptions"
-        @ready="onOptionFullEditorReady" />
+      <AdvancedRichTextEditor v-model="optionEditBuffer" :min-height="420" placeholder="请输入选项内容" />
       <template #footer>
         <el-button @click="showOptionAdvancedEditor = false">取消</el-button>
         <el-button type="primary" @click="confirmOptionAdvancedEdit">确定</el-button>
@@ -372,13 +366,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { examDisplayScore } from '../examScore'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { Html5Qrcode } from 'html5-qrcode'
 import '../../../utils/quill-image-resize'
 import { uploadAdminFile } from '../../../api/upload'
 import type { FormKitQuestion } from '../../formkit/shared/types'
+
+const AdvancedRichTextEditor = defineAsyncComponent(() => import('@/components/rich-text/AdvancedRichTextEditor.vue'))
 
 const props = defineProps<{ q: FormKitQuestion; editing?: boolean }>()
 const emit = defineEmits<{
@@ -481,93 +478,6 @@ function setupImageHandler(quill: any) {
     input.click()
   })
 }
-function onFullEditorReady(quill: any) {
-  const toolbar = quill.getModule('toolbar')
-  if (!toolbar || !toolbar.container) return
-  setupImageHandler(quill)
-
-  function addToolbarBtn(html: string, title: string, onClick: () => void) {
-    const b = document.createElement('button')
-    b.innerHTML = html
-    b.title = title
-    b.addEventListener('click', (e: MouseEvent) => { e.preventDefault(); onClick() })
-    toolbar.container.appendChild(b)
-    return b
-  }
-
-  addToolbarBtn(
-    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
-    '撤销', () => quill.history.undo()
-  )
-  addToolbarBtn(
-    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-    '恢复', () => quill.history.redo()
-  )
-
-  const btn = document.createElement('button')
-  btn.className = 'ql-fullscreen'
-  let fs = false
-  const origStyles: Record<string, string> = {}
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
-  btn.title = '全屏'
-  btn.addEventListener('click', (e: MouseEvent) => {
-    e.stopPropagation()
-    const dialogEl = (quill.container as HTMLElement).closest('.el-dialog') as HTMLElement
-    if (!dialogEl) return
-    if (!fs) {
-      origStyles.position = dialogEl.style.position
-      origStyles.top = dialogEl.style.top
-      origStyles.left = dialogEl.style.left
-      origStyles.width = dialogEl.style.width
-      origStyles.height = dialogEl.style.height
-      origStyles.maxWidth = dialogEl.style.maxWidth
-      origStyles.margin = dialogEl.style.margin
-      origStyles.borderRadius = dialogEl.style.borderRadius
-      origStyles.zIndex = dialogEl.style.zIndex
-      dialogEl.style.position = 'fixed'
-      dialogEl.style.top = '0'
-      dialogEl.style.left = '0'
-      dialogEl.style.width = '100vw'
-      dialogEl.style.height = '100vh'
-      dialogEl.style.maxWidth = '100vw'
-      dialogEl.style.maxHeight = '100vh'
-      dialogEl.style.margin = '0'
-      dialogEl.style.borderRadius = '0'
-      dialogEl.style.zIndex = '9999'
-      const body = dialogEl.querySelector('.el-dialog__body') as HTMLElement
-      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
-      if (body && qlContainer) {
-        const toolbarEl = dialogEl.querySelector('.ql-toolbar') as HTMLElement
-        const footerEl = dialogEl.querySelector('.el-dialog__footer') as HTMLElement
-        const headerEl = dialogEl.querySelector('.el-dialog__header') as HTMLElement
-        const toolH = toolbarEl?.offsetHeight || 0
-        const footH = footerEl?.offsetHeight || 0
-        const headH = headerEl?.offsetHeight || 0
-        const bodyPad = body.offsetHeight - body.clientHeight
-        qlContainer.style.height = (window.innerHeight - headH - footH - toolH - bodyPad) + 'px'
-      }
-      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>'
-      btn.title = '退出全屏'
-      fs = true
-    } else {
-      dialogEl.style.position = origStyles.position
-      dialogEl.style.top = origStyles.top
-      dialogEl.style.left = origStyles.left
-      dialogEl.style.width = origStyles.width
-      dialogEl.style.height = origStyles.height
-      dialogEl.style.maxWidth = origStyles.maxWidth
-      dialogEl.style.margin = origStyles.margin
-      dialogEl.style.borderRadius = origStyles.borderRadius
-      dialogEl.style.zIndex = origStyles.zIndex
-      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
-      if (qlContainer) qlContainer.style.height = ''
-      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
-      btn.title = '全屏'
-      fs = false
-    }
-  })
-  toolbar.container.appendChild(btn)
-}
 const titleEditorOptions = {
   theme: 'snow',
   modules: {
@@ -575,23 +485,6 @@ const titleEditorOptions = {
       ['bold', 'italic', 'underline', 'strike'],
       [{ color: [] }, { background: [] }],
       [{ list: 'ordered' }, { list: 'bullet' }],
-      ['link', 'image'],
-      ['clean']
-    ],
-    imageResize: {}
-  }
-}
-const fullTitleEditorOptions = {
-  theme: 'snow',
-  modules: {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ color: [] }, { background: [] }],
-      [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
-      [{ indent: '-1' }, { indent: '+1' }],
-      [{ align: [] }],
-      ['blockquote', 'code-block'],
       ['link', 'image'],
       ['clean']
     ],
@@ -609,93 +502,6 @@ const optionEditorOptions = {
     ],
     imageResize: {}
   }
-}
-function onOptionFullEditorReady(quill: any) {
-  const toolbar = quill.getModule('toolbar')
-  if (!toolbar || !toolbar.container) return
-  setupImageHandler(quill)
-
-  function addToolbarBtn(html: string, title: string, onClick: () => void) {
-    const b = document.createElement('button')
-    b.innerHTML = html
-    b.title = title
-    b.addEventListener('click', (e: MouseEvent) => { e.preventDefault(); onClick() })
-    toolbar.container.appendChild(b)
-    return b
-  }
-
-  addToolbarBtn(
-    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
-    '撤销', () => quill.history.undo()
-  )
-  addToolbarBtn(
-    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-    '恢复', () => quill.history.redo()
-  )
-
-  const btn = document.createElement('button')
-  btn.className = 'ql-fullscreen'
-  let fs = false
-  const origStyles: Record<string, string> = {}
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
-  btn.title = '全屏'
-  btn.addEventListener('click', (e: MouseEvent) => {
-    e.stopPropagation()
-    const dialogEl = (quill.container as HTMLElement).closest('.el-dialog') as HTMLElement
-    if (!dialogEl) return
-    if (!fs) {
-      origStyles.position = dialogEl.style.position
-      origStyles.top = dialogEl.style.top
-      origStyles.left = dialogEl.style.left
-      origStyles.width = dialogEl.style.width
-      origStyles.height = dialogEl.style.height
-      origStyles.maxWidth = dialogEl.style.maxWidth
-      origStyles.margin = dialogEl.style.margin
-      origStyles.borderRadius = dialogEl.style.borderRadius
-      origStyles.zIndex = dialogEl.style.zIndex
-      dialogEl.style.position = 'fixed'
-      dialogEl.style.top = '0'
-      dialogEl.style.left = '0'
-      dialogEl.style.width = '100vw'
-      dialogEl.style.height = '100vh'
-      dialogEl.style.maxWidth = '100vw'
-      dialogEl.style.maxHeight = '100vh'
-      dialogEl.style.margin = '0'
-      dialogEl.style.borderRadius = '0'
-      dialogEl.style.zIndex = '9999'
-      const body = dialogEl.querySelector('.el-dialog__body') as HTMLElement
-      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
-      if (body && qlContainer) {
-        const toolbarEl = dialogEl.querySelector('.ql-toolbar') as HTMLElement
-        const footerEl = dialogEl.querySelector('.el-dialog__footer') as HTMLElement
-        const headerEl = dialogEl.querySelector('.el-dialog__header') as HTMLElement
-        const toolH = toolbarEl?.offsetHeight || 0
-        const footH = footerEl?.offsetHeight || 0
-        const headH = headerEl?.offsetHeight || 0
-        const bodyPad = body.offsetHeight - body.clientHeight
-        qlContainer.style.height = (window.innerHeight - headH - footH - toolH - bodyPad) + 'px'
-      }
-      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>'
-      btn.title = '退出全屏'
-      fs = true
-    } else {
-      dialogEl.style.position = origStyles.position
-      dialogEl.style.top = origStyles.top
-      dialogEl.style.left = origStyles.left
-      dialogEl.style.width = origStyles.width
-      dialogEl.style.height = origStyles.height
-      dialogEl.style.maxWidth = origStyles.maxWidth
-      dialogEl.style.margin = origStyles.margin
-      dialogEl.style.borderRadius = origStyles.borderRadius
-      dialogEl.style.zIndex = origStyles.zIndex
-      const qlContainer = dialogEl.querySelector('.ql-container') as HTMLElement
-      if (qlContainer) qlContainer.style.height = ''
-      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
-      btn.title = '全屏'
-      fs = false
-    }
-  })
-  toolbar.container.appendChild(btn)
 }
 
 function getInitVal(type: string): any {
@@ -1402,37 +1208,12 @@ function optionGrid(q: any) {
   padding: 12px 18px 16px;
   border-top: 1px solid #edf0f5;
 }
-:global(.question-rich-editor) {
-  height: min(54vh, 520px);
-  min-height: 360px;
-  display: flex;
-  flex-direction: column;
-}
-:global(.question-rich-editor .ql-toolbar) {
-  flex-shrink: 0;
-  border-radius: 6px 6px 0 0;
-}
-:global(.question-rich-editor .ql-container) {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  border-radius: 0 0 6px 6px;
-}
-:global(.question-rich-editor .ql-editor) {
-  min-height: 100%;
-  overflow-y: auto;
-}
-
 @media (max-width: 768px) {
   :global(.question-rich-editor-dialog.el-dialog),
   :global(.question-rich-editor-dialog .el-dialog),
   :global(.question-rich-editor-modal .el-dialog) {
     width: calc(100vw - 24px) !important;
     margin-top: 4vh !important;
-  }
-  :global(.question-rich-editor) {
-    height: 58vh;
-    min-height: 300px;
   }
 }
 </style>

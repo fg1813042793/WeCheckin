@@ -94,6 +94,7 @@
               v-for="tab in visitedTabs"
               :key="tab.fullPath"
               class="admin-route-tab"
+              :title="tab.title"
               :class="{ 'is-active': tab.fullPath === route.fullPath }"
               type="button"
               @click="router.push(tab.fullPath)"
@@ -140,7 +141,7 @@
 <script lang="ts" setup>
 import { useRoute, useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick, provide } from 'vue'
 import { adminApi } from '../../api'
 import AdminMenuNode from './AdminMenuNode.vue'
 import { ADMIN_ROUTE_TABS_STORAGE_KEY, clearAdminSession } from '../../utils/adminSession'
@@ -154,13 +155,8 @@ import { resolveAdminIcon } from '../../icons'
 import { ADMIN_MENU_CONFIG_CHANGED_EVENT, adminRouteCacheEnabled } from '../../router/menuCache'
 import { visibleAdminMenuTree } from '../../router/menuVisibility'
 import { createAdminRouteComponentCache, getRouteCacheName } from '../../router/routeComponentCache'
-
-interface VisitedTab {
-  title: string
-  path: string
-  fullPath: string
-  name: string
-}
+import { ADMIN_ROUTE_TAB_REPLACE_KEY, ADMIN_ROUTE_TAB_TITLE_KEY, normalizeVisitedTabs, replaceVisitedTab, routeToVisitedTab, updateVisitedTabTitle } from '../../router/routeTabTitles'
+import type { VisitedTab } from '../../router/routeTabTitles'
 
 const affixTabPaths = new Set(['/dashboard'])
 
@@ -174,6 +170,17 @@ const menuLoading = ref(false)
 const menuError = ref('')
 const sidebarCollapsed = ref(localStorage.getItem('admin_sidebar_collapsed') === '1')
 const visitedTabs = ref<VisitedTab[]>(loadVisitedTabs())
+provide(ADMIN_ROUTE_TAB_TITLE_KEY, (fullPath, title) => {
+  if (!updateVisitedTabTitle(visitedTabs.value, fullPath, title)) return
+  persistVisitedTabs()
+  syncRouteTabsAfterRender(fullPath === route.fullPath)
+})
+provide(ADMIN_ROUTE_TAB_REPLACE_KEY, (fullPath, target, title) => {
+  if (!replaceVisitedTab(visitedTabs.value, fullPath, target, title)) return
+  routeComponentCache.remove(fullPath)
+  persistVisitedTabs()
+  syncRouteTabsAfterRender(target.fullPath === route.fullPath)
+})
 const routeTabsScrollbarRef = ref<any>()
 const routeTabsOverflowing = ref(false)
 const routeTabsCanScrollLeft = ref(false)
@@ -226,33 +233,12 @@ function loadVisitedTabs(): VisitedTab[] {
   }
 }
 
-function normalizeVisitedTabs(tabs: VisitedTab[]) {
-  const seen = new Set<string>()
-  return tabs.filter(tab => {
-    if (seen.has(tab.fullPath)) return false
-    seen.add(tab.fullPath)
-    return true
-  })
-}
-
 function persistVisitedTabs() {
   localStorage.setItem(ADMIN_ROUTE_TABS_STORAGE_KEY, JSON.stringify(visitedTabs.value))
 }
 
-function routeToVisitedTab(target: RouteLocationNormalizedLoaded): VisitedTab | null {
-  if (target.path === '/login' || target.path === '/forbidden') return null
-  const title = String(target.meta?.title || '')
-  if (!title) return null
-  return {
-    title,
-    path: target.path,
-    fullPath: target.fullPath,
-    name: String(target.name || target.path),
-  }
-}
-
 function addVisitedTab(target: RouteLocationNormalizedLoaded) {
-  const tab = routeToVisitedTab(target)
+  const tab = routeToVisitedTab(target, visitedTabs.value.find(item => item.fullPath === target.fullPath))
   if (!tab) return
   const index = visitedTabs.value.findIndex(item => item.fullPath === tab.fullPath)
   if (index >= 0) {

@@ -15,11 +15,19 @@ import (
 	publichome "wecheckin/backend/internal/handler/public/home"
 	commonupload "wecheckin/backend/internal/handler/upload"
 	clientmw "wecheckin/backend/internal/middleware/client"
+	examrecordexportlinkapp "wecheckin/backend/internal/modules/examrecordexportlink/application"
+	examrecordexportlinkinfra "wecheckin/backend/internal/modules/examrecordexportlink/infrastructure"
+	examrecordexportlinkhttp "wecheckin/backend/internal/modules/examrecordexportlink/transport/httppublic"
+	portalapp "wecheckin/backend/internal/modules/publicportal/application"
+	portalinfra "wecheckin/backend/internal/modules/publicportal/infrastructure"
+	portalhttp "wecheckin/backend/internal/modules/publicportal/transport/httppublic"
 	workflowapp "wecheckin/backend/internal/modules/workflow/application"
 	workflowinfra "wecheckin/backend/internal/modules/workflow/infrastructure"
 	workflowhttp "wecheckin/backend/internal/modules/workflow/transport/httpclient"
 	"wecheckin/backend/internal/routes/v2/routeparam"
+	examservice "wecheckin/backend/internal/service/client/exam"
 	"wecheckin/backend/pkg/database"
+	redispkg "wecheckin/backend/pkg/redis"
 )
 
 func Register(h *server.Hertz) {
@@ -36,6 +44,13 @@ func registerPublicRoutes(h *server.Hertz) {
 	ev := clientevent.NewEventHandler()
 	cSurvey := clientsurvey.NewClientSurveyHandler()
 	cExam := clientexam.NewClientExamHandler()
+	publicPortal := portalhttp.NewHandler(portalapp.NewService(portalinfra.NewGormStore(database.GetDB())))
+	examRecordExportLink := examrecordexportlinkhttp.NewHandler(
+		examrecordexportlinkapp.NewService(examrecordexportlinkinfra.NewRedisStore(redispkg.RDB)),
+		examservice.NewService(),
+	)
+	h.GET("/api/v2/public/activities", publicPortal.List)
+	h.GET("/api/v2/public/exam-record-exports/download", examRecordExportLink.Download)
 
 	h.GET("/api/v2/home", hm.GetHomeList)
 	h.GET("/api/v2/home/setup", hm.GetSetup)
@@ -88,6 +103,8 @@ func registerAuthenticatedRoutes(h *server.Hertz) {
 	)
 	workflowHandler := workflowhttp.NewRuntimeHandler(workflowService)
 
+	account := h.Group("/api/v2", clientmw.ClientAuth())
+	account.PATCH("/me/password", pp.ChangePassword)
 	client := h.Group("/api/v2", clientmw.ClientAuth(), clientmw.ClientPerm())
 	client.GET("/me/bootstrap", pp.Bootstrap)
 	client.GET("/me", pp.GetMyDetail)

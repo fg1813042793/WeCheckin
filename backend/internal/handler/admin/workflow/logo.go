@@ -57,8 +57,8 @@ func workflowUpdateRequestFromMultipart(c *app.RequestContext) workflowservice.U
 	return workflowservice.UpdateRequest{
 		Name:        string(c.FormValue("name")),
 		DisplayName: optionalWorkflowMultipartValue(c, "displayName"),
-		Description: string(c.FormValue("description")),
-		Category:    string(c.FormValue("category")),
+		Description: optionalWorkflowMultipartValue(c, "description"),
+		Category:    optionalWorkflowMultipartValue(c, "category"),
 		Draft:       workflowDraftFromMultipart(c),
 	}
 }

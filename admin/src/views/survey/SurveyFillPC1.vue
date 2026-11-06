@@ -47,11 +47,12 @@
     <!-- 提交成功页 -->
     <div v-else-if="submitted" class="survey-end">
       <div class="survey-end-content">
-        <h3 class="survey-end-title">{{ endContent ? '' : '已提交，感谢填写' }}</h3>
+        <h3 class="survey-end-title">{{ endContent ? '' : (redirecting ? '问卷提交成功' : '已提交，感谢填写') }}</h3>
+        <p v-if="redirecting" class="survey-end-desc">2 秒后自动跳转</p>
         <div v-if="endContent" class="survey-end-desc" v-html="endContent" />
         <div class="survey-end-result">
           <div v-if="settings.redirectUrl" class="survey-end-result-copy">
-            <el-button type="primary" class="survey-btn--primary" @click="openRedirectUrl">查看结果</el-button>
+            <el-button type="primary" class="survey-btn--primary" @click="openRedirectUrl">立即前往</el-button>
           </div>
         </div>
       </div>
@@ -187,6 +188,7 @@ import QuestionField from './components/QuestionField.vue'
 import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
 import { publicFormApi } from '../../api/public'
 import { resolveSurveyTitle } from '../../utils/surveyTitle'
+import { scheduleCompletionRedirect } from '../../utils/completionRedirect'
 
 const route = useRoute()
 const survey = ref<any>(null)
@@ -200,6 +202,7 @@ const submitting = ref(false)
 const session = ref('')
 const submitted = ref(false)
 const endContent = ref('')
+const redirecting = ref(false)
 const showLogin = ref(false)
 const loginLoading = ref(false)
 const loginForm = reactive({ name: '', password: '' })
@@ -218,6 +221,7 @@ function getDeviceId() {
   return id
 }
 let scanner: Html5Qrcode | null = null
+let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
 const fileLists: Record<string, File[]> = reactive({})
 const fileInputs: Record<string, HTMLInputElement> = {}
@@ -227,12 +231,16 @@ const sigCurId = ref('')
 const startAt = ref(0)
 const remaining = ref(0)
 const currentIndex = ref(0)
-const sheetVisible = ref(true)
+const MOBILE_SHEET_MEDIA = '(max-width: 768px)'
+const isMobileViewport = ref(typeof window !== 'undefined' && window.matchMedia(MOBILE_SHEET_MEDIA).matches)
+const sheetVisible = ref(!isMobileViewport.value)
 const hiddenQuestionIds = ref<Set<string>>(new Set())
 const requiredQuestionIds = ref<Set<string>>(new Set())
 const logicRules = ref<any[]>([])
 
 function openRedirectUrl() {
+  if (redirectTimer) clearTimeout(redirectTimer)
+  redirectTimer = null
   const url = settings.value?.redirectUrl
   if (url) window.location.href = url
 }
@@ -396,11 +404,20 @@ const sheetSuppressToggleClick = ref(false)
 let sheetDragRect: DOMRect | null = null
 const sheetStyle = computed(() => {
   const s: Record<string, string> = {}
-  if (sheetX.value || sheetY.value) s.transform = `translate(${sheetX.value}px, calc(-50% + ${sheetY.value}px))`
+  if (!isMobileViewport.value && (sheetX.value || sheetY.value)) s.transform = `translate(${sheetX.value}px, calc(-50% + ${sheetY.value}px))`
   if (sheetDragging.value) s.cursor = 'grabbing'
   return s
 })
+function syncSheetViewport() {
+  const mobile = window.matchMedia(MOBILE_SHEET_MEDIA).matches
+  if (mobile === isMobileViewport.value) return
+  isMobileViewport.value = mobile
+  sheetX.value = 0
+  sheetY.value = 0
+  sheetVisible.value = !mobile
+}
 function onSheetDragStart(e: PointerEvent, source: 'sheet' | 'toggle') {
+  if (isMobileViewport.value) return
   if (e.pointerType === 'mouse' && e.button !== 0) return
   const currentTarget = e.currentTarget as HTMLElement | null
   const dragElement = source === 'sheet'
@@ -698,7 +715,12 @@ function handleSubmitSuccess(_data: any) {
   const url = settings.value?.redirectUrl
   const content = settings.value?.endContent
   submitted.value = true
-  if (url) { window.location.href = url; return }
+  if (url) {
+    redirecting.value = true
+    ElMessage.success('问卷提交成功')
+    redirectTimer = scheduleCompletionRedirect(url, target => { window.location.href = target })
+    return
+  }
   if (content) { endContent.value = content; submitted.value = true; return }
   ElMessage.success('已提交')
 }
@@ -764,12 +786,17 @@ async function onSubmit(skipConfirm = false) {
   }).catch(() => {})
 }
 
-onMounted(load)
+onMounted(() => {
+  window.addEventListener('resize', syncSheetViewport)
+  void load()
+})
 watch(answers, () => { scheduleDraft(); reevaluateRules() }, { deep: true })
 watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
 watch(() => settings.value.timeLimit, () => { startCountdown() })
 onUnmounted(() => {
   if (draftTimer) clearTimeout(draftTimer)
+  if (redirectTimer) clearTimeout(redirectTimer)
+  window.removeEventListener('resize', syncSheetViewport)
   stopCountdown()
   onSheetDragEnd()
   onScannerClose()
@@ -787,6 +814,8 @@ onUnmounted(() => {
   background-position: top;
   background-size: cover;
   background-attachment: fixed;
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 .survey:has(.survey-progress) { padding-top: 72px; }
 
@@ -993,9 +1022,26 @@ onUnmounted(() => {
   .survey-form :deep(.el-textarea), .survey-form :deep(.el-cascader),
   .survey-form :deep(.el-rate), .survey-form :deep(.el-slider) { width: 100% !important; max-width: 100% !important; }
   .survey-nav { padding: 12px 16px; gap: 8px; flex-wrap: wrap; }
-  .survey-sheet { right: 8px; width: 80px; }
+  .survey-sheet {
+    right: 12px;
+    right: calc(12px + env(safe-area-inset-right));
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: min(280px, calc(100vw - 32px));
+    max-height: min(60dvh, 520px);
+    box-sizing: border-box;
+    transform: none !important;
+  }
+  .survey-sheet-header { justify-content: space-between; cursor: default; touch-action: auto; }
+  .survey-sheet-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .survey-sheet-item { height: 42px; }
   .survey-sheet-close { display: block; }
-  .survey-sheet-toggle { display: block; right: 8px; }
+  .survey-sheet-toggle {
+    display: block; right: 8px;
+    right: calc(8px + env(safe-area-inset-right));
+    min-width: 44px;
+    min-height: 44px;
+  }
   .survey-end { max-width: 90%; }
   .survey-end-content { padding: 40px 20px; }
   .survey-login { max-width: 100%; padding: 0; margin-top: 0; display: flex; align-items: flex-start; }

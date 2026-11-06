@@ -9,6 +9,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
+	"wecheckin/backend/internal/support/passwordsession"
 	rd "wecheckin/backend/pkg/redis"
 	"wecheckin/backend/pkg/tokenutil"
 )
@@ -49,13 +51,15 @@ func ClientAuth() app.HandlerFunc {
 		}
 
 		var info struct {
-			ID         uint   `json:"id"`
-			Name       string `json:"name"`
-			Mobile     string `json:"mobile"`
-			MiniOpenID string `json:"miniOpenID"`
-			Role       string `json:"role"`
-			RoleID     uint   `json:"roleId"`
-			RoleIDs    []uint `json:"roleIds"`
+			ID                 uint   `json:"id"`
+			Name               string `json:"name"`
+			Mobile             string `json:"mobile"`
+			MiniOpenID         string `json:"miniOpenID"`
+			Role               string `json:"role"`
+			RoleID             uint   `json:"roleId"`
+			RoleIDs            []uint `json:"roleIds"`
+			PasswordChangedAt  int64  `json:"passwordChangedAt"`
+			PasswordMustChange bool   `json:"passwordMustChange"`
 		}
 		if err := json.Unmarshal([]byte(jsonStr), &info); err != nil || info.ID == 0 {
 			c.JSON(consts.StatusOK, utils.H{
@@ -65,8 +69,21 @@ func ClientAuth() app.HandlerFunc {
 			c.Abort()
 			return
 		}
+		passwordState, err := accountsecurity.EvaluatePasswordStateContext(ctx, info.PasswordChangedAt, info.PasswordMustChange)
+		if err != nil {
+			c.JSON(consts.StatusOK, utils.H{"code": 1, "msg": "服务异常"})
+			c.Abort()
+			return
+		}
+		if passwordState.PasswordChangeRequired && !passwordsession.Allowed(passwordsession.AudienceClient, string(c.Method()), string(c.Path())) {
+			c.JSON(consts.StatusOK, utils.H{"code": 1, "msg": passwordsession.ErrorMessage, "errorCode": passwordsession.ErrorCode})
+			c.Abort()
+			return
+		}
 
-		rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
+		if tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, "user") {
+			rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
+		}
 
 		user := &model.User{
 			ID:         info.ID,
@@ -83,6 +100,7 @@ func ClientAuth() app.HandlerFunc {
 		c.Set("user_openid", info.MiniOpenID)
 		c.Set("user_id", info.ID)
 		c.Set("user", user)
+		c.Set("passwordState", passwordState)
 		c.Next(ctx)
 	}
 }

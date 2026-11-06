@@ -30,15 +30,17 @@ type UserSession struct {
 }
 
 type storedUserSessionPayload struct {
-	ID         uint   `json:"id"`
-	Name       string `json:"name"`
-	Mobile     string `json:"mobile"`
-	MiniOpenID string `json:"miniOpenID"`
-	Role       string `json:"role"`
-	RoleID     uint   `json:"roleId"`
-	RoleIDs    []uint `json:"roleIds"`
-	Pic        string `json:"pic"`
-	LoginIP    string `json:"loginIp"`
-	LoginTime  int64  `json:"loginTime"`
-	Device     string `json:"device"`
+	ID                 uint   `json:"id"`
+	Name               string `json:"name"`
+	Mobile             string `json:"mobile"`
+	MiniOpenID         string `json:"miniOpenID"`
+	Role               string `json:"role"`
+	RoleID             uint   `json:"roleId"`
+	RoleIDs            []uint `json:"roleIds"`
+	Pic                string `json:"pic"`
+	PasswordChangedAt  int64  `json:"passwordChangedAt"`
+	PasswordMustChange bool   `json:"passwordMustChange"`
+	LoginIP            string `json:"loginIp"`
+	LoginTime          int64  `json:"loginTime"`
+	Device             string `json:"device"`
 }

@@ -7,6 +7,22 @@ import { executeTypeScriptModule } from './lib/typescript-runtime.mjs'
 const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8')
 const plain = value => JSON.parse(JSON.stringify(value))
 const model = executeTypeScriptModule(read('views/exam/components/examGradingModel.ts'), 'examGradingModel.ts')
+const questionSource = read('views/exam/components/ExamGradingQuestion.vue')
+assert.match(
+  questionSource,
+  /\.grading-question__answers\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s,
+  '考生答案与参考答案必须上下单列显示',
+)
+assert.match(
+  questionSource,
+  /<h4 class="grading-question__reference-title">参考答案<\/h4>/,
+  '参考答案标题必须提供独立样式类',
+)
+assert.match(
+  questionSource,
+  /\.grading-question__answers\s+\.grading-question__reference-title\s*\{[^}]*color:\s*var\(--admin-ui-color-success\);/s,
+  '参考答案标题必须使用成功绿色',
+)
 let permissions = new Set(['admin:menu:exam:record-grade', 'admin:api:exam-record:grade'])
 const requests = []
 const api = executeTypeScriptModule(read('api/examGrading.ts'), 'examGrading.ts', {
@@ -97,6 +113,15 @@ assert.match(renderedText(legacyQuestion.root), /完整题目/)
 assert.match(renderedText(legacyQuestion.root), /作答/)
 assert.equal(descendants(legacyQuestion.root).filter(item => item.tag === 'image-preview').length, 0)
 legacyQuestion.app.unmount()
+const unscoredQuestion = mount('views/exam/components/ExamGradingQuestion.vue', questionModules, {
+  ...questionProps, editable: true, pending: false,
+  question: { ...questionProps.question, title: '不计分项目经历', answer: '完整项目描述', unscored: true, needManual: false, fullScore: 0 },
+}, true)
+assert.match(renderedText(unscoredQuestion.root), /不计分项目经历/)
+assert.match(renderedText(unscoredQuestion.root), /完整项目描述/)
+assert.match(renderedText(unscoredQuestion.root), /不计分/)
+assert.doesNotMatch(renderedText(unscoredQuestion.root), /得分：|参考答案|必填，0 分有效/)
+unscoredQuestion.app.unmount()
 const illustrated = mount('views/exam/components/ExamGradingQuestion.vue', questionModules, {
   ...questionProps,
   question: { ...questionProps.question,

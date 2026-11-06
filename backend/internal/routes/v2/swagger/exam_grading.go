@@ -11,7 +11,7 @@ var _ response.Resp
 
 // @Tags API v2-后台-考试
 // @Summary 获取考试答卷批改详情
-// @Description 需要 exam-record:grade 权限及考试数据范围授权。返回题目、作答、参考答案、评分和版本；已完成的答卷只能查看。
+// @Description 需要 exam-record:grade 权限及考试数据范围授权。返回题目、作答、参考答案、评分和版本；已完成的答卷只能查看。不计分题返回 unscored=true，仅展示题目和作答，不参与评分；历史缺失题目按当前配置补充时返回 notice 提示。
 // @Security AdminToken
 // @Produce json
 // @Param id path int true "考试ID"

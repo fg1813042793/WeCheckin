@@ -64,7 +64,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		}
 		exQs := make([]examPkg.Question, 0, len(qs))
 		for _, q := range qs {
-			if !examservice.ShouldGradePaperQuestion(q.Type, q.Score) {
+			if !examservice.ShouldGradePaperQuestionDefinition(q) {
 				continue
 			}
 			exQs = append(exQs, examPkg.Question{
@@ -112,7 +112,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 			return
 		}
 		logger.Logger.Printf("[ExamSubmit] PaperID模式提交成功 examId=%d recordId=%d uid=%d score=%d fullScore=%d", rec.ExamID, req.RecordID, uid, res.TotalScore, res.FullScore)
-		if err := poststatservice.ProcessExamSubmissionContext(ctx, rec.ExamID, rec.ID, uid, res.TotalScore, res.FullScore); err != nil {
+		if err := poststatservice.ProcessExamSubmissionContext(ctx, rec.ExamID, rec.ID, uid, res.TotalScore, res.FullScore, res.ManualCount); err != nil {
 			logger.Logger.Printf("[ExamSubmit] PaperID模式交卷后统计失败 examId=%d recordId=%d err=%v", rec.ExamID, rec.ID, err)
 		}
 		response.JSON(c, examSubmitResponse{Score: res.TotalScore, FullScore: res.FullScore, CorrectCnt: res.CorrectCnt, ManualCnt: res.ManualCount, Results: res.Results})
@@ -208,7 +208,7 @@ func (h *ClientExamHandler) Submit(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	logger.Logger.Printf("[ExamSubmit] Schema模式提交成功 examId=%d uid=%s score=%d fullScore=%d ip=%s device=%s", req.ExamID, uidStr, res.TotalScore, res.FullScore, clientIP, req.Device)
-	if err := poststatservice.ProcessExamSubmissionContext(ctx, uint(req.ExamID), rec.ID, userID, res.TotalScore, res.FullScore); err != nil {
+	if err := poststatservice.ProcessExamSubmissionContext(ctx, uint(req.ExamID), rec.ID, userID, res.TotalScore, res.FullScore, res.ManualCount); err != nil {
 		logger.Logger.Printf("[ExamSubmit] Schema模式交卷后统计失败 examId=%d recordId=%d err=%v", req.ExamID, rec.ID, err)
 	}
 	rd.RDB.Del(redisCtx, redisKey)

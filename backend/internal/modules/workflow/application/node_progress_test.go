@@ -58,6 +58,25 @@ func TestBuildNodeProgressMarksUnselectedConditionBranchSkipped(t *testing.T) {
 	}
 }
 
+func TestBuildNodeProgressKeepsCompletedProjectionAfterVoid(t *testing.T) {
+	actual := BuildNodeProgress(
+		conditionalDefinition(),
+		InstanceSummary{Status: "voided", StartTime: 1000, EndTime: 2000},
+		[]TokenSummary{{ID: "token-1", NodeID: "end", Status: "completed"}},
+		[]TaskSummary{{ID: "task-finance", NodeID: "finance", Status: "approved"}},
+		[]HistorySummary{{ID: "history-finance", EventType: "task_approved", NodeID: "finance", EventTime: 1500}},
+	)
+	status := progressStatusByNode(actual)
+	for _, nodeID := range []string{"start", "split", "finance", "join", "end"} {
+		if status[nodeID] != NodeProgressCompleted {
+			t.Fatalf("node %s status = %q, want completed", nodeID, status[nodeID])
+		}
+	}
+	if status["hr"] != NodeProgressSkipped {
+		t.Fatalf("hr status = %q, want skipped", status["hr"])
+	}
+}
+
 func TestBuildNodeProgressMarksRemainingNodesTerminatedAfterReject(t *testing.T) {
 	definition := workflowcore.Definition{
 		Nodes: []workflowcore.Node{

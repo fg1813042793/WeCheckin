@@ -42,6 +42,8 @@ for (const heading of [
   assert.match(uiGuidelines, new RegExp(`## ${heading}`))
 }
 assert.match(uiGuidelines, /计算标签和计算字段/)
+assert.match(uiGuidelines, /--workflow-textarea-single-row-height/)
+assert.match(layoutStyle, /--workflow-textarea-single-row-height:\s*var\(--app-control-height\)/)
 
 for (const token of [
   '--app-page-content-max-width',

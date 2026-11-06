@@ -24,6 +24,7 @@ var (
 	ErrTaskActorMismatch         = errors.New("当前用户不是任务审批人")
 	ErrInvalidTaskAction         = errors.New("工作流任务操作无效")
 	ErrInstanceNotRunning        = errors.New("工作流实例已结束")
+	ErrInstanceNotCompleted      = errors.New("工作流实例尚未完成")
 	ErrInstanceStarterMismatch   = errors.New("当前用户不是流程发起人")
 	ErrNoMatchingBranch          = errors.New("排他网关没有命中条件且未配置默认分支")
 	ErrTransitionLimit           = errors.New("流程自动流转次数超过限制")
@@ -249,6 +250,15 @@ func (engine *Engine) Cancel(state *State, actorID, reason string) error {
 	return nil
 }
 
+func (engine *Engine) Void(state *State, actorID, reason string) error {
+	if state == nil || state.Instance.Status != InstanceStatusCompleted {
+		return ErrInstanceNotCompleted
+	}
+	state.Instance.Status = InstanceStatusVoided
+	engine.addHistory(state, HistoryInstanceVoided, "", "", actorID, reason)
+	return nil
+}
+
 func (engine *Engine) terminateInstance(state *State, actorID, reason string, eventType HistoryEventType) {
 	state.Instance.Status = InstanceStatusCancelled
 	for index := range state.Tasks {
@@ -278,7 +288,7 @@ func (engine *Engine) advanceToken(ctx context.Context, definition workflowcore.
 	case workflowcore.NodeTypeStart:
 		return engine.leaveNode(ctx, definition, state, tokenIndex, depth+1)
 	case workflowcore.NodeTypeApproval:
-		return engine.createApprovalTasks(ctx, workflowNameForState(definition, state), state, tokenIndex, node)
+		return engine.enterApproval(ctx, definition, state, tokenIndex, node, depth+1)
 	case workflowcore.NodeTypeHandle:
 		return engine.createHandleTask(ctx, workflowNameForState(definition, state), state, tokenIndex, node)
 	case workflowcore.NodeTypeCC:
@@ -469,104 +479,6 @@ func (engine *Engine) followEdge(ctx context.Context, definition workflowcore.De
 	state.Tokens[tokenIndex].NodeID = edge.Target
 	state.Tokens[tokenIndex].Status = TokenStatusActive
 	return engine.advanceToken(ctx, definition, state, tokenIndex, depth+1)
-}
-
-func (engine *Engine) createApprovalTasks(ctx context.Context, workflowName string, state *State, tokenIndex int, node workflowcore.Node) error {
-	if node.DepartmentApprovalChain != nil && node.DepartmentApprovalChain.Enabled {
-		resolver, ok := engine.resolver.(ApprovalLayerResolver)
-		if !ok {
-			return errors.New("流程审批人解析器不支持逐级部门审批")
-		}
-		layers, err := resolver.ResolveApprovalLayers(ctx, AssigneeRequest{
-			Instance: state.Instance, Node: node, Variables: cloneVariables(state.Variables),
-		})
-		if err != nil {
-			return err
-		}
-		return engine.createLayeredApprovalTasks(workflowName, state, tokenIndex, node, layers)
-	}
-	assignees, err := engine.resolver.Resolve(ctx, AssigneeRequest{Instance: state.Instance, Node: node, Variables: cloneVariables(state.Variables)})
-	if err != nil {
-		return err
-	}
-	assignees = uniqueNonEmpty(assignees)
-	if len(assignees) == 0 {
-		return ErrAssigneeUnavailable
-	}
-	if node.ApprovalMode == workflowcore.ApprovalModeSingle {
-		assignees = assignees[:1]
-	}
-	groupKey := engine.ids.NewID("task-group")
-	for index, assigneeID := range assignees {
-		status := TaskStatusPending
-		if node.ApprovalMode == workflowcore.ApprovalModeSequential && index > 0 {
-			status = TaskStatusWaiting
-		}
-		task := Task{
-			ID: engine.ids.NewID("task"), TokenID: state.Tokens[tokenIndex].ID,
-			NodeID: node.ID, NodeName: node.Name, GroupKey: groupKey,
-			AssigneeID: assigneeID, ApprovalMode: node.ApprovalMode,
-			CompletionRate: node.CompletionRate, Sequence: index + 1,
-			Total: len(assignees), Status: status,
-		}
-		state.Tasks = append(state.Tasks, task)
-		engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, taskCreationActorID(state), "审批任务已创建")
-		if task.Status == TaskStatusPending {
-			engine.addTaskNotificationIntent(state, workflowName, node, task)
-		}
-	}
-	state.Tokens[tokenIndex].Status = TokenStatusWaiting
-	return nil
-}
-
-func (engine *Engine) createLayeredApprovalTasks(
-	workflowName string,
-	state *State,
-	tokenIndex int,
-	node workflowcore.Node,
-	layers []ApprovalLayer,
-) error {
-	normalized := make([]ApprovalLayer, 0, len(layers))
-	for _, layer := range layers {
-		layer.AssigneeIDs = uniqueNonEmpty(layer.AssigneeIDs)
-		if node.ApprovalMode == workflowcore.ApprovalModeSingle && len(layer.AssigneeIDs) > 1 {
-			layer.AssigneeIDs = layer.AssigneeIDs[:1]
-		}
-		if len(layer.AssigneeIDs) > 0 {
-			normalized = append(normalized, layer)
-		}
-	}
-	if len(normalized) == 0 {
-		return ErrAssigneeUnavailable
-	}
-
-	chainKey := engine.ids.NewID("approval-chain")
-	for layerIndex, layer := range normalized {
-		groupKey := engine.ids.NewID("task-group")
-		for assigneeIndex, assigneeID := range layer.AssigneeIDs {
-			status := TaskStatusWaiting
-			if layerIndex == 0 && (node.ApprovalMode != workflowcore.ApprovalModeSequential || assigneeIndex == 0) {
-				status = TaskStatusPending
-			}
-			task := Task{
-				ID: engine.ids.NewID("task"), TokenID: state.Tokens[tokenIndex].ID,
-				NodeID: node.ID, NodeName: node.Name, GroupKey: groupKey,
-				AssigneeID: assigneeID, ApprovalMode: node.ApprovalMode,
-				CompletionRate: node.CompletionRate, Sequence: assigneeIndex + 1, Total: len(layer.AssigneeIDs),
-				ApprovalChainKey: chainKey, ApprovalLayer: layerIndex + 1, ApprovalLayerTotal: len(normalized),
-				DepartmentID: layer.DepartmentID, DepartmentName: layer.DepartmentName,
-				Status: status,
-			}
-			state.Tasks = append(state.Tasks, task)
-			message := fmt.Sprintf("审批任务已创建（%s，第 %d/%d 级）", layer.DepartmentName, layerIndex+1, len(normalized))
-			engine.addHistory(state, HistoryTaskCreated, task.NodeID, task.ID, taskCreationActorID(state), message)
-			if task.Status == TaskStatusPending {
-				engine.addTaskNotificationIntent(state, workflowName, node, task)
-			}
-		}
-	}
-	state.Tokens[tokenIndex].Status = TokenStatusWaiting
-	return nil
 }
 
 func (engine *Engine) addTaskNotificationIntent(state *State, workflowName string, node workflowcore.Node, task Task) {

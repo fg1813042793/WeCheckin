@@ -222,7 +222,7 @@ dingtalkh5.Auth -> dingtalkh5.ApiPerm -> Handler
 
 判断过程：
 
-1. `Auth` 从 `Authorization` 或 query `token` 读取 H5 token。
+1. `Auth` 只从 `Authorization` Header 读取 H5 token，兼容原始 Token 和 `Bearer <token>`；URL query `token` 不再作为登录鉴权入口。
 2. 通过 Redis/session 恢复当前用户上下文。
 3. `ApiPerm` 根据 `HTTP Method + Path` 匹配 `dingtalk_h5:api:*` 权限。
 4. 权限表不存在、路由未声明、当前主体没有 H5 API 授权，都会拒绝。

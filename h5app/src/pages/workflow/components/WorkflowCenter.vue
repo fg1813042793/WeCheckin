@@ -147,6 +147,7 @@ const historyStatusOptions = [
   { label: '已驳回', value: 'rejected' },
   { label: '已撤回', value: 'withdrawn' },
   { label: '已取消', value: 'cancelled' },
+  { label: '已作废', value: 'voided' },
 ]
 const applicationFilterCount = computed(() => {
   const filters = activeRecordFilters.value

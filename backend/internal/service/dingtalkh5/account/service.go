@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	onlineservice "wecheckin/backend/internal/service/admin/online"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
@@ -74,22 +75,10 @@ func ChangePasswordContext(ctx context.Context, current *model.DingTalkH5PerfUse
 	if current == nil {
 		return fmt.Errorf("未登录")
 	}
-	if !passwordutil.Verify(current.Password, currentPassword) {
-		return fmt.Errorf("当前密码不正确")
-	}
-	if len(newPassword) < 6 {
-		return fmt.Errorf("新密码至少 6 位")
-	}
 	if newPassword != confirmPassword {
 		return fmt.Errorf("两次输入的新密码不一致")
 	}
-	hash, err := passwordutil.Hash(newPassword)
-	if err != nil {
-		return err
-	}
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	return db.Model(&model.User{}).Where("`user_mini_openid` = ?", current.Account).Update("user_password", hash).Error
+	return accountsecurity.ChangeOwnPasswordContext(ctx, current.ID, currentPassword, newPassword)
 }
 
 func UpdateAccountProfileContext(ctx context.Context, current *model.DingTalkH5PerfUser, token string, payload AccountProfilePayload) (*AccountProfileResponse, error) {

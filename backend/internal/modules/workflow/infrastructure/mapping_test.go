@@ -268,6 +268,29 @@ func TestRenderNotificationPayloadUsesTaskViewForActionableTaskNotifications(t *
 	}
 }
 
+func TestRenderNotificationPayloadUsesRecipientPendingTaskViewForApprovalResult(t *testing.T) {
+	state := &workflowdomain.State{
+		Instance: workflowdomain.ProcessInstance{ID: "instance-1", StarterID: "7"},
+		Tasks: []workflowdomain.Task{
+			{ID: "task-approved", AssigneeID: "8", Status: workflowdomain.TaskStatusApproved},
+			{ID: "task-other-user", AssigneeID: "9", Status: workflowdomain.TaskStatusPending},
+			{ID: "task-recipient-old", AssigneeID: "7", Status: workflowdomain.TaskStatusPending},
+			{ID: "task-recipient-new", AssigneeID: "7", Status: workflowdomain.TaskStatusPending},
+		},
+	}
+	payload := renderNotificationPayload(state, workflowdomain.NotificationIntent{
+		Kind: workflowdomain.NotificationKindApprovalResultApproved, TaskID: "task-approved", RecipientUserID: "7",
+		Config: workflowcore.NotificationConfig{Title: "结果", Content: "已通过"},
+	}, "Foster")
+
+	if payload.View != "workflow:task:task-recipient-new:instance:instance-1" {
+		t.Fatalf("approval result view = %q, want recipient's latest pending task", payload.View)
+	}
+	if payload.TaskID != "task-approved" {
+		t.Fatalf("approval result task id = %q, want original result task snapshot", payload.TaskID)
+	}
+}
+
 func TestRenderNotificationPayloadIncludesInstanceIdentityVariables(t *testing.T) {
 	state := &workflowdomain.State{Instance: workflowdomain.ProcessInstance{
 		ID: "instance-1", StarterID: "7", Title: "2026年8月 Foster绩效考评",

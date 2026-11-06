@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+import { executeTypeScriptModule } from './lib/typescript-runtime.mjs'
 import './check-survey-display-title.mjs'
 
 const designerUrl = new URL('../src/views/survey/SurveyDesigner.vue', import.meta.url)
@@ -29,6 +30,9 @@ const responsiveUrl = new URL('../src/views/survey/survey-designer-responsive.cs
 const designerStyleUrl = new URL('../src/views/survey/survey-designer.css', import.meta.url)
 const questionTypesUrl = new URL('../src/views/survey/survey-designer-question-types.ts', import.meta.url)
 const textTransferUrl = new URL('../src/views/survey/survey-designer-text-transfer.ts', import.meta.url)
+const completionRedirectUrl = new URL('../src/utils/completionRedirect.ts', import.meta.url)
+const fillPCUrl = new URL('../src/views/survey/SurveyFillPC.vue', import.meta.url)
+const fillPC1Url = new URL('../src/views/survey/SurveyFillPC1.vue', import.meta.url)
 
 assert.ok(existsSync(historyUrl), 'survey designer history composable is required')
 assert.ok(existsSync(validationUrl), 'survey designer validation module is required')
@@ -54,6 +58,7 @@ assert.ok(existsSync(documentUrl), 'survey designer document composable is requi
 assert.ok(existsSync(responsiveUrl), 'survey designer responsive stylesheet is required')
 assert.ok(existsSync(designerStyleUrl), 'survey designer scoped stylesheet is required')
 assert.ok(existsSync(textTransferUrl), 'survey designer text transfer module is required')
+assert.ok(existsSync(completionRedirectUrl), 'survey completion redirect helper is required')
 
 const designer = readFileSync(designerUrl, 'utf8')
 const history = readFileSync(historyUrl, 'utf8')
@@ -82,6 +87,23 @@ const responsive = readFileSync(responsiveUrl, 'utf8')
 const designerStyle = readFileSync(designerStyleUrl, 'utf8')
 const questionTypes = readFileSync(questionTypesUrl, 'utf8')
 const textTransfer = readFileSync(textTransferUrl, 'utf8')
+const fillPC = readFileSync(fillPCUrl, 'utf8')
+const fillPC1 = readFileSync(fillPC1Url, 'utf8')
+const completionRedirect = executeTypeScriptModule(readFileSync(completionRedirectUrl, 'utf8'), 'completionRedirect.ts')
+let scheduledCallback = null
+let scheduledDelay = 0
+let navigatedTo = ''
+const timer = completionRedirect.scheduleCompletionRedirect(
+  'https://example.test/result',
+  target => { navigatedTo = target },
+  (callback, delay) => { scheduledCallback = callback; scheduledDelay = delay; return 7 },
+)
+assert.equal(timer, 7)
+assert.equal(scheduledDelay, 2000)
+assert.equal(navigatedTo, '')
+scheduledCallback()
+assert.equal(navigatedTo, 'https://example.test/result')
+assert.equal(completionRedirect.scheduleCompletionRedirect('  ', () => {}, () => 8), null)
 
 for (const pattern of [
   ':disabled="!canUndo"',
@@ -357,6 +379,20 @@ for (const pattern of ['@media (min-width: 768px) and (max-width: 1599px)', '.su
   assert.ok(responsive.includes(pattern), `survey responsive layout missing contract: ${pattern}`)
 }
 assert.doesNotMatch(responsive, /max-width:\s*1199px/, 'survey property panel overlay breakpoint must cover common desktop widths')
+
+for (const [source, name] of [[fillPC1, 'SurveyFillPC1'], [fillPC, 'SurveyFillPC']]) {
+  for (const pattern of [
+    "import { scheduleCompletionRedirect } from '../../utils/completionRedirect'",
+    '问卷提交成功',
+    '2 秒后自动跳转',
+    '立即前往',
+    'submitted.value = true',
+    'redirectTimer = scheduleCompletionRedirect',
+    'if (redirectTimer) clearTimeout(redirectTimer)',
+  ]) {
+    assert.ok(source.includes(pattern), `${name} completion redirect contract missing: ${pattern}`)
+  }
+}
 
 for (const pattern of [
   'export interface SurveyDesignerIssue',

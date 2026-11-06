@@ -7,6 +7,11 @@ type routeMethodPerm struct {
 }
 
 var routeMethodPerms = map[string]string{
+	"GET /api/v2/admin/public-portal":           "public-portal:list",
+	"GET /api/v2/admin/public-portal/options":   "public-portal:list",
+	"GET /api/v2/admin/public-portal/preview":   "public-portal:list",
+	"PUT /api/v2/admin/public-portal/settings":  "public-portal:edit",
+	"POST /api/v2/admin/public-portal/items":    "public-portal:edit",
 	"GET /api/v2/admin/users/export":            "user:list",
 	"GET /api/v2/admin/managers/export":         "mgr:list",
 	"GET /api/v2/admin/roles/export":            "role:list",
@@ -30,6 +35,8 @@ var routeMethodPerms = map[string]string{
 	"PUT /api/v2/admin/settings/content":                     "setup:edit",
 	"GET /api/v2/admin/settings/mini-qr":                     "setup:edit",
 	"GET /api/v2/admin/settings/debug-token":                 "setup:edit",
+	"GET /api/v2/admin/password-policy":                      "setup:list",
+	"PUT /api/v2/admin/password-policy":                      "setup:edit",
 	"GET /api/v2/admin/dingtalk/settings":                    "dingtalk:settings:list",
 	"POST /api/v2/admin/uploads":                             "upload:create",
 	"PUT /api/v2/admin/dingtalk/settings":                    "dingtalk:settings:edit",
@@ -166,6 +173,8 @@ var routeMethodPerms = map[string]string{
 }
 
 var routeMethodPermPatterns = []routeMethodPerm{
+	{method: "PUT", path: "/api/v2/admin/public-portal/items/:id", perm: "public-portal:edit"},
+	{method: "DELETE", path: "/api/v2/admin/public-portal/items/:id", perm: "public-portal:edit"},
 	{method: "GET", path: "/api/v2/admin/logs/:id", perm: "log:list"},
 	{method: "GET", path: "/api/v2/admin/login-logs/:id", perm: "log:security"},
 	{method: "GET", path: "/api/v2/admin/managers/:id", perm: "mgr:list"},
@@ -305,6 +314,7 @@ var routeMethodPermPatterns = []routeMethodPerm{
 	{method: "GET", path: "/api/v2/admin/workflow-instances/:id", perm: "workflow:instance:detail"},
 	{method: "POST", path: "/api/v2/admin/workflow-instances/:id/resume", perm: "workflow:instance:start"},
 	{method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel", perm: "workflow:instance:cancel"},
+	{method: "POST", path: "/api/v2/admin/workflow-instances/:id/void", perm: "workflow:instance:void"},
 	{method: "GET", path: "/api/v2/admin/workflow-instances/:id/version-upgrade-preview", perm: "workflow:instance:upgrade:preview"},
 	{method: "POST", path: "/api/v2/admin/workflow-instances/:id/version-upgrade", perm: "workflow:instance:upgrade"},
 	{method: "DELETE", path: "/api/v2/admin/workflow-instances/:id", perm: "workflow:instance:delete"},

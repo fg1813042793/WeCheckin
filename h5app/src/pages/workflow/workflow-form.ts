@@ -329,36 +329,78 @@ export function validWorkflowOptionUrl(value?: string) {
   return url.startsWith('/api/') && !url.startsWith('//') && !url.includes('://') && !/\s/.test(url)
 }
 
-export function validateWorkflowFormData(
+export type WorkflowValidationEvent = 'blur' | 'change'
+
+const changeValidationFieldTypes = new Set([
+  'select',
+  'multi_select',
+  'radio',
+  'checkbox',
+  'boolean',
+  'date',
+  'datetime',
+  'time',
+  'date_range',
+  'attachment',
+  'detail_list',
+])
+
+export interface WorkflowFormValidationResult {
+  errors: Record<string, string>
+  fieldErrors: Record<string, string>
+  detailCellErrors: Record<string, string>
+}
+
+export function workflowFieldValidationTrigger(field: Pick<WorkflowFormField, 'type'>): WorkflowValidationEvent {
+  return changeValidationFieldTypes.has(field.type) ? 'change' : 'blur'
+}
+
+export function workflowDetailCellValidationKey(fieldKey: string, rowID: string, columnKey: string) {
+  return `${fieldKey}:${rowID}:${columnKey}`
+}
+
+export function validateWorkflowFormDataDetailed(
   fields: WorkflowFormField[],
   values: WorkflowFormData,
   accessMap?: WorkflowFieldAccessMap,
-) {
+): WorkflowFormValidationResult {
   const errors: Record<string, string> = {}
+  const fieldErrors: Record<string, string> = {}
+  const detailCellErrors: Record<string, string> = {}
   for (const field of workflowDataFields(fields)) {
     if (accessMap && accessMap[field.key] !== 'write')
       continue
     const message = validateWorkflowField(field, values[field.key], values)
     if (message) {
       errors[field.key] = message
-      continue
+      fieldErrors[field.key] = message
     }
     if (field.type !== 'detail_list' || !Array.isArray(values[field.key]))
       continue
     const rows = values[field.key] as Array<Record<string, unknown>>
     for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index] || {}
+      const rowID = String(row[workflowDetailRowKey(field)] || '') || `${field.key}_${index}`
       for (const column of field.columns || []) {
-        const cellError = validateWorkflowField(column, rows[index]?.[column.key], rows[index] || {})
+        const cellError = validateWorkflowField(column, row[column.key], row)
         if (cellError) {
-          errors[field.key] = `${field.label || field.key}第${index + 1}行：${cellError}`
-          break
+          const cellKey = workflowDetailCellValidationKey(field.key, rowID, column.key)
+          detailCellErrors[cellKey] = cellError
+          if (!errors[field.key])
+            errors[field.key] = `${field.label || field.key}第${index + 1}行：${cellError}`
         }
       }
-      if (errors[field.key])
-        break
     }
   }
-  return errors
+  return { errors, fieldErrors, detailCellErrors }
+}
+
+export function validateWorkflowFormData(
+  fields: WorkflowFormField[],
+  values: WorkflowFormData,
+  accessMap?: WorkflowFieldAccessMap,
+) {
+  return validateWorkflowFormDataDetailed(fields, values, accessMap).errors
 }
 
 export function workflowFormValidationMessage(

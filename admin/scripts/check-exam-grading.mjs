@@ -35,6 +35,10 @@ assert.deepEqual(buildSubmission(context, { 1: 999, 2: 0, 3: 3 }, '继续努力'
 })
 assert.deepEqual(gradingPreview(context, {}), { score: 6, remaining: 2 })
 assert.deepEqual(gradingPreview(context, { 2: 5, 3: 0 }), { score: 11, remaining: 0 })
+const withUnscored = { ...context, questions: [...context.questions, { questionId: 4, unscored: true, needManual: false, fullScore: 0, gotScore: 0 }] }
+assert.deepEqual(gradingPreview(withUnscored, { 2: 5, 3: 0, 4: 99 }), { score: 11, remaining: 0 })
+assert.deepEqual(buildSubmission(withUnscored, { 2: 5, 3: 0, 4: 99 }, ''), buildSubmission(context, { 2: 5, 3: 0 }, ''), '不计分题不得进入评分请求')
+assert.deepEqual(retainGradingDraft(withUnscored, { 2: 5, 3: 0, 4: 99 }), { 2: 5, 3: 0 })
 for (const patch of [{ record: { ...context.record, status: 0 } }, { record: { ...context.record, status: 2 } }, { canGrade: false }, { version: '' }, { questions: [] }]) {
   assert.throws(() => buildSubmission({ ...context, ...patch }, { 2: 5, 3: 0 }, ''), /批改|版本|题目/)
 }

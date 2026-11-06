@@ -6,10 +6,6 @@
     </div>
     <div class="setting-scroll">
       <section class="setting-group">
-        <div class="group-title">考试名称</div><div class="group-desc">区分后台管理名称和考生看到的显示名称</div>
-        <ExamNameFields :form="form" />
-      </section>
-      <section class="setting-group">
         <div class="group-title">展示与答题体验</div><div class="group-desc">控制考生端页面结构、校验时机和答题辅助能力</div>
         <el-form label-position="top"><div class="settings-grid">
           <el-form-item label="显示题号"><el-switch v-model="form.questionNumber" /></el-form-item><el-form-item label="显示进度条"><el-switch v-model="form.progressBar" /></el-form-item>
@@ -44,6 +40,9 @@
         <div class="group-title">投放与结果</div><div class="group-desc">管理考后展示、填写模板、公开链接和二维码</div>
         <el-form label-position="top"><div class="settings-grid">
           <el-form-item label="显示排名"><el-switch v-model="form.examRankingEnabled" /></el-form-item><el-form-item label="显示成绩单"><el-switch v-model="form.transcriptVisible" /></el-form-item><el-form-item label="可查看正确答案和解析"><el-switch v-model="form.showAnalysis" /></el-form-item><el-form-item label="考试状态"><el-switch v-model="form.statusBool" :active-value="1" :inactive-value="0" active-text="已开启" inactive-text="已停用" /></el-form-item>
+          <el-form-item label="答卷下载格式"><el-select v-model="form.answerDownloadFormat"><el-option label="PDF" value="pdf" /><el-option label="Word" value="docx" /><el-option label="Excel" value="xlsx" /></el-select><div class="setting-help">用于通知模版中的答卷下载链接</div></el-form-item>
+          <el-form-item label="下载链接有效期"><number-setting v-model="form.answerDownloadExpireDays" :min="1" :max="30" help="单位：天，可设置 1 到 30 天" /></el-form-item>
+          <el-form-item class="settings-full" label="答卷下载服务地址"><el-input v-model="form.answerDownloadBaseUrl" placeholder="例如：http://101.37.205.158:8086" clearable /><div class="setting-help">仅填写协议、域名和端口；通知模版使用答卷下载链接时必须配置</div></el-form-item>
           <el-form-item class="settings-full" label="填写模版"><el-select v-model="form.fillTemplate"><el-option v-for="(label, value) in fillTemplates" :key="value" :value="value" :label="label" /></el-select></el-form-item>
           <el-form-item class="settings-full" label="考试链接"><el-input v-if="form.id" :model-value="publicUrl" @update:model-value="emit('update:publicUrl', $event)"><template #append><el-button @click="emit('copyLink')">复制</el-button></template></el-input><span v-else class="setting-empty-tip">请先保存考试</span></el-form-item>
           <el-form-item class="settings-full" label="二维码"><div v-if="form.id" class="qr-preview"><img v-if="qrUrl" :src="qrUrl" alt="二维码" /><div class="qr-preview-meta"><strong>扫码进入考试</strong><span>修改考试链接后二维码会自动更新</span><el-button v-if="qrUrl" size="small" @click="emit('downloadQr')">下载二维码</el-button></div></div><span v-else class="setting-empty-tip">请先保存考试</span></el-form-item>
@@ -65,7 +64,6 @@ import { ElInputNumber } from 'element-plus'
 import { adminApi } from '../../../api'
 import { isValidRedirectUrl } from '../../survey/survey-designer-validation'
 import type { ExamCompletionAction } from '../exam-designer-types'
-import ExamNameFields from './ExamNameFields.vue'
 
 const props = defineProps<{ saving: boolean; publicUrl: string; qrUrl: string; fillTemplates: Record<string, string>; totalScore: number }>()
 const form = defineModel<Record<string, any>>('form', { required: true })
@@ -74,7 +72,7 @@ const emit = defineEmits<{ save: []; 'update:publicUrl': [value: string]; copyLi
 const deptTreeRef = ref<any>(null), adminTreeRef = ref<any>(null)
 const deptTreeOptions = ref<any[]>([]), adminTreeData = ref<any[]>([])
 const collaboratorCheckedKeys = ref<string[]>([]), creatorName = ref('')
-const NumberSetting = defineComponent({ props: { modelValue: Number, help: String }, emits: ['update:modelValue'], setup(componentProps, { emit: componentEmit }) { return () => h('div', { class: 'setting-control-stack' }, [h(ElInputNumber, { modelValue: componentProps.modelValue, min: 0, 'onUpdate:modelValue': (value: number | undefined) => componentEmit('update:modelValue', value) }), h('span', { class: 'setting-help' }, componentProps.help)]) } })
+const NumberSetting = defineComponent({ props: { modelValue: Number, help: String, min: { type: Number, default: 0 }, max: Number }, emits: ['update:modelValue'], setup(componentProps, { emit: componentEmit }) { return () => h('div', { class: 'setting-control-stack' }, [h(ElInputNumber, { modelValue: componentProps.modelValue, min: componentProps.min, max: componentProps.max, 'onUpdate:modelValue': (value: number | undefined) => componentEmit('update:modelValue', value) }), h('span', { class: 'setting-help' }, componentProps.help)]) } })
 function onAdminTreeCheck() { form.value.collaborators = adminTreeRef.value?.getCheckedKeys(true)?.filter((key: string) => key.startsWith('admin-'))?.map((key: string) => key.replace('admin-', ''))?.join(',') || '' }
 function onDeptCheckChange() { form.value.deptIds = deptTreeRef.value?.getCheckedKeys(false).join(',') || '' }
 function buildAdminTree(departments: any[], managers: any[]): any[] { return departments.map(department => { const managerNodes = managers.filter(manager => (manager.deptIds || []).includes(department.id)).map(manager => ({ id: `admin-${manager.id}`, label: manager.name, type: 'admin' })); const children = department.children?.length ? buildAdminTree(department.children, managers) : []; children.push(...managerNodes); return { id: `dept-${department.id}`, label: department.name, type: 'dept', children } }).filter(department => department.children?.length) }

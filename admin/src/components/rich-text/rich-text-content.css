@@ -1,0 +1,136 @@
+.advanced-rich-text-editor .ql-editor,
+.rich-text-content {
+  color: var(--admin-ui-color-text, #1f2329);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.advanced-rich-text-editor .ql-editor blockquote,
+.rich-text-content blockquote {
+  margin: 12px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--admin-ui-color-primary, #1677ff);
+  background: #f6f8fa;
+  color: #5f6b7a;
+}
+
+.advanced-rich-text-editor .ql-editor .ql-code-block-container,
+.rich-text-content .ql-code-block-container {
+  position: relative;
+  margin: 8px 0;
+  overflow: auto;
+  padding: 42px 14px 12px;
+  border: 1px solid #253044;
+  border-left: 3px solid var(--admin-ui-color-primary, #1677ff);
+  border-radius: 6px;
+  background: #111827;
+  box-shadow: inset 0 32px 0 #1f2937;
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.advanced-rich-text-editor .ql-editor .ql-code-block-container::before,
+.rich-text-content .ql-code-block-container::before {
+  position: absolute;
+  top: 8px;
+  left: 13px;
+  content: "代码";
+  color: #94a3b8;
+  font: 11px/16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.advanced-rich-text-editor .ql-editor pre,
+.rich-text-content pre {
+  margin: 8px 0;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid #253044;
+  border-left: 3px solid var(--admin-ui-color-primary, #1677ff);
+  border-radius: 6px;
+  background: #111827;
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.advanced-rich-text-editor .ql-editor .ql-code-block-container .ql-ui {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  min-width: 104px;
+  height: 22px;
+  padding: 0 24px 0 8px;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  background: #111827;
+  color: #cbd5e1;
+  font: 11px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.advanced-rich-text-editor .ql-editor .ql-code-block,
+.rich-text-content .ql-code-block {
+  min-height: 21px;
+  padding: 0;
+  color: inherit;
+}
+
+.advanced-rich-text-editor .ql-editor table,
+.rich-text-content table {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.advanced-rich-text-editor .ql-editor th,
+.advanced-rich-text-editor .ql-editor td,
+.rich-text-content th,
+.rich-text-content td {
+  min-width: 72px;
+  padding: 8px 10px;
+  border: 1px solid #d8dee8;
+  vertical-align: top;
+}
+
+.advanced-rich-text-editor .ql-editor th,
+.rich-text-content th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.advanced-rich-text-editor .ql-editor img,
+.rich-text-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.advanced-rich-text-editor .ql-editor a,
+.rich-text-content a {
+  color: var(--admin-ui-color-primary, #1677ff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.advanced-rich-text-editor .hljs-comment,
+.advanced-rich-text-editor .hljs-quote { color: #8b949e; }
+.advanced-rich-text-editor .hljs-keyword,
+.advanced-rich-text-editor .hljs-selector-tag,
+.advanced-rich-text-editor .hljs-subst { color: #ff7b72; }
+.advanced-rich-text-editor .hljs-string,
+.advanced-rich-text-editor .hljs-doctag { color: #a5d6ff; }
+.advanced-rich-text-editor .hljs-number,
+.advanced-rich-text-editor .hljs-literal,
+.advanced-rich-text-editor .hljs-variable,
+.advanced-rich-text-editor .hljs-template-variable { color: #79c0ff; }
+.advanced-rich-text-editor .hljs-title,
+.advanced-rich-text-editor .hljs-section,
+.advanced-rich-text-editor .hljs-selector-id { color: #d2a8ff; font-weight: 600; }
+.advanced-rich-text-editor .hljs-type,
+.advanced-rich-text-editor .hljs-class .hljs-title { color: #7ee787; }
+

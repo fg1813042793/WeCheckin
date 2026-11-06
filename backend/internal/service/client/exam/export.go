@@ -3,6 +3,7 @@ package exam
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"regexp"
@@ -10,12 +11,16 @@ import (
 	"strings"
 	"time"
 
+	examPkg "wecheckin/backend/internal/formkit/exam"
 	"wecheckin/backend/internal/model"
 	"wecheckin/backend/internal/service/dingtalkh5/workflowsummary"
 	"wecheckin/backend/pkg/database"
+
+	"gorm.io/gorm"
 )
 
 var examExportHTMLTagPattern = regexp.MustCompile(`<[^>]*>`)
+var ErrRecordExportUnavailable = errors.New("exam record export is unavailable")
 
 type storedQuestionResult struct {
 	QuestionID uint   `json:"questionId"`
@@ -39,6 +44,21 @@ func (s *Service) ExportRecordForAdminContext(ctx context.Context, examID, recor
 	if err != nil {
 		return nil, err
 	}
+	return exportRecordContext(db, examQuery, examID, recordID, format)
+}
+
+// ExportRecordForLinkContext renders the exact record selected by an already validated public grant.
+func (s *Service) ExportRecordForLinkContext(ctx context.Context, examID, recordID uint, format workflowsummary.ExportFormat) (*workflowsummary.ExportResult, error) {
+	db, cancel := database.WithContext(ctx)
+	defer cancel()
+	result, err := exportRecordContext(db, db.Model(&model.Exam{}), examID, recordID, format)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrRecordExportUnavailable
+	}
+	return result, err
+}
+
+func exportRecordContext(db, examQuery *gorm.DB, examID, recordID uint, format workflowsummary.ExportFormat) (*workflowsummary.ExportResult, error) {
 	var exam model.Exam
 	if err := examQuery.Where("`exam_id` = ?", examID).First(&exam).Error; err != nil {
 		return nil, err
@@ -93,19 +113,20 @@ func buildRecordExportDocument(exam model.Exam, record model.ExamRecord, userNam
 		displayUser = firstExamExportText(record.UserID, "匿名用户")
 	}
 	document := workflowsummary.Document{
+		Layout:   workflowsummary.DocumentLayoutAnswerSheet,
 		Title:    firstExamExportText(exam.Title, "考试答卷"),
 		FileStem: fmt.Sprintf("exam-%d-record-%d", exam.ID, record.ID),
 		Metadata: [][]string{
-			{"考试编号", strconv.FormatUint(uint64(exam.ID), 10)},
-			{"答卷编号", strconv.FormatUint(uint64(record.ID), 10)},
 			{"考生", displayUser},
-			{"用户 ID", firstExamExportText(record.UserID, "匿名")},
 			{"总成绩", fmt.Sprintf("%d/%d", record.Score, record.TotalScore)},
-			{"是否通过", examRecordPassLabel(record.Pass)},
 			{"答卷状态", examRecordStatusLabel(record.Status)},
+			{"是否通过", examRecordPassLabel(record.Pass)},
 			{"考试用时", formatExamExportDuration(record.TimeSpent)},
-			{"开始时间", formatExamExportTime(record.StartTime)},
 			{"提交时间", formatExamExportTime(record.SubmitTime)},
+			{"开始时间", formatExamExportTime(record.StartTime)},
+			{"答卷编号", strconv.FormatUint(uint64(record.ID), 10)},
+			{"考试编号", strconv.FormatUint(uint64(exam.ID), 10)},
+			{"用户 ID", firstExamExportText(record.UserID, "匿名")},
 		},
 	}
 
@@ -116,6 +137,14 @@ func buildRecordExportDocument(exam model.Exam, record model.ExamRecord, userNam
 	answers := make(map[string]interface{})
 	_ = json.Unmarshal([]byte(record.Answers), &answers)
 	results, legacyResults := decodeStoredExamResults(record.Result)
+	gradeIDs := make(map[string]int)
+	snapshot, snapshotErr := decodeRecordReviewSnapshot(record.ReviewSnapshot)
+	if snapshotErr == nil {
+		for _, question := range snapshot.Questions {
+			gradeIDs[question.AnswerKey] = int(question.QuestionID)
+		}
+	}
+	paperMode := record.PaperID > 0 || exam.PaperID > 0
 
 	sectionTitle := "答题明细"
 	rows := make([][]string, 0, len(schema.Questions))
@@ -123,16 +152,21 @@ func buildRecordExportDocument(exam model.Exam, record model.ExamRecord, userNam
 		if len(rows) == 0 {
 			return
 		}
+		blocks := make([]workflowsummary.AnswerBlock, 0, len(rows))
+		for _, row := range rows {
+			blocks = append(blocks, workflowsummary.AnswerBlock{Title: row[0], Answer: row[1], ReferenceAnswer: row[2], Score: row[3], Result: row[4]})
+		}
 		document.Sections = append(document.Sections, workflowsummary.Section{
-			Title:   sectionTitle,
-			Headers: []string{"题目", "用户答案", "正确答案", "得分", "判题结果"},
-			Rows:    rows,
+			Title:        sectionTitle,
+			Headers:      []string{"题目", "用户答案", "参考答案", "得分", "判题结果"},
+			Rows:         rows,
+			AnswerBlocks: blocks,
 		})
 		rows = nil
 	}
 
 	questionNumber := 0
-	for _, question := range schema.Questions {
+	for schemaIndex, question := range schema.Questions {
 		questionType := strings.TrimSpace(fmt.Sprint(question["type"]))
 		if questionType == "divider" {
 			flushRows()
@@ -144,11 +178,11 @@ func buildRecordExportDocument(exam model.Exam, record model.ExamRecord, userNam
 		}
 		questionNumber++
 		questionID := strings.TrimSpace(fmt.Sprint(question["id"]))
-		gradeKey := questionNumber
-		if numericID, err := strconv.Atoi(questionID); err == nil {
-			if _, ok := results[numericID]; ok {
-				gradeKey = numericID
-			}
+		gradeKey := schemaIndex + 1
+		if snapshotErr == nil {
+			gradeKey = gradeIDs[questionID]
+		} else if paperMode {
+			gradeKey, _ = strconv.Atoi(questionID)
 		}
 		grade, hasGrade := results[gradeKey]
 		if !hasGrade {
@@ -161,21 +195,35 @@ func buildRecordExportDocument(exam model.Exam, record model.ExamRecord, userNam
 			}
 		}
 		fullScore := intValue(question["examScore"])
-		if hasGrade && grade.FullScore > 0 {
+		if hasGrade {
 			fullScore = grade.FullScore
 		}
+		unscored := !hasGrade && schemaStringValue(question["examScoreMode"]) == examPkg.ScoreModeNone
 		scoreText := "-"
-		if hasGrade {
+		if unscored {
+			scoreText = "不计分"
+		} else if hasGrade && grade.NeedManual {
+			scoreText = "待评分"
+			if fullScore > 0 {
+				scoreText = fmt.Sprintf("待评分 / %d", fullScore)
+			}
+		} else if hasGrade && fullScore == 0 {
+			scoreText = "不计分"
+		} else if hasGrade {
 			scoreText = fmt.Sprintf("%d/%d", grade.GotScore, fullScore)
 		} else if fullScore > 0 {
 			scoreText = fmt.Sprintf("-/%d", fullScore)
 		}
+		referenceText, gradeText := formatExamReferenceValue(question, question["examCorrectAnswer"]), formatExamGrade(grade, hasGrade)
+		if unscored {
+			referenceText, gradeText = "不适用（不计分）", "不计分"
+		}
 		rows = append(rows, []string{
 			fmt.Sprintf("%d. %s", questionNumber, firstExamExportText(stripExamExportHTML(fmt.Sprint(question["title"])), "未命名题目")),
 			formatExamQuestionValue(question, answers[questionID]),
-			formatExamQuestionValue(question, question["examCorrectAnswer"]),
+			referenceText,
 			scoreText,
-			formatExamGrade(grade, hasGrade),
+			gradeText,
 		})
 	}
 	flushRows()
@@ -198,6 +246,7 @@ func examSchemaFromPaperQuestions(questions []model.ExamQuestion) string {
 			"title":             question.Title,
 			"examCorrectAnswer": question.Answer,
 			"examScore":         question.Score,
+			"examScoreMode":     paperQuestionScoreMode(question),
 			"props":             map[string]interface{}{"options": options},
 		})
 	}
@@ -262,7 +311,7 @@ func formatExamQuestionValue(question map[string]interface{}, value interface{})
 		if strings.HasPrefix(trimmed, "[") && json.Unmarshal([]byte(typed), &array) == nil {
 			return formatExamQuestionValue(question, array)
 		}
-		if strings.Contains(typed, ",") {
+		if len(labels) > 0 && strings.Contains(typed, ",") {
 			parts := strings.Split(typed, ",")
 			for index := range parts {
 				parts[index] = formatOne(parts[index])
@@ -276,6 +325,34 @@ func formatExamQuestionValue(question map[string]interface{}, value interface{})
 		}
 		return formatOne(value)
 	}
+}
+
+func formatExamReferenceValue(question map[string]interface{}, value interface{}) string {
+	if emptyExamReferenceValue(value) {
+		return "未设置参考答案"
+	}
+	return formatExamQuestionValue(question, value)
+}
+
+func emptyExamReferenceValue(value interface{}) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return true
+		}
+		var decoded interface{}
+		if json.Unmarshal([]byte(trimmed), &decoded) == nil {
+			return emptyExamReferenceValue(decoded)
+		}
+	case []interface{}:
+		return len(typed) == 0
+	case map[string]interface{}:
+		return len(typed) == 0
+	}
+	return false
 }
 
 func examQuestionOptionLabels(question map[string]interface{}) map[string]string {
@@ -301,7 +378,11 @@ func formatExamGrade(result storedQuestionResult, exists bool) string {
 		return "未判定"
 	}
 	if result.NeedManual {
-		return firstExamExportText(result.Reason, "待人工判分")
+		reason := strings.TrimSpace(result.Reason)
+		if reason == "" || reason == "主观题，需人工判分" {
+			return "待人工评分"
+		}
+		return "待人工评分：" + reason
 	}
 	if result.Correct {
 		return "正确"

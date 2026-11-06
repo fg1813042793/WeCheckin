@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import ts from 'typescript'
+import './check-workflow-field-width.mjs'
 
 const root = process.cwd()
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
@@ -37,6 +38,7 @@ const {
 } = loadTypeScriptModule('src/views/workflow/workflowCalculation.ts')
 const runtimeFormSource = read('src/views/workflow/components/WorkflowRuntimeForm.vue')
 const fieldPreviewSource = read('src/views/workflow/designer/components/WorkflowFormFieldPreview.vue')
+const fieldWidthStyleSource = read('src/views/workflow/designer/workflowFieldWidth.css')
 const validationRulesSource = read('src/views/workflow/designer/components/WorkflowValidationRulesEditor.vue')
 const permissionSource = read('src/views/workflow/designer/components/WorkflowFieldPermissions.vue')
 const fieldPermissionUtilsPath = 'src/views/workflow/workflowFieldPermissions.ts'
@@ -411,10 +413,21 @@ const requirements = [
   [formDesignerSource, 'title="上移一位"', '明细列缺少上移按钮'],
   [formDesignerSource, 'title="下移一位"', '明细列缺少下移按钮'],
   [formDesignerSource, 'detail-column-layout', '明细列表列配置缺少宽度设置'],
+  [formDesignerSource, 'label="Placeholder"', '字段属性缺少 Placeholder 设置'],
+  [formDesignerSource, 'v-model="column.placeholder"', '明细列缺少独立 Placeholder 设置'],
+  [formDesignerSource, 'supportsPlaceholder', 'Placeholder 设置未按组件类型过滤'],
+  [formDesignerSource, '<el-slider', '字段和明细列宽缺少滑块设置'],
+  [formDesignerSource, ':min="1"', '列宽滑块最小值不是 1'],
+  [formDesignerSource, ':max="24"', '列宽滑块最大值不是 24'],
+  [formDesignerSource, ':step="1"', '列宽滑块步长不是 1'],
+  [formDesignerSource, '@input="updateFieldSpan"', '字段宽度滑块未实时更新'],
+  [formDesignerSource, '@input="updateDetailColumnSpan(column, $event)"', '明细列宽滑块未实时更新'],
+  [formDesignerSource, 'field-span-slider', '字段和明细列宽缺少滑块布局类'],
+  [fieldWidthStyleSource, '.field-span-slider', '列宽滑块缺少窄面板样式'],
   [formDesignerSource, 'updateDetailColumnSpan', '明细列表缺少列宽更新逻辑'],
   [formDesignerSource, 'fieldSpan(column)', '明细列表画布预览未应用列宽'],
   [fieldPreviewSource, 'columnSpan(column)', '分组内明细列表预览未应用列宽'],
-  [fieldPreviewSource, 'repeat(24, minmax(0, 1fr))', '分组内明细列表预览缺少 24 栅格'],
+  [fieldPreviewSource, 'repeat(120, minmax(0, 1fr))', '分组内明细列表预览缺少精确比例栅格'],
   [formDesignerSource, 'rowKey', '明细列表缺少行标识配置'],
   [formDesignerSource, '选项来源', '选项配置缺少来源切换'],
   [formDesignerSource, 'JSON', '选项配置缺少 JSON 输入'],
@@ -443,7 +456,7 @@ const requirements = [
   [validationRulesSource, 'workflowCompareFieldCompatible', '普通字段比较未使用兼容类型矩阵'],
   [validationRulesSource, "rule.field = ''", '新增字段比较规则不应默认关联目标字段'],
   [formDesignerSource, 'WorkflowValidationRulesEditor', '表单设计器未接入高级校验规则编辑器'],
-  [formDesignerSource, 'grid-template-columns: repeat(24, minmax(0, 1fr))', '表单画布缺少 24 列栅格'],
+  [formDesignerSource, 'grid-template-columns: repeat(120, minmax(0, 1fr))', '表单画布缺少精确比例栅格'],
   [formDesignerSource, 'fieldSpan(field)', '表单字段未应用布局宽度'],
   [permissionSource, "value=\"hidden\"", '字段权限缺少隐藏选项'],
   [permissionSource, "value=\"read\"", '字段权限缺少只读选项'],

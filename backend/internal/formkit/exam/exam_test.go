@@ -2,6 +2,26 @@ package exam
 
 import "testing"
 
+func TestGradeExplicitNoneOverridesStaleScoreAndManualType(t *testing.T) {
+	answers := map[string]interface{}{"1": "仍需保存的问答内容", "2": "yes", "3": []interface{}{"A"}}
+	questions := []Question{
+		{ID: 1, Type: "textarea", ScoreMode: "none", Score: 90, NeedManual: true},
+		{ID: 2, Type: "input", Score: 5, Answer: "yes"},
+		{ID: 3, Type: "multiInput", ScoreMode: "none", Score: 10, Fields: []AnswerField{{Answer: "A", Score: 10, Required: true}}},
+	}
+	result := Grade(questions, answers)
+	if result.FullScore != 5 || result.TotalScore != 5 || result.CorrectCnt != 1 || result.ManualCount != 0 || len(result.Results) != 1 || result.Results[0].QuestionID != 2 {
+		t.Fatalf("unscored questions entered grading: %+v", result)
+	}
+	if answers["1"] != "仍需保存的问答内容" || len(answers) != 3 {
+		t.Fatal("grading altered submitted answers")
+	}
+	result = Grade(questions[:1], answers)
+	if result.FullScore != 0 || result.TotalScore != 0 || result.CorrectCnt != 0 || result.ManualCount != 0 || len(result.Results) != 0 {
+		t.Fatalf("all-unscored result=%+v", result)
+	}
+}
+
 func TestGrade_Input(t *testing.T) {
 	qs := []Question{{ID: 1, Type: "input", Title: "首都", Answer: `"北京"`, Score: 10}}
 	res := Grade(qs, map[string]interface{}{"1": "北京"})

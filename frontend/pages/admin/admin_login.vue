@@ -69,6 +69,10 @@ export default {
 
         if (res.data && res.data.token) {
           setAdminAuth(res.data)
+          if (res.data.passwordChangeRequired) {
+            uni.redirectTo({ url: '/pages/admin/mgr/admin_mgr_pwd' })
+            return
+          }
           uni.showToast({ title: '登录成功', icon: 'success' })
           uni.redirectTo({ url: '/pages/admin/admin_home' })
         } else {

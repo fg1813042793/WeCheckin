@@ -40,8 +40,8 @@ type CopyRequest struct {
 type UpdateRequest struct {
 	Name        string          `json:"name"`
 	DisplayName *string         `json:"displayName"`
-	Description string          `json:"description"`
-	Category    string          `json:"category"`
+	Description *string         `json:"description"`
+	Category    *string         `json:"category"`
 	LogoURL     *string         `json:"-"`
 	Status      *int            `json:"status"`
 	Draft       json.RawMessage `json:"draft"`
@@ -365,8 +365,8 @@ func UpdateForAdminContext(ctx context.Context, adminID, id uint, request Update
 		}
 		status = *request.Status
 	}
-	description := strings.TrimSpace(request.Description)
-	category := strings.TrimSpace(request.Category)
+	description := optionalDefinitionText(item.Description, request.Description)
+	category := optionalDefinitionText(item.Category, request.Category)
 	var logoURL *string
 	if request.LogoURL != nil {
 		normalized, err := normalizeDefinitionLogoURL(*request.LogoURL)
@@ -409,6 +409,13 @@ func UpdateForAdminContext(ctx context.Context, adminID, id uint, request Update
 		item.FieldPermissionsRevision++
 	}
 	return &DefinitionDetail{DefinitionSummary: summaryFromModel(ctx, item), Draft: draft}, nil
+}
+
+func optionalDefinitionText(existing string, requested *string) string {
+	if requested == nil {
+		return existing
+	}
+	return strings.TrimSpace(*requested)
 }
 
 func definitionContentUpdates(item model.WorkflowDefinition, name, displayName, description, category string, status int, draftJSON, startConfigJSON string, logoURL *string) map[string]interface{} {

@@ -69,7 +69,7 @@ assert.match(captchaHTML, /请求前后快照.*并发更新/)
 assert.doesNotMatch(captchaHTML, /脱敏|保护标记/)
 assert.doesNotMatch(source, /v-html/)
 
-const booleanFields = ['ADMIN_LOGIN_CAPTCHA_ENABLED', 'DINGTALK_H5_LOGIN_CAPTCHA_ENABLED', 'USER_SINGLE_LOGIN', 'ADMIN_SINGLE_LOGIN', 'DINGTALK_H5_SINGLE_LOGIN', 'DINGTALK_H5_SELF_BIND_ENABLED', 'DINGTALK_H5_NOTIFY_ENABLED'].map(key => `settings.${key}`)
+const booleanFields = ['ADMIN_LOGIN_CAPTCHA_ENABLED', 'DINGTALK_H5_LOGIN_CAPTCHA_ENABLED', 'USER_SINGLE_LOGIN', 'ADMIN_SINGLE_LOGIN', 'DINGTALK_H5_SINGLE_LOGIN', 'DINGTALK_H5_SELF_BIND_ENABLED', 'DINGTALK_H5_NOTIFY_ENABLED', 'TOKEN_ADMIN_SLIDING_EXPIRE_ENABLED', 'TOKEN_USER_SLIDING_EXPIRE_ENABLED', 'TOKEN_DINGTALK_H5_SLIDING_EXPIRE_ENABLED'].map(key => `settings.${key}`)
 booleanFields.push('settings.corp.12.enabled', 'settings.corp.12.notify_enabled')
 for (const field of booleanFields) {
   for (const input of [true, 1, '1', 'true']) assert.equal(value(field, input), '开启', field)

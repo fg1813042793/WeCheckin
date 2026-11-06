@@ -20,6 +20,7 @@ const (
 	LifecycleInstanceRejected    LifecycleEventType = "instance_rejected"
 	LifecycleInstanceWithdrawn   LifecycleEventType = "instance_withdrawn"
 	LifecycleInstanceCancelled   LifecycleEventType = "instance_cancelled"
+	LifecycleInstanceVoided      LifecycleEventType = "instance_voided"
 	LifecycleInstanceFormRevised LifecycleEventType = "workflow.instance.form_revised"
 )
 
@@ -133,7 +134,7 @@ func (handler *businessStatusLifecycleHandler) HandleLifecycleEvent(ctx context.
 func isBusinessStatusEvent(eventType LifecycleEventType) bool {
 	switch eventType {
 	case LifecycleInstanceStarted, LifecycleInstanceCompleted, LifecycleInstanceRejected,
-		LifecycleInstanceWithdrawn, LifecycleInstanceCancelled:
+		LifecycleInstanceWithdrawn, LifecycleInstanceCancelled, LifecycleInstanceVoided:
 		return true
 	default:
 		return false

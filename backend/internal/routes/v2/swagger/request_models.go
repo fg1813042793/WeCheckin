@@ -133,9 +133,9 @@ type WorkflowCompleteTaskRequest struct {
 	FormData map[string]interface{} `json:"formData"`
 }
 
-// WorkflowReasonRequest describes an optional withdrawal or cancellation reason.
+// WorkflowReasonRequest describes a workflow status-change reason.
 type WorkflowReasonRequest struct {
-	// Reason 是撤回或取消原因。
+	// Reason 是撤回、取消或作废原因；作废时必填。
 	Reason string `json:"reason" example:"业务申请撤销"`
 }
 

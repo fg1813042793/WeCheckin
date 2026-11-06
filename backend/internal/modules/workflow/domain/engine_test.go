@@ -624,6 +624,41 @@ func TestEngineAdminCancelTerminatesRunningInstance(t *testing.T) {
 	}
 }
 
+func TestEngineVoidsCompletedInstanceAndKeepsCompletedWork(t *testing.T) {
+	definition := linearDefinition(workflowcore.ApprovalModeSingle, 0)
+	engine := newTestEngine(staticResolver{"approve": {"u1"}})
+	state, err := engine.Start(context.Background(), definition, StartRequest{StarterID: "starter"})
+	if err != nil {
+		t.Fatalf("start workflow: %v", err)
+	}
+	taskID := state.PendingTasks()[0].ID
+	if err := engine.Complete(context.Background(), definition, state, CompleteRequest{TaskID: taskID, ActorID: "u1", Action: TaskActionApprove}); err != nil {
+		t.Fatalf("complete workflow: %v", err)
+	}
+
+	if err := engine.Void(state, "admin-1", "原申请内容无效"); err != nil {
+		t.Fatalf("void workflow: %v", err)
+	}
+	if state.Instance.Status != InstanceStatusVoided {
+		t.Fatalf("voided instance status = %q", state.Instance.Status)
+	}
+	if state.Tasks[0].Status != TaskStatusApproved || state.Tokens[0].Status != TokenStatusCompleted {
+		t.Fatalf("void must preserve completed runtime records: tasks=%#v tokens=%#v", state.Tasks, state.Tokens)
+	}
+	history := lastHistoryByType(state.History, HistoryInstanceVoided)
+	if history == nil || history.ActorID != "admin-1" || history.Message != "原申请内容无效" {
+		t.Fatalf("void history = %#v", history)
+	}
+}
+
+func TestEngineRejectsVoidingNonCompletedInstance(t *testing.T) {
+	engine := newTestEngine(staticResolver{})
+	state := &State{Instance: ProcessInstance{Status: InstanceStatusRunning}}
+	if err := engine.Void(state, "admin-1", "无效"); !errors.Is(err, ErrInstanceNotCompleted) {
+		t.Fatalf("void running instance error = %v, want ErrInstanceNotCompleted", err)
+	}
+}
+
 func TestEngineHandleTaskOnlyAcceptsSubmit(t *testing.T) {
 	definition := workflowcore.Definition{
 		SchemaVersion: workflowcore.CurrentSchemaVersion,

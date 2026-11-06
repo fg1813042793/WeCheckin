@@ -18,19 +18,20 @@ func BuildNodeProgress(
 	processing := make(map[string]bool, len(definition.Nodes))
 	returned := make(map[string]bool, len(definition.Nodes))
 	terminated := make(map[string]bool, len(definition.Nodes))
+	afterSkip := progressAfterSkips(history)
 
 	for _, node := range definition.Nodes {
 		if node.Type == workflowcore.NodeTypeStart {
 			completed[node.ID] = true
 		}
-		if node.Type == workflowcore.NodeTypeEnd && instance.Status == string(workflowdomain.InstanceStatusCompleted) {
+		if node.Type == workflowcore.NodeTypeEnd && (instance.Status == string(workflowdomain.InstanceStatusCompleted) || instance.Status == string(workflowdomain.InstanceStatusVoided)) {
 			completed[node.ID] = true
 		}
 	}
 	collectTokenProgress(tokens, completed, processing, terminated)
 	collectTaskProgress(tasks, completed, processing, returned, terminated)
 	collectHistoryProgress(history, completed, processing, terminated)
-	completeTraversedGateways(definition, completed, processing, terminated)
+	completeTraversedGateways(definition, completed, processing, terminated, afterSkip)
 
 	orderedNodes := topologicallySortedNodes(definition)
 	result := make([]NodeProgressSummary, 0, len(orderedNodes))
@@ -39,6 +40,8 @@ func BuildNodeProgress(
 		switch {
 		case processing[node.ID]:
 			status = NodeProgressProcessing
+		case afterSkip[node.ID] != "":
+			status = afterSkip[node.ID]
 		case returned[node.ID]:
 			status = NodeProgressReturned
 		case terminated[node.ID]:
@@ -172,11 +175,48 @@ func collectHistoryProgress(
 	}
 }
 
+// History is ordered by event time and ID. Track visits after a skip separately
+// so old task decisions and cancelled tokens cannot mask the latest visit.
+func progressAfterSkips(history []HistorySummary) map[string]string {
+	progress := make(map[string]string)
+	for _, event := range history {
+		if event.NodeID == "" {
+			continue
+		}
+		if workflowdomain.HistoryEventType(event.EventType) == workflowdomain.HistoryNodeSkipped {
+			progress[event.NodeID] = NodeProgressSkipped
+			continue
+		}
+		status, visited := progress[event.NodeID]
+		if !visited {
+			continue
+		}
+		switch workflowdomain.HistoryEventType(event.EventType) {
+		case workflowdomain.HistoryTaskCreated, workflowdomain.HistoryTaskActivated:
+			progress[event.NodeID] = NodeProgressProcessing
+		case workflowdomain.HistoryTaskApproved, workflowdomain.HistoryTaskSubmitted:
+			progress[event.NodeID] = NodeProgressCompleted
+		case workflowdomain.HistoryTaskReturned:
+			progress[event.NodeID] = NodeProgressReturned
+		case workflowdomain.HistoryTaskRejected:
+			progress[event.NodeID] = NodeProgressTerminated
+		case workflowdomain.HistoryTaskCancelled:
+			// Cancelling the remaining tasks after approval/return does not
+			// change that visit's decision (for example, a countersign threshold).
+			if status != NodeProgressCompleted && status != NodeProgressReturned {
+				progress[event.NodeID] = NodeProgressTerminated
+			}
+		}
+	}
+	return progress
+}
+
 func completeTraversedGateways(
 	definition workflowcore.Definition,
 	completed map[string]bool,
 	processing map[string]bool,
 	terminated map[string]bool,
+	afterSkip map[string]string,
 ) {
 	startNodeID := ""
 	for _, node := range definition.Nodes {
@@ -191,8 +231,10 @@ func completeTraversedGateways(
 
 	evidenceNodeIDs := make([]string, 0, len(definition.Nodes))
 	for _, node := range definition.Nodes {
+		// Keep traversal evidence even when a later visit supersedes the skip.
+		_, wasSkipped := afterSkip[node.ID]
 		if node.Type != workflowcore.NodeTypeExclusive && node.Type != workflowcore.NodeTypeParallel &&
-			(completed[node.ID] || processing[node.ID] || terminated[node.ID]) {
+			(completed[node.ID] || processing[node.ID] || terminated[node.ID] || wasSkipped) {
 			evidenceNodeIDs = append(evidenceNodeIDs, node.ID)
 		}
 	}
@@ -327,7 +369,7 @@ func sortReadyNodes(ready []string, nodeByID map[string]workflowcore.Node, defin
 
 func defaultNodeProgressStatus(instanceStatus string) string {
 	switch workflowdomain.InstanceStatus(instanceStatus) {
-	case workflowdomain.InstanceStatusCompleted:
+	case workflowdomain.InstanceStatusCompleted, workflowdomain.InstanceStatusVoided:
 		return NodeProgressSkipped
 	case workflowdomain.InstanceStatusRunning:
 		return NodeProgressNotStarted

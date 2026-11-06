@@ -127,6 +127,7 @@ func Declarations() []Declaration {
 		{"workflow:instance:start", "流程实例发起接口"},
 		{"workflow:instance:detail", "流程实例详情接口"},
 		{"workflow:instance:cancel", "流程实例取消接口"},
+		{"workflow:instance:void", "流程实例作废接口"},
 		{"workflow:instance:delete", "流程实例删除接口"},
 		{"workflow:instance:upgrade:preview", "流程实例版本升级预检接口"},
 		{"workflow:instance:upgrade", "流程实例版本升级接口"},
@@ -162,6 +163,8 @@ func Declarations() []Declaration {
 		{"notification:style:edit", "通知样式维护接口"},
 		{"user-feedback:list", "用户反馈查看接口"},
 		{"user-feedback:handle", "用户反馈处理接口"},
+		{"public-portal:list", "公共页面配置查看接口"},
+		{"public-portal:edit", "公共页面配置维护接口"},
 	}
 	out := make([]Declaration, 0, len(codes))
 	for _, item := range codes {
@@ -193,6 +196,7 @@ func Categories() []Category {
 		{Key: "admin:api-category:scheduled-task", Name: "定时任务", Sort: 80},
 		{Key: "admin:api-category:notification", Name: "通知", Sort: 85},
 		{Key: "admin:api-category:user-feedback", Name: "用户反馈", Sort: 90},
+		{Key: "admin:api-category:public-portal", Name: "公共页面", Sort: 95},
 	}
 }
 
@@ -228,6 +232,8 @@ func categoryForPerms(categories map[string]Category, perms string) Category {
 		key = "admin:api-category:notification"
 	case "user-feedback":
 		key = "admin:api-category:user-feedback"
+	case "public-portal":
+		key = "admin:api-category:public-portal"
 	}
 	if item, ok := categories[key]; ok {
 		return item
@@ -359,6 +365,7 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"workflow:instance:start":           {method: "POST", path: "/api/v2/admin/workflow-instances"},
 	"workflow:instance:detail":          {method: "GET", path: "/api/v2/admin/workflow-instances/:id"},
 	"workflow:instance:cancel":          {method: "POST", path: "/api/v2/admin/workflow-instances/:id/cancel"},
+	"workflow:instance:void":            {method: "POST", path: "/api/v2/admin/workflow-instances/:id/void"},
 	"workflow:instance:delete":          {method: "DELETE", path: "/api/v2/admin/workflow-instances/:id"},
 	"workflow:instance:upgrade:preview": {method: "GET", path: "/api/v2/admin/workflow-instances/:id/version-upgrade-preview"},
 	"workflow:instance:upgrade":         {method: "POST", path: "/api/v2/admin/workflow-instances/:id/version-upgrade"},
@@ -394,4 +401,6 @@ var primaryAdminAPIRoutes = map[string]primaryRoute{
 	"notification:style:edit":           {method: "PUT", path: "/api/v2/admin/notification-styles"},
 	"user-feedback:list":                {method: "GET", path: "/api/v2/admin/user-feedbacks"},
 	"user-feedback:handle":              {method: "PATCH", path: "/api/v2/admin/user-feedbacks/:id/status"},
+	"public-portal:list":                {method: "GET", path: "/api/v2/admin/public-portal"},
+	"public-portal:edit":                {method: "PUT", path: "/api/v2/admin/public-portal/settings"},
 }

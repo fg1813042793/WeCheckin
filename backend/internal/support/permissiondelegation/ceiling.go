@@ -24,6 +24,15 @@ var (
 	ErrReservedRole       = errors.New("只有超级管理员可以管理超级管理员角色")
 )
 
+// PermissionExceededError preserves the rejected key without forcing HTTP
+// callers to expose or parse a wrapped error string.
+type PermissionExceededError struct{ PermissionKey string }
+
+func (err *PermissionExceededError) Error() string {
+	return fmt.Sprintf("%s: %s", ErrPermissionExceeded, err.PermissionKey)
+}
+func (err *PermissionExceededError) Unwrap() error { return ErrPermissionExceeded }
+
 type Ceiling struct {
 	ActorID        uint
 	ActorRoleID    uint
@@ -251,7 +260,7 @@ func (ceiling Ceiling) ValidatePermissionKeys(keys []string) error {
 			continue
 		}
 		if !ceiling.AllowsPermission(key) {
-			return fmt.Errorf("%w: %s", ErrPermissionExceeded, key)
+			return &PermissionExceededError{PermissionKey: key}
 		}
 	}
 	return nil
@@ -366,7 +375,7 @@ func (ceiling Ceiling) ValidateRoleIDsContext(ctx context.Context, db *gorm.DB, 
 	}
 	for _, role := range roles {
 		if err := ceiling.ValidateRoleGrant(RoleGrantFromAssignments(role, assignments)); err != nil {
-			return fmt.Errorf("%w: %s", ErrRoleExceeded, err)
+			return fmt.Errorf("%w: %w", ErrRoleExceeded, err)
 		}
 	}
 	return nil

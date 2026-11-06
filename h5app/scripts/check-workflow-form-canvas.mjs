@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import './check-workflow-field-width.mjs'
 
 const source = readFileSync(
   new URL('../src/pages/workflow/components/WorkflowRuntimeForm.vue', import.meta.url),

@@ -1581,18 +1581,19 @@ func TestDeleteInstancesSoftDeletesTerminalInstancesInOneTransaction(t *testing.
 	store := &fakeStore{deleteInstances: []InstanceSummary{
 		{ID: "instance-completed", Status: string(workflowdomain.InstanceStatusCompleted)},
 		{ID: "instance-rejected", Status: string(workflowdomain.InstanceStatusRejected)},
+		{ID: "instance-voided", Status: string(workflowdomain.InstanceStatusVoided)},
 	}}
 	service := NewService(store, fixedResolver{"42"}, &sequenceIDs{})
 	service.now = func() time.Time { return time.UnixMilli(1788393600123) }
 
-	deleted, err := service.DeleteInstances(context.Background(), " 9 ", []string{" instance-completed ", "instance-rejected", "instance-completed"})
+	deleted, err := service.DeleteInstances(context.Background(), " 9 ", []string{" instance-completed ", "instance-rejected", "instance-voided", "instance-completed"})
 	if err != nil {
 		t.Fatalf("DeleteInstances() error = %v", err)
 	}
-	if deleted != 2 || store.transactions != 1 || !store.softDeleteInTransaction {
+	if deleted != 3 || store.transactions != 1 || !store.softDeleteInTransaction {
 		t.Fatalf("delete result = %d, transactions = %d, in transaction = %v", deleted, store.transactions, store.softDeleteInTransaction)
 	}
-	if fmt.Sprint(store.softDeletedInstanceIDs) != fmt.Sprint([]string{"instance-completed", "instance-rejected"}) {
+	if fmt.Sprint(store.softDeletedInstanceIDs) != fmt.Sprint([]string{"instance-completed", "instance-rejected", "instance-voided"}) {
 		t.Fatalf("soft deleted ids = %#v", store.softDeletedInstanceIDs)
 	}
 	if store.softDeletedBy != "9" || store.softDeletedAt != 1788393600123 {
@@ -1710,6 +1711,60 @@ func TestServiceUsesDefaultLifecyclePublisherWhenOmitted(t *testing.T) {
 	}
 	if fromNilPublisher.publisher != want {
 		t.Fatalf("NewServiceWithPublisher(nil) publisher = %#v, want default lifecycle publisher", fromNilPublisher.publisher)
+	}
+}
+
+func TestVoidInstancePersistsAuditAndPublishesLifecycleEvent(t *testing.T) {
+	state := &workflowdomain.State{Instance: workflowdomain.ProcessInstance{
+		ID: "instance-1", Status: workflowdomain.InstanceStatusCompleted,
+		BusinessType: "okr", BusinessKey: "okr-2026-10",
+	}}
+	store := &fakeStore{state: state}
+	publisher := &recordingPublisher{}
+	service := NewServiceWithPublisher(store, fixedResolver{}, &sequenceIDs{}, publisher)
+
+	updated, err := service.VoidInstance(context.Background(), VoidInstanceRequest{
+		InstanceID: " instance-1 ", ActorID: " admin-1 ", Reason: " 原申请内容无效 ",
+	})
+	if err != nil {
+		t.Fatalf("VoidInstance() error = %v", err)
+	}
+	if updated != state || store.savedState != state || state.Instance.Status != workflowdomain.InstanceStatusVoided {
+		t.Fatalf("voided state = %#v saved = %#v", updated, store.savedState)
+	}
+	if history := state.History[len(state.History)-1]; history.Type != workflowdomain.HistoryInstanceVoided || history.ActorID != "admin-1" || history.Message != "原申请内容无效" {
+		t.Fatalf("void history = %#v", history)
+	}
+	if len(publisher.events) != 1 || publisher.events[0].Type != LifecycleInstanceVoided || publisher.events[0].Status != string(workflowdomain.InstanceStatusVoided) {
+		t.Fatalf("void lifecycle events = %#v", publisher.events)
+	}
+}
+
+func TestVoidInstanceRejectsInvalidReasonAndActiveRevision(t *testing.T) {
+	tests := []struct {
+		name     string
+		reason   string
+		revision *workflowdomain.FormRevisionRequest
+		want     error
+	}{
+		{name: "blank reason", reason: " ", want: ErrInstanceVoidReasonRequired},
+		{name: "long reason", reason: strings.Repeat("字", 501), want: ErrInstanceVoidReasonTooLong},
+		{name: "active revision", reason: "作废", revision: &workflowdomain.FormRevisionRequest{Status: workflowdomain.FormRevisionStatusPending}, want: ErrInstanceVoidActiveRevision},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := &fakeStore{
+				state:              &workflowdomain.State{Instance: workflowdomain.ProcessInstance{ID: "instance-1", Status: workflowdomain.InstanceStatusCompleted}},
+				activeFormRevision: test.revision,
+			}
+			service := NewService(store, fixedResolver{}, &sequenceIDs{})
+			if _, err := service.VoidInstance(context.Background(), VoidInstanceRequest{InstanceID: "instance-1", ActorID: "admin-1", Reason: test.reason}); !errors.Is(err, test.want) {
+				t.Fatalf("VoidInstance() error = %v, want %v", err, test.want)
+			}
+			if store.savedState != nil {
+				t.Fatalf("invalid void must not persist state: %#v", store.savedState)
+			}
+		})
 	}
 }
 

@@ -3,6 +3,7 @@ import type { LoginRequest } from '@/types/dingtalk-h5'
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import DingtalkBindPanel from '@/components/dingtalk-bind-panel/dingtalk-bind-panel.vue'
 import DingtalkLoginPanel from '@/components/dingtalk-login-panel/dingtalk-login-panel.vue'
+import PasswordChangePanel from '@/components/password-change-panel/password-change-panel.vue'
 import { useDingtalkAuthStore } from '@/stores'
 
 const emit = defineEmits<{
@@ -69,6 +70,11 @@ watch(userId, (nextUserId) => {
       <u-loading mode="circle" />
       <text>加载中...</text>
     </view>
+
+    <PasswordChangePanel
+      v-else-if="auth.passwordChangeRequired"
+      @completed="auth.completePasswordChange"
+    />
 
     <DingtalkBindPanel
       v-else-if="!auth.user && auth.bindState.visible"

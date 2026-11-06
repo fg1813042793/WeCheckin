@@ -15,15 +15,18 @@ type AdminSetupHandler struct{}
 func NewAdminSetupHandler() *AdminSetupHandler { return &AdminSetupHandler{} }
 
 type DebugTokenConfigResponse struct {
-	UserExpireSeconds       int    `json:"user_expire_seconds"`
-	UserExpireString        string `json:"user_expire_str"`
-	UserPrefix              string `json:"user_prefix"`
-	AdminExpireSeconds      int    `json:"admin_expire_seconds"`
-	AdminExpireString       string `json:"admin_expire_str"`
-	AdminPrefix             string `json:"admin_prefix"`
-	DingTalkH5ExpireSeconds int    `json:"dingtalk_h5_expire_seconds"`
-	DingTalkH5ExpireString  string `json:"dingtalk_h5_expire_str"`
-	DingTalkH5Prefix        string `json:"dingtalk_h5_prefix"`
+	UserExpireSeconds              int    `json:"user_expire_seconds"`
+	UserExpireString               string `json:"user_expire_str"`
+	UserPrefix                     string `json:"user_prefix"`
+	AdminExpireSeconds             int    `json:"admin_expire_seconds"`
+	AdminExpireString              string `json:"admin_expire_str"`
+	AdminPrefix                    string `json:"admin_prefix"`
+	DingTalkH5ExpireSeconds        int    `json:"dingtalk_h5_expire_seconds"`
+	DingTalkH5ExpireString         string `json:"dingtalk_h5_expire_str"`
+	DingTalkH5Prefix               string `json:"dingtalk_h5_prefix"`
+	UserSlidingExpireEnabled       bool   `json:"user_sliding_expire_enabled"`
+	AdminSlidingExpireEnabled      bool   `json:"admin_sliding_expire_enabled"`
+	DingTalkH5SlidingExpireEnabled bool   `json:"dingtalk_h5_sliding_expire_enabled"`
 }
 
 // @Tags PC端-系统设置
@@ -92,14 +95,17 @@ func (h *AdminSetupHandler) DebugTokenConfig(ctx context.Context, c *app.Request
 	adminExpire, adminPrefix := tokenutil.GetTokenConfigContext(ctx, "admin")
 	dingTalkH5Expire, dingTalkH5Prefix := tokenutil.GetTokenConfigContext(ctx, "dingtalk_h5")
 	response.JSON(c, DebugTokenConfigResponse{
-		UserExpireSeconds:       int(userExpire.Seconds()),
-		UserExpireString:        userExpire.String(),
-		UserPrefix:              userPrefix,
-		AdminExpireSeconds:      int(adminExpire.Seconds()),
-		AdminExpireString:       adminExpire.String(),
-		AdminPrefix:             adminPrefix,
-		DingTalkH5ExpireSeconds: int(dingTalkH5Expire.Seconds()),
-		DingTalkH5ExpireString:  dingTalkH5Expire.String(),
-		DingTalkH5Prefix:        dingTalkH5Prefix,
+		UserExpireSeconds:              int(userExpire.Seconds()),
+		UserExpireString:               userExpire.String(),
+		UserPrefix:                     userPrefix,
+		AdminExpireSeconds:             int(adminExpire.Seconds()),
+		AdminExpireString:              adminExpire.String(),
+		AdminPrefix:                    adminPrefix,
+		DingTalkH5ExpireSeconds:        int(dingTalkH5Expire.Seconds()),
+		DingTalkH5ExpireString:         dingTalkH5Expire.String(),
+		DingTalkH5Prefix:               dingTalkH5Prefix,
+		UserSlidingExpireEnabled:       tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, "user"),
+		AdminSlidingExpireEnabled:      tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, "admin"),
+		DingTalkH5SlidingExpireEnabled: tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, "dingtalk_h5"),
 	})
 }

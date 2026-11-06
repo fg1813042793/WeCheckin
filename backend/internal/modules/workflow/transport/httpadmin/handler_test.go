@@ -21,6 +21,7 @@ type runtimeServiceStub struct {
 	startRequest              workflowapp.StartInstanceRequest
 	completeRequest           workflowapp.CompleteTaskRequest
 	cancelRequest             workflowapp.CancelInstanceRequest
+	voidRequest               workflowapp.VoidInstanceRequest
 	resumeInstanceID          string
 	resumeActorID             string
 	instanceQuery             workflowapp.InstanceQuery
@@ -32,6 +33,7 @@ type runtimeServiceStub struct {
 	startCalls                int
 	completeCalls             int
 	cancelCalls               int
+	voidCalls                 int
 	resumeCalls               int
 	upgradePreviewInstanceID  string
 	upgradePreviewCalls       int
@@ -134,6 +136,12 @@ func (stub *runtimeServiceStub) CompleteTask(_ context.Context, request workflow
 func (stub *runtimeServiceStub) CancelInstance(_ context.Context, request workflowapp.CancelInstanceRequest) (*workflowdomain.State, error) {
 	stub.cancelCalls++
 	stub.cancelRequest = request
+	return &workflowdomain.State{}, nil
+}
+
+func (stub *runtimeServiceStub) VoidInstance(_ context.Context, request workflowapp.VoidInstanceRequest) (*workflowdomain.State, error) {
+	stub.voidCalls++
+	stub.voidRequest = request
 	return &workflowdomain.State{}, nil
 }
 
@@ -337,6 +345,23 @@ func TestCancelInstanceUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
 	}
 	if stub.cancelRequest.InstanceID != "instance-1001" || stub.cancelRequest.ActorID != "42" {
 		t.Fatalf("route instance and authenticated actor must win: %+v", stub.cancelRequest)
+	}
+}
+
+func TestVoidInstanceUsesAuthenticatedAdminAndRouteInstanceID(t *testing.T) {
+	stub := &runtimeServiceStub{}
+	handler := newTestRuntimeHandler(stub)
+	c := newAdminContext(42)
+	c.Params = append(c.Params, param.Param{Key: "id", Value: "instance-1001"})
+	c.Request.SetBodyString(`{"instanceId":"forged-instance","actorId":"forged-user","reason":"原申请无效"}`)
+
+	handler.VoidInstance(context.Background(), c)
+
+	if stub.voidCalls != 1 {
+		t.Fatalf("expected one void call, got %d", stub.voidCalls)
+	}
+	if stub.voidRequest.InstanceID != "instance-1001" || stub.voidRequest.ActorID != "42" || stub.voidRequest.Reason != "原申请无效" {
+		t.Fatalf("route instance and authenticated actor must win: %+v", stub.voidRequest)
 	}
 }
 

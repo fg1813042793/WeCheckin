@@ -6,8 +6,10 @@ import (
 	"fmt"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	"wecheckin/backend/pkg/database"
-	"wecheckin/backend/pkg/passwordutil"
+
+	"gorm.io/gorm"
 )
 
 func RegisterUser(userID, mobile, name, pic string, forms interface{}, status int, addIP, device string) (*LoginResponse, error) {
@@ -32,10 +34,6 @@ func RegisterUserContext(ctx context.Context, userID, mobile, name, pic string, 
 		b, _ := json.Marshal(forms)
 		formsStr = string(b)
 	}
-	defaultPwd, err := passwordutil.Hash(mobile)
-	if err != nil {
-		return nil, err
-	}
 	user := model.User{
 		MiniOpenID: userID,
 		Mobile:     mobile,
@@ -43,11 +41,15 @@ func RegisterUserContext(ctx context.Context, userID, mobile, name, pic string, 
 		Pic:        pic,
 		Forms:      formsStr,
 		Status:     status,
-		Password:   defaultPwd,
 		AddTime:    database.Now(),
 		EditTime:   database.Now(),
 	}
-	if err := db.Create(&user).Error; err != nil {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		return accountsecurity.SetInitialPasswordWithDBContext(ctx, tx, user.ID, mobile)
+	}); err != nil {
 		return nil, err
 	}
 	return LoginUserContext(ctx, userID, addIP, device)

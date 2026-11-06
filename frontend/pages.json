@@ -59,6 +59,12 @@
 			"navigationBarTitleText": "密码登录"
 		}
 	}, {
+		"path": "pages/my/change_password",
+		"style": {
+			"navigationBarTitleText": "修改密码",
+			"navigationStyle": "default"
+		}
+	}, {
 		"path": "pages/enroll/enroll_detail",
 		"style": {
 			"navigationBarTitleText": "打卡详情",

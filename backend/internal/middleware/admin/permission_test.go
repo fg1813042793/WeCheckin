@@ -128,6 +128,7 @@ func TestAdminPermResolvesRESTfulV2RouteDeclarations(t *testing.T) {
 		{method: "GET", path: "/api/v2/admin/workflow-instances/wfi_42", want: "workflow:instance:detail"},
 		{method: "DELETE", path: "/api/v2/admin/workflow-instances/wfi_42", want: "workflow:instance:delete"},
 		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/cancel", want: "workflow:instance:cancel"},
+		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/void", want: "workflow:instance:void"},
 		{method: "GET", path: "/api/v2/admin/workflow-instances/wfi_42/version-upgrade-preview", want: "workflow:instance:upgrade:preview"},
 		{method: "POST", path: "/api/v2/admin/workflow-instances/wfi_42/version-upgrade", want: "workflow:instance:upgrade"},
 		{method: "GET", path: "/api/v2/admin/workflow-tasks", want: "workflow:task:list"},

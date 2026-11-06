@@ -31,6 +31,11 @@ function requireFile(path) {
 const page = read('views/question-bank/QuestionBank.vue')
 
 for (const componentPath of [
+  'components/rich-text/AdvancedRichTextEditor.vue',
+  'components/rich-text/RichTextToolbar.vue',
+  'components/rich-text/richTextConfig.ts',
+  'components/rich-text/sanitizeRichText.ts',
+  'components/rich-text/rich-text-content.css',
   'views/question-bank/components/QuestionBankNavigator.vue',
   'views/question-bank/components/QuestionEditorCanvas.vue',
   'views/question-bank/components/QuestionPropertiesPanel.vue',
@@ -89,6 +94,59 @@ requireSnippet(canvas, 'box-shadow:none;', 'question editor canvas')
 const editorDialog = read('views/question-bank/components/QuestionEditorDialog.vue')
 requireSnippet(editorDialog, '.bank-rich-editor:focus-within', 'question editor dialog')
 requireSnippet(editorDialog, 'box-shadow: none;', 'question editor dialog')
+
+const advancedEditor = read('components/rich-text/AdvancedRichTextEditor.vue')
+for (const snippet of [
+  'RichTextToolbar',
+  'sanitizeRichText',
+  "getModule('table')",
+  'insertTable',
+  'sourceMode',
+  'toggleFullScreen',
+  'clearFormatting',
+]) {
+  requireSnippet(advancedEditor, snippet, 'advanced rich text editor')
+}
+
+const richTextToolbar = read('components/rich-text/RichTextToolbar.vue')
+for (const snippet of [
+  'rich-text-toolbar__row--primary',
+  'rich-text-toolbar__row--secondary',
+  'toolbar-color-control',
+  '清除格式',
+  '代码块',
+  '插入表格',
+  '源码',
+  'aria-pressed',
+  'is-active',
+]) {
+  requireSnippet(richTextToolbar, snippet, 'rich text toolbar')
+}
+forbidSnippet(richTextToolbar, 'toolbar-button__mini-label', 'rich text toolbar')
+
+const sanitizer = read('components/rich-text/sanitizeRichText.ts')
+for (const snippet of ['DOMPurify', 'FORBID_TAGS', 'FORBID_ATTR', 'serializeRichText', "querySelectorAll('.ql-ui')"]) {
+  requireSnippet(sanitizer, snippet, 'rich text sanitizer')
+}
+
+const richTextConfig = read('components/rich-text/richTextConfig.ts')
+for (const snippet of ['highlight.js/lib/core', 'Quill.register', 'RICH_TEXT_LANGUAGES', 'RICH_TEXT_FONT_OPTIONS', 'RICH_TEXT_SIZE_OPTIONS', 'syntax:', 'imageResize:']) {
+  requireSnippet(richTextConfig, snippet, 'rich text config')
+}
+
+const richTextStyles = read('components/rich-text/rich-text-content.css')
+for (const snippet of ['.ql-code-block-container', '.ql-code-block', 'content: "代码"', 'background: #111827', 'box-shadow: inset 0 32px', 'table', 'blockquote']) {
+  requireSnippet(richTextStyles, snippet, 'rich text content styles')
+}
+
+const richEditorDialog = read('views/question-bank/components/QuestionRichEditorDialog.vue')
+for (const snippet of [
+  'defineAsyncComponent',
+  "import('@/components/rich-text/AdvancedRichTextEditor.vue')",
+  '<AdvancedRichTextEditor',
+]) {
+  requireSnippet(richEditorDialog, snippet, 'question rich editor dialog')
+}
 
 const properties = read('views/question-bank/components/QuestionPropertiesPanel.vue')
 for (const snippet of ['题目属性', '所属题库', "activeScope === 'exam'", '正确答案', '答案解析']) {

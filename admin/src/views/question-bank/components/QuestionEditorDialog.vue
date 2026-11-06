@@ -222,7 +222,6 @@
   <QuestionRichEditorDialog
     :dialog="richEditDialog"
     :title="richEditTitle"
-    :options="richFullEditorOptions"
     :confirm="confirmRichFullEdit"
   />
 </template>
@@ -250,7 +249,6 @@ const props = defineProps<{
   saving: boolean
   richTitleEditorOptions: Record<string, any>
   richOptionEditorOptions: Record<string, any>
-  richFullEditorOptions: Record<string, any>
   richEditDialog: {
     visible: boolean
     target: RichEditTarget

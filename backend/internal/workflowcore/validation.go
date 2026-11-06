@@ -40,6 +40,9 @@ func ValidateDefinition(definition Definition) []ValidationError {
 			continue
 		}
 		nodes[node.ID] = node
+		if node.SkipIfNoAssignee && node.Type != NodeTypeApproval {
+			errors = append(errors, ValidationError{Code: ValidationSkipIfNoAssignee, Message: "无审批人时跳过只能配置在审批节点", NodeID: node.ID})
+		}
 		switch node.Type {
 		case NodeTypeStart:
 			startIDs = append(startIDs, node.ID)
@@ -563,8 +566,8 @@ func isFormLayoutFieldType(fieldType string) bool {
 		fieldType == FormFieldTypeButton
 }
 
-func validFormFieldSpan(span int) bool {
-	return span == 0 || span == 6 || span == 8 || span == 12 || span == 24
+func validFormFieldSpan(span float64) bool {
+	return span == 0 || span == 4.8 || (span >= 1 && span <= 24 && math.Trunc(span) == span)
 }
 
 func validFormOptions(options []FormOption) bool {

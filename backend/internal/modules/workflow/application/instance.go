@@ -42,6 +42,52 @@ func (service *Service) changeInstanceStatus(ctx context.Context, instanceID, ac
 	return state, err
 }
 
+func (service *Service) VoidInstance(ctx context.Context, request VoidInstanceRequest) (*workflowdomain.State, error) {
+	request.InstanceID = strings.TrimSpace(request.InstanceID)
+	request.ActorID = strings.TrimSpace(request.ActorID)
+	request.Reason = strings.TrimSpace(request.Reason)
+	if request.InstanceID == "" {
+		return nil, ErrInstanceIDRequired
+	}
+	if request.ActorID == "" {
+		return nil, ErrActorRequired
+	}
+	if request.Reason == "" {
+		return nil, ErrInstanceVoidReasonRequired
+	}
+	if utf8.RuneCountInString(request.Reason) > 500 {
+		return nil, ErrInstanceVoidReasonTooLong
+	}
+	if service == nil || service.store == nil || service.engine == nil {
+		return nil, errors.New("工作流应用服务未初始化")
+	}
+
+	var state *workflowdomain.State
+	err := service.store.InTransaction(ctx, func(store TransactionStore) error {
+		loaded, err := store.LoadStateByInstanceForUpdate(ctx, request.InstanceID)
+		if err != nil {
+			return err
+		}
+		activeRevision, err := store.LoadActiveFormRevisionForUpdate(ctx, request.InstanceID)
+		if err != nil {
+			return err
+		}
+		if activeRevision != nil && activeRevision.Status == workflowdomain.FormRevisionStatusPending {
+			return ErrInstanceVoidActiveRevision
+		}
+		if err := service.engine.Void(loaded, request.ActorID, request.Reason); err != nil {
+			return err
+		}
+		state = loaded
+		return store.SaveState(ctx, state)
+	})
+	if err == nil {
+		service.publish(ctx, LifecycleEvent{Type: LifecycleInstanceVoided, InstanceID: state.Instance.ID, ActorID: request.ActorID,
+			BusinessType: state.Instance.BusinessType, BusinessKey: state.Instance.BusinessKey, Status: string(state.Instance.Status)})
+	}
+	return state, err
+}
+
 func (service *Service) ListInstances(ctx context.Context, query InstanceQuery) (*InstanceList, error) {
 	instanceTitle, err := normalizeInstanceTitleSearch(query.InstanceTitle)
 	if err != nil {
@@ -227,7 +273,8 @@ func applyHistoricalCommentNodeIDs(detail *InstanceDetail) {
 		case workflowdomain.HistoryInstanceCompleted,
 			workflowdomain.HistoryInstanceRejected,
 			workflowdomain.HistoryInstanceWithdrawn,
-			workflowdomain.HistoryInstanceCancelled:
+			workflowdomain.HistoryInstanceCancelled,
+			workflowdomain.HistoryInstanceVoided:
 			clear(activeTasks)
 		case workflowdomain.HistoryInstanceCommented:
 			if nodeID == "" {
@@ -451,6 +498,7 @@ func (service *Service) DeleteMyInstance(ctx context.Context, actorID, instanceI
 	case string(workflowdomain.InstanceStatusCompleted),
 		string(workflowdomain.InstanceStatusRejected),
 		string(workflowdomain.InstanceStatusCancelled),
+		string(workflowdomain.InstanceStatusVoided),
 		"withdrawn":
 		return service.store.HideStartedInstance(ctx, instanceID, actorID, service.currentTime().UnixMilli())
 	default:
@@ -490,6 +538,7 @@ func (service *Service) DeleteInstances(ctx context.Context, actorID string, ins
 			case string(workflowdomain.InstanceStatusCompleted),
 				string(workflowdomain.InstanceStatusRejected),
 				string(workflowdomain.InstanceStatusCancelled),
+				string(workflowdomain.InstanceStatusVoided),
 				"withdrawn":
 			default:
 				return ErrInstanceDeleteNotAllowed

@@ -26,7 +26,7 @@
         <el-table-column label="得分" width="100" align="center">
           <template #default="{ row }">{{ row.score }}/{{ row.totalScore }}</template>
         </el-table-column>
-        <el-table-column label="通过" width="70" align="center">
+        <el-table-column label="通过" width="100" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.status === 1" type="warning" size="small">待判定</el-tag>
             <el-tag v-else :type="row.pass===1?'success':'danger'" size="small">{{ row.pass===1?'是':'否' }}</el-tag>
@@ -203,8 +203,7 @@ async function load() {
     list.value = res.data?.list || res.list || []
     total.value = res.data?.total || res.total || 0
     const detail = (detailRes as any).data || detailRes
-    const survey = detail?.survey || detail
-    const raw = survey?.schema
+    const raw = detail?.schema
     const sch = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { questions: [] }
     questions.value = (sch.questions || []).filter((q: any) => !skipTypes.includes(q.type))
   } finally { loading.value = false }
@@ -248,13 +247,13 @@ const answerRows = computed(() => {
         questionId: displayIndex + 1,
         title: stripHtml(question.title || ''),
         value: formatVal(ans[question.id]),
-        grade: isRecordQuestionGraded(question) ? storedGrade : null
+        grade: question.examScoreMode === 'none' || isRecordQuestionGraded(question) ? storedGrade : null
       }
     })
 })
 
 function isRecordQuestionGraded(question: any): boolean {
-  if (!question || PERSONAL_INFO_TYPES.has(question.type)) return false
+  if (!question || question.examScoreMode === 'none' || PERSONAL_INFO_TYPES.has(question.type)) return false
   if (String(question.examScoreMode || '').trim()) return true
   if (Number(question.examScore) > 0) return true
   return (question.props?.fields || []).some((field: any) => Number(field.examScore) > 0 || field.examCorrect || String(field.examCorrectAnswer || '').trim())

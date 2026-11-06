@@ -74,7 +74,6 @@
           :visual-question="visualQuestion"
           :rich-title-editor-options="richTitleEditorOptions"
           :rich-option-editor-options="richOptionEditorOptions"
-          :rich-full-editor-options="richFullEditorOptions"
           :rich-edit-dialog="richEditDialog"
           :rich-edit-title="richEditTitle"
           :bind-compact-rich-editor="bindCompactRichEditor"
@@ -129,7 +128,6 @@ import {
   nextOptionValue,
   parseQuestionBankSchema,
   questionBankTypeOptions,
-  richFullEditorOptions,
   richOptionEditorOptions,
   richTitleEditorOptions,
   stripQuestionHtml as stripHtml,

@@ -141,6 +141,9 @@
             <el-form-item label="Redis Key 前缀">
               <el-input v-model="form.redisPrefix" placeholder="dingtalk_h5_token:" />
             </el-form-item>
+            <el-form-item label="Token 滑动过期">
+              <el-switch v-model="form.slidingExpireEnabled" :active-value="1" :inactive-value="0" active-text="开启（访问时续期）" inactive-text="关闭（固定有效期）" />
+            </el-form-item>
             <el-form-item label="单点登录">
               <el-switch
                 v-model="form.singleLogin"
@@ -283,6 +286,7 @@ const form = reactive({
   singleLogin: 0,
   selfBind: 1,
   loginCaptchaEnabled: 0,
+  slidingExpireEnabled: 1,
   appName: defaultAppName,
   logoText: defaultLogoText,
   logoUrl: ''
@@ -362,6 +366,7 @@ async function loadSettings() {
     form.singleLogin = Number(data.singleLogin) === 1 ? 1 : 0
     form.selfBind = Number(data.selfBind) === 0 ? 0 : 1
     form.loginCaptchaEnabled = Number(data.loginCaptchaEnabled) === 1 ? 1 : 0
+    form.slidingExpireEnabled = Number(data.slidingExpireEnabled) === 0 ? 0 : 1
     form.appName = data.appName || defaultAppName
     form.logoText = data.logoText || defaultLogoText
     form.logoUrl = data.logoUrl || ''
@@ -406,7 +411,8 @@ function buildSettingsPayload(): SettingsPayload | null {
         redisPrefix,
         singleLogin: form.singleLogin,
         selfBind: form.selfBind,
-        loginCaptchaEnabled: form.loginCaptchaEnabled
+        loginCaptchaEnabled: form.loginCaptchaEnabled,
+        slidingExpireEnabled: form.slidingExpireEnabled
       }
     }
     case 'app':

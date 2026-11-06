@@ -18,6 +18,7 @@ type Admin = adminmodel.Admin
 type Log = adminmodel.Log
 
 type User = accountmodel.User
+type PasswordHistory = accountmodel.PasswordHistory
 type UserDept = accountmodel.UserDept
 type UserRole = accountmodel.UserRole
 type UserReportingRelation = accountmodel.UserReportingRelation

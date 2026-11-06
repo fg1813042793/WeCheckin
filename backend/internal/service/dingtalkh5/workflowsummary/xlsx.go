@@ -107,8 +107,6 @@ const xlsxStyles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   </cellXfs>
 </styleSheet>`
 
-const xlsxGridColumns = 24
-
 type xlsxExportCell struct {
 	column int
 	style  int
@@ -126,8 +124,9 @@ type xlsxMerge struct {
 }
 
 type xlsxSheetLayout struct {
-	rows   []xlsxExportRow
-	merges []xlsxMerge
+	columns int
+	rows    []xlsxExportRow
+	merges  []xlsxMerge
 }
 
 func xlsxWorksheet(document exportDocument) string {
@@ -148,12 +147,20 @@ func xlsxWorksheet(document exportDocument) string {
 		}
 		mergeXML.WriteString(`</mergeCells>`)
 	}
+	columns := fmt.Sprintf(`<col min="1" max="%d" width="%g" customWidth="1"/>`, layout.columns, 4.5*exportBaseGridColumns/float64(layout.columns))
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols><col min="1" max="24" width="4.5" customWidth="1"/></cols><sheetData>` + body.String() + `</sheetData>` + mergeXML.String() + `<pageMargins left="0.35" right="0.35" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup fitToWidth="1" fitToHeight="0" orientation="portrait"/></worksheet>`
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>` + columns + `</cols><sheetData>` + body.String() + `</sheetData>` + mergeXML.String() + `<pageMargins left="0.35" right="0.35" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup fitToWidth="1" fitToHeight="0" orientation="portrait"/></worksheet>`
 }
 
 func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
-	layout := xlsxSheetLayout{}
+	layout := xlsxSheetLayout{columns: exportBaseGridColumns}
+	for _, section := range document.Sections {
+		if exportFieldGridColumns(section.FieldRows) == exportFineGridColumns {
+			layout.columns = exportFineGridColumns
+			break
+		}
+	}
+	scale := layout.columns / exportBaseGridColumns
 	addRow := func(height float64, cells ...xlsxExportCell) int {
 		layout.rows = append(layout.rows, xlsxExportRow{height: height, cells: cells})
 		return len(layout.rows)
@@ -165,15 +172,15 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 	}
 
 	titleRow := addRow(34, xlsxExportCell{column: 1, style: 1, value: document.Title})
-	merge(titleRow, 1, xlsxGridColumns)
+	merge(titleRow, 1, layout.columns)
 	for _, metadata := range document.Metadata {
 		label, value := exportRowPair(metadata)
 		row := addRow(24,
 			xlsxExportCell{column: 1, style: 5, value: label},
-			xlsxExportCell{column: 6, style: 6, value: value},
+			xlsxExportCell{column: 5*scale + 1, style: 6, value: value},
 		)
-		merge(row, 1, 5)
-		merge(row, 6, xlsxGridColumns)
+		merge(row, 1, 5*scale)
+		merge(row, 5*scale+1, layout.columns)
 	}
 
 	for index, section := range document.Sections {
@@ -181,7 +188,7 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 			addRow(9, xlsxExportCell{column: 1, style: 0, value: ""})
 		}
 		sectionRow := addRow(26, xlsxExportCell{column: 1, style: 2, value: section.Title})
-		merge(sectionRow, 1, xlsxGridColumns)
+		merge(sectionRow, 1, layout.columns)
 		if len(section.FieldRows) > 0 {
 			for _, fields := range section.FieldRows {
 				labelCells := make([]xlsxExportCell, 0, len(fields))
@@ -189,13 +196,13 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 				column := 1
 				valueHeight := 32.0
 				for _, field := range fields {
-					span := normalizedExportSpan(field.Span)
+					span := exportGridSpan(field.Span, layout.columns)
 					to := column + span - 1
 					labelCells = append(labelCells, xlsxExportCell{column: column, style: 7, value: field.Label})
 					valueCells = append(valueCells, xlsxExportCell{column: column, style: 8, value: field.Value})
 					merge(len(layout.rows)+1, column, to)
 					merge(len(layout.rows)+2, column, to)
-					if height := xlsxValueRowHeight(field.Value, span); height > valueHeight {
+					if height := xlsxValueRowHeight(field.Value, field.Span); height > valueHeight {
 						valueHeight = height
 					}
 					column = to + 1
@@ -214,6 +221,10 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 			headers = []string{"内容"}
 		}
 		ranges := xlsxTableColumnRanges(len(headers))
+		for index := range ranges {
+			ranges[index][0] = (ranges[index][0]-1)*scale + 1
+			ranges[index][1] *= scale
+		}
 		headerCells := make([]xlsxExportCell, 0, len(headers))
 		headerRow := len(layout.rows) + 1
 		for index, header := range headers {
@@ -232,7 +243,7 @@ func buildXLSXSheetLayout(document exportDocument) xlsxSheetLayout {
 				}
 				cells = append(cells, xlsxExportCell{column: ranges[index][0], style: 3, value: value})
 				merge(rowNumber, ranges[index][0], ranges[index][1])
-				if valueHeight := xlsxValueRowHeight(value, ranges[index][1]-ranges[index][0]+1); valueHeight > height {
+				if valueHeight := xlsxValueRowHeight(value, float64(ranges[index][1]-ranges[index][0]+1)/float64(scale)); valueHeight > height {
 					height = valueHeight
 				}
 			}
@@ -253,20 +264,13 @@ func exportRowPair(values []string) (string, string) {
 	return label, value
 }
 
-func normalizedExportSpan(span int) int {
-	if span <= 0 || span > xlsxGridColumns {
-		return xlsxGridColumns
-	}
-	return span
-}
-
 func xlsxTableColumnRanges(count int) [][2]int {
 	if count <= 0 {
 		count = 1
 	}
 	ranges := make([][2]int, 0, count)
-	base := xlsxGridColumns / count
-	remainder := xlsxGridColumns % count
+	base := exportBaseGridColumns / count
+	remainder := exportBaseGridColumns % count
 	column := 1
 	for index := 0; index < count; index++ {
 		width := base
@@ -283,9 +287,9 @@ func xlsxTableColumnRanges(count int) [][2]int {
 	return ranges
 }
 
-func xlsxValueRowHeight(value string, span int) float64 {
+func xlsxValueRowHeight(value string, span float64) float64 {
 	span = normalizedExportSpan(span)
-	charactersPerLine := span * 4
+	charactersPerLine := int(span * 4)
 	if charactersPerLine < 8 {
 		charactersPerLine = 8
 	}

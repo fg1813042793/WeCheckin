@@ -267,6 +267,7 @@ export type WorkflowInstanceStatus
     | 'rejected'
     | 'withdrawn'
     | 'cancelled'
+    | 'voided'
     | string
 
 export type WorkflowTaskStatus

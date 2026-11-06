@@ -20,6 +20,7 @@
 
 <script>
 import { adminApi } from '../../../api/admin'
+import { adminPasswordChangeRequired, clearAdminAuth } from '../../../utils/auth'
 
 export default {
   data() {
@@ -28,6 +29,10 @@ export default {
       formPassword: '',
       formPassword2: ''
     }
+  },
+
+  onBackPress() {
+    return adminPasswordChangeRequired()
   },
 
   methods: {
@@ -55,10 +60,11 @@ export default {
           password: this.formPassword,
           password2: this.formPassword2
         })
-        uni.showToast({ title: '修改成功', icon: 'success' })
+        clearAdminAuth()
+        uni.showToast({ title: '修改成功，请重新登录', icon: 'none' })
         setTimeout(() => {
-          uni.navigateBack()
-        }, 1500)
+          uni.reLaunch({ url: '/pages/admin/admin_login' })
+        }, 800)
       } catch (e) {
         console.error('修改密码失败', e)
       }

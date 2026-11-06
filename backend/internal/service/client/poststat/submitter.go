@@ -3,6 +3,7 @@ package poststat
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"wecheckin/backend/internal/formkit/schema"
 	"wecheckin/backend/internal/model"
@@ -14,23 +15,8 @@ func resolveSubmitter(schemaJSON, currentAnswers, nickname string, userID uint) 
 }
 
 func resolveSubmitterContext(ctx context.Context, schemaJSON, currentAnswers, nickname string, userID uint) string {
-	sch, err := schema.Parse(schemaJSON)
-	if err == nil && currentAnswers != "" {
-		var ans map[string]interface{}
-		if json.Unmarshal([]byte(currentAnswers), &ans) == nil {
-			personalTypes := []string{"name", "phone", "email", "studentId", "employeeId"}
-			for _, pt := range personalTypes {
-				for _, q := range sch.Questions {
-					if q.Type == pt {
-						if val, ok := ans[q.ID]; ok && val != nil {
-							if s, ok := val.(string); ok && s != "" {
-								return s
-							}
-						}
-					}
-				}
-			}
-		}
+	if name := submitterFromAnswers(schemaJSON, currentAnswers); name != "" {
+		return name
 	}
 	if nickname != "" {
 		return nickname
@@ -44,4 +30,26 @@ func resolveSubmitterContext(ctx context.Context, schemaJSON, currentAnswers, ni
 		}
 	}
 	return "匿名用户"
+}
+
+func submitterFromAnswers(schemaJSON, currentAnswers string) string {
+	sch, err := schema.Parse(schemaJSON)
+	if err == nil && currentAnswers != "" {
+		var ans map[string]interface{}
+		if json.Unmarshal([]byte(currentAnswers), &ans) == nil {
+			personalTypes := []string{"name", "phone", "email", "studentId", "employeeId"}
+			for _, pt := range personalTypes {
+				for _, q := range sch.Questions {
+					if q.Type == pt {
+						if val, ok := ans[q.ID]; ok && val != nil {
+							if s, ok := val.(string); ok && strings.TrimSpace(s) != "" {
+								return strings.TrimSpace(s)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return ""
 }

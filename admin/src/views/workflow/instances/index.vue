@@ -86,10 +86,24 @@
         <el-table-column label="结束时间" width="170">
           <template #default="{ row }">{{ formatTime(row.endTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button v-if="canViewDetail" link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button v-if="canUpgradeInstance(row)" link type="warning" @click="openVersionUpgrade(row)">升级版本</el-button>
+            <el-button
+              v-if="canCancel && row.status === 'running'"
+              link
+              type="warning"
+              :loading="cancellingInstanceId === row.id"
+              @click="cancelInstance(row)"
+            >取消流程</el-button>
+            <el-button
+              v-if="canVoid && row.status === 'completed'"
+              link
+              type="danger"
+              :loading="voidingInstanceId === row.id"
+              @click="voidInstance(row)"
+            >作废流程</el-button>
             <el-button
               v-if="canDelete"
               link
@@ -382,10 +396,13 @@ const statusOptions = [
   { label: '已完成', value: 'completed' },
   { label: '已驳回', value: 'rejected' },
   { label: '已取消', value: 'cancelled' },
+  { label: '已作废', value: 'voided' },
 ]
 
 const canStart = computed(() => hasPerm('admin:menu:workflow:instance:start'))
 const canViewDetail = computed(() => hasPerm('admin:menu:workflow:instance:detail'))
+const canCancel = computed(() => hasPerm('admin:menu:workflow:instance:cancel'))
+const canVoid = computed(() => hasPerm('admin:menu:workflow:instance:void'))
 const canDelete = computed(() => hasPerm('admin:menu:workflow:instance:delete'))
 const canUpgrade = computed(() => hasPerm('admin:menu:workflow:instance:upgrade'))
 const canViewNotifications = computed(() => hasPerm('admin:menu:workflow:notification:list'))
@@ -397,6 +414,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const filters = reactive({ instanceTitle: '', definitionName: '', businessType: '', businessKey: '', status: '', starterId: '' })
 const selectedInstances = ref<WorkflowInstanceSummary[]>([])
+const cancellingInstanceId = ref('')
+const voidingInstanceId = ref('')
 const deletingInstanceId = ref('')
 const batchDeleting = ref(false)
 const versionUpgradeDialog = ref(false)
@@ -542,8 +561,9 @@ function historyEventLabel(type: string) {
   return {
     instance_started: '流程已发起', task_created: '任务已创建', task_activated: '任务已激活',
     task_approved: '任务已通过', task_rejected: '任务已驳回', task_returned: '任务已退回', task_submitted: '任务已提交', task_cancelled: '任务已取消',
-    node_cc: '已记录抄送', node_notify: '通知节点已触发', node_automated: '自动动作已执行', timer_waiting: '定时节点等待中', timer_resumed: '定时节点已推进',
-    instance_completed: '流程已完成', instance_rejected: '流程已驳回', instance_version_upgraded: '实例版本已升级',
+    node_cc: '已记录抄送', node_notify: '通知节点已触发', node_automated: '自动动作已执行', node_skipped: '审批节点已自动跳过', timer_waiting: '定时节点等待中', timer_resumed: '定时节点已推进',
+    instance_completed: '流程已完成', instance_rejected: '流程已驳回', instance_withdrawn: '流程已撤回',
+    instance_cancelled: '流程已取消', instance_voided: '流程已作废', instance_version_upgraded: '实例版本已升级',
   }[type] || type
 }
 
@@ -794,6 +814,74 @@ async function handleVersionUpgraded(result: { instanceId: string; currentVersio
     detail.value = response.data as WorkflowInstanceDetail
   }
   await loadList()
+}
+
+async function cancelInstance(instance: WorkflowInstanceSummary) {
+  if (instance.status !== 'running') return
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt(
+      '取消后，客户端仍可查看该流程记录，并可重新发起。所有未处理任务将关闭，请填写取消原因。',
+      '取消流程实例',
+      {
+        type: 'warning',
+        confirmButtonText: '确认取消',
+        cancelButtonText: '返回',
+        inputPlaceholder: '请输入取消原因',
+        inputValidator: input => {
+          const value = String(input || '').trim()
+          if (!value) return '请输入取消原因'
+          return [...value].length <= 500 || '取消原因不能超过 500 个字符'
+        },
+      },
+    )
+    reason = String(result.value || '').trim()
+  } catch {
+    return
+  }
+
+  cancellingInstanceId.value = instance.id
+  try {
+    await adminApi.workflowInstanceCancel(instance.id, { reason })
+    ElMessage.success('流程已取消，用户可以重新发起')
+    await loadList()
+  } finally {
+    cancellingInstanceId.value = ''
+  }
+}
+
+async function voidInstance(instance: WorkflowInstanceSummary) {
+  if (instance.status !== 'completed') return
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt(
+      '作废后客户端仍保留该流程记录，完成次数限制将释放，用户可以重新发起。作废不会自动回滚已执行的外部业务动作，请填写作废原因。',
+      '作废已完成流程',
+      {
+        type: 'warning',
+        confirmButtonText: '确认作废',
+        cancelButtonText: '返回',
+        inputPlaceholder: '请输入作废原因',
+        inputValidator: input => {
+          const value = String(input || '').trim()
+          if (!value) return '请输入作废原因'
+          return [...value].length <= 500 || '作废原因不能超过 500 个字符'
+        },
+      },
+    )
+    reason = String(result.value || '').trim()
+  } catch {
+    return
+  }
+
+  voidingInstanceId.value = instance.id
+  try {
+    await adminApi.workflowInstanceVoid(instance.id, { reason })
+    ElMessage.success('流程已作废，用户可以重新发起')
+    await loadList()
+  } finally {
+    voidingInstanceId.value = ''
+  }
 }
 
 async function deleteInstance(instance: WorkflowInstanceSummary) {

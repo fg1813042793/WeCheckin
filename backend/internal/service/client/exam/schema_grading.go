@@ -10,12 +10,13 @@ import (
 	"wecheckin/backend/internal/model"
 )
 
-// SchemaGradingPlan contains only questions that participate in grading while
-// retaining their original schema ordinal for result-to-question mapping.
+// SchemaGradingPlan separates graded questions from all answerable review
+// questions, retaining the original ordinal for result-to-question mapping.
 type SchemaGradingPlan struct {
-	Questions   []examPkg.Question
-	IDMap       map[string]uint
-	Definitions map[uint]json.RawMessage
+	Questions       []examPkg.Question
+	IDMap           map[string]uint
+	Definitions     map[uint]json.RawMessage
+	ReviewQuestions []reviewQuestionSnapshot
 }
 
 var schemaNonGradingTypes = map[string]struct{}{
@@ -29,6 +30,20 @@ func ShouldGradePaperQuestion(questionType string, score int) bool {
 		return false
 	}
 	return score > 0
+}
+
+// ShouldGradePaperQuestionDefinition respects an explicit opt-out even when a
+// bank question still has an old score in its separate score column.
+func ShouldGradePaperQuestionDefinition(question model.ExamQuestion) bool {
+	return paperQuestionScoreMode(question) != examPkg.ScoreModeNone && ShouldGradePaperQuestion(question.Type, question.Score)
+}
+
+func paperQuestionScoreMode(question model.ExamQuestion) string {
+	var definition struct {
+		Mode string `json:"examScoreMode"`
+	}
+	_ = json.Unmarshal([]byte(question.Schema), &definition)
+	return strings.TrimSpace(definition.Mode)
 }
 
 // BuildSchemaGradingPlan converts designer schema questions into the grading engine contract.
@@ -46,16 +61,26 @@ func BuildSchemaGradingPlan(schemaJSON string) SchemaGradingPlan {
 		if id == "" || typ == "" {
 			continue
 		}
+		ordinal := uint(index + 1)
+		if typ != "description" && typ != "divider" && typ != "pagination" && typ != "questionSet" {
+			definition, _ := json.Marshal(raw)
+			plan.ReviewQuestions = append(plan.ReviewQuestions, reviewQuestionSnapshot{
+				QuestionID: ordinal, AnswerKey: id, Type: typ, Title: stripExamExportHTML(schemaStringValue(raw["title"])),
+				ReferenceAnswer: schemaStringValue(raw["examCorrectAnswer"]), Definition: definition,
+			})
+		}
 		if _, excluded := schemaNonGradingTypes[typ]; excluded {
 			continue
 		}
 		scoreMode := schemaStringValue(raw["examScoreMode"])
+		if scoreMode == examPkg.ScoreModeNone {
+			continue
+		}
 		score := schemaScoreValue(raw["examScore"])
 		fields := schemaAnswerFields(raw)
 		if scoreMode == "" && score <= 0 && !hasScoredSchemaFields(fields) {
 			continue
 		}
-		ordinal := uint(index + 1)
 		plan.IDMap[id] = ordinal
 		plan.Definitions[ordinal], _ = json.Marshal(raw)
 		plan.Questions = append(plan.Questions, examPkg.Question{
@@ -66,7 +91,7 @@ func BuildSchemaGradingPlan(schemaJSON string) SchemaGradingPlan {
 			Score:      score,
 			ScoreMode:  scoreMode,
 			Fields:     fields,
-			NeedManual: examPkg.QWithType(typ),
+			NeedManual: scoreMode == "manual" || examPkg.QWithType(typ),
 		})
 	}
 	return plan

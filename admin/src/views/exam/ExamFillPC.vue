@@ -22,12 +22,15 @@
       <div v-if="examTimeRange" style="font-size:14px;color:#909399;margin-bottom:8px">{{ examTimeRange }}</div>
       <div v-if="countdownToStart > 0" style="font-size:13px;color:#e6a23c">距离开考还有 <strong>{{ formatCountdown(countdownToStart) }}</strong></div>
     </div>
-    <div v-if="submitted && !showResultView && (settings.showAnalysis || settings.transcriptVisible !== false)" class="fill-container" style="padding:40px 36px;text-align:center">
-      <el-result icon="success" title="提交成功">
+    <div v-if="submitted && !showResultView && !showEndContent" class="fill-container" style="padding:40px 36px;text-align:center">
+      <el-result icon="success" :title="redirecting ? '考试提交成功' : '提交成功'" :sub-title="redirecting ? '2 秒后自动跳转' : ''">
         <template #extra>
-          <el-button v-if="settings.showAnalysis && settings.transcriptVisible !== false" type="primary" size="large" @click="showResultView = true">查看结果</el-button>
-          <el-button v-else-if="settings.showAnalysis" type="primary" size="large" @click="showResultView = true">查看解析</el-button>
-          <el-button v-else type="primary" size="large" @click="showResultView = true">查看成绩</el-button>
+          <el-button v-if="redirecting" type="primary" size="large" @click="openRedirectUrl">立即前往</el-button>
+          <template v-else-if="settings.showAnalysis || settings.transcriptVisible !== false">
+            <el-button v-if="settings.showAnalysis && settings.transcriptVisible !== false" type="primary" size="large" @click="showResultView = true">查看结果</el-button>
+            <el-button v-else-if="settings.showAnalysis" type="primary" size="large" @click="showResultView = true">查看解析</el-button>
+            <el-button v-else type="primary" size="large" @click="showResultView = true">查看成绩</el-button>
+          </template>
         </template>
       </el-result>
     </div>
@@ -36,7 +39,7 @@
         <h1>{{ displayTitle }}</h1>
         <div class="meta">
           <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
-          <el-tag size="small">正确 {{ result.correctCnt }} 题</el-tag>
+          <el-tag v-if="result.correctCnt !== undefined && result.results?.length" size="small">正确 {{ result.correctCnt }}/{{ result.results?.length || 0 }}</el-tag>
         </div>
       </div>
       <div v-if="settings.showAnalysis" class="q-list">
@@ -46,10 +49,10 @@
             <div v-if="answers[q.id]" style="margin-bottom:4px">
               <span style="color:#909399">你的答案：</span><span v-html="answers[q.id]" />
             </div>
-            <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
+            <div v-if="q.examCorrectAnswer && resultForQuestion(q)" style="margin-bottom:4px">
               <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(q, q.examCorrectAnswer)" />
             </div>
-            <div v-if="q.examAnalysis" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
+            <div v-if="q.examAnalysis && resultForQuestion(q)" style="color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
               <span style="font-weight:500">解析：</span>{{ q.examAnalysis }}
             </div>
           </div>
@@ -175,7 +178,7 @@
                 </div>
                 <el-input v-else v-model="answers[currentQuestion.id]" placeholder="请输入" />
               </div>
-               <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(currentQuestion.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
+               <div v-if="settings.answerVisible && currentQuestion.examScoreMode !== 'none' && !LAYOUT_TYPES.includes(currentQuestion.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
                   <div v-if="currentQuestion.examCorrectAnswer" style="margin-bottom:4px">
                     <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(currentQuestion, currentQuestion.examCorrectAnswer)" />
                   </div>
@@ -297,7 +300,7 @@
               </div>
               <el-input v-else v-model="answers[q.id]" placeholder="请输入" />
             </div>
-             <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(q.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
+             <div v-if="settings.answerVisible && q.examScoreMode !== 'none' && !LAYOUT_TYPES.includes(q.type)" style="margin:8px 0 0 28px;font-size:13px;border:1px dashed #ccc;border-radius:4px;padding:8px;background:#fafafa">
                <div v-if="q.examCorrectAnswer" style="margin-bottom:4px">
                  <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(q, q.examCorrectAnswer)" />
                </div>
@@ -342,7 +345,9 @@ import { useRoute } from 'vue-router'
 import { computed, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { publicFormApi } from '../../api/public'
+import { examDisplayScore, examResultSummary } from './examScore'
 import { resolveSurveyTitle as resolveExamTitle } from '../../utils/surveyTitle'
+import { scheduleCompletionRedirect } from '../../utils/completionRedirect'
 
 const route = useRoute()
 const exam = ref<any>(null)
@@ -357,10 +362,23 @@ const session = ref('')
 const showScanner = ref(false)
 const scanQid = ref('')
 const result = ref<any>(null)
+function resultForQuestion(question: { id: string }) {
+  const ordinal = questions.value.findIndex(item => item.id === question.id) + 1
+  return result.value?.results?.find((item: { questionId: number }) => Number(item.questionId) === ordinal) || null
+}
 const submitted = ref(false)
 const showResultView = ref(false)
 const endContent = ref('')
 const showEndContent = ref(false)
+const redirecting = ref(false)
+let redirectTimer: ReturnType<typeof setTimeout> | null = null
+
+function openRedirectUrl() {
+  if (redirectTimer) clearTimeout(redirectTimer)
+  redirectTimer = null
+  const url = settings.value?.redirectUrl
+  if (url) window.location.href = url
+}
 const scannerRef = ref<HTMLDivElement>()
 let scanner: Html5Qrcode | null = null
 const fileLists: Record<string, File[]> = reactive({})
@@ -397,8 +415,8 @@ const currentTitleHtml = computed(() => {
   if (settings.value.questionNumber !== false) {
     html += `<span class="q-num">${currentNavIndex.value + 1}.</span>`
   }
-  if (exam.value.showScore && currentQuestion.value.examScore) {
-    html += `<span class="q-score">${currentQuestion.value.examScore}分</span>`
+  if (exam.value.showScore && examDisplayScore(currentQuestion.value)) {
+    html += `<span class="q-score">${examDisplayScore(currentQuestion.value)}分</span>`
   }
   if (currentQuestion.value.required) {
     html += '<span class="q-req">*</span>'
@@ -414,8 +432,8 @@ function questionTitleHtml(q: any, i: number): string {
     const num = visibleQuestions.value.slice(0, i).filter((x: any) => !LAYOUT_TYPES.includes(x.type)).length + 1
     html += `<span class="q-num">${num}.</span>`
   }
-  if (exam.value.showScore && q.examScore) {
-    html += `<span class="q-score">${q.examScore}分</span>`
+  if (exam.value.showScore && examDisplayScore(q)) {
+    html += `<span class="q-score">${examDisplayScore(q)}分</span>`
   }
   if (q.required) {
     html += '<span class="q-req">*</span>'
@@ -562,7 +580,7 @@ function displayAnswer(q: any, val: string | undefined) {
 const visibleQuestions = computed(() => questions.value.filter((q: any) => !q.defaultHidden))
 const realQuestions = computed(() => visibleQuestions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type)))
 const totalQuestions = computed(() => realQuestions.value.length)
-const totalScore = computed(() => questions.value.reduce((sum: number, q: any) => sum + (Number(q.examScore) || 0), 0))
+const totalScore = computed(() => questions.value.reduce((sum: number, q: any) => sum + examDisplayScore(q), 0))
 const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
 const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
 
@@ -950,6 +968,22 @@ function startCountdown() {
 function stopCountdown() {
   if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
 }
+function handleSubmitSuccess(data: any) {
+  result.value = examResultSummary(data)
+  submitted.value = true
+  const url = settings.value?.redirectUrl
+  const content = settings.value?.endContent
+  if (url) {
+    showResultView.value = false
+    redirecting.value = true
+    ElMessage.success('考试提交成功')
+    redirectTimer = scheduleCompletionRedirect(url, target => { window.location.href = target })
+    return
+  }
+  if (content) { endContent.value = content; showEndContent.value = true; return }
+  if (settings.value.transcriptVisible !== false && !settings.value.showAnalysis) showResultView.value = true
+  ElMessage.success('已提交')
+}
 async function onSubmit(skipConfirm = false) {
   const id = Number(route.params.id)
   try {
@@ -977,23 +1011,10 @@ async function onSubmit(skipConfirm = false) {
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
-        result.value = res.data
-        submitted.value = true
-        ElMessage.success('已提交')
         stopCountdown()
         clearDraft()
         localStorage.removeItem('exam_session_' + id)
-        if (settings.value.transcriptVisible !== false && !settings.value.showAnalysis) {
-          showResultView.value = true
-        }
-        if (!settings.value.transcriptVisible && !settings.value.showAnalysis) {
-          if (settings.value.redirectUrl) {
-            window.location.href = settings.value.redirectUrl
-          } else if (settings.value.endContent) {
-            endContent.value = settings.value.endContent
-            showEndContent.value = true
-          }
-        }
+        handleSubmitSuccess(res.data)
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
     finally { submitting.value = false }
@@ -1007,23 +1028,10 @@ async function onSubmit(skipConfirm = false) {
       if (res.code !== 0) {
         ElMessage.error(res.msg || '提交失败')
       } else {
-        result.value = res.data
-        submitted.value = true
-        ElMessage.success('已提交')
         stopCountdown()
         clearDraft()
         localStorage.removeItem('exam_session_' + id)
-        if (settings.value.transcriptVisible !== false && !settings.value.showAnalysis) {
-          showResultView.value = true
-        }
-        if (!settings.value.transcriptVisible && !settings.value.showAnalysis) {
-          if (settings.value.redirectUrl) {
-            window.location.href = settings.value.redirectUrl
-          } else if (settings.value.endContent) {
-            endContent.value = settings.value.endContent
-            showEndContent.value = true
-          }
-        }
+        handleSubmitSuccess(res.data)
       }
     } catch (e: any) { ElMessage.error(e.msg || '提交失败') }
     finally { submitting.value = false }
@@ -1039,6 +1047,7 @@ watch(() => settings.value.timeLimit, () => { startCountdown() })
 onUnmounted(() => {
   if (draftTimer) clearTimeout(draftTimer)
   if (startTimer) clearInterval(startTimer)
+  if (redirectTimer) clearTimeout(redirectTimer)
   stopCountdown()
 })
 </script>
@@ -1133,10 +1142,10 @@ onUnmounted(() => {
 .result-container { margin-top:20px; padding:40px 36px; }
 .answer-sheet-title { font-size:13px; font-weight:600; color:#333; text-align:center; margin-bottom:8px; cursor:grab; }
 .answer-sheet-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; overflow-y:auto; flex:1; }
-.answer-sheet-item { display:flex; align-items:center; justify-content:center; height:28px; border-radius:4px; cursor:pointer; font-size:12px; color:#606266; background:#f5f6f8; transition:all .15s; }
+.answer-sheet-item { display:flex; align-items:center; justify-content:center; width:100%; min-width:0; height:28px; box-sizing:border-box; border:2px solid transparent; border-radius:4px; cursor:pointer; font-size:12px; color:#606266; background:#f5f6f8; transition:background-color .15s,color .15s,border-color .15s; }
 .answer-sheet-item:hover { background:#e0e2e6; }
 .answer-sheet-done { background:#ecf5ff; color:#409eff; }
-.answer-sheet-cur { border:2px solid #409eff; font-weight:600; }
+.answer-sheet-cur { border-color:#409eff; font-weight:600; }
 .answer-sheet-stat { text-align:center; font-size:12px; color:#909399; padding-top:6px; border-top:1px solid #f0f0f0; margin-top:6px; }
 .fill-progress-bar { position:fixed; top:0; left:0; right:0; z-index:1000; background:#fff; border-bottom:1px solid #eee; padding:8px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
 .fill-progress-inner { max-width:800px; margin:0 auto; display:flex; align-items:center; gap:12px; }

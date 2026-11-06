@@ -25,25 +25,33 @@ type examRuleNotificationInput struct {
 }
 
 // ProcessExamSubmissionContext handles postStat rules after an exam record is persisted.
-func ProcessExamSubmissionContext(ctx context.Context, examID, recordID, userID uint, score, fullScore int) error {
+func ProcessExamSubmissionContext(ctx context.Context, examID, recordID, userID uint, score, fullScore, manualCount int) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var exam model.Exam
-	if err := db.Select("exam_id", "exam_title", "exam_settings").Where("`exam_id` = ?", examID).First(&exam).Error; err != nil {
+	if err := db.Select("exam_id", "exam_title", "exam_settings", "exam_schema").Where("`exam_id` = ?", examID).First(&exam).Error; err != nil {
 		return fmt.Errorf("load post-submit exam %d: %w", examID, err)
 	}
 	rules := parseRules(exam.Settings)
 	if len(rules) == 0 {
 		return nil
 	}
+	var record model.ExamRecord
+	if err := db.Select("exam_r_answers").Where("`exam_r_id` = ? AND `exam_r_exam_id` = ?", recordID, examID).First(&record).Error; err != nil {
+		return fmt.Errorf("load post-submit exam record %d: %w", recordID, err)
+	}
+	downloadURL, err := issueExamAnswerDownloadURL(ctx, configuredExamAnswerDownloadLinkIssuer(), examID, recordID, exam.Settings, rules)
+	if err != nil {
+		return fmt.Errorf("issue exam answer download link: %w", err)
+	}
 	var total int64
 	if err := db.Model(&model.ExamRecord{}).Where("`exam_r_exam_id` = ? AND `exam_r_status` >= 1", examID).Count(&total).Error; err != nil {
 		return fmt.Errorf("count post-submit exam records: %w", err)
 	}
-	submitter := resolveExamSubmitterContext(ctx, userID)
+	submitter := resolveExamSubmitterContext(ctx, userID, exam.Schema, record.Answers)
 	now := time.Now()
 	for index, rule := range rules {
-		message := renderExamNotificationMessage(rule.MessageTemplate, exam.Title, submitter, now, int(total), score, fullScore, rule.CalculateTotalScore)
+		message := renderExamNotificationMessage(rule.MessageTemplate, exam.Title, submitter, now, int(total), score, fullScore, rule.CalculateTotalScore, manualCount > 0, downloadURL)
 		for _, request := range examNotificationRequests(examRuleNotificationInput{
 			ExamID: examID, RecordID: recordID, RuleIndex: index, ExamTitle: exam.Title, Message: message, Rule: rule,
 		}) {
@@ -59,12 +67,17 @@ func ProcessExamSubmissionContext(ctx context.Context, examID, recordID, userID 
 	return nil
 }
 
-func renderExamNotificationMessage(template, title, submitter string, now time.Time, total, score, fullScore int, calculateTotalScore bool) string {
+func renderExamNotificationMessage(template, title, submitter string, now time.Time, total, score, fullScore int, calculateTotalScore, pendingManual bool, answerDownloadURL string) string {
+	if pendingManual && template == "" {
+		return "收到新答卷，请查看"
+	}
 	if template == "" {
 		template = "📝 考试「{title}」收到新答卷\n提交人：{submitter}　时间：{date}\n共 {total} 份提交\n\n{result}"
 	}
 	result, scoreText, fullScoreText := "", "", ""
-	if calculateTotalScore {
+	if pendingManual {
+		result, scoreText, fullScoreText = "待人工批改", "待人工批改", "待人工批改"
+	} else if calculateTotalScore {
 		result = fmt.Sprintf("得分 %d / %d", score, fullScore)
 		scoreText, fullScoreText = strconv.Itoa(score), strconv.Itoa(fullScore)
 	}
@@ -74,7 +87,8 @@ func renderExamNotificationMessage(template, title, submitter string, now time.T
 	message = strings.ReplaceAll(message, "{total}", strconv.Itoa(total))
 	message = strings.ReplaceAll(message, "{score}", scoreText)
 	message = strings.ReplaceAll(message, "{fullScore}", fullScoreText)
-	return strings.ReplaceAll(message, "{result}", result)
+	message = strings.ReplaceAll(message, "{result}", result)
+	return strings.ReplaceAll(message, answerDownloadURLPlaceholder, answerDownloadURL)
 }
 
 func examNotificationRequests(input examRuleNotificationInput) []NotificationRequest {
@@ -113,15 +127,18 @@ func examPostStatIdempotencyKey(input examRuleNotificationInput, channel string)
 	return "poststat:" + hex.EncodeToString(sum[:])
 }
 
-func resolveExamSubmitterContext(ctx context.Context, userID uint) string {
+func resolveExamSubmitterContext(ctx context.Context, userID uint, schemaJSON, currentAnswers string) string {
+	if name := submitterFromAnswers(schemaJSON, currentAnswers); name != "" {
+		return name
+	}
 	if userID == 0 {
 		return "匿名用户"
 	}
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
 	var user model.User
-	if db.Select("id", "name").Where("`id` = ?", userID).First(&user).Error == nil && user.Name != "" {
-		return user.Name
+	if db.Select("id", "user_name").Where("`id` = ?", userID).First(&user).Error == nil && strings.TrimSpace(user.Name) != "" {
+		return strings.TrimSpace(user.Name)
 	}
 	return fmt.Sprintf("用户%d", userID)
 }

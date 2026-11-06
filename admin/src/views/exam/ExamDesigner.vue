@@ -377,16 +377,23 @@
                 <el-divider border-style="dashed" style="margin:12px 0" />
                 <div class="exam-scoring-section">
                   <el-form-item label="计分方式" style="margin-bottom:4px">
-                    <el-select v-model="selected.examScoreMode" placeholder="不计分" clearable style="width:100%" teleported="false" popper-style="width:auto;min-width:280px">
+                    <el-select v-model="selected.examScoreMode" placeholder="请选择计分方式" clearable @clear="selected.examScoreMode = 'none'" style="width:100%" teleported="false" popper-style="width:auto;min-width:280px">
+                      <el-option value="none" label="不计分" />
                       <el-option value="single" label="此题有唯一答案和分值" />
+                      <el-option value="manual" label="人工评分题" />
                       <el-option value="perOption" label="每个选项都有对应的分值" :disabled="!hasOptions(selected)&&!isMatrixAll(selected.type)&&!['multiInput','hInput'].includes(selected.type)" />
                       <el-option value="allCorrect" label="全部答对才得分" :disabled="!hasOptions(selected)&&!isMatrixAll(selected.type)&&!['multiInput','hInput'].includes(selected.type)" />
                       <el-option value="partialCorrect" label="答对几项得几分，答错不得分" :disabled="!hasOptions(selected)&&!isMatrixAll(selected.type)&&!['multiInput','hInput'].includes(selected.type)" />
                     </el-select>
                   </el-form-item>
-                  <template v-if="selected.examScoreMode">
+                  <div v-if="selected.examScoreMode==='none'" class="setting-help">仅收集答案，不参与评分；必填与答题规则仍然生效。</div>
+                  <template v-if="selected.examScoreMode && selected.examScoreMode!=='none'">
                     <div class="props-options-section" style="margin-bottom:8px;padding:8px">
-                      <template v-if="selected.examScoreMode==='single'">
+                      <template v-if="selected.examScoreMode==='manual'">
+                        <div style="font-size:12px;color:#999;margin-bottom:6px">交卷后进入待批改，分值由管理员填写</div>
+                        <el-form-item label="参考答案（选填）" style="margin:0"><el-input v-model="selected.examCorrectAnswer" type="textarea" :rows="2" placeholder="供批改时参考" /></el-form-item>
+                      </template>
+                      <template v-else-if="selected.examScoreMode==='single'">
                         <div style="font-size:12px;color:#999;margin-bottom:6px">选择/填写正确答案</div>
                         <template v-if="isMatrixAll(selected.type)">
                           <span style="font-size:12px;color:#999">为每道矩阵行统一设置分值</span>
@@ -555,10 +562,13 @@ import { FALLBACK_TYPES, getSurveyQuestionTypeName as typeName } from '../survey
 import type { SurveyFormulaPayload } from '../survey/survey-designer-types'
 import type { ExamDesignerQuestion as Question, ExamLogicRule } from './exam-designer-types'
 import { createExamDesignerForm, useExamDesignerDocument } from './composables/useExamDesignerDocument'
+import { useFormDesignerTab } from '../../router/useFormDesignerTab'
 import { useExamDesignerTransfer } from './composables/useExamDesignerTransfer'
+import { useExamDesignerScore } from './composables/useExamDesignerScore'
 
 const route = useRoute()
 const router = useRouter()
+const syncDesignerTab = useFormDesignerTab('exam')
 const toNumericIndex = (index: string | number) => Number(index)
 
 const form = createExamDesignerForm()
@@ -593,13 +603,14 @@ function updateCorrectLabel() {
 const types = ref<any[]>([])
 const questions = ref<Question[]>([])
 const selected = ref<Question | null>(null)
+const { partialTotalScore, perOptionTotalScore, paperTotalScore, populateFieldsFromCorrectAnswer, syncFieldsCorrectAnswer } = useExamDesignerScore(questions, selected)
 let idCounter = 0
 function genId() { idCounter++; return 'q' + idCounter }
 function addQuestion(t: any) {
   const q: Question = { id: genId(), type: t.type, title: t.displayName, required: false, readOnly: false, placeholder: '', props: t.defaultProps ? JSON.parse(JSON.stringify(t.defaultProps)) : {} }
   if (!q.props) q.props = {}
   if (t.type !== 'description' && t.type !== 'questionSet' && t.type !== 'pagination' && t.type !== 'divider') {
-    q.examScoreMode = 'single'
+    q.examScoreMode = t.type === 'textarea' ? 'manual' : 'single'
   }
   if (t.type === 'judge') {
     q.props.options = [{ label: '对', value: 'true' }, { label: '错', value: 'false' }]
@@ -749,33 +760,6 @@ function addOption() {
 function removeOption(idx: number) { if (selected.value?.props?.options) selected.value.props.options.splice(idx, 1) }
 function removeQuestionById(id: string) { questions.value = questions.value.filter(q => q.id !== id); if (selected.value?.id === id) selected.value = null }
 
-const partialTotalScore = computed(() => {
-  if (!selected.value) return 0
-  const items = ['multiInput','hInput'].includes(selected.value.type) ? (selected.value.props?.fields||[]) : (selected.value.props?.options||[])
-  return items.reduce((sum: number, o: any) => sum + (o.examCorrect ? (Number(o.examScore) || 0) : 0), 0)
-})
-const perOptionTotalScore = computed(() => {
-  if (!selected.value) return 0
-  const items = ['multiInput','hInput'].includes(selected.value.type) ? (selected.value.props?.fields||[]) : (selected.value.props?.options||[])
-  return items.reduce((sum: number, o: any) => sum + (Number(o.examScore) || 0), 0)
-})
-
-function questionScore(q: any): number {
-  if (!q.examScoreMode) return 0
-  if (q.examScoreMode === 'single') return Number(q.examScore) || 0
-  if (q.examScoreMode === 'perOption') {
-    const items = ['multiInput','hInput'].includes(q.type) ? (q.props?.fields||[]) : (q.props?.options||[])
-    return items.reduce((s: number, o: any) => s + (Number(o.examScore) || 0), 0)
-  }
-  if (q.examScoreMode === 'allCorrect') return Number(q.examScore) || 0
-  if (q.examScoreMode === 'partialCorrect') {
-    const items = ['multiInput','hInput'].includes(q.type) ? (q.props?.fields||[]) : (q.props?.options||[])
-    return items.reduce((s: number, o: any) => s + (o.examCorrect ? (Number(o.examScore) || 0) : 0), 0)
-  }
-  return 0
-}
-const paperTotalScore = computed(() => questions.value.reduce((sum, q) => sum + questionScore(q), 0))
-
 const envFromAnswers = computed(() => {
   const env: Record<string, any> = {}; for (const q of questions.value) env[q.id] = undefined; return env
 })
@@ -805,83 +789,12 @@ const {
   onQuestionsLoaded: () => { idCounter = questions.value.length },
   reloadResources: () => sidebarRef.value?.loadResources(),
   reloadSettings: () => settingsRef.value?.loadData(),
+  onDocumentReady: syncDesignerTab,
 })
 
 function goBack() { void router.push('/exam/list') }
 function goResponses() { if (form.id) void router.push({ path: '/exam/responses', query: { examId: String(form.id), title: form.title } }) }
 function goStatistic() { if (form.id) void router.push({ path: '/exam/statistic', query: { examId: String(form.id), title: form.title } }) }
-
-watch([partialTotalScore, perOptionTotalScore], () => {
-  if (!selected.value) return
-  if (selected.value.examScoreMode === 'partialCorrect') selected.value.examScore = partialTotalScore.value
-  else if (selected.value.examScoreMode === 'perOption') selected.value.examScore = perOptionTotalScore.value
-})
-
-watch(() => selected.value?.examScoreMode, (cur, prev) => {
-  if (!selected.value || !prev) return
-  if (!cur) selected.value.examScore = undefined
-  if (prev === 'single') {
-    selected.value.examCorrectAnswer = undefined
-  }
-  if (prev === 'perOption' || prev === 'partialCorrect') {
-    selected.value.props?.options?.forEach((o: any) => { o.examScore = undefined })
-    selected.value.props?.fields?.forEach((f: any) => { f.examScore = undefined })
-  }
-  if (prev === 'allCorrect' || prev === 'partialCorrect') {
-    selected.value.props?.options?.forEach((o: any) => { o.examCorrect = undefined })
-    selected.value.props?.fields?.forEach((f: any) => { f.examCorrect = undefined })
-  }
-  if (cur === 'single' && ['multiInput','hInput'].includes(selected.value.type)) {
-    populateFieldsFromCorrectAnswer()
-  }
-})
-
-function populateFieldsFromCorrectAnswer() {
-  if (!selected.value || !['multiInput','hInput'].includes(selected.value.type)) return
-  const correctAnswer = selected.value.examCorrectAnswer
-  if (!correctAnswer) return
-  const fields = selected.value.props?.fields || []
-  const parts = correctAnswer.split(',')
-  fields.forEach((f: any, i: number) => {
-    if (parts[i] !== undefined) f.examCorrectAnswer = parts[i]
-  })
-}
-
-function deriveCorrectAnswerFromMode() {
-  if (!selected.value) return
-  if (!selected.value.examScoreMode || selected.value.examScoreMode === 'single') {
-    if (['multiInput','hInput'].includes(selected.value.type)) {
-      const fields = selected.value.props?.fields || []
-      const vals = fields.map((f: any) => f.examCorrectAnswer || '').filter(Boolean)
-      selected.value.examCorrectAnswer = vals.length ? vals.join(',') : undefined
-    } else {
-      if (selected.value.examCorrectAnswer?.includes(',')) selected.value.examCorrectAnswer = undefined
-    }
-    return
-  }
-  const isInputType = ['multiInput','hInput'].includes(selected.value.type)
-  const items = isInputType ? (selected.value.props?.fields || []) : (selected.value.props?.options || [])
-  let correctVals: string[] = []
-  if (selected.value.examScoreMode === 'allCorrect' || selected.value.examScoreMode === 'partialCorrect') {
-    correctVals = items.filter((item: any) => item.examCorrect).map((item: any) => item.value || item.examCorrectAnswer || '')
-  } else if (selected.value.examScoreMode === 'perOption') {
-    correctVals = items.filter((item: any) => Number(item.examScore) > 0).map((item: any) => isInputType ? (item.examCorrectAnswer || '') : (item.value || ''))
-  }
-  selected.value.examCorrectAnswer = correctVals.length ? correctVals.join(',') : undefined
-}
-
-function syncFieldsCorrectAnswer() {
-  if (!selected.value) return
-  const fields = selected.value.props?.fields || []
-  const vals = fields.map((f: any) => f.examCorrectAnswer || '').filter(Boolean)
-  selected.value.examCorrectAnswer = vals.length ? vals.join(',') : undefined
-}
-watch(() => selected.value?.examScoreMode, deriveCorrectAnswerFromMode)
-watch(() => selected.value?.props?.options?.map((o: any) => o.examCorrect), deriveCorrectAnswerFromMode, { deep: true })
-watch(() => selected.value?.props?.options?.map((o: any) => o.examScore), deriveCorrectAnswerFromMode, { deep: true })
-watch(() => selected.value?.props?.fields?.map((f: any) => f.examCorrect), deriveCorrectAnswerFromMode, { deep: true })
-watch(() => selected.value?.props?.fields?.map((f: any) => f.examScore), deriveCorrectAnswerFromMode, { deep: true })
-watch(() => selected.value?.props?.fields?.map((f: any) => f.examCorrectAnswer), deriveCorrectAnswerFromMode, { deep: true })
 
 watch(() => selected.value?.examCorrectAnswer, updateCorrectLabel, { immediate: true })
 watch(() => selected.value?.props?.options, updateCorrectLabel, { deep: true })

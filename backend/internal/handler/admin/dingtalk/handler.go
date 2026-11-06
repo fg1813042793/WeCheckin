@@ -80,12 +80,13 @@ func (h *AdminDingTalkHandler) GetSettings(ctx context.Context, c *app.RequestCo
 		NotifyMode: notifyMode, RobotCode: robotCode, AppSecretSet: appSecret != "",
 		CorpConfigs: adminDingTalkCorpConfigResponses(corpConfigs), TokenExpire: expire.String(), RedisPrefix: prefix,
 		SingleLogin: singleLogin, SelfBind: boolToSwitch(dingtalkh5service.SelfBindEnabledContext(ctx)),
-		LoginCaptchaEnabled: boolToSwitch(loginCaptchaEnabled),
-		NotifyEnabled:       notifyEnabled,
-		AppName:             adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_APP_NAME", defaultDingTalkH5AppName),
-		LogoText:            adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_LOGO_TEXT", defaultDingTalkH5LogoText),
-		LogoURL:             adminDingTalkSetupValue(ctx, "DINGTALK_H5_LOGO_URL"),
-		AppURL:              adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_URL"),
+		LoginCaptchaEnabled:  boolToSwitch(loginCaptchaEnabled),
+		SlidingExpireEnabled: boolToSwitch(tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, "dingtalk_h5")),
+		NotifyEnabled:        notifyEnabled,
+		AppName:              adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_APP_NAME", defaultDingTalkH5AppName),
+		LogoText:             adminDingTalkSetupValueDefault(ctx, "DINGTALK_H5_LOGO_TEXT", defaultDingTalkH5LogoText),
+		LogoURL:              adminDingTalkSetupValue(ctx, "DINGTALK_H5_LOGO_URL"),
+		AppURL:               adminDingTalkSetupValue(ctx, "DINGTALK_H5_APP_URL"),
 	})
 }
 
@@ -125,12 +126,24 @@ func (h *AdminDingTalkHandler) SaveSettings(ctx context.Context, c *app.RequestC
 		if value := strings.TrimSpace(c.PostForm("loginCaptchaEnabled")); value == "1" || strings.EqualFold(value, "true") {
 			loginCaptchaEnabled = "1"
 		}
+		slidingExpireEnabled := "1"
+		if !tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, "dingtalk_h5") {
+			slidingExpireEnabled = "0"
+		}
+		if value := strings.TrimSpace(c.PostForm("slidingExpireEnabled")); value != "" {
+			if value == "0" || strings.EqualFold(value, "false") {
+				slidingExpireEnabled = "0"
+			} else {
+				slidingExpireEnabled = "1"
+			}
+		}
 		setupItems = append(setupItems,
 			setupservice.SetupItem{Key: "TOKEN_DINGTALK_H5_EXPIRE", Value: tokenExpire, Type: "string"},
 			setupservice.SetupItem{Key: "TOKEN_DINGTALK_H5_REDIS_PREFIX", Value: redisPrefix, Type: "string"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_SINGLE_LOGIN", Value: singleLogin, Type: "switch"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_SELF_BIND_ENABLED", Value: selfBind, Type: "switch"},
 			setupservice.SetupItem{Key: "DINGTALK_H5_LOGIN_CAPTCHA_ENABLED", Value: loginCaptchaEnabled, Type: "switch"},
+			setupservice.SetupItem{Key: "TOKEN_DINGTALK_H5_SLIDING_EXPIRE_ENABLED", Value: slidingExpireEnabled, Type: "switch"},
 		)
 	}
 

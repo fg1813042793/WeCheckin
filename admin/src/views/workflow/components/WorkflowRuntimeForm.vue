@@ -444,6 +444,7 @@
 </template>
 
 <script lang="ts" setup>
+import { workflowFieldGridSpan as fieldSpan } from '../fieldWidth'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElForm, ElMessage } from 'element-plus'
 import request from '../../../utils/request'
@@ -566,10 +567,7 @@ function openFieldHelp(field: WorkflowFormField) {
   helpDialogVisible.value = true
 }
 
-function fieldSpan(field: WorkflowFormField) {
-  const span = Number(field.span || 24)
-  return [6, 8, 12, 24].includes(span) ? span : 24
-}
+
 
 function fieldValue(field: WorkflowFormField) {
   const values = props.modelValue || {}
@@ -865,10 +863,11 @@ defineExpose({ validate, validationMessage, resetValidation })
 .workflow-runtime-form { width: 100%; }
 .runtime-form-grid {
   display: grid;
-  grid-template-columns: repeat(24, minmax(0, 1fr));
-  column-gap: 16px;
+  grid-template-columns: repeat(120, minmax(0, 1fr));
+  margin-inline: -8px;
   row-gap: 4px;
 }
+.runtime-form-grid > * { min-width: 0; margin-right: 8px; margin-left: 8px; }
 .runtime-form-grid :deep(.el-form-item) { margin-bottom: 16px; }
 .runtime-form-grid :deep(.el-form-item__label) {
   color: #475569;
@@ -920,10 +919,12 @@ defineExpose({ validate, validationMessage, resetValidation })
 }
 .detail-list-columns {
   display: grid;
-  grid-template-columns: repeat(24, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(120, minmax(0, 1fr));
+  row-gap: 12px;
+  margin-inline: -6px;
 }
 .detail-list-column {
+  margin-inline: 6px;
   display: flex;
   min-width: 0;
   flex-direction: column;

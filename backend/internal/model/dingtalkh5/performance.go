@@ -17,6 +17,8 @@ type DingTalkH5PerfUser struct {
 	Account                string    `json:"account" gorm:"uniqueIndex;size:200;column:user_mini_openid;comment:用户账号"`
 	Name                   string    `json:"name" gorm:"size:100;index;column:user_name;comment:姓名"`
 	Password               string    `json:"-" gorm:"size:100;column:user_password;comment:密码哈希"`
+	PasswordChangedAt      int64     `json:"-" gorm:"column:user_password_changed_at;default:0;comment:密码最后修改时间（毫秒）"`
+	PasswordMustChange     int       `json:"-" gorm:"column:user_password_must_change;default:0;comment:下次登录必须修改密码"`
 	Pic                    string    `json:"avatar" gorm:"size:500;column:user_pic;comment:头像URL"`
 	Status                 int       `json:"status" gorm:"default:1;index;column:user_status;comment:状态:1正常 0禁用"`
 	RoleID                 uint      `json:"roleId" gorm:"column:user_role_id;comment:角色ID"`

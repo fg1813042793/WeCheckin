@@ -308,6 +308,7 @@ import { FALLBACK_TYPES, getSurveyQuestionTypeName as typeName } from './survey-
 import type { SurveyCompletionAction, SurveyFormulaPayload, SurveyLogicRule } from './survey-designer-types'
 import { collectSurveyDesignerIssues, type SurveyDesignerIssue } from './survey-designer-validation'
 import { createSurveyDesignerForm, useSurveyDesignerDocument } from './composables/useSurveyDesignerDocument'
+import { useFormDesignerTab } from '../../router/useFormDesignerTab'
 import { useSurveyDesignerQuestions } from './composables/useSurveyDesignerQuestions'
 import { useSurveyDesignerTransfer } from './composables/useSurveyDesignerTransfer'
 import { resolveSurveyTitle } from '../../utils/surveyTitle'
@@ -315,6 +316,7 @@ import './survey-designer-responsive.css'
 
 const route = useRoute()
 const router = useRouter()
+const syncDesignerTab = useFormDesignerTab('survey')
 
 const form = createSurveyDesignerForm()
 
@@ -417,6 +419,7 @@ const {
   locateIssue: locateDesignerIssue,
   syncQuestionIds: syncIdCounterFromQuestions,
   reloadResources: () => sidebarRef.value?.loadResources(),
+  onDocumentReady: syncDesignerTab,
 })
 
 function locateDesignerIssue(issue: SurveyDesignerIssue) {

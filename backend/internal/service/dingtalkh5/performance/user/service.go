@@ -11,9 +11,10 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
+	"wecheckin/backend/internal/support/passwordsession"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/pkg/database"
-	"wecheckin/backend/pkg/passwordutil"
 )
 
 const (
@@ -127,14 +128,22 @@ func CreateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, p
 	baseUser := model.User{
 		MiniOpenID: user.Account,
 		Name:       user.Name,
-		Password:   user.Password,
 		Pic:        user.Pic,
 		Status:     user.Status,
 		Obj:        encodePerfUserObj("", user),
 		AddTime:    user.AddTime,
 		EditTime:   user.EditTime,
 	}
-	if err := db.Create(&baseUser).Error; err != nil {
+	password := strings.TrimSpace(payload.Password)
+	if password == "" {
+		password = "123456"
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&baseUser).Error; err != nil {
+			return err
+		}
+		return accountsecurity.SetInitialPasswordWithDBContext(ctx, tx, baseUser.ID, password)
+	}); err != nil {
 		return nil, nil, err
 	}
 	user.ID = baseUser.ID
@@ -173,6 +182,7 @@ func UpdateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, a
 	if err := validateUserPayload(db, next, existing.Account); err != nil {
 		return nil, nil, err
 	}
+	passwordChanged := strings.TrimSpace(payload.Password) != ""
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{
 			"user_name":      next.Name,
@@ -181,15 +191,22 @@ func UpdateUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, a
 			"user_obj":       encodePerfUserObj(existing.Obj, next),
 			"user_edit_time": next.EditTime,
 		}
-		if strings.TrimSpace(payload.Password) != "" {
-			updates["user_password"] = next.Password
-		}
 		if err := tx.Model(&model.User{}).Where("`user_mini_openid` = ?", next.Account).Updates(updates).Error; err != nil {
 			return err
+		}
+		if password := strings.TrimSpace(payload.Password); password != "" {
+			if err := accountsecurity.ResetTemporaryPasswordWithDBContext(ctx, tx, existing.ID, password); err != nil {
+				return err
+			}
 		}
 		return syncOpenReviewsForUser(tx, next)
 	}); err != nil {
 		return nil, nil, err
+	}
+	if passwordChanged || next.Status != 1 {
+		if err := passwordsession.InvalidateAllContext(ctx, existing.ID); err != nil {
+			return nil, nil, err
+		}
 	}
 	dto := userDTO(next)
 	return &dto, nil, nil
@@ -225,6 +242,9 @@ func DeleteUserContext(ctx context.Context, current *model.DingTalkH5PerfUser, a
 		"user_edit_time": now,
 	}
 	if err := db.Model(&model.User{}).Where("`user_mini_openid` = ?", target.Account).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	if err := passwordsession.InvalidateAllContext(ctx, target.ID); err != nil {
 		return nil, err
 	}
 	return ListUsersContext(ctx, current)
@@ -566,24 +586,9 @@ func sanitizeUserPayload(payload UserPayload, existing *model.DingTalkH5PerfUser
 	if department == "" && existing != nil {
 		department = existing.Department
 	}
-	password := strings.TrimSpace(payload.Password)
 	passwordHash := ""
 	if existing != nil {
 		passwordHash = existing.Password
-	}
-	if password != "" {
-		hash, err := passwordutil.Hash(password)
-		if err != nil {
-			return model.DingTalkH5PerfUser{}, err
-		}
-		passwordHash = hash
-	}
-	if passwordHash == "" {
-		hash, err := passwordutil.Hash("123456")
-		if err != nil {
-			return model.DingTalkH5PerfUser{}, err
-		}
-		passwordHash = hash
 	}
 	now := database.Now()
 	addTime := now

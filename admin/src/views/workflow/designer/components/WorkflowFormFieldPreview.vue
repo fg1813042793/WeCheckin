@@ -61,6 +61,7 @@
 </template>
 
 <script lang="ts" setup>
+import { workflowFieldGridSpan as columnSpan } from '../../fieldWidth'
 import { computed } from 'vue'
 import type { WorkflowFormField } from '../../types'
 import { flattenWorkflowOptions, normalizeWorkflowOptions, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
@@ -72,10 +73,7 @@ const flatOptions = computed(() => flattenWorkflowOptions(options.value))
 const stringDefault = computed(() => typeof props.field.default === 'string' ? props.field.default : '')
 const arrayDefault = computed(() => Array.isArray(props.field.default) ? props.field.default : [])
 
-function columnSpan(column: WorkflowFormField) {
-  const span = Number(column.span || 24)
-  return [6, 8, 12, 24].includes(span) ? span : 24
-}
+
 </script>
 
 <style scoped>
@@ -96,10 +94,12 @@ function columnSpan(column: WorkflowFormField) {
 .detail-preview { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #e6ebf1; border-radius: 6px; background: #f8fafc; }
 .detail-preview__grid {
   display: grid;
-  grid-template-columns: repeat(24, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(120, minmax(0, 1fr));
+  row-gap: 8px;
+  margin-inline: -4px;
 }
 .detail-preview__cell {
+  margin-inline: 4px;
   display: flex;
   min-width: 0;
   flex-direction: column;

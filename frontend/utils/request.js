@@ -1,5 +1,5 @@
 import CONFIG from '../config/index'
-import { clearRequestAuthState, getRequestAuthState, navigateToAuthPage } from './auth'
+import { clearRequestAuthState, getRequestAuthState, markAdminPasswordChangeRequired, markClientPasswordChangeRequired, navigateToAuthPage } from './auth'
 
 const BASE_URL = CONFIG.BASE_URL
 const LOGIN_EXPIRED_MESSAGES = new Set([
@@ -70,6 +70,13 @@ const request = (options) => {
             if (LOGIN_EXPIRED_MESSAGES.has(res.data.msg)) {
               clearAuthState(authState)
               redirectToLogin(authState)
+              reject(res.data)
+              return
+            }
+            if (res.data.errorCode === 'PASSWORD_CHANGE_REQUIRED') {
+              if (authState.isAdmin) markAdminPasswordChangeRequired()
+              else markClientPasswordChangeRequired()
+              navigateToAuthPage(authState.passwordChangeUrl)
               reject(res.data)
               return
             }

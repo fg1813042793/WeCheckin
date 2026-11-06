@@ -46,9 +46,10 @@
           <div class="exam-card__preview" aria-hidden="true">
             <div><span>最长交卷</span><strong>{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? ' 分钟' : '' }}</strong></div>
             <div><span>答题次数</span><strong>{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</strong></div>
+            <div><span>已交答卷</span><strong>{{ row.responseCount || 0 }} 份</strong></div>
           </div>
         </button>
-        <div class="survey-card__meta"><span><strong>{{ row.maxResponse || 0 }}</strong> {{ row.maxResponse ? '次限制' : '不限次数' }}</span><time>{{ fmtDate(row.addTime) }} 更新</time></div>
+        <div class="survey-card__meta"><span><strong>{{ row.responseCount || 0 }}</strong> 份答卷</span><time>{{ fmtDate(row.addTime) }} 更新</time></div>
         <footer class="survey-card__actions" @click.stop>
           <el-button text type="primary" :icon="EditPen" @click="goDesigner(row)">设计</el-button>
           <el-button text :icon="Document" @click="goResponses(row)">查看答卷</el-button>
@@ -73,6 +74,7 @@
         <el-table-column label="可见性" width="100"><template #default="{ row }"><el-tag size="small" :type="visType(row.visibility)">{{ visText(row.visibility) }}</el-tag></template></el-table-column>
         <el-table-column label="最长交卷" width="110" align="center"><template #default="{ row }">{{ maxSubmitMinutes(row) }}{{ maxSubmitMinutes(row) !== '-' ? ' 分钟' : '' }}</template></el-table-column>
         <el-table-column label="答题次数" width="100" align="center"><template #default="{ row }">{{ row.maxResponse || 0 }}{{ row.maxResponse ? ' 次' : ' 不限' }}</template></el-table-column>
+        <el-table-column label="答卷数" width="100" align="center"><template #default="{ row }">{{ row.responseCount || 0 }} 份</template></el-table-column>
         <el-table-column label="最近更新" width="120"><template #default="{ row }">{{ fmtDate(row.addTime) }}</template></el-table-column>
         <el-table-column label="状态" width="100"><template #default="{ row }"><span class="status-label" :class="row.status === 1 ? 'published' : 'stopped'"><i />{{ row.status === 1 ? '已发布' : '已停用' }}</span></template></el-table-column>
         <el-table-column label="操作" width="250" fixed="right"><template #default="{ row }"><div class="table-actions"><el-button text type="primary" @click="goDesigner(row)">设计</el-button><el-button text @click="goResponses(row)">查看答卷</el-button><el-button text @click="goStatistic(row)">统计</el-button><el-dropdown trigger="click" @command="(command: string) => handleMore(command, row)"><el-button text :icon="MoreFilled" :aria-label="`${row.title} 更多操作`" /></el-dropdown></div></template></el-table-column>

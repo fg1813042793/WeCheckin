@@ -40,6 +40,7 @@ export const adminChildRoutes: RouteRecordRaw[] = [
   { path: 'scheduled-task/workers', name: 'ScheduledTaskWorkers', component: () => import('../views/scheduled-task/workers/index.vue'), meta: { title: '执行节点', menuPath: '/scheduled-task/workers' } },
   { path: 'notifications', name: 'InAppNotifications', component: () => import('../views/notification/index.vue'), meta: { title: '通知记录管理', menuPath: '/notifications' } },
   { path: 'user-feedbacks', name: 'UserFeedbacks', component: () => import('../views/user-feedback/index.vue'), meta: { title: '用户反馈', menuPath: '/user-feedbacks', requiredPermission: 'admin:menu:user-feedback:list', adminUi: { version: 1, pattern: 'filter-list' } } },
+  { path: 'public-portal', name: 'PublicPortal', component: () => import('../views/public-portal/index.vue'), meta: { title: '公共页面管理', menuPath: '/public-portal', requiredPermission: 'admin:menu:public-portal', adminUi: { version: 1, pattern: 'workspace' } } },
   { path: 'swagger-docs', name: 'SwaggerDocs', component: () => import('../views/swagger-docs/index.vue'), meta: { title: '接口文档', menuPath: '/swagger-docs' } },
   { path: 'role', name: 'Role', component: () => import('../views/role/index.vue'), meta: { title: '角色管理', menuPath: '/role' } },
   { path: 'menu', name: 'Menu', component: () => import('../views/menu/index.vue'), meta: { title: '权限管理', menuPath: '/menu' } },

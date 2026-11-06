@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import ts from 'typescript'
+import './check-workflow-skip-assignee.mjs'
 
 const root = process.cwd()
 const require = createRequire(import.meta.url)
@@ -54,6 +55,7 @@ const insertionDraft = {
 }
 const inserted = graph.insertNodeAtEdge(insertionDraft, 'start_to_end', 'approval')
 assert(inserted?.type === 'approval', '指定连线应插入审批节点')
+assert(inserted?.skipIfNoAssignee !== true, '新审批节点不得默认跳过未配置审批人')
 assert(inserted?.notification?.enabled === true, '新审批节点应默认开启任务到达通知')
 assert(inserted?.notification?.channels?.join(',') === 'in_app,dingtalk_oa', '新审批节点应默认启用站内和钉钉 OA 通知')
 assert(inserted?.notification?.content === '你有一项待处理任务：{{nodeName}}', '新审批节点的默认通知模板无效')

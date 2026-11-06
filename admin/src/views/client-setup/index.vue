@@ -40,6 +40,10 @@
 
         <el-tab-pane label="登录配置" name="LOGIN_CONFIG">
           <el-form label-width="180px" style="max-width: 500px;">
+            <el-divider content-position="left">客户端会话策略</el-divider>
+            <el-form-item label="Token 滑动过期">
+              <el-switch v-model="tokenConfig.slidingExpireEnabled" :active-value="1" :inactive-value="0" active-text="开启（访问时续期）" inactive-text="关闭（固定有效期）" />
+            </el-form-item>
             <el-divider content-position="left">客户端用户</el-divider>
             <el-form-item label="Token 过期时间">
               <el-input v-model="tokenConfig.userExpire" placeholder="168h">
@@ -87,7 +91,7 @@ export default {
     const savingHome = ref(false)
     const staticDomain = ref('')
     const savingDomain = ref(false)
-    const tokenConfig = reactive({ userExpire: '', userPrefix: '', userSingleLogin: 0, adminExpire: '', adminPrefix: '', adminSingleLogin: 0 })
+    const tokenConfig = reactive({ userExpire: '', userPrefix: '', userSingleLogin: 0, adminExpire: '', adminPrefix: '', adminSingleLogin: 0, slidingExpireEnabled: 1 })
     const savingToken = ref(false)
     const builtinPresets = ref([])
     const savingBuiltin = ref(false)
@@ -301,6 +305,12 @@ export default {
       }
       // 单点登录开关
       try {
+        const resSliding = await request.get('/api/v2/home/setup', { params: { key: 'TOKEN_USER_SLIDING_EXPIRE_ENABLED' } })
+        tokenConfig.slidingExpireEnabled = resSliding.data === '0' || resSliding.data === 'false' ? 0 : 1
+      } catch (e) {
+        tokenConfig.slidingExpireEnabled = 1
+      }
+      try {
         const resUser = await request.get('/api/v2/home/setup', { params: { key: 'USER_SINGLE_LOGIN' } })
         tokenConfig.userSingleLogin = resUser.data === '1' ? 1 : 0
       } catch (e) {
@@ -321,6 +331,10 @@ export default {
           ...Object.entries(tokenConfigKeys).map(([field, key]) =>
             request.put('/api/v2/admin/settings/content', { key, value: tokenConfig[field] || '' })
           ),
+          request.put('/api/v2/admin/settings/content', {
+            key: 'TOKEN_USER_SLIDING_EXPIRE_ENABLED',
+            value: String(tokenConfig.slidingExpireEnabled)
+          }),
           request.put('/api/v2/admin/settings/content', {
             key: 'USER_SINGLE_LOGIN',
             value: String(tokenConfig.userSingleLogin)

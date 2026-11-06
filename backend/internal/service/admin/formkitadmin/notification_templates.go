@@ -36,6 +36,7 @@ func defaultBuiltinExamNotificationTemplates() []TemplatePreset {
 		{"label": "简洁", "value": "📝 考试「{title}」收到新答卷\n提交人：{submitter}\n时间：{date}\n共 {total} 份提交\n\n{result}"},
 		{"label": "成绩通知", "value": "📊 考试成绩通知\n考试：{title}\n提交人：{submitter}\n得分：{score} / {fullScore}\n提交时间：{date}"},
 		{"label": "仅统计结果", "value": "{result}"},
+		{"label": "答卷下载", "value": "📝 考试「{title}」收到新答卷\n提交人：{submitter}\n提交时间：{date}\n答卷下载：{answerDownloadUrl}"},
 	}
 }
 

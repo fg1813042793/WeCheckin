@@ -244,6 +244,7 @@
 
   .app-pc-control-scope {
     --app-control-height: 36px;
+    --workflow-textarea-single-row-height: var(--app-control-height);
     --app-input-font-size: 13px;
     --app-icon-size: 18px;
     --app-button-icon-size: 15px;

@@ -7,6 +7,7 @@ const (
 	InstanceStatusCompleted = "completed"
 	InstanceStatusRejected  = "rejected"
 	InstanceStatusCancelled = "cancelled"
+	InstanceStatusVoided    = "voided"
 
 	TokenStatusActive    = "active"
 	TokenStatusWaiting   = "waiting"

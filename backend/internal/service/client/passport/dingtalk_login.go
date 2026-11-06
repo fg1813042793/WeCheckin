@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	onlineservice "wecheckin/backend/internal/service/admin/online"
 	dingtalkconfig "wecheckin/backend/internal/service/dingtalkh5/config"
 	"wecheckin/backend/internal/support/auditlog"
@@ -202,6 +203,10 @@ func issueDingTalkClientLoginResponseContext(ctx context.Context, db *gorm.DB, u
 		auditlog.SetReason(ctx, "system_error", "登录信息异常")
 		return nil, fmt.Errorf("登录信息异常")
 	}
+	passwordState, err := accountsecurity.EvaluatePasswordStateContext(ctx, user.PasswordChangedAt, user.PasswordMustChange == 1)
+	if err != nil {
+		return nil, err
+	}
 	token := randutil.HexString(32)
 	if err := onlineservice.StoreUserSessionContext(ctx, user, token, addIP, device); err != nil {
 		auditlog.SetReason(ctx, "system_error", "登录会话创建失败")
@@ -216,13 +221,15 @@ func issueDingTalkClientLoginResponseContext(ctx context.Context, db *gorm.DB, u
 		}
 	}
 	auditlog.SetActor(ctx, user.ID, user.Name, "user")
-	return &LoginResponse{
+	response := &LoginResponse{
 		Token: token,
 		UserInfo: &UserInfo{
 			ID: user.ID, Name: user.Name, Avatar: media.FullURLWithStaticDomain(user.Pic), Desc: "点击完善个人信息",
 			MiniOpenID: user.MiniOpenID, Role: user.Role, DeptID: deptID, DeptName: deptName,
 		},
-	}, nil
+	}
+	applyPasswordState(response, passwordState)
+	return response, nil
 }
 
 func buildDingTalkAuthorizationURL(appKey, redirectURI, state string) (string, error) {

@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	"wecheckin/backend/internal/support/adminaccess"
 	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/internal/support/media"
@@ -47,17 +48,21 @@ func InsertLogContext(ctx context.Context, logType int, content, adminID, adminN
 }
 
 type LoginResponse struct {
-	Token     string   `json:"token"`
-	Name      string   `json:"name"`
-	Pic       string   `json:"pic"`
-	ID        uint     `json:"id"`
-	Type      int      `json:"type"`
-	RoleID    uint     `json:"roleId"`
-	RoleName  string   `json:"roleName"`
-	RoleIDs   []uint   `json:"roleIds"`
-	RoleNames []string `json:"roleNames"`
-	DataScope int      `json:"dataScope"`
-	LoginCnt  int      `json:"loginCnt"`
+	Token                  string   `json:"token"`
+	Name                   string   `json:"name"`
+	Pic                    string   `json:"pic"`
+	ID                     uint     `json:"id"`
+	Type                   int      `json:"type"`
+	RoleID                 uint     `json:"roleId"`
+	RoleName               string   `json:"roleName"`
+	RoleIDs                []uint   `json:"roleIds"`
+	RoleNames              []string `json:"roleNames"`
+	DataScope              int      `json:"dataScope"`
+	LoginCnt               int      `json:"loginCnt"`
+	PasswordChangeRequired bool     `json:"passwordChangeRequired"`
+	PasswordExpired        bool     `json:"passwordExpired"`
+	PasswordExpiresAt      int64    `json:"passwordExpiresAt"`
+	PasswordExpiryWarning  bool     `json:"passwordExpiryWarning"`
 }
 
 func Login(name, password, addIP, device string) (*LoginResponse, error) {
@@ -91,8 +96,10 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 			auditlog.SetReason(ctx, "system_error", "登录服务异常")
 			return nil, err
 		}
-		db.Model(&admin).Update("user_password", newHash)
+		changedAt := database.Now()
+		db.Model(&admin).Updates(map[string]interface{}{"user_password": newHash, "user_password_changed_at": changedAt})
 		admin.Password = newHash
+		admin.PasswordChangedAt = changedAt
 	}
 	if admin.Status != 1 {
 		auditlog.SetReason(ctx, "account_disabled", "账号已禁用")
@@ -104,6 +111,10 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	}
 	admin.RoleIDs = roleIDs
 	admin.RoleNames = roleNames
+	passwordState, err := accountsecurity.EvaluatePasswordStateContext(ctx, admin.PasswordChangedAt, admin.PasswordMustChange == 1)
+	if err != nil {
+		return nil, err
+	}
 	token := genRandomString(32)
 	admin.LoginCnt++
 	admin.LoginTime = database.Now()
@@ -116,17 +127,21 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	}
 	auditlog.SetActor(ctx, admin.ID, admin.Name, "admin")
 	return &LoginResponse{
-		Token:     token,
-		Name:      admin.Name,
-		Pic:       media.FullURLWithStaticDomain(admin.Pic),
-		ID:        admin.ID,
-		Type:      admin.Type,
-		RoleID:    admin.RoleID,
-		RoleName:  role.Name,
-		RoleIDs:   roleIDs,
-		RoleNames: roleNames,
-		DataScope: role.DataScope,
-		LoginCnt:  admin.LoginCnt,
+		Token:                  token,
+		Name:                   admin.Name,
+		Pic:                    media.FullURLWithStaticDomain(admin.Pic),
+		ID:                     admin.ID,
+		Type:                   admin.Type,
+		RoleID:                 admin.RoleID,
+		RoleName:               role.Name,
+		RoleIDs:                roleIDs,
+		RoleNames:              roleNames,
+		DataScope:              role.DataScope,
+		LoginCnt:               admin.LoginCnt,
+		PasswordChangeRequired: passwordState.PasswordChangeRequired,
+		PasswordExpired:        passwordState.PasswordExpired,
+		PasswordExpiresAt:      passwordState.PasswordExpiresAt,
+		PasswordExpiryWarning:  passwordState.PasswordExpiryWarning,
 	}, nil
 }
 
@@ -224,17 +239,19 @@ func storeAdminTokenContext(ctx context.Context, admin *model.Admin, token, addI
 	}
 
 	info := map[string]interface{}{
-		"id":        admin.ID,
-		"name":      admin.Name,
-		"type":      admin.Type,
-		"roleId":    admin.RoleID,
-		"roleName":  roleName,
-		"roleIds":   roleIDs,
-		"roleNames": roleNames,
-		"desc":      admin.Desc,
-		"loginIp":   addIP,
-		"loginTime": now,
-		"device":    device,
+		"id":                 admin.ID,
+		"name":               admin.Name,
+		"type":               admin.Type,
+		"roleId":             admin.RoleID,
+		"roleName":           roleName,
+		"roleIds":            roleIDs,
+		"roleNames":          roleNames,
+		"desc":               admin.Desc,
+		"passwordChangedAt":  admin.PasswordChangedAt,
+		"passwordMustChange": admin.PasswordMustChange == 1,
+		"loginIp":            addIP,
+		"loginTime":          now,
+		"device":             device,
 	}
 	jsonBytes, err := json.Marshal(info)
 	if err != nil {

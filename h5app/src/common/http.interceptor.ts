@@ -77,6 +77,10 @@ const httpInterceptor: RequestInterceptor = {
       }
       if (requestToken === currentToken)
         handleDingTalkH5AuthExpired(rawData)
+      if (rawData.errorCode === 'PASSWORD_CHANGE_REQUIRED') {
+        uni.$emit('password-change-required')
+        return false
+      }
       if (Number(rawData.code) !== DINGTALK_H5_BIND_REQUIRED_CODE) {
         meta.toast && showToast(rawData.msg || rawData.message || '请求失败', 'none')
       }

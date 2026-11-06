@@ -124,7 +124,7 @@ func (h *AdminUserHandler) AddUser(ctx context.Context, c *app.RequestContext) {
 	adminAccess, _ := parseAdminAccess(c)
 	err := adminuserservice.AddUserWithManagerAndAdminAccessForAdminContext(ctx, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess, admin.ID)
 	if err != nil {
-		response.FailInternal(ctx, c, "admin.user.handler", "操作失败，请稍后重试", err)
+		respondUserWriteError(ctx, c, "admin.user.add", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -155,7 +155,7 @@ func (h *AdminUserHandler) EditUser(ctx context.Context, c *app.RequestContext) 
 	adminAccess, hasAdminAccess := parseAdminAccess(c)
 	err := adminuserservice.EditUserWithManagerAndAdminAccessForAdminContext(ctx, id, name, mobile, pic, forms, addIP, positionID, managerUserID, deptIds, adminAccess, hasAdminAccess, admin.ID)
 	if err != nil {
-		response.FailInternal(ctx, c, "admin.user.handler", "操作失败，请稍后重试", err)
+		respondUserWriteError(ctx, c, "admin.user.edit", err)
 		return
 	}
 	response.JSON(c, nil)
@@ -286,21 +286,6 @@ func (h *AdminUserHandler) StatusUser(ctx context.Context, c *app.RequestContext
 	err := adminuserservice.StatusUserForAdminContext(ctx, id, status, reason, admin.ID)
 	if err != nil {
 		response.Fail(c, "操作失败")
-		return
-	}
-	response.JSON(c, nil)
-}
-
-func (h *AdminUserHandler) ResetPassword(ctx context.Context, c *app.RequestContext) {
-	adminVal, _ := c.Get("admin")
-	admin := adminVal.(*model.Admin)
-	id := c.PostForm("id")
-	if id == "" {
-		response.Fail(c, "参数错误")
-		return
-	}
-	if err := adminuserservice.ResetUserPasswordForAdminContext(ctx, id, admin.ID); err != nil {
-		response.Fail(c, "重置失败")
 		return
 	}
 	response.JSON(c, nil)

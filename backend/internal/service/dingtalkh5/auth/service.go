@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	onlineservice "wecheckin/backend/internal/service/admin/online"
 	bootstrapsvc "wecheckin/backend/internal/service/dingtalkh5/bootstrap"
 	configsvc "wecheckin/backend/internal/service/dingtalkh5/config"
@@ -38,7 +39,7 @@ const (
 	dingTalkH5SelfBindDefaultTTL   = 10 * time.Minute
 )
 
-const perfUserSelectColumns = "`id`, `user_mini_openid`, `user_name`, `user_password`, `user_pic`, `user_status`, `user_role_id`, `user_position_id`, `user_obj`, `user_add_time`, `user_edit_time`"
+const perfUserSelectColumns = "`id`, `user_mini_openid`, `user_name`, `user_password`, `user_password_changed_at`, `user_password_must_change`, `user_pic`, `user_status`, `user_role_id`, `user_position_id`, `user_obj`, `user_add_time`, `user_edit_time`"
 
 var normalizeUserIDRegexp = regexp.MustCompile(`[^a-z0-9_.-]+`)
 
@@ -70,19 +71,23 @@ type AppMenuDTO struct {
 }
 
 type LoginResponse struct {
-	Token                 string                           `json:"token"`
-	UserInfo              UserDTO                          `json:"userInfo"`
-	Menus                 []AppMenuDTO                     `json:"menus"`
-	AppConfig             configsvc.DingTalkH5AppConfigDTO `json:"appConfig"`
-	AppTitle              string                           `json:"appTitle"`
-	AppName               string                           `json:"appName"`
-	LogoText              string                           `json:"logoText"`
-	LogoURL               string                           `json:"logoUrl"`
-	ButtonPermissionKeys  []string                         `json:"buttonPermissionKeys"`
-	ButtonPermissionReady bool                             `json:"buttonPermissionReady"`
-	APIPermissionKeys     []string                         `json:"apiPermissionKeys"`
-	APIPermissionReady    bool                             `json:"apiPermissionReady"`
-	PermissionVersion     int64                            `json:"permissionVersion"`
+	Token                  string                           `json:"token"`
+	UserInfo               UserDTO                          `json:"userInfo"`
+	Menus                  []AppMenuDTO                     `json:"menus"`
+	AppConfig              configsvc.DingTalkH5AppConfigDTO `json:"appConfig"`
+	AppTitle               string                           `json:"appTitle"`
+	AppName                string                           `json:"appName"`
+	LogoText               string                           `json:"logoText"`
+	LogoURL                string                           `json:"logoUrl"`
+	ButtonPermissionKeys   []string                         `json:"buttonPermissionKeys"`
+	ButtonPermissionReady  bool                             `json:"buttonPermissionReady"`
+	APIPermissionKeys      []string                         `json:"apiPermissionKeys"`
+	APIPermissionReady     bool                             `json:"apiPermissionReady"`
+	PermissionVersion      int64                            `json:"permissionVersion"`
+	PasswordChangeRequired bool                             `json:"passwordChangeRequired"`
+	PasswordExpired        bool                             `json:"passwordExpired"`
+	PasswordExpiresAt      int64                            `json:"passwordExpiresAt"`
+	PasswordExpiryWarning  bool                             `json:"passwordExpiryWarning"`
 }
 
 type DingTalkH5BindRequiredResponse struct {
@@ -164,8 +169,10 @@ func LoginContext(ctx context.Context, name, password, addIP, device string) (*L
 	}
 	if passwordutil.NeedsRehash(user.Password) {
 		if hash, err := passwordutil.Hash(password); err == nil {
-			_ = db.Model(&model.User{}).Where("`user_mini_openid` = ?", user.Account).Update("user_password", hash).Error
+			changedAt := database.Now()
+			_ = db.Model(&model.User{}).Where("`user_mini_openid` = ?", user.Account).Updates(map[string]interface{}{"user_password": hash, "user_password_changed_at": changedAt}).Error
 			user.Password = hash
+			user.PasswordChangedAt = changedAt
 		}
 	}
 
@@ -344,7 +351,9 @@ func BindSelfContext(ctx context.Context, bindTicket, account, password, addIP, 
 	}
 	if passwordutil.NeedsRehash(baseUser.Password) {
 		if hash, err := passwordutil.Hash(password); err == nil {
-			_ = db.Model(&model.User{}).Where("`id` = ?", baseUser.ID).Update("user_password", hash).Error
+			changedAt := database.Now()
+			_ = db.Model(&model.User{}).Where("`id` = ?", baseUser.ID).Updates(map[string]interface{}{"user_password": hash, "user_password_changed_at": changedAt}).Error
+			baseUser.PasswordChangedAt = changedAt
 		}
 	}
 
@@ -387,6 +396,10 @@ func issueDingTalkH5LoginResponseContext(ctx context.Context, db *gorm.DB, user 
 		auditlog.SetReason(ctx, "system_error", "登录信息异常")
 		return nil, fmt.Errorf("登录信息异常")
 	}
+	passwordState, err := accountsecurity.EvaluatePasswordStateContext(ctx, user.PasswordChangedAt, user.PasswordMustChange == 1)
+	if err != nil {
+		return nil, err
+	}
 	token := randutil.HexString(32)
 	safeDevice := sessionDevice(device)
 	if err := onlineservice.StoreDingTalkH5SessionContext(ctx, onlineUserFromDingTalkH5User(user), token, addIP, safeDevice); err != nil {
@@ -404,19 +417,23 @@ func issueDingTalkH5LoginResponseContext(ctx context.Context, db *gorm.DB, user 
 	}
 	auditlog.SetActor(ctx, user.ID, user.Name, "user")
 	return &LoginResponse{
-		Token:                 token,
-		UserInfo:              bootstrapUserDTO(bootstrap),
-		Menus:                 bootstrapAppMenus(bootstrap.Menus),
-		AppConfig:             bootstrap.AppConfig,
-		AppTitle:              bootstrap.AppTitle,
-		AppName:               bootstrap.AppName,
-		LogoText:              bootstrap.LogoText,
-		LogoURL:               bootstrap.LogoURL,
-		ButtonPermissionKeys:  bootstrap.ButtonPermissionKeys,
-		ButtonPermissionReady: bootstrap.ButtonPermissionReady,
-		APIPermissionKeys:     bootstrap.APIPermissionKeys,
-		APIPermissionReady:    bootstrap.APIPermissionReady,
-		PermissionVersion:     bootstrap.PermissionVersion,
+		Token:                  token,
+		UserInfo:               bootstrapUserDTO(bootstrap),
+		Menus:                  bootstrapAppMenus(bootstrap.Menus),
+		AppConfig:              bootstrap.AppConfig,
+		AppTitle:               bootstrap.AppTitle,
+		AppName:                bootstrap.AppName,
+		LogoText:               bootstrap.LogoText,
+		LogoURL:                bootstrap.LogoURL,
+		ButtonPermissionKeys:   bootstrap.ButtonPermissionKeys,
+		ButtonPermissionReady:  bootstrap.ButtonPermissionReady,
+		APIPermissionKeys:      bootstrap.APIPermissionKeys,
+		APIPermissionReady:     bootstrap.APIPermissionReady,
+		PermissionVersion:      bootstrap.PermissionVersion,
+		PasswordChangeRequired: passwordState.PasswordChangeRequired,
+		PasswordExpired:        passwordState.PasswordExpired,
+		PasswordExpiresAt:      passwordState.PasswordExpiresAt,
+		PasswordExpiryWarning:  passwordState.PasswordExpiryWarning,
 	}, nil
 }
 
@@ -489,14 +506,16 @@ func onlineUserFromDingTalkH5User(user *model.DingTalkH5PerfUser) *model.User {
 		return nil
 	}
 	return &model.User{
-		ID:         user.ID,
-		MiniOpenID: user.Account,
-		Status:     user.Status,
-		Name:       user.Name,
-		Pic:        user.Pic,
-		Password:   user.Password,
-		RoleID:     user.RoleID,
-		RoleIDs:    user.RoleIDs,
+		ID:                 user.ID,
+		MiniOpenID:         user.Account,
+		Status:             user.Status,
+		Name:               user.Name,
+		Pic:                user.Pic,
+		Password:           user.Password,
+		PasswordChangedAt:  user.PasswordChangedAt,
+		PasswordMustChange: user.PasswordMustChange,
+		RoleID:             user.RoleID,
+		RoleIDs:            user.RoleIDs,
 	}
 }
 

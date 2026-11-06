@@ -45,7 +45,7 @@ func TestDefaultExamNotificationTemplatesExposeScoreVariables(t *testing.T) {
 	for _, item := range templates {
 		joined += item["value"]
 	}
-	for _, variable := range []string{"{score}", "{fullScore}", "{result}"} {
+	for _, variable := range []string{"{score}", "{fullScore}", "{result}", "{answerDownloadUrl}"} {
 		if !strings.Contains(joined, variable) {
 			t.Fatalf("exam templates missing %s: %q", variable, joined)
 		}

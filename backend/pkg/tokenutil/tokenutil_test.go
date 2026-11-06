@@ -48,11 +48,14 @@ func TestTokenContextAPIsUseSetupCacheWithoutDatabase(t *testing.T) {
 	})
 	setupCacheMu.Lock()
 	for key, value := range map[string]string{
-		"TOKEN_ADMIN_EXPIRE":       "3h",
-		"TOKEN_ADMIN_REDIS_PREFIX": "cached-admin:",
-		"ADMIN_SINGLE_LOGIN":       "true",
-		"USER_SINGLE_LOGIN":        "1",
-		"DINGTALK_H5_SINGLE_LOGIN": "true",
+		"TOKEN_ADMIN_EXPIRE":                       "3h",
+		"TOKEN_ADMIN_REDIS_PREFIX":                 "cached-admin:",
+		"ADMIN_SINGLE_LOGIN":                       "true",
+		"USER_SINGLE_LOGIN":                        "1",
+		"DINGTALK_H5_SINGLE_LOGIN":                 "true",
+		"TOKEN_ADMIN_SLIDING_EXPIRE_ENABLED":       "false",
+		"TOKEN_USER_SLIDING_EXPIRE_ENABLED":        "true",
+		"TOKEN_DINGTALK_H5_SLIDING_EXPIRE_ENABLED": "0",
 	} {
 		setupCache[key] = setupCacheEntry{value: value, expiresAt: time.Now().Add(time.Minute)}
 	}
@@ -68,6 +71,30 @@ func TestTokenContextAPIsUseSetupCacheWithoutDatabase(t *testing.T) {
 	}
 	if !IsAdminSingleLoginContext(context.Background()) || !IsUserSingleLoginContext(context.Background()) || !IsDingTalkH5SingleLoginContext(context.Background()) {
 		t.Fatal("single-login Context APIs must read cached true values")
+	}
+	if IsTokenSlidingExpirationEnabledContext(context.Background(), "admin") {
+		t.Fatal("admin sliding expiration switch must read cached false value")
+	}
+	if !IsTokenSlidingExpirationEnabledContext(context.Background(), "user") {
+		t.Fatal("user sliding expiration switch must read cached true value")
+	}
+	if IsTokenSlidingExpirationEnabledContext(context.Background(), "dingtalk_h5") {
+		t.Fatal("DingTalk H5 sliding expiration switch must read cached false value")
+	}
+}
+
+func TestTokenSlidingExpirationDefaultsToEnabled(t *testing.T) {
+	oldLoader := querySetupValueContext
+	InvalidateSetupCache()
+	t.Cleanup(func() {
+		querySetupValueContext = oldLoader
+		InvalidateSetupCache()
+	})
+	querySetupValueContext = func(context.Context, string) string { return "" }
+	for _, role := range []string{"admin", "user", "dingtalk_h5"} {
+		if !IsTokenSlidingExpirationEnabledContext(context.Background(), role) {
+			t.Fatalf("%s sliding expiration must remain enabled when the setup key is absent", role)
+		}
 	}
 }
 

@@ -17,6 +17,9 @@ func TestDebugTokenConfigResponseKeepsStableJSONFields(t *testing.T) {
 		`"user_expire_seconds":0`, `"user_expire_str":""`, `"user_prefix":""`,
 		`"admin_expire_seconds":0`, `"admin_expire_str":""`, `"admin_prefix":""`,
 		`"dingtalk_h5_expire_seconds":0`, `"dingtalk_h5_expire_str":""`, `"dingtalk_h5_prefix":""`,
+		`"user_sliding_expire_enabled":false`,
+		`"admin_sliding_expire_enabled":false`,
+		`"dingtalk_h5_sliding_expire_enabled":false`,
 	} {
 		if !strings.Contains(text, field) {
 			t.Fatalf("JSON %s missing %s", text, field)

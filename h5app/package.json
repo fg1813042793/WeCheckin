@@ -77,6 +77,7 @@
     "check:feedback-mobile-layout": "node scripts/check-feedback-mobile-layout.mjs",
     "check:feedback-navigation": "node scripts/check-feedback-navigation.mjs",
     "check:workbench-mobile-layout": "node scripts/check-workbench-mobile-layout.mjs",
+    "check:password-policy": "node scripts/check-password-policy.mjs",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

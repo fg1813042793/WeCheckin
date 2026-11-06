@@ -180,6 +180,9 @@ func encodeTimer(encoder *xml.Encoder, node Node, attributes []xml.Attr) error {
 }
 
 func encodeApproval(encoder *xml.Encoder, node Node, attributes []xml.Attr) error {
+	if node.SkipIfNoAssignee {
+		attributes = append(attributes, attr("flowable:skipIfNoAssignee", "true"))
+	}
 	if config := node.DepartmentApprovalChain; config != nil && config.Enabled {
 		attributes = append(attributes,
 			attr("flowable:departmentApprovalChain", "true"),

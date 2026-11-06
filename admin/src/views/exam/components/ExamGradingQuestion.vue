@@ -24,7 +24,7 @@ const previewUrls = computed(() => images.value.map(image => image.url).filter(B
   <article class="grading-question" :aria-labelledby="`question-title-${question.questionId}`">
     <div class="grading-question__heading">
       <h3 :id="`question-title-${question.questionId}`">{{ index + 1 }}. {{ question.title || '未命名题目' }}</h3>
-      <el-tag :type="pending ? 'warning' : 'info'" size="small">{{ pending ? '人工评分' : '只读' }}</el-tag>
+      <el-tag :type="pending && !question.unscored ? 'warning' : 'info'" size="small">{{ question.unscored ? '不计分' : pending ? '人工评分' : '只读' }}</el-tag>
     </div>
     <dl v-if="question.materials?.length" class="grading-question__materials" aria-label="题目材料">
       <div v-for="(material, materialIndex) in question.materials" :key="materialIndex">
@@ -48,9 +48,9 @@ const previewUrls = computed(() => images.value.map(image => image.url).filter(B
     </section>
     <div class="grading-question__answers">
       <div><h4>考生答案</h4><p>{{ question.answer || '（未作答）' }}</p></div>
-      <div><h4>参考答案</h4><p>{{ question.referenceAnswer || '（未提供参考答案）' }}</p></div>
+      <div v-if="!question.unscored"><h4 class="grading-question__reference-title">参考答案</h4><p>{{ question.referenceAnswer || '（未提供参考答案）' }}</p></div>
     </div>
-    <el-form-item v-if="editable && question.needManual" :label="`评分（满分 ${question.fullScore} 分）`" :error="error" required>
+    <el-form-item v-if="!question.unscored && editable && question.needManual" :label="`评分（满分 ${question.fullScore} 分）`" :error="error" required>
       <el-input-number
         :id="`score-${question.questionId}`" :model-value="score" :min="0" :max="question.fullScore"
         :step="1" :controls="false" :disabled="busy" placeholder="请输入整数分数"
@@ -60,7 +60,7 @@ const previewUrls = computed(() => images.value.map(image => image.url).filter(B
       />
       <span :id="`score-help-${question.questionId}`" class="grading-question__hint">必填，0 分有效</span>
     </el-form-item>
-    <p v-else class="grading-question__score">
+    <p v-else-if="!question.unscored" class="grading-question__score">
       得分：<strong>{{ pending ? '待批改' : question.gotScore }}</strong> / {{ question.fullScore }} 分
       <el-tag v-if="!pending && question.gotScore > 0 && question.gotScore < question.fullScore" type="warning" size="small">部分得分</el-tag>
     </p>
@@ -82,8 +82,9 @@ const previewUrls = computed(() => images.value.map(image => image.url).filter(B
 .grading-question__image-feedback { display: flex; align-items: center; justify-content: center; height: 100%; padding: var(--admin-ui-space-2); box-sizing: border-box; color: var(--admin-ui-color-text-muted); }
 div.grading-question__image-feedback { height: 160px; }
 .grading-question__pictures figcaption { margin-top: var(--admin-ui-space-2); white-space: pre-wrap; overflow-wrap: anywhere; }
-.grading-question__answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--admin-ui-space-4); margin: var(--admin-ui-space-4) 0; }
+.grading-question__answers { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--admin-ui-space-4); margin: var(--admin-ui-space-4) 0; }
 .grading-question__answers h4 { margin: 0 0 var(--admin-ui-space-2); font-size: var(--admin-ui-font-size-body); color: var(--admin-ui-color-text-secondary); }
+.grading-question__answers .grading-question__reference-title { color: var(--admin-ui-color-success); }
 .grading-question__answers p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: var(--admin-ui-line-height-body); }
 .grading-question__hint { margin-left: var(--admin-ui-space-2); color: var(--admin-ui-color-text-muted); }
 .grading-question__score { display: flex; flex-wrap: wrap; align-items: center; gap: var(--admin-ui-space-2); margin: 0; }

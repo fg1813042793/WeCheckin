@@ -1,4 +1,4 @@
-import { get, post, postJSON, put, del } from '../utils/request'
+import { get, post, postJSON, put, patch, del } from '../utils/request'
 
 const API_V2 = '/api/v2'
 
@@ -110,6 +110,9 @@ export const passportApi = {
   },
   logout(data) {
     return post(`${API_V2}/me/logout`, data)
+  },
+  changePassword(data) {
+    return patch(`${API_V2}/me/password`, data)
   }
 }
 

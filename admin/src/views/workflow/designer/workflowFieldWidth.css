@@ -1,0 +1,26 @@
+.field-span-slider {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.field-span-slider :deep(.el-slider) {
+  width: 100%;
+  min-width: 0;
+}
+.field-span-slider :deep(.el-slider__runway) { margin-right: 14px; }
+.field-span-slider :deep(.el-slider__input) { width: 78px; }
+.field-span-slider > span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.field-item--narrow { padding: 8px; }
+.field-item--narrow .field-item__main { position: relative; display: block; min-width: 0; padding-right: 0; }
+.field-item--narrow .field-type-icon { display: none; }
+.field-item--narrow .field-drag-handle { position: absolute; top: 0; left: 0; width: 16px; height: 18px; }
+.field-item--narrow .field-item__main > div { min-width: 0; }
+.field-item--narrow .field-item__main strong { display: block; overflow: hidden; padding-left: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.field-item--narrow :deep(.nested-field-preview) { max-width: 100%; margin-left: 0; }

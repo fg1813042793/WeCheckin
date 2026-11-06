@@ -3,6 +3,7 @@ export interface ApiEnvelope<T = unknown> {
   msg?: string
   message?: string
   data?: T
+  errorCode?: string
   [key: string]: unknown
 }
 
@@ -74,6 +75,10 @@ export interface AuthSessionPayload {
   logoUrl?: string
   logoURL?: string
   appUrl?: string
+  passwordChangeRequired?: boolean
+  passwordExpired?: boolean
+  passwordExpiresAt?: number
+  passwordExpiryWarning?: boolean
 }
 
 export interface LoginRequest {

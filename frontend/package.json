@@ -25,7 +25,8 @@
     "check:search-input-style": "node scripts/check-search-input-style.mjs",
     "check:request-dedupe": "node scripts/check-request-dedupe.mjs",
     "check:list-render-performance": "node scripts/check-list-render-performance.mjs",
-    "check:all": "npm run check:config && npm run check:request && npm run check:logs && npm run check:auth && npm run check:dingtalk-login && npm run check:dingtalk-native-auth && npm run check:formkit-logic && npm run check:form-fill && npm run check:upload && npm run check:platform && npm run check:news-search-layout && npm run check:fixed-list-headers && npm run check:search-input-style && npm run check:list-render-performance"
+    "check:all": "npm run check:config && npm run check:request && npm run check:logs && npm run check:auth && npm run check:dingtalk-login && npm run check:dingtalk-native-auth && npm run check:formkit-logic && npm run check:form-fill && npm run check:upload && npm run check:platform && npm run check:news-search-layout && npm run check:fixed-list-headers && npm run check:search-input-style && npm run check:list-render-performance && npm run check:password-policy",
+    "check:password-policy": "node scripts/check-password-policy.mjs"
   },
   "dependencies": {
     "vue": "^3.3.0"

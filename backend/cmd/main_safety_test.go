@@ -117,6 +117,8 @@ func TestMainConfiguresPostStatNotificationOutbox(t *testing.T) {
 		"notificationoutboxinfra.NewGormStore(",
 		"notificationoutboxapp.NewService(",
 		"poststatservice.ConfigureNotificationDispatcher(",
+		"poststatservice.ConfigureExamAnswerDownloadLinkIssuer(",
+		"examrecordexportlinkinfra.NewRedisStore(rd.RDB)",
 	} {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("main.go must configure PostStat outbox with %q", snippet)

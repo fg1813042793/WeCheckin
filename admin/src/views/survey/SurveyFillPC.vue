@@ -24,7 +24,11 @@
     </div>
     <div v-else-if="submitted" class="fill-container">
       <div class="header"><h1>{{ displayTitle }}</h1></div>
-      <div class="q-list" style="padding:24px 28px;text-align:center;color:#909399">已提交，感谢填写</div>
+      <div class="q-list" style="padding:24px 28px;text-align:center;color:#909399">
+        <div>{{ redirecting ? '问卷提交成功' : '已提交，感谢填写' }}</div>
+        <div v-if="redirecting">2 秒后自动跳转</div>
+        <el-button v-if="redirecting" type="primary" @click="openRedirectUrl">立即前往</el-button>
+      </div>
     </div>
     <div v-else-if="survey" class="fill-container">
       <div v-if="settings.headerImages?.length" class="fill-header-img"><img :src="typeof settings.headerImages[0]==='string'?settings.headerImages[0]:settings.headerImages[0].url" /></div>
@@ -307,6 +311,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { evaluateFrontendRules } from '../../utils/surveyLogicEngine'
 import { publicFormApi } from '../../api/public'
 import { resolveSurveyTitle } from '../../utils/surveyTitle'
+import { scheduleCompletionRedirect } from '../../utils/completionRedirect'
 
 const route = useRoute()
 const survey = ref<any>(null)
@@ -332,6 +337,15 @@ const sigDrawing = ref(false)
 const sigCurId = ref('')
 const submitted = ref(false)
 const endContent = ref('')
+const redirecting = ref(false)
+let redirectTimer: ReturnType<typeof setTimeout> | null = null
+
+function openRedirectUrl() {
+  if (redirectTimer) clearTimeout(redirectTimer)
+  redirectTimer = null
+  const url = settings.value?.redirectUrl
+  if (url) window.location.href = url
+}
 
 const showLogin = ref(false)
 const loginLoading = ref(false)
@@ -783,13 +797,15 @@ function stopCountdown() {
 function handleSubmitSuccess(_data: any) {
   const url = settings.value?.redirectUrl
   const content = settings.value?.endContent
+  submitted.value = true
   if (url) {
-    window.location.href = url
+    redirecting.value = true
+    ElMessage.success('问卷提交成功')
+    redirectTimer = scheduleCompletionRedirect(url, target => { window.location.href = target })
     return
   }
   if (content) {
     endContent.value = content
-    submitted.value = true
     return
   }
   ElMessage.success('已提交')
@@ -866,6 +882,7 @@ watch(() => settings.value.timeLimit, () => { startCountdown() })
 
 onUnmounted(() => {
   if (draftTimer) clearTimeout(draftTimer)
+  if (redirectTimer) clearTimeout(redirectTimer)
   stopCountdown()
 })
 </script>

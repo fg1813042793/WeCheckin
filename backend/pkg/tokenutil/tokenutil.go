@@ -171,3 +171,16 @@ func IsDingTalkH5SingleLoginContext(ctx context.Context) bool {
 	val := getDBSetupContext(ctx, "DINGTALK_H5_SINGLE_LOGIN")
 	return val == "1" || val == "true"
 }
+
+// IsTokenSlidingExpirationEnabledContext reports whether successful authenticated requests refresh session TTL.
+// Missing configuration keeps the historical sliding-expiration behavior enabled.
+func IsTokenSlidingExpirationEnabledContext(ctx context.Context, role string) bool {
+	role = strings.ToUpper(strings.TrimSpace(role))
+	value := strings.ToLower(strings.TrimSpace(getDBSetupContext(ctx, "TOKEN_"+role+"_SLIDING_EXPIRE_ENABLED")))
+	switch value {
+	case "0", "false", "off", "no":
+		return false
+	default:
+		return true
+	}
+}

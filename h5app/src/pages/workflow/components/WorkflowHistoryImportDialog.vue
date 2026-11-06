@@ -110,6 +110,7 @@ const statusOptions = computed(() => statusLocked.value
       { label: '已驳回', value: 'rejected' },
       { label: '已撤回', value: 'withdrawn' },
       { label: '已取消', value: 'cancelled' },
+      { label: '已作废', value: 'voided' },
     ])
 
 const popupMode = computed(() => mobile.value ? 'bottom' : 'center')

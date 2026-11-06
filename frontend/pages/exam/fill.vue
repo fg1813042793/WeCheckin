@@ -55,20 +55,20 @@
           <text class="result-score-num">{{ result.score }}</text>
           <text class="result-score-total">/{{ result.fullScore }}</text>
         </view>
-        <text v-if="result.correctCnt !== undefined" class="result-correct">正确 {{ result.correctCnt }}/{{ totalQuestions }}</text>
+        <text v-if="result.correctCnt !== undefined && result.results && result.results.length" class="result-correct">正确 {{ result.correctCnt }}/{{ result.results ? result.results.length : 0 }}</text>
       </view>
       <scroll-view class="result-scroll" scroll-y>
         <view v-for="(q, i) in questions" :key="q.id" class="q-item" :data-qid="q.id">
           <view class="q-title"><rich-text :nodes="resultFullTitle(q, i)" /></view>
-          <view class="q-answer" v-if="result && result.results && result.results[i]">
-            <text :style="{ color: result.results[i].correct ? '#67c23a' : '#f56c6c' }">{{ result.results[i].correct ? '✓' : '✗' }}</text>
+          <view class="q-answer" v-if="!LAYOUT_TYPES.includes(q.type)">
+            <text v-if="resultForQuestion(i)" :style="{ color: resultForQuestion(i).correct ? '#67c23a' : '#f56c6c' }">{{ resultForQuestion(i).correct ? '✓' : '✗' }}</text>
             <text style="margin-left:8rpx;color:#606266">你的答案：{{ formatResultAnswer(q, answers[q.id]) }}</text>
           </view>
-          <view v-if="q.examCorrectAnswer && (!result || !result.results || !result.results[i] || !result.results[i].correct)" class="q-correct">
+          <view v-if="q.examCorrectAnswer && resultForQuestion(i) && !resultForQuestion(i).correct" class="q-correct">
             <text>✓ 正确答案：</text>
             <rich-text :nodes="displayAnswer(q, q.examCorrectAnswer)" />
           </view>
-          <view v-if="q.examAnalysis" class="q-analysis">
+          <view v-if="q.examAnalysis && resultForQuestion(i)" class="q-analysis">
             <text>解析：{{ q.examAnalysis }}</text>
           </view>
         </view>
@@ -94,7 +94,7 @@
               <QuestionField
                 :q="currentQuestion"
                 :index="currentQIndex"
-                :q-score="exam.showScore && currentQuestion.examScore ? currentQuestion.examScore : 0"
+                :q-score="exam.showScore ? examDisplayScore(currentQuestion) : 0"
                 :value="answers[currentQuestion.id]"
                 :file-list="fileLists[currentQuestion.id] || []"
                 :show-number="settings.questionNumber !== false"
@@ -103,7 +103,7 @@
                 @sig-open="isSigOpen = true" @sig-close="isSigOpen = false"
               />
             </view>
-          <view v-if="settings.answerVisible && !LAYOUT_TYPES.includes(currentQuestion.type) && (currentQuestion.examCorrectAnswer || currentQuestion.examAnalysis)" class="exam-answer-box">
+          <view v-if="settings.answerVisible && currentQuestion.examScoreMode !== 'none' && !LAYOUT_TYPES.includes(currentQuestion.type) && (currentQuestion.examCorrectAnswer || currentQuestion.examAnalysis)" class="exam-answer-box">
             <view v-if="currentQuestion.examCorrectAnswer" style="margin-bottom:4rpx">
               <text style="color:#67c23a">✓ 正确答案：</text>
               <rich-text :nodes="displayAnswer(currentQuestion, currentQuestion.examCorrectAnswer)" />
@@ -128,7 +128,7 @@
             <QuestionField
               :q="q"
               :index="i"
-              :q-score="exam.showScore && q.examScore ? q.examScore : 0"
+              :q-score="exam.showScore ? examDisplayScore(q) : 0"
               :value="answers[q.id]"
               :file-list="fileLists[q.id] || []"
               :show-number="settings.questionNumber !== false"
@@ -175,6 +175,7 @@ import { getClientToken } from '../../utils/auth'
 import { openExternalURL } from '../../utils/externalNavigation'
 import {
   LAYOUT_TYPES,
+  examDisplayScore,
   formatRemainingTime,
   getAnswerProgress,
   getQuestionInitialValue,
@@ -229,7 +230,7 @@ export default {
     LAYOUT_TYPES() { return LAYOUT_TYPES },
     answerProgress() { return getAnswerProgress(this.questions, this.answers) },
     totalQuestions() { return this.answerProgress.total },
-    totalScore() { return (this.questions || []).reduce((s, q) => s + (Number(q.examScore) || 0), 0) },
+    totalScore() { return (this.questions || []).reduce((s, q) => s + examDisplayScore(q), 0) },
     answeredCount() { return this.answerProgress.answered },
     progressPct() { return this.answerProgress.percent },
     realQuestions() { return (this.questions || []).filter(q => !LAYOUT_TYPES.includes(q.type) && !q.defaultHidden) },
@@ -269,6 +270,8 @@ export default {
     if (this.autoSaveTimer) { clearTimeout(this.autoSaveTimer); this.saveToStorage() }
   },
   methods: {
+    examDisplayScore,
+    resultForQuestion(index) { return this.result?.results?.find(item => Number(item.questionId) === index + 1) || null },
     async load() {
       if (!this.examId) { this.error = '参数错误'; this.loading = false; return }
       // 检查结果模式

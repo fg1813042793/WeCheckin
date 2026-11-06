@@ -552,6 +552,7 @@
 import SortPopover from '../../components/SortPopover.vue'
 import UserListFilters from './components/UserListFilters.vue'
 import { useUserListFilters } from './composables/useUserListFilters'
+import { resetPwd } from './resetPassword'
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { adminApi } from '../../api'
 import { adminUploadRequest, canUploadAdminFile } from '../../api/upload'
@@ -1144,7 +1145,7 @@ async function handleRowCommand(cmd: string, row: any) {
   } else if (cmd === 'disable') {
     showReason(row)
   } else if (cmd === 'resetPwd') {
-    await resetPwd(row)
+    if (hasPerm('admin:menu:user:edit')) await resetPwd(row)
   } else if (cmd === 'delete') {
     try {
       await ElMessageBox.confirm(`确定删除用户「${row.name}」？`, '提示', { type: 'warning' })
@@ -1181,15 +1182,6 @@ async function exportData() {
       r => [r.name || '', '', r.mobile || '', deptPathText(r.deptIds || []), r.status === 1 ? '正常' : '禁用'])
   } catch (error) { showRequestError(error, '导出失败') }
 }
-
-async function resetPwd(row: any) {
-  try {
-    await ElMessageBox.confirm(`确定将用户「${row.name}」的密码重置为 123456？`, '提示')
-    await adminApi.userResetPwd({ id: row.id })
-    ElMessage.success('密码已重置为 123456')
-  } catch {}
-}
-
 // 新增/编辑
 const dialog = reactive({ visible: false, title: '', isCreate: false })
 const form = reactive({

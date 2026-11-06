@@ -23,6 +23,7 @@ type RuntimeService interface {
 	StartInstance(context.Context, workflowapp.StartInstanceRequest) (*workflowdomain.State, error)
 	CompleteTask(context.Context, workflowapp.CompleteTaskRequest) (*workflowdomain.State, error)
 	CancelInstance(context.Context, workflowapp.CancelInstanceRequest) (*workflowdomain.State, error)
+	VoidInstance(context.Context, workflowapp.VoidInstanceRequest) (*workflowdomain.State, error)
 	ResumeTimers(context.Context, string, string) (*workflowdomain.State, int, error)
 	PreviewInstanceVersionUpgrade(context.Context, string) (*workflowapp.InstanceVersionUpgradePreview, error)
 	UpgradeInstanceVersion(context.Context, workflowapp.UpgradeInstanceVersionRequest) (*workflowapp.UpgradeInstanceVersionResult, error)
@@ -233,6 +234,36 @@ func (handler *RuntimeHandler) CancelInstance(ctx context.Context, c *app.Reques
 	})
 	if err != nil {
 		workflowhttperror.Respond(ctx, c, "workflow.admin.cancel", err)
+		return
+	}
+	response.JSON(c, newMutationResponse(state))
+}
+
+func (handler *RuntimeHandler) VoidInstance(ctx context.Context, c *app.RequestContext) {
+	admin, scope, ok := handler.resolveScope(ctx, c)
+	if !ok {
+		return
+	}
+	actorID := strconv.FormatUint(uint64(admin.ID), 10)
+	instanceID := strings.TrimSpace(c.Param("id"))
+	if instanceID == "" {
+		response.Fail(c, "流程实例不能为空")
+		return
+	}
+	if err := handler.ensureInstancesVisible(ctx, []string{instanceID}, scope); err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.void", err)
+		return
+	}
+	var body cancelInstanceBody
+	if err := json.Unmarshal(c.Request.Body(), &body); err != nil {
+		response.Fail(c, "请求参数格式无效")
+		return
+	}
+	state, err := handler.service.VoidInstance(ctx, workflowapp.VoidInstanceRequest{
+		InstanceID: instanceID, ActorID: actorID, Reason: body.Reason,
+	})
+	if err != nil {
+		workflowhttperror.Respond(ctx, c, "workflow.admin.void", err)
 		return
 	}
 	response.JSON(c, newMutationResponse(state))

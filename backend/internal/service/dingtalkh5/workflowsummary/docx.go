@@ -9,6 +9,10 @@ import (
 )
 
 func renderDOCX(document exportDocument) ([]byte, error) {
+	styles := docxStyles
+	if document.Layout == DocumentLayoutAnswerSheet {
+		styles = answerSheetDOCXStyles
+	}
 	files := map[string]string{
 		"[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -23,7 +27,7 @@ func renderDOCX(document exportDocument) ([]byte, error) {
 </Relationships>`,
 		"word/_rels/document.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
-		"word/styles.xml":   docxStyles,
+		"word/styles.xml":   styles,
 		"word/document.xml": docxDocument(document),
 	}
 	var buffer bytes.Buffer
@@ -52,6 +56,9 @@ const docxStyles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </w:styles>`
 
 func docxDocument(document exportDocument) string {
+	if document.Layout == DocumentLayoutAnswerSheet {
+		return answerSheetDOCXDocument(document)
+	}
 	var body strings.Builder
 	body.WriteString(docxParagraph(document.Title, "Title"))
 	if len(document.Metadata) > 0 {
@@ -108,8 +115,9 @@ func docxSectionHeading(title string) string {
 }
 
 func docxFieldTable(rows [][]exportFieldCell) string {
-	const gridWidth = 425
-	widths := make([]int, 24)
+	columns := exportFieldGridColumns(rows)
+	gridWidth := 10200 / columns
+	widths := make([]int, columns)
 	for index := range widths {
 		widths[index] = gridWidth
 	}
@@ -119,24 +127,24 @@ func docxFieldTable(rows [][]exportFieldCell) string {
 		body.WriteString(`<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="360" w:hRule="atLeast"/></w:trPr>`)
 		used := 0
 		for _, field := range fields {
-			span := normalizedExportSpan(field.Span)
+			span := exportGridSpan(field.Span, columns)
 			body.WriteString(docxCell(field.Label, false, "F5F7FA", span, span*gridWidth))
 			used += span
 		}
-		if used < 24 {
-			body.WriteString(docxCell("", false, "F5F7FA", 24-used, (24-used)*gridWidth))
+		if used < columns {
+			body.WriteString(docxCell("", false, "F5F7FA", columns-used, (columns-used)*gridWidth))
 		}
 		body.WriteString(`</w:tr>`)
 
 		body.WriteString(`<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="620" w:hRule="atLeast"/></w:trPr>`)
 		used = 0
 		for _, field := range fields {
-			span := normalizedExportSpan(field.Span)
+			span := exportGridSpan(field.Span, columns)
 			body.WriteString(docxCell(field.Value, false, "FFFFFF", span, span*gridWidth))
 			used += span
 		}
-		if used < 24 {
-			body.WriteString(docxCell("", false, "FFFFFF", 24-used, (24-used)*gridWidth))
+		if used < columns {
+			body.WriteString(docxCell("", false, "FFFFFF", columns-used, (columns-used)*gridWidth))
 		}
 		body.WriteString(`</w:tr>`)
 	}

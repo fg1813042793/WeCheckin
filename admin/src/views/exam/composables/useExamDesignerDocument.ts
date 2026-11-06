@@ -17,6 +17,7 @@ export function createExamDesignerForm() {
     redirectUrl: '', endContent: '', examRankingEnabled: false, exerciseMode: false,
     randomOrder: false, minSubmitMinutes: 0, maxSubmitMinutes: 0,
     duration: 60, maxAttempts: 1, showScore: 1, passScore: 0,
+    answerDownloadFormat: 'pdf', answerDownloadExpireDays: 7, answerDownloadBaseUrl: '',
     deviceLimit: 0, ipLimit: 0, userLimit: 0,
     createBy: 0, collaborators: '', backgroundImages: [], headerImages: [],
     fillTemplate: 'ef',
@@ -33,9 +34,11 @@ interface ExamDesignerDocumentOptions {
   onQuestionsLoaded: () => void
   reloadResources: () => void | Promise<void>
   reloadSettings: () => void | Promise<void>
+  onDocumentReady?: (id: number, title: string, created?: boolean) => void
 }
 
 export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
+  const openedDocumentId = Number(options.route.query.id || 0)
   const saving = ref(false)
   const completionAction = ref<ExamCompletionAction>('default')
   let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -66,6 +69,9 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
     ipLimit: options.form.ipLimit, userLimit: options.form.userLimit,
     backgroundImages: options.form.backgroundImages, headerImages: options.form.headerImages,
     fillTemplate: options.form.fillTemplate,
+    answerDownloadFormat: options.form.answerDownloadFormat,
+    answerDownloadExpireDays: options.form.answerDownloadExpireDays,
+    answerDownloadBaseUrl: options.form.answerDownloadBaseUrl,
     logicRules: options.logicRules.value,
   }))
 
@@ -104,6 +110,9 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
 
   function buildSettings() {
     const form = options.form
+    const answerDownloadBaseUrl = typeof form.answerDownloadBaseUrl === 'string'
+      ? form.answerDownloadBaseUrl.trim().replace(/\/+$/, '')
+      : ''
     return {
       displayTitle: typeof form.displayTitle === 'string' ? form.displayTitle.trim() : '',
       publicUrl: typeof form.publicUrl === 'string' ? form.publicUrl.trim() : '',
@@ -120,6 +129,9 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
       ipLimit: form.ipLimit, userLimit: form.userLimit,
       backgroundImages: form.backgroundImages, headerImages: form.headerImages,
       fillTemplate: form.fillTemplate,
+      answerDownloadFormat: form.answerDownloadFormat,
+      answerDownloadExpireDays: form.answerDownloadExpireDays,
+      answerDownloadBaseUrl,
       logicRules: JSON.stringify(options.logicRules.value),
     }
   }
@@ -147,14 +159,14 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
   }
 
   async function load() {
-    const id = Number(options.route.query.id || 0)
+    const id = Number(options.form.id || openedDocumentId)
     if (!id) { designerLoaded = true; return }
     try {
       const response: any = await adminApi.examDetail(id)
       const survey = response.data?.survey
       if (!survey) { ElMessage.error('加载失败'); return }
       Object.assign(options.form, {
-        id: survey.id, title: survey.title, displayTitle: '', description: survey.description || '',
+        id: survey.id, title: survey.title, displayTitle: '', publicUrl: '', answerDownloadFormat: 'pdf', answerDownloadExpireDays: 7, answerDownloadBaseUrl: '', description: survey.description || '',
         category: survey.category || '', tags: survey.tags || '', visibility: survey.visibility ?? 0,
         allowMultiBool: survey.allowMulti ?? 0, anonymousBool: survey.anonymous ?? 0,
         showResultBool: survey.showResult ?? 0, startDate: survey.startTime || null,
@@ -164,6 +176,7 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
         showScore: survey.showScore ?? 1, passScore: survey.passScore ?? 0, createBy: survey.createBy || 0,
       })
       if (survey.settings) applySettings(survey.settings)
+      options.onDocumentReady?.(survey.id, survey.title)
       syncCompletionActionFromForm()
       const rawSchema = response.data?.schema || ''
       if (rawSchema) {
@@ -190,16 +203,33 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
     if (!String(options.form.title || '').trim()) { if (shouldShowMessage) ElMessage.warning('请填写管理名称'); return false }
     normalizeCompletionSettings()
     if (!isValidRedirectUrl(options.form.redirectUrl)) { if (shouldShowMessage) ElMessage.warning('请输入有效的跳转链接'); return false }
+    if (!['pdf', 'docx', 'xlsx'].includes(String(options.form.answerDownloadFormat || ''))) { if (shouldShowMessage) ElMessage.warning('请选择有效的答卷下载格式'); return false }
+    const downloadExpireDays = Number(options.form.answerDownloadExpireDays)
+    if (!Number.isInteger(downloadExpireDays) || downloadExpireDays < 1 || downloadExpireDays > 30) { if (shouldShowMessage) ElMessage.warning('答卷下载链接有效期必须为1到30天'); return false }
+    const downloadBaseUrl = String(options.form.answerDownloadBaseUrl || '').trim()
+    const needsAnswerDownloadUrl = options.logicRules.value.some(rule => String(rule.messageTemplate || '').includes('{answerDownloadUrl}'))
+    if (needsAnswerDownloadUrl && !downloadBaseUrl) { if (shouldShowMessage) ElMessage.warning('通知模版使用答卷下载链接时，请先配置答卷下载服务地址'); return false }
+    if (downloadBaseUrl) {
+      try {
+        const parsed = new URL(downloadBaseUrl)
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || !parsed.host || !['', '/'].includes(parsed.pathname) || parsed.search || parsed.hash) throw new Error('invalid')
+      } catch {
+        if (shouldShowMessage) ElMessage.warning('答卷下载服务地址必须是仅包含协议、域名和端口的完整地址')
+        return false
+      }
+    }
     clearAutoSaveTimer()
     saving.value = true
     try {
       const payload: any = buildPayload()
+      const creating = !options.form.id
       if (options.form.id) payload.id = options.form.id
       const response: any = await adminApi.examSave(payload)
       if (!options.form.id) {
         options.form.id = response.id || response.data?.id
-        void options.router.replace({ query: { id: String(options.form.id) } })
+        if (!options.onDocumentReady) void options.router.replace({ query: { id: String(options.form.id) } })
       }
+      options.onDocumentReady?.(options.form.id, payload.title, creating)
       if (shouldShowMessage) ElMessage.success(successMessage)
       return true
     } catch (error) {
@@ -236,6 +266,9 @@ export function useExamDesignerDocument(options: ExamDesignerDocumentOptions) {
         ipLimit: settings.ipLimit || 0, userLimit: settings.userLimit || 0,
         backgroundImages: settings.backgroundImages || [], headerImages: settings.headerImages || [],
         collaborators: settings.collaborators || '', fillTemplate: settings.fillTemplate || 'ef',
+        answerDownloadFormat: settings.answerDownloadFormat || 'pdf',
+        answerDownloadExpireDays: settings.answerDownloadExpireDays || 7,
+        answerDownloadBaseUrl: typeof settings.answerDownloadBaseUrl === 'string' ? settings.answerDownloadBaseUrl : '',
       })
     } catch {}
   }

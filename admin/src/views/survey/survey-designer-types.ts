@@ -12,6 +12,7 @@ export interface SurveyDesignerQuestion {
   readOnly?: boolean
   dataType?: string
   examScore?: number
+  examScoreMode?: 'none' | 'single' | 'manual' | 'perOption' | 'allCorrect' | 'partialCorrect'
   examCorrectAnswer?: string
   examAnalysis?: string
   mediaType?: string

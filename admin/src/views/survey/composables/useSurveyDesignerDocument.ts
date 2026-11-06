@@ -49,9 +49,11 @@ interface SurveyDesignerDocumentOptions {
   locateIssue: (issue: SurveyDesignerIssue) => void
   syncQuestionIds: () => void
   reloadResources: () => void
+  onDocumentReady?: (id: number, title: string, created?: boolean) => void
 }
 
 export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions) {
+  const openedDocumentId = Number(options.route.query.id || 0)
   const saving = ref(false)
   const designerLoading = ref(true)
   const designerLoadError = ref(false)
@@ -196,6 +198,7 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
     normalizeCompletionSettings()
     saving.value = true
     try {
+      const savedTitle = String(options.form.title || '')
       await adminApi.surveyEdit({
         id: options.form.id,
         ...buildSurveyPayload(
@@ -203,6 +206,7 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
           JSON.stringify(buildSettingsPayload()),
         ),
       })
+      options.onDocumentReady?.(options.form.id, savedTitle)
       if (showMessage) ElMessage.success('已保存')
     } catch (error) {
       if (showMessage) showRequestError(error, '保存失败')
@@ -212,7 +216,7 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
   }
 
   async function load() {
-    const id = Number(options.route.query.id || 0)
+    const id = Number(options.form.id || openedDocumentId)
     designerLoading.value = true
     designerLoadError.value = false
     if (!id) {
@@ -234,6 +238,7 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
       }
       Object.assign(base, parseSettings(survey.settings))
       Object.assign(options.form, base)
+      options.onDocumentReady?.(survey.id, survey.title)
       syncCompletionActionFromForm()
       options.reloadResources()
       const rawSchema = response.data?.schema || ''
@@ -278,6 +283,7 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
         JSON.stringify({ version: '2.0', questions: options.questions.value }),
         JSON.stringify(buildSettingsPayload()),
       )
+      const creating = !options.form.id
       if (options.form.id) {
         payload.id = options.form.id
         await adminApi.surveyEdit(payload)
@@ -286,9 +292,10 @@ export function useSurveyDesignerDocument(options: SurveyDesignerDocumentOptions
         const response: any = await adminApi.surveyInsert(payload)
         options.form.id = response.data?.id || response.id
         if (shouldShowMessage) ElMessage.success('已创建')
-        void options.router.replace({ query: { id: String(options.form.id) } })
+        if (!options.onDocumentReady) void options.router.replace({ query: { id: String(options.form.id) } })
       }
       savedSnapshot.value = snapshotToSave
+      options.onDocumentReady?.(options.form.id, payload.title, creating)
       return true
     } catch (error) {
       saveFailed.value = true

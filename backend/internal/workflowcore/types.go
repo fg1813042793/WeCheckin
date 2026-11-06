@@ -217,6 +217,7 @@ const (
 	ValidationNoPathToEnd              = "end_unreachable"
 	ValidationAssigneeRequired         = "assignee_required"
 	ValidationApprovalMode             = "approval_mode_invalid"
+	ValidationSkipIfNoAssignee         = "skip_if_no_assignee_invalid"
 	ValidationCompletionRate           = "completion_rate_invalid"
 	ValidationDepartmentApprovalChain  = "department_approval_chain_invalid"
 	ValidationAutomation               = "automation_invalid"
@@ -335,7 +336,7 @@ type FormField struct {
 	Max            *float64             `json:"max,omitempty"`
 	Options        []FormOption         `json:"options,omitempty"`
 	OptionSource   *FormOptionSource    `json:"optionSource,omitempty"`
-	Span           int                  `json:"span,omitempty"`
+	Span           float64              `json:"span,omitempty"`
 	RowKey         string               `json:"rowKey,omitempty"`
 	Columns        []FormField          `json:"columns,omitempty"`
 	Fields         []FormField          `json:"fields,omitempty"`
@@ -434,6 +435,7 @@ type Node struct {
 	Name                    string                         `json:"name"`
 	Position                *Position                      `json:"position,omitempty"`
 	ApprovalMode            string                         `json:"approvalMode,omitempty"`
+	SkipIfNoAssignee        bool                           `json:"skipIfNoAssignee,omitempty"`
 	Assignee                *Assignee                      `json:"assignee,omitempty"`
 	DepartmentApprovalChain *DepartmentApprovalChainConfig `json:"departmentApprovalChain,omitempty"`
 	CompletionRate          int                            `json:"completionRate,omitempty"`

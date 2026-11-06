@@ -9,6 +9,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"wecheckin/backend/internal/handler/internal/param"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	adminauthservice "wecheckin/backend/internal/service/admin/adminauth"
 	adminmgrservice "wecheckin/backend/internal/service/admin/adminmgr"
 	"wecheckin/backend/internal/support/auditlog"
@@ -216,10 +217,18 @@ func (h *AdminMgrHandler) PwdMgr(ctx context.Context, c *app.RequestContext) {
 
 	oldPassword := c.PostForm("oldPassword")
 	password := c.PostForm("password")
-	err := adminmgrservice.ChangePasswordContext(ctx, strconv.Itoa(int(admin.ID)), oldPassword, password)
-	if err != nil {
-		response.FailInternal(ctx, c, "admin.mgr.handler", "操作失败，请稍后重试", err)
+	if string(c.Path()) != "/api/v2/admin/me/password" {
+		if err := adminmgrservice.ResetPasswordContext(ctx, c.PostForm("id"), password); err != nil {
+			response.Fail(c, accountsecurity.ClientErrorMessage(err, "密码重置失败，请稍后重试"))
+			return
+		}
+		response.JSON(c, nil)
 		return
 	}
-	response.JSON(c, nil)
+	err := adminmgrservice.ChangePasswordContext(ctx, strconv.Itoa(int(admin.ID)), oldPassword, password)
+	if err != nil {
+		response.Fail(c, accountsecurity.ClientErrorMessage(err, "密码修改失败，请稍后重试"))
+		return
+	}
+	response.JSON(c, accountsecurity.PasswordState{})
 }

@@ -8,6 +8,7 @@ func TestWorkflowRuntimeRouteDeclarations(t *testing.T) {
 		"workflow:instance:start":           "/api/v2/admin/workflow-instances",
 		"workflow:instance:detail":          "/api/v2/admin/workflow-instances/:id",
 		"workflow:instance:cancel":          "/api/v2/admin/workflow-instances/:id/cancel",
+		"workflow:instance:void":            "/api/v2/admin/workflow-instances/:id/void",
 		"workflow:instance:delete":          "/api/v2/admin/workflow-instances/:id",
 		"workflow:instance:upgrade:preview": "/api/v2/admin/workflow-instances/:id/version-upgrade-preview",
 		"workflow:instance:upgrade":         "/api/v2/admin/workflow-instances/:id/version-upgrade",

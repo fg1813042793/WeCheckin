@@ -11,6 +11,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/utils"
 
+	"wecheckin/backend/internal/service/accountsecurity"
 	dingtalkh5service "wecheckin/backend/internal/service/dingtalkh5/account"
 	"wecheckin/backend/internal/support/dingtalkh5session"
 	"wecheckin/backend/internal/support/media"
@@ -40,10 +41,10 @@ func (h *Handler) ChangePassword(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := dingtalkh5service.ChangePasswordContext(ctx, user, req.CurrentPassword, req.NewPassword, req.ConfirmPassword); err != nil {
-		response.FailInternal(ctx, c, "dingtalkh5.account.handler", "操作失败，请稍后重试", err)
+		response.Fail(c, accountsecurity.ClientErrorMessage(err, "密码修改失败，请稍后重试"))
 		return
 	}
-	response.JSON(c, nil)
+	response.JSON(c, accountsecurity.PasswordState{})
 }
 
 func (h *Handler) UpdateProfile(ctx context.Context, c *app.RequestContext) {

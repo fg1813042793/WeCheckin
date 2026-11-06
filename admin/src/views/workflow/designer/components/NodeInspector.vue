@@ -20,10 +20,16 @@
               <el-option label="会签审批" value="countersign" />
             </el-select>
             <div class="setting-switch-row spacing">
+              <label class="field-label">无审批人时允许跳过</label>
+              <el-switch :model-value="selectedNode.skipIfNoAssignee === true" :disabled="readonly" aria-label="无审批人时允许跳过" @change="updateSkipIfNoAssignee" />
+            </div>
+            <p class="assignee-helper">默认关闭。开启后，未匹配到审批人时自动进入下一节点并记录跳过原因；系统查询异常仍会报错。</p>
+            <div class="setting-switch-row spacing">
               <label class="field-label">逐级向上审批</label>
               <el-switch :model-value="departmentApprovalChainEnabled" :disabled="readonly" @change="updateDepartmentApprovalChainEnabled" />
             </div>
             <template v-if="departmentApprovalChainEnabled">
+              <p v-if="selectedNode.skipIfNoAssignee" class="assignee-helper">逐级审批仍按各级的缺失处理规则执行；全部层级都没有审批人时，才跳过此节点。</p>
               <label class="field-label spacing">终止范围</label>
               <el-radio-group :model-value="departmentApprovalChainStopMode" :disabled="readonly" class="scope-group" @change="updateDepartmentApprovalChainStopMode">
                 <el-radio-button label="root">组织根部门</el-radio-button>
@@ -577,6 +583,14 @@ watch(() => props.selectedNodeId, () => {
 }, { immediate: true })
 watch(() => selectedNode.value?.assignee?.value, () => nextTick(syncAssigneeUserTreeKeys))
 watch(() => users.value.length, () => nextTick(syncAssigneeUserTreeKeys))
+
+function updateSkipIfNoAssignee(value: string | number | boolean) {
+  const node = selectedNode.value
+  if (props.readonly || node?.type !== 'approval') return
+  if (value === true) node.skipIfNoAssignee = true
+  else delete node.skipIfNoAssignee
+  emit('change')
+}
 
 function ensureAssignee() {
   if (!selectedNode.value) return undefined

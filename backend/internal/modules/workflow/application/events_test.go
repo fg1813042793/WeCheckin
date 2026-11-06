@@ -101,11 +101,15 @@ func TestBusinessStatusLifecycleHandlerMapsInstanceEvents(t *testing.T) {
 		Type: LifecycleInstanceCompleted, InstanceID: "instance-1", ActorID: "user-7",
 		BusinessType: "leave_request", BusinessKey: "leave-100", Status: "completed",
 	})
+	bus.Publish(context.Background(), LifecycleEvent{
+		Type: LifecycleInstanceVoided, InstanceID: "instance-1", ActorID: "admin-1",
+		BusinessType: "leave_request", BusinessKey: "leave-100", Status: "voided",
+	})
 
-	want := []BusinessStatusUpdate{{
-		BusinessKey: "leave-100", InstanceID: "instance-1", ActorID: "user-7",
-		Status: "completed", EventType: LifecycleInstanceCompleted,
-	}}
+	want := []BusinessStatusUpdate{
+		{BusinessKey: "leave-100", InstanceID: "instance-1", ActorID: "user-7", Status: "completed", EventType: LifecycleInstanceCompleted},
+		{BusinessKey: "leave-100", InstanceID: "instance-1", ActorID: "admin-1", Status: "voided", EventType: LifecycleInstanceVoided},
+	}
 	if !reflect.DeepEqual(updates, want) {
 		t.Fatalf("business status updates = %#v, want %#v", updates, want)
 	}

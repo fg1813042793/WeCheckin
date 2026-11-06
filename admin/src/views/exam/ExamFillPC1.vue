@@ -47,16 +47,15 @@
     <!-- 提交成功页 -->
     <div v-else-if="submitted && !showResultView" class="exam-end">
       <div class="exam-end-content">
-        <h3 class="exam-end-title">{{ endContent ? '' : '已交卷，感谢作答' }}</h3>
+        <h3 class="exam-end-title">{{ endContent ? '' : (redirecting ? '考试提交成功' : '已交卷，感谢作答') }}</h3>
+        <p v-if="redirecting" class="exam-end-desc">2 秒后自动跳转</p>
         <div v-if="endContent" class="exam-end-desc" v-html="endContent" />
-        <div v-if="result" class="exam-end-result">
+        <div v-if="result && !redirecting" class="exam-end-result">
           <el-button v-if="settings.showAnalysis && settings.transcriptVisible !== false" type="primary" size="large" @click="showResultView = true">查看结果</el-button>
           <el-button v-else-if="settings.showAnalysis" type="primary" size="large" @click="showResultView = true">查看解析</el-button>
           <el-button v-else type="primary" size="large" @click="showResultView = true">查看成绩</el-button>
-          <div v-if="settings.redirectUrl" class="exam-end-result-copy">
-            <el-button type="primary" class="exam-btn--primary" @click="openRedirectUrl">查看结果</el-button>
-          </div>
         </div>
+        <div v-if="settings.redirectUrl" class="exam-end-result-copy"><el-button type="primary" class="exam-btn--primary" @click="openRedirectUrl">立即前往</el-button></div>
       </div>
     </div>
 
@@ -65,13 +64,13 @@
       <div v-if="settings.transcriptVisible !== false" class="exam-header" style="text-align:center">
         <h2 class="exam-title">{{ displayTitle }}</h2>
         <el-tag type="success" size="small">得分 {{ result.score }} / {{ result.fullScore }}</el-tag>
-        <el-tag v-if="result.correctCnt !== undefined" type="info" size="small">正确 {{ result.correctCnt }}/{{ totalQuestions }}</el-tag>
+        <el-tag v-if="result.correctCnt !== undefined && result.results?.length" type="info" size="small">正确 {{ result.correctCnt }}/{{ result.results?.length || 0 }}</el-tag>
       </div>
       <div class="exam-form-scroll">
         <div v-for="(q, i) in questions" :key="q.id" class="q-item" :data-qid="q.id">
           <div class="q-title" v-html="resultTitleHtml(q, i)" />
-          <div class="q-answer" v-if="resultForQuestion(i)">
-            <span :style="{ color: resultForQuestion(i)?.correct ? '#67c23a' : '#f56c6c' }">
+          <div class="q-answer" v-if="!LAYOUT_TYPES.includes(q.type)">
+            <span v-if="resultForQuestion(i)" :style="{ color: resultForQuestion(i)?.correct ? '#67c23a' : '#f56c6c' }">
               {{ resultForQuestion(i)?.correct ? '✓' : '✗' }}
             </span>
             <span style="margin-left:4px;color:#606266">你的答案：{{ formatResultAnswer(q, answers[q.id]) }}</span>
@@ -79,7 +78,7 @@
           <div v-if="q.examCorrectAnswer && resultForQuestion(i) && !resultForQuestion(i)?.correct" style="margin-top:4px;font-size:13px;color:#67c23a">
             ✓ 正确答案：<span v-html="displayAnswer(q, q.examCorrectAnswer)" />
           </div>
-          <div v-if="q.examAnalysis" style="margin-top:4px;font-size:13px;color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
+          <div v-if="q.examAnalysis && resultForQuestion(i)" style="margin-top:4px;font-size:13px;color:#909399;background:#f5f7fa;padding:8px;border-radius:4px;white-space:pre-wrap">
             解析：{{ q.examAnalysis }}
           </div>
         </div>
@@ -105,7 +104,7 @@
             <QuestionField
               :q="currentQuestion"
               :index="currentNavIndex"
-              :score="exam.showScore && currentQuestion.examScore ? currentQuestion.examScore : 0"
+              :score="exam.showScore ? examDisplayScore(currentQuestion) : 0"
               :answers="answers"
               :settings="settings"
               :file-lists="fileLists"
@@ -124,7 +123,7 @@
               @add-matrix-row="addMatrixAutoRow"
               @remove-matrix-row="removeMatrixAutoRow"
             />
-            <div v-if="settings.answerVisible && !LAYOUT_TYPES.includes(currentQuestion.type)" class="exam-answer-box">
+            <div v-if="settings.answerVisible && currentQuestion.examScoreMode !== 'none' && !LAYOUT_TYPES.includes(currentQuestion.type)" class="exam-answer-box">
               <div v-if="currentQuestion.examCorrectAnswer" style="margin-bottom:4px">
                 <span style="color:#67c23a">✓ 正确答案：</span><span v-html="displayAnswer(currentQuestion, currentQuestion.examCorrectAnswer)" />
               </div>
@@ -146,7 +145,7 @@
             <QuestionField
               :q="q"
               :index="questions.filter(q => !q.defaultHidden).slice(0, i).filter(x => !LAYOUT_TYPES.includes(x.type)).length"
-              :score="exam.showScore && q.examScore ? q.examScore : 0"
+              :score="exam.showScore ? examDisplayScore(q) : 0"
               :answers="answers"
               :settings="settings"
               :file-lists="fileLists"
@@ -210,7 +209,11 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import QuestionField from '../survey/components/QuestionField.vue'
 import { publicFormApi } from '../../api/public'
+import { examDisplayScore } from './examScore'
 import { resolveSurveyTitle as resolveExamTitle } from '../../utils/surveyTitle'
+import { scheduleCompletionRedirect } from '../../utils/completionRedirect'
+import { examCountdownState, shouldRenewPublicExamSession } from './examAttemptSession'
+import { examQuestionNavIndex } from './examQuestionNavigation'
 
 const route = useRoute()
 const exam = ref<any>(null)
@@ -224,6 +227,7 @@ const submitting = ref(false)
 const session = ref('')
 const submitted = ref(false)
 const endContent = ref('')
+const redirecting = ref(false)
 const showLogin = ref(false)
 const loginLoading = ref(false)
 const loginForm = reactive({ name: '', password: '' })
@@ -231,6 +235,7 @@ const showScanner = ref(false)
 const scannerRef = ref<HTMLDivElement>()
 const formRef = ref<any>()
 let scanner: Html5Qrcode | null = null
+let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
 const result = ref<any>(null)
 const showResultView = ref(false)
@@ -242,6 +247,8 @@ function resultForQuestion(index: number) {
 }
 
 function openRedirectUrl() {
+  if (redirectTimer) clearTimeout(redirectTimer)
+  redirectTimer = null
   const url = settings.value?.redirectUrl
   if (url) window.location.href = url
 }
@@ -328,11 +335,11 @@ const bgStyle = computed(() => {
 const LAYOUT_TYPES = ['description', 'divider', 'pagination']
 const realQuestions = computed(() => questions.value.filter((q: any) => !LAYOUT_TYPES.includes(q.type) && !q.defaultHidden))
 const totalQuestions = computed(() => realQuestions.value.length)
-const totalScore = computed(() => questions.value.reduce((sum: number, q: any) => sum + (Number(q.examScore) || 0), 0))
+const totalScore = computed(() => questions.value.reduce((sum: number, q: any) => sum + examDisplayScore(q), 0))
 const answeredCount = computed(() => realQuestions.value.filter((q: any) => isAnswered(q, answers.value[q.id])).length)
 const progressPct = computed(() => totalQuestions.value ? Math.round(answeredCount.value / totalQuestions.value * 100) : 0)
 const navQuestions = computed(() => realQuestions.value)
-const currentNavIndex = computed(() => { const q = questions.value[currentIndex.value]; return q ? navQuestions.value.indexOf(q) : -1 })
+const currentNavIndex = computed(() => examQuestionNavIndex(questions.value, currentIndex.value))
 const hasPreviousPage = computed(() => previousVisiblePageIndex(currentIndex.value) >= 0)
 const isLast = computed(() => nextVisiblePageIndex(currentIndex.value) < 0)
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null)
@@ -603,9 +610,17 @@ async function load() {
     } catch {}
   }
 
-  session.value = localStorage.getItem('exam_session_' + id) || ''
+  const sessionKey = 'exam_session_' + id
+  const requestedSession = localStorage.getItem(sessionKey) || ''
+  session.value = requestedSession
   try {
-    const res = await publicFormApi.examDetail(id, session.value)
+    let res = await publicFormApi.examDetail(id, session.value)
+    if (res.code === 0 && shouldRenewPublicExamSession(res.data, requestedSession)) {
+      clearDraft()
+      localStorage.removeItem(sessionKey)
+      session.value = ''
+      res = await publicFormApi.examDetail(id, '')
+    }
     if (res.code !== 0) {
       if (res.msg === '请先登录') { showLogin.value = true; loading.value = false; return }
       if (res.msg === '考试未开始' && res.data) {
@@ -633,8 +648,8 @@ async function load() {
       try { settings.value = JSON.parse(res.data.settings) } catch { settings.value = {} }
     } else { settings.value = res.data?.settings || {} }
     if (settings.value.answerVisible === undefined) settings.value.answerVisible = true
-    if (res.data?.session) { session.value = res.data.session; localStorage.setItem('exam_session_' + id, session.value) }
-    if (res.data?.startAt) startAt.value = res.data.startAt
+    if (res.data?.session) { session.value = res.data.session; localStorage.setItem(sessionKey, session.value) }
+    startAt.value = Number(res.data?.startAt) || 0
 
     if (settings.value.loginRequired || Number(exam.value?.visibility) === 1 || Number(exam.value?.visibility) === 2) {
       const token = localStorage.getItem('user_token')
@@ -683,17 +698,16 @@ function startCountdown() {
   const maxSubmit = Number(settings.value.maxSubmitMinutes)
   const endTime = Number(exam.value?.endTime)
   const tick = () => {
-    const now = Date.now()
-    let deadline = Infinity
-    if (limit > 0) deadline = Math.min(deadline, startAt.value + limit * 60 * 1000)
-    if (maxSubmit > 0) deadline = Math.min(deadline, startAt.value + maxSubmit * 60 * 1000)
-    if (endTime > 0) deadline = Math.min(deadline, endTime)
-    if (deadline === Infinity) { remaining.value = 0; return }
-    const left = deadline - now
-    remaining.value = Math.max(0, left)
-    if (left <= 0) { stopCountdown(); ElMessage.warning('作答时间已到，自动交卷'); onSubmit(true) }
+    const state = examCountdownState({
+      now: Date.now(), startAt: startAt.value, timeLimit: limit, maxSubmitMinutes: maxSubmit,
+      endTime, submitting: submitting.value, submitted: submitted.value,
+    })
+    remaining.value = state.remaining
+    if (!state.shouldSchedule) stopCountdown()
+    if (state.shouldAutoSubmit) { ElMessage.warning('作答时间已到，自动交卷'); void onSubmit(true) }
+    return state.shouldSchedule
   }
-  tick(); countdownTimer = setInterval(tick, 1000)
+  if (tick()) countdownTimer = setInterval(tick, 1000)
 }
 function stopCountdown() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null } }
 
@@ -707,19 +721,26 @@ function handleSubmitSuccess(resData: any) {
     }
   }
   submitted.value = true
+  const url = settings.value?.redirectUrl
+  const content = settings.value?.endContent
+  if (url) {
+    showResultView.value = false
+    redirecting.value = true
+    ElMessage.success('考试提交成功')
+    redirectTimer = scheduleCompletionRedirect(url, target => { window.location.href = target })
+    return
+  }
+  if (content) { showResultView.value = false; endContent.value = content; return }
   if (settings.value.transcriptVisible !== false && !settings.value.showAnalysis) {
     showResultView.value = true
   }
   if (!settings.value.transcriptVisible && !settings.value.showAnalysis) {
-    const url = settings.value?.redirectUrl
-    const content = settings.value?.endContent
-    if (url) { window.location.href = url; return }
-    if (content) { endContent.value = content; return }
     ElMessage.success('已交卷')
   }
 }
 
 async function onSubmit(skipConfirm = false) {
+  if (submitting.value || submitted.value) return
   if (typeof skipConfirm !== 'boolean') skipConfirm = false
   const id = Number(route.params.id)
   if (!skipConfirm) {
@@ -761,8 +782,7 @@ async function onSubmit(skipConfirm = false) {
 onMounted(load)
 watch(answers, () => { scheduleDraft() }, { deep: true })
 watch(() => settings.value.autoSave, (v) => { if (!v) clearDraft() })
-watch(() => settings.value.timeLimit, () => { startCountdown() })
-onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); stopCountdown(); if (startTimer) clearInterval(startTimer) })
+onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); if (redirectTimer) clearTimeout(redirectTimer); stopCountdown(); if (startTimer) clearInterval(startTimer) })
 </script>
 
 <style scoped>
@@ -946,13 +966,14 @@ onUnmounted(() => { if (draftTimer) clearTimeout(draftTimer); stopCountdown(); i
 }
 .exam-sheet-item {
   display: flex; align-items: center; justify-content: center;
-  height: 26px; border-radius: 4px; cursor: pointer;
+  width: 100%; min-width: 0; height: 26px; box-sizing: border-box;
+  border: 2px solid transparent; border-radius: 4px; cursor: pointer;
   font-size: 12px; color: #606266; background: #f5f6f8;
-  transition: all .15s;
+  transition: background-color .15s, color .15s, border-color .15s;
 }
 .exam-sheet-item:hover { background: #e0e2e6; }
 .exam-sheet-item--done { background: #eef2ff; color: #3873f6; }
-.exam-sheet-item--cur { border: 2px solid #3873f6; font-weight: 600; }
+.exam-sheet-item--cur { border-color: #3873f6; font-weight: 600; }
 .exam-sheet-stat {
   text-align: center; font-size: 12px; color: #909399;
   padding-top: 6px; margin-top: 6px; border-top: 1px solid #f0f0f0;

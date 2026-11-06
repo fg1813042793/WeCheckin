@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { WorkflowPublishedEdge, WorkflowPublishedNode } from '@/types/workflow'
+import type { WorkflowNodeProgressSummary, WorkflowPublishedEdge, WorkflowPublishedNode } from '@/types/workflow'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { alignWorkflowTerminalNodes } from '../workflow-graph-layout'
+import { workflowNodeProgressStatusMeta } from '../workflow-status'
 
 interface GraphNodeLayout {
   node: WorkflowPublishedNode
@@ -20,7 +21,12 @@ interface GraphPoint {
 const props = defineProps<{
   nodes: WorkflowPublishedNode[]
   edges: WorkflowPublishedEdge[]
+  nodeProgress?: WorkflowNodeProgressSummary[]
 }>()
+
+const skippedNodeIds = computed(() => new Set((props.nodeProgress || [])
+  .filter(node => node.status === 'skipped')
+  .map(node => node.nodeId)))
 
 const markerId = `workflow-graph-arrow-${Math.random().toString(36).slice(2, 9)}`
 const canvasPadding = 64
@@ -257,7 +263,7 @@ onBeforeUnmount(() => {
         v-for="item in graphNodes"
         :key="item.node.id"
         class="workflow-graph__node"
-        :class="[`workflow-graph__node--${item.node.type}`]"
+        :class="[`workflow-graph__node--${item.node.type}`, { 'workflow-graph__node--skipped': skippedNodeIds.has(item.node.id) }]"
         :style="nodeStyle(item)"
       >
         <view class="workflow-graph__node-type">
@@ -266,13 +272,16 @@ onBeforeUnmount(() => {
         <text class="workflow-graph__node-name">
           {{ item.node.name || nodeTypeLabel(item.node) }}
         </text>
-        <text v-if="item.node.assigneeDisplay" class="workflow-graph__node-assignee">
+        <text v-if="skippedNodeIds.has(item.node.id)" class="workflow-graph__node-status">
+          {{ workflowNodeProgressStatusMeta('skipped').label }}
+        </text>
+        <text v-else-if="item.node.assigneeDisplay" class="workflow-graph__node-assignee">
           {{ assigneePrefix(item.node) }}{{ item.node.assigneeDisplay }}
         </text>
         <text v-else-if="item.node.type === 'approval'" class="workflow-graph__node-assignee workflow-graph__node-assignee--empty">
           审批人：未配置
         </text>
-        <text v-if="item.node.type === 'approval' && approvalModeLabel(item.node.approvalMode)" class="workflow-graph__node-mode">
+        <text v-if="!skippedNodeIds.has(item.node.id) && item.node.type === 'approval' && approvalModeLabel(item.node.approvalMode)" class="workflow-graph__node-mode">
           {{ approvalModeLabel(item.node.approvalMode) }}
         </text>
       </view>
@@ -344,6 +353,24 @@ onBeforeUnmount(() => {
 .workflow-graph__node--parallel .workflow-graph__node-type { background: #15966d; }
 .workflow-graph__node--start .workflow-graph__node-type { background: #3282ce; }
 .workflow-graph__node--end .workflow-graph__node-type { background: #697586; }
+
+.workflow-graph__node--skipped {
+  border-style: dashed;
+  background: $u-bg-color;
+}
+
+.workflow-graph__node--skipped .workflow-graph__node-type {
+  background: $u-tips-color;
+}
+
+.workflow-graph__node-status {
+  display: block;
+  margin-top: 6px;
+  color: $u-content-color;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
 
 .workflow-graph__node-name,
 .workflow-graph__node-assignee,

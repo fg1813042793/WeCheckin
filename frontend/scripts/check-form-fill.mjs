@@ -128,6 +128,17 @@ const examFillOptions = readPageOptions(examFillPage, {
   },
 })
 assert.equal(typeof examFillOptions.computed.displayTitle, 'function', 'exam fill must compute its display title')
+const unscoredQuestions = [
+  { id: 'contact', type: 'input', title: '联系方式', required: true, examScoreMode: 'none', examScore: 99, examCorrectAnswer: '旧答案' },
+  { id: 'layout', type: 'description' },
+  { id: 'graded', type: 'radio', examScoreMode: 'single', examScore: 5 },
+  { id: 'legacy', type: 'input', examScore: 2 },
+]
+assert.equal(examFillOptions.computed.totalScore.call({ questions: unscoredQuestions }), 7, 'none must override residual score without changing legacy score fallback')
+assert.equal(getAnswerProgress(unscoredQuestions, {}).total, 3, 'none remains in progress and navigation')
+assert.equal(isQuestionAnswered(unscoredQuestions[0], ''), false)
+assert.equal(isQuestionAnswered(unscoredQuestions[0], '用户输入'), true)
+
 for (const [settings, expected] of examTitleCases) {
   const state = { exam: { title: '内部考试' }, settings: parseSettings(settings) }
   assert.equal(examFillOptions.computed.displayTitle.call(state), expected, 'exam fill title fallback')
@@ -170,3 +181,31 @@ assert.equal(listState.limitsMap[0].deviceFull, true, 'pagination must retain ex
 assert.deepEqual(listCalls.map(params => params.page), [1, 2], 'title normalization must not change requested pages')
 
 assert.ok(!/\.survey-progress\s*\{[^}]*top:\s*0\b/s.test(surveyFillPage), 'survey progress must not be fixed to viewport top')
+
+const storedResult = { questionId: 3, correct: true, gotScore: 5, fullScore: 5 }
+const resultState = { result: { results: [storedResult] } }
+assert.equal(examFillOptions.methods.resultForQuestion.call(resultState, 0), null, 'unscored field must not borrow the next result')
+assert.equal(examFillOptions.methods.resultForQuestion.call(resultState, 1), null, 'layout does not consume a result')
+assert.equal(examFillOptions.methods.resultForQuestion.call(resultState, 2), storedResult, 'results use original schema ordinal')
+assert.equal(examFillOptions.methods.examDisplayScore(unscoredQuestions[0]), 0)
+assert.equal(examFillOptions.methods.examDisplayScore(unscoredQuestions[3]), 2)
+
+// Run the real submission gate: an unscored required field still reaches server validation.
+const validationCalls = [], modals = []
+let modalCompletion, submissions = 0
+const requiredOptions = readPageOptions(examFillPage, {
+  examApi: { validate: async payload => { validationCalls.push(payload); return { data: { valid: false, errors: [{ message: '联系方式必填' }] } } } },
+  uni: { showModal(options) { modals.push(options); if (options.success) modalCompletion = options.success({ confirm: true }) } },
+})
+const requiredState = {
+  ...requiredOptions.data(), questions: unscoredQuestions, examId: 5, answers: { contact: '' },
+  getDeviceUA: () => 'test', getDeviceId: () => 'device', doSubmit: async () => { submissions++ },
+}
+await requiredOptions.methods.onSubmit.call(requiredState)
+await modalCompletion
+assert.equal(validationCalls.length, 1)
+assert.equal(validationCalls[0].answers, requiredState.answers, 'unscored answers must be submitted unchanged for validation')
+assert.equal(submissions, 0, 'required validation failure must prevent submission')
+assert.equal(requiredState.submitting, false)
+assert.equal(modals.at(-1).content, '联系方式必填')
+console.log('exam form runtime passed: none totals, ordinal results, legacy scores, progress and required validation gate')

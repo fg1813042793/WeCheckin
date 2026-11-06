@@ -18,6 +18,7 @@ const INSTANCE_STATUS_META: Record<string, WorkflowStatusMeta> = {
   rejected: { label: '已驳回', type: 'error' },
   withdrawn: { label: '已撤回', type: 'info' },
   cancelled: { label: '已取消', type: 'info' },
+  voided: { label: '已作废', type: 'info' },
 }
 
 const TASK_STATUS_META: Record<string, WorkflowStatusMeta> = {
@@ -68,7 +69,7 @@ export function workflowNodeProgressStatusMeta(
   status: WorkflowNodeProgressStatus,
   instanceStatus: WorkflowInstanceStatus = '',
 ): WorkflowStatusMeta {
-  if (status === 'terminated' && (instanceStatus === 'withdrawn' || instanceStatus === 'cancelled'))
+  if (status === 'terminated' && (instanceStatus === 'withdrawn' || instanceStatus === 'cancelled' || instanceStatus === 'voided'))
     return { label: '已终止', type: 'info' }
   return NODE_PROGRESS_STATUS_META[status] || unknownStatusMeta(status)
 }

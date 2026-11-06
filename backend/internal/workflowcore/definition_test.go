@@ -1021,7 +1021,7 @@ func TestValidateDefinitionRejectsInvalidFormSchema(t *testing.T) {
 		{
 			name: "invalid field span",
 			mutate: func(definition *Definition) {
-				definition.Form = []FormField{{Key: "reason", Label: "原因", Type: FormFieldTypeText, Span: 7}}
+				definition.Form = []FormField{{Key: "reason", Label: "原因", Type: FormFieldTypeText, Span: 24.5}}
 			},
 			expectCode: ValidationFormFieldSpan,
 		},

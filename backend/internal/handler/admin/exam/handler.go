@@ -67,7 +67,7 @@ func (h *AdminExamHandler) Copy(ctx context.Context, c *app.RequestContext) {
 		response.FailInternal(ctx, c, "admin.exam.handler", "复制失败，请稍后重试", err)
 		return
 	}
-	response.JSON(c, newExamListItem(*copied))
+	response.JSON(c, newExamListItem(*copied, 0))
 }
 
 // @Tags PC端-考试管理
@@ -131,7 +131,7 @@ func (h *AdminExamHandler) Save(ctx context.Context, c *app.RequestContext) {
 	}
 	normalizedSettings, settingsErr := examservice.NormalizeDisplayTitleSettings(req.Settings)
 	if settingsErr != nil {
-		response.Fail(c, "考试设置无效，显示名称须为100字以内的文本")
+		response.Fail(c, "考试设置无效，请检查显示名称、答卷下载格式、有效期、下载服务地址和考试链接")
 		return
 	}
 	req.Settings = normalizedSettings
@@ -234,9 +234,18 @@ func (h *AdminExamHandler) List(ctx context.Context, c *app.RequestContext) {
 		response.Fail(c, "查询失败")
 		return
 	}
+	ids := make([]uint, 0, len(list))
+	for _, item := range list {
+		ids = append(ids, item.ID)
+	}
+	countMap, err := h.svc.ResponseCountsContext(ctx, ids)
+	if err != nil {
+		response.Fail(c, "查询失败")
+		return
+	}
 	out := make([]examListItem, 0, len(list))
 	for _, item := range list {
-		out = append(out, newExamListItem(item))
+		out = append(out, newExamListItem(item, countMap[item.ID]))
 	}
 	response.JSON(c, examListResponse{List: out, Total: total, Page: page, Size: pageSize})
 }

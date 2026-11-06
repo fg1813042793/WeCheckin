@@ -42,9 +42,10 @@ for (const snippet of [
 for (const snippet of ['loadTemplates', 'saveTemplates', 'surveyNotificationTemplatesGet', 'surveyNotificationTemplatesSave']) {
   if (!composableSource.includes(snippet)) throw new Error(`survey template composable missing: ${snippet}`)
 }
-for (const snippet of ['<AdminPageShell', '<AdminPageHeader', '考试通知模版', '{score}', '{fullScore}', "hasPerm('admin:menu:exam:templates:edit')", 'openAdd', 'openEdit', 'deletePreset']) {
+for (const snippet of ['<AdminPageShell', '<AdminPageHeader', '考试通知模版', '{score}', '{fullScore}', '{answerDownloadUrl}', "hasPerm('admin:menu:exam:templates:edit')", 'openAdd', 'openEdit', 'deletePreset']) {
   if (!examPageSource.includes(snippet)) throw new Error(`exam template page missing: ${snippet}`)
 }
+if (pageSource.includes('{answerDownloadUrl}')) throw new Error('survey templates must not expose exam answer download links')
 for (const snippet of ['loadTemplates', 'saveTemplates', 'examNotificationTemplatesGet', 'examNotificationTemplatesSave']) {
   if (!examComposableSource.includes(snippet)) throw new Error(`exam template composable missing: ${snippet}`)
 }

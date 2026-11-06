@@ -13,6 +13,7 @@ const (
 	InstanceStatusCompleted InstanceStatus = "completed"
 	InstanceStatusRejected  InstanceStatus = "rejected"
 	InstanceStatusCancelled InstanceStatus = "cancelled"
+	InstanceStatusVoided    InstanceStatus = "voided"
 )
 
 type TokenStatus string
@@ -59,12 +60,14 @@ const (
 	HistoryNodeCC                        HistoryEventType = "node_cc"
 	HistoryNodeNotify                    HistoryEventType = "node_notify"
 	HistoryNodeAutomated                 HistoryEventType = "node_automated"
+	HistoryNodeSkipped                   HistoryEventType = "node_skipped"
 	HistoryTimerWaiting                  HistoryEventType = "timer_waiting"
 	HistoryTimerResumed                  HistoryEventType = "timer_resumed"
 	HistoryInstanceCompleted             HistoryEventType = "instance_completed"
 	HistoryInstanceRejected              HistoryEventType = "instance_rejected"
 	HistoryInstanceWithdrawn             HistoryEventType = "instance_withdrawn"
 	HistoryInstanceCancelled             HistoryEventType = "instance_cancelled"
+	HistoryInstanceVoided                HistoryEventType = "instance_voided"
 	HistoryInstanceCommented             HistoryEventType = "instance_commented"
 	HistoryInstanceReminded              HistoryEventType = "instance_reminded"
 	HistoryInstanceFormRevised           HistoryEventType = "instance_form_revised"

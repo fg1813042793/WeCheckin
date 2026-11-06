@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import './check-route-tab-titles.mjs'
+import './check-form-designer-tab-titles.mjs'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const layoutPath = resolve(currentDir, '../src/views/layout/index.vue')

@@ -20,6 +20,7 @@ export default defineConfig({
           if (id.includes('/vue/') || id.includes('/vue-router/')) return 'vendor-vue'
           if (id.includes('/echarts/') || id.includes('/vue-echarts/')) return 'vendor-echarts'
           if (id.includes('/@vueup/vue-quill/') || id.includes('/quill/')) return 'vendor-editor'
+          if (id.includes('/highlight.js/') || id.includes('/dompurify/')) return 'vendor-rich-text'
           if (id.includes('/html5-qrcode/') || id.includes('/leaflet/')) return 'vendor-qrcode-map'
           return 'vendor'
         }

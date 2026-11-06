@@ -13,15 +13,25 @@ import (
 
 	"gorm.io/gorm"
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	setupservice "wecheckin/backend/internal/service/admin/setup"
 	"wecheckin/backend/internal/support/access"
 	deptsupport "wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
+	"wecheckin/backend/internal/support/passwordsession"
 	permissionsupport "wecheckin/backend/internal/support/permission"
 	"wecheckin/backend/internal/support/permissiondelegation"
 	"wecheckin/backend/internal/support/query"
 	"wecheckin/backend/pkg/database"
-	"wecheckin/backend/pkg/passwordutil"
+)
+
+var (
+	ErrUserNameRequired      = errors.New("请输入用户名")
+	ErrUserNameTaken         = errors.New("用户名已存在，请更换后重试")
+	ErrLoginPasswordRequired = errors.New("请输入登录密码")
+	ErrSelfManager           = errors.New("用户不能选择自己作为直属上级")
+	ErrManagerUnavailable    = errors.New("直属上级用户不存在或已停用")
+	ErrInvalidAdmin          = errors.New("管理员无效")
 )
 
 func GetUserByOpenID(openID string) (*model.User, error) {
@@ -811,7 +821,7 @@ func addUserWithManagerAndAdminAccessContext(ctx context.Context, name, mobile, 
 		if err := saveUserDeptsTx(tx, user.ID, deptIDs); err != nil {
 			return err
 		}
-		return saveUserAdminAccessTx(tx, user.ID, adminAccess)
+		return saveUserAdminAccessTx(ctx, tx, user.ID, adminAccess)
 	})
 	if err == nil {
 		invalidateUserTotalCountCache()
@@ -870,7 +880,7 @@ func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP st
 	if err != nil {
 		return err
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		if err := ensureUserNameAvailableTx(tx, normalizedName, uint(uid)); err != nil {
 			return err
 		}
@@ -881,10 +891,14 @@ func editUserContext(ctx context.Context, id, name, mobile, pic, forms, addIP st
 			return err
 		}
 		if saveAdminAccess {
-			return saveUserAdminAccessTx(tx, uint(uid), adminAccess)
+			return saveUserAdminAccessTx(ctx, tx, uint(uid), adminAccess)
 		}
 		return nil
 	})
+	if err == nil && saveAdminAccess && adminAccess.Password != "" {
+		err = passwordsession.InvalidateAllContext(ctx, uint(uid))
+	}
+	return err
 }
 
 func editUserForAdminContext(ctx context.Context, id, name, mobile, pic, forms, addIP string, positionID uint, deptIDs []uint, adminAccess AdminAccessInput, saveAdminAccess bool, adminID uint) error {
@@ -918,7 +932,7 @@ func editUserForAdminWithManagerContext(ctx context.Context, id, name, mobile, p
 	if err != nil {
 		return err
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		queryBuilder, err := userVisibleQueryContext(ctx, tx, adminID)
 		if err != nil {
 			return err
@@ -953,23 +967,27 @@ func editUserForAdminWithManagerContext(ctx context.Context, id, name, mobile, p
 			return err
 		}
 		if saveAdminAccess {
-			return saveUserAdminAccessTx(tx, uint(uid), adminAccess)
+			return saveUserAdminAccessTx(ctx, tx, uint(uid), adminAccess)
 		}
 		return nil
 	})
+	if err == nil && saveAdminAccess && adminAccess.Password != "" {
+		err = passwordsession.InvalidateAllContext(ctx, uint(uid))
+	}
+	return err
 }
 
 func normalizeAdminUserName(name string) (string, error) {
 	normalizedName := strings.TrimSpace(name)
 	if normalizedName == "" {
-		return "", fmt.Errorf("请输入用户名")
+		return "", ErrUserNameRequired
 	}
 	return normalizedName, nil
 }
 
 func ensureAdminID(adminID uint) error {
 	if adminID == 0 {
-		return fmt.Errorf("管理员无效")
+		return ErrInvalidAdmin
 	}
 	return nil
 }
@@ -1012,14 +1030,14 @@ func ensureManagerUserAvailableTx(tx *gorm.DB, userID, managerUserID uint) error
 		return nil
 	}
 	if userID > 0 && userID == managerUserID {
-		return fmt.Errorf("用户不能选择自己作为直属上级")
+		return ErrSelfManager
 	}
 	var count int64
 	if err := tx.Model(&model.User{}).Where("`id` = ? AND `user_status` = 1", managerUserID).Count(&count).Error; err != nil {
 		return err
 	}
 	if count == 0 {
-		return fmt.Errorf("直属上级用户不存在或已停用")
+		return ErrManagerUnavailable
 	}
 	return nil
 }
@@ -1083,7 +1101,7 @@ func ensureUserNameAvailableTx(tx *gorm.DB, name string, excludeUserID uint) err
 		return err
 	}
 	if count > 0 {
-		return fmt.Errorf("用户名已存在，请更换后重试")
+		return ErrUserNameTaken
 	}
 	return nil
 }
@@ -1092,7 +1110,7 @@ func sameNormalizedAdminUserName(left, right string) bool {
 	return strings.EqualFold(strings.TrimSpace(left), strings.TrimSpace(right))
 }
 
-func saveUserAdminAccessTx(tx *gorm.DB, userID uint, adminAccess AdminAccessInput) error {
+func saveUserAdminAccessTx(ctx context.Context, tx *gorm.DB, userID uint, adminAccess AdminAccessInput) error {
 	var current model.User
 	if err := tx.Select("id", "user_password").Where("`id` = ?", userID).First(&current).Error; err != nil {
 		return err
@@ -1107,22 +1125,24 @@ func saveUserAdminAccessTx(tx *gorm.DB, userID uint, adminAccess AdminAccessInpu
 		roleIDs = normalizeUserRoleIDs(append([]uint{roleID}, roleIDs...)...)
 	}
 	if len(roleIDs) > 0 && adminAccess.Password == "" && current.Password == "" {
-		return fmt.Errorf("请输入登录密码")
+		return ErrLoginPasswordRequired
 	}
 
 	updates := map[string]interface{}{
 		"user_role_id":   roleID,
 		"user_edit_time": database.Now(),
 	}
-	if adminAccess.Password != "" {
-		hash, err := passwordutil.Hash(adminAccess.Password)
-		if err != nil {
-			return err
-		}
-		updates["user_password"] = hash
-	}
 	if err := tx.Model(&model.User{}).Where("`id` = ?", userID).Updates(updates).Error; err != nil {
 		return err
+	}
+	if adminAccess.Password != "" {
+		if current.Password == "" {
+			if err := accountsecurity.SetInitialPasswordWithDBContext(ctx, tx, userID, adminAccess.Password); err != nil {
+				return err
+			}
+		} else if err := accountsecurity.ResetTemporaryPasswordWithDBContext(ctx, tx, userID, adminAccess.Password); err != nil {
+			return err
+		}
 	}
 	if err := saveUserRolesTx(tx, userID, roleID, roleIDs); err != nil {
 		return err
@@ -1184,6 +1204,7 @@ func DelUserContext(ctx context.Context, id string) error {
 	err := db.Where("`id` = ?", id).Delete(&model.User{}).Error
 	if err == nil {
 		invalidateUserTotalCountCache()
+		err = invalidateUserSessionsContext(ctx, id)
 	}
 	return err
 }
@@ -1198,6 +1219,7 @@ func DelUserForAdminContext(ctx context.Context, id string, adminID uint) error 
 	err = access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Delete(&model.User{}))
 	if err == nil {
 		invalidateUserTotalCountCache()
+		err = invalidateUserSessionsContext(ctx, id)
 	}
 	return err
 }
@@ -1207,13 +1229,12 @@ func DelUsers(ids []string) error {
 }
 
 func DelUsersContext(ctx context.Context, ids []string) error {
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	err := db.Where("`id` IN ?", ids).Delete(&model.User{}).Error
-	if err == nil {
-		invalidateUserTotalCountCache()
+	for _, id := range ids {
+		if err := DelUserContext(ctx, id); err != nil {
+			return err
+		}
 	}
-	return err
+	return nil
 }
 
 func DelUsersForAdminContext(ctx context.Context, ids []string, adminID uint) error {
@@ -1240,7 +1261,10 @@ func StatusUserContext(ctx context.Context, id string, status int, reason string
 	} else if reason != "" {
 		updates["user_check_reason"] = reason
 	}
-	return db.Model(&model.User{}).Where("`id` = ?", id).Updates(updates).Error
+	if err := db.Model(&model.User{}).Where("`id` = ?", id).Updates(updates).Error; err != nil {
+		return err
+	}
+	return invalidateUserSessionsWhenDisabledContext(ctx, id, status)
 }
 
 func StatusUserForAdminContext(ctx context.Context, id string, status int, reason string, adminID uint) error {
@@ -1258,7 +1282,25 @@ func StatusUserForAdminContext(ctx context.Context, id string, status int, reaso
 	if err != nil {
 		return err
 	}
-	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Updates(updates))
+	if err := access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Updates(updates)); err != nil {
+		return err
+	}
+	return invalidateUserSessionsWhenDisabledContext(ctx, id, status)
+}
+
+func invalidateUserSessionsContext(ctx context.Context, id string) error {
+	userID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return err
+	}
+	return passwordsession.InvalidateAllContext(ctx, uint(userID))
+}
+
+func invalidateUserSessionsWhenDisabledContext(ctx context.Context, id string, status int) error {
+	if status == 1 {
+		return nil
+	}
+	return invalidateUserSessionsContext(ctx, id)
 }
 
 func ResetUserPassword(id string) error {
@@ -1266,27 +1308,35 @@ func ResetUserPassword(id string) error {
 }
 
 func ResetUserPasswordContext(ctx context.Context, id string) error {
-	db, cancel := database.WithContext(ctx)
-	defer cancel()
-	hash, err := passwordutil.Hash("123456")
+	userID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		return err
 	}
-	return db.Model(&model.User{}).Where("`id` = ?", id).Update("user_password", hash).Error
+	if err := accountsecurity.ResetTemporaryPasswordContext(ctx, uint(userID), "123456"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func ResetUserPasswordForAdminContext(ctx context.Context, id string, adminID uint) error {
+	return ResetUserPasswordWithPasswordForAdminContext(ctx, id, "123456", adminID)
+}
+
+func ResetUserPasswordWithPasswordForAdminContext(ctx context.Context, id, password string, adminID uint) error {
 	db, cancel := database.WithContext(ctx)
 	defer cancel()
-	hash, err := passwordutil.Hash("123456")
-	if err != nil {
-		return err
-	}
 	queryBuilder, err := userVisibleQueryContext(ctx, db, adminID)
 	if err != nil {
 		return err
 	}
-	return access.RequireRowsAffected(queryBuilder.Where("`id` = ?", id).Update("user_password", hash))
+	var user model.User
+	if err := queryBuilder.Select("id").Where("`id` = ?", id).First(&user).Error; err != nil {
+		return err
+	}
+	if err := accountsecurity.ResetTemporaryPasswordContext(ctx, user.ID, password); err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetUserFormFields() ([]model.UserFormField, error) {

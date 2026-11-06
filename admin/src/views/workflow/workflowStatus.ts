@@ -12,6 +12,7 @@ const INSTANCE_STATUS_META: Record<WorkflowInstanceStatus, WorkflowStatusMeta> =
   completed: { label: '已完成', type: 'success' },
   rejected: { label: '已驳回', type: 'danger' },
   cancelled: { label: '已取消', type: 'info' },
+	voided: { label: '已作废', type: 'info' },
 }
 
 const TASK_STATUS_META: Record<WorkflowTaskStatus, WorkflowStatusMeta> = {

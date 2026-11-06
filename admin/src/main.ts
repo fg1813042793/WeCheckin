@@ -8,8 +8,12 @@ import './styles/survey-list.css'
 import './styles/notification-list.css'
 import './styles/operations-list.css'
 import { registerAdminIcons } from './icons'
+import { installVitePreloadErrorRecovery } from './utils/chunkLoadRecovery'
 import App from './App.vue'
 import router from './router'
+
+installVitePreloadErrorRecovery()
+
 const app = createApp(App)
 registerAdminIcons(app)
 app.use(ElementPlus, { locale: zhCn })

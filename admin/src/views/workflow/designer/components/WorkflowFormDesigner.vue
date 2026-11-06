@@ -62,9 +62,10 @@
                 dragging: dragState?.fieldKey === field.key,
                 'drop-before': isDropTarget(null, index),
                 'field-item--compact': fieldSpan(field) <= 8,
+                'field-item--narrow': fieldSpan(field) <= 4.8,
                 'field-item--group': field.type === 'group',
               }"
-              :style="{ gridColumn: `span ${fieldSpan(field)}` }"
+              :style="{ gridColumn: `span ${fieldGridSpan(field)}` }"
               :draggable="!readonly"
               @click="selectField(field)"
               @dragstart="handleDragStart(field, null, index, $event)"
@@ -110,8 +111,9 @@
                         dragging: dragState?.fieldKey === child.key,
                         'drop-before': isDropTarget(field.key, childIndex),
                         'field-item--compact': fieldSpan(child) <= 8,
+                        'field-item--narrow': fieldSpan(child) <= 4.8,
                       }"
-                      :style="{ gridColumn: `span ${fieldSpan(child)}` }"
+                      :style="{ gridColumn: `span ${fieldGridSpan(child)}` }"
                       :draggable="!readonly"
                       @click.stop="selectField(child)"
                       @dragstart.stop="handleDragStart(child, field.key, childIndex, $event)"
@@ -262,7 +264,7 @@
                         v-for="column in detailColumns(field)"
                         :key="column.key"
                         class="detail-preview__cell"
-                        :style="{ gridColumn: `span ${fieldSpan(column)}` }"
+                        :style="{ gridColumn: `span ${fieldGridSpan(column)}` }"
                       >
                         <span class="detail-preview__label">{{ column.label || column.key }}</span>
                         <span class="detail-preview__control">{{ detailColumnPlaceholder(column) }}</span>
@@ -308,8 +310,8 @@
               <template #append><el-tooltip content="以字母开头，可使用字母、数字、点、下划线和中划线"><el-icon><QuestionFilled /></el-icon></el-tooltip></template>
             </el-input>
           </el-form-item>
-          <el-form-item v-if="isWorkflowDataField(selectedField) && selectedField.type !== 'calculation'" label="提示文字">
-            <el-input v-model="selectedField.placeholder" maxlength="120" :disabled="readonly" @input="emitChange" />
+          <el-form-item v-if="supportsPlaceholder(selectedField)" label="Placeholder">
+            <el-input v-model="selectedField.placeholder" maxlength="120" placeholder="例如：请输入目标内容" :disabled="readonly" @input="emitChange" />
           </el-form-item>
         </section>
 
@@ -352,11 +354,10 @@
         <section class="property-section layout-setting">
           <h3>布局设置</h3>
           <el-form-item label="字段宽度">
-            <el-radio-group :model-value="fieldSpan(selectedField)" :disabled="readonly" @change="updateFieldSpan">
-              <el-radio-button v-for="item in fieldSpanOptions" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </el-radio-button>
-            </el-radio-group>
+            <div class="field-span-slider">
+              <el-slider :model-value="fieldSpan(selectedField)" :min="1" :max="24" :step="1" show-input input-size="small" :disabled="readonly" @input="updateFieldSpan" />
+              <span>{{ fieldSpanLabel(selectedField) }}</span>
+            </div>
           </el-form-item>
           <p>PC 端按栅格同行排列，移动端自动切换为整行。</p>
         </section>
@@ -626,6 +627,9 @@
                 <span>必填</span>
                 <el-switch v-model="column.required" :disabled="readonly" @change="emitChange" />
               </div>
+              <el-form-item v-if="supportsPlaceholder(column)" class="detail-column-placeholder" label="Placeholder">
+                <el-input v-model="column.placeholder" maxlength="120" placeholder="例如：请输入目标内容" :disabled="readonly" @input="emitChange" />
+              </el-form-item>
               <div v-if="column.type === 'number' || column.type === 'amount'" class="detail-column-range">
                 <el-form-item label="最小值">
                   <el-input-number
@@ -681,11 +685,10 @@
               </div>
               <div class="detail-column-layout">
                 <span>列宽</span>
-                <el-radio-group :model-value="fieldSpan(column)" size="small" :disabled="readonly" @change="updateDetailColumnSpan(column, $event)">
-                  <el-radio-button v-for="item in fieldSpanOptions" :key="item.value" :value="item.value">
-                    {{ item.label }}
-                  </el-radio-button>
-                </el-radio-group>
+                <div class="field-span-slider">
+                  <el-slider :model-value="fieldSpan(column)" :min="1" :max="24" :step="1" show-input input-size="small" :disabled="readonly" @input="updateDetailColumnSpan(column, $event)" />
+                  <span>{{ fieldSpanLabel(column) }}</span>
+                </div>
               </div>
               <WorkflowValidationRulesEditor
                 class="detail-column-validation"
@@ -727,6 +730,7 @@ import type { WorkflowFormField, WorkflowFormFieldSpan, WorkflowFormFieldType, W
 import { insertWorkflowField, isWorkflowDataField, moveWorkflowDetailColumn, moveWorkflowField, removeWorkflowField, workflowFieldByKey } from '../../formLayout'
 import { flattenWorkflowOptions, hasWorkflowOptionChildren, normalizeWorkflowOptions, workflowOptionSourceResponsePayload, workflowTextareaAutosize as textareaAutosize } from '../../runtimeForm'
 import { workflowDetailColumnTypes as detailColumnTypes, workflowFieldGroups as fieldGroups, workflowFieldTypes as fieldTypes } from '../workflowFieldCatalog'
+import { workflowFieldGridSpan as fieldGridSpan, workflowFieldSpan as fieldSpan, workflowFieldSpanLabel as spanLabel } from '../../fieldWidth'
 import WorkflowFormFieldPreview from './WorkflowFormFieldPreview.vue'
 import WorkflowCalculationEditor from './WorkflowCalculationEditor.vue'
 import WorkflowValidationRulesEditor from './WorkflowValidationRulesEditor.vue'
@@ -734,12 +738,11 @@ import WorkflowValidationRulesEditor from './WorkflowValidationRulesEditor.vue'
 const props = defineProps<{ fields: WorkflowFormField[]; readonly?: boolean }>()
 const emit = defineEmits<{ change: [] }>()
 
-const fieldSpanOptions: Array<{ label: string; value: WorkflowFormFieldSpan }> = [
-  { label: '1/4', value: 6 },
-  { label: '1/3', value: 8 },
-  { label: '1/2', value: 12 },
-  { label: '整行', value: 24 },
-]
+const placeholderFieldTypes = new Set<WorkflowFormFieldType>([
+  'text', 'textarea', 'number', 'amount', 'phone', 'email',
+  'select', 'multi_select', 'date', 'datetime', 'time',
+  'user', 'user_multi', 'department', 'department_multi', 'attachment',
+])
 
 const selectedField = ref<WorkflowFormField | null>(null)
 const dragState = ref<{
@@ -822,18 +825,14 @@ function defaultFieldSpan(type: WorkflowFormFieldType): WorkflowFormFieldSpan {
   return ['textarea', 'radio', 'checkbox', 'attachment', 'date_range', 'detail_list', 'group', 'label', 'description', 'button'].includes(type) ? 24 : 12
 }
 
-function fieldSpan(field: WorkflowFormField): WorkflowFormFieldSpan {
-  return fieldSpanOptions.some(item => item.value === field.span) ? field.span as WorkflowFormFieldSpan : 24
-}
-
 function fieldSpanLabel(field: WorkflowFormField) {
-  return fieldSpanOptions.find(item => item.value === fieldSpan(field))?.label || '整行'
+  return spanLabel(fieldSpan(field))
 }
 
 function updateFieldSpan(value: string | number | boolean | undefined) {
   if (!selectedField.value) return
   const span = Number(value)
-  if (!fieldSpanOptions.some(item => item.value === span)) return
+  if (!Number.isInteger(span) || span < 1 || span > 24) return
   selectedField.value.span = span as WorkflowFormFieldSpan
   emitChange()
 }
@@ -1214,7 +1213,7 @@ function updateTextareaVisibleRows(
 function updateDetailColumnSpan(column: WorkflowFormField, value: string | number | boolean | undefined) {
   if (props.readonly) return
   const span = Number(value)
-  if (!fieldSpanOptions.some(item => item.value === span)) return
+  if (!Number.isInteger(span) || span < 1 || span > 24) return
   column.span = span as WorkflowFormFieldSpan
   emitChange()
 }
@@ -1280,6 +1279,10 @@ function fieldLabelMaxLength(field: WorkflowFormField) {
 
 function supportsFieldHelp(field: WorkflowFormField) {
   return field.type === 'group' || isWorkflowDataField(field)
+}
+
+function supportsPlaceholder(field: WorkflowFormField) {
+  return placeholderFieldTypes.has(field.type)
 }
 
 function toggleFieldHelp(enabled: string | number | boolean) {
@@ -1377,8 +1380,9 @@ function emitChange() {
 .empty-canvas-drop { display: grid; min-height: 360px; border: 1px dashed transparent; border-radius: 6px; transition: border-color .15s, background-color .15s; }
 .empty-canvas-drop.active { border-color: #1677ff; background: #f2f7ff; }
 .empty-canvas-drop > .el-empty { min-height: 360px; }
-.field-list { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: start; gap: 10px; }
-.field-item { position: relative; display: block; min-height: 112px; padding: 14px; border: 1px solid #e3e8ef; border-radius: 7px; background: #fff; cursor: grab; transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.field-list { display: grid; grid-template-columns: repeat(120, minmax(0, 1fr)); align-items: start; row-gap: 10px; margin-inline: -5px; }
+.field-item { position: relative; display: block; min-width: 0; margin-inline: 5px; min-height: 112px; padding: 14px; border: 1px solid #e3e8ef; border-radius: 7px; background: #fff; cursor: grab; transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.field-list > .field-drop-zone, .group-fields__grid > .field-drop-zone { margin-inline: 5px; }
 .field-item:active { cursor: grabbing; }
 .field-item:last-child { margin-bottom: 0; }
 .field-item:hover { border-color: #b8cff1; background: #fcfdff; }
@@ -1408,7 +1412,7 @@ function emitChange() {
 .field-item--group.active::before { top: 0; bottom: 0; }
 .field-item--group > .field-item__content > .field-item__heading { padding: 14px 14px 4px; }
 .group-fields { margin-top: 8px; padding: 0 14px; }
-.group-fields__grid { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: start; gap: 10px; }
+.group-fields__grid { display: grid; grid-template-columns: repeat(120, minmax(0, 1fr)); align-items: start; row-gap: 10px; margin-inline: -5px; }
 .field-item--nested { min-height: 104px; }
 .group-drop-zone { margin-top: 2px; }
 .group-drop-zone--empty { min-height: 72px; border-color: #cbd5e1; background: #fff; }
@@ -1433,10 +1437,12 @@ function emitChange() {
 }
 .detail-preview__grid {
   display: grid;
-  grid-template-columns: repeat(24, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(120, minmax(0, 1fr));
+  row-gap: 8px;
+  margin-inline: -4px;
 }
 .detail-preview__cell {
+  margin-inline: 4px;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -1477,9 +1483,6 @@ function emitChange() {
 .property-section { padding: 16px; border-bottom: 1px solid #edf0f4; }
 .property-section:last-child { border-bottom: 0; }
 .property-section > h3, .option-editor__heading h3 { margin: 0 0 14px; color: #273548; font-size: 12px; font-weight: 650; }
-.layout-setting :deep(.el-radio-group) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
-.layout-setting :deep(.el-radio-button), .layout-setting :deep(.el-radio-button__inner) { width: 100%; }
-.layout-setting :deep(.el-radio-button__inner) { padding-right: 8px; padding-left: 8px; }
 .layout-setting > p { margin: -3px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.6; }
 .required-setting { display: flex; align-items: center; justify-content: space-between; min-height: 34px; margin-bottom: 12px; color: #475569; font-size: 12px; }
 .number-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1527,11 +1530,8 @@ function emitChange() {
 .detail-column-range { display: grid; grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: 8px; }
 .detail-column-range :deep(.el-form-item) { margin-bottom: 0; }
 .detail-column-max-length { grid-column: 1 / -1; }
+.detail-column-placeholder { grid-column: 1 / -1; }
 .detail-column-layout { display: grid; grid-column: 1 / -1; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 32px; color: #475569; font-size: 12px; }
-.detail-column-layout :deep(.el-radio-group) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
-.detail-column-layout :deep(.el-radio-button),
-.detail-column-layout :deep(.el-radio-button__inner) { width: 100%; }
-.detail-column-layout :deep(.el-radio-button__inner) { padding-right: 6px; padding-left: 6px; }
 .detail-column-required {
   display: flex;
   align-items: center;
@@ -1557,3 +1557,5 @@ function emitChange() {
   .field-item, .field-item--nested { grid-column: 1 / -1 !important; }
 }
 </style>
+
+<style scoped src="../workflowFieldWidth.css"></style>

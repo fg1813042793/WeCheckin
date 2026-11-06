@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'blur': []
 }>()
 
 const rowHeight = 24
@@ -36,6 +37,7 @@ const textModel = computed({
 })
 const normalizedMinRows = computed(() => normalizeRows(props.minRows, 3))
 const normalizedMaxRows = computed(() => Math.max(normalizedMinRows.value, normalizeRows(props.maxRows, 8)))
+const singleRow = computed(() => normalizedMinRows.value === 1 && normalizedMaxRows.value === 1)
 const minHeight = computed(() => normalizedMinRows.value * rowHeight)
 const nativeMinHeight = computed(() => minHeight.value + nativeVerticalPadding)
 const nativeMaxHeight = computed(() => normalizedMaxRows.value * rowHeight + nativeVerticalPadding)
@@ -125,6 +127,13 @@ function resizeNativeTextarea(value: unknown = nativeTextareaRef.value) {
   const textarea = resolveNativeTextarea(value)
   if (!textarea)
     return
+  // A fixed one-row field follows the input height in CSS, including responsive
+  // density changes. Keep textarea behavior so pasted line breaks remain intact.
+  if (singleRow.value) {
+    textarea.style.height = '100%'
+    textarea.style.overflowY = 'auto'
+    return
+  }
   textarea.style.height = 'auto'
   const scrollHeight = textarea.scrollHeight
   const height = Math.max(nativeMinHeight.value, Math.min(nativeMaxHeight.value, scrollHeight))
@@ -154,9 +163,9 @@ function handleNativeInput(event: unknown) {
 }
 
 function handleNativeBlur(event: unknown) {
-  if (!composing.value)
-    return
-  handleCompositionEnd(event)
+  if (composing.value)
+    handleCompositionEnd(event)
+  emit('blur')
 }
 </script>
 
@@ -167,6 +176,7 @@ function handleNativeBlur(event: unknown) {
     :class="{
       'workflow-textarea__native--count': count,
       'workflow-textarea__native--disabled': disabled,
+      'workflow-textarea__native--single-row': singleRow,
     }"
     :style="textareaStyle"
   >
@@ -200,6 +210,7 @@ function handleNativeBlur(event: unknown) {
     :height="minHeight"
     :auto-height="true"
     :count="count"
+    @blur="emit('blur')"
   />
   <!-- #endif -->
 </template>
@@ -251,6 +262,30 @@ function handleNativeBlur(event: unknown) {
   font-size: 24rpx;
   line-height: 18px;
   pointer-events: none;
+}
+
+.workflow-textarea__native--single-row {
+  // Match u-input's default 70rpx input area plus its two 1px borders.
+  height: var(--workflow-textarea-single-row-height, calc(70rpx + 2px));
+  display: flex;
+  align-items: center;
+}
+
+.workflow-textarea__native--single-row .workflow-textarea__native-control {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  padding: 0 10px;
+  line-height: calc(var(--workflow-textarea-single-row-height, calc(70rpx + 2px)) - 2px);
+}
+
+.workflow-textarea__native--single-row .workflow-textarea__native-count {
+  position: static;
+  flex-shrink: 0;
+  margin-right: 10px;
+  background: transparent;
 }
 
 .workflow-textarea__native--disabled {

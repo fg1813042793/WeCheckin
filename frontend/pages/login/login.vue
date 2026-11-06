@@ -251,6 +251,14 @@ export default {
           throw new Error('钉钉登录结果异常')
         }
         setClientAuth(res.data)
+        if (res.data.passwordChangeRequired) {
+          clearDingTalkOAuthAttempt()
+          uni.redirectTo({ url: '/pages/my/change_password' })
+          return
+        }
+        if (res.data.passwordExpiryWarning) {
+          uni.showToast({ title: '登录密码即将到期，请及时修改', icon: 'none' })
+        }
         await ensureClientPermissionSnapshot()
         clearDingTalkOAuthAttempt()
         uni.showToast({ title: '登录成功', icon: 'success' })

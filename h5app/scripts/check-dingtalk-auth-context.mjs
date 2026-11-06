@@ -30,6 +30,7 @@ const session = (id, token = `token-${id}`) => ({ data: { token, user: { id }, m
 const binding = corpId => ({ data: { code: 10020, data: { corpId, bindTicket: `ticket-${corpId}`, expiresIn: 600 } } })
 function fixture({ cachedCorp, cachedToken = '', runtime = true } = {}) {
   const storage = new Map()
+  const eventListeners = new Map()
   if (cachedToken)
     storage.set(config.TOKEN_KEY, cachedToken)
   if (cachedCorp)
@@ -39,6 +40,8 @@ function fixture({ cachedCorp, cachedToken = '', runtime = true } = {}) {
     setStorageSync: (key, value) => storage.set(key, value),
     removeStorageSync: key => storage.delete(key),
     showToast: () => {},
+    $on: (name, listener) => eventListeners.set(name, listener),
+    $emit: (name, ...args) => eventListeners.get(name)?.(...args),
   }
   const calls = { codes: [], sso: [], bootstrap: 0, logout: 0, resetContent: 0, bind: 0 }
   const responses = {

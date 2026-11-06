@@ -25,11 +25,8 @@ type recordReviewSnapshot struct {
 }
 
 func BuildSchemaReviewSnapshot(plan SchemaGradingPlan, passScore int) string {
-	keys := make(map[uint]string, len(plan.IDMap))
-	for key, ordinal := range plan.IDMap {
-		keys[ordinal] = key
-	}
-	return encodeReviewSnapshot(plan.Questions, keys, passScore, plan.Definitions)
+	raw, _ := json.Marshal(recordReviewSnapshot{Version: 2, PassScore: passScore, Questions: plan.ReviewQuestions})
+	return string(raw)
 }
 
 func BuildPaperReviewSnapshot(questions []model.ExamQuestion, passScore int) string {
@@ -62,7 +59,7 @@ func BuildPaperReviewSnapshot(questions []model.ExamQuestion, passScore int) str
 }
 
 func encodeReviewSnapshot(questions []examPkg.Question, keys map[uint]string, passScore int, definitions map[uint]json.RawMessage) string {
-	snapshot := recordReviewSnapshot{Version: 1, PassScore: passScore, Questions: make([]reviewQuestionSnapshot, 0, len(questions))}
+	snapshot := recordReviewSnapshot{Version: 2, PassScore: passScore, Questions: make([]reviewQuestionSnapshot, 0, len(questions))}
 	for _, question := range questions {
 		snapshot.Questions = append(snapshot.Questions, reviewQuestionSnapshot{QuestionID: question.ID, AnswerKey: keys[question.ID], Title: stripExamExportHTML(question.Title), Type: question.Type, ReferenceAnswer: question.Answer, Definition: definitions[question.ID]})
 	}
@@ -73,7 +70,7 @@ func encodeReviewSnapshot(questions []examPkg.Question, keys map[uint]string, pa
 
 func decodeRecordReviewSnapshot(raw string) (recordReviewSnapshot, error) {
 	var snapshot recordReviewSnapshot
-	if json.Unmarshal([]byte(raw), &snapshot) != nil || snapshot.Version != 1 || snapshot.PassScore < 0 {
+	if json.Unmarshal([]byte(raw), &snapshot) != nil || (snapshot.Version != 1 && snapshot.Version != 2) || snapshot.PassScore < 0 {
 		return snapshot, ErrRecordGradingUnavailable
 	}
 	seen := make(map[uint]bool, len(snapshot.Questions))

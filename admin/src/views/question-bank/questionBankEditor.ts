@@ -19,11 +19,6 @@ export const richOptionEditorOptions = {
   theme: 'snow', placeholder: '选项文本',
   modules: { toolbar: [['bold', 'italic', 'underline'], [{ color: [] }, { background: [] }], ['clean']] },
 }
-export const richFullEditorOptions = {
-  theme: 'snow', placeholder: '请输入富文本内容',
-  modules: { toolbar: [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ color: [] }, { background: [] }], [{ list: 'ordered' }, { list: 'bullet' }], [{ indent: '-1' }, { indent: '+1' }], [{ align: [] }], ['blockquote', 'code-block'], ['link'], ['clean']] },
-}
-
 const optionTypes = new Set(['radio', 'checkbox', 'select', 'picker', 'cascade', 'judge'])
 const fieldTypes = new Set(['multiInput', 'hInput'])
 const matrixTypes = new Set(['matrixRadio', 'matrixCheckbox', 'matrixFillBlank', 'matrixAuto'])

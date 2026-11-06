@@ -50,15 +50,42 @@ func TestWorkflowUpdateMultipartDisplayNamePresence(t *testing.T) {
 	})
 }
 
+func TestWorkflowUpdateMultipartOptionalMetadataPresence(t *testing.T) {
+	t.Run("omitted values preserve existing metadata", func(t *testing.T) {
+		request := workflowUpdateRequestFromMultipart(multipartWorkflowMetadataContext(t, nil))
+		if request.Description != nil || request.Category != nil {
+			t.Fatalf("omitted metadata = description:%#v category:%#v", request.Description, request.Category)
+		}
+	})
+
+	t.Run("explicit empty values clear metadata", func(t *testing.T) {
+		request := workflowUpdateRequestFromMultipart(multipartWorkflowMetadataContext(t, map[string]string{
+			"description": "",
+			"category":    "",
+		}))
+		if request.Description == nil || *request.Description != "" || request.Category == nil || *request.Category != "" {
+			t.Fatalf("explicit empty metadata = description:%#v category:%#v", request.Description, request.Category)
+		}
+	})
+}
+
 func multipartWorkflowContext(t *testing.T, displayName *string) *app.RequestContext {
+	values := make(map[string]string)
+	if displayName != nil {
+		values["displayName"] = *displayName
+	}
+	return multipartWorkflowMetadataContext(t, values)
+}
+
+func multipartWorkflowMetadataContext(t *testing.T, values map[string]string) *app.RequestContext {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if err := writer.WriteField("name", "流程管理名称"); err != nil {
 		t.Fatal(err)
 	}
-	if displayName != nil {
-		if err := writer.WriteField("displayName", *displayName); err != nil {
+	for key, value := range values {
+		if err := writer.WriteField(key, value); err != nil {
 			t.Fatal(err)
 		}
 	}

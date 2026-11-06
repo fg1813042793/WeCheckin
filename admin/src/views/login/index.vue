@@ -75,6 +75,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { RefreshRight } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { adminApi } from '../../api'
 import { clearAdminSession } from '../../utils/adminSession'
 import { invalidateAdminAccessSnapshot, loadAdminAccessSnapshot } from '../../router/adminAccess'
@@ -130,11 +131,19 @@ async function login() {
     localStorage.setItem('admin_token', d.token || '')
     localStorage.setItem('admin_info', JSON.stringify(d))
     invalidateAdminAccessSnapshot()
-    await loadAdminAccessSnapshot()
     succeeded = true
     const redirect = typeof router.currentRoute.value.query.redirect === 'string'
       ? router.currentRoute.value.query.redirect
       : '/'
+    if (d.passwordChangeRequired) {
+      await router.push({ path: '/change-password', query: { redirect } })
+      return
+    }
+    await loadAdminAccessSnapshot()
+    if (d.passwordExpiryWarning && sessionStorage.getItem('admin_password_expiry_warned') !== '1') {
+      sessionStorage.setItem('admin_password_expiry_warned', '1')
+      ElMessage.warning('登录密码即将到期，请及时修改')
+    }
     router.push(redirect)
   } finally {
     loading.value = false

@@ -35,6 +35,7 @@ export interface ExamGradingQuestion {
   fullScore: number
   gotScore: number
   needManual: boolean
+  unscored?: boolean
   materials?: Array<{ label: string; content: string }>
   images?: Array<{ url: string; alt: string }>
 }

@@ -182,10 +182,12 @@ import type {
 import { cloneDraft } from '../types'
 import { workflowDataFields } from '../formLayout'
 import { normalizeWorkflowCalculationPermissions } from '../workflowFieldPermissions'
+import { useAdminRouteTabTitle, workflowDesignerTabTitle } from '../../../router/routeTabTitles'
 
 const route = useRoute()
 const router = useRouter()
-const definitionId = computed(() => Number(route.params.id || 0))
+const definitionId = Number(route.params.id || 0)
+const updateTabTitle = useAdminRouteTabTitle()
 const loading = ref(false)
 const saving = ref(false)
 const validating = ref(false)
@@ -222,18 +224,19 @@ const statusMeta = computed(() => {
 })
 
 async function loadDetail() {
-  if (!definitionId.value) {
+  if (!definitionId) {
     ElMessage.error('流程定义 ID 无效')
     await router.replace('/workflow/definitions')
     return
   }
   loading.value = true
   try {
-    const response = await adminApi.workflowDefinitionDetail(definitionId.value)
+    const response = await adminApi.workflowDefinitionDetail(definitionId)
     const data = response.data as WorkflowDefinitionDetail
     data.draft = cloneDraft(data.draft)
     const permissionsNormalized = normalizeWorkflowCalculationPermissions(data.draft)
     detail.value = data
+    updateTabTitle(workflowDesignerTabTitle(definitionId, data.name))
     metadataDirty.value = false
     selectedNodeId.value = ''
     activeDesignerTab.value = 'process'
@@ -409,6 +412,7 @@ async function saveDraft(showMessage = true, includeMetadata = false) {
     saved.draft = cloneDraft(saved.draft)
     normalizeWorkflowCalculationPermissions(saved.draft)
     detail.value = saved
+    updateTabTitle(workflowDesignerTabTitle(definitionId, saved.name))
     dirty.value = false
     metadataDirty.value = false
     if (showMessage) {

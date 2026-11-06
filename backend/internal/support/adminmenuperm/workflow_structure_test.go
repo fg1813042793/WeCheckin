@@ -12,6 +12,7 @@ func TestWorkflowRuntimeMenuDeclarations(t *testing.T) {
 		"admin:menu:workflow:org-approvers":       {parent: "admin:menu:workflow", perms: "workflow:org-approver:list"},
 		"admin:menu:workflow:instance:start":      {parent: "admin:menu:workflow:instances", perms: "workflow:instance:start"},
 		"admin:menu:workflow:instance:cancel":     {parent: "admin:menu:workflow:instances", perms: "workflow:instance:cancel"},
+		"admin:menu:workflow:instance:void":       {parent: "admin:menu:workflow:instances", perms: "workflow:instance:void"},
 		"admin:menu:workflow:instance:delete":     {parent: "admin:menu:workflow:instances", perms: "workflow:instance:delete"},
 		"admin:menu:workflow:instance:upgrade":    {parent: "admin:menu:workflow:instances", perms: "workflow:instance:upgrade"},
 		"admin:menu:workflow:notification:delete": {parent: "admin:menu:workflow:instances", perms: "workflow:notification:delete"},

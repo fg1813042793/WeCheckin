@@ -1068,9 +1068,12 @@ func swaggerV2AdminUsersDelete83() {}
 func swaggerV2AdminUsersIdStatusPatch84() {}
 
 // @Tags API v2-后台管理-用户管理
-// @Summary 变更 /api/v2/admin/users/{id}/password
+// @Summary 重置用户密码
+// @Description 按密码策略校验新密码，成功后撤销用户全部登录会话。密码重复或不满足策略时返回具体原因。
 // @Security AdminToken
+// @Accept application/x-www-form-urlencoded
 // @Param id path int true "id"
+// @Param password formData string false "新密码，至少6位且不超过72字节；省略时兼容重置为123456"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/users/{id}/password [patch]
 func swaggerV2AdminUsersIdPasswordPatch85() {}
@@ -2739,7 +2742,7 @@ func swaggerV2AdminWorkflowDefinitionsGet() {}
 // @Param displayName formData string false "用户显示名称；留空时使用后台管理名称"
 // @Param description formData string false "流程描述"
 // @Param category formData string false "流程分类"
-// @Param draft formData string false "流程草稿定义（JSON）"
+// @Param draft formData string false "流程草稿定义（JSON）；approval 节点可设 skipIfNoAssignee=true，默认关闭，仅成功解析且无审批人时跳过，发布新版本后生效"
 // @Param logo formData file false "流程图标（PNG、JPG、JPEG 或 WebP，最大 2MB）"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-definitions [post]
@@ -2780,7 +2783,7 @@ func swaggerV2AdminWorkflowDefinitionsIDGet() {}
 // @Param description formData string false "流程描述"
 // @Param category formData string false "流程分类"
 // @Param status formData int false "流程状态"
-// @Param draft formData string false "流程草稿定义（JSON）"
+// @Param draft formData string false "流程草稿定义（JSON）；approval 节点可设 skipIfNoAssignee=true，默认关闭，仅成功解析且无审批人时跳过，发布新版本后生效"
 // @Param logo formData file false "流程图标（PNG、JPG、JPEG 或 WebP，最大 2MB）"
 // @Param removeLogo formData string false "是否移除流程图标"
 // @Success 200 {object} response.Resp
@@ -2953,7 +2956,7 @@ func swaggerV2AdminWorkflowInstancesPost() {}
 // @Tags API v2-后台管理-工作流
 // @Summary 批量删除终态工作流实例
 // @Security AdminToken
-// @Description 仅允许删除已完成、已驳回或已取消的实例；删除后保留审计数据
+// @Description 仅允许删除已完成、已驳回、已取消或已作废的实例；删除后保留审计数据
 // @Accept application/json
 // @Param body body AdminWorkflowInstanceDeleteRequest true "流程实例 ID 列表"
 // @Success 200 {object} response.Resp
@@ -2971,7 +2974,7 @@ func swaggerV2AdminWorkflowInstancesIDGet() {}
 // @Tags API v2-后台管理-工作流
 // @Summary 删除单个终态工作流实例
 // @Security AdminToken
-// @Description 仅允许删除已完成、已驳回或已取消的实例；删除后保留审计数据
+// @Description 仅允许删除已完成、已驳回、已取消或已作废的实例；删除后保留审计数据
 // @Param id path string true "流程实例 ID"
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-instances/{id} [delete]
@@ -2994,6 +2997,17 @@ func swaggerV2AdminWorkflowInstancesIDResumePost() {}
 // @Success 200 {object} response.Resp
 // @Router /api/v2/admin/workflow-instances/{id}/cancel [post]
 func swaggerV2AdminWorkflowInstancesIDCancelPost() {}
+
+// @Tags API v2-后台管理-工作流
+// @Summary 作废已完成的工作流实例
+// @Security AdminToken
+// @Description 作废后保留客户端记录和审计历史，并从流程完成次数中排除；不会自动回滚外部业务动作
+// @Accept application/json
+// @Param id path string true "流程实例 ID"
+// @Param body body WorkflowReasonRequest true "作废原因"
+// @Success 200 {object} response.Resp
+// @Router /api/v2/admin/workflow-instances/{id}/void [post]
+func swaggerV2AdminWorkflowInstancesIDVoidPost() {}
 
 // @Tags API v2-后台管理-工作流
 // @Summary 预检工作流实例版本升级兼容性

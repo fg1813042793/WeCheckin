@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"wecheckin/backend/internal/model"
+	"wecheckin/backend/internal/service/accountsecurity"
 	"wecheckin/backend/internal/support/auditlog"
 	"wecheckin/backend/internal/support/dept"
 	"wecheckin/backend/internal/support/media"
@@ -21,8 +22,12 @@ import (
 )
 
 type LoginResponse struct {
-	Token    interface{} `json:"token"`
-	UserInfo *UserInfo   `json:"userInfo,omitempty"`
+	Token                  interface{} `json:"token"`
+	UserInfo               *UserInfo   `json:"userInfo,omitempty"`
+	PasswordChangeRequired bool        `json:"passwordChangeRequired"`
+	PasswordExpired        bool        `json:"passwordExpired"`
+	PasswordExpiresAt      int64       `json:"passwordExpiresAt"`
+	PasswordExpiryWarning  bool        `json:"passwordExpiryWarning"`
 }
 
 type UserInfo struct {
@@ -60,13 +65,17 @@ func LoginUserContext(ctx context.Context, userID, addIP, device string) (*Login
 	db.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)
 	setUserRole(&user)
 	fillUserRoleIDsContext(ctx, db, &user)
+	passwordState, err := accountsecurity.EvaluatePasswordStateContext(ctx, user.PasswordChangedAt, user.PasswordMustChange == 1)
+	if err != nil {
+		return nil, err
+	}
 	token := randutil.HexString(32)
 	if err := storeUserTokenContext(ctx, &user, token, addIP, device); err != nil {
 		return nil, err
 	}
 	deptID := dept.UserDeptIDContext(ctx, user.ID)
 	auditlog.SetActor(ctx, user.ID, user.Name, "user")
-	return &LoginResponse{
+	response := &LoginResponse{
 		Token: token,
 		UserInfo: &UserInfo{
 			ID:         user.ID,
@@ -78,7 +87,9 @@ func LoginUserContext(ctx context.Context, userID, addIP, device string) (*Login
 			DeptID:     deptID,
 			DeptName:   "",
 		},
-	}, nil
+	}
+	applyPasswordState(response, passwordState)
+	return response, nil
 }
 
 func LoginByPwd(name, password, addIP, device string) (*LoginResponse, error) {
@@ -108,13 +119,19 @@ func LoginByPwdContext(ctx context.Context, name, password, addIP, device string
 			auditlog.SetReason(ctx, "system_error", "登录服务异常")
 			return nil, err
 		}
-		db.Model(&user).Update("user_password", newHash)
+		changedAt := database.Now()
+		db.Model(&user).Updates(map[string]interface{}{"user_password": newHash, "user_password_changed_at": changedAt})
 		user.Password = newHash
+		user.PasswordChangedAt = changedAt
 	}
 	db.Model(&user).Update("user_login_time", database.Now())
 	db.Model(&user).UpdateColumn("user_login_cnt", user.LoginCnt+1)
 	setUserRole(&user)
 	fillUserRoleIDsContext(ctx, db, &user)
+	passwordState, err := accountsecurity.EvaluatePasswordStateContext(ctx, user.PasswordChangedAt, user.PasswordMustChange == 1)
+	if err != nil {
+		return nil, err
+	}
 	token := randutil.HexString(32)
 	if err := storeUserTokenContext(ctx, &user, token, addIP, device); err != nil {
 		return nil, err
@@ -127,7 +144,7 @@ func LoginByPwdContext(ctx context.Context, name, password, addIP, device string
 		deptName = d.Name
 	}
 	auditlog.SetActor(ctx, user.ID, user.Name, "user")
-	return &LoginResponse{
+	response := &LoginResponse{
 		Token: token,
 		UserInfo: &UserInfo{
 			ID:         user.ID,
@@ -139,7 +156,19 @@ func LoginByPwdContext(ctx context.Context, name, password, addIP, device string
 			DeptID:     deptID,
 			DeptName:   deptName,
 		},
-	}, nil
+	}
+	applyPasswordState(response, passwordState)
+	return response, nil
+}
+
+func applyPasswordState(response *LoginResponse, state accountsecurity.PasswordState) {
+	if response == nil {
+		return
+	}
+	response.PasswordChangeRequired = state.PasswordChangeRequired
+	response.PasswordExpired = state.PasswordExpired
+	response.PasswordExpiresAt = state.PasswordExpiresAt
+	response.PasswordExpiryWarning = state.PasswordExpiryWarning
 }
 
 func auditLoginLookupFailure(ctx context.Context, err error) {
@@ -192,17 +221,19 @@ func storeUserTokenContext(ctx context.Context, user *model.User, token, addIP, 
 
 	now := database.Now()
 	info := map[string]interface{}{
-		"id":         user.ID,
-		"name":       user.Name,
-		"mobile":     user.Mobile,
-		"miniOpenID": user.MiniOpenID,
-		"role":       user.Role,
-		"roleId":     user.RoleID,
-		"roleIds":    user.RoleIDs,
-		"pic":        user.Pic,
-		"loginIp":    addIP,
-		"loginTime":  now,
-		"device":     device,
+		"id":                 user.ID,
+		"name":               user.Name,
+		"mobile":             user.Mobile,
+		"miniOpenID":         user.MiniOpenID,
+		"role":               user.Role,
+		"roleId":             user.RoleID,
+		"roleIds":            user.RoleIDs,
+		"pic":                user.Pic,
+		"passwordChangedAt":  user.PasswordChangedAt,
+		"passwordMustChange": user.PasswordMustChange == 1,
+		"loginIp":            addIP,
+		"loginTime":          now,
+		"device":             device,
 	}
 	jsonBytes, err := json.Marshal(info)
 	if err != nil {

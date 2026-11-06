@@ -33,6 +33,38 @@ func TestDefinitionContentUpdatesOnlyIncludesChangedColumns(t *testing.T) {
 	}
 }
 
+func TestOptionalDefinitionTextPreservesOmittedAndAllowsExplicitClear(t *testing.T) {
+	if got := optionalDefinitionText("工作", nil); got != "工作" {
+		t.Fatalf("omitted value = %q, want existing category", got)
+	}
+	empty := ""
+	if got := optionalDefinitionText("工作", &empty); got != "" {
+		t.Fatalf("explicit empty value = %q, want cleared category", got)
+	}
+	updated := "  财务  "
+	if got := optionalDefinitionText("工作", &updated); got != "财务" {
+		t.Fatalf("updated value = %q, want trimmed category", got)
+	}
+}
+
+func TestUpdateRequestJSONPreservesOptionalMetadataPresence(t *testing.T) {
+	var omitted UpdateRequest
+	if err := json.Unmarshal([]byte(`{"status":2,"draft":{"schemaVersion":1}}`), &omitted); err != nil {
+		t.Fatal(err)
+	}
+	if omitted.Description != nil || omitted.Category != nil {
+		t.Fatalf("omitted metadata = description:%#v category:%#v", omitted.Description, omitted.Category)
+	}
+
+	var explicit UpdateRequest
+	if err := json.Unmarshal([]byte(`{"description":"","category":""}`), &explicit); err != nil {
+		t.Fatal(err)
+	}
+	if explicit.Description == nil || *explicit.Description != "" || explicit.Category == nil || *explicit.Category != "" {
+		t.Fatalf("explicit empty metadata = description:%#v category:%#v", explicit.Description, explicit.Category)
+	}
+}
+
 func TestDefinitionContentUpdatesIncrementsLiveStartConfigRevision(t *testing.T) {
 	item := model.WorkflowDefinition{
 		Name: "请假审批", Status: model.DefinitionStatusPublished, CurrentVersion: 2,

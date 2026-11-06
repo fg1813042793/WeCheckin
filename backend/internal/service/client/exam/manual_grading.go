@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -15,14 +16,6 @@ import (
 func buildRecordGradingDetail(record model.ExamRecord, exam model.Exam, snapshot recordReviewSnapshot, notice string) (*RecordGradingDetail, error) {
 	normalizeRecordDeviceMetadata(&record)
 	detail := &RecordGradingDetail{Record: record, ExamTitle: exam.Title, PassScore: snapshot.PassScore, Notice: notice, Questions: []GradingQuestion{}}
-	versionData, _ := json.Marshal(struct {
-		ID, ExamID                uint
-		Status, Score, TotalScore int
-		Answers, Result, Snapshot string
-		Review                    recordReviewSnapshot
-	}{record.ID, record.ExamID, record.Status, record.Score, record.TotalScore, record.Answers, record.Result, record.ReviewSnapshot, snapshot})
-	hash := sha256.Sum256(versionData)
-	detail.Version = hex.EncodeToString(hash[:])
 	result, err := decodeGradingPaperResult(record.Result)
 	if err != nil {
 		detail.Notice = ErrRecordGradingUnavailable.Error()
@@ -33,6 +26,15 @@ func buildRecordGradingDetail(record model.ExamRecord, exam model.Exam, snapshot
 		detail.Notice = ErrRecordGradingUnavailable.Error()
 		return detail, nil
 	}
+	snapshot, detail.Notice = supplementLegacyUnscoredQuestions(record, exam, snapshot, answers, result.Results, detail.Notice)
+	versionData, _ := json.Marshal(struct {
+		ID, ExamID                uint
+		Status, Score, TotalScore int
+		Answers, Result, Snapshot string
+		Review                    recordReviewSnapshot
+	}{record.ID, record.ExamID, record.Status, record.Score, record.TotalScore, record.Answers, record.Result, record.ReviewSnapshot, snapshot})
+	hash := sha256.Sum256(versionData)
+	detail.Version = hex.EncodeToString(hash[:])
 	byID := make(map[uint]reviewQuestionSnapshot, len(snapshot.Questions))
 	for _, question := range snapshot.Questions {
 		byID[question.QuestionID] = question
@@ -72,6 +74,12 @@ func buildRecordGradingDetail(record model.ExamRecord, exam model.Exam, snapshot
 		}
 		detail.Questions = append(detail.Questions, item)
 	}
+	for _, question := range snapshot.Questions {
+		if !seen[question.QuestionID] {
+			detail.Questions = append(detail.Questions, unscoredGradingQuestion(question, answers))
+		}
+	}
+	sort.SliceStable(detail.Questions, func(i, j int) bool { return detail.Questions[i].QuestionID < detail.Questions[j].QuestionID })
 	detail.CanGrade = record.Status == 1 && available && manualCount > 0
 	if !available {
 		detail.Notice = "部分题目资料已缺失，无法安全批改此答卷"

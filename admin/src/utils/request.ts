@@ -1,11 +1,13 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import { clearAdminSession } from './adminSession'
+import { markAdminPasswordChangeRequired } from './adminSession'
 
 export interface ApiResponse<T = unknown> {
   code: number
   msg: string
   data: T
+  errorCode?: string
 }
 
 export type ApiRequest = Omit<AxiosInstance, 'get' | 'post' | 'put' | 'delete' | 'patch'> & {
@@ -64,6 +66,13 @@ function redirectToLogin() {
   window.location.href = '/login'
 }
 
+function redirectToChangePassword() {
+  markAdminPasswordChangeRequired()
+  if (window.location.pathname === '/change-password') return
+  const redirect = `${window.location.pathname}${window.location.search}`
+  window.location.href = `/change-password?redirect=${encodeURIComponent(redirect)}`
+}
+
 function encodeFormBody(data: unknown) {
   const params = new URLSearchParams()
   if (!data || typeof data !== 'object') return params.toString()
@@ -87,6 +96,12 @@ const axiosInstance = axios.create({
         delete headers['content-type']
       }
       return data
+    }
+    const contentType = typeof headers?.get === 'function'
+      ? String(headers.get('Content-Type') || '')
+      : String(headers?.['Content-Type'] || headers?.['content-type'] || '')
+    if (contentType.toLowerCase().includes('application/json')) {
+      return JSON.stringify(data ?? {})
     }
     return encodeFormBody(data)
   }],
@@ -117,6 +132,10 @@ axiosInstance.interceptors.response.use(
       clearAdminSession()
       redirectToLogin()
       return Promise.reject(res.data)
+    }
+    if (res.data.errorCode === 'PASSWORD_CHANGE_REQUIRED') {
+      redirectToChangePassword()
+      return Promise.reject(markRequestErrorNotified(res.data))
     }
     notifyRequestError(res.data.msg || '请求失败')
     return Promise.reject(markRequestErrorNotified(res.data))

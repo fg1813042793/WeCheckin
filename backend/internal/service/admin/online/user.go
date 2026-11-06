@@ -109,17 +109,19 @@ func storeUserSessionForRoleContext(ctx context.Context, role string, singleLogi
 
 	now := database.Now()
 	info := storedUserSessionPayload{
-		ID:         user.ID,
-		Name:       user.Name,
-		Mobile:     user.Mobile,
-		MiniOpenID: user.MiniOpenID,
-		Role:       user.Role,
-		RoleID:     user.RoleID,
-		RoleIDs:    user.RoleIDs,
-		Pic:        user.Pic,
-		LoginIP:    addIP,
-		LoginTime:  now,
-		Device:     device,
+		ID:                 user.ID,
+		Name:               user.Name,
+		Mobile:             user.Mobile,
+		MiniOpenID:         user.MiniOpenID,
+		Role:               user.Role,
+		RoleID:             user.RoleID,
+		RoleIDs:            user.RoleIDs,
+		Pic:                user.Pic,
+		PasswordChangedAt:  user.PasswordChangedAt,
+		PasswordMustChange: user.PasswordMustChange == 1,
+		LoginIP:            addIP,
+		LoginTime:          now,
+		Device:             device,
 	}
 	jsonBytes, _ := json.Marshal(info)
 	if err := rd.RDB.Set(redisCtx, keyAuth, string(jsonBytes), expire).Err(); err != nil {
@@ -153,6 +155,8 @@ func updateUserSessionForRoleContext(ctx context.Context, role string, user *mod
 	payload.Role = user.Role
 	payload.RoleID = user.RoleID
 	payload.Pic = user.Pic
+	payload.PasswordChangedAt = user.PasswordChangedAt
+	payload.PasswordMustChange = user.PasswordMustChange == 1
 	jsonBytes, _ := json.Marshal(payload)
 	redisCtx, cancel := rd.OperationContext(ctx)
 	defer cancel()
@@ -193,7 +197,9 @@ func loadUserSessionPayloadContext(ctx context.Context, role, token string) (sto
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		return payload, fmt.Errorf("登录信息异常")
 	}
-	rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
+	if tokenutil.IsTokenSlidingExpirationEnabledContext(ctx, role) {
+		rd.RDB.Expire(redisCtx, prefix+"a:"+token, expire)
+	}
 	return payload, nil
 }
 

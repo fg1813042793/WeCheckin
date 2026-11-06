@@ -129,6 +129,10 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
   const captchaUnavailable = ref(false)
   const sessionAccessDenied = ref(false)
   const sessionAccessDeniedMessage = ref('无权限访问，请联系管理员配置钉钉 H5 权限')
+  const passwordChangeRequired = ref(false)
+  const passwordExpired = ref(false)
+  const passwordExpiresAt = ref(0)
+  const passwordExpiryWarning = ref(false)
   const bindState = reactive({
     visible: false,
     bindTicket: '',
@@ -142,6 +146,7 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
   let publicConfigRequest: Promise<boolean> | null = null
   let contextCorpId: string | null = null
   let authRevision = 0
+  let passwordExpiryWarningShown = false
   let initRequest: { corpId: string, promise: Promise<void> } | null = null
 
   const isLoggedIn = computed(() => Boolean(user.value))
@@ -245,6 +250,16 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     }
     if (Object.prototype.hasOwnProperty.call(sessionPayload, 'permissionVersion')) {
       permissionVersion.value = Number(sessionPayload.permissionVersion || 0)
+    }
+    if (Object.prototype.hasOwnProperty.call(sessionPayload, 'passwordChangeRequired')) {
+      passwordChangeRequired.value = sessionPayload.passwordChangeRequired === true
+      passwordExpired.value = sessionPayload.passwordExpired === true
+      passwordExpiresAt.value = Number(sessionPayload.passwordExpiresAt || 0)
+      passwordExpiryWarning.value = sessionPayload.passwordExpiryWarning === true
+      if (passwordExpiryWarning.value && !passwordChangeRequired.value && !passwordExpiryWarningShown) {
+        passwordExpiryWarningShown = true
+        uni.showToast({ title: '登录密码即将到期，请及时修改', icon: 'none' })
+      }
     }
     const payloadConfig = sessionPayload.appConfig || {}
     applyAppConfig({
@@ -361,6 +376,11 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     permissionVersion.value = 0
     sessionAccessDenied.value = false
     sessionAccessDeniedMessage.value = '无权限访问，请联系管理员配置钉钉 H5 权限'
+    passwordChangeRequired.value = false
+    passwordExpired.value = false
+    passwordExpiresAt.value = 0
+    passwordExpiryWarning.value = false
+    passwordExpiryWarningShown = false
     captchaEnabled.value = false
     captchaId.value = ''
     captchaImage.value = ''
@@ -644,6 +664,14 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     }
   }
 
+  async function completePasswordChange() {
+    resetSession()
+  }
+
+  uni.$on('password-change-required', () => {
+    passwordChangeRequired.value = true
+  })
+
   return {
     apiPermissionKeys,
     apiPermissionReady,
@@ -676,6 +704,11 @@ export const useDingtalkAuthStore = defineStore('dingtalkAuth', () => {
     navItems,
     normalizedMenus,
     permissionVersion,
+    passwordChangeRequired,
+    passwordExpired,
+    passwordExpiresAt,
+    passwordExpiryWarning,
+    completePasswordChange,
     ready,
     refreshLoginCaptcha,
     resetSession,

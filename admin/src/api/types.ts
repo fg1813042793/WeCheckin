@@ -265,6 +265,10 @@ export interface AdminLoginData {
   pic?: string
   roleId?: number
   roleIds?: number[]
+  passwordChangeRequired?: boolean
+  passwordExpired?: boolean
+  passwordExpiresAt?: number
+  passwordExpiryWarning?: boolean
 }
 
 export interface AdminCaptchaChallenge {
@@ -295,6 +299,7 @@ export interface DingTalkSettings extends DingTalkCorpConfig {
   singleLogin?: number
   selfBind?: number
   loginCaptchaEnabled?: number
+  slidingExpireEnabled?: number
   appName?: string
   logoText?: string
   logoUrl?: string
@@ -447,6 +452,7 @@ export interface ExamItem {
   duration?: number
   passScore?: number
   addTime?: number
+  responseCount?: number
 }
 
 export interface QuestionBankItem {
