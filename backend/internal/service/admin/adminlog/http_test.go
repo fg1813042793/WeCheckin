@@ -19,7 +19,7 @@ import (
 
 func TestAuditHandlersRejectMissingActorWithoutDisclosure(t *testing.T) {
 	h := &mgr.AdminMgrHandler{}
-	for _, handler := range []app.HandlerFunc{h.GetLogList, h.GetLoginLogList, h.ExportLogs, h.ExportLoginLogs, h.GetLogDetail, h.GetLoginLogDetail} {
+	for _, handler := range []app.HandlerFunc{h.GetLogList, h.GetLoginLogList, h.ExportLogs, h.ExportLoginLogs, h.GetLogDetail, h.GetLoginLogDetail, h.DeleteLogs, h.DeleteLoginLogs} {
 		c := app.NewContext(1)
 		c.Params = param.Params{{Key: "id", Value: "1"}}
 		handler(context.Background(), c)
@@ -96,7 +96,7 @@ func TestAuditHandlerLogsInternalErrorsWithoutResponseDisclosure(t *testing.T) {
 	}
 }
 
-func TestAuditHandlersValidateQueryAndRejectDeletion(t *testing.T) {
+func TestAuditHandlersValidateQueryAndRejectUnauthenticatedDeletion(t *testing.T) {
 	h := &mgr.AdminMgrHandler{}
 	c := app.NewContext(0)
 	c.Set("admin", &model.Admin{ID: 7})
@@ -106,8 +106,40 @@ func TestAuditHandlersValidateQueryAndRejectDeletion(t *testing.T) {
 		t.Fatalf("query validation: %s", c.Response.Body())
 	}
 	c = app.NewContext(0)
-	h.ClearLog(context.Background(), c)
-	if !strings.Contains(string(c.Response.Body()), "只读") || strings.Contains(string(c.Response.Body()), `"code":0`) {
+	h.DeleteLogs(context.Background(), c)
+	if !strings.Contains(string(c.Response.Body()), "无权限") || strings.Contains(string(c.Response.Body()), `"code":0`) {
 		t.Fatalf("delete: %s", c.Response.Body())
+	}
+}
+
+func TestAuditDeleteHandlersReturnActualCountAndTargets(t *testing.T) {
+	h := &mgr.AdminMgrHandler{}
+	for _, handler := range []app.HandlerFunc{h.DeleteLogs, h.DeleteLoginLogs} {
+		for _, batch := range []bool{false, true} {
+			ids := []uint{41}
+			if batch {
+				ids = append(ids, 42)
+			}
+			adminlogservice.OpenDeleteHandlerTestDB(t, ids)
+			c := app.NewContext(1)
+			c.Set("admin", &model.Admin{ID: 7})
+			if batch {
+				c.Request.SetBodyString(`{"ids":[41,42]}`)
+			} else {
+				c.Params = param.Params{{Key: "id", Value: "41"}}
+			}
+			ctx, recorder := auditlog.WithRecorder(context.Background())
+			handler(ctx, c)
+			var body struct {
+				Code int
+				Data adminlogservice.DeleteResult
+			}
+			if err := json.Unmarshal(c.Response.Body(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if body.Code != 0 || body.Data.DeletedCount != len(ids) || recorder.Snapshot().AffectedCount != len(ids) || len(recorder.Snapshot().TargetIDs) != len(ids) {
+				t.Fatalf("response=%s audit=%+v", c.Response.Body(), recorder.Snapshot())
+			}
+		}
 	}
 }

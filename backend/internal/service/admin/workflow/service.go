@@ -127,7 +127,7 @@ func GetListForAdminContext(ctx context.Context, keyword, category string, statu
 		return nil, err
 	}
 	var rows []model.WorkflowDefinition
-	if err := query.Order("definition_edit_time DESC, id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error; err != nil {
+	if err := query.Order("definition_add_time DESC, id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	list := make([]DefinitionSummary, 0, len(rows))

@@ -18,6 +18,7 @@ const list = category => query => {
 const { useAuditLogs } = executeTypeScriptModule(read('src/views/log/useAuditLogs.ts'), 'useAuditLogs.ts', {
   vue, 'element-plus': { ElMessageBox: { confirm: () => Promise.reject('unused') } },
   '@/utils/permission': { hasPerm: () => true },
+  '@/utils/request': { showRequestError() {} },
   '@/api': { adminApi: { logList: list('operation'), loginLogList: list('login') } },
   './auditLogHelpers': helpers,
 })

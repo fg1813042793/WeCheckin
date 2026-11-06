@@ -762,12 +762,12 @@ func swaggerV2AdminAuthLogoutPost71() {}
 func swaggerV2AdminLogsGet72() {}
 
 // @Tags API v2-后台管理-日志
-// @Summary 审计日志只读兼容入口（拒绝删除）
-// @Description 不执行删除或清空，始终返回业务失败。
+// @Summary 批量删除操作日志
+// @Description 需要操作日志查看和删除权限；全部目标须在可见范围内，每次1–100条，空请求不执行清空。
 // @Security AdminToken
-// @Accept application/x-www-form-urlencoded
-// @Param ids formData string false "ID 列表，多个值用逗号分隔"
-// @Success 200 {object} response.Resp
+// @Accept json
+// @Param body body adminlogservice.DeleteRequest true "待删除日志 ID"
+// @Success 200 {object} response.Resp{data=adminlogservice.DeleteResult}
 // @Router /api/v2/admin/logs [delete]
 func swaggerV2AdminLogsDelete73() {}
 

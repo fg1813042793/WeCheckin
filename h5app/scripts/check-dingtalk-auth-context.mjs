@@ -114,6 +114,97 @@ function fixture({ cachedCorp, cachedToken = '', runtime = true } = {}) {
   }
 }
 
+function profilePasswordFlow(auth) {
+  const source = readFileSync(new URL('../src/components/app-shell/app-shell.vue', import.meta.url), 'utf8')
+  const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  const parsed = ts.createSourceFile('app-shell.ts', script, ts.ScriptTarget.Latest, true)
+  const submit = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'submitProfileCenter')
+  assert.ok(submit, 'exercise the actual personal-center save function')
+  const code = ts.transpileModule(submit.getText(parsed), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const { ref } = require('vue')
+  const form = ref({ loading: false, uploading: false, avatar: 'same-avatar', currentPassword: 'Old12345', newPassword: 'Fresh12345', confirmPassword: 'Fresh12345' })
+  const calls = { password: 0, closed: 0, messages: [], updated: 0 }
+  const responses = { password: async () => ({ code: 0, data: {} }) }
+  const dependencies = {
+    profileCenterForm: form,
+    currentProfileAvatar: () => 'same-avatar',
+    showProfileToast: message => calls.messages.push(message),
+    authText: () => '密码修改成功，请重新登录',
+    auth,
+    updateProfileInfo: async () => {
+      calls.updated++
+      return { code: 0, data: {} }
+    },
+    mergedProfileUser: () => auth.user,
+    profileUserFromPayload: () => ({}),
+    changeProfilePassword: async () => {
+      calls.password++
+      return responses.password()
+    },
+    resetProfileCenter: () => { calls.closed++ },
+    profileErrorMessage: (_error, fallback) => fallback,
+  }
+  const execute = runInThisContext(`(function({${Object.keys(dependencies).join(',')}}){${code}; return submitProfileCenter})`)(dependencies)
+  return { execute, form, calls, responses }
+}
+
+for (const runtime of [true, false]) {
+  const f = fixture({ runtime })
+  await f.auth.init()
+  if (!f.auth.user)
+    await f.auth.loginWithPassword({ name: 'fixture', password: 'fixture-password' })
+  f.shell.rememberOpenedTab('workflow')
+  const profile = profilePasswordFlow(f.auth)
+  await profile.execute()
+  assert.equal(profile.calls.password, 1)
+  assert.equal(f.auth.user, null, `personal-center password change must show login in runtime=${runtime}`)
+  assert.equal(f.auth.ready, true)
+  assert.equal(f.auth.passwordChangeRequired, false)
+  assert.equal(f.storage.has(config.TOKEN_KEY), false)
+  assert.equal(f.storage.has(config.TOKEN_CORP_ID_KEY), false)
+  assert.deepEqual(f.shell.openedTabKeys, [])
+  assert.deepEqual(profile.calls.messages, ['密码修改成功，请重新登录'])
+  const previousSSO = f.calls.sso.length
+  await f.auth.syncCorpContext()
+  await f.auth.syncCorpContext()
+  assert.equal(f.auth.user, null, 'focus/show must keep the login panel visible after changing password')
+  assert.equal(f.calls.sso.length, previousSSO, 'focus/show must not automatically sign back in')
+  if (runtime) {
+    await f.auth.retryDingTalkLogin()
+    assert.ok(f.auth.user, 'explicit DingTalk login remains available')
+  }
+}
+
+{
+  const f = fixture()
+  await f.auth.init()
+  const profile = profilePasswordFlow(f.auth)
+  profile.responses.password = async () => false
+  await profile.execute()
+  assert.ok(f.auth.user, 'a rejected password change must retain the current session')
+  assert.equal(profile.calls.closed, 0, 'interceptor-handled failures must leave the dialog open')
+  assert.deepEqual(profile.calls.messages, [], 'must not announce success for a false API response')
+  const pending = deferred()
+  profile.responses.password = () => pending.promise
+  const saving = profile.execute()
+  await profile.execute()
+  assert.equal(profile.calls.password, 2, 'pending save must not submit twice')
+  pending.resolve({ code: 0 })
+  await saving
+  assert.equal(f.auth.user, null)
+}
+
+{
+  const f = fixture()
+  await f.auth.init()
+  const profile = profilePasswordFlow(f.auth)
+  Object.assign(profile.form.value, { avatar: 'new-avatar', currentPassword: '', newPassword: '', confirmPassword: '' })
+  await profile.execute()
+  assert.ok(f.auth.user, 'avatar-only saves must keep the user logged in')
+  assert.equal(profile.calls.password, 0)
+  assert.equal(profile.calls.updated, 1)
+}
+
 {
   const f = fixture()
   await f.auth.init()

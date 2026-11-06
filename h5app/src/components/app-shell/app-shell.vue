@@ -44,6 +44,7 @@ const shell = useAppShellStore()
 const appContent = useAppContentStore()
 const auth = useDingtalkAuthStore()
 const { t } = useLocale('appShell.unsavedNavigation')
+const { t: authText } = useLocale('auth')
 const profileOpen = ref(false)
 const topMenuOpenKey = ref('')
 const mobileShell = ref(resolveMobileShell())
@@ -732,12 +733,18 @@ async function submitProfileCenter() {
       auth.updateCurrentUser(mergedProfileUser(profileUserFromPayload(res), avatar))
     }
     if (passwordChanging) {
-      await changeProfilePassword({
+      const result = await changeProfilePassword({
         currentPassword,
         oldPassword: currentPassword,
         newPassword,
         confirmPassword,
       })
+      if (!result)
+        return
+      resetProfileCenter()
+      await auth.completePasswordChange()
+      showProfileToast(authText('passwordChanged'))
+      return
     }
     resetProfileCenter()
     showProfileToast('个人信息已保存')

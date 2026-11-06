@@ -12,7 +12,7 @@ var _ response.Resp
 
 // @Tags API v2-后台管理-日志
 // @Summary 查看操作审计详情
-// @Description 登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。
+// @Description 登录日志需 log:security，导出还需对应 log:export 或 log:security-export。删除需额外授予 log:delete 或 log:security-delete。
 // @Description snapshotStatus/snapshotReason独立表示快照采集状态与原因；历史记录默认legacy_unknown。明确白名单的普通配置可返回真实标量，敏感值保持脱敏。
 // @Security AdminToken
 // @Param id path int true "日志 ID"

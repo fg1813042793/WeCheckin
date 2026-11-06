@@ -5690,6 +5690,52 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要登录日志查看和删除权限；每次1–100个不重复正整数ID，目标必须全部存在且属于登录日志。",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "批量删除登录日志",
+                "parameters": [
+                    {
+                        "description": "待删除日志 ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/adminlog.DeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.DeleteResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
             }
         },
         "/api/v2/admin/login-logs/export": {
@@ -5850,6 +5896,47 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要登录日志查看和删除权限，目标必须属于登录日志。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "删除单条登录日志",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "日志ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.DeleteResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
             }
         },
         "/api/v2/admin/logs": {
@@ -5973,27 +6060,42 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
-                "description": "不执行删除或清空，始终返回业务失败。",
+                "description": "需要操作日志查看和删除权限；全部目标须在可见范围内，每次1–100条，空请求不执行清空。",
                 "consumes": [
-                    "application/x-www-form-urlencoded"
+                    "application/json"
                 ],
                 "tags": [
                     "API v2-后台管理-日志"
                 ],
-                "summary": "审计日志只读兼容入口（拒绝删除）",
+                "summary": "批量删除操作日志",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "ID 列表，多个值用逗号分隔",
-                        "name": "ids",
-                        "in": "formData"
+                        "description": "待删除日志 ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/adminlog.DeleteRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Resp"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.DeleteResult"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -6123,7 +6225,7 @@ const docTemplate = `{
                         "AdminToken": []
                     }
                 ],
-                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。\nsnapshotStatus/snapshotReason独立表示快照采集状态与原因；历史记录默认legacy_unknown。明确白名单的普通配置可返回真实标量，敏感值保持脱敏。",
+                "description": "登录日志需 log:security，导出还需对应 log:export 或 log:security-export。删除需额外授予 log:delete 或 log:security-delete。\nsnapshotStatus/snapshotReason独立表示快照采集状态与原因；历史记录默认legacy_unknown。明确白名单的普通配置可返回真实标量，敏感值保持脱敏。",
                 "tags": [
                     "API v2-后台管理-日志"
                 ],
@@ -6150,6 +6252,47 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/admin.Log"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "需要操作日志查看和删除权限，目标须在当前管理员的数据范围内。",
+                "tags": [
+                    "API v2-后台管理-日志"
+                ],
+                "summary": "删除单条操作日志",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "日志ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Resp"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/adminlog.DeleteResult"
                                         }
                                     }
                                 }
@@ -19374,6 +19517,25 @@ const docTemplate = `{
                 },
                 "imageData": {
                     "type": "string"
+                }
+            }
+        },
+        "adminlog.DeleteRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "adminlog.DeleteResult": {
+            "type": "object",
+            "properties": {
+                "deletedCount": {
+                    "type": "integer"
                 }
             }
         },

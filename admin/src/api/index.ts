@@ -279,6 +279,18 @@ export const adminApi = {
   logDetail(id: ID) {
     return request.get<import('../types/auditLog').AuditLogRecord>(`${ADMIN_V2}/logs/${encodePath(id)}`)
   },
+  logDelete(id: ID) {
+    return request.delete<import('../types/auditLog').AuditLogDeleteResult>(`${ADMIN_V2}/logs/${encodePath(id)}`)
+  },
+  logDeleteBatch(ids: number[]) {
+    return request.delete<import('../types/auditLog').AuditLogDeleteResult>(`${ADMIN_V2}/logs`, { ...jsonConfig, data: { ids } })
+  },
+  loginLogDelete(id: ID) {
+    return request.delete<import('../types/auditLog').AuditLogDeleteResult>(`${ADMIN_V2}/login-logs/${encodePath(id)}`)
+  },
+  loginLogDeleteBatch(ids: number[]) {
+    return request.delete<import('../types/auditLog').AuditLogDeleteResult>(`${ADMIN_V2}/login-logs`, { ...jsonConfig, data: { ids } })
+  },
   logExport(params: import('../types/auditLog').AuditLogQuery) {
     return request.get<import('../types/auditLog').AuditLogPage>(`${ADMIN_V2}/logs/export`, { params })
   },

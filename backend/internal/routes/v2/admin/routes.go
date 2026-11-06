@@ -272,7 +272,10 @@ func registerBaseRoutes(admin *route.RouterGroup, aMgr *adminmgr.AdminMgrHandler
 	admin.GET("/login-logs", aMgr.GetLoginLogList)
 	admin.GET("/login-logs/export", aMgr.ExportLoginLogs)
 	admin.GET("/login-logs/:id", aMgr.GetLoginLogDetail)
-	admin.DELETE("/logs", aMgr.ClearLog)
+	admin.DELETE("/logs", aMgr.DeleteLogs)
+	admin.DELETE("/logs/:id", aMgr.DeleteLogs)
+	admin.DELETE("/login-logs", aMgr.DeleteLoginLogs)
+	admin.DELETE("/login-logs/:id", aMgr.DeleteLoginLogs)
 
 	admin.PUT("/settings", aSetup.SetSetup)
 	admin.GET("/settings/content", aSetup.GetContentSetup)

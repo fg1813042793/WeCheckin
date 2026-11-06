@@ -109,6 +109,7 @@
     "jumpFailed": "Navigation failed"
   },
   "auth": {
+    "passwordChanged": "Password changed. Please sign in again.",
     "dingtalk": {
       "sessionChanged": "Your sign-in session has changed. Please try again.",
       "retry": "Sign in with DingTalk again",

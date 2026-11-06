@@ -24,6 +24,7 @@
       </div>
 
       <el-table v-loading="loading" :data="list" stripe>
+        <el-table-column prop="id" label="ID" width="90" show-overflow-tooltip />
         <el-table-column prop="name" label="管理名称" min-width="300">
           <template #default="{ row }">
             <div class="workflow-name">

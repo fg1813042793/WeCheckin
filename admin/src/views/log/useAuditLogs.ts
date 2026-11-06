@@ -1,7 +1,8 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '@/api'
 import { hasPerm } from '@/utils/permission'
+import { showRequestError } from '@/utils/request'
 import type { AuditLogCategory, AuditLogQuery, AuditLogRecord } from '@/types/auditLog'
 import { auditCsv, buildAuditQuery, createRequestGate, emptyAuditFilters, EXPORT_LIMIT, exportSummary } from './auditLogHelpers'
 
@@ -11,6 +12,10 @@ export function useAuditLogs() {
   const category = ref<AuditLogCategory>(canReadOperations.value ? 'operation' : 'login')
   const canRead = computed(() => category.value === 'login' ? canReadLogin.value : canReadOperations.value)
   const canExport = computed(() => canRead.value && hasPerm(category.value === 'login' ? 'admin:menu:log:security-export' : 'admin:menu:log:export'))
+  const canDelete = computed(() => canRead.value && hasPerm(category.value === 'login' ? 'admin:menu:log:security-delete' : 'admin:menu:log:delete'))
+  const selectedRows = ref<AuditLogRecord[]>([])
+  const selectionVersion = ref(0)
+  const deleting = ref(false)
   const filters = reactive(emptyAuditFilters())
   const rows = ref<AuditLogRecord[]>([])
   const total = ref(0)
@@ -32,6 +37,12 @@ export function useAuditLogs() {
   const listGate = createRequestGate()
   const detailGate = createRequestGate()
   const exportGate = createRequestGate()
+  const deleteGate = createRequestGate()
+
+  function clearSelection() { selectedRows.value = []; selectionVersion.value++ }
+  function selectRows(selected: AuditLogRecord[]) {
+    if (!deleting.value) selectedRows.value = selected.filter(row => rows.value.some(item => item.id === row.id))
+  }
 
   function closeDetail() {
     detailGate.invalidate()
@@ -42,6 +53,8 @@ export function useAuditLogs() {
   }
 
   function invalidate() {
+    deleteGate.invalidate()
+    clearSelection()
     listGate.invalidate()
     exportGate.invalidate()
     closeDetail()
@@ -56,6 +69,8 @@ export function useAuditLogs() {
   }
 
   async function load() {
+    deleteGate.invalidate()
+    clearSelection()
     exportGate.invalidate()
     closeDetail()
     exporting.value = false
@@ -83,6 +98,8 @@ export function useAuditLogs() {
       if (!listGate.isCurrent(ticket)) return
       const data = response.data
       if (!Array.isArray(data?.list) || !Number.isSafeInteger(data.total) || data.total < data.list.length) throw new Error('Invalid log list')
+      const lastPage = Math.max(1, Math.ceil(data.total / pageSize.value))
+      if (page.value > lastPage) { page.value = lastPage; await load(); return }
       rows.value = data.list
       total.value = data.total
       appliedQuery = query
@@ -124,6 +141,37 @@ export function useAuditLogs() {
   }
 
   function retryDetail() { if (detailId !== null) return showDetail({ id: detailId }) }
+
+  async function deleteRows(targets: Pick<AuditLogRecord, 'id'>[]) {
+    if (!canDelete.value || deleting.value || loading.value || dirty.value || !appliedQuery || targets.length === 0) return
+    const ids = targets.map(row => Number(row.id))
+    if (ids.length > 100 || new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0) ||
+      targets.some(row => !rows.value.some(item => item.id === row.id))) return
+    const ticket = deleteGate.next()
+    const target = category.value
+    const label = target === 'login' ? '登录日志' : '操作日志'
+    deleting.value = true
+    try {
+      try {
+        await ElMessageBox.confirm(`确定删除选中的 ${ids.length} 条${label}？删除后无法恢复。`, '删除日志', {
+          type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消', closeOnClickModal: false,
+        })
+      } catch { return }
+      if (!deleteGate.isCurrent(ticket) || !canDelete.value || target !== category.value) return
+      const response = await (ids.length === 1
+        ? target === 'login' ? adminApi.loginLogDelete(ids[0]!) : adminApi.logDelete(ids[0]!)
+        : target === 'login' ? adminApi.loginLogDeleteBatch(ids) : adminApi.logDeleteBatch(ids))
+      if (!deleteGate.isCurrent(ticket)) return
+      if (response.data?.deletedCount !== ids.length) throw new Error('Invalid deleted count')
+      ElMessage.success(`已删除 ${response.data.deletedCount} 条${label}`)
+      page.value = Math.min(page.value, Math.max(1, Math.ceil((total.value - ids.length) / pageSize.value)))
+      await load()
+    } catch (cause) {
+      if (deleteGate.isCurrent(ticket)) showRequestError(cause, '删除日志失败，请重试')
+    } finally {
+      deleting.value = false
+    }
+  }
 
   async function exportData() {
     if (!canExport.value || exporting.value || loading.value || dirty.value || !appliedQuery) return
@@ -171,7 +219,7 @@ export function useAuditLogs() {
   onActivated(() => { if (suspended) { suspended = false; void load() } })
   onBeforeUnmount(invalidate)
 
-  return { category, canReadOperations, canReadLogin, canRead, canExport, filters, rows, total, page, pageSize,
+  return { category, canReadOperations, canReadLogin, canRead, canExport, canDelete, selectedRows, selectionVersion, deleting, selectRows, deleteRows, filters, rows, total, page, pageSize,
     loading, dirty, error, filterError, exporting, exportNotice, detailOpen, detail, detailLoading, detailError,
     load, search, reset, changePage, changeSize, showDetail, retryDetail, exportData }
 }

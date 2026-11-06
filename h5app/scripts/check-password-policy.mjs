@@ -27,6 +27,8 @@ assert.ok(
   'H5 auth guard must prioritize forced password change over unauthenticated panels',
 )
 const panel = read('src/components/password-change-panel/password-change-panel.vue')
+const shell = read('src/components/app-shell/app-shell.vue')
+assert.ok(shell.includes('await auth.completePasswordChange()'), 'personal-center password changes must clear the same revoked session as forced changes')
 for (const snippet of ['当前密码', '新密码', '确认新密码', 'changePassword', 'emit(\'completed\')']) {
   assert.ok(panel.includes(snippet), `H5 forced password panel missing ${snippet}`)
 }

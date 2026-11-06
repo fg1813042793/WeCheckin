@@ -109,6 +109,7 @@
     "jumpFailed": "跳转失败"
   },
   "auth": {
+    "passwordChanged": "密码修改成功，请重新登录",
     "dingtalk": {
       "sessionChanged": "登录状态已变化，请重新操作",
       "retry": "钉钉重新登录",

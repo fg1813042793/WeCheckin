@@ -29,6 +29,9 @@ type auditDBFixture struct {
 	writeHasDeadline                                                           bool
 	scopeAll                                                                   bool
 	emptyPage                                                                  bool
+	deleteIDs                                                                  []uint
+	deleteFailure                                                              bool
+	commits, rollbacks                                                         int
 }
 
 type auditConnector struct{ fixture *auditDBFixture }
@@ -46,12 +49,12 @@ type auditConn struct{ fixture *auditDBFixture }
 
 func (*auditConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("unexpected prepare") }
 func (*auditConn) Close() error                        { return nil }
-func (*auditConn) Begin() (driver.Tx, error)           { return auditTx{}, nil }
+func (c *auditConn) Begin() (driver.Tx, error)         { return auditTx{fixture: c.fixture}, nil }
 
-type auditTx struct{}
+type auditTx struct{ fixture *auditDBFixture }
 
-func (auditTx) Commit() error   { return nil }
-func (auditTx) Rollback() error { return nil }
+func (tx auditTx) Commit() error   { tx.fixture.commits++; return nil }
+func (tx auditTx) Rollback() error { tx.fixture.rollbacks++; return nil }
 
 type auditRows struct {
 	columns []string
@@ -144,6 +147,13 @@ func (c *auditConn) QueryContext(ctx context.Context, query string, args []drive
 	case strings.Contains(query, "FROM `logs`"):
 		f.logQueries = append(f.logQueries, query)
 		f.logArgs = append(f.logArgs, append([]driver.NamedValue(nil), args...))
+		if strings.Contains(query, "FOR UPDATE") {
+			var rows [][]driver.Value
+			for _, id := range f.deleteIDs {
+				rows = append(rows, []driver.Value{int64(id)})
+			}
+			return testRows([]string{"id"}, rows...), nil
+		}
 		if strings.Contains(query, "count(*)") {
 			if f.countFailure {
 				return nil, errors.New("count failed")
@@ -185,6 +195,12 @@ func (c *auditConn) ExecContext(ctx context.Context, query string, args []driver
 	c.fixture.writes = append(c.fixture.writes, query)
 	_, c.fixture.writeHasDeadline = ctx.Deadline()
 	c.fixture.writeArgs = append(c.fixture.writeArgs, append([]driver.NamedValue(nil), args...))
+	if strings.HasPrefix(query, "DELETE FROM `logs`") {
+		if c.fixture.deleteFailure {
+			return nil, errors.New("delete failed")
+		}
+		return driver.RowsAffected(len(c.fixture.deleteIDs)), nil
+	}
 	if !strings.HasPrefix(query, "INSERT INTO `logs`") {
 		return nil, fmt.Errorf("unexpected write: %s", query)
 	}
@@ -219,4 +235,8 @@ func openAuditTestDB(t *testing.T, f *auditDBFixture) *gorm.DB {
 // OpenHandlerTestDB exposes the existing SQL fixture to external handler tests only.
 func OpenHandlerTestDB(t *testing.T, failure string, empty bool) {
 	openAuditTestDB(t, &auditDBFixture{super: true, countFailure: failure == "count", actorFailure: failure == "actor", emptyPage: empty})
+}
+
+func OpenDeleteHandlerTestDB(t *testing.T, ids []uint) {
+	openAuditTestDB(t, &auditDBFixture{super: true, deleteIDs: ids})
 }

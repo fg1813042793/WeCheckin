@@ -153,6 +153,18 @@ definitions:
       imageData:
         type: string
     type: object
+  adminlog.DeleteRequest:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  adminlog.DeleteResult:
+    properties:
+      deletedCount:
+        type: integer
+    type: object
   adminlog.Page:
     properties:
       list:
@@ -6969,6 +6981,32 @@ paths:
       tags:
       - API v2-后台管理-站内信
   /api/v2/admin/login-logs:
+    delete:
+      consumes:
+      - application/json
+      description: 需要登录日志查看和删除权限；每次1–100个不重复正整数ID，目标必须全部存在且属于登录日志。
+      parameters:
+      - description: 待删除日志 ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/adminlog.DeleteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/adminlog.DeleteResult'
+              type: object
+      security:
+      - AdminToken: []
+      summary: 批量删除登录日志
+      tags:
+      - API v2-后台管理-日志
     get:
       description: 登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。
       parameters:
@@ -7045,6 +7083,29 @@ paths:
       tags:
       - API v2-后台管理-日志
   /api/v2/admin/login-logs/{id}:
+    delete:
+      description: 需要登录日志查看和删除权限，目标必须属于登录日志。
+      parameters:
+      - description: 日志ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/adminlog.DeleteResult'
+              type: object
+      security:
+      - AdminToken: []
+      summary: 删除单条登录日志
+      tags:
+      - API v2-后台管理-日志
     get:
       description: 登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。
       parameters:
@@ -7147,21 +7208,28 @@ paths:
   /api/v2/admin/logs:
     delete:
       consumes:
-      - application/x-www-form-urlencoded
-      description: 不执行删除或清空，始终返回业务失败。
+      - application/json
+      description: 需要操作日志查看和删除权限；全部目标须在可见范围内，每次1–100条，空请求不执行清空。
       parameters:
-      - description: ID 列表，多个值用逗号分隔
-        in: formData
-        name: ids
-        type: string
+      - description: 待删除日志 ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/adminlog.DeleteRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Resp'
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/adminlog.DeleteResult'
+              type: object
       security:
       - AdminToken: []
-      summary: 审计日志只读兼容入口（拒绝删除）
+      summary: 批量删除操作日志
       tags:
       - API v2-后台管理-日志
     get:
@@ -7239,9 +7307,32 @@ paths:
       tags:
       - API v2-后台管理-日志
   /api/v2/admin/logs/{id}:
+    delete:
+      description: 需要操作日志查看和删除权限，目标须在当前管理员的数据范围内。
+      parameters:
+      - description: 日志ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Resp'
+            - properties:
+                data:
+                  $ref: '#/definitions/adminlog.DeleteResult'
+              type: object
+      security:
+      - AdminToken: []
+      summary: 删除单条操作日志
+      tags:
+      - API v2-后台管理-日志
     get:
       description: |-
-        登录日志需 log:security，导出还需对应 log:export 或 log:security-export。拒绝越权查询；不提供删除能力。
+        登录日志需 log:security，导出还需对应 log:export 或 log:security-export。删除需额外授予 log:delete 或 log:security-delete。
         snapshotStatus/snapshotReason独立表示快照采集状态与原因；历史记录默认legacy_unknown。明确白名单的普通配置可返回真实标量，敏感值保持脱敏。
       parameters:
       - description: 日志 ID

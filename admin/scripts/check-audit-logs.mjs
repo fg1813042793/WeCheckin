@@ -106,10 +106,13 @@ assert.equal(rendered, 'new')
 gate.invalidate()
 assert.equal(gate.isCurrent(newTicket), false)
 
-// Exercise the actual API wrappers: every audit endpoint is read-only with unchanged filters.
+// Exercise read wrappers with unchanged filters and delete wrappers with explicit targets.
 const calls = []
 const api = executeTypeScriptModule(read('src/api/index.ts'), 'api/index.ts', {
-  '../utils/request': { get: (url, config) => { calls.push({ url, config }); return Promise.resolve({ code: 0, data: {} }) } },
+  '../utils/request': {
+    get: (url, config) => { calls.push({ url, config }); return Promise.resolve({ code: 0, data: {} }) },
+    delete: (url, config) => { calls.push({ url, config }); return Promise.resolve({ code: 0, data: {} }) },
+  },
 }).adminApi
 await api.logList(query)
 await api.loginLogList(query)
@@ -124,6 +127,16 @@ assert.deepEqual(calls.map(call => call.url), [
 for (const index of [0, 1, 4, 5]) assert.equal(calls[index].config.params, query)
 assert.equal(api.logClear, undefined)
 assert.equal(api.logDels, undefined)
+await api.logDelete('a/b')
+await api.loginLogDelete(51)
+await api.logDeleteBatch([41,42])
+await api.loginLogDeleteBatch([51,52])
+assert.deepEqual(calls.slice(6).map(call => call.url), ['/api/v2/admin/logs/a%2Fb', '/api/v2/admin/login-logs/51', '/api/v2/admin/logs', '/api/v2/admin/login-logs'])
+assert.equal(calls[6].config, undefined)
+for (const [index, ids] of [[8,[41,42]], [9,[51,52]]]) {
+  assert.equal(calls[index].config.headers['Content-Type'], 'application/json')
+  assert.equal(calls[index].config.transformRequest[0](calls[index].config.data), JSON.stringify({ids}))
+}
 
 const page = read('src/views/log/index.vue')
 const state = read('src/views/log/useAuditLogs.ts')
@@ -143,7 +156,10 @@ assert.match(filterView, /<\/el-form>\s*<div class="audit-log-actions">/)
 assert.match(filterView, /class="audit-log-actions__left">\s*<el-button[^>]*\btext\b[^>]*>导出<\/el-button>/)
 assert.match(filterView, /<el-tooltip content="刷新日志"[\s\S]*?<el-button[^>]*:icon="Refresh"[^>]*aria-label="刷新日志"[^>]*\/>/)
 assert.equal((filterView.match(/<el-card\b/g) || []).length, 1, 'toolbar must use one outer card')
-assert.doesNotMatch(page, /type="selection"|logClear|logDels|批量删除|清空日志/)
+assert.match(page, /type="selection"/)
+assert.match(page, /批量删除/)
+assert.match(page, /deleteRows\(\[row\]\)/)
+assert.doesNotMatch(page, /logClear|清空日志/)
 assert.match(page, /<\/AdminTablePanel>\s*<div class="audit-pagination">/, 'pagination must be a standalone sibling below the table panel')
 assert.doesNotMatch(page + detail, /v-html/)
 assert.match(detail, /变更快照/)
@@ -162,8 +178,9 @@ function harness(permissions) {
   const queue = name => (...args) => new Promise((resolve, reject) => requests.push({ name, args, resolve, reject }))
   const module = executeTypeScriptModule(state, 'useAuditLogs.ts', {
     vue: { ...vue, onMounted: fn => { hooks.mount = fn }, onBeforeUnmount: fn => { hooks.unmount = fn }, onActivated: fn => { hooks.activate = fn }, onDeactivated: fn => { hooks.deactivate = fn } },
-    'element-plus': { ElMessageBox: { confirm: (...args) => new Promise((resolve, reject) => confirmations.push({ args, resolve, reject })) } },
-    '@/api': { adminApi: Object.fromEntries(['logList', 'loginLogList', 'logDetail', 'loginLogDetail', 'logExport', 'loginLogExport'].map(name => [name, queue(name)])) },
+    'element-plus': { ElMessage: { success() {} }, ElMessageBox: { confirm: (...args) => new Promise((resolve, reject) => confirmations.push({ args, resolve, reject })) } },
+    '@/api': { adminApi: Object.fromEntries(['logList', 'loginLogList', 'logDetail', 'loginLogDetail', 'logExport', 'loginLogExport', 'logDelete', 'logDeleteBatch', 'loginLogDelete', 'loginLogDeleteBatch'].map(name => [name, queue(name)])) },
+    '@/utils/request': { showRequestError() {} },
     '@/utils/permission': { hasPerm: key => permissions.includes(key) },
     './auditLogHelpers': helpers,
   })
@@ -176,6 +193,8 @@ const settle = async () => { await Promise.resolve(); await vue.nextTick() }
 const restricted = harness(['admin:menu:log:list'])
 assert.equal(restricted.controller.canReadLogin.value, false)
 assert.equal(restricted.controller.canExport.value, false)
+assert.equal(restricted.controller.canDelete.value, false)
+await restricted.controller.deleteRows([{id:1}])
 await restricted.controller.exportData()
 assert.equal(restricted.requests.length, 0)
 restricted.controller.category.value = 'login'
@@ -263,3 +282,76 @@ assert.equal(paginationController.page.value, 2)
 assert.equal(paginationController.rows.value[0].id, 'page-2')
 pagination.stop()
 console.log('audit log controller permission, list/detail/export cancellation, retry and cached-route lifecycle checks passed')
+
+for (const category of ['operation', 'login']) {
+  const readKey = category === 'login' ? 'security' : 'list'
+  const deleteKey = category === 'login' ? 'security-delete' : 'delete'
+  const h = harness([`admin:menu:log:${readKey}`, `admin:menu:log:${deleteKey}`])
+  const c = h.controller
+  const mounted = h.hooks.mount()
+  h.requests[0].resolve(pageResult(41, {list:[{id:41},{id:42}],total:2}))
+  await mounted
+  c.selectRows(c.rows.value)
+  assert.equal(c.selectedRows.value.length, 2)
+  const canceled = c.deleteRows(c.selectedRows.value)
+  h.confirmations[0].reject('cancel')
+  await canceled
+  assert.equal(h.requests.length, 1)
+  const deleting = c.deleteRows(c.selectedRows.value)
+  await c.deleteRows(c.selectedRows.value)
+  assert.equal(h.confirmations.length, 2, 'duplicate clicks must not open another confirmation')
+  h.confirmations[1].resolve()
+  await settle()
+  assert.equal(h.requests[1].name, category === 'login' ? 'loginLogDeleteBatch' : 'logDeleteBatch')
+  assert.deepEqual(h.requests[1].args, [[41,42]])
+  h.requests[1].reject(new Error('delete failed'))
+  await deleting
+  assert.equal(c.selectedRows.value.length, 2, 'retain selection after failure for retry')
+  assert.equal(c.deleting.value, false)
+  const retry = c.deleteRows(c.selectedRows.value)
+  h.confirmations[2].resolve()
+  await settle()
+  h.requests[2].resolve({code:0,data:{deletedCount:2}})
+  await settle()
+  h.requests[3].resolve(pageResult(0,{list:[],total:0}))
+  await retry
+  assert.equal(c.rows.value.length, 0)
+  assert.equal(c.selectedRows.value.length, 0)
+  h.stop()
+}
+
+const staleDelete = harness(['admin:menu:log:list','admin:menu:log:delete'])
+const sd = staleDelete.controller
+const sdLoad = staleDelete.hooks.mount()
+staleDelete.requests[0].resolve(pageResult(41))
+await sdLoad
+const pendingDelete = sd.deleteRows([{id:41}])
+sd.filters.search = 'changed'
+staleDelete.confirmations[0].resolve()
+await pendingDelete
+assert.equal(staleDelete.requests.length, 1, 'stale confirmation must not send deletion')
+assert.equal(sd.deleting.value, false)
+staleDelete.stop()
+console.log('audit deletion controller passed: category isolation, cancel, retries, duplicate prevention and stale confirmation')
+
+const lastPageDelete = harness(['admin:menu:log:list','admin:menu:log:delete'])
+const lp = lastPageDelete.controller
+const lpLoad = lastPageDelete.hooks.mount()
+lastPageDelete.requests[0].resolve(pageResult(1,{total:21}))
+await lpLoad
+lp.selectRows(lp.rows.value)
+lp.changePage(2)
+assert.equal(lp.selectedRows.value.length,0,'changing pages must clear selection')
+lastPageDelete.requests[1].resolve(pageResult(21,{total:21,page:2}))
+await settle()
+const lastDelete = lp.deleteRows([{id:21}])
+lastPageDelete.confirmations[0].resolve()
+await settle()
+assert.equal(lastPageDelete.requests[2].name,'logDelete')
+lastPageDelete.requests[2].resolve({code:0,data:{deletedCount:1}})
+await settle()
+assert.equal(lastPageDelete.requests[3].args[0].page,1,'deleting last page must return to a valid page')
+lastPageDelete.requests[3].resolve(pageResult(1,{total:20}))
+await lastDelete
+assert.equal(lp.page.value,1)
+lastPageDelete.stop()

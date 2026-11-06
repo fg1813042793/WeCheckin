@@ -28,7 +28,8 @@ var routeMethodPerms = map[string]string{
 	"GET /api/v2/admin/logs/export":                         "log:export",
 	"GET /api/v2/admin/login-logs":                          "log:security",
 	"GET /api/v2/admin/login-logs/export":                   "log:security-export",
-	"DELETE /api/v2/admin/logs":                             "log:del",
+	"DELETE /api/v2/admin/logs":                             "log:delete",
+	"DELETE /api/v2/admin/login-logs":                       "log:security-delete",
 
 	"PUT /api/v2/admin/settings":                             "setup:edit",
 	"GET /api/v2/admin/settings/content":                     "setup:list",
@@ -177,6 +178,8 @@ var routeMethodPermPatterns = []routeMethodPerm{
 	{method: "DELETE", path: "/api/v2/admin/public-portal/items/:id", perm: "public-portal:edit"},
 	{method: "GET", path: "/api/v2/admin/logs/:id", perm: "log:list"},
 	{method: "GET", path: "/api/v2/admin/login-logs/:id", perm: "log:security"},
+	{method: "DELETE", path: "/api/v2/admin/logs/:id", perm: "log:delete"},
+	{method: "DELETE", path: "/api/v2/admin/login-logs/:id", perm: "log:security-delete"},
 	{method: "GET", path: "/api/v2/admin/managers/:id", perm: "mgr:list"},
 	{method: "PUT", path: "/api/v2/admin/managers/:id", perm: "mgr:edit"},
 	{method: "DELETE", path: "/api/v2/admin/managers/:id", perm: "mgr:del"},

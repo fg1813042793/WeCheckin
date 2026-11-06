@@ -3,6 +3,7 @@ package adminlog
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"gorm.io/gorm"
 	"wecheckin/backend/internal/model"
@@ -12,6 +13,10 @@ import (
 )
 
 func visibleQueryContext(ctx context.Context, db *gorm.DB, category string, adminID uint, export bool) (*gorm.DB, error) {
+	return authorizedQueryContext(ctx, db, category, adminID, export, false)
+}
+
+func authorizedQueryContext(ctx context.Context, db *gorm.DB, category string, adminID uint, export, deleting bool) (*gorm.DB, error) {
 	if !oneOf(category, CategoryOperation, CategoryLogin) {
 		return nil, invalid("category", "不支持的日志类型")
 	}
@@ -48,6 +53,13 @@ func visibleQueryContext(ctx context.Context, db *gorm.DB, category string, admi
 		return nil, err
 	}
 	if !ready || !hasReadPermissions(keys, category, export) {
+		return nil, ErrForbidden
+	}
+	deleteKey := "log:delete"
+	if category == CategoryLogin {
+		deleteKey = "log:security-delete"
+	}
+	if deleting && !slices.Contains(keys, permissionsupport.AdminAPIPermissionKey(deleteKey)) {
 		return nil, ErrForbidden
 	}
 	if category == CategoryOperation {

@@ -4,13 +4,13 @@ import { AdminFilterActions } from '@/components/admin-ui'
 import type { AuditLogFilters } from '@/types/auditLog'
 import { actionOptions, moduleOptions, outcomeOptions, sourceOptions } from './auditLogHelpers'
 
-defineProps<{ filters: AuditLogFilters; canExport: boolean; exportDisabled: boolean; exporting: boolean; loading: boolean }>()
+defineProps<{ filters: AuditLogFilters; canExport: boolean; exportDisabled: boolean; exporting: boolean; loading: boolean; deleting: boolean }>()
 defineEmits<{ search: []; reset: []; refresh: []; export: [] }>()
 </script>
 
 <template>
   <el-card class="audit-search-card" shadow="never">
-    <el-form @submit.prevent="$emit('search')">
+    <el-form :disabled="deleting" @submit.prevent="$emit('search')">
       <div class="audit-filter-row audit-filter-row--primary">
         <el-form-item>
           <el-input v-model="filters.search" aria-label="账号 / 关键词" placeholder="账号、内容、请求 ID" clearable maxlength="200" @keyup.enter="$emit('search')" />
@@ -55,7 +55,7 @@ defineEmits<{ search: []; reset: []; refresh: []; export: [] }>()
       </div>
       <el-tooltip content="刷新日志" placement="top">
         <span class="audit-log-actions__refresh">
-          <el-button text :icon="Refresh" :disabled="loading" aria-label="刷新日志" @click="$emit('refresh')" />
+          <el-button text :icon="Refresh" :disabled="loading || deleting" aria-label="刷新日志" @click="$emit('refresh')" />
         </span>
       </el-tooltip>
     </div>

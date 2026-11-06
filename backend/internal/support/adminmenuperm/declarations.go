@@ -90,6 +90,8 @@ func Declarations(enableExam bool) []Declaration {
 		{Key: "admin:menu:log:security", Name: "登录安全日志", Perms: "log:security", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:log"},
 		{Key: "admin:menu:log:export", Name: "操作审计导出", Perms: "log:export", Sort: 4, Type: TypeButton, ParentKey: "admin:menu:log"},
 		{Key: "admin:menu:log:security-export", Name: "登录安全日志导出", Perms: "log:security-export", Sort: 5, Type: TypeButton, ParentKey: "admin:menu:log"},
+		{Key: "admin:menu:log:delete", Name: "删除操作日志", Perms: "log:delete", Sort: 6, Type: TypeButton, ParentKey: "admin:menu:log"},
+		{Key: "admin:menu:log:security-delete", Name: "删除登录日志", Perms: "log:security-delete", Sort: 7, Type: TypeButton, ParentKey: "admin:menu:log"},
 		{Key: "admin:menu:dict:list", Name: "字典列表", Perms: "dict:list", Sort: 1, Type: TypeButton, ParentKey: "admin:menu:dict"},
 		{Key: "admin:menu:dict:add", Name: "字典新增", Perms: "dict:add", Sort: 2, Type: TypeButton, ParentKey: "admin:menu:dict"},
 		{Key: "admin:menu:dict:edit", Name: "字典编辑", Perms: "dict:edit", Sort: 3, Type: TypeButton, ParentKey: "admin:menu:dict"},

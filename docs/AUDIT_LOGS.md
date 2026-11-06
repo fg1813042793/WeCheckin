@@ -67,11 +67,16 @@
 | `GET /api/v2/admin/login-logs`、`/login-logs/{id}` | `admin:api:log:security` | 独立安全日志授权，包含匿名失败尝试 |
 | `GET /api/v2/admin/logs/export` | `log:list` + `log:export` 对应 API 权限 | 最多1000条，返回真实匹配总数 |
 | `GET /api/v2/admin/login-logs/export` | `log:security` + `log:security-export` 对应 API 权限 | 最多1000条，不沿用普通操作者范围 |
-| `DELETE /api/v2/admin/logs` | 兼容旧入口 | 永远拒绝删除/清空 |
+| `DELETE /api/v2/admin/logs`、`/logs/{id}` | `log:list` + `log:delete` 对应 API 权限 | 批量/单条删除可见的操作日志 |
+| `DELETE /api/v2/admin/login-logs`、`/login-logs/{id}` | `log:security` + `log:security-delete` 对应 API 权限 | 批量/单条删除登录日志 |
 
 查询过滤：`search/source/module/action/outcome/actorId/ip/startTime/endTime/page/pageSize`。普通分页最多100条，时间为毫秒时间戳或带时区的 RFC3339，日期边界由服务端明确解析。列表/导出不加载长变更快照与原始 UA；详情在同一权限边界内返回它们。导出排除当前未完成的导出事件自身，避免污染统计。
 
-对应菜单动作：`admin:menu:log:security`、`admin:menu:log:export`、`admin:menu:log:security-export`。迁移不把新增安全权限自动复制给普通日志查看角色；超级管理员按既有规则可见。安全审计默认长期保留且只读，本改动不启用自动删除。部署侧可按组织保留政策做备份归档，独立授权的离线清理应另行留存清理凭据。
+对应菜单动作：`admin:menu:log:security`、`admin:menu:log:export`、`admin:menu:log:security-export`、`admin:menu:log:delete`、`admin:menu:log:security-delete`。查看、导出与删除分别授权；超级管理员按既有规则可见。日志内容不提供编辑接口，删除需经过明确确认；没有自动删除任务或一键清空入口。
+
+批量删除使用 JSON 请求体 `{"ids":[41,42]}`，每次必须提交 1–100 个不重复的正整数；单条删除仅使用路径 ID，不接受请求体。返回 `{"code":0,"msg":"success","data":{"deletedCount":2}}`。服务端在同一事务中按分类、查看权限及操作日志数据范围锁定全部目标，再执行删除；包含不存在、其他分类或不可见记录时整批拒绝，不返回部分成功。删除失败回滚，当前删除请求自己的审计事件不会被删除。删除操作本身记录 `audit/delete`、目标 ID 与实际影响数量。
+
+Admin 支持当前页勾选批量删除和行内删除，删除前显示类别与数量；取消不发送请求，失败保留勾选供重试，成功刷新列表，末页删空后退回有效页。翻页、筛选变动、刷新或切换日志类别会清空勾选。旧的无操作者服务入口仍拒绝删除/清空。
 
 ## 来源 IP
 
@@ -82,7 +87,7 @@
 1. 备份 `logs` 表，评估加列/索引的维护窗口。
 2. 使用项目迁移工具执行 `20261028180000_expand_audit_logs.sql`。迁移可重跑，保留原字段与旧日志；主服务不会自动迁移。
    快照状态优化还需执行 `20261029150000_add_audit_snapshot_status.sql`，再发布后端。该迁移只添加状态/原因列，旧行默认 `legacy_unknown`，不会回填或改写旧值。
-3. 发布后端和 Admin，配置可信代理并给需要的角色显式分配新增查看/导出权限，重新登录刷新权限。
+3. 删除功能需执行 `20261106110000_add_audit_log_delete_permissions.sql`，该迁移只注册新权限并停用旧 `log:del` 兼容权限，不复制历史授权。发布后端和 Admin，配置可信代理，并给需要的角色显式分配相应查看、导出或删除菜单/API 权限；重新登录刷新权限。
 4. 验证错误密码、验证码失败、权限拒绝、角色修改、答卷导出/删除、异步任务受理及日志读取权限；监控 `[AUDIT_WRITE_FAILED]`。
 5. 应用回滚时保留新增字段和审计数据，不执行删列。旧版本仍可写旧字段，读取兼容逻辑会将这种日志显示为 unknown；旧版本的删除能力和审计缺口会恢复，因此不应把回滚视为同等安全配置。
 

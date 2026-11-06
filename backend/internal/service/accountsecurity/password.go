@@ -3,6 +3,7 @@ package accountsecurity
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"gorm.io/gorm"
@@ -168,8 +169,9 @@ func (s *GormPasswordStore) ApplyPasswordUpdate(ctx context.Context, update Pass
 		return gorm.ErrRecordNotFound
 	}
 	var staleIDs []uint
+	// MySQL requires LIMIT with OFFSET, even when selecting every remaining row.
 	if err := s.db.WithContext(ctx).Model(&model.PasswordHistory{}).Where("user_id = ?", update.UserID).
-		Order("changed_at DESC, id DESC").Offset(passwordHistoryRetention).Pluck("id", &staleIDs).Error; err != nil {
+		Order("changed_at DESC, id DESC").Limit(math.MaxInt).Offset(passwordHistoryRetention).Pluck("id", &staleIDs).Error; err != nil {
 		return err
 	}
 	if len(staleIDs) > 0 {

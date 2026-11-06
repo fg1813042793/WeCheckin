@@ -72,6 +72,10 @@ export interface AuditLogPage {
   pageSize: number
 }
 
+export interface AuditLogDeleteResult {
+  deletedCount: number
+}
+
 export interface AuditLogFilters {
   search: string
   source: AuditLogSource | ''

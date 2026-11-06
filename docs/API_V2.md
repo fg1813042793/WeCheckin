@@ -117,7 +117,7 @@ Schema 评分结果保留原始题目 ordinal，不因跳过不计分题或分�
 
 ## 客户端登录后接口
 
-管理端登录安全和操作审计的事件字段、只读查询、独立权限、导出上限、可信代理 IP 及升级步骤见 [审计日志说明](AUDIT_LOGS.md)。操作日志使用 `/api/v2/admin/logs`，登录安全日志使用 `/api/v2/admin/login-logs`，各自支持 `/{id}` 和 `/export`；旧日志删除入口只返回拒绝结果。用户、管理员和角色列表分别新增 `/users/export`、`/managers/export`、`/roles/export`，保持原列表的数据范围与查看权限，支持受审计的当前分页导出。
+管理端登录安全和操作审计的事件字段、查询/删除、独立权限、导出上限、可信代理 IP 及升级步骤见 [审计日志说明](AUDIT_LOGS.md)。操作日志使用 `/api/v2/admin/logs`，登录安全日志使用 `/api/v2/admin/login-logs`，各自支持 `GET /{id}` 和 `/export`，以及 `DELETE /{id}` 单条删除和 `DELETE` 集合路径批量删除（JSON `ids` 数组，每批1–100条）。删除分别需要 `log:delete`、`log:security-delete` 及对应查看权限，空请求不会清空日志。用户、管理员和角色列表分别新增 `/users/export`、`/managers/export`、`/roles/export`，保持原列表的数据范围与查看权限，支持受审计的当前分页导出。
 
 日志中的 `snapshotStatus`、`snapshotReason` 独立表示快照采集状态和原因；历史记录默认为 `legacy_unknown`。普通配置只有通过明确白名单与标量校验才返回真实值；敏感值继续脱敏，旧隐藏值不还原。部署前需执行 `20261029150000_add_audit_snapshot_status.sql`。
 
@@ -222,6 +222,10 @@ Schema 评分结果保留原始题目 ordinal，不因跳过不计分题或分�
 - `/upload` 仅保留给尚未迁移的历史客户端；Admin 页面不得再调用该匿名兼容入口。
 
 完整方法、参数和响应以 Swagger 为准。定时任务的运行语义、处理器安全边界和部署方式见 [通用定时任务](SCHEDULED_TASKS.md)。
+
+### 流程定义列表
+
+`GET /api/v2/admin/workflow-definitions` 按创建时间（`addTime`）倒序返回，创建时间相同时按 `id` 倒序，并在排序后分页。管理后台流程定义列表显示定义 ID；修改或发布已有流程不会改变其创建时间排序。
 
 ### 流程定义 Logo
 

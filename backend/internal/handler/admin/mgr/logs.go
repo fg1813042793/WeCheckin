@@ -110,8 +110,3 @@ func auditLogError(ctx context.Context, c *app.RequestContext, err error) {
 		response.FailInternal(ctx, c, "admin.auditlog", "获取审计日志失败，请稍后重试", err)
 	}
 }
-
-// ClearLog is a read-only compatibility response for the former DELETE endpoint.
-func (h *AdminMgrHandler) ClearLog(_ context.Context, c *app.RequestContext) {
-	response.Fail(c, "审计日志只读，不允许删除或清空")
-}
